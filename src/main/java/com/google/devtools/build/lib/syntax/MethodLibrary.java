@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -373,9 +374,21 @@ public class MethodLibrary {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             noneable = true)
-      })
-  public String str(Object x) {
-    return Printer.str(x);
+      },
+      useLocation = true)
+  public String str(Object x, Location loc) throws EvalException {
+    try {
+      return Printer.str(x);
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the depset for str(), as "
+              + "the size of depsets is unknown until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
+    }
   }
 
   @SkylarkCallable(
@@ -869,15 +882,26 @@ public class MethodLibrary {
       useEnvironment = true)
   public Runtime.NoneType print(String sep, SkylarkList<?> starargs, Location loc, Environment env)
       throws EvalException {
-    String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
-    // As part of the integration test "skylark_flag_test.sh", if the
-    // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
-    // the output.
-    if (env.getSemantics().internalSkylarkFlagTestCanary()) {
-      msg += "<== skylark flag test ==>";
+    try {
+      String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
+      // As part of the integration test "skylark_flag_test.sh", if the
+      // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+      // the output.
+      if (env.getSemantics().internalSkylarkFlagTestCanary()) {
+        msg += "<== skylark flag test ==>";
+      }
+      env.handleEvent(Event.debug(loc, msg));
+      return Runtime.NONE;
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the depset for print(), as "
+              + "the size of depsets is unknown until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
     }
-    env.handleEvent(Event.debug(loc, msg));
-    return Runtime.NONE;
   }
 
   @SkylarkCallable(
