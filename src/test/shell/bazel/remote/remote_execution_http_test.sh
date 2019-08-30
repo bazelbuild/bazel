@@ -423,4 +423,34 @@ EOF
   rm -rf $cache
 }
 
+function test_tag_no_remote_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-remote-cache"]
+)
+EOF
+
+  bazel build \
+    --spawn_strategy=local \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 local"
+
+  bazel clean
+
+  bazel build \
+    --spawn_strategy=local \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo || "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "remote cache hit"
+}
+
 run_suite "Remote execution and remote cache tests"
