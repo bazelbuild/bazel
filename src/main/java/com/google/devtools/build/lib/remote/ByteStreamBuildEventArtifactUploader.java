@@ -91,7 +91,7 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
                 }
                 DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
                 Digest digest = digestUtil.compute(file);
-                if (isRemoteFile(file)) {
+                if (isRemoteFile(file) || !files.get(file).shouldUploadArtifacts) {
                   return Futures.immediateFuture(new PathDigestPair(file, digest));
                 }
                 Chunker chunker = Chunker.builder().setInput(digest.getSizeBytes(), file).build();

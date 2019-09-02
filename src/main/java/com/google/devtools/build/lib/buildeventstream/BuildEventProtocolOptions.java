@@ -48,4 +48,14 @@ public class BuildEventProtocolOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "If true, expand Filesets in the BEP when presenting output files.")
   public boolean expandFilesets;
+
+
+  @Option(
+          name = "bep_disable_artifact_upload",
+          defaultValue = "false",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+          help = "Entirely disables the upload of artifacts from the BES")
+  public boolean bepDisableArtifactUpload;
+
 }

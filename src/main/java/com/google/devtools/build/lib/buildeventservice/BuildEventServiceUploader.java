@@ -22,6 +22,7 @@ import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
@@ -61,6 +62,8 @@ import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
@@ -69,6 +72,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -167,8 +171,16 @@ public final class BuildEventServiceUploader implements Runnable {
   void enqueueEvent(BuildEvent event) {
     // This needs to happen outside a synchronized block as it may trigger
     // stdout/stderr and lead to a deadlock. See b/109725432
+
+    Collection<BuildEvent.LocalFile> files = event.referencedLocalFiles();
+    if (this.buildEventProtocolOptions.bepDisableArtifactUpload) {
+      files = files.stream()
+              .map(f -> new BuildEvent.LocalFile(f.path, f.type, /* shouldUpload= */false))
+              .collect(ImmutableList.toImmutableList());
+    }
+
     ListenableFuture<PathConverter> localFileUploadFuture =
-        localFileUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        localFileUploader.uploadReferencedLocalFiles(files);
 
     // The generation of the sequence number and the addition to the {@link #eventQueue} should be
     // atomic since BES expects the events in that exact order.

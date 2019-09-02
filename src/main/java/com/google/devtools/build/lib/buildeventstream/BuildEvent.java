@@ -53,10 +53,18 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
 
     public final Path path;
     public final LocalFileType type;
+    public final boolean shouldUploadArtifacts; /** whether the local file should be uploaded to the BEP */
 
     public LocalFile(Path path, LocalFileType type) {
       this.path = Preconditions.checkNotNull(path);
       this.type = Preconditions.checkNotNull(type);
+      this.shouldUploadArtifacts = true;
+    }
+
+    public LocalFile(Path path, LocalFileType type, boolean shouldUploadArtifacts) {
+      this.path = Preconditions.checkNotNull(path);
+      this.type = Preconditions.checkNotNull(type);
+      this.shouldUploadArtifacts = shouldUploadArtifacts;
     }
 
     @Override
