@@ -30,14 +30,16 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   private final String remoteServerName;
   private final Context ctx;
   @Nullable private final String remoteInstanceName;
+  private final CasDigestLookup digestLookup;
 
   ByteStreamBuildEventArtifactUploaderFactory(
       ByteStreamUploader uploader, String remoteServerName, Context ctx,
-      @Nullable String remoteInstanceName) {
+      @Nullable String remoteInstanceName, CasDigestLookup digestLookup) {
     this.uploader = uploader;
     this.remoteServerName = remoteServerName;
     this.ctx = ctx;
     this.remoteInstanceName = remoteInstanceName;
+    this.digestLookup = digestLookup;
   }
 
   @Override
@@ -47,6 +49,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
         remoteServerName,
         ctx,
         remoteInstanceName,
-        env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
+        env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads,
+        digestLookup);
   }
 }

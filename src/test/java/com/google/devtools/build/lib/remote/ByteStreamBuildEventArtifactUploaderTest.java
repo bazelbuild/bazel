@@ -18,9 +18,15 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
+import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
+import com.google.api.client.json.GenericJson;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
@@ -32,27 +38,40 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
+import io.grpc.CallCredentials;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
+import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -88,6 +107,66 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   private final Path execRoot = fs.getPath("/execroot");
   private ArtifactRoot outputRoot;
+  private final String serverName = "Server for " + this.getClass();
+
+  private ByteStreamBuildEventArtifactUploader newClient(ByteStreamUploader uploader)
+      throws IOException {
+    AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    authTlsOptions.useGoogleDefaultCredentials = true;
+    authTlsOptions.googleCredentials = "/exec/root/creds.json";
+    authTlsOptions.googleAuthScopes = ImmutableList.of("dummy.scope");
+
+    GenericJson json = new GenericJson();
+    json.put("type", "authorized_user");
+    json.put("client_id", "some_client");
+    json.put("client_secret", "foo");
+    json.put("refresh_token", "bar");
+    Scratch scratch = new Scratch();
+    scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
+
+    CallCredentials credentials;
+    try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
+      credentials = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+    }
+
+    RemoteOptions opts = Options.getDefaults(RemoteOptions.class);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new RemoteRetrier.ExponentialBackoff(opts),
+            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            retryService
+        );
+
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(InProcessChannelBuilder.forName(serverName).directExecutor()
+            .intercept(new CallCredentialsInterceptor(credentials)).build());
+
+    DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+
+    CasDigestLookup digestLookup = new GrpcRemoteCache(
+        channel.retain(), credentials, opts,
+        retrier, DIGEST_UTIL, uploader);
+
+    return new ByteStreamBuildEventArtifactUploader(
+        uploader,"localhost", Context.current(),
+        "instance", opts.buildEventUploadMaxThreads, digestLookup);
+  }
+
+  private static class CallCredentialsInterceptor implements ClientInterceptor {
+    private final CallCredentials credentials;
+
+    public CallCredentialsInterceptor(CallCredentials credentials) {
+      this.credentials = credentials;
+    }
+
+    @Override
+    public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> interceptCall(
+        MethodDescriptor<RequestT, ResponseT> method, CallOptions callOptions, Channel next) {
+      assertThat(callOptions.getCredentials()).isEqualTo(credentials);
+      // Remove the call credentials to allow testing with dummy ones.
+      return next.newCall(method, callOptions.withCallCredentials(null));
+    }
+  }
 
   @BeforeClass
   public static void beforeEverything() {
@@ -98,7 +177,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
 
-    String serverName = "Server for " + this.getClass();
     server =
         InProcessServerBuilder.forName(serverName)
             .fallbackHandlerRegistry(serviceRegistry)
@@ -143,6 +221,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     int numUploads = 2;
     Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    FindMissingBlobsResponse.Builder blobsResponse = FindMissingBlobsResponse.newBuilder();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       Path file = fs.getPath("/file" + i);
@@ -152,19 +231,31 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       rand.nextBytes(blob);
       out.write(blob);
       out.close();
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      Digest digest = DIGEST_UTIL.compute(file);
+      blobsByHash.put(HashCode.fromString(digest.getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
+      blobsResponse.addMissingBlobDigests(digest);
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
+
+    // Add a fake CAS that responds saying that the above files are missing
+    serviceRegistry.addService(
+        new ContentAddressableStorageGrpc.ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(blobsResponse.build());
+            responseObserver.onCompleted();
+          }
+        });
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newClient(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -188,9 +279,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(dir, new LocalFile(dir, LocalFileType.OUTPUT));
     ByteStreamUploader uploader = mock(ByteStreamUploader.class);
-    ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newClient(uploader);
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
     artifactUploader.shutdown();
@@ -204,6 +293,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     int numUploads = 10;
     Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    FindMissingBlobsResponse.Builder blobsResponse = FindMissingBlobsResponse.newBuilder();
     Random rand = new Random();
     for (int i = 0; i < numUploads; i++) {
       Path file = fs.getPath("/file" + i);
@@ -214,8 +304,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.write(blob);
       out.flush();
       out.close();
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      Digest digest = DIGEST_UTIL.compute(file);
+      blobsByHash.put(HashCode.fromString(digest.getHash()), blob);
       filesToUpload.put(file, new LocalFile(file, LocalFileType.OUTPUT));
+      blobsResponse.addMissingBlobDigests(digest);
     }
     String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash) {
@@ -245,14 +337,24 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       }
     });
 
+    // Add a fake CAS that responds saying that the above virtual action input is missing
+    serviceRegistry.addService(
+        new ContentAddressableStorageGrpc.ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(blobsResponse.build());
+            responseObserver.onCompleted();
+          }
+        });
+
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channel);
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newClient(uploader);
 
     ExecutionException e =
         assertThrows(ExecutionException.class, () -> artifactUploader.upload(filesToUpload).get());
@@ -273,9 +375,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
     RemoteActionInputFetcher actionInputFetcher = Mockito.mock(RemoteActionInputFetcher.class);
-    ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newClient(uploader);
 
     ActionInputMap outputs = new ActionInputMap(2);
     Artifact artifact = createRemoteArtifact("file1.txt", "foo", outputs);

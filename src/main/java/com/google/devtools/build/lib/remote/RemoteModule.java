@@ -267,7 +267,8 @@ public final class RemoteModule extends BlazeModule {
                 uploader,
                 cacheChannel.authority(),
                 requestContext,
-                remoteOptions.remoteInstanceName));
+                remoteOptions.remoteInstanceName,
+                cache));
       }
 
       if (enableBlobStoreCache) {

@@ -161,7 +161,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+  public ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException {
     if (Iterables.isEmpty(digests)) {
       return ImmutableSet.of();
@@ -170,27 +170,24 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     FindMissingBlobsRequest.Builder requestBuilder =
         FindMissingBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
     List<ListenableFuture<FindMissingBlobsResponse>> callFutures = new ArrayList<>();
-    for (Digest digest : digests) {
-      requestBuilder.addBlobDigests(digest);
-      if (requestBuilder.getBlobDigestsCount() == maxMissingBlobsDigestsPerMessage) {
-        callFutures.add(getMissingDigests(requestBuilder.build()));
-        requestBuilder.clearBlobDigests();
-      }
-    }
-    if (requestBuilder.getBlobDigestsCount() > 0) {
+    for (List<Digest> chunk : Iterables.partition(digests, maxMissingBlobsDigestsPerMessage)) {
+      requestBuilder.addAllBlobDigests(chunk);
       callFutures.add(getMissingDigests(requestBuilder.build()));
+      requestBuilder.clearBlobDigests();
     }
-    ImmutableSet.Builder<Digest> result = ImmutableSet.builder();
+
     try {
-      for (ListenableFuture<FindMissingBlobsResponse> callFuture : callFutures) {
-        result.addAll(callFuture.get().getMissingBlobDigestsList());
-      }
+      return Futures.transform(
+          Futures.allAsList(callFutures),
+          responses -> responses.stream()
+              .flatMap(response -> response.getMissingBlobDigestsList().stream())
+              .collect(ImmutableSet.toImmutableSet()),
+          MoreExecutors.directExecutor()).get();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       Throwables.propagateIfInstanceOf(cause, IOException.class);
       throw new RuntimeException(cause);
     }
-    return result.build();
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(

@@ -87,7 +87,7 @@ import javax.annotation.Nullable;
 
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
-public abstract class AbstractRemoteActionCache implements AutoCloseable {
+public abstract class AbstractRemoteActionCache implements AutoCloseable, CasDigestLookup  {
 
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
@@ -147,7 +147,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    */
   protected abstract ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 
-  protected abstract ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
+  public abstract ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException;
 
   /**
