@@ -172,7 +172,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   "exports", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
     }
 
-    void addProviders(ConfiguredAspect.Builder aspect) {
+    void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
       JavaInfo.Builder javaInfo = JavaInfo.Builder.create();
       // Represents the result of compiling the code generated for this proto, including all of its
       // dependencies.

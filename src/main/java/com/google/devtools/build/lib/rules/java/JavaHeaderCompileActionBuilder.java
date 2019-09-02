@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -215,7 +216,8 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Builds and registers the action for a header compilation. */
-  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
+  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase)
+      throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     checkNotNull(sourceJars, "sourceJars must not be null");
@@ -329,7 +331,8 @@ public class JavaHeaderCompileActionBuilder {
 
     JavaConfiguration javaConfiguration =
         ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-    ImmutableMap<String, String> executionInfo = ImmutableMap.of();
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
     Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
     JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (classpathMode == JavaClasspathMode.BAZEL) {
