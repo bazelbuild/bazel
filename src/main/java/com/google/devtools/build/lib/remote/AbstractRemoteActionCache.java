@@ -85,13 +85,18 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A cache for storing artifacts (input and output) as well as the output of running an action. */
+/**
+ * A cache for storing artifacts (input and output) as well as the output of running an action.
+ */
 @ThreadSafety.ThreadSafe
 public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
-  /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
+  /**
+   * See {@link SpawnExecutionContext#lockOutputFiles()}.
+   */
   @FunctionalInterface
   interface OutputFilesLocker {
+
     void lock() throws InterruptedException;
   }
 
@@ -147,8 +152,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    */
   protected abstract ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 
-  protected abstract ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
-      throws IOException, InterruptedException;
+  protected abstract ListenableFuture<ImmutableSet<Digest>> getMissingDigests(
+      Iterable<Digest> digests) throws IOException, InterruptedException;
 
   /**
    * Upload the result of a locally executed action to the remote cache.
@@ -212,7 +217,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     digests.addAll(digestToFile.keySet());
     digests.addAll(digestToBlobs.keySet());
 
-    ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
+    ImmutableSet<Digest> digestsToUpload = Utils.getFromFuture(getMissingDigests(digests));
     ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
     for (Digest digest : digestsToUpload) {
       Path file = digestToFile.get(digest);
@@ -268,7 +273,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * Downloads a blob with content hash {@code digest} and stores its content in memory.
    *
    * @return a future that completes after the download completes (succeeds / fails). If successful,
-   *     the content is stored in the future's {@code byte[]}.
+   * the content is stored in the future's {@code byte[]}.
    */
   public ListenableFuture<byte[]> downloadBlob(Digest digest) {
     if (digest.getSizeBytes() == 0) {
@@ -304,7 +309,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * <p>In case of failure, this method deletes any output files it might have already created.
    *
    * @param outputFilesLocker ensures that we are the only ones writing to the output files when
-   *     using the dynamic spawn strategy.
+   * using the dynamic spawn strategy.
    * @throws IOException in case of a cache miss or if the remote cache is unavailable.
    * @throws ExecException in case clean up after a failed download failed.
    */
@@ -318,9 +323,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
     List<ListenableFuture<FileMetadata>> downloads =
         Stream.concat(
-                metadata.files().stream(),
-                metadata.directories().stream()
-                    .flatMap((entry) -> entry.getValue().files().stream()))
+            metadata.files().stream(),
+            metadata.directories().stream()
+                .flatMap((entry) -> entry.getValue().files().stream()))
             .map(
                 (file) -> {
                   try {
@@ -470,15 +475,17 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                 symlink.path(), symlink.target()));
       }
       Preconditions.checkNotNull(
-              symlink.path().getParentDirectory(),
-              "Failed creating directory and parents for %s",
-              symlink.path())
+          symlink.path().getParentDirectory(),
+          "Failed creating directory and parents for %s",
+          symlink.path())
           .createDirectoryAndParents();
       symlink.path().createSymbolicLink(symlink.target());
     }
   }
 
-  /** Download a file (that is not a directory). The content is fetched from the digest. */
+  /**
+   * Download a file (that is not a directory). The content is fetched from the digest.
+   */
   public ListenableFuture<Void> downloadFile(Path path, Digest digest) throws IOException {
     Preconditions.checkNotNull(path.getParentDirectory()).createDirectoryAndParents();
     if (digest.getSizeBytes() == 0) {
@@ -555,13 +562,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @param result the action result metadata of a successfully executed action (exit code = 0).
    * @param outputs the action's declared output files
    * @param inMemoryOutputPath the path of an output file whose contents should be returned in
-   *     memory by this method.
+   * memory by this method.
    * @param outErr stdout and stderr of this action
    * @param execRoot the execution root
    * @param metadataInjector the action's metadata injector that allows this method to inject
-   *     metadata about an action output instead of downloading the output
+   * metadata about an action output instead of downloading the output
    * @param outputFilesLocker ensures that we are the only ones writing to the output files when
-   *     using the dynamic spawn strategy.
+   * using the dynamic spawn strategy.
    * @throws IOException in case of failure
    * @throws InterruptedException in case of receiving an interrupt
    */
@@ -757,8 +764,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     return new ActionResultMetadata(files.build(), symlinks.build(), directories.build());
   }
 
-  /** UploadManifest adds output metadata to a {@link ActionResult}. */
+  /**
+   * UploadManifest adds output metadata to a {@link ActionResult}.
+   */
   static class UploadManifest {
+
     private final DigestUtil digestUtil;
     private final ActionResult.Builder result;
     private final Path execRoot;
@@ -860,7 +870,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       digestToBlobs.put(action.getCommandDigest(), command.toByteString());
     }
 
-    /** Map of digests to file paths to upload. */
+    /**
+     * Map of digests to file paths to upload.
+     */
     public Map<Digest, Path> getDigestToFile() {
       return digestToFile;
     }
@@ -1002,7 +1014,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     }
   }
 
-  /** Release resources associated with the cache. The cache may not be used after calling this. */
+  /**
+   * Release resources associated with the cache. The cache may not be used after calling this.
+   */
   @Override
   public abstract void close();
 
@@ -1057,10 +1071,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     }
   }
 
-  /** In-memory representation of action result metadata. */
+  /**
+   * In-memory representation of action result metadata.
+   */
   static class ActionResultMetadata {
 
     static class SymlinkMetadata {
+
       private final Path path;
       private final PathFragment target;
 
@@ -1079,6 +1096,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     }
 
     static class FileMetadata {
+
       private final Path path;
       private final Digest digest;
       private final boolean isExecutable;
@@ -1103,6 +1121,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     }
 
     static class DirectoryMetadata {
+
       private final ImmutableList<FileMetadata> files;
       private final ImmutableList<SymlinkMetadata> symlinks;
 

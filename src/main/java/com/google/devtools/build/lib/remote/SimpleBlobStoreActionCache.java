@@ -82,8 +82,8 @@ public class SimpleBlobStoreActionCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
-    return ImmutableSet.copyOf(digests);
+  protected ListenableFuture<ImmutableSet<Digest>> getMissingDigests(Iterable<Digest> digests) {
+    return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 
   @Override
