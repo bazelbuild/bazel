@@ -572,7 +572,7 @@ def _get_msvc_vars(repository_ctx, paths):
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
-    write_builtin_include_directory_paths(repository_ctx, "msvc", [escaped_cxx_include_directories], file_suffix = "_msvc")
+    write_builtin_include_directory_paths(repository_ctx, "msvc", escaped_cxx_include_directories, file_suffix = "_msvc")
     msvc_vars = {
         "%{msvc_env_tmp}": escaped_tmp_dir,
         "%{msvc_env_path}": escaped_paths,
