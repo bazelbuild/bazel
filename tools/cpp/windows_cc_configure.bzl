@@ -477,7 +477,7 @@ def _get_msys_mingw_vars(repository_ctx):
     """Get the variables we need to populate the msys/mingw toolchains."""
     tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
     tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
-    write_builtin_include_directory_paths(repository_ctx, "mingw", inc_dir_mingw, file_suffix = "_mingw")
+    write_builtin_include_directory_paths(repository_ctx, "mingw", [inc_dir_mingw], file_suffix = "_mingw")
     msys_mingw_vars = {
         "%{cxx_builtin_include_directories}": inc_dir_msys,
         "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
@@ -572,7 +572,7 @@ def _get_msvc_vars(repository_ctx, paths):
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
-    write_builtin_include_directory_paths(repository_ctx, "msvc", escaped_cxx_include_directories, file_suffix = "_msvc")
+    write_builtin_include_directory_paths(repository_ctx, "msvc", [escaped_cxx_include_directories], file_suffix = "_msvc")
     msvc_vars = {
         "%{msvc_env_tmp}": escaped_tmp_dir,
         "%{msvc_env_path}": escaped_paths,
@@ -645,8 +645,6 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
     clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
 
     clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories}"] + (",\n        \"%s\"" % clang_include_path)
-    # Yup, this is ugly, paths for clangcl will include quotes and commas. Will
-    # get job done though.
     write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
     clang_cl_vars = {
         "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp}"],
