@@ -209,6 +209,7 @@ def build_flags(flags):
     return "\n".join(["        flag: '" + flag + "'" for flag in flags])
 
 def get_starlark_list(values):
+    """Convert a list of string into a string that can be passed to a rule attribute."""
     if not values:
         return ""
     return "\"" + "\",\n    \"".join(values) + "\""

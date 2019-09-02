@@ -24,8 +24,8 @@ load(
     "get_starlark_list",
     "resolve_labels",
     "split_escaped",
-    "write_builtin_include_directory_paths",
     "which",
+    "write_builtin_include_directory_paths",
 )
 
 def _field(name, value):
@@ -414,9 +414,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{supports_param_files}": "0" if darwin else "1",
-            "%{cc_compiler_deps}": (
-                get_starlark_list([":cc_wrapper", ":builtin_include_directory_paths"]) if darwin else ":builtin_include_directory_paths"
-            ),
+            "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
+                [":cc_wrapper"] if darwin else []
+            )),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
