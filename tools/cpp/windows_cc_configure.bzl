@@ -645,7 +645,9 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
     clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
 
     clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories}"] + (",\n        \"%s\"" % clang_include_path)
-    write_builtin_include_directory_paths(repository_ctx, "clang-cl", clang_cl_include_directories, file_suffix = "_clangcl")
+    # Yup, this is ugly, paths for clangcl will include quotes and commas. Will
+    # get job done though.
+    write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
     clang_cl_vars = {
         "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp}"],
         "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path}"],
