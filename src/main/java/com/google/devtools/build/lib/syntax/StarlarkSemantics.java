@@ -157,8 +157,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowEmptyGlob();
 
-  public abstract boolean incompatibleDisallowLegacyJavaProvider();
-
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
   public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
@@ -260,7 +258,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
-          .incompatibleDisallowLegacyJavaProvider(true)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
@@ -327,8 +324,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
-
-    public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
