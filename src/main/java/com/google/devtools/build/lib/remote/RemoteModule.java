@@ -269,6 +269,7 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader,
+                cache,
                 cacheChannel.authority(),
                 requestContext,
                 remoteOptions.remoteInstanceName));

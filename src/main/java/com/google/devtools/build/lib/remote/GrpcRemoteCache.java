@@ -160,8 +160,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected ListenableFuture<ImmutableSet<Digest>> getMissingDigests(Iterable<Digest> digests)
-      throws IOException, InterruptedException {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
     if (Iterables.isEmpty(digests)) {
       return Futures.immediateFuture(ImmutableSet.of());
     }
@@ -190,14 +189,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }, MoreExecutors.directExecutor());
   }
 
-  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
-      FindMissingBlobsRequest request) throws IOException, InterruptedException {
+  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(FindMissingBlobsRequest request) {
     Context ctx = Context.current();
-    try {
-      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
+    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
   }
 
   /**
@@ -217,7 +211,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       throws IOException, InterruptedException {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
-    ImmutableSet<Digest> missingDigests = Utils.getFromFuture(getMissingDigests(allDigests));
+    ImmutableSet<Digest> missingDigests = Utils.getFromFuture(findMissingDigests(allDigests));
     Map<HashCode, Chunker> inputsToUpload = Maps.newHashMapWithExpectedSize(missingDigests.size());
     for (Digest missingDigest : missingDigests) {
       Directory node = merkleTree.getDirectoryByDigest(missingDigest);
@@ -245,7 +239,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
       throw new IOException(
           format(
-              "getMissingDigests returned a missing digest that has not been requested: %s",
+              "findMissingDigests returned a missing digest that has not been requested: %s",
               missingDigest));
     }
 

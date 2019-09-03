@@ -244,7 +244,7 @@ public class RemoteActionInputFetcherTest {
     }
 
     @Override
-    protected ListenableFuture<ImmutableSet<Digest>> getMissingDigests(Iterable<Digest> digests) {
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
       throw new UnsupportedOperationException();
     }
 

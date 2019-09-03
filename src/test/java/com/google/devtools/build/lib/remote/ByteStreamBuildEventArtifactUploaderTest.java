@@ -15,15 +15,25 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -43,6 +53,7 @@ import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import io.grpc.Context;
@@ -163,8 +174,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+        newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -189,8 +199,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     filesToUpload.put(dir, new LocalFile(dir, LocalFileType.OUTPUT));
     ByteStreamUploader uploader = mock(ByteStreamUploader.class);
     ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+        newArtifactUploader(uploader);
+
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
     artifactUploader.shutdown();
@@ -251,8 +261,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+        newArtifactUploader(uploader);
 
     ExecutionException e =
         assertThrows(ExecutionException.class, () -> artifactUploader.upload(filesToUpload).get());
@@ -265,7 +274,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void remoteFileShouldNotBeUploaded() throws Exception {
+  public void remoteFileShouldNotBeUploaded_actionFs() throws Exception {
     // Test that we don't attempt to upload remotely stored file but convert the remote path
     // to a bytestream:// URI.
 
@@ -274,8 +283,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
     RemoteActionInputFetcher actionInputFetcher = Mockito.mock(RemoteActionInputFetcher.class);
     ByteStreamBuildEventArtifactUploader artifactUploader =
-        new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+        newArtifactUploader(uploader);
 
     ActionInputMap outputs = new ActionInputMap(2);
     Artifact artifact = createRemoteArtifact("file1.txt", "foo", outputs);
@@ -310,6 +318,41 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     verifyNoMoreInteractions(uploader);
   }
 
+  @Test
+  public void remoteFileShouldNotBeUploaded_findMissingDigests() throws Exception {
+    // Test that findMissingDigests is called to check which files exist remotely
+    // and that those are not uploaded.
+
+    // arrange
+    Path remoteFile = fs.getPath("/remote-file");
+    FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Path localFile = fs.getPath("/local-file");
+    FileSystemUtils.writeContent(localFile, StandardCharsets.UTF_8, "foo bar");
+    Digest localDigest = DIGEST_UTIL.compute(localFile);
+
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
+    ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
+    when(uploader.uploadBlobAsync(any(), any(), anyBoolean()))
+        .thenReturn(Futures.immediateFuture(null));
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(uploader, digestQuerier);
+
+    // act
+    Map<Path, LocalFile> files = ImmutableMap.of(remoteFile,
+        new LocalFile(remoteFile, LocalFileType.OUTPUT), localFile,
+        new LocalFile(localFile, LocalFileType.OUTPUT));
+    PathConverter pathConverter = artifactUploader.upload(files).get();
+
+    // assert
+    verify(digestQuerier).findMissingDigests(any());
+    verify(uploader).uploadBlobAsync(eq(HashCode.fromString(localDigest.getHash())),
+        any(), anyBoolean());
+    assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
+    assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
+  }
+
   /** Returns a remote artifact and puts its metadata into the action input map. */
   private Artifact createRemoteArtifact(
       String pathFragment, String contents, ActionInputMap inputs) {
@@ -321,5 +364,45 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1);
     inputs.putWithNoDepOwner(a, f);
     return a;
+  }
+
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(ByteStreamUploader uploader,
+      MissingDigestsFinder missingDigestsFinder) {
+    return new ByteStreamBuildEventArtifactUploader(uploader, missingDigestsFinder,
+        "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
+  }
+
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(ByteStreamUploader uploader) {
+    return newArtifactUploader(uploader, AllMissingDigestsFinder.INSTANCE);
+  }
+
+  private static class StaticMissingDigestsFinder implements MissingDigestsFinder {
+
+    private final ImmutableSet<Digest> knownDigests;
+
+    public StaticMissingDigestsFinder(ImmutableSet<Digest> knownDigests) {
+      this.knownDigests = knownDigests;
+    }
+
+    @Override
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+      ImmutableSet.Builder<Digest> missingDigests = ImmutableSet.builder();
+      for (Digest digest : digests) {
+        if (!knownDigests.contains(digest)) {
+          missingDigests.add(digest);
+        }
+      }
+      return Futures.immediateFuture(missingDigests.build());
+    }
+  }
+
+  private static class AllMissingDigestsFinder implements MissingDigestsFinder {
+
+    public static final AllMissingDigestsFinder INSTANCE = new AllMissingDigestsFinder();
+
+    @Override
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+      return Futures.immediateFuture(ImmutableSet.copyOf(digests));
+    }
   }
 }
