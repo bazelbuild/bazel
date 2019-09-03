@@ -42,6 +42,21 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
 function test_platforms_repository_builds_itself() {
   # We test that a built-in @platforms repository is buildable.
   bazel build @platforms//:all &> $TEST_log \
@@ -154,10 +169,17 @@ EOF
 
 
 function test_target_exec_properties_starlark_test() {
-cat > rules.bzl << 'EOF'
+if "$is_windows"; then
+  script_name="test_script.bat"
+  script_content="@echo off\necho hello\n"
+else
+  script_name="test_script.sh"
+  script_content="#!/bin/bash\necho hello\n"
+fi
+cat > rules.bzl <<EOF
 def _impl(ctx):
-  out_file = ctx.actions.declare_file("test_script")
-  ctx.actions.write(out_file, "#!/bin/bash\necho hello\n", is_executable=True)
+  out_file = ctx.actions.declare_file("$script_name")
+  ctx.actions.write(out_file, "$script_content", is_executable=True)
   return [DefaultInfo(executable = out_file)]
 
 my_rule_test = rule(
