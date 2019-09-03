@@ -84,7 +84,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
               + "current package. You must create an action that generates the directory. "
               + "The contents of the directory are not directly accessible from Starlark, "
               + "but can be expanded in an action command with "
-              + "<a href=\"actions.html#add_all\"><code>Args.add_all()</code></a>.",
+              + "<a href=\"Args.html#add_all\"><code>Args.add_all()</code></a>.",
       parameters = {
         @Param(
             name = "filename",
