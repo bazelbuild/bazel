@@ -309,6 +309,8 @@ function create_and_run_classpath_jar() {
   # Create manifest file
   MANIFEST_FILE="$(mktemp -t XXXXXXXX.jar_manifest)"
   (
+    echo "Manifest-Version: 1.0"
+    
     CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
     CLASSPATH_MANIFEST_LINES=$(sed -E $'s/(.{71})/\\1\\\n /g' <<< "${CLASSPATH_LINE}")
 
