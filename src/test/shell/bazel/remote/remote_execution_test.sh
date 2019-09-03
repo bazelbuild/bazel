@@ -853,13 +853,6 @@ EOF
 function test_downloads_minimal_failure() {
   # Test that outputs of failing actions are downloaded when using
   # --remote_download_minimal
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -1069,6 +1062,13 @@ EOF
 function test_downloads_toplevel_runfiles() {
   # Test that --remote_download_toplevel fetches only the top level binaries
   # and generated runfiles.
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
   mkdir -p a
 
   cat > a/create_bar.tmpl <<'EOF'
