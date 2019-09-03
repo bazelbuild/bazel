@@ -426,9 +426,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "[]",
             doc =
-                "This attribute allows this aspect to inspect other aspects. The value must be a"
+                "This attribute allows this aspect to inspect other aspects. The value must be a "
                     + "list of providers, or a list of lists of providers. For example, "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]<code> is a"
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is a "
                     + "valid value."
                     + ""
                     + "<p>A single list of providers will automatically be converted to a list "
