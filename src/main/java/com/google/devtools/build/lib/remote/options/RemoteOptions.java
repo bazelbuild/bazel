@@ -262,6 +262,7 @@ public final class RemoteOptions extends OptionsBase {
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
       expansion = {
+        "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
         "--experimental_remote_download_outputs=minimal"
