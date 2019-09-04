@@ -409,7 +409,7 @@ java_library(
     deps = [
         ":rule-definition-context",
         ":skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
