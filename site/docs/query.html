@@ -83,15 +83,14 @@ title: Query Language
         <code>&quot;</code>), it is a word. If a character sequence is not
         quoted, it may still be parsed as a word. Unquoted words are sequences
         of characters drawn from the alphabet characters <code>A-Za-z</code>,
-        the numerals <code>0-9</code>, and the punctuation <code>_/.-@*$</code>
-        (underscore, slash, period, hyphen, at sign, star, dollar sign).
+        the numerals <code>0-9</code>, and the punctuation <code>_/.-@*$~</code>
+        (underscore, slash, period, hyphen, at sign, star, dollar sign, tilde).
         Unquoted words may not start with a hyphen or period, even though
         relative <a href="build-ref.html#name">target names</a> may start with
         those characters. Unquoted words also may not include the characters
-        plus sign <code>+</code>, equals sign <code>=</code>, or tilde
-        <code>~</code>, even though those characters are permitted in target
-        names. Thus, when writing code that generates query expressions, target
-        names should be quoted.
+        plus sign <code>+</code> or equals sign <code>=</code>, even though those
+        characters are permitted in target names. Thus, when writing code that
+        generates query expressions, target names should be quoted.
       </p>
 
     <p>We chose this syntax so that quote marks aren't needed in most cases.
