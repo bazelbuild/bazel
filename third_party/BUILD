@@ -528,6 +528,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     # The .so file is an x86 one, so we can just remove it if the CPU is not x86
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
+    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
     # Play it safe -- better have a big binary than a slow binary
     # zip -d does require an argument. Supply something bogus.
     "//conditions:default": "*.bogusextension",
