@@ -99,7 +99,8 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
-    builder.addBuildEventArtifactUploaderFactory(buildEventArtifactUploaderFactoryDelegate, "remote");
+    builder.addBuildEventArtifactUploaderFactory(
+        buildEventArtifactUploaderFactoryDelegate, "remote");
   }
 
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
@@ -269,6 +270,7 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader,
+                cache,
                 cacheChannel.authority(),
                 requestContext,
                 remoteOptions.remoteInstanceName));
