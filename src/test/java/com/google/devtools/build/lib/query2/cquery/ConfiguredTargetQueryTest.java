@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -48,7 +49,8 @@ import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link ConfiguredTargetQueryEnvironment}.
- * TODO(juliexxia): separate out tests in this file into one test per tested functionality.
+ *
+ * <p>TODO(juliexxia): separate out tests in this file into one test per tested functionality.
  */
 @RunWith(JUnit4.class)
 public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredTarget> {
@@ -282,6 +284,9 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                 attr("host", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(HostTransition.createFactory()),
+                attr("exec", LABEL)
+                    .allowedFileTypes(FileTypeSet.ANY_FILE)
+                    .cfg(new ExecutionTransitionFactory()),
                 attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
     MockRule simpleRule =
         () ->
@@ -295,39 +300,55 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
         "  name = 'my_rule',",
         "  target = ':target_dep',",
         "  host = ':host_dep',",
+        "  exec = ':exec_dep',",
         "  deps = [':dep'],",
         ")",
         "simple_rule(name = 'target_dep', dep=':dep')",
         "simple_rule(name = 'host_dep', dep=':dep')",
+        "simple_rule(name = 'exec_dep', dep=':dep')",
         "simple_rule(name = 'dep')");
   }
 
   @Test
-  public void testConfig() throws Exception {
+  public void testConfig_target() throws Exception {
     createConfigRulesAndBuild();
 
-    assertThat(eval("config(//test:target_dep,target)")).isEqualTo(eval("//test:target_dep"));
-    assertThat(evalThrows("config(//test:target_dep,host)", true))
-        .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
+    assertThat(eval("config(//test:target_dep, target)")).isEqualTo(eval("//test:target_dep"));
 
     getHelper().setWholeTestUniverseScope("test:my_rule");
 
-    assertThat(
-            getConfiguration(Iterables.getOnlyElement(eval("config(//test:host_dep, host)")))
-                .isHostConfiguration())
-        .isTrue();
+    assertThat(eval("config(//test:target_dep, target)")).isEqualTo(eval("//test:target_dep"));
+    assertThat(evalThrows("config(//test:host_dep, target)", true))
+        .isEqualTo("No target (in) //test:host_dep could be found in the 'target' configuration");
+    assertThat(evalThrows("config(//test:exec_dep, target)", true))
+        .isEqualTo("No target (in) //test:exec_dep could be found in the 'target' configuration");
 
-    assertThat(
-            getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")))
-                .isHostConfiguration())
-        .isTrue();
+    BuildConfiguration configuration =
+        getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
 
-    assertThat(getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)"))))
-        .isNotNull();
-    assertThat(
-            getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")))
-                .isHostConfiguration())
-        .isFalse();
+    assertThat(configuration).isNotNull();
+    assertThat(configuration.isHostConfiguration()).isFalse();
+    assertThat(configuration.isExecConfiguration()).isFalse();
+  }
+
+  @Test
+  public void testConfig_hostTransition() throws Exception {
+    createConfigRulesAndBuild();
+
+    getHelper().setWholeTestUniverseScope("test:my_rule");
+
+    assertThat(evalThrows("config(//test:target_dep, host)", true))
+        .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
+    assertThat(eval("config(//test:host_dep, host)")).isEqualTo(eval("//test:host_dep"));
+    assertThat(evalThrows("config(//test:exec_dep, host)", true))
+        .isEqualTo("No target (in) //test:exec_dep could be found in the 'host' configuration");
+
+    BuildConfiguration configuration =
+        getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
+
+    assertThat(configuration).isNotNull();
+    assertThat(configuration.isHostConfiguration()).isTrue();
+    assertThat(configuration.isExecConfiguration()).isFalse();
   }
 
   @Test
@@ -344,6 +365,16 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     assertThat(evalThrows("config(//test:my_rule,foo)", true))
         .isEqualTo(
             "the second argument of the config function must be 'target', 'host', or 'null'");
+  }
+
+  @Test
+  public void testExecTransitionNotFilteredByNoHostDeps() throws Exception {
+    createConfigRulesAndBuild();
+    helper.setQuerySettings(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS);
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .containsExactly(
+            "//test:my_rule", "//test:target_dep", "//test:dep", "//test:exec_dep", "//test:dep");
+    // TODO(b/138274743): What we really want is for exec_dep to be excluded by --nohost_deps
   }
 
   @Test
