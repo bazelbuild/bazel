@@ -777,8 +777,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Adds an input to this action.
+     * Adds an executable and its runfiles, which is necessary for executing the spawn itself (e.g.
+     * a compiler), in contrast to artifacts that are necessary for the spawn to do its work (e.g.
+     * source code).
      */
+    public Builder addTool(FilesToRunProvider tool) {
+      addTransitiveTools(tool.getFilesToRun());
+      addRunfilesSupplier(tool.getRunfilesSupplier());
+      return this;
+    }
+
+    /** Adds an input to this action. */
     public Builder addInput(Artifact artifact) {
       inputsBuilder.add(artifact);
       return this;
@@ -1058,17 +1067,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder setShellCommand(Iterable<String> command) {
       this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
       this.isShellCommand = true;
-      return this;
-    }
-
-    /**
-     * Adds an executable and its runfiles, which is necessary for executing the spawn itself (e.g.
-     * a compiler), in contrast to artifacts that are necessary for the spawn to do its work (e.g.
-     * source code).
-     */
-    public Builder addTool(FilesToRunProvider tool) {
-      addTransitiveTools(tool.getFilesToRun());
-      addRunfilesSupplier(tool.getRunfilesSupplier());
       return this;
     }
 

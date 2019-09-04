@@ -89,6 +89,8 @@ public final class CustomCommandLine extends CommandLine {
       return argi; // Doesn't consume any arguments, so return argi unmodified
     }
 
+    abstract void eval(ImmutableList.Builder<String> builder);
+
     @Override
     public int addToFingerprint(
         List<Object> arguments,
@@ -98,8 +100,6 @@ public final class CustomCommandLine extends CommandLine {
       addToFingerprint(actionKeyContext, fingerprint);
       return argi; // Doesn't consume any arguments, so return argi unmodified
     }
-
-    abstract void eval(ImmutableList.Builder<String> builder);
 
     abstract void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint);
   }
@@ -597,12 +597,6 @@ public final class CustomCommandLine extends CommandLine {
     abstract void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander);
 
     /**
-     * Returns a string that describes this argument fragment. The string can be used as part of an
-     * action key for the command line at analysis time.
-     */
-    abstract String describe();
-
-    /**
      * Evaluates this argument fragment by serializing it into a string. Note that the returned
      * argument is not suitable to be used as part of an actual command line. The purpose of this
      * method is to provide a unique command line argument string to be used as part of an action
@@ -614,6 +608,12 @@ public final class CustomCommandLine extends CommandLine {
     void eval(ImmutableList.Builder<String> builder) {
       builder.add(describe());
     }
+
+    /**
+     * Returns a string that describes this argument fragment. The string can be used as part of an
+     * action key for the command line at analysis time.
+     */
+    abstract String describe();
   }
 
   @AutoCodec
@@ -732,6 +732,15 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
+     * Adds a string argument to the command line.
+     *
+     * <p>If the value is null, neither the arg nor the value is added.
+     */
+    public Builder add(@CompileTimeConstant String arg, @Nullable String value) {
+      return addObjectInternal(arg, value);
+    }
+
+    /**
      * Adds a dynamically calculated string.
      *
      * <p>Consider whether using another method could be more efficient. For instance, rather than
@@ -762,40 +771,6 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * Adds an artifact by calling {@link PathFragment#getPathString}.
-     *
-     * <p>Prefer this over manually calling {@link PathFragment#getPathString}, as it avoids storing
-     * a copy of the path string.
-     */
-    public Builder addPath(@Nullable PathFragment value) {
-      return addObjectInternal(value);
-    }
-
-    /**
-     * Adds an artifact by calling {@link Artifact#getExecPath}.
-     *
-     * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
-     * copy of the artifact path string.
-     */
-    public Builder addExecPath(@Nullable Artifact value) {
-      return addObjectInternal(value);
-    }
-
-    /** Adds a lazily expanded string. */
-    public Builder addLazyString(@Nullable LazyString value) {
-      return addObjectInternal(value);
-    }
-
-    /**
-     * Adds a string argument to the command line.
-     *
-     * <p>If the value is null, neither the arg nor the value is added.
-     */
-    public Builder add(@CompileTimeConstant String arg, @Nullable String value) {
-      return addObjectInternal(arg, value);
-    }
-
-    /**
      * Adds a label value by calling {@link Label#getCanonicalForm}.
      *
      * <p>Prefer this over manually calling {@link Label#getCanonicalForm}, as it avoids storing a
@@ -805,6 +780,16 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder addLabel(@CompileTimeConstant String arg, @Nullable Label value) {
       return addObjectInternal(arg, value);
+    }
+
+    /**
+     * Adds an artifact by calling {@link PathFragment#getPathString}.
+     *
+     * <p>Prefer this over manually calling {@link PathFragment#getPathString}, as it avoids storing
+     * a copy of the path string.
+     */
+    public Builder addPath(@Nullable PathFragment value) {
+      return addObjectInternal(value);
     }
 
     /**
@@ -824,11 +809,26 @@ public final class CustomCommandLine extends CommandLine {
      *
      * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
      * copy of the artifact path string.
+     */
+    public Builder addExecPath(@Nullable Artifact value) {
+      return addObjectInternal(value);
+    }
+
+    /**
+     * Adds an artifact by calling {@link Artifact#getExecPath}.
+     *
+     * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
+     * copy of the artifact path string.
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
     public Builder addExecPath(@CompileTimeConstant String arg, @Nullable Artifact value) {
       return addObjectInternal(arg, value);
+    }
+
+    /** Adds a lazily expanded string. */
+    public Builder addLazyString(@Nullable LazyString value) {
+      return addObjectInternal(value);
     }
 
     /** Adds a lazily expanded string. */
@@ -874,22 +874,6 @@ public final class CustomCommandLine extends CommandLine {
       return addCollectionInternal(values);
     }
 
-    /** Adds the passed paths to the command line. */
-    public Builder addPaths(@Nullable Collection<PathFragment> values) {
-      return addCollectionInternal(values);
-    }
-
-    /**
-     * Adds the artifacts' exec paths to the command line.
-     *
-     * <p>Do not use this method if the list is derived from a flattened nested set. Instead, figure
-     * out how to avoid flattening the set and use {@link
-     * Builder#addExecPaths(NestedSet<Artifact>)}.
-     */
-    public Builder addExecPaths(@Nullable Collection<Artifact> values) {
-      return addCollectionInternal(values);
-    }
-
     /**
      * Adds the passed strings to the command line.
      *
@@ -897,16 +881,6 @@ public final class CustomCommandLine extends CommandLine {
      * please try to use a different method that supports what you are trying to do directly.
      */
     public Builder addAll(@Nullable NestedSet<String> values) {
-      return addNestedSetInternal(values);
-    }
-
-    /** Adds the passed paths to the command line. */
-    public Builder addPaths(@Nullable NestedSet<PathFragment> values) {
-      return addNestedSetInternal(values);
-    }
-
-    /** Adds the artifacts' exec paths to the command line. */
-    public Builder addExecPaths(@Nullable NestedSet<Artifact> values) {
       return addNestedSetInternal(values);
     }
 
@@ -923,6 +897,39 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
+     * Adds the arg followed by the passed strings.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder addAll(@CompileTimeConstant String arg, @Nullable NestedSet<String> values) {
+      return addNestedSetInternal(arg, values);
+    }
+
+    /** Adds the passed vector arg. See {@link VectorArg}. */
+    public Builder addAll(VectorArg<String> vectorArg) {
+      return addVectorArgInternal(vectorArg);
+    }
+
+    /**
+     * Adds the arg followed by the passed vector arg. See {@link VectorArg}.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder addAll(@CompileTimeConstant String arg, VectorArg<String> vectorArg) {
+      return addVectorArgInternal(arg, vectorArg);
+    }
+
+    /** Adds the passed paths to the command line. */
+    public Builder addPaths(@Nullable Collection<PathFragment> values) {
+      return addCollectionInternal(values);
+    }
+
+    /** Adds the passed paths to the command line. */
+    public Builder addPaths(@Nullable NestedSet<PathFragment> values) {
+      return addNestedSetInternal(values);
+    }
+
+    /**
      * Adds the arg followed by the path strings.
      *
      * <p>If values is empty, the arg isn't added.
@@ -930,6 +937,46 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addPaths(
         @CompileTimeConstant String arg, @Nullable Collection<PathFragment> values) {
       return addCollectionInternal(arg, values);
+    }
+
+    /**
+     * Adds the arg followed by the path fragments.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder addPaths(
+        @CompileTimeConstant String arg, @Nullable NestedSet<PathFragment> values) {
+      return addNestedSetInternal(arg, values);
+    }
+
+    /** Adds the passed vector arg. See {@link VectorArg}. */
+    public Builder addPaths(VectorArg<PathFragment> vectorArg) {
+      return addVectorArgInternal(vectorArg);
+    }
+
+    /**
+     * Adds the arg followed by the passed vector arg. See {@link VectorArg}.
+     *
+     * <p>If values is empty, the arg isn't added.
+     */
+    public Builder addPaths(@CompileTimeConstant String arg, VectorArg<PathFragment> vectorArg) {
+      return addVectorArgInternal(arg, vectorArg);
+    }
+
+    /**
+     * Adds the artifacts' exec paths to the command line.
+     *
+     * <p>Do not use this method if the list is derived from a flattened nested set. Instead, figure
+     * out how to avoid flattening the set and use {@link
+     * Builder#addExecPaths(NestedSet<Artifact>)}.
+     */
+    public Builder addExecPaths(@Nullable Collection<Artifact> values) {
+      return addCollectionInternal(values);
+    }
+
+    /** Adds the artifacts' exec paths to the command line. */
+    public Builder addExecPaths(@Nullable NestedSet<Artifact> values) {
+      return addNestedSetInternal(values);
     }
 
     /**
@@ -947,25 +994,6 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * Adds the arg followed by the passed strings.
-     *
-     * <p>If values is empty, the arg isn't added.
-     */
-    public Builder addAll(@CompileTimeConstant String arg, @Nullable NestedSet<String> values) {
-      return addNestedSetInternal(arg, values);
-    }
-
-    /**
-     * Adds the arg followed by the path fragments.
-     *
-     * <p>If values is empty, the arg isn't added.
-     */
-    public Builder addPaths(
-        @CompileTimeConstant String arg, @Nullable NestedSet<PathFragment> values) {
-      return addNestedSetInternal(arg, values);
-    }
-
-    /**
      * Adds the arg followed by the artifacts' exec paths.
      *
      * <p>If values is empty, the arg isn't added.
@@ -976,36 +1004,8 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
-    public Builder addAll(VectorArg<String> vectorArg) {
-      return addVectorArgInternal(vectorArg);
-    }
-
-    /** Adds the passed vector arg. See {@link VectorArg}. */
-    public Builder addPaths(VectorArg<PathFragment> vectorArg) {
-      return addVectorArgInternal(vectorArg);
-    }
-
-    /** Adds the passed vector arg. See {@link VectorArg}. */
     public Builder addExecPaths(VectorArg<Artifact> vectorArg) {
       return addVectorArgInternal(vectorArg);
-    }
-
-    /**
-     * Adds the arg followed by the passed vector arg. See {@link VectorArg}.
-     *
-     * <p>If values is empty, the arg isn't added.
-     */
-    public Builder addAll(@CompileTimeConstant String arg, VectorArg<String> vectorArg) {
-      return addVectorArgInternal(arg, vectorArg);
-    }
-
-    /**
-     * Adds the arg followed by the passed vector arg. See {@link VectorArg}.
-     *
-     * <p>If values is empty, the arg isn't added.
-     */
-    public Builder addPaths(@CompileTimeConstant String arg, VectorArg<PathFragment> vectorArg) {
-      return addVectorArgInternal(arg, vectorArg);
     }
 
     /**
