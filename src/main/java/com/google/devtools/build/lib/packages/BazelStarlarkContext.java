@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.skylark;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -20,10 +20,11 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
-/** An implementation of {@link StarlarkContext} containing Bazel-specific context. */
+/**
+ * Contextual information associated with each Starlark thread created by Bazel.
+ */
 public class BazelStarlarkContext
     implements StarlarkContext, RuleDefinitionContext, Label.HasRepoMapping {
   private final String toolsRepository;
@@ -61,25 +62,6 @@ public class BazelStarlarkContext
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       SymbolGenerator<?> symbolGenerator) {
     this(toolsRepository, null, repoMapping, symbolGenerator);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof BazelStarlarkContext)) {
-      return false;
-    }
-    BazelStarlarkContext that = (BazelStarlarkContext) obj;
-    return Objects.equals(this.toolsRepository, that.toolsRepository)
-        && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass)
-        && Objects.equals(this.repoMapping, that.repoMapping);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(toolsRepository, fragmentNameToClass, repoMapping);
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */

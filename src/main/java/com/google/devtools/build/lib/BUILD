@@ -401,22 +401,6 @@ java_library(
 )
 
 java_library(
-    name = "starlark_context",
-    srcs = [
-        "analysis/skylark/BazelStarlarkContext.java",
-        "analysis/skylark/SymbolGenerator.java",
-    ],
-    deps = [
-        ":rule-definition-context",
-        ":skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "skylark_semantics",
     srcs = [
         "syntax/StarlarkSemantics.java",
@@ -541,7 +525,6 @@ java_library(
         ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
-        ":starlark_context",
         ":syntax",
         ":transitive-info-provider",
         ":util",
