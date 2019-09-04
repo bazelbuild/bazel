@@ -100,7 +100,7 @@ public final class OptionsParser {
   private String targetLabel;
   private String injectingRuleKind;
 
-  private @Nullable String profile;
+  @Nullable private String profile;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
