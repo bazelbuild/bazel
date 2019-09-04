@@ -11,27 +11,40 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 
-/** A helper class for calling Skylark functions from Java. */
+/**
+ * A helper class for calling Starlark functions from Java, where the argument values are supplied
+ * by the fields of a ClassObject, as in the case of computed attribute defaults and computed
+ * implicit outputs.
+ *
+ * TODO(adonovan): eliminate the need for this class by making the Starlark calls in the same
+ * Starlark thread that instantiated the rule.
+ */
 @AutoCodec
-public class SkylarkCallbackFunction {
+public class StarlarkCallbackHelper {
 
-  private final BaseFunction callback;
+  private final StarlarkFunction callback;
   private final FuncallExpression ast;
   private final StarlarkSemantics starlarkSemantics;
-  private final StarlarkContext starlarkContext;
+  private final BazelStarlarkContext starlarkContext;
 
-  public SkylarkCallbackFunction(
-      BaseFunction callback,
+  public StarlarkCallbackHelper(
+      StarlarkFunction callback,
       FuncallExpression ast,
       StarlarkSemantics starlarkSemantics,
-      StarlarkContext starlarkContext) {
+      BazelStarlarkContext starlarkContext) {
     this.callback = callback;
     this.ast = ast;
     this.starlarkSemantics = starlarkSemantics;
@@ -39,9 +52,11 @@ public class SkylarkCallbackFunction {
   }
 
   public ImmutableList<String> getParameterNames() {
-    return callback.signature.getSignature().getNames();
+    return callback.getSignature().getSignature().getNames();
   }
 
+  // TODO(adonovan): opt: all current callers are forced to construct a temporary ClassObject.
+  // Instead, make them supply a map.
   public Object call(EventHandler eventHandler, ClassObject ctx, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {

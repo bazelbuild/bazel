@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
@@ -101,10 +102,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "the function implementing this rule, must have exactly one parameter: "
+                "the Starlark function implementing this rule, must have exactly one parameter: "
                     + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
                     + "phase for each instance of the rule. It can access the attributes "
                     + "provided by the user. It must create actions to generate all the declared "
@@ -143,7 +144,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
               @ParamType(type = NoneType.class),
-              @ParamType(type = BaseFunction.class)
+              @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
             named = true,
             callbackEnabled = true,
@@ -348,7 +349,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useEnvironment = true,
       useContext = true)
   public BaseFunction rule(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       Boolean test,
       Object attrs,
       Object implicitOutputs,
@@ -379,10 +380,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "A function that implements this aspect, with exactly two parameters: "
+                "A Starlark function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
                     + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
                     + "is created from). Attributes of the target are available via the "
@@ -491,7 +492,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useAst = true,
       useContext = true)
   public SkylarkAspectApi aspect(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       SkylarkList<?> attributeAspects,
       Object attrs,
       SkylarkList<?> requiredAspectProvidersArg,
