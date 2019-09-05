@@ -379,6 +379,7 @@ and
 [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
+with preference given to earlier items in the list.
 
 The resolution steps are as follows.
 
