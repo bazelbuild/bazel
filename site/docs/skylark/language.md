@@ -31,7 +31,7 @@ def fizz_buzz(n):
 fizz_buzz(20)
 ```
 
-Starlark's semantics can differ from Python, and behavioral differences are
+Starlark's semantics can differ from Python, but behavioral differences are
 rare, except for cases where Starlark raises an error. The following Python
 types are supported:
 
@@ -72,7 +72,7 @@ context. When `fct()` runs, it does so within the context of `foo.bzl`. After
 evaluation for `foo.bzl` completes, the environment contains an immutable entry,
 `var`, with the value `[5]`.
 
-When another, `bar.bzl` loads symbols from `foo.bzl`, loaded values remain
+When another `bar.bzl` loads symbols from `foo.bzl`, loaded values remain
 immutable. For this reason, the following code in `bar.bzl` is illegal:
 
 ```python
@@ -84,8 +84,9 @@ var.append(6)  # runtime error, the list stored in var is frozen
 fct()          # runtime error, fct() attempts to modify a frozen list
 ```
 
-Just like the above example using `bzl` files, values returned by rules are
-immutable too.
+Global variables defined in `bzl` files cannot be changed outside of the
+`bzl` file that defined them. Just like the above example using `bzl` files,
+values returned by rules are immutable.
 
 ## Differences between BUILD and .bzl files
 
@@ -128,9 +129,8 @@ not defined across value types. In short: `5 < 'foo'` will throw an error and
 * Dictionary literals cannot have duplicated keys. For example, this is an
   error: `{"a": 4, "b": 7, "a": 1}`.
 
-* The variable used in a comprehension may not be used after the comprehension.
-  This is stricter than Python 2 and Python 3, which have different behavior
-  (shadowing vs reassignment).
+* The identifier used in a comprehension may not be used after the comprehension.
+  This is stricter than Python 2 and Python 3.
 
 * Strings are represented with double-quotes (e.g. when you call
   [repr](lib/globals.html#repr)).
