@@ -47,11 +47,12 @@ public final class RemoteCacheClientFactory {
       PathFragment diskCachePath,
       boolean remoteVerifyDownloads,
       DigestUtil digestUtil,
-      RemoteCacheClient remoteCacheClient)
+      RemoteCacheClient remoteCacheClient,
+      RemoteOptions options)
       throws IOException {
     DiskCacheClient diskCacheClient =
         createDiskCache(workingDirectory, diskCachePath, remoteVerifyDownloads, digestUtil);
-    return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient);
+    return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient, options);
   }
 
   public static ReferenceCountedChannel createGrpcChannel(
@@ -159,7 +160,7 @@ public final class RemoteCacheClientFactory {
 
     RemoteCacheClient httpCache = createHttp(options, cred, digestUtil);
     return createDiskAndRemoteClient(
-        workingDirectory, diskCachePath, options.remoteVerifyDownloads, digestUtil, httpCache);
+        workingDirectory, diskCachePath, options.remoteVerifyDownloads, digestUtil, httpCache, options);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
