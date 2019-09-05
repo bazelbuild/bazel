@@ -59,18 +59,6 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
-      name = "incompatible_list_based_execution_strategy_selection",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "See https://github.com/bazelbuild/bazel/issues/7480")
-  public boolean incompatibleListBasedExecutionStrategySelection;
-
-  @Option(
       name = "spawn_strategy",
       defaultValue = "",
       converter = CommaSeparatedNonEmptyOptionListConverter.class,
