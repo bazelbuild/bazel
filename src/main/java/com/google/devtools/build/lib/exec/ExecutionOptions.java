@@ -66,7 +66,16 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify how spawn actions are executed by default. "
-              + "'standalone' means run all of them locally without any kind of sandboxing. "
+              + "You can pass a comma-separated list of strategies, "
+              + "for example: --spawn_strategy=remote,worker,linux-sandbox. "
+              + "For any action that it wants to execute, Bazel just picks the first strategy from the given list "
+              + "that can execute the action. "
+              + "If none of the strategy flags was used, bazel will generate a default list of strategies "
+              + "'remote,worker,sandboxed,local' and, for every action it wants to execute, "
+              + "will pick up the first strategy that can execute it. "
+              + "See https://blog.bazel.build/2019/06/19/list-strategy.html for details. \n"
+              + "'remote' meant run all of them remotely"
+              + "'standalone' or 'local' means run all of them locally without any kind of sandboxing. "
               + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
               + "(details depend on platform support).")
   public List<String> spawnStrategy;
@@ -93,7 +102,19 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Specify how to distribute compilation of other spawn actions. "
               + "Example: 'Javac=local' means to spawn Java compilation locally. "
-              + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
+              + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. "
+              + "You can pass a comma-separated list of strategies, "
+              + "for example: --spawn_strategy=remote,worker,linux-sandbox. "
+              + "For any action that it wants to execute, Bazel just picks the first strategy from the given list "
+              + "that can execute the action. "
+              + "If none of the strategy flags was used, bazel will generate a default list of strategies "
+              + "'remote,worker,sandboxed,local' and, for every action it wants to execute, "
+              + "will pick up the first strategy that can execute it. "
+              + "See https://blog.bazel.build/2019/06/19/list-strategy.html for details. \n"
+              + "'remote' meant run all of them remotely"
+              + "'standalone' or 'local' means run all of them locally without any kind of sandboxing. "
+              + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
+              + "(details depend on platform support).")
   public List<Map.Entry<String, List<String>>> strategy;
 
   @Option(
