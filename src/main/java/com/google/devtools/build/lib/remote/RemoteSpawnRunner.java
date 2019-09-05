@@ -178,11 +178,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             commandHash, merkleTree.getRootDigest(), context.getTimeout(), spawnCacheableRemotely);
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
-    if (!Spawns.mayBeExecutedRemotely(spawn)) {
-      return execLocallyAndUpload(
-          spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
-    }
-
     // Look up action cache, and reuse the action output if it is found.
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
@@ -215,12 +210,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
             spawn, context, inputMap, actionKey, action, command, uploadLocalResults, e);
-      }
-
-      if (remoteExecutor == null) {
-        // Remote execution is disabled and so execute the spawn on the local machine.
-        return execLocallyAndUpload(
-            spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
       }
 
       ExecuteRequest.Builder requestBuilder =
