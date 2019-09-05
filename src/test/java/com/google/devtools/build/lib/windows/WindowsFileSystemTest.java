@@ -53,7 +53,7 @@ public class WindowsFileSystemTest {
   public void loadJni() throws Exception {
     scratchRoot = new File(System.getenv("TEST_TMPDIR"), "x").getAbsolutePath();
     testUtil = new WindowsTestUtil(scratchRoot);
-    fs = new WindowsFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    fs = new WindowsFileSystem(DigestHashFunction.getDefaultUnchecked());
     cleanupScratchDir();
   }
 
