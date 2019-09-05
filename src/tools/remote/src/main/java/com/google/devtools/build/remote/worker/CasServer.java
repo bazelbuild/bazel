@@ -95,11 +95,8 @@ final class CasServer extends ContentAddressableStorageImplBase {
     Deque<Digest> pendingDigests = new ArrayDeque<>();
     seenDigests.add(request.getRootDigest());
     pendingDigests.push(request.getRootDigest());
-    // The page token is implemented as the previous directory's digest.  If the client passes a
-    // page token, we still do the complete traversal internally, but we skip sending the results to
-    // the client until we see the page token's digest.
-    boolean skipping = !request.getPageToken().isEmpty();
-    while (!pendingDigests.isEmpty() && !Context.current().isCancelled()) {
+    GetTreeResponse.Builder responseBuilder = GetTreeResponse.newBuilder();
+    while (!pendingDigests.isEmpty()) {
       Digest digest = pendingDigests.pop();
       byte[] directoryBytes;
       try {
@@ -120,28 +117,15 @@ final class CasServer extends ContentAddressableStorageImplBase {
         responseObserver.onError(StatusUtils.internalError(e));
         return;
       }
+      responseBuilder.addDirectories(directory);
       for (DirectoryNode directoryNode : directory.getDirectoriesList()) {
         if (!seenDigests.contains(directoryNode.getDigest())) {
           seenDigests.add(directoryNode.getDigest());
           pendingDigests.push(directoryNode.getDigest());
         }
       }
-      GetTreeResponse response =
-          GetTreeResponse.newBuilder()
-              .addDirectories(directory)
-              .setNextPageToken(pendingDigests.isEmpty() ? "" : digest.getHash())
-              .build();
-      if (!skipping) {
-        responseObserver.onNext(response);
-      }
-      if (request.getPageToken().equals(digest.getHash())) {
-        skipping = false;
-      }
     }
-    if (Context.current().isCancelled()) {
-      responseObserver.onError(Status.CANCELLED.asException());
-    } else {
-      responseObserver.onCompleted();
-    }
+    responseObserver.onNext(responseBuilder.build());
+    responseObserver.onCompleted();
   }
 }
