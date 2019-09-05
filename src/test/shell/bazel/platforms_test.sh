@@ -210,7 +210,7 @@ EOF
   grep "child_value" out.txt || fail "Did not find the overriding value"
 }
 
-function test_target_exec_properties_native() {
+function test_target_exec_properties_cc() {
   cat > a.cc <<'EOF'
 #include <stdio.h>
 int main() {

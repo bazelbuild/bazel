@@ -1511,4 +1511,36 @@ function test_build_hello_world_with_remote_embedded_tool_targets() {
     &> $TEST_log || fail "build failed"
 }
 
+
+function test_target_exec_properties_java() {
+  cat > Hello.java << 'EOF'
+public class Hello {
+  public static void main(String[] args) {
+    System.out.println("Hello!");
+  }
+}
+EOF
+  cat > BUILD <<'EOF'
+java_binary(
+  name = "a",
+  srcs = ["Hello.java"],
+  main_class = "Hello",
+  exec_properties = {"key3": "value3", "overridden": "child_value"},
+)
+
+platform(
+    name = "my_platform",
+    parents = ["@local_config_platform//:host"],
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" --toolchain_resolution_debug :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+  grep "key2" out.txt || fail "Did not find the platform key"
+}
+
 run_suite "Java integration tests"
