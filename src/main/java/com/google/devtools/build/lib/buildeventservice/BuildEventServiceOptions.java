@@ -34,6 +34,8 @@ public class BuildEventServiceOptions extends OptionsBase {
     help =
         "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. "
             + "Disabled by default."
+            + "The supported schemas are grpc and grpcs (grpc with TLS enabled). "
+            + "If no schema is provided bazel'll default to grpcs. Specify grpc:// schema to disable TLS."
   )
   public String besBackend;
 
