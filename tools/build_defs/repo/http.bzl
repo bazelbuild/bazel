@@ -45,15 +45,7 @@ def _get_auth(ctx, urls):
         netrc = read_netrc(ctx, ctx.attr.netrc)
         return use_netrc(netrc, urls)
 
-    if "HOME" in ctx.os.environ:
-        if not ctx.os.name.startswith("windows"):
-            netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"],)
-            if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-                netrc = read_netrc(ctx, netrcfile)
-                return use_netrc(netrc, urls)
-
-        # TODO: Search at a similarly canonical place for Windows as well
-
+    # TODO: use ~/.netrc instead, if it exists and is readable
     return {}
 
 def _http_archive_impl(ctx):
