@@ -33,8 +33,8 @@ public abstract class DependencyFilter
           return true;
         }
       };
-  /** Dependency predicate that excludes host dependencies */
-  public static final DependencyFilter NO_HOST_DEPS =
+  /** Dependency predicate that excludes non-target dependencies */
+  public static final DependencyFilter ONLY_TARGET_DEPS =
       new DependencyFilter() {
         @Override
         public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
@@ -43,7 +43,7 @@ public abstract class DependencyFilter
             return true;
           }
 
-          return !attribute.getTransitionFactory().isHost();
+          return !attribute.getTransitionFactory().isTool();
         }
       };
   /** Dependency predicate that excludes implicit dependencies */

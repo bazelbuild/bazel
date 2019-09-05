@@ -231,7 +231,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     assertThat(other.getLabel()).isEqualTo(myRule.getLabel());
 
     // Regression test for b/73496081 in which alias-ed configured targets were skipping filtering.
-    helper.setQuerySettings(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS);
+    helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:other_my_rule)-//test:other_my_rule"))
         .isEqualTo(evalToListOfStrings("//test:my_rule"));
   }
@@ -329,6 +329,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     assertThat(configuration).isNotNull();
     assertThat(configuration.isHostConfiguration()).isFalse();
     assertThat(configuration.isExecConfiguration()).isFalse();
+    assertThat(configuration.isToolConfiguration()).isFalse();
   }
 
   @Test
@@ -349,6 +350,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     assertThat(configuration).isNotNull();
     assertThat(configuration.isHostConfiguration()).isTrue();
     assertThat(configuration.isExecConfiguration()).isFalse();
+    assertThat(configuration.isToolConfiguration()).isTrue();
   }
 
   @Test
@@ -370,11 +372,9 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
   @Test
   public void testExecTransitionNotFilteredByNoHostDeps() throws Exception {
     createConfigRulesAndBuild();
-    helper.setQuerySettings(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS);
+    helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsExactly(
-            "//test:my_rule", "//test:target_dep", "//test:dep", "//test:exec_dep", "//test:dep");
-    // TODO(b/138274743): What we really want is for exec_dep to be excluded by --nohost_deps
+        .containsExactly("//test:my_rule", "//test:target_dep", "//test:dep");
   }
 
   @Test
