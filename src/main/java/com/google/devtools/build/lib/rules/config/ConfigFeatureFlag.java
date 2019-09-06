@@ -141,7 +141,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
             .getFeatureFlagValue(ruleContext.getOwner());
 
     if (configuredValue.isPresent() && !isValidValue.apply(configuredValue.get())) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
               + Printer.repr(values.asList())
@@ -151,7 +151,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
     }
 
     if (!configuredValue.isPresent() && !defaultValue.isPresent()) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError("flag has no default and must be set, but was not set");
       return null;
     }
