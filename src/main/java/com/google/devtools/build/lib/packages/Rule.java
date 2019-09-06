@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
 import java.util.LinkedHashSet;

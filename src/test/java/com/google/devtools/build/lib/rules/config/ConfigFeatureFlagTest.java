@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -80,7 +80,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    name = 'flag',",
         "    allowed_values = ['default', 'configured', 'other'],",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
+    assertThat(
+            ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 
@@ -101,7 +102,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
+    assertThat(
+            ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 

@@ -609,9 +609,9 @@ public class MethodLibrary {
   public SkylarkDict<?, ?> dict(
       Object args, SkylarkDict<?, ?> kwargs, Location loc, Environment env) throws EvalException {
     SkylarkDict<?, ?> argsDict =
-        (args instanceof SkylarkDict)
-            ? (SkylarkDict<?, ?>) args
-            : SkylarkDict.getDictFromArgs(args, loc, env);
+        args instanceof SkylarkDict
+            ? (SkylarkDict) args
+            : SkylarkDict.getDictFromArgs("dict", args, loc, env);
     return SkylarkDict.plus(argsDict, kwargs, env);
   }
 
@@ -713,9 +713,11 @@ public class MethodLibrary {
     if (stopOrNone == Runtime.NONE) {
       start = 0;
       stop = startOrStop;
-    } else {
+    } else if (stopOrNone instanceof Integer) {
       start = startOrStop;
-      stop = Type.INTEGER.convert(stopOrNone, "'stop' operand of 'range'");
+      stop = (Integer) stopOrNone;
+    } else {
+      throw new EvalException(loc, "want int, got " + EvalUtils.getDataTypeName(stopOrNone));
     }
     if (step == 0) {
       throw new EvalException(loc, "step cannot be 0");

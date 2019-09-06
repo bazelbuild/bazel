@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.DependencyFilter.AttributeInfoProvider;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 /**

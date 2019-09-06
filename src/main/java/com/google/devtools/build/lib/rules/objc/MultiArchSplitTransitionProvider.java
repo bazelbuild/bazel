@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;

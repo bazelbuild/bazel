@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;

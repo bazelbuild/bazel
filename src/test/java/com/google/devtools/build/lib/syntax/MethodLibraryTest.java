@@ -153,10 +153,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "expected value of type 'string or tuple of strings' for parameter 'sub', "
                 + "for call to method startswith(sub, start = 0, end = None) of 'string'",
             "'test'.startswith(1)")
-        .testIfErrorContains(
-            "expected value of type 'list(object)' for parameter args in dict(), "
-                + "but got \"a\" (string)",
-            "dict('a')");
+        .testIfErrorContains("in dict, got string, want iterable", "dict('a')");
   }
 
   @Test
@@ -330,12 +327,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDictionaryCreationInvalidPositional() throws Exception {
     new BothModesTest()
+        .testIfErrorContains("in dict, got string, want iterable", "dict('a')")
         .testIfErrorContains(
-            "expected value of type 'list(object)' for parameter args in dict(), "
-                + "but got \"a\" (string)",
-            "dict('a')")
-        .testIfErrorContains("cannot convert item #0 to a sequence", "dict(['a'])")
-        .testIfErrorContains("cannot convert item #0 to a sequence", "dict([('a')])")
+            "in dict, dictionary update sequence element #0 is not iterable (string)",
+            "dict([('a')])")
+        .testIfErrorContains(
+            "in dict, dictionary update sequence element #0 is not iterable (string)",
+            "dict([('a')])")
         .testIfErrorContains(
             "expected no more than 1 positional arguments, but got 3", "dict((3,4), (3,2), (1,2))")
         .testIfErrorContains(

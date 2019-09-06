@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
