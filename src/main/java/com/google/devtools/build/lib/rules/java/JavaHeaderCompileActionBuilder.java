@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -487,7 +488,9 @@ public class JavaHeaderCompileActionBuilder {
             inMemoryOutput == null
                 ? context.getInputPath(outputDepsProto).getInputStream()
                 : inMemoryOutput) {
-          javaContext.insertDependencies(outputDepsProto, Deps.Dependencies.parseFrom(input));
+          javaContext.insertDependencies(
+              outputDepsProto,
+              Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
         }
       } catch (IOException e) {
         // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
