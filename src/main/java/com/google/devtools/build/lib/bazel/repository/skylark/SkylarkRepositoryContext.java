@@ -549,7 +549,7 @@ public class SkylarkRepositoryContext
       String integrity,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders = ImmutableMap.of();
 
     List<URL> urls =
         getUrls(
@@ -662,7 +662,7 @@ public class SkylarkRepositoryContext
       String integrity,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders = ImmutableMap.of();
 
     List<URL> urls =
         getUrls(
