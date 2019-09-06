@@ -6,14 +6,15 @@
 ${util.providerSummary($providerName, $providerInfo)}
 </pre>
 
-${providerInfo.docString}
+${util.htmlEscape($providerInfo.docString)}
+
+**FIELDS**
 
 #if (!$providerInfo.fieldInfoList.isEmpty())
-#[[###]]# Fields
 
+| Name  | Description |
+| :-------------: | :-------------: |
 #foreach ($field in $providerInfo.fieldInfoList)
-<code>${field.name}</code><
-<p>${field.docString}</p>
-
+| $field.name | #if(!$field.docString.isEmpty()) ${util.markdownCellFormat($field.docString)} #else - #end   |
 #end
 #end

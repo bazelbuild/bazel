@@ -31,6 +31,46 @@ import java.util.stream.Collectors;
  * Contains a number of utility methods for markdown rendering.
  */
 public final class MarkdownUtil {
+
+  /**
+   * Return a string that formats the input string so it is displayable in a markdown table cell.
+   * This performs the following operations:
+   *
+   * <ul>
+   *   <li>Trims the string of leading/trailing whitespace.
+   *   <li>Transforms the string using {@link #htmlEscape}.
+   *   <li>Transforms multline code (```) tags into preformatted code HTML tags.
+   *   <li>Transforms single-tick code (`) tags into code HTML tags.
+   *   <li>Transforms newline characters into line break HTML tags.
+   * </ul>
+   */
+  public String markdownCellFormat(String docString) {
+    String resultString = htmlEscape(docString.trim());
+
+    resultString = replaceWithTag(resultString, "```", "<pre><code>", "</code></pre>");
+    resultString = replaceWithTag(resultString, "`", "<code>", "</code>");
+
+    return resultString.replace("\n", "<br>");
+  }
+
+  private static String replaceWithTag(
+      String wholeString, String stringToReplace, String openTag, String closeTag) {
+    String remainingString = wholeString;
+    StringBuilder resultString = new StringBuilder();
+
+    boolean openTagNext = true;
+    int index = remainingString.indexOf(stringToReplace);
+    while (index > -1) {
+      resultString.append(remainingString, 0, index);
+      resultString.append(openTagNext ? openTag : closeTag);
+      openTagNext = !openTagNext;
+      remainingString = remainingString.substring(index + stringToReplace.length());
+      index = remainingString.indexOf(stringToReplace);
+    }
+    resultString.append(remainingString);
+    return resultString.toString();
+  }
+
   /**
    * Return a string that escapes angle brackets for HTML.
    *

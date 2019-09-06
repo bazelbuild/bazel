@@ -96,11 +96,20 @@ public final class MarkdownRendererTest {
   @Test
   public void testProviderStrings() throws IOException {
     ProviderFieldInfo fieldInfo =
-        ProviderFieldInfo.newBuilder().setName("one").setDocString("the first field").build();
+        ProviderFieldInfo.newBuilder()
+            .setName("one")
+            .setDocString(
+                "This field <is totally> the `one`.\na **second** line.\n"
+                    + "For example:\n"
+                    + "```thisfield > otherfield\n"
+                    + "  otherotherfield < thisfield```\n"
+                    + "Usage: `thisfield.<some method>`")
+            .build();
+
     ProviderInfo providerInfo =
         ProviderInfo.newBuilder()
             .setProviderName("my_provider")
-            .setDocString("This provider does things.")
+            .setDocString("This <really cool> `provider` does things.\n")
             .addFieldInfo(fieldInfo)
             .build();
 
@@ -114,13 +123,16 @@ public final class MarkdownRendererTest {
                 + "my_provider(<a href=\"#my_provider-one\">one</a>)\n"
                 + "</pre>\n"
                 + "\n"
-                + "This provider does things.\n"
-                + "\n"
-                + "### Fields\n"
-                + "\n"
-                + "<code>one</code><\n"
-                + "<p>the first field</p>\n"
-                + "\n");
+                + "This &lt;really cool&gt; `provider` does things.\n\n\n"
+                + "**FIELDS**\n"
+                + "\n\n"
+                + "| Name  | Description |\n"
+                + "| :-------------: | :-------------: |\n"
+                + "| one |  This field &lt;is totally&gt; the "
+                + "<code>one</code>.<br>a **second** line.<br>For example:<br>"
+                + "<pre><code>thisfield &gt; otherfield<br>  otherotherfield &lt;"
+                + " thisfield</code></pre><br>Usage: <code>thisfield.&lt;some "
+                + "method&gt;</code>    |\n");
   }
 
   @Test
