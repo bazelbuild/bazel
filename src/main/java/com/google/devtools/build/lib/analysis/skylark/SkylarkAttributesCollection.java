@@ -161,7 +161,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         return;
       }
 
-      // TODO(mstaib): Remove the LABEL_DICT_UNARY special case of this conditional
+      // TODO(b/140636597): Remove the LABEL_DICT_UNARY special case of this conditional
       // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
       // Skylark as a Map<String, Label>; this special case preserves that behavior temporarily.
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
