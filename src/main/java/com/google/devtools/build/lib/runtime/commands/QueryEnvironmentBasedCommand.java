@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -129,11 +130,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
     OutputFormatter formatter =
-        OutputFormatter.getFormatter(formatters, queryOptions.outputFormat);
+        OutputFormatters.getFormatter(formatters, queryOptions.outputFormat);
     if (formatter == null) {
-      env.getReporter().handle(Event.error(
-          String.format("Invalid output format '%s'. Valid values are: %s",
-              queryOptions.outputFormat, OutputFormatter.formatterNames(formatters))));
+      env.getReporter()
+          .handle(
+              Event.error(
+                  String.format(
+                      "Invalid output format '%s'. Valid values are: %s",
+                      queryOptions.outputFormat, OutputFormatters.formatterNames(formatters))));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 
@@ -146,7 +150,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                   String.format(
                       "--experimental_graphless_query requires --order_output=no and an --output"
                           + " option that supports streaming; valid values are: %s",
-                      OutputFormatter.streamingFormatterNames(formatters))));
+                      OutputFormatters.streamingFormatterNames(formatters))));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
 

@@ -166,7 +166,7 @@ public class PrecomputedValue implements SkyValue {
     }
 
     @VisibleForTesting
-    Key getKeyForTesting() {
+    public Key getKeyForTesting() {
       return key;
     }
 

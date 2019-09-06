@@ -994,60 +994,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
-  @Test
-  public void testExposesJavaSkylarkApiProvider() throws Exception {
-    scratch.file(
-        "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")",
-        "my_rule(",
-        "  name = 'my',",
-        "  dep = ':dep',",
-        ")");
-    scratch.file(
-        "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep.java",
-        "   return [result(",
-        "             source_jars = depj.source_jars,",
-        "             transitive_deps = depj.transitive_deps,",
-        "             transitive_runtime_deps = depj.transitive_runtime_deps,",
-        "             transitive_source_jars = depj.transitive_source_jars,",
-        "             outputs = depj.outputs.jars,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    StructImpl info =
-        (StructImpl)
-            configuredTarget.get(
-                new SkylarkKey(
-                    Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
-
-    SkylarkNestedSet sourceJars = ((SkylarkNestedSet) info.getValue("source_jars"));
-    SkylarkNestedSet transitiveDeps = ((SkylarkNestedSet) info.getValue("transitive_deps"));
-    SkylarkNestedSet transitiveRuntimeDeps =
-        ((SkylarkNestedSet) info.getValue("transitive_runtime_deps"));
-    SkylarkNestedSet transitiveSourceJars =
-        ((SkylarkNestedSet) info.getValue("transitive_source_jars"));
-    SkylarkList<OutputJar> outputJars = ((SkylarkList<OutputJar>) info.getValue("outputs"));
-
-    assertThat(artifactFilesNames(sourceJars.toCollection(Artifact.class)))
-        .containsExactly("libdep-src.jar");
-    assertThat(artifactFilesNames(transitiveDeps.toCollection(Artifact.class)))
-        .containsExactly("libdep-hjar.jar");
-    assertThat(artifactFilesNames(transitiveRuntimeDeps.toCollection(Artifact.class)))
-        .containsExactly("libdep.jar");
-    assertThat(artifactFilesNames(transitiveSourceJars.toCollection(Artifact.class)))
-        .containsExactly("libdep-src.jar");
-    assertThat(outputJars).hasSize(1);
-    assertThat(outputJars.get(0).getClassJar().getFilename()).isEqualTo("libdep.jar");
-  }
-
   private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
     List<String> result = new ArrayList<>();
     for (Artifact artifact : artifacts) {
@@ -2072,31 +2018,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     OutputJar output = outputs.getOutputJars().get(0);
     assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
     assertThat(output.getIJar()).isNull();
-  }
-
-  @Test
-  public void testDisallowLegacyJavaProvider() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_java_provider");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.attr.java_lib.java.source_jars",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'java_lib': attr.label(),",
-        "   },",
-        ")");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_library(name = 'java_lib', srcs = ['java/A.java'])",
-        "java_custom_library(name = 'custom_lib', java_lib = ':java_lib')");
-    checkError(
-        "//foo:custom_lib",
-        "The .java provider is deprecated and cannot be used "
-            + "when --incompatible_disallow_legacy_java_provider is set.");
   }
 
   @Test

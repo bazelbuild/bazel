@@ -401,22 +401,6 @@ java_library(
 )
 
 java_library(
-    name = "starlark_context",
-    srcs = [
-        "analysis/skylark/BazelStarlarkContext.java",
-        "analysis/skylark/SymbolGenerator.java",
-    ],
-    deps = [
-        ":rule-definition-context",
-        ":skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "skylark_semantics",
     srcs = [
         "syntax/StarlarkSemantics.java",
@@ -541,7 +525,6 @@ java_library(
         ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
-        ":starlark_context",
         ":syntax",
         ":transitive-info-provider",
         ":util",
@@ -853,6 +836,7 @@ java_library(
         ":build-base",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:options",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",

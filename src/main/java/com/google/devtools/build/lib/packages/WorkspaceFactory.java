@@ -20,8 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -67,8 +65,7 @@ public class WorkspaceFactory {
           "workspace",
           "__embedded_dir__", // serializable so optional
           "__workspace_dir__", // serializable so optional
-          "DEFAULT_SYSTEM_JAVABASE", // serializable so optional
-          PackageFactory.PKG_CONTEXT);
+          "DEFAULT_SYSTEM_JAVABASE"); // serializable so optional
 
   private final Package.Builder builder;
 
@@ -368,8 +365,8 @@ public class WorkspaceFactory {
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);
       }
-      workspaceEnv.setupDynamic(
-          PackageFactory.PKG_CONTEXT,
+      workspaceEnv.setThreadLocal(
+          PackageFactory.PackageContext.class,
           new PackageFactory.PackageContext(builder, null, localReporter, AttributeContainer::new));
     } catch (EvalException e) {
       throw new AssertionError(e);

@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
@@ -705,7 +706,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   // keyword, or may be None, even in places where it does not quite make sense.
   @Test
   public void testLegacyNamed() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_restrict_named_params=false")
         // Parameters which may be specified by keyword but are not explicitly 'named'.
         .testStatement("all(elements=[True, True])", Boolean.TRUE)
         .testStatement("any(elements=[True, False])", Boolean.TRUE)
@@ -772,6 +773,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDepsetDirectInvalidType() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "expected type 'sequence' for direct but got type 'string' instead",
+            "depset(direct='hello')");
+  }
+
+  @Test
   public void testDisableDepsetItems() throws Exception {
     new SkylarkTest("--incompatible_disable_depset_items")
         .setUp("x = depset([0])", "y = depset(direct = [1])")
@@ -784,5 +793,24 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + "It may be temporarily re-enabled by setting "
                 + "--incompatible_disable_depset_inputs=false",
             "depset(items=[0,1])");
+  }
+
+  @Test
+  public void testDepsetDepthLimit() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new SkylarkTest()
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  return x",
+            "too_deep_depset = create_depset(3000)",
+            "fine_depset = create_depset(900)")
+        .testEval("fine_depset.to_list()[0]", "0")
+        .testEval("str(fine_depset)[0:6]", "'depset'")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "print(too_deep_depset)")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "str(too_deep_depset)")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "too_deep_depset.to_list()");
   }
 }

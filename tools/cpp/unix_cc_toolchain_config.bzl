@@ -1019,6 +1019,69 @@ def _impl(ctx):
         ],
     )
 
+    thinlto_feature = feature(
+        name = "thin_lto",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                ] + all_link_actions + lto_index_actions,
+                flag_groups = [
+                    flag_group(flags = ["-flto=thin"]),
+                    flag_group(
+                        expand_if_available = "lto_indexing_bitcode_file",
+                        flags = [
+                            "-Xclang",
+                            "-fthin-link-bitcode=%{lto_indexing_bitcode_file}",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.linkstamp_compile],
+                flag_groups = [flag_group(flags = ["-DBUILD_LTO_TYPE=thin"])],
+            ),
+            flag_set(
+                actions = lto_index_actions,
+                flag_groups = [
+                    flag_group(flags = [
+                        "-flto=thin",
+                        "-Wl,-plugin-opt,thinlto-index-only%{thinlto_optional_params_file}",
+                        "-Wl,-plugin-opt,thinlto-emit-imports-files",
+                        "-Wl,-plugin-opt,thinlto-prefix-replace=%{thinlto_prefix_replace}",
+                    ]),
+                    flag_group(
+                        expand_if_available = "thinlto_object_suffix_replace",
+                        flags = [
+                            "-Wl,-plugin-opt,thinlto-object-suffix-replace=%{thinlto_object_suffix_replace}",
+                        ],
+                    ),
+                    flag_group(
+                        expand_if_available = "thinlto_merged_object_file",
+                        flags = [
+                            "-Wl,-plugin-opt,obj-path=%{thinlto_merged_object_file}",
+                        ],
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.lto_backend],
+                flag_groups = [
+                    flag_group(flags = [
+                        "-c",
+                        "-fthinlto-index=%{thinlto_index}",
+                        "-o",
+                        "%{thinlto_output_object_file}",
+                        "-x",
+                        "ir",
+                        "%{thinlto_input_bitcode_file}",
+                    ]),
+                ],
+            ),
+        ],
+    )
+
     is_linux = ctx.attr.target_libc != "macosx"
 
     # TODO(#8303): Mac crosstool should also declare every feature.
@@ -1034,6 +1097,7 @@ def _impl(ctx):
             fdo_instrument_feature,
             cs_fdo_instrument_feature,
             cs_fdo_optimize_feature,
+            thinlto_feature,
             fdo_prefetch_hints_feature,
             autofdo_feature,
             build_interface_libraries_feature,

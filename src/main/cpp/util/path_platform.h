@@ -19,19 +19,49 @@
 namespace blaze_util {
 
 // Platform-native, absolute, normalized path.
+// It can be converted to a printable path (for error messages) or to a native
+// path (for API calls).
 class Path {
  public:
   Path() {}
   explicit Path(const std::string &path);
+  bool operator==(const Path &o) const { return path_ == o.path_; }
+  bool operator!=(const Path &o) const { return path_ != o.path_; }
+  bool operator<(const Path &o) const { return path_ < o.path_; }
   bool IsEmpty() const { return path_.empty(); }
   bool IsNull() const;
+  bool Contains(const char c) const;
+  bool Contains(const std::string &s) const;
   Path GetRelative(const std::string &r) const;
+
+  // Returns the canonical form (like realpath(1)) of this path.
+  // All symlinks in the path are resolved.
+  // If canonicalization fails, returns an empty Path.
+  Path Canonicalize() const;
+
+  Path GetParent() const;
+
+  // Returns a printable string representing this path.
+  // Only use when printing user messages, do not pass to filesystem API
+  // functions.
   std::string AsPrintablePath() const;
 
+  // Returns a string representation of this path that's safe to pass on the
+  // command line as a JVM argument.
+  std::string AsJvmArgument() const;
+
+  // Returns a string representation of this path, safe to pass to the Bazel
+  // server.
+  std::string AsCommandLineArgument() const;
+
 #if defined(_WIN32) || defined(__CYGWIN__)
-  const std::wstring &AsNativePath() const { return path_; }
+  // Returns a platform-native, absolute, normalized path.
+  // Use this to pass paths to filesystem API functions.
+  const std::wstring AsNativePath() const { return path_; }
 #else
-  const std::string &AsNativePath() const { return path_; }
+  // Returns a platform-native, absolute, normalized path.
+  // Use this to pass paths to filesystem API functions.
+  const std::string AsNativePath() const { return path_; }
 #endif
 
  private:
@@ -66,6 +96,7 @@ bool IsDevNull(const char *path);
 
 // Returns true if `path` is the root directory or a Windows drive root.
 bool IsRootDirectory(const std::string &path);
+bool IsRootDirectory(const Path &path);
 
 // Returns true if `path` is absolute.
 bool IsAbsolute(const std::string &path);
@@ -161,6 +192,8 @@ bool AsAbsoluteWindowsPath(const std::wstring &path, std::wstring *result,
 // Works even for non-existent paths (and non-existent drives), shortening the
 // existing segments and leaving the rest unshortened.
 bool AsShortWindowsPath(const std::string &path, std::string *result,
+                        std::string *error);
+bool AsShortWindowsPath(const std::wstring &path, std::wstring *result,
                         std::string *error);
 
 #else

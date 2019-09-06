@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -371,6 +372,7 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
+                RunfilesSupplierImpl.create(runfilesSupport),
                 testActionExecutable,
                 isUsingTestWrapperInsteadOfTestSetupScript,
                 testXmlGeneratorExecutable,

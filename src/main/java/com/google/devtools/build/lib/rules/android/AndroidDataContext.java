@@ -56,6 +56,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
+  private final boolean compatibleForResourcePathShortening;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -75,16 +76,18 @@ public class AndroidDataContext implements AndroidDataContextApi {
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
-        shouldThrowIfNotOnWhitelist(ruleContext, "allow_proguard_apply_dictionary"),
-        shouldThrowIfNotOnWhitelist(ruleContext, "allow_proguard_apply_mapping"),
-        shouldThrowIfNotOnWhitelist(ruleContext, "allow_resource_conflicts"),
+        lacksAllowlistExemptions(ruleContext, "allow_raw_access_to_resource_paths", true),
+        lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_dictionary", false),
+        lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_mapping", false),
+        lacksAllowlistExemptions(ruleContext, "allow_resource_conflicts", false),
         androidConfig.useDataBindingV2());
   }
 
-  private static boolean shouldThrowIfNotOnWhitelist(
-      RuleContext ruleContext, String whitelistName) {
+  private static boolean lacksAllowlistExemptions(
+      RuleContext ruleContext, String whitelistName, boolean valueIfNoWhitelist) {
     return Whitelist.hasWhitelist(ruleContext, whitelistName)
-        && !Whitelist.isAvailable(ruleContext, whitelistName);
+        ? !Whitelist.isAvailable(ruleContext, whitelistName)
+        : valueIfNoWhitelist;
   }
 
   protected AndroidDataContext(
@@ -93,6 +96,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
       AndroidSdkProvider sdk,
+      boolean compatibleForResourcePathShortening,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -102,6 +106,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.ruleContext = ruleContext;
     this.busybox = busybox;
     this.sdk = sdk;
+    this.compatibleForResourcePathShortening = compatibleForResourcePathShortening;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -181,6 +186,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return persistentBusyboxToolsEnabled;
   }
 
+  public boolean compatibleForResourcePathShortening() {
+    return compatibleForResourcePathShortening;
+  }
+
   public boolean throwOnProguardApplyDictionary() {
     return throwOnProguardApplyDictionary;
   }
@@ -210,6 +219,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     //   1) --experimental_android_resource_path_shortening
     //   2) -c opt
     return getAndroidConfig().useAndroidResourcePathShortening()
+        && compatibleForResourcePathShortening
         && getActionConstructionContext().getConfiguration().getCompilationMode()
             == CompilationMode.OPT;
   }

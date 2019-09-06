@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
@@ -329,13 +330,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Set<Setting> settings = queryOptions.toSettings();
 
       formatter =
-          OutputFormatter.getFormatter(
-              OutputFormatter.getDefaultFormatters(), queryOptions.outputFormat);
+          OutputFormatters.getFormatter(
+              OutputFormatters.getDefaultFormatters(), queryOptions.outputFormat);
       if (formatter == null) {
-        ruleContext.ruleError(String.format(
-            "Invalid output format '%s'. Valid values are: %s",
-            queryOptions.outputFormat,
-            OutputFormatter.formatterNames(OutputFormatter.getDefaultFormatters())));
+        ruleContext.ruleError(
+            String.format(
+                "Invalid output format '%s'. Valid values are: %s",
+                queryOptions.outputFormat,
+                OutputFormatters.formatterNames(OutputFormatters.getDefaultFormatters())));
         return null;
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =

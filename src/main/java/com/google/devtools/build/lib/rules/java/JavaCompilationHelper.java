@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -189,7 +190,8 @@ public final class JavaCompilationHelper {
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
-      @Nullable Artifact nativeHeaderOutput) {
+      @Nullable Artifact nativeHeaderOutput)
+      throws InterruptedException {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -252,13 +254,19 @@ public final class JavaCompilationHelper {
     return builder.build(ruleContext, semantics);
   }
 
-  private ImmutableMap<String, String> getExecutionInfo() {
-    return getConfiguration()
-        .modifiedExecutionInfo(
-            javaToolchain.getJavacSupportsWorkers()
-                ? ExecutionRequirements.WORKER_MODE_ENABLED
-                : ImmutableMap.of(),
-            JavaCompileActionBuilder.MNEMONIC);
+  private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    executionInfo.putAll(
+        getConfiguration()
+            .modifiedExecutionInfo(
+                javaToolchain.getJavacSupportsWorkers()
+                    ? ExecutionRequirements.WORKER_MODE_ENABLED
+                    : ImmutableMap.of(),
+                JavaCompileActionBuilder.MNEMONIC));
+    executionInfo.putAll(
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+
+    return executionInfo.build();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
@@ -352,7 +360,8 @@ public final class JavaCompilationHelper {
    *     for new artifacts.
    */
   private Artifact createHeaderCompilationAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder) {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder)
+      throws InterruptedException {
 
     Artifact headerJar =
         getAnalysisEnvironment()
@@ -628,7 +637,7 @@ public final class JavaCompilationHelper {
    * @return the header jar (if requested), or ijar (if requested), or else the class jar
    */
   public Artifact createCompileTimeJarAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) throws InterruptedException {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {

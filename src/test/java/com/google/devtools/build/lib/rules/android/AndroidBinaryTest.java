@@ -1133,18 +1133,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // Assert that the ProGuard executable set in the android_sdk rule appeared in the command-line
     // of the SpawnAction that generated the _proguard.jar.
-    assertThat(
-            Iterables.any(
-                args,
-                new Predicate<String>() {
-                  @Override
-                  public boolean apply(String s) {
-                    return s.endsWith("ProGuard");
-                  }
-                }))
-        .isTrue();
     assertThat(args)
         .containsAtLeast(
+            getProguardBinary().getExecPathString(),
             "-injars",
             execPathEndingWith(action.getInputs(), "b_deploy.jar"),
             "-printseeds",
@@ -4617,7 +4608,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         resourceProcessingArgs.get(resourceProcessingArgs.indexOf("--directData") + 1);
     assertThat(directData).contains("symbols.zip");
     assertThat(directData).doesNotContain("merged.bin");
-    assertThat(resourceProcessingArgs).contains("--useCompiledResourcesForMerge");
 
     List<String> resourceMergingArgs =
         getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
@@ -4716,7 +4706,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
     // This is necessary because the transition would change the configuration directory, causing
     // the manifest paths in the assertion not to match.
-    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
+    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
+    // them.
     useConfiguration(
         "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
     scratch.overwriteFile(
@@ -4788,7 +4779,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
     // This is necessary because the transition would change the configuration directory, causing
     // the manifest paths in the assertion not to match.
-    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
+    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
+    // them.
     useConfiguration(
         "--fat_apk_cpu=",
         "--android_cpu=",

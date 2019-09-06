@@ -381,7 +381,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    default_value = 'default',",
         ")");
     assertThat(getConfiguredTarget("//test:top")).isNull();
-    // TODO(mstaib): when configurationError is implemented, switch to testing for that
+    // TODO(b/140635901): when configurationError is implemented, switch to testing for that
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: "
             + "value must be one of [\"configured\", \"default\", \"other\"], but was \"invalid\"");

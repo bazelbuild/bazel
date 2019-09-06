@@ -71,7 +71,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     return new NoSuchPackageExceptionValue(errorMessage);
   }
 
-  static SkyKey key(PackageIdentifier pkgId) {
+  public static SkyKey key(PackageIdentifier pkgId) {
     return Key.create(pkgId);
   }
 

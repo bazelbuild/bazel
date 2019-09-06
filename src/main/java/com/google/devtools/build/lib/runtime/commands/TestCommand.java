@@ -63,8 +63,6 @@ import java.util.List;
          completion = "label-test",
          allowResidue = true)
 public class TestCommand implements BlazeCommand {
-  private AnsiTerminalPrinter printer;
-
   /** Returns the name of the command to ask the project file for. */
   // TODO(hdm): move into BlazeRuntime?  It feels odd to duplicate the annotation here.
   protected String commandName() {
@@ -100,7 +98,7 @@ public class TestCommand implements BlazeCommand {
         options.getOptions(ExecutionOptions.class),
         env.getEventBus());
 
-    printer =
+    AnsiTerminalPrinter printer =
         new AnsiTerminalPrinter(
             env.getReporter().getOutErr().getOutputStream(),
             options.getOptions(UiOptions.class).useColor());
@@ -110,12 +108,14 @@ public class TestCommand implements BlazeCommand {
         new AggregatingTestListener(resultAnalyzer, env.getEventBus());
 
     env.getEventBus().register(testListener);
-    return doTest(env, options, testListener);
+    return doTest(env, options, testListener, printer);
   }
 
-  private BlazeCommandResult doTest(CommandEnvironment env,
+  private BlazeCommandResult doTest(
+      CommandEnvironment env,
       OptionsParsingResult options,
-      AggregatingTestListener testListener) {
+      AggregatingTestListener testListener,
+      AnsiTerminalPrinter printer) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
     List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
@@ -158,8 +158,9 @@ public class TestCommand implements BlazeCommand {
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(
-        testTargets, buildResult.getSkippedTargets(), testListener, options, env);
+    boolean testSuccess =
+        analyzeTestResults(
+            testTargets, buildResult.getSkippedTargets(), testListener, options, env, printer);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
@@ -177,15 +178,16 @@ public class TestCommand implements BlazeCommand {
   }
 
   /**
-   * Analyzes test results and prints summary information.
-   * Returns true if and only if all tests were successful.
+   * Analyzes test results and prints summary information. Returns true if and only if all tests
+   * were successful.
    */
   private boolean analyzeTestResults(
       Collection<ConfiguredTarget> testTargets,
       Collection<ConfiguredTarget> skippedTargets,
       AggregatingTestListener listener,
       OptionsParsingResult options,
-      CommandEnvironment env) {
+      CommandEnvironment env,
+      AnsiTerminalPrinter printer) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(
         printer,
         makeTestLogPathFormatter(options, env),

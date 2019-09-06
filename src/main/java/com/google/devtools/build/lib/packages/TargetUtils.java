@@ -235,6 +235,24 @@ public final class TargetUtils {
   }
 
   /**
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
+   *
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   */
+  public static ImmutableMap<String, String> getExecutionInfo(
+      Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation) {
+      return ImmutableMap.copyOf(getExecutionInfo(rule));
+    } else {
+      return ImmutableMap.of();
+    }
+  }
+
+  /**
    * Returns the execution info, obtained from the rule's tags and the execution requirements
    * provided. Only supported tags are included into the execution info, see {@link
    * #legalExecInfoKeys}.

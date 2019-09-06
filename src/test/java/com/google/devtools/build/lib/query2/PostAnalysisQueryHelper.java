@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2.engine;
+package com.google.devtools.build.lib.query2;
 
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
@@ -25,9 +25,14 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.engine.AbstractQueryHelper;
 import com.google.devtools.build.lib.query2.engine.AbstractQueryTest.QueryHelper;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
@@ -76,7 +81,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     MockObjcSupport.setup(mockToolsConfig);
   }
 
-  void cleanUp() {
+  public void cleanUp() {
     for (Method method : getMethodsAnnotatedWith(AnalysisHelper.class, After.class)) {
       try {
         method.invoke(analysisHelper);
@@ -146,11 +151,11 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     analysisHelper.getScratch().file(fileName, lines);
   }
 
-  Scratch getScratch() {
+  public Scratch getScratch() {
     return analysisHelper.getScratch();
   }
 
-  void turnOffFailFast() {
+  public void turnOffFailFast() {
     analysisHelper.getReporter().removeHandler(failFastHandler);
   }
 
@@ -175,7 +180,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       Collection<String> universe) throws QueryException {
-    if (universe.equals(Collections.singletonList(ConfiguredTargetQueryTest.DEFAULT_UNIVERSE))) {
+    if (universe.equals(Collections.singletonList(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
           "Tests must set universe scope by either having parsable labels in each query expression "
               + "or setting explicitly through query helper.");
@@ -262,7 +267,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return skyframeExecutor;
     }
 
-    protected PackageManager getPackageManager() {
+    public PackageManager getPackageManager() {
       return packageManager;
     }
 
@@ -280,7 +285,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     }
 
     @Override
-    protected BuildConfiguration getHostConfiguration() {
+    public BuildConfiguration getHostConfiguration() {
       return super.getHostConfiguration();
     }
 

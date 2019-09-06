@@ -172,7 +172,7 @@ Let's visualize our sample project's dependencies. First, generate a text
 representation of the dependency graph (run the command at the workspace root):
 
 ```
-bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
+bazel query --notool_deps --noimplicit_deps 'deps(//main:hello-world)' \
   --output graph
 ```
 
@@ -193,7 +193,7 @@ Then you can generate and view the graph by piping the text output above
 straight to xdot:
 
 ```
-xdot <(bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
+xdot <(bazel query --notool_deps --noimplicit_deps 'deps(//main:hello-world)' \
   --output graph)
 ```
 

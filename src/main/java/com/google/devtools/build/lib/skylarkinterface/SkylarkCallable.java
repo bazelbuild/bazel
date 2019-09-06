@@ -55,6 +55,7 @@ import java.lang.annotation.Target;
  *       plus the number of interpreter-supplied parameters.
  * </ul>
  */
+// TODO(adonovan): rename to StarlarkMethod (?)
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SkylarkCallable {

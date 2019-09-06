@@ -68,7 +68,8 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir)));
+                    ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir))
+                .getRootRelativePath());
   }
 
   private static long getUsedMemory() {
@@ -328,7 +329,9 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")), PathFragment.create("c")));
+                    ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")),
+                    PathFragment.create("c"))
+                .getRootRelativePath());
   }
 
   @Test

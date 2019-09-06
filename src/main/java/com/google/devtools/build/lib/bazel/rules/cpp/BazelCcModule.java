@@ -84,7 +84,7 @@ public class BazelCcModule extends CcModule
       boolean disallowNopicOutputs,
       Location location,
       Environment environment)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return compile(
         skylarkActionFactoryApi,
         skylarkFeatureConfiguration,

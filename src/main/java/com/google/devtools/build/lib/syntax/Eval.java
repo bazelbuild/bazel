@@ -121,7 +121,7 @@ public class Eval {
 
     env.updateAndExport(
         node.getIdentifier().getName(),
-        new UserDefinedFunction(
+        new StarlarkFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
             FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/ null),

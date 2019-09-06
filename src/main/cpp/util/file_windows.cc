@@ -111,9 +111,9 @@ class WindowsFileMtime : public IFileMtime {
   WindowsFileMtime()
       : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
 
-  bool IsUntampered(const string& path) override;
-  bool SetToNow(const string& path) override;
-  bool SetToDistantFuture(const string& path) override;
+  bool IsUntampered(const Path& path) override;
+  bool SetToNow(const Path& path) override;
+  bool SetToDistantFuture(const Path& path) override;
 
  private:
   // 9 years in the future.
@@ -123,32 +123,24 @@ class WindowsFileMtime : public IFileMtime {
 
   static FILETIME GetNow();
   static FILETIME GetFuture(WORD years);
-  static bool Set(const string& path, FILETIME time);
+  static bool Set(const Path& path, FILETIME time);
 };
 
-bool WindowsFileMtime::IsUntampered(const string& path) {
-  if (path.empty() || IsDevNull(path.c_str())) {
+bool WindowsFileMtime::IsUntampered(const Path& path) {
+  if (path.IsEmpty() || path.IsNull()) {
     return false;
-  }
-
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::IsUntampered(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
   }
 
   // Get attributes, to check if the file exists. (It may still be a dangling
   // junction.)
-  DWORD attrs = GetFileAttributesW(wpath.c_str());
+  DWORD attrs = GetFileAttributesW(path.AsNativePath().c_str());
   if (attrs == INVALID_FILE_ATTRIBUTES) {
     return false;
   }
 
   bool is_directory = attrs & FILE_ATTRIBUTE_DIRECTORY;
   AutoHandle handle(CreateFileW(
-      /* lpFileName */ wpath.c_str(),
+      /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
@@ -181,35 +173,23 @@ bool WindowsFileMtime::IsUntampered(const string& path) {
   }
 }
 
-bool WindowsFileMtime::SetToNow(const string& path) {
+bool WindowsFileMtime::SetToNow(const Path& path) {
   return Set(path, GetNow());
 }
 
-bool WindowsFileMtime::SetToDistantFuture(const string& path) {
+bool WindowsFileMtime::SetToDistantFuture(const Path& path) {
   return Set(path, distant_future_);
 }
 
-bool WindowsFileMtime::Set(const string& path, FILETIME time) {
-  if (path.empty()) {
-    return false;
-  }
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::Set(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-
+bool WindowsFileMtime::Set(const Path& path, FILETIME time) {
   AutoHandle handle(::CreateFileW(
-      /* lpFileName */ wpath.c_str(),
+      /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */
-      IsDirectoryW(wpath)
+      IsDirectoryW(path.AsNativePath())
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
@@ -458,39 +438,25 @@ static bool RealPath(const WCHAR* path, unique_ptr<WCHAR[]>* result = nullptr) {
   }
 }
 
-bool ReadDirectorySymlink(const string& name, string* result) {
-  wstring wname;
-  string error;
-  if (!AsAbsoluteWindowsPath(name, &wname, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ReadDirectorySymlink(" << name
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
+bool ReadDirectorySymlink(const blaze_util::Path& name, string* result) {
   unique_ptr<WCHAR[]> result_ptr;
-  if (!RealPath(wname.c_str(), &result_ptr)) {
+  if (!RealPath(name.AsNativePath().c_str(), &result_ptr)) {
     return false;
   }
   *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get())).get();
   return true;
 }
 
-bool PathExists(const string& path) {
-  if (path.empty()) {
+bool PathExists(const string& path) { return PathExists(Path(path)); }
+
+bool PathExists(const Path& path) {
+  if (path.IsEmpty()) {
     return false;
   }
-  if (IsDevNull(path.c_str())) {
+  if (path.IsNull()) {
     return true;
   }
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "PathExists(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  return RealPath(wpath.c_str(), nullptr);
+  return RealPath(path.AsNativePath().c_str(), nullptr);
 }
 
 string MakeCanonical(const char* path) {
@@ -534,42 +500,33 @@ static bool CanReadFileW(const wstring& path) {
 }
 
 bool CanReadFile(const std::string& path) {
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CanReadFile(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  return CanReadFileW(wpath);
+  return CanReadFile(Path(path));
+}
+
+bool CanReadFile(const Path& path) {
+  return CanReadFileW(path.AsNativePath());
 }
 
 bool CanExecuteFile(const std::string& path) {
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CanExecuteFile(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
+  return CanExecuteFile(Path(path));
+}
+
+bool CanExecuteFile(const Path& path) {
+  std::wstring p = path.AsNativePath();
+  if (p.size() < 4) {
     return false;
   }
-  return CanReadFileW(wpath) && (ends_with(wpath, wstring(L".exe")) ||
-                                 ends_with(wpath, wstring(L".com")) ||
-                                 ends_with(wpath, wstring(L".cmd")) ||
-                                 ends_with(wpath, wstring(L".bat")));
+  std::wstring ext = p.substr(p.size() - 4);
+  return CanReadFileW(p) &&
+         (ext == L".exe" || ext == L".com" || ext == L".cmd" || ext == L".bat");
 }
 
 bool CanAccessDirectory(const std::string& path) {
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CanAccessDirectory(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  DWORD attr = ::GetFileAttributesW(wpath.c_str());
+  return CanAccessDirectory(Path(path));
+}
+
+bool CanAccessDirectory(const Path& path) {
+  DWORD attr = ::GetFileAttributesW(path.AsNativePath().c_str());
   if ((attr == INVALID_FILE_ATTRIBUTES) || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
     // The path doesn't exist or is not a directory.
     return false;
@@ -577,17 +534,13 @@ bool CanAccessDirectory(const std::string& path) {
 
   // The only easy way to know if a directory is writable is by attempting to
   // open a file for writing in it.
-  wstring dummy_path = wpath + L"\\bazel_directory_access_test";
-
-  // The path may have just became too long for MAX_PATH, so add the UNC prefix
-  // if necessary.
-  AddUncPrefixMaybe(&dummy_path);
+  Path dummy_path = path.GetRelative("bazel_directory_access_test");
 
   // Attempt to open the dummy file for read/write access.
   // If the file happens to exist, no big deal, we won't overwrite it thanks to
   // OPEN_ALWAYS.
   HANDLE handle = ::CreateFileW(
-      /* lpFileName */ dummy_path.c_str(),
+      /* lpFileName */ dummy_path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE | GENERIC_READ,
       /* dwShareMode */ kAllShare,
       /* lpSecurityAttributes */ NULL,
@@ -606,7 +559,7 @@ bool CanAccessDirectory(const std::string& path) {
   if (err != ERROR_ALREADY_EXISTS) {
     // The file didn't exist before, but due to OPEN_ALWAYS we created it just
     // now, so do delete it.
-    ::DeleteFileW(dummy_path.c_str());
+    ::DeleteFileW(dummy_path.AsNativePath().c_str());
   }  // Otherwise the file existed before, leave it alone.
   return true;
 }
@@ -623,25 +576,21 @@ bool IsDirectoryW(const wstring& path) {
          (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-bool IsDirectory(const string& path) {
-  if (path.empty() || IsDevNull(path.c_str())) {
+bool IsDirectory(const string& path) { return IsDirectory(Path(path)); }
+
+bool IsDirectory(const Path& path) {
+  if (path.IsEmpty() || path.IsNull()) {
     return false;
   }
-  wstring wpath;
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "IsDirectory(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-    return false;
-  }
-  return IsDirectoryW(wpath);
+  return IsDirectoryW(path.AsNativePath());
 }
 
 void SyncFile(const string& path) {
   // No-op on Windows native; unsupported by Cygwin.
   // fsync always fails on Cygwin with "Permission denied" for some reason.
 }
+
+void SyncFile(const Path& path) {}
 
 bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   if (path.empty()) {

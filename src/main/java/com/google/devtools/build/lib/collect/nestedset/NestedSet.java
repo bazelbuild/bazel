@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -58,6 +59,14 @@ public final class NestedSet<E> implements Iterable<E> {
 
   private final Object children;
   private byte[] memo;
+
+  /**
+   * The application depth limit of nested sets. Nested sets over this depth will throw {@link
+   * NestedSetDepthException} on flattening of the depset.
+   *
+   * <p>This limit should be set by command line option processing in the Bazel server.
+   */
+  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(100000);
 
   private static final byte[] LEAF_MEMO = {};
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
@@ -444,7 +453,14 @@ public final class NestedSet<E> implements Iterable<E> {
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
     memo = new byte[Math.min((children.length + 7) / 8, 8)];
-    int pos = walk(sets, members, children, 0);
+    int pos =
+        walk(
+            sets,
+            members,
+            children,
+            /* pos= */ 0,
+            /* currentDepth= */ 1,
+            expansionDepthLimit.get());
     int bytes = (pos + 7) / 8;
     if (bytes <= memo.length - 16) {
       memo = Arrays.copyOf(memo, bytes);
@@ -462,7 +478,15 @@ public final class NestedSet<E> implements Iterable<E> {
    * <p>Returns the final value of {@code pos}.
    */
   private int walk(
-      CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
+      CompactHashSet<Object> sets,
+      CompactHashSet<E> members,
+      Object[] children,
+      int pos,
+      int currentDepth,
+      int maxDepth) {
+    if (currentDepth > maxDepth) {
+      throw new NestedSetDepthException(maxDepth);
+    }
     for (Object child : children) {
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
@@ -471,7 +495,7 @@ public final class NestedSet<E> implements Iterable<E> {
         if (sets.add(child)) {
           int prepos = pos;
           int presize = members.size();
-          pos = walk(sets, members, (Object[]) child, pos + 1);
+          pos = walk(sets, members, (Object[]) child, pos + 1, currentDepth + 1, maxDepth);
           if (presize < members.size()) {
             memo[prepos >> 3] |= (byte) (1 << (prepos & 7));
           } else {
@@ -512,5 +536,32 @@ public final class NestedSet<E> implements Iterable<E> {
       }
     }
     return pos;
+  }
+
+  /**
+   * Sets the application depth limit of nested sets. When flattening a {@link NestedSet} deeper
+   * than this limit, a {@link NestedSetDepthException} will be thrown.
+   *
+   * <p>This limit should be set by command line option processing.
+   *
+   * @return true if the previous limit was different than this new limit
+   */
+  public static boolean setApplicationDepthLimit(int newLimit) {
+    int oldValue = expansionDepthLimit.getAndSet(newLimit);
+    return oldValue != newLimit;
+  }
+
+  /** An exception thrown when a nested set exceeds the application's depth limits. */
+  public static final class NestedSetDepthException extends RuntimeException {
+    private final int depthLimit;
+
+    public NestedSetDepthException(int depthLimit) {
+      this.depthLimit = depthLimit;
+    }
+
+    /** Returns the depth limit that was exceeded which resulted in this exception being thrown. */
+    public int getDepthLimit() {
+      return depthLimit;
+    }
   }
 }

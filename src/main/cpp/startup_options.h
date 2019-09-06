@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/path.h"
 
 namespace blaze {
 
@@ -79,21 +80,21 @@ class StartupOptions {
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual std::string GetJvm() const;
+  virtual blaze_util::Path GetJvm() const;
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
-  virtual std::string GetExe(const std::string &jvm,
-                             const std::string &jar_path) const;
+  virtual blaze_util::Path GetExe(const blaze_util::Path &jvm,
+                                  const std::string &jar_path) const;
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
-  virtual void AddJVMArgumentPrefix(const std::string &javabase,
+  virtual void AddJVMArgumentPrefix(const blaze_util::Path &javabase,
                                     std::vector<std::string> *result) const;
 
   // Adds JVM suffix flags. These will be added after all other JVM flags, and
   // just before the Blaze server startup flags.
-  virtual void AddJVMArgumentSuffix(const std::string &real_install_dir,
+  virtual void AddJVMArgumentSuffix(const blaze_util::Path &real_install_dir,
                                     const std::string &jar_path,
                                     std::vector<std::string> *result) const;
 
@@ -102,7 +103,7 @@ class StartupOptions {
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
   blaze_exit_code::ExitCode AddJVMArguments(
-      const std::string &server_javabase, std::vector<std::string> *result,
+      const blaze_util::Path &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
   // Checks whether the argument is a valid nullary option.
@@ -120,11 +121,11 @@ class StartupOptions {
 
   // If supplied, alternate location to write the blaze server's jvm's stdout.
   // Otherwise a default path in the output base is used.
-  std::string server_jvm_out;
+  blaze_util::Path server_jvm_out;
 
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
-  std::string output_base;
+  blaze_util::Path output_base;
 
   // Installation base for a specific release installation.
   std::string install_base;
@@ -190,7 +191,7 @@ class StartupOptions {
   std::map<std::string, std::string> option_sources;
 
   // Returns the embedded JDK, or an empty string.
-  std::string GetEmbeddedJavabase() const;
+  blaze_util::Path GetEmbeddedJavabase() const;
 
   // The source of truth for the server javabase.
   enum class JavabaseType {
@@ -205,15 +206,15 @@ class StartupOptions {
 
   // Returns the server javabase and its source of truth. This should be called
   // after parsing the --server_javabase option.
-  std::pair<std::string, JavabaseType> GetServerJavabaseAndType() const;
+  std::pair<blaze_util::Path, JavabaseType> GetServerJavabaseAndType() const;
 
   // Returns the server javabase. This should be called after parsing the
   // --server_javabase option.
-  std::string GetServerJavabase() const;
+  blaze_util::Path GetServerJavabase() const;
 
   // Returns the explicit value of the --server_javabase startup option or the
   // empty string if it was not specified on the command line.
-  std::string GetExplicitServerJavabase() const;
+  blaze_util::Path GetExplicitServerJavabase() const;
 
   // Port to start up the gRPC command server on. If 0, let the kernel choose.
   int command_port;
@@ -280,13 +281,13 @@ class StartupOptions {
   // message and returns an appropriate exit code with which the client should
   // terminate.
   blaze_exit_code::ExitCode SanityCheckJavabase(
-      const std::string &javabase,
+      const blaze_util::Path &javabase,
       StartupOptions::JavabaseType javabase_type) const;
 
   // Returns the absolute path to the user's local JDK install, to be used as
   // the default target javabase and as a fall-back host_javabase. This is not
   // the embedded JDK.
-  virtual std::string GetSystemJavabase() const;
+  virtual blaze_util::Path GetSystemJavabase() const;
 
   // Adds JVM logging-related flags for Bazel.
   //
@@ -299,7 +300,7 @@ class StartupOptions {
   // This is called by StartupOptions::AddJVMArguments and is a separate method
   // so that subclasses of StartupOptions can override it.
   virtual blaze_exit_code::ExitCode AddJVMMemoryArguments(
-      const std::string &server_javabase, std::vector<std::string> *result,
+      const blaze_util::Path &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
   virtual std::string GetRcFileBaseName() const = 0;
@@ -357,11 +358,11 @@ class StartupOptions {
                                        std::string *error);
 
   // The server javabase as provided on the commandline.
-  std::string explicit_server_javabase_;
+  blaze_util::Path explicit_server_javabase_;
 
   // The default server javabase to be used and its source of truth (computed
   // lazily). Not guarded by a mutex - StartupOptions is not thread-safe.
-  mutable std::pair<std::string, JavabaseType> default_server_javabase_;
+  mutable std::pair<blaze_util::Path, JavabaseType> default_server_javabase_;
 
   // Startup flags that don't expect a value, e.g. "master_bazelrc".
   // Valid uses are "--master_bazelrc" are "--nomaster_bazelrc".

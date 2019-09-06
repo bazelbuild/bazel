@@ -145,14 +145,14 @@ TEST(FileTest, TestMtimeHandling) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);
   ASSERT_NE(tempdir_cstr[0], 0);
-  string tempdir(tempdir_cstr);
+  Path tempdir(tempdir_cstr);
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always untampered with. (We do
   // not care about directories' mtimes.)
   ASSERT_TRUE(mtime->IsUntampered(tempdir));
   // Create a new file, assert its mtime is not in the future.
-  string file(JoinPath(tempdir, "foo.txt"));
+  Path file = tempdir.GetRelative("foo.txt");
   ASSERT_TRUE(WriteFile("hello", 5, file));
   ASSERT_FALSE(mtime->IsUntampered(file));
   // Set the file's mtime to the future, assert that it's so.

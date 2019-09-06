@@ -345,14 +345,25 @@ public abstract class RepositoryFunction {
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately
     }
+
+    Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
+    if (repoEnvOverride == null) {
+      return false;
+    }
+
+    Map<String, String> repoEnv = new LinkedHashMap<>(environ);
+    for (Map.Entry<String, String> value : repoEnvOverride.entrySet()) {
+      repoEnv.put(value.getKey(), value.getValue());
+    }
+
     // Verify that all environment variable in the marker file are also in keys
     for (String key : markerData.keySet()) {
-      if (key.startsWith("ENV:") && !environ.containsKey(key.substring(4))) {
+      if (key.startsWith("ENV:") && !repoEnv.containsKey(key.substring(4))) {
         return false;
       }
     }
     // Now verify the values of the marker data
-    for (Map.Entry<String, String> value : environ.entrySet()) {
+    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
       if (!markerData.containsKey("ENV:" + value.getKey())) {
         return false;
       }

@@ -148,6 +148,7 @@ public class CppLinkActionBuilder {
   //  of them.
   private boolean isTestOrTestOnlyTarget;
   private boolean isStampingEnabled;
+  private final Map<String, String> executionInfo = new LinkedHashMap<>();
 
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
@@ -1022,15 +1023,14 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    Map<String, String> executionRequirements = new LinkedHashMap<>();
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {
-        executionRequirements.put(req, "");
+        executionInfo.put(req, "");
       }
     }
     configuration.modifyExecutionInfo(
-        executionRequirements, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
+        executionInfo, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
@@ -1092,7 +1092,7 @@ public class CppLinkActionBuilder {
         linkCommandLine,
         configuration.getActionEnvironment(),
         toolchainEnv,
-        ImmutableMap.copyOf(executionRequirements),
+        ImmutableMap.copyOf(executionInfo),
         toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
@@ -1580,6 +1580,11 @@ public class CppLinkActionBuilder {
   /** Adds an extra output artifact to the link action. */
   public CppLinkActionBuilder addActionOutput(Artifact output) {
     this.linkActionOutputs.add(output);
+    return this;
+  }
+
+  public CppLinkActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
+    this.executionInfo.putAll(executionInfo);
     return this;
   }
 }

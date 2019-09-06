@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -605,6 +606,22 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         };
 
     runComplexOrderTest(strategy, preOrder, postOrder);
+  }
+
+  @Test
+  public void testDepthExceedsLimitDuringIteration() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  for element in x:",
+            "    str(x)",
+            "  return None")
+        .testEval("create_depset(1000)", "None")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
   }
 
   private interface MergeStrategy {

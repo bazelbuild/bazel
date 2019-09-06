@@ -157,8 +157,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowEmptyGlob();
 
-  public abstract boolean incompatibleDisallowLegacyJavaProvider();
-
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
   public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
@@ -260,7 +258,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
-          .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
@@ -271,13 +268,13 @@ public abstract class StarlarkSemantics {
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
-          .incompatibleNoTargetOutputGroup(false)
+          .incompatibleNoTargetOutputGroup(true)
           .incompatibleNoTransitiveLoads(true)
           .incompatibleObjcFrameworkCleanup(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictNamedParams(false)
+          .incompatibleRestrictNamedParams(true)
           .incompatibleStringJoinRequiresStrings(true)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -327,8 +324,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
-
-    public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 

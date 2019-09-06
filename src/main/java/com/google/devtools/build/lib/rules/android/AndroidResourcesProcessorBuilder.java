@@ -351,9 +351,7 @@ public class AndroidResourcesProcessorBuilder {
           .maybeAddOutput("--resourcePathShorteningMapOutput", resourcePathShorteningMapOut);
     }
 
-    builder
-        .addFlag("--useCompiledResourcesForMerge")
-        .maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
+    builder.maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
 
     configureCommonFlags(dataContext, primaryResources, primaryAssets, primaryManifest, builder)
         .buildAndRegister("Processing Android resources", "AndroidAapt2");

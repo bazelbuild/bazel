@@ -22,7 +22,7 @@ def _compile_time_jars(ctx):
 
 compile_time_jars = rule(
     attrs = {
-        "deps": attr.label_list(providers = ["java"]),
+        "deps": attr.label_list(providers = [JavaInfo]),
     },
     implementation = _compile_time_jars,
 )

@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -69,7 +71,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private static final Joiner SPACE_JOINER = Joiner.on(' ');
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
 
   private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
 
@@ -85,6 +87,8 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
+
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
   private static Path getProcessWrapper(BinTools binTools, OS localOs) {
@@ -106,7 +110,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       boolean useProcessWrapper,
       OS localOs,
       LocalEnvProvider localEnvProvider,
-      BinTools binTools) {
+      BinTools binTools,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.processWrapper = getProcessWrapper(binTools, localOs);
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -115,6 +120,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.useProcessWrapper = useProcessWrapper;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   public LocalSpawnRunner(
@@ -122,7 +128,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       LocalEnvProvider localEnvProvider,
-      BinTools binTools) {
+      BinTools binTools,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this(
         execRoot,
         localExecutionOptions,
@@ -130,7 +137,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         OS.getCurrent() != OS.WINDOWS && processWrapperExists(binTools),
         OS.getCurrent(),
         localEnvProvider,
-        binTools);
+        binTools,
+        runfilesTreeUpdater);
   }
 
   @Override
@@ -140,10 +148,19 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, ExecException {
+
+    runfilesTreeUpdater.updateRunfilesDirectory(
+        execRoot,
+        spawn.getRunfilesSupplier(),
+        context.getPathResolver(),
+        binTools,
+        spawn.getEnvironment(),
+        context.getFileOutErr());
+
     try (SilentCloseable c =
-        Profiler.instance().profile(
-            ProfilerTask.LOCAL_EXECUTION, spawn.getResourceOwner().getMnemonic())) {
+        Profiler.instance()
+            .profile(ProfilerTask.LOCAL_EXECUTION, spawn.getResourceOwner().getMnemonic())) {
       ActionExecutionMetadata owner = spawn.getResourceOwner();
       context.report(ProgressStatus.SCHEDULING, getName());
       try (ResourceHandle handle =
@@ -232,9 +249,10 @@ public class LocalSpawnRunner implements SpawnRunner {
       long stateTime = (stateTimeBoxed == null) ? 0 : stateTimeBoxed;
       stateTimes.put(currentState, stateTime + stepDelta);
 
-      logger.info(String.format(
-          "Step #%d time: %.3f delta: %.3f state: %s --> %s",
-          id, totalDelta / 1000f, stepDelta / 1000f, currentState, newState));
+      logger.info(
+          String.format(
+              "Step #%d time: %.3f delta: %.3f state: %s --> %s",
+              id, totalDelta / 1000f, stepDelta / 1000f, currentState, newState));
       currentState = newState;
     }
 
@@ -345,8 +363,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         long startTime = System.currentTimeMillis();
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
-            Profiler.instance().profile(
-                ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
+            Profiler.instance()
+                .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           Subprocess subprocess = subprocessBuilder.start();
           subprocess.getOutputStream().close();
           try {
@@ -380,9 +398,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                 || (useProcessWrapper && wasTimeout(context.getTimeout(), wallTime));
         int exitCode = wasTimeout ? POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
-            wasTimeout
-                ? Status.TIMEOUT
-                : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
+            wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
         SpawnResult.Builder spawnResultBuilder =
             new SpawnResult.Builder()
                 .setRunnerName(getName())

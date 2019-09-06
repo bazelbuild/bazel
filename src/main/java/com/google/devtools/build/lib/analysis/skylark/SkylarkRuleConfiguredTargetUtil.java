@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -603,11 +605,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         Preconditions.checkNotNull(executable, "executable must not be null");
         runfilesSupport =
             RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
-        Map<PathFragment, Artifact> symlinks =
-            runfilesSupport.getRunfiles().asMapWithoutRootSymlinks();
-        if (!symlinks.containsValue(executable)) {
-          throw new EvalException(loc, "main program " + executable + " not included in runfiles");
-        }
+        assertExecutableSymlinkPresent(runfilesSupport.getRunfiles(), executable, loc);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
@@ -616,6 +614,28 @@ public final class SkylarkRuleConfiguredTargetUtil {
       InfoInterface actions =
           ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
       builder.addSkylarkDeclaredProvider(actions);
+    }
+  }
+
+  private static void assertExecutableSymlinkPresent(
+      Runfiles runfiles, Artifact executable, Location loc) throws EvalException {
+    try {
+      // Extracting the map from Runfiles flattens a depset.
+      // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
+      Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
+      if (!symlinks.containsValue(executable)) {
+        throw new EvalException(loc, "main program " + executable + " not included in runfiles");
+      }
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the runfiles depset "
+              + "returned by the rule implementation function. the size of depsets is unknown "
+              + "until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
     }
   }
 

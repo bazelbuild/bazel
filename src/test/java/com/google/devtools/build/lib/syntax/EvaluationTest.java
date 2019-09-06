@@ -674,9 +674,9 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testArgBothPosKey() throws Exception {
     newTest()
         .testIfErrorContains(
-            "got multiple values for keyword argument 'old', for call to method "
-                + "replace(old, new, maxsplit = None) of 'string'",
-            "'banana'.replace('a', 'o', 3, old='a')");
+            "got multiple values for keyword argument 'base', "
+                + "for call to function int(x, base = unbound)",
+            "int('2', 3, base=3)");
   }
 
   @Test
