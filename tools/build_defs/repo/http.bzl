@@ -26,35 +26,14 @@ load(
 )
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
 """
 
 load(
     ":utils.bzl",
     "patch",
-    "read_netrc",
     "update_attrs",
-    "use_netrc",
     "workspace_and_buildfile",
 )
-
-def _get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls)
-
-    if "HOME" in ctx.os.environ:
-        if not ctx.os.name.startswith("windows"):
-            netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"],)
-            if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-                netrc = read_netrc(ctx, netrcfile)
-                return use_netrc(netrc, urls)
-
-        # TODO: Search at a similarly canonical place for Windows as well
-
-    return {}
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -69,8 +48,6 @@ def _http_archive_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
 
-    auth = _get_auth(ctx, all_urls)
-
     download_info = ctx.download_and_extract(
         all_urls,
         "",
@@ -78,7 +55,6 @@ def _http_archive_impl(ctx):
         ctx.attr.type,
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
     )
     patch(ctx)
     workspace_and_buildfile(ctx)
@@ -109,13 +85,11 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    auth = _get_auth(ctx, ctx.attr.urls)
     download_info = ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
@@ -146,12 +120,10 @@ def _http_jar_impl(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
-    auth = _get_auth(ctx, all_urls)
     download_info = ctx.download(
         all_urls,
         "jar/downloaded.jar",
         ctx.attr.sha256,
-        auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
@@ -185,9 +157,7 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded
 
@@ -364,9 +334,7 @@ easier but should be set before shipping.""",
 Each entry must be a file, http or https URL. Redirections are followed.
 Authentication is not supported.""",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
 }
 
 http_file = repository_rule(
@@ -408,9 +376,7 @@ _http_jar_attrs = {
             "A list of URLS the jar can be fetched from. They have to end " +
             "in `.jar`.",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
 }
 
 http_jar = repository_rule(

@@ -80,7 +80,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -965,7 +964,9 @@ public class SkylarkRepositoryContext
   }
 
   /**
-   * From an authentication dict extract a map of headers.
+   * From an authentication dict extract a map of headers. Due to
+   * https://github.com/bazelbuild/bazel/issues/9327, this fucntion does the validation of the
+   * <code>auth</code> map, but always returns an empty set of headers.
    *
    * <p>Given a dict as provided as "auth" argument, compute a map specifying for each URI provided
    * which additional headers (as usual, represented as a map from Strings to Strings) should
@@ -976,7 +977,6 @@ public class SkylarkRepositoryContext
   private static Map<URI, Map<String, String>> getAuthHeaders(
       SkylarkDict<String, SkylarkDict<Object, Object>> auth)
       throws RepositoryFunctionException, EvalException {
-    ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
@@ -990,14 +990,7 @@ public class SkylarkRepositoryContext
                       + entry.getKey()
                       + " without 'login' and 'password' being provided.");
             }
-            String credentials = authMap.get("login") + ":" + authMap.get("password");
-            headers.put(
-                url.toURI(),
-                ImmutableMap.<String, String>of(
-                    "Authorization",
-                    "Basic "
-                        + Base64.getEncoder()
-                            .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
+            url.toURI(); // for URL validation.
           }
         }
       } catch (MalformedURLException e) {
@@ -1006,6 +999,7 @@ public class SkylarkRepositoryContext
         throw new EvalException(null, e.getMessage());
       }
     }
-    return headers.build();
+    // TODO(https://github.com/bazelbuild/bazel/issues/9327)
+    return ImmutableMap.of();
   }
 }

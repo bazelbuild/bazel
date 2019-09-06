@@ -405,7 +405,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = SkylarkDict.class,
             defaultValue = "{}",
             named = true,
-            doc = "An optional dict specifying authentication information for some of the URLs."),
+            doc = "Has no effect; do not use."),
         @Param(
             name = "integrity",
             type = String.class,
@@ -560,7 +560,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = SkylarkDict.class,
             defaultValue = "{}",
             named = true,
-            doc = "An optional dict specifying authentication information for some of the URLs."),
+            doc = "Has no effect; do not use."),
         @Param(
             name = "integrity",
             type = String.class,
