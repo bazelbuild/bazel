@@ -85,13 +85,11 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    auth = _get_auth(ctx, ctx.attr.urls)
     download_info = ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
@@ -122,12 +120,10 @@ def _http_jar_impl(ctx):
         all_urls = ctx.attr.urls
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
-    auth = _get_auth(ctx, all_urls)
     download_info = ctx.download(
         all_urls,
         "jar/downloaded.jar",
         ctx.attr.sha256,
-        auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
