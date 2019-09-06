@@ -2681,20 +2681,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         starlarkSemanticsOptions,
         commandId,
         clientEnv,
-        tsgm);
+        tsgm,
+        options);
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
   }
 
-  public void syncPackageLoading(
+  protected void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm)
+      TimestampGranularityMonitor tsgm,
+      OptionsProvider options)
       throws AbruptExitException {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(
