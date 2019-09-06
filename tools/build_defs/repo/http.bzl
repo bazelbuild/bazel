@@ -161,9 +161,7 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded
 
@@ -340,9 +338,7 @@ easier but should be set before shipping.""",
 Each entry must be a file, http or https URL. Redirections are followed.
 Authentication is not supported.""",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
 }
 
 http_file = repository_rule(
@@ -384,9 +380,7 @@ _http_jar_attrs = {
             "A list of URLS the jar can be fetched from. They have to end " +
             "in `.jar`.",
     ),
-    "netrc": attr.string(
-        doc = "Location of the .netrc file to use for authentication",
-    ),
+    "netrc": attr.string(),
 }
 
 http_jar = repository_rule(
