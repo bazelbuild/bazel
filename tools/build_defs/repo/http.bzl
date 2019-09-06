@@ -26,27 +26,14 @@ load(
 )
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
 """
 
 load(
     ":utils.bzl",
     "patch",
-    "read_netrc",
     "update_attrs",
-    "use_netrc",
     "workspace_and_buildfile",
 )
-
-def _get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls)
-
-    # TODO: use ~/.netrc instead, if it exists and is readable
-    return {}
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -61,8 +48,6 @@ def _http_archive_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
 
-    auth = _get_auth(ctx, all_urls)
-
     download_info = ctx.download_and_extract(
         all_urls,
         "",
@@ -70,7 +55,6 @@ def _http_archive_impl(ctx):
         ctx.attr.type,
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
     )
     patch(ctx)
     workspace_and_buildfile(ctx)
