@@ -323,7 +323,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    */
   protected Collection<T> getAllowedDeps(T target, Collection<T> deps) {
     // It's possible to query on a target that's configured in the host configuration. In those
-    // cases if --nohost_deps is turned on, we only allow reachable targets that are ALSO in the
+    // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in the
     // host config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
     if (settings.contains(Setting.ONLY_TARGET_DEPS)) {

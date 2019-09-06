@@ -30,7 +30,7 @@ class FormatUtils {
   private FormatUtils() {}
 
   static DependencyFilter getDependencyFilter(CommonQueryOptions queryOptions) {
-    if (queryOptions.includeHostDeps) {
+    if (queryOptions.includeToolDeps) {
       return queryOptions.includeImplicitDeps
           ? DependencyFilter.ALL_DEPS
           : DependencyFilter.NO_IMPLICIT_DEPS;

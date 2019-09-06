@@ -50,7 +50,8 @@ public class CommonQueryOptions extends OptionsBase {
   public List<String> universeScope;
 
   @Option(
-      name = "host_deps",
+      name = "tool_deps",
+      oldName = "host_deps",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
@@ -66,7 +67,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " configured targets also in the target configuration will be returned. If the"
               + " top-level target is in the host configuration, only host configured targets will"
               + " be returned.")
-  public boolean includeHostDeps;
+  public boolean includeToolDeps;
 
   @Option(
       name = "implicit_deps",
@@ -94,7 +95,7 @@ public class CommonQueryOptions extends OptionsBase {
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
-    if (!includeHostDeps) {
+    if (!includeToolDeps) {
       settings.add(Setting.ONLY_TARGET_DEPS);
     }
     if (!includeImplicitDeps) {
