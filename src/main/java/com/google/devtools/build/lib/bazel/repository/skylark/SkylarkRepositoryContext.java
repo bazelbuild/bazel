@@ -964,48 +964,4 @@ public class SkylarkRepositoryContext
     }
   }
 
-  /**
-   * From an authentication dict extract a map of headers.
-   *
-   * <p>Given a dict as provided as "auth" argument, compute a map specifying for each URI provided
-   * which additional headers (as usual, represented as a map from Strings to Strings) should
-   * additionally be added to the request. For some form of authentication, in particular basic
-   * authentication, adding those headers is enough; for other forms of authentication other
-   * measures might be necessary.
-   */
-  private static Map<URI, Map<String, String>> getAuthHeaders(
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth)
-      throws RepositoryFunctionException, EvalException {
-    ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
-      try {
-        URL url = new URL(entry.getKey());
-        SkylarkDict<Object, Object> authMap = entry.getValue();
-        if (authMap.containsKey("type")) {
-          if ("basic".equals(authMap.get("type"))) {
-            if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
-              throw new EvalException(
-                  null,
-                  "Found request to do basic auth for "
-                      + entry.getKey()
-                      + " without 'login' and 'password' being provided.");
-            }
-            String credentials = authMap.get("login") + ":" + authMap.get("password");
-            headers.put(
-                url.toURI(),
-                ImmutableMap.<String, String>of(
-                    "Authorization",
-                    "Basic "
-                        + Base64.getEncoder()
-                            .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
-          }
-        }
-      } catch (MalformedURLException e) {
-        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-      } catch (URISyntaxException e) {
-        throw new EvalException(null, e.getMessage());
-      }
-    }
-    return headers.build();
-  }
 }
