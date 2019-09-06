@@ -19,8 +19,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -38,7 +36,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -60,19 +57,6 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       String targetDescription,
       Iterable<ConfiguredTargetAndData> toolchainTargets)
       throws ToolchainException {
-
-    // TODO(adonovan): eliminate Builder and call constructor directly.
-    // We don't need two extra classes to perform 9 field assignments.
-    ResolvedToolchainContext.Builder toolchainContext =
-        new AutoValue_ResolvedToolchainContext.Builder()
-            .setRepoMapping(repoMapping)
-            .setTargetDescription(targetDescription)
-            .setExecutionPlatform(unloadedToolchainContext.executionPlatform())
-            .setTargetPlatform(unloadedToolchainContext.targetPlatform())
-            .setRequiredToolchainTypes(unloadedToolchainContext.requiredToolchainTypes())
-            .setResolvedToolchainLabels(unloadedToolchainContext.resolvedToolchainLabels())
-            .setRequestedToolchainTypeLabels(
-                unloadedToolchainContext.requestedLabelToToolchainType());
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchains =
         new ImmutableMap.Builder<>();
@@ -110,45 +94,18 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       }
     }
 
-    return toolchainContext
-        .setToolchains(toolchains.build())
-        .setTemplateVariableProviders(templateVariableProviders.build())
-        .build();
-  }
-
-  /** Builder interface to help create new instances of {@link ResolvedToolchainContext}. */
-  @AutoValue.Builder
-  interface Builder {
-    /** Sets a description of the target being used, for error messaging. */
-    Builder setRepoMapping(ImmutableMap<RepositoryName, RepositoryName> repoMapping);
-
-    /** Sets a description of the target being used, for error messaging. */
-    Builder setTargetDescription(String targetDescription);
-
-    /** Sets the selected execution platform that these toolchains use. */
-    Builder setExecutionPlatform(PlatformInfo executionPlatform);
-
-    /** Sets the target platform that these toolchains generate output for. */
-    Builder setTargetPlatform(PlatformInfo targetPlatform);
-
-    /** Sets the toolchain types that were requested. */
-    Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
-
-    /** Sets the map from requested {@link Label} to toolchain type provider. */
-    Builder setRequestedToolchainTypeLabels(
-        ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels);
-
-    /** Sets the map from toolchain type to toolchain provider. */
-    Builder setToolchains(ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains);
-
-    /** Sets the template variables that these toolchains provide. */
-    Builder setTemplateVariableProviders(ImmutableList<TemplateVariableInfo> providers);
-
-    /** Sets the labels of the specific toolchains being used. */
-    Builder setResolvedToolchainLabels(ImmutableSet<Label> resolvedToolchainLabels);
-
-    /** Returns a new {@link ResolvedToolchainContext}. */
-    ResolvedToolchainContext build();
+    return new AutoValue_ResolvedToolchainContext(
+        // super:
+        unloadedToolchainContext.executionPlatform(),
+        unloadedToolchainContext.targetPlatform(),
+        unloadedToolchainContext.requiredToolchainTypes(),
+        unloadedToolchainContext.resolvedToolchainLabels(),
+        // this:
+        repoMapping,
+        targetDescription,
+        unloadedToolchainContext.requestedLabelToToolchainType(),
+        toolchains.build(),
+        templateVariableProviders.build());
   }
 
   /** Returns the repository mapping applied by the Starlark 'in' operator to string-form labels. */
