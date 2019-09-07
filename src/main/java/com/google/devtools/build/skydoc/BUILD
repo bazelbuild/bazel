@@ -58,7 +58,6 @@ java_library(
     visibility = ["//src/test:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

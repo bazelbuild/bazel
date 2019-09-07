@@ -75,6 +75,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
+        "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
@@ -402,13 +403,10 @@ java_library(
 
 java_library(
     name = "skylark_semantics",
-    srcs = [
-        "syntax/StarlarkSemantics.java",
-    ],
+    srcs = [],
     visibility = ["//visibility:public"],  # needed by Copybara
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/syntax:semantics",
     ],
 )
 
@@ -452,37 +450,12 @@ java_library(
 )
 
 java_library(
-    name = "skylark-semantics",
-    srcs = ["syntax/StarlarkSemantics.java"],
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "syntax",
-    srcs = glob(
-        [
-            "syntax/**/*.java",
-        ],
-        exclude = ["syntax/StarlarkSemantics.java"],
-    ),
-    deps = [
-        ":events",
-        ":skylark-semantics",
-        ":skylarkinterface",
-        ":util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+    srcs = [],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
     ],
 )
 
