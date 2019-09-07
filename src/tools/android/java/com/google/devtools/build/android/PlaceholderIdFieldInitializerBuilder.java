@@ -290,7 +290,7 @@ class PlaceholderIdFieldInitializerBuilder {
         }
       }
     }
-    return attrToId;
+    return ImmutableMap.copyOf(attrToId);
   }
 
   private Map<ResourceType, Integer> assignTypeIdsForPublic() {
@@ -405,7 +405,7 @@ class PlaceholderIdFieldInitializerBuilder {
     return allocatedTypeIds;
   }
 
-  private Map<String, FieldInitializer> getAttrInitializers(
+  private static Map<String, FieldInitializer> getAttrInitializers(
       Map<String, Integer> attrAssignments, Collection<String> sortedFields) {
     ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
     for (String field : sortedFields) {
