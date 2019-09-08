@@ -75,7 +75,7 @@ import javax.xml.stream.events.XMLEvent;
  * contains multiple {@link XmlResourceValue} instances for each resource.
  */
 @Immutable
-public class AttrXmlResourceValue implements XmlResourceValue {
+public final class AttrXmlResourceValue implements XmlResourceValue {
 
   private static final String FRACTION = "fraction";
   private static final String STRING = "string";
