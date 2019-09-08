@@ -353,7 +353,7 @@ class PlaceholderIdFieldInitializerBuilder {
   }
 
   public FieldInitializers build() throws AttrLookupException {
-    Map<ResourceType, Map<String, FieldInitializer>> initializers =
+    Map<ResourceType, Collection<FieldInitializer>> initializers =
         new EnumMap<>(ResourceType.class);
     Map<ResourceType, Integer> typeIdMap = chooseTypeIds();
     Map<String, Integer> attrAssignments = assignAttrIds(typeIdMap.get(ResourceType.ATTR));
@@ -361,7 +361,7 @@ class PlaceholderIdFieldInitializerBuilder {
       ResourceType type = fieldEntries.getKey();
       ImmutableList<String> sortedFields =
           Ordering.natural().immutableSortedCopy(fieldEntries.getValue());
-      Map<String, FieldInitializer> fields;
+      ImmutableList<FieldInitializer> fields;
       if (type == ResourceType.STYLEABLE) {
         fields = getStyleableInitializers(attrAssignments, sortedFields);
       } else if (type == ResourceType.ATTR) {
@@ -405,19 +405,19 @@ class PlaceholderIdFieldInitializerBuilder {
     return allocatedTypeIds;
   }
 
-  private static Map<String, FieldInitializer> getAttrInitializers(
+  private static ImmutableList<FieldInitializer> getAttrInitializers(
       Map<String, Integer> attrAssignments, Collection<String> sortedFields) {
-    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
+    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
     for (String field : sortedFields) {
       int attrId = attrAssignments.get(field);
-      initList.put(field, IntFieldInitializer.of(attrId));
+      initList.add(IntFieldInitializer.of(field, attrId));
     }
     return initList.build();
   }
 
-  private Map<String, FieldInitializer> getResourceInitializers(
+  private ImmutableList<FieldInitializer> getResourceInitializers(
       ResourceType type, int typeId, Collection<String> sortedFields) {
-    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
+    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
     Map<String, Integer> publicNameToId = new LinkedHashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(type)) {
@@ -430,15 +430,15 @@ class PlaceholderIdFieldInitializerBuilder {
         fieldValue = resourceIds;
         resourceIds = nextFreeId(resourceIds + 1, assignedIds);
       }
-      initList.put(field, IntFieldInitializer.of(fieldValue));
+      initList.add(IntFieldInitializer.of(field, fieldValue));
     }
     return initList.build();
   }
 
-  private Map<String, FieldInitializer> getStyleableInitializers(
+  private ImmutableList<FieldInitializer> getStyleableInitializers(
       Map<String, Integer> attrAssignments, Collection<String> styleableFields)
       throws AttrLookupException {
-    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
+    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
     for (String field : styleableFields) {
       Set<String> attrs = styleableAttrs.get(field).keySet();
       ImmutableMap.Builder<String, Integer> arrayInitValues = ImmutableMap.builder();
@@ -458,10 +458,10 @@ class PlaceholderIdFieldInitializerBuilder {
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
           arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
-      initList.put(field, IntArrayFieldInitializer.of(arrayInitMap.values()));
+      initList.add(IntArrayFieldInitializer.of(field, arrayInitMap.values()));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
-        initList.put(field + "_" + attr, IntFieldInitializer.of(index));
+        initList.add(IntFieldInitializer.of(field + "_" + attr, index));
         ++index;
       }
     }
