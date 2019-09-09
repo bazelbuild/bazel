@@ -61,8 +61,6 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
   private boolean crunchPng = true;
-  private Artifact featureOf;
-  private Artifact featureAfter;
   private AndroidAaptVersion aaptVersion;
   private boolean throwOnResourceConflict;
   private String packageUnderTest;
@@ -165,16 +163,6 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureOf(Artifact featureOf) {
-    this.featureOf = featureOf;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureAfter(Artifact featureAfter) {
-    this.featureAfter = featureAfter;
     return this;
   }
 
@@ -449,8 +437,6 @@ public class AndroidResourcesProcessorBuilder {
         .maybeAddFlag("--applicationId", applicationId)
         .maybeAddOutput("--dataBindingInfoOut", dataBindingInfoZip)
         .maybeAddFlag("--packageForR", customJavaPackage)
-        .maybeAddInput("--featureOf", featureOf)
-        .maybeAddInput("--featureAfter", featureAfter)
         .maybeAddFlag("--throwOnResourceConflict", throwOnResourceConflict)
         .maybeAddFlag("--packageUnderTest", packageUnderTest)
         .maybeAddFlag("--isTestWithResources", isTestWithResources);

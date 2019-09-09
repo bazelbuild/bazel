@@ -244,14 +244,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
             ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
             ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-            ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-                ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER).getApk()
-                : null,
-            ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-                ? ruleContext
-                    .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
-                    .getApk()
-                : null,
             DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
 
     AndroidApplicationResourceInfo androidApplicationResourceInfo =

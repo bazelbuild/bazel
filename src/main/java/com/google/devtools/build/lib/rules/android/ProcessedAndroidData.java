@@ -67,8 +67,6 @@ public class ProcessedAndroidData {
       ResourceFilterFactory resourceFilterFactory,
       List<String> noCompressExtensions,
       boolean crunchPng,
-      @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter,
       DataBindingContext dataBindingContext)
       throws RuleErrorException, InterruptedException {
     if (conditionalKeepRules && aaptVersion != AndroidAaptVersion.AAPT2) {
@@ -89,9 +87,7 @@ public class ProcessedAndroidData {
             .setMainDexProguardOut(
                 AndroidBinary.createMainDexProguardSpec(
                     dataContext.getLabel(), dataContext.getActionConstructionContext()))
-            .conditionalKeepRules(conditionalKeepRules)
-            .setFeatureOf(featureOf)
-            .setFeatureAfter(featureAfter);
+            .conditionalKeepRules(conditionalKeepRules);
     if (dataContext.useResourcePathShortening()) {
       builder.setResourcePathShorteningMapOut(
           dataContext.createOutputArtifact(
