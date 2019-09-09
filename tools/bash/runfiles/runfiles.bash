@@ -68,7 +68,7 @@
 #       cat "$(rlocation my_workspace/path/to/my/data.txt)"
 #
 
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+if [[ ! -d "${RUNFILES_DIR:-/dev/null/x}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null/x}" ]]; then
   if [[ -f "$0.runfiles_manifest" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
   elif [[ -f "$0.runfiles/MANIFEST" ]]; then
@@ -112,12 +112,12 @@ function rlocation() {
     fi
     return 1
   else
-    if [[ -e "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
+    if [[ -e "${RUNFILES_DIR:-/dev/null/x}/$1" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
       fi
       echo "${RUNFILES_DIR}/$1"
-    elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null/x}" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
       fi
@@ -159,12 +159,12 @@ export -f rlocation
 # libraries under @bazel_tools//tools/<lang>/runfiles, then that binary needs
 # these envvars in order to initialize its own runfiles library.
 function runfiles_export_envvars() {
-  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" \
-        && ! -d "${RUNFILES_DIR:-/dev/null}" ]]; then
+  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null/x}" \
+        && ! -d "${RUNFILES_DIR:-/dev/null/x}" ]]; then
     return 1
   fi
 
-  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null/x}" ]]; then
     if [[ -f "$RUNFILES_DIR/MANIFEST" ]]; then
       export RUNFILES_MANIFEST_FILE="$RUNFILES_DIR/MANIFEST"
     elif [[ -f "${RUNFILES_DIR}_manifest" ]]; then
@@ -172,7 +172,7 @@ function runfiles_export_envvars() {
     else
       export RUNFILES_MANIFEST_FILE=
     fi
-  elif [[ ! -d "${RUNFILES_DIR:-/dev/null}" ]]; then
+  elif [[ ! -d "${RUNFILES_DIR:-/dev/null/x}" ]]; then
     if [[ "$RUNFILES_MANIFEST_FILE" == */MANIFEST \
           && -d "${RUNFILES_MANIFEST_FILE%/MANIFEST}" ]]; then
       export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%/MANIFEST}"

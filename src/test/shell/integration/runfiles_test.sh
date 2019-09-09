@@ -380,11 +380,10 @@ eof
 
   # See if runfiles links are generated
   bazel build --enable_runfiles --build_runfile_links //:x >&"$TEST_log"
-  find bazel-bin/x.runfiles | sed 's,^,  # ,' >&2
-  [[ -e 'bazel-bin/x.runfiles/foo_ws/foo/x.txt' ]] || fail "Cannot find x.txt"
-  [[ -e 'bazel-bin/x.runfiles/foo_ws/foo/a a/y.txt' ]] || fail "Cannot find y.txt"
-  [[ -e 'bazel-bin/x.runfiles/space_ws/z.txt' ]] || fail "Cannot find z.txt"
-  [[ -e 'bazel-bin/x.runfiles/space_ws/c c/w.txt' ]] || fail "Cannot find w.txt"
+  [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/x.txt" ]] || fail "Cannot find x.txt"
+  [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/a a/y.txt" ]] || fail "Cannot find y.txt"
+  [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/z.txt" ]] || fail "Cannot find z.txt"
+  [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/c c/w.txt" ]] || fail "Cannot find w.txt"
 }
 
 run_suite "runfiles"

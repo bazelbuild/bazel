@@ -169,7 +169,10 @@ class RunfilesCreator {
         continue;
       }
 
-      size_t space_pos = line.find_first_of(' ');
+      size_t space_pos = line.find_first_of('|');
+      if (space_pos == string::npos) {
+        space_pos = line.find_first_of(' ');
+      }
       wstring wline = blaze_util::CstringToWstring(line);
       wstring link, target;
       if (space_pos == string::npos) {
