@@ -73,10 +73,6 @@ public class ProcessedAndroidData {
       throw errorConsumer.throwWithRuleError(
           "resource cycle shrinking can only be enabled for builds with aapt2");
     }
-    if (dataContext.useResourcePathShortening() && aaptVersion != AndroidAaptVersion.AAPT2) {
-      throw errorConsumer.throwWithRuleError(
-          "resource path shortening can only be enabled for builds with aapt2");
-    }
 
     AndroidResourcesProcessorBuilder builder =
         builderForNonIncrementalTopLevelTarget(dataContext, manifest, manifestValues, aaptVersion)
@@ -88,11 +84,6 @@ public class ProcessedAndroidData {
                 AndroidBinary.createMainDexProguardSpec(
                     dataContext.getLabel(), dataContext.getActionConstructionContext()))
             .conditionalKeepRules(conditionalKeepRules);
-    if (dataContext.useResourcePathShortening()) {
-      builder.setResourcePathShorteningMapOut(
-          dataContext.createOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
-    }
     dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     return buildActionForBinary(
         dataContext,

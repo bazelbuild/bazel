@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getArtifactsEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.hasInput;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorpath;
@@ -937,7 +938,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShortening_flagEnabledAndCOpt_flagsGetPassedToAction()
+  public void testResourcePathShortening_flagEnabledAndCOpt_optimizedApkIsInputToApkBuilderAction()
       throws Exception {
     useConfiguration("--experimental_android_resource_path_shortening", "-c", "opt");
 
@@ -945,23 +946,26 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
-    Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
-    assertThat(resourcePathShorteningMapArtifact).isNotNull();
-    assertThat(getGeneratingAction(resourcePathShorteningMapArtifact).getMnemonic())
-        .isEqualTo("AndroidAapt2");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+    assertThat(getGeneratingAction(getFirstArtifactEndingWith(artifacts, "app_resource_paths.map")))
+        .isEqualTo(optimizeAction);
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
-
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).contains("--resourcePathShortening");
-    assertThat(flagValue("--resourcePathShorteningMapOutput", processingArgs))
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--enable-resource-path-shortening");
+    assertThat(flagValue("--resource-path-shortening-map", processingArgs))
         .endsWith("app_resource_paths.map");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isTrue();
   }
 
   @Test
-  public void testResourcePathShortening_flagEnabledAndCDefault_flagsNotPassedToAction()
+  public void testResourcePathShortening_flagEnabledAndCDefault_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("--experimental_android_resource_path_shortening");
 
@@ -973,16 +977,18 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNull();
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "app_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
 
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
-    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isFalse();
   }
 
   @Test
-  public void testResourcePathShorteningMap_flagNotEnabledAndCOpt_flagsNotPassedToAction()
+  public void testResourcePathShorteningMap_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("-c", "opt");
 
@@ -994,12 +1000,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNull();
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "app_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
 
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
-    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isFalse();
   }
 
   @Test
