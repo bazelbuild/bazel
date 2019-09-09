@@ -378,8 +378,8 @@ target in the `BUILD` file (the `name` attribute). If the target is a file
 target, then `path/to/package` is the path to the root of the package, and
 `target-name` is the name of the target file, including its full path.
 
-When referencing targets within the same package, you can skip the package path
-and just use `//:target-name`. When referencing targets within the same `BUILD`
+When referencing targets at the repository root, the package path is empty,
+just use `//:target-name`. When referencing targets within the same `BUILD`
 file, you can even skip the `//` workspace root identifier and just use
 `:target-name`.
 
