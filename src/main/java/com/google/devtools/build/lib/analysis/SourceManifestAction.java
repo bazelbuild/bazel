@@ -224,9 +224,22 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       @Override
       public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
           throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
-        // This trailing whitespace is REQUIRED to process the single entry line correctly.
-        manifestWriter.append(' ');
+        String p = rootRelativePath.getPathString();
+        manifestWriter.append(p);
+        // This trailing delimiter is REQUIRED to process the single entry line correctly.
+        if (p.indexOf(' ') == -1) {
+          // Use space if and only if the file link name does not have a space in it.
+          // As of 2019-09-09, this is what existing manifest consumers expect.
+          // (The target name might have a space, that's OK.)
+          manifestWriter.append(' ');
+        } else {
+          // Use "|" as a delimiter if the link name (and thus surely the target name) have spaces.
+          // Using the alternative delimiter only when a file name has spaces guarantees that
+          // manifest consumers that were implemented before Bazel started supporting spaces keep
+          // working for filenames without spaces (because the delimiter is still space), but newer
+          // consumers can handle "|" and filenames with space.
+          manifestWriter.append('|');
+        }
         if (symlink != null) {
           manifestWriter.append(symlink.getPath().getPathString());
         }

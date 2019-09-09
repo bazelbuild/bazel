@@ -151,10 +151,16 @@ class RunfilesCreator {
       if (buf[0] ==  '/') {
         DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
       }
-      const char *s = strchr(buf, ' ');
+      const char *s = strchr(buf, '|');
       if (!s) {
-        DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-      } else if (strchr(s+1, ' ')) {
+        s = strchr(buf, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+        } else if (strchr(s+1, ' ')) {
+          DIE("link or target filename contains space on line %d: '%s'\n",
+              lineno, buf);
+        }
+      } else if (strchr(s+1, '|')) {
         DIE("link or target filename contains space on line %d: '%s'\n",
             lineno, buf);
       }
