@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -314,8 +315,7 @@ public final class CommandInterruptionTest {
       synchronizeWithCommand();
       assertWithMessage("The command should have been finished, but it was not.")
           .that(result.isDone()).isTrue();
-      // TODO(mstaib): replace with Futures.getDone when Bazel uses Guava 20.0
-      assertThat(result.get()).isEqualTo(exitCode.getNumericExitCode());
+      assertThat(Futures.getDone(result)).isEqualTo(exitCode.getNumericExitCode());
     }
 
     /** Asserts that the command has not finished yet. */
