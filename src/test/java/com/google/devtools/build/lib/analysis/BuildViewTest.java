@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -201,8 +200,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "        cmd = 'echo')");
 
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
-    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//b:cc");
+    AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//b:cc");
 
     assertContainsEvent("invalid character: '@'");
     assertThat(result.hasError()).isTrue();
@@ -229,15 +227,50 @@ public class BuildViewTest extends BuildViewTestBase {
         "    cmd='')");
 
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
+
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
     assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:bar");
     assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
+
+    assertThat(recorder.causes).hasSize(1);
+    AnalysisRootCauseEvent cause = recorder.causes.get(0);
+    assertThat(cause.getLabel().toString()).isEqualTo("//foo:bar");
+  }
+
+  @Test
+  public void testTestOnlyFailureReported() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "genrule(",
+        "    name='foo',",
+        "    tools=[':bar'],",
+        "    outs=['foo.out'],",
+        "    cmd='')",
+        "genrule(",
+        "    name='bar',",
+        "    outs=['bar.out'],",
+        "    testonly=1,",
+        "    cmd='')");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
+    eventBus.register(recorder);
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
+    assertThat(result.hasError()).isTrue();
+
+    assertThat(recorder.events).hasSize(1);
+    AnalysisFailureEvent event = recorder.events.get(0);
+    assertThat(event.getLegacyFailureReason().toString()).isEqualTo("//foo:foo");
+    assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
+
+    assertThat(recorder.causes).hasSize(1);
+    AnalysisRootCauseEvent cause = recorder.causes.get(0);
+    assertThat(cause.getLabel().toString()).isEqualTo("//foo:foo");
   }
 
   @Test
@@ -246,7 +279,6 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("bar/BUILD", "sh_library(name='bar',deps=[':bar'])");
 
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
@@ -267,7 +299,6 @@ public class BuildViewTest extends BuildViewTestBase {
         "        cmd='')");
 
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     // Note: no need to run analysis for a loading failure.
@@ -299,7 +330,6 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("c1/BUILD");
     scratch.file("c2/BUILD");
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
@@ -826,7 +856,6 @@ public class BuildViewTest extends BuildViewTestBase {
     cycles2BuildFilePath.getParentDirectory().getRelative("cycles2.sh").createSymbolicLink(
         PathFragment.create("cycles2.sh"));
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
@@ -989,7 +1018,6 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_library(name = 'bau', srcs = ['bas.cc'], deps = [':bas'])",
         "cc_library(name = 'baz', srcs = ['baz.cc'])");
     reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
     LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
     AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
     eventBus.register(loadingFailureRecorder);
