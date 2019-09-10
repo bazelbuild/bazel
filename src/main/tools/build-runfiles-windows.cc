@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -169,10 +170,7 @@ class RunfilesCreator {
         continue;
       }
 
-      size_t space_pos = line.find_first_of('|');
-      if (space_pos == string::npos) {
-        space_pos = line.find_first_of(' ');
-      }
+      size_t space_pos = line.find_first_of(' ');
       wstring wline = blaze_util::CstringToWstring(line);
       wstring link, target;
       if (space_pos == string::npos) {
@@ -182,6 +180,8 @@ class RunfilesCreator {
         link = wline.substr(0, space_pos);
         target = wline.substr(space_pos + 1);
       }
+      // Spaces in the link name are replaced by '|'.
+      std::replace(link.begin(), link.end(), '|', ' ');
 
       // Removing leading and trailing spaces
       Trim(link);

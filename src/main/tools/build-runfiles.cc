@@ -53,6 +53,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <map>
 #include <string>
 
@@ -151,20 +152,16 @@ class RunfilesCreator {
       if (buf[0] ==  '/') {
         DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
       }
-      const char *s = strchr(buf, '|');
+      const char *s = strchr(buf, ' ');
       if (!s) {
-        s = strchr(buf, ' ');
-        if (!s) {
-          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-        } else if (strchr(s+1, ' ')) {
-          DIE("link or target filename contains space on line %d: '%s'\n",
-              lineno, buf);
-        }
-      } else if (strchr(s+1, '|')) {
+        DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+      } else if (strchr(s+1, ' ')) {
         DIE("link or target filename contains space on line %d: '%s'\n",
             lineno, buf);
       }
       std::string link(buf, s-buf);
+      // Spaces in the link name are replaced by '|'.
+      std::replace(link.begin(), link.end(), '|', ' ');
       const char *target = s+1;
       if (!allow_relative && target[0] != '\0' && target[0] != '/'
           && target[1] != ':') {  // Match Windows paths, e.g. C:\foo or C:/foo.

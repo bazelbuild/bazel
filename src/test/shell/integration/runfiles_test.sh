@@ -322,11 +322,11 @@ EOF
 
 function test_space_in_runfile_path() {
   mkdir -p 'foo/a a'
-  mkdir -p 'repo/b b/c c'
+  mkdir -p 'repo/b b/c   c'
   touch 'foo/x.txt'          # no space
   touch 'foo/a a/y.txt'      # space in runfile link and target path
   touch 'repo/b b/z.txt'     # space in target path only
-  touch 'repo/b b/c c/w.txt' # space in runfile link and target path in ext.repo
+  touch 'repo/b b/c   c/w.txt' # space in runfile link and target path in ext.repo
   touch 'repo/b b/WORKSPACE'
   cat >'repo/b b/BUILD' <<'eof'
 filegroup(
@@ -366,7 +366,7 @@ echo "Hello from x.sh"
 echo "x=($(rlocation "foo_ws/foo/x.txt"))"
 echo "y=($(rlocation "foo_ws/foo/a a/y.txt"))"
 echo "z=($(rlocation "space_ws/z.txt"))"
-echo "w=($(rlocation "space_ws/c c/w.txt"))"
+echo "w=($(rlocation "space_ws/c   c/w.txt"))"
 eof
   chmod +x x.sh
 
@@ -376,14 +376,14 @@ eof
   expect_log "^x=(.*foo/x.txt)"
   expect_log "^y=(.*foo/a a/y.txt)"
   expect_log "^z=(.*space_ws/z.txt)"
-  expect_log "^w=(.*space_ws/c c/w.txt)"
+  expect_log "^w=(.*space_ws/c   c/w.txt)"
 
   # See if runfiles links are generated
   bazel build --enable_runfiles --build_runfile_links //:x >&"$TEST_log"
   [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/x.txt" ]] || fail "Cannot find x.txt"
   [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/a a/y.txt" ]] || fail "Cannot find y.txt"
   [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/z.txt" ]] || fail "Cannot find z.txt"
-  [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/c c/w.txt" ]] || fail "Cannot find w.txt"
+  [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/c   c/w.txt" ]] || fail "Cannot find w.txt"
 }
 
 run_suite "runfiles"

@@ -121,25 +121,18 @@ function rlocation() {
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
       fi
-      local result="$(grep -m1 "^$1|" "${RUNFILES_MANIFEST_FILE}" | cut -d '|' -f 2-)"
+      # Spaces in the link name are replaced by '|'.
+      local -r result=$(grep -m1 "^${1// /|} " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
       if [[ -e "${result:-/dev/null/x}" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
         fi
         echo "$result"
       else
-        result="$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"
-        if [[ -e "${result:-/dev/null/x}" ]]; then
-          if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-            echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
-          fi
-          echo "$result"
-        else
-          if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-            echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
-          fi
-          echo ""
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
         fi
+        echo ""
       fi
     else
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
