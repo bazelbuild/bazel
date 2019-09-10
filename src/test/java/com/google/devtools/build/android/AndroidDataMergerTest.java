@@ -200,9 +200,9 @@ public class AndroidDataMergerTest {
     Path primaryRoot = fileSystem.getPath("primary");
     Path directRoot = fileSystem.getPath("direct");
     Path transitiveRoot = fileSystem.getPath("transitive");
-    Path descendentRoot = fileSystem.getPath("descendent");
+    Path descendantRoot = fileSystem.getPath("descendant");
 
-    DataSource descendentLayout = DataSource.of(descendentRoot.resolve("res/layout/enter.xml"));
+    DataSource descendantLayout = DataSource.of(descendantRoot.resolve("res/layout/enter.xml"));
     DataSource transitiveLayout = DataSource.of(transitiveRoot.resolve("res/layout/enter.xml"));
 
     DataSource primaryString = DataSource.of(primaryRoot.resolve("res/values/resources.xml"));
@@ -210,8 +210,8 @@ public class AndroidDataMergerTest {
 
     ParsedAndroidData transitiveDependency =
         ParsedAndroidDataBuilder.buildOn(transitiveRoot, fqnFactory)
-            .overwritable(file("layout/enter").source(descendentLayout))
-            .overwritable(file("layout/enter").source(transitiveLayout.overwrite(descendentLayout)))
+            .overwritable(file("layout/enter").source(descendantLayout))
+            .overwritable(file("layout/enter").source(transitiveLayout.overwrite(descendantLayout)))
             .combining(xml("id/exit").source("values/ids.xml").value(IdXmlResourceValue.of()))
             .build();
 
@@ -252,7 +252,7 @@ public class AndroidDataMergerTest {
                 .build(),
             ParsedAndroidDataBuilder.buildOn(fqnFactory)
                 .overwritable(
-                    file("layout/enter").source(transitiveLayout.overwrite(descendentLayout)),
+                    file("layout/enter").source(transitiveLayout.overwrite(descendantLayout)),
                     file("layout/exit").root(directRoot).source("res/layout/exit.xml"))
                 .combining(
                     xml("id/exit")
