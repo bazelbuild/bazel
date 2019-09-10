@@ -57,8 +57,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -111,7 +111,7 @@ public class DynamicSpawnStrategyTest {
     public List<SpawnResult> exec(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
-        AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+        @Nullable StopConcurrentSpawns stopConcurrentSpawns)
         throws ExecException, InterruptedException {
       executedSpawn = spawn;
 
@@ -146,16 +146,16 @@ public class DynamicSpawnStrategyTest {
         throw new UserExecException(getClass().getSimpleName() + " failed to execute the Spawn");
       }
 
-      if (writeOutputFiles != null && !writeOutputFiles.compareAndSet(null, getClass())) {
-        throw new InterruptedException(getClass() + " could not acquire barrier");
-      } else {
-        for (ActionInput output : spawn.getOutputFiles()) {
-          try {
-            FileSystemUtils.writeIsoLatin1(
-                testRoot.getRelative(output.getExecPath()), getClass().getSimpleName());
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
+      if (stopConcurrentSpawns != null) {
+        stopConcurrentSpawns.stop();
+      }
+
+      for (ActionInput output : spawn.getOutputFiles()) {
+        try {
+          FileSystemUtils.writeIsoLatin1(
+              testRoot.getRelative(output.getExecPath()), getClass().getSimpleName());
+        } catch (IOException e) {
+          throw new IllegalStateException(e);
         }
       }
 
