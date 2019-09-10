@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.android.aapt2;
 
+import static com.android.SdkConstants.ATTR_DISCARD;
+import static com.android.SdkConstants.ATTR_KEEP;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -24,16 +26,19 @@ import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
 import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.XmlUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.aapt2.ProtoApk.ManifestVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ReferenceVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
+import com.sun.org.apache.xerces.internal.dom.AttrImpl;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -41,7 +46,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -53,8 +57,6 @@ import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Attr;
 import org.w3c.dom.DOMException;
-import org.w3c.dom.NamedNodeMap;
-import org.xml.sax.SAXException;
 
 /** A resource usage analyzer tha functions on apks in protocol buffer format. */
 public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
@@ -89,17 +91,12 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
    * @param apk An apk in the aapt2 proto format.
    * @param classes The associated classes for the apk.
    * @param destination Where to write the reduced resources.
-   * @param keep A list of resource urls to keep, unused or not.
-   * @param discard A list of resource urls to always discard.
+   * @param toolAttributes A map of the tool attributes designating resources to keep or discard.
    */
   @CheckReturnValue
   public ProtoApk shrink(
-      ProtoApk apk,
-      Path classes,
-      Path destination,
-      Collection<String> keep,
-      Collection<String> discard)
-      throws IOException, ParserConfigurationException, SAXException {
+      ProtoApk apk, Path classes, Path destination, ListMultimap<String, String> toolAttributes)
+      throws IOException {
 
     // Set the usage analyzer as parent to make sure that the usage log contains the subclass data.
     logger.setParent(Logger.getLogger(ResourceUsageAnalyzer.class.getName()));
@@ -126,20 +123,10 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     }
     recordClassUsages(classes);
 
-    // Have to give the model xml attributes with keep and discard urls.
-    final NamedNodeMap toolAttributes =
-        XmlUtils.parseDocument(
-                String.format(
-                    "<resources xmlns:tools='http://schemas.android.com/tools' tools:keep='%s'"
-                        + " tools:discard='%s'></resources>",
-                    keep.stream().collect(joining(",")), discard.stream().collect(joining(","))),
-                true)
-            .getDocumentElement()
-            .getAttributes();
-
-    for (int i = 0; i < toolAttributes.getLength(); i++) {
-      model().recordToolsAttributes((Attr) toolAttributes.item(i));
-    }
+    toolAttributes.entries().stream()
+        .filter(entry -> entry.getKey().equals(ATTR_KEEP) || entry.getKey().equals(ATTR_DISCARD))
+        .map(entry -> createSimpleAttr(entry.getKey(), entry.getValue()))
+        .forEach(attr -> model().recordToolsAttributes(attr));
     model().processToolsAttributes();
 
     keepPossiblyReferencedResources();
@@ -344,5 +331,20 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     private boolean isInDeclaredPackages(int value) {
       return packageIds.contains(value >> 24);
     }
+  }
+
+  @VisibleForTesting
+  public static Attr createSimpleAttr(String simpleName, String simpleValue) {
+    return new AttrImpl() {
+      @Override
+      public String getLocalName() {
+        return simpleName;
+      }
+
+      @Override
+      public String getValue() {
+        return simpleValue;
+      }
+    };
   }
 }
