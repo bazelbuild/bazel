@@ -22,6 +22,9 @@ public abstract class DependencyInfo {
 
   public abstract DependencyType dependencyType();
 
+  /** Placeholder for when dependency information is unknown (or irrelevant). */
+  public static final DependencyInfo UNKNOWN = create("", DependencyType.UNKNOWN);
+
   static DependencyInfo create(String label, DependencyType dependencyType) {
     return new AutoValue_DependencyInfo(label, dependencyType);
   }
@@ -33,9 +36,14 @@ public abstract class DependencyInfo {
      * ResourceProcessorBusyBox.
      */
     PRIMARY,
+
     /** Direct dependency. */
     DIRECT,
+
     /** Transitive dependency. */
-    TRANSITIVE
+    TRANSITIVE,
+
+    /** Unknown dependency. */
+    UNKNOWN
   }
 }

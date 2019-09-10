@@ -12,6 +12,7 @@ java_library(
     name = "resources",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:dependency_info",
         "//third_party:android_common_25_0_0",
         "//third_party:asm",
         "//third_party:asm-commons",

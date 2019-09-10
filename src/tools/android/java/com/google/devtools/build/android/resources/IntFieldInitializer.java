@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.resources;
 
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.DependencyInfo;
 import java.io.IOException;
 import java.io.Writer;
 import org.objectweb.asm.ClassWriter;
@@ -22,26 +23,29 @@ import org.objectweb.asm.commons.InstructionAdapter;
 /** Models an int field initializer. */
 public final class IntFieldInitializer implements FieldInitializer {
 
+  private static final String DESC = "I";
+
+  private final DependencyInfo dependencyInfo;
   private final String fieldName;
   private final int value;
 
-  private static final String DESC = "I";
-
-  private IntFieldInitializer(String fieldName, int value) {
+  private IntFieldInitializer(DependencyInfo dependencyInfo, String fieldName, int value) {
+    this.dependencyInfo = dependencyInfo;
     this.fieldName = fieldName;
     this.value = value;
   }
 
-  public static FieldInitializer of(String fieldName, String value) {
-    return of(fieldName, Integer.decode(value));
+  public static FieldInitializer of(DependencyInfo dependencyInfo, String fieldName, String value) {
+    return of(dependencyInfo, fieldName, Integer.decode(value));
   }
 
-  public static IntFieldInitializer of(String fieldName, int value) {
-    return new IntFieldInitializer(fieldName, value);
+  public static IntFieldInitializer of(DependencyInfo dependencyInfo, String fieldName, int value) {
+    return new IntFieldInitializer(dependencyInfo, fieldName, value);
   }
 
   @Override
   public boolean writeFieldDefinition(ClassWriter cw, int accessLevel, boolean isFinal) {
+    Object unused = dependencyInfo; // TODO: add annotation with dep metadata
     cw.visitField(accessLevel, fieldName, DESC, null, isFinal ? value : null).visitEnd();
     return !isFinal;
   }
