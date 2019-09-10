@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -46,6 +47,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   private final Path primaryOutput;
   private final Path stdout;
   private final Path stderr;
+  private final ImmutableList<MetadataLog> actionMetadataLogs;
   private final ErrorTiming timing;
 
   public ActionExecutedEvent(
@@ -55,6 +57,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       Path primaryOutput,
       Path stdout,
       Path stderr,
+      ImmutableList<MetadataLog> actionMetadataLogs,
       ErrorTiming timing) {
     this.actionId = actionId;
     this.action = action;
@@ -63,6 +66,8 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     this.stdout = stdout;
     this.stderr = stderr;
     this.timing = timing;
+    this.actionMetadataLogs = actionMetadataLogs;
+    Preconditions.checkNotNull(this.actionMetadataLogs, this);
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
   }
@@ -92,6 +97,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       return null;
     }
     return stderr.toString();
+  }
+
+  public ImmutableList<MetadataLog> getActionMetadataLogs() {
+    return actionMetadataLogs;
   }
 
   @Override
@@ -133,6 +142,9 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     if (stderr != null) {
       localFiles.add(new LocalFile(stderr, LocalFileType.STDERR));
     }
+    for (MetadataLog actionMetadataLog : actionMetadataLogs) {
+      localFiles.add(new LocalFile(actionMetadataLog.getFilePath(), LocalFileType.LOG));
+    }
     if (exception == null) {
       localFiles.add(new LocalFile(primaryOutput, LocalFileType.OUTPUT));
     }
@@ -173,6 +185,16 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
         configuration = new NullConfiguration();
       }
       actionBuilder.setConfiguration(configuration.getEventId().asStreamProto().getConfiguration());
+    }
+    for (MetadataLog actionMetadataLog : actionMetadataLogs) {
+      String uri = pathConverter.apply(actionMetadataLog.getFilePath());
+      if (uri != null) {
+        actionBuilder.addActionMetadataLogs(
+            BuildEventStreamProtos.File.newBuilder()
+                .setName(actionMetadataLog.getName())
+                .setUri(uri)
+                .build());
+      }
     }
     if (exception == null) {
       String uri = pathConverter.apply(primaryOutput);
