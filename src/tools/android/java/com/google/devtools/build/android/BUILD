@@ -54,12 +54,16 @@ java_binary(
 
 java_library(
     name = "android_builder_lib",
-    srcs = glob([
-        "*.java",
-        "xml/*.java",
-        "aapt2/*.java",
-    ]),
+    srcs = glob(
+        [
+            "*.java",
+            "xml/*.java",
+            "aapt2/*.java",
+        ],
+        exclude = ["DependencyInfo.java"],
+    ),
     deps = [
+        ":dependency_info",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
@@ -78,6 +82,15 @@ java_library(
         "//third_party/java/aosp_gradle_core",
         "//third_party/java/jcommander",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "dependency_info",
+    srcs = ["DependencyInfo.java"],
+    visibility = [":__subpackages__"],
+    deps = [
+        "//third_party:auto_value",
     ],
 )
 
