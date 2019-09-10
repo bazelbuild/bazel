@@ -137,7 +137,8 @@ public class AndroidResourceMerger {
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
     final AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
-    primary.deserialize(deserializer, primaryBuilder.consumers());
+    primary.deserialize(
+        DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
     return mergeDataAndWrite(
         primaryData,
@@ -252,7 +253,8 @@ public class AndroidResourceMerger {
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
     final AndroidDataDeserializer deserializer = AndroidCompiledDataDeserializer.create();
-    primary.deserialize(deserializer, primaryBuilder.consumers());
+    primary.deserialize(
+        DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
     Stopwatch timer = Stopwatch.createStarted();
     try {

@@ -650,8 +650,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers) {
-    DependencyInfo dependencyInfo = null; // placeholder
+  public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       Enumeration<? extends ZipEntry> resourceFiles = zipFile.entries();
