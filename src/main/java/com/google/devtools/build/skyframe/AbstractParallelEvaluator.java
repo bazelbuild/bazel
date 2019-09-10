@@ -176,7 +176,7 @@ abstract class AbstractParallelEvaluator {
                 : childEntry.addReverseDepAndCheckIfDone(skyKey);
       } catch (IllegalStateException e) {
         // Add some more context regarding crashes.
-        throw new IllegalStateException(e.getMessage() + " child key: " + child, e);
+        throw new IllegalStateException("child key: " + child + " error: " + e.getMessage(), e);
       }
       switch (dependencyState) {
         case DONE:
