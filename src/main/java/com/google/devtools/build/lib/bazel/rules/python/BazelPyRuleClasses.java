@@ -233,7 +233,7 @@ public final class BazelPyRuleClasses {
           responsible for creating (possibly empty) __init__.py files and adding them to the
           <code>srcs</code> of Python targets as required.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("legacy_create_init", BOOLEAN).value(true))
+          .add(attr("legacy_create_init", TRISTATE).value(TriState.AUTO))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:
