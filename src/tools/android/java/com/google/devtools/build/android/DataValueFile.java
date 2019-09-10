@@ -36,7 +36,7 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   public static DataValueFile of(Path source) {
-    return of(DataSource.of(source));
+    return of(DataSource.of(DependencyInfo.UNKNOWN, source));
   }
 
   public static DataValueFile of(DataSource source) {
@@ -117,7 +117,7 @@ public class DataValueFile implements DataResource, DataAsset {
 
   @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(key.type(), key.name());
+    sink.acceptSimpleResource(source().getDependencyInfo(), key.type(), key.name());
   }
 
   @Override

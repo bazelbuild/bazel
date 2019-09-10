@@ -160,8 +160,9 @@ public class GenerateRobolectricResourceSymbolsAction {
                 new AndroidResourceSymbolSink() {
 
                   @Override
-                  public void acceptSimpleResource(ResourceType type, String name) {
-                    robolectricIds.addSimpleResource(type, name);
+                  public void acceptSimpleResource(
+                      DependencyInfo dependencyInfo, ResourceType type, String name) {
+                    robolectricIds.addSimpleResource(dependencyInfo, type, name);
                   }
 
                   @Override
@@ -172,8 +173,10 @@ public class GenerateRobolectricResourceSymbolsAction {
 
                   @Override
                   public void acceptStyleableResource(
-                      FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
-                    robolectricIds.addStyleableResource(key, attrs);
+                      DependencyInfo dependencyInfo,
+                      FullyQualifiedName key,
+                      Map<FullyQualifiedName, Boolean> attrs) {
+                    robolectricIds.addStyleableResource(dependencyInfo, key, attrs);
                   }
                 });
 

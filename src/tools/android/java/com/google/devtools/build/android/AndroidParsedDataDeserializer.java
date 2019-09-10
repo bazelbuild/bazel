@@ -103,7 +103,8 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     }
 
     // Read back the sources table.
-    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
+    DataSourceTable sourceTable =
+        DataSourceTable.read(DependencyInfo.UNKNOWN, in, currentFileSystem, header);
 
     // TODO(corysmith): Make this a lazy read of the values.
     for (Map.Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {

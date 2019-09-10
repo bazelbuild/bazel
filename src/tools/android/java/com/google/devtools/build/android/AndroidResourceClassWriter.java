@@ -70,8 +70,8 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
   }
 
   @Override
-  public void acceptSimpleResource(ResourceType type, String name) {
-    generator.addSimpleResource(type, name);
+  public void acceptSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
+    generator.addSimpleResource(dependencyInfo, type, name);
   }
 
   @Override
@@ -81,8 +81,10 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
 
   @Override
   public void acceptStyleableResource(
-      FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
-    generator.addStyleableResource(key, attrs);
+      DependencyInfo dependencyInfo,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, Boolean> attrs) {
+    generator.addStyleableResource(dependencyInfo, key, attrs);
   }
 
   @Override

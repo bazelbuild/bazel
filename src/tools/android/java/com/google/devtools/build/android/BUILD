@@ -62,6 +62,10 @@ java_library(
         ],
         exclude = ["DependencyInfo.java"],
     ),
+    exports = [
+        # Separated out to avoid a dependency cycle with resources/, but it logically belongs here.
+        ":dependency_info",
+    ],
     deps = [
         ":dependency_info",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",

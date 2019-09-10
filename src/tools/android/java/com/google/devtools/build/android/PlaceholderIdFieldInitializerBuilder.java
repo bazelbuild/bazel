@@ -218,18 +218,20 @@ class PlaceholderIdFieldInitializerBuilder {
     }
   }
 
-  public void addSimpleResource(ResourceType type, String name) {
-    DependencyInfo dependencyInfo = DependencyInfo.UNKNOWN; // TODO
+  public void addSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
     innerClasses
         .computeIfAbsent(type, t -> new TreeMap<>())
         .put(normalizeName(name), dependencyInfo);
   }
 
-  public void addStyleableResource(FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
+  public void addStyleableResource(
+      DependencyInfo dependencyInfo,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, Boolean> attrs) {
     ResourceType type = ResourceType.STYLEABLE;
     // The configuration can play a role in sorting, but that isn't modeled yet.
     String normalizedStyleableName = normalizeName(key.name());
-    addSimpleResource(type, normalizedStyleableName);
+    addSimpleResource(dependencyInfo, type, normalizedStyleableName);
     // We should have merged styleables, so there should only be one definition per configuration.
     // However, we don't combine across configurations, so there can be a pre-existing definition.
     Map<String, Boolean> normalizedAttrs = styleableAttrs.get(normalizedStyleableName);
