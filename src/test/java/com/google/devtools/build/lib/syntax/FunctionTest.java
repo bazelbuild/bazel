@@ -34,7 +34,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func(a,b,c):",
         "  a = 1",
         "  b = a\n");
-    UserDefinedFunction stmt = (UserDefinedFunction) lookup("func");
+    StarlarkFunction stmt = (StarlarkFunction) lookup("func");
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
     assertThat(stmt.getSignature().getSignature().getShape().getMandatoryPositionals())

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
-import static com.google.devtools.build.lib.remote.util.Utils.hasTopLevelOutputs;
+import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 
 import build.bazel.remote.execution.v2.Action;
@@ -85,12 +85,10 @@ final class RemoteSpawnCache implements SpawnCache {
   private final DigestUtil digestUtil;
 
   /**
-   * Set of artifacts that are top level outputs
-   *
-   * <p>This set is empty unless {@link RemoteOutputsMode#TOPLEVEL} is specified. If so, this set is
-   * used to decide whether to download an output.
+   * If {@link RemoteOutputsMode#TOPLEVEL} is specified it contains the artifacts that should be
+   * downloaded.
    */
-  private final ImmutableSet<ActionInput> topLevelOutputs;
+  private final ImmutableSet<ActionInput> filesToDownload;
 
   RemoteSpawnCache(
       Path execRoot,
@@ -100,7 +98,7 @@ final class RemoteSpawnCache implements SpawnCache {
       String commandId,
       @Nullable Reporter cmdlineReporter,
       DigestUtil digestUtil,
-      ImmutableSet<ActionInput> topLevelOutputs) {
+      ImmutableSet<ActionInput> filesToDownload) {
     this.execRoot = execRoot;
     this.options = options;
     this.remoteCache = remoteCache;
@@ -108,7 +106,7 @@ final class RemoteSpawnCache implements SpawnCache {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.digestUtil = digestUtil;
-    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
+    this.filesToDownload = Preconditions.checkNotNull(filesToDownload, "filesToDownload");
   }
 
   @Override
@@ -164,7 +162,7 @@ final class RemoteSpawnCache implements SpawnCache {
               shouldDownloadAllSpawnOutputs(
                   remoteOutputsMode,
                   /* exitCode = */ 0,
-                  hasTopLevelOutputs(spawn.getOutputFiles(), topLevelOutputs));
+                  hasFilesToDownload(spawn.getOutputFiles(), filesToDownload));
           if (downloadOutputs) {
             try (SilentCloseable c =
                 prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {

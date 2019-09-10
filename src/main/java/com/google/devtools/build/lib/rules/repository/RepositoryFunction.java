@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -345,14 +345,25 @@ public abstract class RepositoryFunction {
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately
     }
+
+    Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
+    if (repoEnvOverride == null) {
+      return false;
+    }
+
+    Map<String, String> repoEnv = new LinkedHashMap<>(environ);
+    for (Map.Entry<String, String> value : repoEnvOverride.entrySet()) {
+      repoEnv.put(value.getKey(), value.getValue());
+    }
+
     // Verify that all environment variable in the marker file are also in keys
     for (String key : markerData.keySet()) {
-      if (key.startsWith("ENV:") && !environ.containsKey(key.substring(4))) {
+      if (key.startsWith("ENV:") && !repoEnv.containsKey(key.substring(4))) {
         return false;
       }
     }
     // Now verify the values of the marker data
-    for (Map.Entry<String, String> value : environ.entrySet()) {
+    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
       if (!markerData.containsKey("ENV:" + value.getKey())) {
         return false;
       }

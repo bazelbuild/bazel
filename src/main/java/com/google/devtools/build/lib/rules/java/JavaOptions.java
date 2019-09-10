@@ -687,8 +687,6 @@ public class JavaOptions extends FragmentOptions {
     host.disallowResourceJars = disallowResourceJars;
     host.loadJavaRulesFromBzl = loadJavaRulesFromBzl;
 
-    host.experimentalJavaHeaderInputPruning = experimentalJavaHeaderInputPruning;
-
     // Save host options for further use.
     host.hostJavaBase = hostJavaBase;
     host.hostJavacOpts = hostJavacOpts;

@@ -100,6 +100,7 @@ repository. To enable this, add the following [`git_repository`](../be/workspace
 rules to your `WORKSPACE` file:
 
 ```
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
     name = "build_bazel_rules_apple",
     remote = "https://github.com/bazelbuild/rules_apple.git",

@@ -368,11 +368,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
       // deleting random files on the filesystem.
       if (root == null) {
-        throw e;
+        throw new IOException(e);
       }
       Root outputRoot = root.getRoot();
       if (!outputRoot.contains(path)) {
-        throw e;
+        throw new IOException(e);
       }
 
       Path parentDir = path.getParentDirectory();
@@ -383,7 +383,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
         path.deleteTree();
       } else {
-        throw e;
+        throw new IOException(e);
       }
     }
   }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
@@ -101,10 +102,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "the function implementing this rule, must have exactly one parameter: "
+                "the Starlark function implementing this rule, must have exactly one parameter: "
                     + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
                     + "phase for each instance of the rule. It can access the attributes "
                     + "provided by the user. It must create actions to generate all the declared "
@@ -143,7 +144,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
               @ParamType(type = NoneType.class),
-              @ParamType(type = BaseFunction.class)
+              @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
             named = true,
             callbackEnabled = true,
@@ -152,53 +153,49 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             valueWhenDisabled = "None",
             disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
-                "A schema for defining predeclared outputs. Unlike "
-                    + "<a href='attr.html#output'><code>output</code></a> and "
-                    + "<a href='attr.html#output_list'><code>output_list</code></a> attributes, "
-                    + "the user does not specify the labels for these files. "
-                    + "See the <a href='../rules.$DOC_EXT#files'>Rules page</a> for more on "
-                    + "predeclared outputs."
-                    + "<p>The value of this argument is either a dictionary or a callback function "
-                    + "that produces a dictionary. The callback works similar to computed "
-                    + "dependency attributes: The function's parameter names are matched against "
-                    + "the rule's attributes, so for example if you pass "
-                    + "<code>outputs = _my_func</code> with the definition "
-                    + "<code>def _my_func(srcs, deps): ...</code>, the function has access "
-                    + "to the attributes <code>srcs</code> and <code>deps</code>. Whether the "
-                    + "dictionary is specified directly or via a function, it is interpreted as "
-                    + "follows."
-                    + "<p>Each entry in the dictionary creates a predeclared output where the key "
-                    + "is an identifier and the value is a string template that determines the "
-                    + "output's label. In the rule's implementation function, the identifier "
-                    + "becomes the field name used to access the output's "
-                    + "<a href='File.html'><code>File</code></a> in "
-                    + "<a href='ctx.html#outputs'><code>ctx.outputs</code></a>. The output's label "
-                    + "has the same package as the rule, and the part after the package is "
-                    + "produced by substituting each placeholder of the form "
-                    + "<code>\"%{ATTR}\"</code> with a string formed from the value of the "
-                    + "attribute <code>ATTR</code>:"
-                    + "<ul>"
-                    + "<li>String-typed attributes are substituted verbatim."
-                    + "<li>Label-typed attributes become the part of the label after the package, "
-                    + "minus the file extension. For example, the label "
-                    + "<code>\"//pkg:a/b.c\"</code> becomes <code>\"a/b\"</code>."
-                    + "<li>Output-typed attributes become the part of the label after the package, "
-                    + "including the file extension (for the above example, "
-                    + "<code>\"a/b.c\"</code>)."
-                    + "<li>All list-typed attributes (for example, <code>attr.label_list</code>) "
-                    + "used in placeholders are required to have <i>exactly one element</i>. Their "
-                    + "conversion is the same as their non-list version (<code>attr.label</code>)."
-                    + "<li>Other attribute types may not appear in placeholders."
-                    + "<li>The special non-attribute placeholders <code>%{dirname}</code> and "
-                    + "<code>%{basename}</code> expand to those parts of the rule's label, "
-                    + "excluding its package. For example, in <code>\"//pkg:a/b.c\"</code>, the "
-                    + "dirname is <code>a</code> and the basename is <code>b.c</code>."
-                    + "</ul>"
-                    + "<p>In practice, the most common substitution placeholder is "
-                    + "<code>\"%{name}\"</code>. For example, for a target named \"foo\", the "
-                    + "outputs dict <code>{\"bin\": \"%{name}.exe\"}</code> predeclares an output "
-                    + "named <code>foo.exe</code> that is accessible in the implementation "
-                    + "function as <code>ctx.outputs.bin</code>."),
+                "This parameter has been deprecated. Migrate rules to use"
+                    + " <code>OutputGroupInfo</code> or <code>attr.output</code> instead. <p>A"
+                    + " schema for defining predeclared outputs. Unlike <a"
+                    + " href='attr.html#output'><code>output</code></a> and <a"
+                    + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
+                    + " user does not specify the labels for these files. See the <a"
+                    + " href='../rules.$DOC_EXT#files'>Rules page</a> for more on predeclared"
+                    + " outputs.<p>The value of this argument is either a dictionary or a callback"
+                    + " function that produces a dictionary. The callback works similar to"
+                    + " computed dependency attributes: The function's parameter names are matched"
+                    + " against the rule's attributes, so for example if you pass <code>outputs ="
+                    + " _my_func</code> with the definition <code>def _my_func(srcs, deps):"
+                    + " ...</code>, the function has access to the attributes <code>srcs</code>"
+                    + " and <code>deps</code>. Whether the dictionary is specified directly or via"
+                    + " a function, it is interpreted as follows.<p>Each entry in the dictionary"
+                    + " creates a predeclared output where the key is an identifier and the value"
+                    + " is a string template that determines the output's label. In the rule's"
+                    + " implementation function, the identifier becomes the field name used to"
+                    + " access the output's <a href='File.html'><code>File</code></a> in <a"
+                    + " href='ctx.html#outputs'><code>ctx.outputs</code></a>. The output's label"
+                    + " has the same package as the rule, and the part after the package is"
+                    + " produced by substituting each placeholder of the form"
+                    + " <code>\"%{ATTR}\"</code> with a string formed from the value of the"
+                    + " attribute <code>ATTR</code>:<ul><li>String-typed attributes are"
+                    + " substituted verbatim.<li>Label-typed attributes become the part of the"
+                    + " label after the package, minus the file extension. For example, the label"
+                    + " <code>\"//pkg:a/b.c\"</code> becomes <code>\"a/b\"</code>.<li>Output-typed"
+                    + " attributes become the part of the label after the package, including the"
+                    + " file extension (for the above example, <code>\"a/b.c\"</code>).<li>All"
+                    + " list-typed attributes (for example, <code>attr.label_list</code>) used in"
+                    + " placeholders are required to have <i>exactly one element</i>. Their"
+                    + " conversion is the same as their non-list version"
+                    + " (<code>attr.label</code>).<li>Other attribute types may not appear in"
+                    + " placeholders.<li>The special non-attribute placeholders"
+                    + " <code>%{dirname}</code> and <code>%{basename}</code> expand to those parts"
+                    + " of the rule's label, excluding its package. For example, in"
+                    + " <code>\"//pkg:a/b.c\"</code>, the dirname is <code>a</code> and the"
+                    + " basename is <code>b.c</code>.</ul><p>In practice, the most common"
+                    + " substitution placeholder is <code>\"%{name}\"</code>. For example, for a"
+                    + " target named \"foo\", the outputs dict <code>{\"bin\":"
+                    + " \"%{name}.exe\"}</code> predeclares an output named <code>foo.exe</code>"
+                    + " that is accessible in the implementation function as"
+                    + " <code>ctx.outputs.bin</code>."),
         @Param(
             name = "executable",
             type = Boolean.class,
@@ -348,7 +345,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useEnvironment = true,
       useContext = true)
   public BaseFunction rule(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       Boolean test,
       Object attrs,
       Object implicitOutputs,
@@ -379,10 +376,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "A function that implements this aspect, with exactly two parameters: "
+                "A Starlark function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
                     + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
                     + "is created from). Attributes of the target are available via the "
@@ -426,9 +423,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "[]",
             doc =
-                "This attribute allows this aspect to inspect other aspects. The value must be a"
+                "This attribute allows this aspect to inspect other aspects. The value must be a "
                     + "list of providers, or a list of lists of providers. For example, "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]<code> is a"
+                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is a "
                     + "valid value."
                     + ""
                     + "<p>A single list of providers will automatically be converted to a list "
@@ -491,7 +488,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useAst = true,
       useContext = true)
   public SkylarkAspectApi aspect(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       SkylarkList<?> attributeAspects,
       Object attrs,
       SkylarkList<?> requiredAspectProvidersArg,

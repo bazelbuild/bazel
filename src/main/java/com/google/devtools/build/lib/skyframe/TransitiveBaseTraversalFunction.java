@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -30,12 +28,10 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.LabelVisitationUtils;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,7 +41,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,7 +143,12 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
   Collection<SkyKey> getLabelDepKeys(
       SkyFunction.Environment env, TargetAndErrorIfAny targetAndErrorIfAny)
       throws InterruptedException {
-    return Collections2.transform(getLabelDeps(targetAndErrorIfAny.getTarget()), this::getKey);
+    ImmutableSet.Builder<SkyKey> depsBuilder = ImmutableSet.builder();
+    LabelVisitationUtils.visitTarget(
+        targetAndErrorIfAny.getTarget(),
+        DependencyFilter.NO_NODEP_ATTRIBUTES_EXCEPT_VISIBILITY,
+        (fromTarget, attribute, toLabel) -> depsBuilder.add(getKey(toLabel)));
+    return depsBuilder.build();
   }
 
   Iterable<SkyKey> getStrictLabelAspectDepKeys(
@@ -221,44 +221,6 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
       }
     }
     return false;
-  }
-
-  // TODO(bazel-team): Unify this logic with that in LabelVisitor, and possibly DependencyResolver.
-  private static Collection<Label> getLabelDeps(Target target) throws InterruptedException {
-    if (target instanceof OutputFile) {
-      Rule rule = ((OutputFile) target).getGeneratingRule();
-      List<Label> visibilityLabels = visitTargetVisibility(target);
-      HashSet<Label> result = Sets.newHashSetWithExpectedSize(visibilityLabels.size() + 1);
-      result.add(rule.getLabel());
-      result.addAll(visibilityLabels);
-      return result;
-    } else if (target instanceof InputFile) {
-      return new HashSet<>(visitTargetVisibility(target));
-    } else if (target instanceof Rule) {
-      List<Label> visibilityLabels = visitTargetVisibility(target);
-      Collection<Label> ruleLabels = visitRule(target);
-      HashSet<Label> result =
-          Sets.newHashSetWithExpectedSize(visibilityLabels.size() + ruleLabels.size());
-      result.addAll(visibilityLabels);
-      result.addAll(ruleLabels);
-      return result;
-    } else if (target instanceof PackageGroup) {
-      return new HashSet<>(visitPackageGroup((PackageGroup) target));
-    } else {
-      return ImmutableSet.of();
-    }
-  }
-
-  private static Collection<Label> visitRule(Target target) throws InterruptedException {
-    return ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values();
-  }
-
-  private static List<Label> visitTargetVisibility(Target target) {
-    return target.getVisibility().getDependencyLabels();
-  }
-
-  private static List<Label> visitPackageGroup(PackageGroup packageGroup) {
-    return packageGroup.getIncludes();
   }
 
   interface TargetAndErrorIfAny {

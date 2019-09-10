@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -67,17 +67,11 @@ public class ProcessedAndroidData {
       ResourceFilterFactory resourceFilterFactory,
       List<String> noCompressExtensions,
       boolean crunchPng,
-      @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter,
       DataBindingContext dataBindingContext)
       throws RuleErrorException, InterruptedException {
     if (conditionalKeepRules && aaptVersion != AndroidAaptVersion.AAPT2) {
       throw errorConsumer.throwWithRuleError(
           "resource cycle shrinking can only be enabled for builds with aapt2");
-    }
-    if (dataContext.useResourcePathShortening() && aaptVersion != AndroidAaptVersion.AAPT2) {
-      throw errorConsumer.throwWithRuleError(
-          "resource path shortening can only be enabled for builds with aapt2");
     }
 
     AndroidResourcesProcessorBuilder builder =
@@ -89,14 +83,7 @@ public class ProcessedAndroidData {
             .setMainDexProguardOut(
                 AndroidBinary.createMainDexProguardSpec(
                     dataContext.getLabel(), dataContext.getActionConstructionContext()))
-            .conditionalKeepRules(conditionalKeepRules)
-            .setFeatureOf(featureOf)
-            .setFeatureAfter(featureAfter);
-    if (dataContext.useResourcePathShortening()) {
-      builder.setResourcePathShorteningMapOut(
-          dataContext.createOutputArtifact(
-              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
-    }
+            .conditionalKeepRules(conditionalKeepRules);
     dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     return buildActionForBinary(
         dataContext,

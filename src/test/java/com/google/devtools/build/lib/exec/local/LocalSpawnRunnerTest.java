@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -85,6 +86,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 /** Unit tests for {@link LocalSpawnRunner}. */
 @RunWith(JUnit4.class)
@@ -109,9 +111,11 @@ public class LocalSpawnRunnerTest {
           localOs,
           localEnvProvider,
           useProcessWrapper
-              ? BinTools.forEmbeddedBin(embeddedBin,
+              ? BinTools.forEmbeddedBin(
+                  embeddedBin,
                   ImmutableList.of("process-wrapper" + OsUtils.executableExtension(localOs)))
-              : null);
+              : null,
+          Mockito.mock(RunfilesTreeUpdater.class));
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -846,7 +850,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
@@ -878,7 +882,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
         new SpawnBuilder(
@@ -916,7 +921,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
@@ -941,7 +946,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
         new SpawnBuilder(

@@ -353,5 +353,26 @@ EOF
   grep "Run Forest run" bazel-bin/a/output || fail "Output file wrong"
 }
 
+# Integration test for https://github.com/bazelbuild/bazel/pull/8322
+# "bazel run" forwards input from stdin to the test binary, to support interactive test re-execution
+# (when running browser-based tests) and to support debugging tests.
+# See also test_a_test_rule_with_input_from_stdin() in //src/test/shell/integration:test_test
+function test_run_a_test_and_a_binary_rule_with_input_from_stdin() {
+  mkdir -p a
+  cat > a/BUILD <<'eof'
+sh_test(name = "x", srcs = ["x.sh"])
+sh_binary(name = "control", srcs = ["x.sh"])
+eof
+  cat > a/x.sh <<'eof'
+#!/bin/bash
+read -n5 FOO
+echo "foo=($FOO)"
+eof
+  chmod +x a/x.sh
+  echo helloworld | bazel run //a:control > "$TEST_log" || fail "Expected success"
+  expect_log "foo=(hello)"
+  echo hallowelt | bazel run //a:x > "$TEST_log" || fail "Expected success"
+  expect_log "foo=(hallo)"
+}
 
 run_suite "'${PRODUCT_NAME} run' integration tests"

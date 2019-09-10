@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
@@ -300,7 +301,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private CcCompilationHelper initializeCompilationHelper(
-        FeatureConfiguration featureConfiguration, List<TransitiveInfoCollection> deps) {
+        FeatureConfiguration featureConfiguration, List<TransitiveInfoCollection> deps)
+        throws InterruptedException {
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcCompilationHelper helper =
           new CcCompilationHelper(
@@ -311,7 +313,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   cppSemantics,
                   featureConfiguration,
                   toolchain,
-                  toolchain.getFdoContext())
+                  toolchain.getFdoContext(),
+                  TargetUtils.getExecutionInfo(
+                      ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
                   ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
@@ -344,7 +348,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private CcLinkingHelper initializeLinkingHelper(
-        FeatureConfiguration featureConfiguration, ImmutableList<TransitiveInfoCollection> deps) {
+        FeatureConfiguration featureConfiguration, ImmutableList<TransitiveInfoCollection> deps)
+        throws InterruptedException {
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
@@ -358,7 +363,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                   toolchain.getFdoContext(),
                   ruleContext.getConfiguration(),
                   ruleContext.getFragment(CppConfiguration.class),
-                  ruleContext.getSymbolGenerator())
+                  ruleContext.getSymbolGenerator(),
+                  TargetUtils.getExecutionInfo(
+                      ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
               .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
               .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget());
       helper.addCcLinkingContexts(CppHelper.getLinkingContextsFromDeps(deps));

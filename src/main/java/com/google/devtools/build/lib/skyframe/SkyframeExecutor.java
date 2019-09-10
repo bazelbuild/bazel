@@ -1822,8 +1822,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             } else if (!configKey.equals(BuildConfigurationValue.key(depConfig))) {
               // Retroactive trimming may change the configuration associated with the dependency.
               // If it does, we need to get that instance.
-              // TODO(mstaib): doing these individually instead of doing them all at once may end
-              // up being wasteful use of Skyframe. Although these configurations are guaranteed
+              // TODO(b/140632978): doing these individually instead of doing them all at once may
+              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
               // to be in the Skyframe cache (because the dependency would have had to retrieve
               // them to be created in the first place), looking them up repeatedly may be slower
               // than just keeping a local cache and assigning the same configuration to all the
@@ -2681,20 +2681,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         starlarkSemanticsOptions,
         commandId,
         clientEnv,
-        tsgm);
+        tsgm,
+        options);
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
   }
 
-  public void syncPackageLoading(
+  protected void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm)
+      TimestampGranularityMonitor tsgm,
+      OptionsProvider options)
       throws AbruptExitException {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(

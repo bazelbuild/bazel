@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -82,11 +80,11 @@ public abstract class ImplicitOutputsFunction {
   public static final class SkylarkImplicitOutputsFunctionWithCallback
       extends SkylarkImplicitOutputsFunction {
 
-    private final SkylarkCallbackFunction callback;
+    private final StarlarkCallbackHelper callback;
     private final Location loc;
 
     public SkylarkImplicitOutputsFunctionWithCallback(
-        SkylarkCallbackFunction callback, Location loc) {
+        StarlarkCallbackHelper callback, Location loc) {
       this.callback = callback;
       this.loc = loc;
     }

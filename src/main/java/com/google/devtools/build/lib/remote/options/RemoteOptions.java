@@ -235,7 +235,8 @@ public final class RemoteOptions extends OptionsBase {
   public boolean allowSymlinkUpload;
 
   @Option(
-      name = "experimental_remote_download_outputs",
+      name = "remote_download_outputs",
+      oldName = "experimental_remote_download_outputs",
       defaultValue = "all",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -257,9 +258,11 @@ public final class RemoteOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_remote_download_minimal",
+      name = "remote_download_minimal",
+      oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
       expansion = {
+        "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
         "--experimental_remote_download_outputs=minimal"
@@ -275,7 +278,8 @@ public final class RemoteOptions extends OptionsBase {
   public Void remoteOutputsMinimal;
 
   @Option(
-      name = "experimental_remote_download_toplevel",
+      name = "remote_download_toplevel",
+      oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {
         "--experimental_inmemory_jdeps_files",

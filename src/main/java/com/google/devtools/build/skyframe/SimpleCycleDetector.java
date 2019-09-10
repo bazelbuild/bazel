@@ -334,7 +334,7 @@ public class SimpleCycleDetector implements CycleDetector {
     if (entry.getDirtyState() != NodeEntry.DirtyState.VERIFIED_CLEAN) {
       return false;
     }
-    Set<SkyKey> rdeps = entry.markClean();
+    Set<SkyKey> rdeps = entry.markClean().getRdepsToSignal();
     evaluatorContext.signalValuesAndEnqueueIfReady(
         key, rdeps, entry.getVersion(), EnqueueParentBehavior.SIGNAL);
     ErrorInfo error = entry.getErrorInfo();

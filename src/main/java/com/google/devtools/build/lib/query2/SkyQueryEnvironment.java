@@ -313,6 +313,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return packageSemaphore;
   }
 
+  boolean hasDependencyFilter() {
+    return dependencyFilter != DependencyFilter.ALL_DEPS;
+  }
+
   protected void checkEvaluationResult(Set<SkyKey> roots, EvaluationResult<SkyValue> result)
       throws QueryException {
     // If the only root is the universe key, we expect to see either a single successfully evaluated

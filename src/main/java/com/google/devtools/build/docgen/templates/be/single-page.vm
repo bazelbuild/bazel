@@ -2,6 +2,20 @@
 
 #parse("com/google/devtools/build/docgen/templates/be/overview.vm")
 
+<div class="toc">
+  <h3>Rules</h3>
+#foreach ($ruleFamily in $ruleFamilies)
+  <h4>${ruleFamily.name} Rules</h4>
+  <ul>
+#foreach ($rule in $ruleFamily.rules)
+    <li>
+      <a href="#${rule.ruleName}">${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end</a>
+    </li>
+#end
+  </ul>
+#end
+</div>
+
 <hr>
 
 #parse("com/google/devtools/build/docgen/templates/be/common-definitions.vm")

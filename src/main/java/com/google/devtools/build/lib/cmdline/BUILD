@@ -16,11 +16,22 @@ filegroup(
 # code.
 java_library(
     name = "cmdline",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "Label.java",
+        "LabelConstants.java",
+        "LabelSerializationProxy.java",
+        "LabelSyntaxException.java",
+        "LabelValidator.java",
+        "PackageIdentifier.java",
+        "RepositoryName.java",
+        "ResolvedTargets.java",
+        "TargetParsingException.java",
+        "TargetPattern.java",
+        "TargetPatternResolver.java",
+    ],
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:starlark_context",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -29,25 +40,5 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "RepositoryName",
-    srcs = [
-        "LabelConstants.java",
-        "LabelSyntaxException.java",
-        "LabelValidator.java",
-        "PackageIdentifier.java",
-        "RepositoryName.java",
-    ],
-    visibility = ["//src:__subpackages__"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:autocodec-annotation",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
     ],
 )

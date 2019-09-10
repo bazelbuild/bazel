@@ -61,6 +61,23 @@ function tear_down() {
   rm -rf "${cas_path}"
 }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+  declare -r EXE_EXT=".exe"
+else
+  declare -r EXE_EXT=""
+fi
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
@@ -805,7 +822,7 @@ EOF
 
 function test_downloads_minimal() {
   # Test that genrule outputs are not downloaded when using
-  # --experimental_remote_download_outputs=minimal
+  # --remote_download_minimal
   mkdir -p a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -826,7 +843,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
@@ -835,7 +852,7 @@ EOF
 
 function test_downloads_minimal_failure() {
   # Test that outputs of failing actions are downloaded when using
-  # --experimental_remote_download_outputs=minimal
+  # --remote_download_minimal
   mkdir -p a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -849,7 +866,7 @@ EOF
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:fail && fail "Expected test failure" || true
 
   [[ -f bazel-bin/a/fail.txt ]] \
@@ -857,7 +874,7 @@ EOF
 }
 
 function test_downloads_minimal_prefetch() {
-  # Test that when using --experimental_remote_download_outputs=minimal a remote-only output that's
+  # Test that when using --remote_download_minimal a remote-only output that's
   # an input to a local action is downloaded lazily before executing the local action.
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -880,7 +897,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:remote || fail "Failed to build //a:remote"
 
   (! [[ -f bazel-bin/a/remote.txt ]]) \
@@ -889,7 +906,7 @@ EOF
   bazel build \
     --genrule_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:local || fail "Failed to build //a:local"
 
   localtxt="bazel-bin/a/local.txt"
@@ -901,7 +918,7 @@ EOF
 }
 
 function test_download_outputs_invalidation() {
-  # Test that when changing values of --experimental_remote_download_outputs all actions are
+  # Test that when changing values of --remote_download_minimal all actions are
   # invalidated.
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -916,7 +933,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
   expect_log "1 process: 1 remote"
@@ -924,16 +941,16 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_outputs=all \
+    --remote_download_outputs=all \
     //a:remote >& $TEST_log || fail "Failed to build //a:remote"
 
-  # Changing --experimental_remote_download_outputs to "all" should invalidate SkyFrames in-memory
+  # Changing --remote_download_outputs to "all" should invalidate SkyFrames in-memory
   # caching and make it re-run the action.
   expect_log "1 process: 1 remote"
 }
 
 function test_downloads_minimal_native_prefetch() {
-  # Test that when using --experimental_remote_download_outputs=minimal a remotely stored output
+  # Test that when using --remote_download_outputs=minimal a remotely stored output
   # that's an input to a native action (ctx.actions.expand_template) is staged lazily for action
   # execution.
   mkdir -p a
@@ -979,7 +996,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
 
   # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
@@ -995,7 +1012,7 @@ EOF
 }
 
 function test_downloads_toplevel() {
-  # Test that when using --experimental_remote_download_outputs=toplevel only the output of the
+  # Test that when using --remote_download_outputs=toplevel only the output of the
   # toplevel target is being downloaded.
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -1017,7 +1034,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_toplevel \
+    --remote_download_toplevel \
     //a:foobar || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]]) \
@@ -1033,7 +1050,7 @@ EOF
   bazel build \
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_toplevel \
+    --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
   expect_log "1 process: 1 remote cache hit"
@@ -1042,10 +1059,89 @@ EOF
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
 }
 
+function test_downloads_toplevel_runfiles() {
+  # Test that --remote_download_toplevel fetches only the top level binaries
+  # and generated runfiles.
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+
+  cat > a/create_bar.tmpl <<'EOF'
+#!/bin/sh
+echo "bar runfiles"
+exit 0
+EOF
+
+  cat > a/foo.cc <<'EOF'
+#include <iostream>
+int main() { std::cout << "foo" << std::endl; return 0; }
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "bar",
+  srcs = ["create_bar.tmpl"],
+  outs = ["create_bar.sh"],
+  cmd = "cat $(location create_bar.tmpl) > \"$@\"",
+)
+
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  data = [":bar"],
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  [[ -f bazel-bin/a/foo${EXE_EXT} ]] \
+  || fail "Expected toplevel output bazel-bin/a/foo${EXE_EXT} to be downloaded"
+
+  [[ -f bazel-bin/a/create_bar.sh ]] \
+  || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
+}
+
+function test_downloads_toplevel_src_runfiles() {
+  # Test that using --remote_download_toplevel with a non-generated (source)
+  # runfile dependency works.
+  mkdir -p a
+  cat > a/create_foo.sh <<'EOF'
+#!/bin/sh
+echo "foo runfiles"
+exit 0
+EOF
+  chmod +x a/create_foo.sh
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  tools = ["create_foo.sh"],
+  outs = ["foo.txt"],
+  cmd = "./$(location create_foo.sh) > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  [[ -f bazel-bin/a/foo.txt ]] \
+  || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
+}
+
 function test_download_toplevel_test_rule() {
-  # Test that when using --experimental_remote_download_outputs=toplevel with bazel test only
-  # the test.log and test.xml file are downloaded but not the test binary. However when building
-  # a test then the test binary should be downloaded.
+  # Test that when using --remote_download_toplevel with bazel test only
+  # the test.log and test.xml file are downloaded but not the test binary.
+  # However when building a test then the test binary should be downloaded.
 
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
@@ -1070,9 +1166,7 @@ EOF
   # When invoking bazel test only test.log and test.xml should be downloaded.
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --remote_download_toplevel \
     //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
 
   (! [[ -f bazel-bin/a/test ]]) \
@@ -1089,9 +1183,7 @@ EOF
   # When invoking bazel build the test binary should be downloaded.
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_inmemory_jdeps_files \
-    --experimental_inmemory_dotd_files \
-    --experimental_remote_download_outputs=toplevel \
+    --remote_download_toplevel \
     //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
 
   ([[ -f bazel-bin/a/test ]]) \
@@ -1099,7 +1191,7 @@ EOF
 }
 
 function test_downloads_minimal_bep() {
-  # Test that when using --experimental_remote_download_outputs=minimal all URI's in the BEP
+  # Test that when using --remote_download_minimal all URI's in the BEP
   # are rewritten as bytestream://..
   mkdir -p a
   cat > a/success.sh <<'EOF'
@@ -1123,7 +1215,7 @@ EOF
 
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_download_minimal \
+    --remote_download_minimal \
     --build_event_text_file=$TEST_log \
     //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
 
@@ -1156,6 +1248,129 @@ EOF
     //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_not_log "remote cache hit"
+}
+
+function test_downloads_minimal_stable_status() {
+  # Regression test for #8385
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+cat > status.sh << 'EOF'
+#!/bin/sh
+echo "STABLE_FOO 1"
+EOF
+chmod +x status.sh
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --workspace_status_command=status.sh \
+    //a:foo || "Failed to build //a:foo"
+
+cat > status.sh << 'EOF'
+#!/bin/sh
+echo "STABLE_FOO 2"
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --workspace_status_command=status.sh \
+    //a:foo || "Failed to build //a:foo"
+}
+
+function test_tag_no_remote_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-remote-cache"]
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo || "Failed to build //a:foo"
+
+  expect_log "1 remote"
+  expect_not_log "remote cache hit"
+}
+
+function test_tag_no_remote_exec() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-remote-exec"]
+)
+EOF
+
+  bazel build \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "1 remote"
+}
+
+function test_nobuild_runfile_links() {
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+    cat > WORKSPACE <<EOF
+workspace(name = "foo")
+EOF
+
+  cat > test.sh <<'EOF'
+#!/bin/bash
+set -e
+[[ -f ${RUNFILES_DIR}/foo/data/hello ]]
+[[ -f ${RUNFILES_DIR}/foo/data/world ]]
+exit 0
+EOF
+  chmod 755 test.sh
+  cat > BUILD <<'EOF'
+filegroup(
+  name = "runfiles",
+  srcs = ["data/hello", "data/world"],
+)
+
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  data = [":runfiles"],
+)
+EOF
+
+  bazel test \
+    --nobuild_runfile_links \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //:test || fail "Testing //:test failed"
+
+  [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

@@ -20,8 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -66,10 +64,10 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -210,7 +208,7 @@ public class SkydocMain {
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
-    ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
+    ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctions = ImmutableMap.builder();
     ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
@@ -237,7 +235,7 @@ public class SkydocMain {
         providerInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, UserDefinedFunction> filteredUserDefinedFunctions =
+    Map<String, StarlarkFunction> filteredStarlarkFunctions =
         userDefinedFunctions.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
@@ -250,7 +248,7 @@ public class SkydocMain {
       new ProtoRenderer()
           .appendRuleInfos(filteredRuleInfos.values())
           .appendProviderInfos(filteredProviderInfos.values())
-          .appendUserDefinedFunctionInfos(filteredUserDefinedFunctions)
+          .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
           .appendAspectInfos(filteredAspectInfos.values())
           .setModuleDocstring(moduleDocMap.build().get(targetFileLabel))
           .writeModuleInfo(out);
@@ -284,8 +282,8 @@ public class SkydocMain {
    *     ProviderInfo} descriptions. For example, 'my_provider = provider(...)' has key
    *     'my_provider'
    * @param userDefinedFunctionMap a map builder to be populated with user-defined functions. Keys
-   *     are exported names of functions, and values are the {@link UserDefinedFunction} objects.
-   *     For example, 'def my_function(foo):' is a function with key 'my_function'.
+   *     are exported names of functions, and values are the {@link StarlarkFunction} objects. For
+   *     example, 'def my_function(foo):' is a function with key 'my_function'.
    * @param aspectInfoMap a map builder to be populated with aspect definition information for named
    *     aspects. Keys are exported names of aspects, and values are the {@link AspectInfo} asepct
    *     descriptions. For example, 'my_aspect = aspect(...)' has key 'my_aspect'
@@ -299,7 +297,7 @@ public class SkydocMain {
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
-      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap,
+      ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
       ImmutableMap.Builder<String, AspectInfo> aspectInfoMap,
       ImmutableMap.Builder<Label, String> moduleDocMap)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
@@ -344,8 +342,8 @@ public class SkydocMain {
         ProviderInfo providerInfo = providerInfoBuild.setProviderName(envEntry.getKey()).build();
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
-      if (envEntry.getValue() instanceof UserDefinedFunction) {
-        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) envEntry.getValue();
+      if (envEntry.getValue() instanceof StarlarkFunction) {
+        StarlarkFunction userDefinedFunction = (StarlarkFunction) envEntry.getValue();
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
       if (envEntry.getValue() instanceof FakeStructApi) {
@@ -375,12 +373,12 @@ public class SkydocMain {
   private static void putStructFields(
       String namespaceName,
       FakeStructApi namespace,
-      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
+      ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap)
       throws EvalException {
     for (String field : namespace.getFieldNames()) {
       String qualifiedFieldName = namespaceName + "." + field;
-      if (namespace.getValue(field) instanceof UserDefinedFunction) {
-        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) namespace.getValue(field);
+      if (namespace.getValue(field) instanceof StarlarkFunction) {
+        StarlarkFunction userDefinedFunction = (StarlarkFunction) namespace.getValue(field);
         userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
       } else if (namespace.getValue(field) instanceof FakeStructApi) {
         FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
@@ -435,11 +433,8 @@ public class SkydocMain {
 
     Map<String, Extension> imports = new HashMap<>();
     for (SkylarkImport anImport : buildFileAST.getImports()) {
-      BazelStarlarkContext context =
-          new BazelStarlarkContext(
-              "", ImmutableMap.of(), ImmutableMap.of(), new SymbolGenerator<>(label));
-      Label relativeLabel = label.getRelative(anImport.getImportString(), context);
-
+      Label relativeLabel =
+          label.getRelativeWithRemapping(anImport.getImportString(), ImmutableMap.of());
       try {
         Environment importEnv =
             recursiveEval(

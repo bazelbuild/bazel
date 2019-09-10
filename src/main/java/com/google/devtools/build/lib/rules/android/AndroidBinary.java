@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
@@ -82,7 +83,6 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -244,14 +244,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
             ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
             ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-            ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-                ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER).getApk()
-                : null,
-            ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-                ? ruleContext
-                    .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
-                    .getApk()
-                : null,
             DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
 
     AndroidApplicationResourceInfo androidApplicationResourceInfo =
@@ -367,6 +359,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(
             ruleContext, dataContext, manifest);
 
+    boolean optimizeResources =
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
+            && dataContext.useResourcePathShortening();
+
     return createAndroidBinary(
         ruleContext,
         dataContext,
@@ -381,6 +377,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         resourceApk,
         mobileInstallResourceApks,
         shrinkResources,
+        optimizeResources,
         resourceClasses,
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
@@ -403,6 +400,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ResourceApk resourceApk,
       @Nullable MobileInstallResourceApks mobileInstallResourceApks,
       boolean shrinkResources,
+      boolean optimizeResources,
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
@@ -438,8 +436,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
     Artifact proguardOutputMap = null;
-    if (ProguardHelper.genProguardMapping(ruleContext.attributes())
-        || shrinkResources) {
+    if (ProguardHelper.genProguardMapping(ruleContext.attributes()) || shrinkResources) {
       proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
     }
 
@@ -463,6 +460,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               proguardSpecs,
               proguardOutput,
               filesBuilder);
+    }
+
+    if (optimizeResources) {
+      resourceApk = optimizeResources(dataContext, resourceApk);
     }
 
     Artifact jarToDex = proguardOutput.getOutputJar();
@@ -962,6 +963,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .build(dataContext));
   }
 
+  private static ResourceApk optimizeResources(
+      AndroidDataContext dataContext, ResourceApk resourceApk) throws InterruptedException {
+    Artifact optimizedApk =
+        dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_OPTIMIZED_APK);
+
+    Aapt2OptimizeActionBuilder.Builder builder =
+        Aapt2OptimizeActionBuilder.builder()
+            .setResourceApk(resourceApk.getArtifact())
+            .setOptimizedApkOut(optimizedApk);
+    if (dataContext.useResourcePathShortening()) {
+      builder.setResourcePathShorteningMapOut(
+          dataContext.createOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
+    builder.build().registerAction(dataContext);
+
+    return resourceApk.withApk(optimizedApk);
+  }
+
   @Immutable
   static final class DexingOutput {
     private final Artifact classesDexZip;
@@ -1263,12 +1283,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext, multidex ? "minimal" : "off", dexArchives, classesDex, mainDexList, dexopts);
     } else {
       SpecialArtifact shardsToMerge =
-          createSharderAction(
-              ruleContext,
-              dexArchives,
-              mainDexList,
-              dexopts,
-              inclusionFilterJar);
+          createSharderAction(ruleContext, dexArchives, mainDexList, dexopts, inclusionFilterJar);
       Artifact multidexShards = createTemplatedMergerActions(ruleContext, shardsToMerge, dexopts);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
       createZipMergeAction(ruleContext, multidexShards, classesDex);

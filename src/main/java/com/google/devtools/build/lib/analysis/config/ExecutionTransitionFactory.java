@@ -53,6 +53,11 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
     return false;
   }
 
+  @Override
+  public boolean isTool() {
+    return true;
+  }
+
   private static class ExecutionTransition implements PatchTransition {
     @Nullable private final Label executionPlatform;
 

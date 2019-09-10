@@ -350,8 +350,20 @@ bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring* result,
 
 bool AsShortWindowsPath(const std::string& path, std::string* result,
                         std::string* error) {
+  std::wstring wresult;
+  if (AsShortWindowsPath(CstringToWstring(path.c_str()).get(), &wresult,
+                         error)) {
+    *result = WstringToString(wresult);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool AsShortWindowsPath(const std::wstring& path, std::wstring* result,
+                        std::string* error) {
   if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
+    *result = L"NUL";
     return true;
   }
 
@@ -401,8 +413,9 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
       if (error) {
         std::string last_error = GetLastErrorString();
         std::stringstream msg;
-        msg << "AsShortWindowsPath(" << path << "): GetShortPathNameW("
-            << WstringToString(wpath) << ") failed: " << last_error;
+        msg << "AsShortWindowsPath(" << WstringToString(path)
+            << "): GetShortPathNameW(" << WstringToString(wpath)
+            << ") failed: " << last_error;
         *error = msg.str();
       }
       return false;
@@ -411,8 +424,8 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
     wresult = std::wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
   }
 
-  result->assign(WstringToCstring(wresult.c_str()).get());
-  ToLower(result);
+  std::transform(wresult.begin(), wresult.end(), wresult.begin(), towlower);
+  *result = wresult;
   return true;
 }
 
@@ -434,6 +447,10 @@ bool IsDevNull(const wchar_t* path) {
 
 bool IsRootDirectory(const std::string& path) {
   return IsRootOrAbsolute(path, true);
+}
+
+bool IsRootDirectory(const Path& path) {
+  return IsRootOrAbsolute(path.AsNativePath(), true);
 }
 
 bool IsAbsolute(const std::string& path) {
@@ -494,10 +511,16 @@ Path Path::Canonicalize() const {
   return Path(MakeCanonical(WstringToString(path_).c_str()));
 }
 
+Path Path::GetParent() const { return Path(SplitPathW(path_).first); }
+
 bool Path::IsNull() const { return path_ == L"NUL"; }
 
 bool Path::Contains(const char c) const {
   return path_.find_first_of(c) != std::wstring::npos;
+}
+
+bool Path::Contains(const std::string& s) const {
+  return path_.find(CstringToWstring(s.c_str()).get()) != std::wstring::npos;
 }
 
 std::string Path::AsPrintablePath() const {

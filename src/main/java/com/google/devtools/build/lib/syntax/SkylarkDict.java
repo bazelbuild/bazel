@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.StarlarkMutable.MutableMap;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -41,29 +39,32 @@ import javax.annotation.Nullable;
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
  */
 @SkylarkModule(
-  name = "dict",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A language built-in type representating a dictionary (associative mapping). "
-          + "Dictionaries may be constructed with a special literal syntax:<br>"
-          + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
-          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
-          + "When using the literal syntax, it is an error to have duplicated keys. "
-          + "Use square brackets to access elements:<br>"
-          + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
-          + "Like lists, they can also be constructed using a comprehension syntax:<br>"
-          + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
-          + "e = d[8]       # e == 16</pre>"
-          + "Dictionaries are mutable. You can add new elements or mutate existing ones:"
-          + "<pre class=\"language-python\">d[\"key\"] = 5</pre>"
-          + "<p>Iterating over a dict is equivalent to iterating over its keys. The "
-          + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
-          + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
-          + "# evaluates as True</pre>"
-          + "The iteration order for a dict is deterministic and specified as the order in which "
-          + "the keys have been added to the dict. The iteration order is not affected if a value "
-          + "associated with an existing key is updated."
-)
+    name = "dict",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A language built-in type representating a dictionary (associative mapping). Dictionaries"
+            + " may be constructed with a special literal syntax:<br><pre"
+            + " class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>See also the <a"
+            + " href=\"globals.html#dict\">dict()</a> constructor function. When using the literal"
+            + " syntax, it is an error to have duplicated keys. Use square brackets to access"
+            + " elements:<br><pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>Like"
+            + " lists, they can also be constructed using a comprehension syntax:<br><pre"
+            + " class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
+            + "e = d[8]       # e == 16</pre>Dictionaries are mutable. You can add new elements or"
+            + " mutate existing ones:<pre class=\"language-python\">d[\"key\"] ="
+            + " 5</pre><p>Iterating over a dict is equivalent to iterating over its keys. The"
+            + " <code>in</code> operator tests for membership in the keyset of the dict.<br><pre"
+            + " class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} # evaluates as"
+            + " True</pre>The iteration order for a dict is deterministic and specified as the"
+            + " order in which the keys have been added to the dict. The iteration order is not"
+            + " affected if a value associated with an existing key is updated.")
+// TODO(b/64208606): eliminate these type parameters as they are wildly unsound.
+// Starlark code may update a StarlarkDict in ways incompatible with its Java
+// parameterized type. There is no realistic static or dynamic way to prevent
+// this, as Java parameterized types are not accessible at runtime.
+// Every cast to a parameterized type is a lie.
+// Unchecked warnings should be treated as errors.
+// Ditto SkylarkList.
 public final class SkylarkDict<K, V> extends MutableMap<K, V>
     implements Map<K, V>, SkylarkIndexable {
 
@@ -219,8 +220,13 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       useEnvironment = true)
   public Runtime.NoneType update(
       Object args, SkylarkDict<?, ?> kwargs, Location loc, Environment env) throws EvalException {
+    // TODO(adonovan): opt: don't materialize dict; call put directly.
+
+    // All these types and casts are lies.
     SkylarkDict<K, V> dict =
-        (args instanceof SkylarkDict) ? (SkylarkDict<K, V>) args : getDictFromArgs(args, loc, env);
+        args instanceof SkylarkDict
+            ? (SkylarkDict<K, V>) args
+            : getDictFromArgs("update", args, loc, env);
     dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, env);
     putAll(dict, loc, env.mutability(), env);
     return Runtime.NONE;
@@ -466,10 +472,20 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /**
-   * Casts this dict to an unmodifiable {@code SkylarkDict<X, Y>}, after checking that all keys and
-   * values have types {@code keyType} and {@code valueType} respectively.
+   * Returns an unmodifiable view of this StarlarkDict coerced to type {@code SkylarkDict<X, Y>},
+   * after superficially checking that all keys and values are of class {@code keyType} and {@code
+   * valueType} respectively.
    *
-   * <p>The returned map may or may not be a view that is affected by updates to the original dict.
+   * <p>The returned map is a view that reflects subsequent updates to the original dict. If such
+   * updates should insert keys or values of types other than X or Y respectively, the reference
+   * returned by getContents will have a false type that may cause the program to fail in unexpected
+   * and hard-to-debug ways.
+   *
+   * <p>The dynamic checks are necessarily superficial if either of X or Y is itself a parameterized
+   * type. For example, if Y is {@code List<String>}, getContents checks that the dict values are
+   * instances of List, but it does not and cannot check that all the elements of those lists are
+   * Strings. If one of the dict values in fact a List of Integer, the returned reference will again
+   * have a false type.
    *
    * @param keyType the expected class of keys
    * @param valueType the expected class of values
@@ -477,8 +493,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    */
   @SuppressWarnings("unchecked")
   public <X, Y> Map<X, Y> getContents(
-      Class<X> keyType, Class<Y> valueType, @Nullable String description)
-      throws EvalException {
+      Class<X> keyType, Class<Y> valueType, @Nullable String description) throws EvalException {
     Object keyDescription = description == null
         ? null : Printer.formattable("'%s' key", description);
     Object valueDescription = description == null
@@ -493,8 +508,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @Override
-  public final Object getIndex(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
+  public final Object getIndex(Object key, Location loc) throws EvalException {
     if (!this.containsKey(key)) {
       throw new EvalException(loc, Printer.format("key %r not found in dictionary", key));
     }
@@ -502,8 +516,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
+  public final boolean containsKey(Object key, Location loc) throws EvalException {
     return this.containsKey(key);
   }
 
@@ -525,32 +538,44 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return result;
   }
 
-  public static <K, V> SkylarkDict<K, V> getDictFromArgs(
-      Object args, Location loc, @Nullable Environment env) throws EvalException {
+  static <K, V> SkylarkDict<K, V> getDictFromArgs(
+      String funcname, Object args, Location loc, @Nullable Environment env) throws EvalException {
+    Iterable<?> seq;
+    try {
+      seq = EvalUtils.toIterable(args, loc, env);
+    } catch (EvalException ex) {
+      throw new EvalException(
+          loc,
+          String.format("in %s, got %s, want iterable", funcname, EvalUtils.getDataTypeName(args)));
+    }
     SkylarkDict<K, V> result = SkylarkDict.of(env);
     int pos = 0;
-    for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
-      List<Object> pair = convertToPair(element, pos, loc);
+    for (Object item : seq) {
+      Iterable<?> seq2;
+      try {
+        seq2 = EvalUtils.toIterable(item, loc, null);
+      } catch (EvalException ex) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "in %s, dictionary update sequence element #%d is not iterable (%s)",
+                funcname, pos, EvalUtils.getDataTypeName(item)));
+      }
+      // TODO(adonovan): opt: avoid unnecessary allocations and copies.
+      // Why is there no operator to compute len(x), following the spec, without iterating??
+      List<Object> pair = Lists.newArrayList(seq2);
+      if (pair.size() != 2) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "in %s, item #%d has length %d, but exactly two elements are required",
+                funcname, pos, pair.size()));
+      }
+      // These casts are lies
       result.put((K) pair.get(0), (V) pair.get(1), loc, env);
-      ++pos;
+      pos++;
     }
     return result;
   }
 
-  private static List<Object> convertToPair(Object element, int pos, Location loc)
-      throws EvalException {
-    try {
-      List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
-      int numElements = tuple.size();
-      if (numElements != 2) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "item #%d has length %d, but exactly two elements are required", pos, numElements));
-      }
-      return tuple;
-    } catch (ConversionException e) {
-      throw new EvalException(loc, String.format("cannot convert item #%d to a sequence", pos), e);
-    }
-  }
 }

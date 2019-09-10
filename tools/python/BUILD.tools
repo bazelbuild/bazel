@@ -57,6 +57,14 @@ exports_files([
     # used in this BUILD file.
 ])
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "private/defs.bzl",
+    ],
+    visibility = ["//tools:__pkg__"],
+)
+
 # This target can be used to inspect the current Python major version. To use,
 # put it in the `flag_values` attribute of a `config_setting` and test it
 # against the values "PY2" or "PY3". It will always match one or the other.

@@ -283,8 +283,9 @@ public class SpawnIncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
       GrepIncludesFileType fileType,
-      boolean placeNextToFile)
+      boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
+    boolean placeNextToFile = isOutputFile && !file.hasParent();
     Path output = getIncludesOutput(file, actionExecutionContext.getPathResolver(), fileType,
         placeNextToFile);
     if (!inMemoryOutput) {
@@ -392,8 +393,9 @@ public class SpawnIncludeScanner {
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
       GrepIncludesFileType fileType,
-      boolean placeNextToFile)
+      boolean isOutputFile)
       throws IOException {
+    boolean placeNextToFile = isOutputFile && !file.hasParent();
     Path output =
         getIncludesOutput(
             file, actionExecutionContext.getPathResolver(), fileType, placeNextToFile);

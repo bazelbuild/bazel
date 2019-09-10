@@ -516,8 +516,6 @@ public abstract class AndroidSkylarkData
                   settings.resourceFilterFactory,
                   settings.noCompressExtensions,
                   crunchPng,
-                  /* featureOf = */ null,
-                  /* featureAfter = */ null,
                   DataBinding.contextFrom(
                       dataBindingEnabled,
                       ctx.getActionConstructionContext(),

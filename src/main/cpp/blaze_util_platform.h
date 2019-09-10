@@ -130,7 +130,7 @@ uint64_t GetMillisecondsMonotonic();
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 
 // Returns the cwd for a process.
-std::string GetProcessCWD(int pid);
+blaze_util::Path GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
@@ -148,7 +148,7 @@ std::string GetJavaBinaryUnderJavabase();
 // CreateProcessW.
 //
 // This function does not return on success.
-void ExecuteServerJvm(const std::string& exe,
+void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<std::string>& server_jvm_args);
 
 // Execute the "bazel run" request in the current directory.
@@ -157,7 +157,7 @@ void ExecuteServerJvm(const std::string& exe,
 // CreateProcessW.
 //
 // This function does not return on success.
-void ExecuteRunRequest(const std::string& exe,
+void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<std::string>& run_request_args);
 
 class BlazeServerStartup {
@@ -174,7 +174,7 @@ class BlazeServerStartup {
 // both as a symlink (for legacy reasons) and as a file, and returned to the
 // caller.
 int ExecuteDaemon(
-    const std::string& exe, const std::vector<std::string>& args_vector,
+    const blaze_util::Path& exe, const std::vector<std::string>& args_vector,
     const std::map<std::string, EnvVarValue>& env,
     const blaze_util::Path& daemon_output, const bool daemon_output_append,
     const std::string& binaries_dir, const blaze_util::Path& server_dir,

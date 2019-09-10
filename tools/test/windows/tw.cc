@@ -826,43 +826,6 @@ bool ReadFromFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   return true;
 }
 
-bool ReadCompleteFile(const Path& path, std::unique_ptr<uint8_t[]>* data,
-                      DWORD* size) {
-  bazel::windows::AutoHandle handle;
-  if (!OpenExistingFileForRead(path, &handle)) {
-    LogError(__LINE__, path.Get());
-    return false;
-  }
-
-  LARGE_INTEGER file_size;
-  if (!GetFileSizeEx(handle, &file_size)) {
-    DWORD err = GetLastError();
-    LogErrorWithValue(__LINE__, path.Get(), err);
-    return false;
-  }
-
-  // `ReadCompleteFile` doesn't support files larger than 4GB because most files
-  // that this function will be reading (test outerr logs) are typically smaller
-  // than that. (A buffered file reader would allow supporting larger files, but
-  // that seems like overkill here.)
-  if (file_size.QuadPart > 0xFFFFFFFF) {
-    LogError(__LINE__, path.Get());
-    return false;
-  }
-  const DWORD file_size_dw = file_size.QuadPart;
-  *size = file_size_dw;
-
-  // Allocate a buffer large enough to hold the whole file.
-  data->reset(new uint8_t[file_size_dw]);
-  if (!data->get()) {
-    // Memory allocation failed.
-    LogErrorWithValue(__LINE__, path.Get(), file_size_dw);
-    return false;
-  }
-
-  return ReadFromFile(handle, data->get(), file_size_dw);
-}
-
 bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
   // Write `size` many bytes to the output file.
   DWORD total_written = 0;

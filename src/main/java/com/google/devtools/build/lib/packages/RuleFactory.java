@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import java.util.Set;
@@ -342,7 +342,7 @@ public class RuleFactory {
       return new AttributesAndLocation(args, location);
     }
     Pair<FuncallExpression, BaseFunction> topCall = env.getTopCall();
-    if (topCall == null || !(topCall.second instanceof UserDefinedFunction)) {
+    if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
       return new AttributesAndLocation(args, location);
     }
 

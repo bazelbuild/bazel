@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -504,6 +503,8 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
+   * @param context the application context associated with the calling Starlark thread. It must
+   *     implement {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -539,8 +540,17 @@ public final class Label
       },
       useContext = true)
   public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
-    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
+    return getRelativeWithRemapping(relName, ((HasRepoMapping) context).getRepoMapping());
+  }
+
+  /**
+   * An interface for retrieving a repository mapping.
+   *
+   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
+   * that type here because logically it belongs in Bazel, above this package.
+   */
+  public interface HasRepoMapping {
+    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
   }
 
   /**

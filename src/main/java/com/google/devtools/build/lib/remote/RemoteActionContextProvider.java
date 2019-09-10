@@ -49,7 +49,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
-  private ImmutableSet<ActionInput> topLevelOutputs = ImmutableSet.of();
+  private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
@@ -103,7 +103,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               env.getReporter(),
               digestUtil,
-              topLevelOutputs);
+              filesToDownload);
       return ImmutableList.of(spawnCache);
     } else {
       RemoteSpawnRunner spawnRunner =
@@ -121,7 +121,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               retrier,
               digestUtil,
               logDir,
-              topLevelOutputs);
+              filesToDownload);
       return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
     }
   }
@@ -171,8 +171,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     return cache;
   }
 
-  void setTopLevelOutputs(ImmutableSet<ActionInput> topLevelOutputs) {
-    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
+  void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
+    this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
 
   @Override

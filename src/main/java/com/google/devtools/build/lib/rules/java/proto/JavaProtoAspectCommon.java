@@ -108,7 +108,8 @@ public class JavaProtoAspectCommon {
       String injectingRuleKind,
       Artifact sourceJar,
       Artifact outputJar,
-      JavaCompilationArgsProvider dep) {
+      JavaCompilationArgsProvider dep)
+      throws InterruptedException {
     JavaLibraryHelper helper =
         new JavaLibraryHelper(ruleContext)
             .setInjectingRuleKind(injectingRuleKind)

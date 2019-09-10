@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -320,9 +320,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
-    return (set.toList().contains(key));
+  public final boolean containsKey(Object key, Location loc) throws EvalException {
+    return set.toList().contains(key);
   }
 
   @SkylarkCallable(
@@ -362,10 +361,21 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               + "</code>-ordered depsets, and for elements of child depsets whose order differs "
               + "from that of the parent depset. The list is a copy; modifying it has no effect "
               + "on the depset and vice versa.",
-      useEnvironment = true
-  )
-  public MutableList<Object> toList(Environment env) {
-    return MutableList.copyOf(env, this.toCollection());
+      useEnvironment = true,
+      useLocation = true)
+  public MutableList<Object> toList(Location location, Environment env) throws EvalException {
+    try {
+      return MutableList.copyOf(env, this.toCollection());
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          location,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the depset for to_list(), "
+              + "as the size of depsets is unknown until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
+    }
   }
 
   /**

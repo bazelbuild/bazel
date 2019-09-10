@@ -176,7 +176,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         || settings.contains(Setting.TESTS_EXPRESSION_STRICT)) {
       settings =
           Sets.difference(
-              settings, ImmutableSet.of(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS));
+              settings, ImmutableSet.of(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS));
       throw new QueryException(
           String.format(
               "The following filter(s) are not currently supported by configured query: %s",
@@ -323,18 +323,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    */
   protected Collection<T> getAllowedDeps(T target, Collection<T> deps) {
     // It's possible to query on a target that's configured in the host configuration. In those
-    // cases if --nohost_deps is turned on, we only allow reachable targets that are ALSO in the
+    // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in the
     // host config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
-    if (settings.contains(Setting.NO_HOST_DEPS)) {
+    if (settings.contains(Setting.ONLY_TARGET_DEPS)) {
       BuildConfiguration currentConfig = getConfiguration(target);
-      if (currentConfig != null && currentConfig.isHostConfiguration()) {
+      if (currentConfig != null && currentConfig.isToolConfiguration()) {
         deps =
             deps.stream()
                 .filter(
                     dep ->
                         getConfiguration(dep) != null
-                            && getConfiguration(dep).isHostConfiguration())
+                            && getConfiguration(dep).isToolConfiguration())
                 .collect(Collectors.toList());
       } else {
         deps =
@@ -342,7 +342,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 .filter(
                     dep ->
                         getConfiguration(dep) != null
-                            && !getConfiguration(dep).isHostConfiguration())
+                            && !getConfiguration(dep).isToolConfiguration())
                 .collect(Collectors.toList());
       }
     }

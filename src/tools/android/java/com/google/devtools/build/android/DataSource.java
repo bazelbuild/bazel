@@ -27,7 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 
 /** Represents where the DataValue was derived from. */
-public class DataSource implements Comparable<DataSource> {
+public final class DataSource implements Comparable<DataSource> {
 
   public static DataSource from(ProtoSource protoSource, FileSystem currentFileSystem) {
     Path path = currentFileSystem.getPath(protoSource.getFilename());

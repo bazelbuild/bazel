@@ -379,13 +379,14 @@ and
 [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
+with preference given to earlier items in the list.
 
 The resolution steps are as follows.
 
 1. If the target specifies the
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
    (or the rule specifies the
-   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with),
+   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 

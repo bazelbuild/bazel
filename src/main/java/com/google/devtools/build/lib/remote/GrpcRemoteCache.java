@@ -35,7 +35,6 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -67,7 +67,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -161,46 +160,42 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   @Override
-  protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
-      throws IOException, InterruptedException {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
     if (Iterables.isEmpty(digests)) {
-      return ImmutableSet.of();
+      return Futures.immediateFuture(ImmutableSet.of());
     }
     // Need to potentially split the digests into multiple requests.
     FindMissingBlobsRequest.Builder requestBuilder =
         FindMissingBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
-    List<ListenableFuture<FindMissingBlobsResponse>> callFutures = new ArrayList<>();
+    List<ListenableFuture<FindMissingBlobsResponse>> getMissingDigestCalls = new ArrayList<>();
     for (Digest digest : digests) {
       requestBuilder.addBlobDigests(digest);
       if (requestBuilder.getBlobDigestsCount() == maxMissingBlobsDigestsPerMessage) {
-        callFutures.add(getMissingDigests(requestBuilder.build()));
+        getMissingDigestCalls.add(getMissingDigests(requestBuilder.build()));
         requestBuilder.clearBlobDigests();
       }
     }
+
     if (requestBuilder.getBlobDigestsCount() > 0) {
-      callFutures.add(getMissingDigests(requestBuilder.build()));
+      getMissingDigestCalls.add(getMissingDigests(requestBuilder.build()));
     }
-    ImmutableSet.Builder<Digest> result = ImmutableSet.builder();
-    try {
-      for (ListenableFuture<FindMissingBlobsResponse> callFuture : callFutures) {
-        result.addAll(callFuture.get().getMissingBlobDigestsList());
-      }
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      Throwables.propagateIfInstanceOf(cause, IOException.class);
-      throw new RuntimeException(cause);
-    }
-    return result.build();
+
+    return Futures.whenAllSucceed(getMissingDigestCalls)
+        .call(
+            () -> {
+              ImmutableSet.Builder<Digest> result = ImmutableSet.builder();
+              for (ListenableFuture<FindMissingBlobsResponse> callFuture : getMissingDigestCalls) {
+                result.addAll(callFuture.get().getMissingBlobDigestsList());
+              }
+              return result.build();
+            },
+            MoreExecutors.directExecutor());
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
-      FindMissingBlobsRequest request) throws IOException, InterruptedException {
+      FindMissingBlobsRequest request) {
     Context ctx = Context.current();
-    try {
-      return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
+    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
   }
 
   /**
@@ -218,8 +213,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   public void ensureInputsPresent(
       MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot)
       throws IOException, InterruptedException {
-    ImmutableSet<Digest> missingDigests =
-        getMissingDigests(Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet()));
+    Iterable<Digest> allDigests =
+        Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
+    ImmutableSet<Digest> missingDigests = Utils.getFromFuture(findMissingDigests(allDigests));
     Map<HashCode, Chunker> inputsToUpload = Maps.newHashMapWithExpectedSize(missingDigests.size());
     for (Digest missingDigest : missingDigests) {
       Directory node = merkleTree.getDirectoryByDigest(missingDigest);
@@ -247,7 +243,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
       throw new IOException(
           format(
-              "getMissingDigests returned a missing digest that has not been requested: %s",
+              "findMissingDigests returned a missing digest that has not been requested: %s",
               missingDigest));
     }
 

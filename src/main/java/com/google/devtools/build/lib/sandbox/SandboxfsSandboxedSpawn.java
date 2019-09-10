@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * Creates an execRoot for a Spawn that contains all required input files by mounting a sandboxfs
@@ -89,6 +90,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    */
   private final PathFragment innerExecRoot;
 
+  @Nullable private final Path statisticsPath;
+
   /**
    * Constructs a new sandboxfs-based spawn runner.
    *
@@ -112,7 +115,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       SandboxOutputs outputs,
       Set<PathFragment> writableDirs,
       boolean mapSymlinkTargets,
-      TreeDeleter treeDeleter) {
+      TreeDeleter treeDeleter,
+      @Nullable Path statisticsPath) {
     this.process = process;
     this.arguments = arguments;
     this.environment = environment;
@@ -137,6 +141,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     int id = lastId.getAndIncrement();
     this.execRoot = process.getMountPoint().getRelative("" + id);
     this.innerExecRoot = PathFragment.create("/" + id);
+    this.statisticsPath = statisticsPath;
   }
 
   @Override
@@ -152,6 +157,11 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   @Override
   public Map<String, String> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  public Path getStatisticsPath() {
+    return statisticsPath;
   }
 
   @Override

@@ -54,7 +54,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_remove_legacy_whole_archive");
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
             "genrule",

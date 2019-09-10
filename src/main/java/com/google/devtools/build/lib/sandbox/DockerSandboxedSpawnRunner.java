@@ -23,7 +23,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
@@ -50,9 +49,11 @@ import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -149,7 +150,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final int uid;
   private final int gid;
-  private final List<UUID> containersToCleanup;
+  private final Set<UUID> containersToCleanup;
   private final CommandEnvironment cmdEnv;
 
   /**
@@ -192,14 +193,14 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       this.uid = -1;
       this.gid = -1;
     }
-    this.containersToCleanup = Collections.synchronizedList(new ArrayList<>());
+    this.containersToCleanup = Collections.synchronizedSet(new HashSet<>());
 
     cmdEnv.getEventBus().register(this);
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException {
     // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
@@ -263,32 +264,28 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       cmdLine.setTimeout(timeout);
     }
 
-    SandboxedSpawn sandbox =
-        new CopyingSandboxedSpawn(
-            sandboxPath,
-            sandboxExecRoot,
-            cmdLine.build(),
-            cmdEnv.getClientEnv(),
-            SandboxHelpers.processInputFiles(
-                spawn,
-                context,
-                execRoot,
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            outputs,
-            ImmutableSet.of(),
-            treeDeleter);
-
-    try {
-      return runSpawn(spawn, sandbox, context, execRoot, timeout, null);
-    } catch (InterruptedException e) {
-      // If we were interrupted, it is possible that "docker run" gets killed in exactly the moment
-      // between the create and the start call, leaving behind a container that is created but never
-      // ran. This means that Docker won't automatically clean it up (as --rm only affects the start
-      // phase and has no effect on the create phase of "docker run").
-      // We add the container UUID to a list and clean them up after the execution is over.
-      containersToCleanup.add(uuid);
-      throw e;
-    }
+    // If we were interrupted, it is possible that "docker run" gets killed in exactly the moment
+    // between the create and the start call, leaving behind a container that is created but never
+    // ran. This means that Docker won't automatically clean it up (as --rm only affects the start
+    // phase and has no effect on the create phase of "docker run").
+    // We register the container UUID for cleanup, but remove the UUID if the process ran
+    // successfully.
+    containersToCleanup.add(uuid);
+    return new CopyingSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        cmdLine.build(),
+        cmdEnv.getClientEnv(),
+        SandboxHelpers.processInputFiles(
+            spawn,
+            context,
+            execRoot,
+            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+        outputs,
+        ImmutableSet.of(),
+        treeDeleter,
+        /*statisticsPath=*/ null,
+        () -> containersToCleanup.remove(uuid));
   }
 
   private String getOrCreateCustomizedImage(String baseImage) {

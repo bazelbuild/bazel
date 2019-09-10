@@ -151,13 +151,13 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // stubbed out so we can compile for Darwin.
 }
 
-string GetProcessCWD(int pid) {
+blaze_util::Path GetProcessCWD(int pid) {
   struct proc_vnodepathinfo info = {};
   if (proc_pidinfo(
           pid, PROC_PIDVNODEPATHINFO, 0, &info, sizeof(info)) != sizeof(info)) {
-    return "";
+    return blaze_util::Path();
   }
-  return string(info.pvi_cdir.vip_path);
+  return blaze_util::Path(string(info.pvi_cdir.vip_path));
 }
 
 bool IsSharedLibrary(const string &filename) {

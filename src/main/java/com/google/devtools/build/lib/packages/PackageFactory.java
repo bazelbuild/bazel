@@ -20,8 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -39,6 +37,7 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -70,8 +69,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -274,8 +271,6 @@ public final class PackageFactory {
       pkgBuilder.setDefaultRestrictedTo(value, Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
     }
   }
-
-  public static final String PKG_CONTEXT = "$pkg_context";
 
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
@@ -1252,13 +1247,14 @@ public final class PackageFactory {
    */
   public static PackageContext getContext(Environment env, Location location)
       throws EvalException {
-    PackageContext value = (PackageContext) env.dynamicLookup(PKG_CONTEXT);
+    PackageContext value = env.getThreadLocal(PackageContext.class);
     if (value == null) {
-      // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
+      // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
-      throw new EvalException(location,
-          "The native module cannot be accessed from here. "
-          + "Wrap the function in a macro and call it from a BUILD file");
+      throw new EvalException(
+          location,
+          "The native module can be accessed only from a BUILD thread. "
+              + "Wrap the function in a macro and call it from a BUILD file");
     }
     return value;
   }
@@ -1566,15 +1562,13 @@ public final class PackageFactory {
   }
 
   /**
-   * This tuple holds the current package builder, current lexer, etc, for the
-   * duration of the evaluation of one BUILD file. (We use a PackageContext
-   * object in preference to storing these values in mutable fields of the
-   * PackageFactory.)
+   * This class holds state associated with the construction of a single package for the duration of
+   * execution of one BUILD file. (We use a PackageContext object in preference to storing these
+   * values in mutable fields of the PackageFactory.)
    *
-   * <p>PLEASE NOTE: references to PackageContext objects are held by many
-   * BaseFunction closures, but should become unreachable once the Environment is
-   * discarded at the end of evaluation.  Please be aware of your memory
-   * footprint when making changes here!
+   * <p>PLEASE NOTE: the PackageContext is referred to by the Environment, but should become
+   * unreachable once the Environment is discarded at the end of evaluation. Please be aware of your
+   * memory footprint when making changes here!
    */
   public static class PackageContext {
     final Package.Builder pkgBuilder;
@@ -1686,7 +1680,7 @@ public final class PackageFactory {
       extension.update(pkgEnv);
     }
 
-    pkgEnv.setupDynamic(PKG_CONTEXT, context);
+    pkgEnv.setThreadLocal(PackageContext.class, context);
   }
 
   /**
