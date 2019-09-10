@@ -36,26 +36,47 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
 
   /** Create a new class writer. */
   public static AndroidResourceClassWriter createWith(
-      Path androidJar, Path out, String javaPackage) {
-    return of(new AndroidFrameworkAttrIdJar(androidJar), out, javaPackage);
+      String label, Path androidJar, Path out, String javaPackage) {
+    return of(label, new AndroidFrameworkAttrIdJar(androidJar), out, javaPackage);
   }
 
   @VisibleForTesting
-  public static AndroidResourceClassWriter of(
+  static AndroidResourceClassWriter of(
       AndroidFrameworkAttrIdProvider androidIdProvider, Path outputBasePath, String packageName) {
     return new AndroidResourceClassWriter(
-        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider), outputBasePath, packageName);
+        /*label=*/ null,
+        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider),
+        outputBasePath,
+        packageName);
   }
 
+  private static AndroidResourceClassWriter of(
+      String label,
+      AndroidFrameworkAttrIdProvider androidIdProvider,
+      Path outputBasePath,
+      String packageName) {
+    return new AndroidResourceClassWriter(
+        label,
+        PlaceholderIdFieldInitializerBuilder.from(androidIdProvider),
+        outputBasePath,
+        packageName);
+  }
+
+  private final String label;
   private final Path outputBasePath;
   private final String packageName;
   private boolean includeClassFile = true;
   private boolean includeJavaFile = true;
+  private boolean annotateTransitiveFields = false;
 
   private final PlaceholderIdFieldInitializerBuilder generator;
 
   private AndroidResourceClassWriter(
-      PlaceholderIdFieldInitializerBuilder generator, Path outputBasePath, String packageName) {
+      String label,
+      PlaceholderIdFieldInitializerBuilder generator,
+      Path outputBasePath,
+      String packageName) {
+    this.label = label;
     this.generator = generator;
     this.outputBasePath = outputBasePath;
     this.packageName = packageName;
@@ -67,6 +88,10 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
 
   public void setIncludeJavaFile(boolean include) {
     this.includeJavaFile = include;
+  }
+
+  void setAnnotateTransitiveFields(boolean annotateTransitiveFields) {
+    this.annotateTransitiveFields = annotateTransitiveFields;
   }
 
   @Override
@@ -108,6 +133,8 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
   }
 
   private void writeAsClass(FieldInitializers initializers) throws IOException {
-    RClassGenerator.with(outputBasePath, initializers, /* finalFields= */ false).write(packageName);
+    RClassGenerator.with(
+            label, outputBasePath, initializers, /* finalFields= */ false, annotateTransitiveFields)
+        .write(packageName);
   }
 }

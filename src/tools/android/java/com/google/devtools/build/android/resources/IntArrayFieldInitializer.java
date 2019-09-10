@@ -22,7 +22,9 @@ import com.google.devtools.build.android.DependencyInfo;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Objects;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 
@@ -64,9 +66,18 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public boolean writeFieldDefinition(ClassWriter cw, int accessLevel, boolean isFinal) {
-    Object unused = dependencyInfo; // TODO: add annotation with dep metadata
-    cw.visitField(accessLevel, fieldName, DESC, null, null).visitEnd();
+  public boolean writeFieldDefinition(
+      ClassWriter cw, int accessLevel, boolean isFinal, boolean annotateTransitiveFields) {
+    FieldVisitor fv = cw.visitField(accessLevel, fieldName, DESC, null, null);
+    if (annotateTransitiveFields
+        && dependencyInfo.dependencyType() == DependencyInfo.DependencyType.TRANSITIVE) {
+      AnnotationVisitor av =
+          fv.visitAnnotation(
+              RClassGenerator.PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR, /*visible=*/ true);
+      av.visit(RClassGenerator.PROVENANCE_ANNOTATION_LABEL_KEY, dependencyInfo.label());
+      av.visitEnd();
+    }
+    fv.visitEnd();
     return true;
   }
 

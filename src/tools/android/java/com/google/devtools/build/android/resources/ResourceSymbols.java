@@ -203,7 +203,9 @@ public class ResourceSymbols {
       Path classesOut,
       boolean finalFields)
       throws IOException {
-    RClassGenerator classWriter = RClassGenerator.with(classesOut, values, finalFields);
+    RClassGenerator classWriter =
+        RClassGenerator.with(
+            /*label=*/ null, classesOut, values, finalFields, /*annotateTransitiveFields=*/ false);
     for (String packageName : libMap.keySet()) {
       classWriter.write(packageName, ResourceSymbols.merge(libMap.get(packageName)).values);
     }
