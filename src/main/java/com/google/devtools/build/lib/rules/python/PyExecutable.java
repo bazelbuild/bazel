@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.syntax.Type;
@@ -131,10 +133,16 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     semantics.collectDefaultRunfiles(ruleContext, builder);
     builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
 
-    if (!ruleContext.getFragment(PythonConfiguration.class).removeLegacyCreateInitPy() && 
-            (!ruleContext.attributes().has("legacy_create_init", Type.BOOLEAN) 
-             || ruleContext.attributes().get("legacy_create_init", Type.BOOLEAN))) {
-      builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
+    boolean create_init_files = !ruleContext.getFragment(PythonConfiguration.class).removeLegacyCreateInitPy();
+
+    // If this attribute has explicitly set a value for 'legacy_create_init', we go by that.
+    if (ruleContext.attributes().has("legacy_create_init", BuildType.TRISTATE) && 
+        ruleContext.attributes().get("legacy_create_init", BuildType.TRISTATE) != TriState.AUTO) {
+        create_init_files = (ruleContext.attributes().get("legacy_create_init", BuildType.TRISTATE) == TriState.YES);
+    }
+
+    if (create_init_files) {
+        builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     }
     semantics.collectRunfilesForBinary(ruleContext, builder, common, ccInfo);
     return builder.build();
