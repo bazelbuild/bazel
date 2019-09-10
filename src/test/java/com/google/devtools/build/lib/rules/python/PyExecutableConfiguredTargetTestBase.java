@@ -522,6 +522,21 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
+  public void incompatibleRemoveLegacyCreateInitPyWithAttribute_leavesFile() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        join(ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        "    legacy_create_init = True,", //
+        ")"
+    ));
+    useConfiguration("--incompatible_remove_legacy_create_init_py=true");
+    assertThat(getDefaultRunfiles(getOkPyTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly("pkg/__init__.py");
+  }
+
+  @Test
   public void noIncompatibleRemoveLegacyCreateInitPy_leavesFile() throws Exception {
     scratch.file( //
         "pkg/BUILD", //
@@ -533,5 +548,19 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     useConfiguration("--incompatible_remove_legacy_create_init_py=false");
     assertThat(getDefaultRunfiles(getOkPyTarget("//pkg:foo")).getEmptyFilenames())
         .containsExactly("pkg/__init__.py");
+  }
+
+  @Test
+  public void noIncompatibleRemoveLegacyCreateInitPyWithAttribute_removesFile() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        join(ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        "    legacy_create_init = False,", //
+        ")"
+    ));
+    useConfiguration("--incompatible_remove_legacy_create_init_py=false");
+    assertThat(getDefaultRunfiles(getOkPyTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 }
