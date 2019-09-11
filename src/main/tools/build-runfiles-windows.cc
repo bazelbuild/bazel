@@ -180,8 +180,8 @@ class RunfilesCreator {
         link = wline.substr(0, space_pos);
         target = wline.substr(space_pos + 1);
       }
-      // Spaces in the link name are replaced by '|'.
-      std::replace(link.begin(), link.end(), '|', ' ');
+      // Spaces in the link name are replaced by a special character (\x01).
+      std::replace(link.begin(), link.end(), '\x01', ' ');
 
       // Removing leading and trailing spaces
       Trim(link);

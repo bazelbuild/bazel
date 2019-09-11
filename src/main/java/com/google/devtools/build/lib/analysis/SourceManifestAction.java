@@ -224,8 +224,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       @Override
       public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
           throws IOException {
-        // Replace spaces in the link name by '|'.
-        String p = rootRelativePath.getPathString().replace(' ', '|');
+        // Replace spaces in the link name by a special character (U+0001).
+        // This character is very unlikely to be used in a path, and has a single-byte UTF-8
+        // encoding, so it's easily replaceable by 'sed' and other shell tools.
+        String p = rootRelativePath.getPathString().replace(' ', '\u0001');
         manifestWriter.append(p);
         // This trailing delimiter is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');

@@ -155,13 +155,10 @@ class RunfilesCreator {
       const char *s = strchr(buf, ' ');
       if (!s) {
         DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-      } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n",
-            lineno, buf);
       }
       std::string link(buf, s-buf);
-      // Spaces in the link name are replaced by '|'.
-      std::replace(link.begin(), link.end(), '|', ' ');
+      // Spaces in the link name are replaced by a special character (\x01).
+      std::replace(link.begin(), link.end(), '\x01', ' ');
       const char *target = s+1;
       if (!allow_relative && target[0] != '\0' && target[0] != '/'
           && target[1] != ':') {  // Match Windows paths, e.g. C:\foo or C:/foo.

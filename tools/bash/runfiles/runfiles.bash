@@ -121,8 +121,8 @@ function rlocation() {
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
       fi
-      # Spaces in the link name are replaced by '|'.
-      local -r result=$(grep -m1 "^${1// /|} " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+      # Spaces in the link name are replaced by a special character (U+0001).
+      local -r result=$(grep -m1 "^$(echo "$1" | tr ' ' '\001') " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
       if [[ -e "${result:-/dev/null/x}" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"

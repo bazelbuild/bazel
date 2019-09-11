@@ -59,7 +59,7 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
---enable_runfiles --build_python_zip=0"
+--enable_runfiles=yes --build_python_zip=0"
 else
   export EXT=""
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
@@ -321,8 +321,8 @@ EOF
 }
 
 function test_space_in_runfile_path() {
-  mkdir -p 'foo/a a'
-  mkdir -p 'repo/b b/c   c'
+  mkdir -p 'foo/a a'         # one space
+  mkdir -p 'repo/b b/c   c'  # more than one space
   touch 'foo/x.txt'          # no space
   touch 'foo/a a/y.txt'      # space in runfile link and target path
   touch 'repo/b b/z.txt'     # space in target path only
@@ -371,7 +371,7 @@ eof
   chmod +x x.sh
 
   # Look up runfiles using the runfiles manifest
-  bazel run --enable_runfiles --nobuild_runfile_links //:x >&"$TEST_log"
+  bazel run --enable_runfiles=yes --nobuild_runfile_links //:x >&"$TEST_log"
   expect_log "Hello from x.sh"
   expect_log "^x=(.*foo/x.txt)"
   expect_log "^y=(.*foo/a a/y.txt)"
@@ -379,7 +379,7 @@ eof
   expect_log "^w=(.*space_ws/c   c/w.txt)"
 
   # See if runfiles links are generated
-  bazel build --enable_runfiles --build_runfile_links //:x >&"$TEST_log"
+  bazel build --enable_runfiles=yes --build_runfile_links //:x >&"$TEST_log"
   [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/x.txt" ]] || fail "Cannot find x.txt"
   [[ -e "bazel-bin/x${EXT}.runfiles/foo_ws/foo/a a/y.txt" ]] || fail "Cannot find y.txt"
   [[ -e "bazel-bin/x${EXT}.runfiles/space_ws/z.txt" ]] || fail "Cannot find z.txt"
