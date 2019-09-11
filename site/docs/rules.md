@@ -25,6 +25,7 @@ Here is a selection of recommended rules:
 * [Haskell](https://github.com/tweag/rules_haskell)
 * [Java](bazel-and-java.html)
 * [Kubernetes](https://github.com/bazelbuild/rules_k8s)
+* [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external)
 * [NodeJS](https://github.com/bazelbuild/rules_nodejs)
 * [Objective C](bazel-and-apple.html)
 * [Package building and fetching rules](https://github.com/bazelbuild/rules_pkg)
