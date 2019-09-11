@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtracto
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1206,18 +1207,19 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testGlobPatternExtractor() {
     GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
     globPatternExtractor.visit(
-        BuildFileAST.parseString(
+        BuildFileAST.parse(
+            ParserInputSource.fromLines(
+                "pattern = '*'",
+                "some_variable = glob([",
+                "  '**/*',",
+                "  'a' + 'b',",
+                "  pattern,",
+                "])",
+                "other_variable = glob(include = ['a'], exclude = ['b'])",
+                "third_variable = glob(['c'], exclude_directories = 0)"),
             event -> {
               throw new IllegalArgumentException(event.getMessage());
-            },
-            "pattern = '*'",
-            "some_variable = glob([",
-            "  '**/*',",
-            "  'a' + 'b',",
-            "  pattern,",
-            "])",
-            "other_variable = glob(include = ['a'], exclude = ['b'])",
-            "third_variable = glob(['c'], exclude_directories = 0)"));
+            }));
     assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
         .containsExactly("ab", "a", "**/*");
     assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");

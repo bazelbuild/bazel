@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -221,8 +219,8 @@ public class BuildFileAST extends ASTNode {
    * Executes this build file in a given Environment.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported
-   * through reporter and execution continues on the next statement. In effect, there is a
+   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported through
+   * the event handler and execution continues on the next statement. In effect, there is a
    * "try/except" block around every top level statement. Such exceptions are not ignored, though:
    * they are visible via the return value. Rules declared in a package containing any error
    * (including loading-phase semantical errors that cannot be checked here) must also be considered
@@ -247,21 +245,19 @@ public class BuildFileAST extends ASTNode {
    * Executes tol-level statement of this build file in a given Environment.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported
-   * through reporter. In effect, there is a
-   * "try/except" block around every top level statement. Such exceptions are not ignored, though:
-   * they are visible via the return value. Rules declared in a package containing any error
-   * (including loading-phase semantical errors that cannot be checked here) must also be considered
-   * "in error".
+   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported through
+   * the event handler. In effect, there is a "try/except" block around every top level statement.
+   * Such exceptions are not ignored, though: they are visible via the return value. Rules declared
+   * in a package containing any error (including loading-phase semantical errors that cannot be
+   * checked here) must also be considered "in error".
    *
    * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
    * only to lexer/parser errors.
    *
    * @return true if no error occurred during execution.
    */
-
-  public boolean execTopLevelStatement(Statement stmt, Environment env,
-      EventHandler eventHandler) throws InterruptedException {
+  public boolean execTopLevelStatement(Statement stmt, Environment env, EventHandler eventHandler)
+      throws InterruptedException {
     try {
       Eval.fromEnvironment(env).exec(stmt);
       return true;
@@ -301,10 +297,11 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Parse the specified build file, returning its AST. All errors during scanning or parsing will
-   * be reported to the reporter.
+   * Parse the specified file, returning its syntax tree with the preludeStatements inserted at the
+   * front of its statement list. All errors during scanning or parsing will be reported to the
+   * event handler.
    */
-  public static BuildFileAST parseBuildFile(
+  public static BuildFileAST parseWithPrelude(
       ParserInputSource input,
       List<Statement> preludeStatements,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
@@ -317,7 +314,7 @@ public class BuildFileAST extends ASTNode {
   /**
    * Parse the specified build file, returning its AST. All load statements parsed that way will be
    * exempt from visibility restrictions. All errors during scanning or parsing will be reported to
-   * the reporter.
+   * the event handler.
    */
   public static BuildFileAST parseVirtualBuildFile(
       ParserInputSource input,
@@ -334,20 +331,8 @@ public class BuildFileAST extends ASTNode {
         true);
   }
 
-  public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(
-        /* preludeStatements= */ ImmutableList.<Statement>of(),
-        result,
-        /* contentHashCode= */ null,
-        /* repositoryMapping= */ ImmutableMap.of(),
-        eventHandler);
-  }
-
-  public static BuildFileAST parseSkylarkFile(
-      byte[] bytes, byte[] digest, PathFragment path, EventHandler eventHandler)
-      throws IOException {
-    ParserInputSource input = ParserInputSource.create(bytes, path);
+  public static BuildFileAST parseWithDigest(
+      ParserInputSource input, byte[] digest, EventHandler eventHandler) throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         /* preludeStatements= */ ImmutableList.of(),
@@ -357,7 +342,7 @@ public class BuildFileAST extends ASTNode {
         eventHandler);
   }
 
-  public static BuildFileAST parseSkylarkFile(ParserInputSource input, EventHandler eventHandler) {
+  public static BuildFileAST parse(ParserInputSource input, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         /* preludeStatements= */ ImmutableList.<Statement>of(),
@@ -368,20 +353,14 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Parse the specified non-build Skylark file but avoid the validation of the imports, returning
-   * its AST. All errors during scanning or parsing will be reported to the reporter.
-   *
-   * <p>This method should not be used in Bazel code, since it doesn't validate that the imports are
-   * syntactically valid.
+   * Parse the specified file but avoid the validation of the imports, returning its AST. All errors
+   * during scanning or parsing will be reported to the event handler.
    */
-  public static BuildFileAST parseSkylarkFileWithoutImports(
+  public static BuildFileAST parseWithoutImports(
       ParserInputSource input, EventHandler eventHandler) {
     ParseResult result = Parser.parseFile(input, eventHandler);
     return new BuildFileAST(
-        ImmutableList.<Statement>builder()
-            .addAll(ImmutableList.<Statement>of())
-            .addAll(result.statements)
-            .build(),
+        ImmutableList.copyOf(result.statements),
         result.containsErrors,
         /* contentHashCode= */ null,
         result.location,
@@ -391,46 +370,52 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Run static checks on the AST.
-   *
-   * @return a new AST (or the same), with the containsErrors flag updated.
+   * Temporary alias for parseWithoutImports, as, maddeningly, we cannot atomically change our API
+   * and copybara's use of it. TODO(adonovan): delete once copybara is updated, Sep 2019.
    */
-  public BuildFileAST validate(Environment env, EventHandler eventHandler) {
-    boolean valid = ValidationEnvironment.validateAst(env, statements, eventHandler);
-    if (valid || containsErrors) {
+  public static BuildFileAST parseSkylarkFileWithoutImports(
+      ParserInputSource input, EventHandler handler) {
+    return parseWithoutImports(input, handler);
+  }
+
+  /**
+   * Run static checks on the syntax tree.
+   *
+   * @return a new syntax tree (or the same), with the containsErrors flag updated.
+   */
+  // TODO(adonovan): eliminate. Most callers need validation because they intend to execute the
+  // file, and should be made to use higher-level operations in EvalUtils.
+  // rest should skip this step. Called from EvaluationTestCase, ParserTest, ASTFileLookupFunction.
+  public BuildFileAST validate(Environment env, boolean isBuildFile, EventHandler eventHandler) {
+    try {
+      ValidationEnvironment.validateFile(this, env, isBuildFile);
       return this;
+    } catch (EvalException e) {
+      if (!e.isDueToIncompleteAST()) {
+        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
+      }
+    }
+    if (containsErrors) {
+      return this; // already marked as errant
     }
     return new BuildFileAST(
-        statements, true, contentHashCode, getLocation(), comments, imports, stringEscapeEvents);
-  }
-
-  public static BuildFileAST parseString(EventHandler eventHandler, String... content) {
-    String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(
-        /* preludeStatements= */ ImmutableList.of(),
-        result,
-        /* contentHashCode= */ null,
-        /* repositoryMapping= */ ImmutableMap.of(),
-        eventHandler);
+        statements,
+        /*containsErrors=*/ true,
+        contentHashCode,
+        getLocation(),
+        comments,
+        imports,
+        stringEscapeEvents);
   }
 
   /**
-   * Parse the specified build file, without building the AST.
-   *
-   * @return true if the input file is syntactically valid
+   * Evaluates the code and return the value of the last statement if it's an Expression or else
+   * null.
    */
-  public static boolean checkSyntax(ParserInputSource input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return !result.containsErrors;
-  }
-
-  /**
-   * Evaluates the code and return the value of the last statement if it's an
-   * Expression or else null.
-   */
-  @Nullable public Object eval(Environment env) throws EvalException, InterruptedException {
+  // TODO(adonovan): move to EvalUtils. Split into two APIs, eval(expr) and exec(file).
+  // (Abolish "statement" and "file+expr" as primary API concepts.)
+  @Nullable // why?
+  public Object eval(Environment env) throws EvalException, InterruptedException {
     Object last = null;
     Eval evaluator = Eval.fromEnvironment(env);
     for (Statement statement : statements) {
@@ -445,27 +430,30 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Evaluates the lines from input and return the value of the last statement if it's an
-   * Expression or else null. In case of error (either during validation or evaluation), it
-   * throws an EvalException.
+   * Parses, resolves and evaluates the input and returns the value of the last statement if it's an
+   * Expression or else null. In case of error (either during validation or evaluation), it throws
+   * an EvalException.
    */
-  @Nullable
-  public static Object eval(Environment env, String... input)
+  // Note: uses Starlark (not BUILD) validation semantics.
+  // TODO(adonovan): move to EvalUtils; see other eval function.
+  @Nullable // why?
+  public static Object eval(ParserInputSource input, Environment env)
       throws EvalException, InterruptedException {
-    BuildFileAST ast = parseAndValidateSkylarkString(env, input);
+    BuildFileAST ast = parseAndValidateSkylark(input, env);
     return ast.eval(env);
   }
 
   /**
-   * Parses and validates the lines from input and return the AST In case of error during
-   * validation, it throws an EvalException.
+   * Parses and validates the input and returns the syntax tree. In case of error during validation,
+   * it throws an EvalException. Uses Starlark (not BUILD) validation semantics.
    */
-  public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
+  // TODO(adonovan): move to EvalUtils; see above.
+  public static BuildFileAST parseAndValidateSkylark(ParserInputSource input, Environment env)
       throws EvalException {
-    BuildFileAST ast = parseString(env.getEventHandler(), input);
-    ast.replayLexerEvents(env, env.getEventHandler());
-    ValidationEnvironment.validateAst(env, ast.getStatements());
-    return ast;
+    BuildFileAST file = parse(input, env.getEventHandler());
+    file.replayLexerEvents(env, env.getEventHandler());
+    ValidationEnvironment.validateFile(file, env, /*isBuildFile=*/ false);
+    return file;
   }
 
   /**

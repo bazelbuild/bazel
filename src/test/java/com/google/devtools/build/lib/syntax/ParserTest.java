@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
-import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.LinkedList;
@@ -33,30 +32,33 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- *  Tests of parser behaviour.
- */
+/** Tests of parser and validator behavior. */
 @RunWith(JUnit4.class)
-public class ParserTest extends EvaluationTestCase {
+public final class ParserTest extends EvaluationTestCase {
 
-  private BuildFileAST parseFileWithComments(String... input) {
-    return BuildFileAST.parseString(getEventHandler(), input);
+  // Joins the lines, parses, and returns the file. No validation.
+  private BuildFileAST parseFileWithComments(String... lines) {
+    ParserInputSource input = ParserInputSource.fromLines(lines);
+    return BuildFileAST.parse(input, getEventHandler());
   }
 
-  /** Parses build code (not Skylark) */
+  // TODO(adonovan): don't inherit vaguely specified "helper" functions.
+
+  // Joins the lines, parses, validates as Starlark, and returns the file.
   @Override
-  protected List<Statement> parseFile(String... input) {
-    return parseFileWithComments(input).getStatements();
+  protected List<Statement> parseFile(String... lines) {
+    return parseFileWithComments(lines).getStatements();
   }
 
-  private BuildFileAST parseFileForSkylarkAsAST(String... input) {
-    BuildFileAST ast = BuildFileAST.parseString(getEventHandler(), input);
-    return ast.validate(env, getEventHandler());
+  // Joins the lines, parses, validates as Starlark, and returns the file.
+  private BuildFileAST parseFileForSkylarkAsAST(String... lines) {
+    BuildFileAST file = parseFileWithComments(lines);
+    return file.validate(env, /*isBuildFile=*/ false, getEventHandler());
   }
 
-  /** Parses Skylark code */
-  private List<Statement> parseFileForSkylark(String... input) {
-    return parseFileForSkylarkAsAST(input).getStatements();
+  // Joins the lines, parses, validates as Starlark, and returns the statements.
+  private List<Statement> parseFileForSkylark(String... lines) {
+    return parseFileForSkylarkAsAST(lines).getStatements();
   }
 
   private static String getText(String text, ASTNode node) {
@@ -494,8 +496,7 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testEndLineAndColumnIsInclusive() {
-    AssignmentStatement stmt =
-        (AssignmentStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, "a = b");
+    AssignmentStatement stmt = (AssignmentStatement) parseStatement("a = b");
     assertThat(stmt.getLHS().getLocation().getEndLineAndColumn())
         .isEqualTo(new LineAndColumn(1, 1));
   }
@@ -547,10 +548,10 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testTuplePosition() throws Exception {
     String input = "for a,b in []: pass";
-    ForStatement stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    ForStatement stmt = (ForStatement) parseStatement(input);
     assertThat(getText(input, stmt.getLHS())).isEqualTo("a,b");
     input = "for (a,b) in []: pass";
-    stmt = (ForStatement) parseStatement(ParsingLevel.LOCAL_LEVEL, input);
+    stmt = (ForStatement) parseStatement(input);
     assertThat(getText(input, stmt.getLHS())).isEqualTo("(a,b)");
     assertExpressionLocationCorrect("a, b");
     assertExpressionLocationCorrect("(a, b)");
@@ -579,27 +580,26 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testIfStatementPosition() throws Exception {
-    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass");
-    assertStatementLocationCorrect(
-        ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelif True:\n  pass");
-    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "if True:\n  pass\nelse:\n  pass");
+    assertStatementLocationCorrect("if True:\n  pass");
+    assertStatementLocationCorrect("if True:\n  pass\nelif True:\n  pass");
+    assertStatementLocationCorrect("if True:\n  pass\nelse:\n  pass");
   }
 
   @Test
   public void testForStatementPosition() throws Exception {
-    assertStatementLocationCorrect(ParsingLevel.LOCAL_LEVEL, "for x in []:\n  pass");
+    assertStatementLocationCorrect("for x in []:\n  pass");
   }
 
   @Test
   public void testDefStatementPosition() throws Exception {
-    assertStatementLocationCorrect(ParsingLevel.TOP_LEVEL, "def foo():\n  pass");
+    assertStatementLocationCorrect("def foo():\n  pass");
   }
 
-  private void assertStatementLocationCorrect(ParsingLevel level, String stmtStr) {
-    Statement stmt = parseStatement(level, stmtStr);
+  private void assertStatementLocationCorrect(String stmtStr) {
+    Statement stmt = parseStatement(stmtStr);
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
-    stmt = parseStatement(level, stmtStr + "\n");
+    stmt = parseStatement(stmtStr + "\n");
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
   }
 
@@ -1397,8 +1397,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testTopLevelForFails() throws Exception {
     setFailFast(false);
     parseFileForSkylark("for i in []: 0\n");
-    assertContainsError(
-        "for loops are not allowed on top-level. Put it into a function");
+    assertContainsError("for loops are not allowed at the top level");
   }
 
   @Test
@@ -1409,8 +1408,7 @@ public class ParserTest extends EvaluationTestCase {
           "  def bar(): return 0",
           "  return bar()",
           "");
-    assertContainsError(
-        "nested functions are not allowed. Move the function to top-level");
+    assertContainsError("nested functions are not allowed. Move the function to the top level");
   }
 
   @Test
@@ -1481,7 +1479,7 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testStringsAreDeduped() throws Exception {
-    BuildFileAST buildFileAST =
+    BuildFileAST file =
         parseFileForSkylarkAsAST("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
     Set<String> uniqueStringInstances = Sets.newIdentityHashSet();
     SyntaxTreeVisitor collectAllStringsInStringLiteralsVisitor =
@@ -1491,7 +1489,7 @@ public class ParserTest extends EvaluationTestCase {
             uniqueStringInstances.add(stringLiteral.getValue());
           }
         };
-    collectAllStringsInStringLiteralsVisitor.visit(buildFileAST);
+    collectAllStringsInStringLiteralsVisitor.visit(file);
     assertThat(uniqueStringInstances).containsExactly("cat", "dog", "fish");
   }
 }

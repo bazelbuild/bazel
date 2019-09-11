@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
-import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
@@ -70,9 +69,8 @@ import javax.annotation.Nullable;
  * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
  * #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
  * BuildFileAST#eval}, or with {@link BuildFileAST#exec} (where the AST was obtained by passing a
- * {@link ValidationEnvironment} constructed from the Environment to {@link
- * BuildFileAST#parseBuildFile} or {@link BuildFileAST#parseSkylarkFile}). When the computation is
- * over, the frozen Environment can still be queried with {@link #lookup}.
+ * {@link ValidationEnvironment} constructed from the Environment to {@link BuildFileAST#parse}.
+ * When the computation is over, the frozen Environment can still be queried with {@link #lookup}.
  */
 // TODO(adonovan): further steps for Environmental remediation:
 // This class should be renamed StarlarkThread, for that is what it is.
@@ -1239,7 +1237,7 @@ public final class Environment implements Freezable, Debuggable {
     ParserInputSource input =
         ParserInputSource.create(contents, PathFragment.create("<debug eval>"));
     EvalEventHandler eventHandler = new EvalEventHandler();
-    Statement statement = Parser.parseStatement(input, eventHandler, ParsingLevel.LOCAL_LEVEL);
+    Statement statement = Parser.parseStatement(input, eventHandler);
     if (!eventHandler.messages.isEmpty()) {
       throw new EvalException(statement.getLocation(), eventHandler.messages.get(0));
     }

@@ -769,14 +769,11 @@ public class SkylarkDebugServerTest {
     Path file = scratch.file(path, lines);
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
     ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseBuildFile(inputSource, events.reporter());
+    return BuildFileAST.parse(inputSource, events.reporter());
   }
 
   private BuildFileAST parseSkylarkFile(String path, String... lines) throws IOException {
-    Path file = scratch.file(path, lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseSkylarkFile(inputSource, events.reporter());
+    return parseBuildFile(path, lines); // TODO(adonovan): combine these functions
   }
 
   /**
