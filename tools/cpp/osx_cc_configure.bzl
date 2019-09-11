@@ -108,6 +108,8 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             "env",
             "-i",
             "xcrun",
+            "--sdk",
+            "macosx",
             "clang",
             "-std=c++11",
             "-lc++",
