@@ -1532,12 +1532,6 @@ public abstract class CcModule
       Location location,
       @Nullable Environment environment)
       throws EvalException, InterruptedException {
-    if (environment != null) {
-      CcCommon.checkLocationWhitelisted(
-          environment.getSemantics(),
-          location,
-          environment.getGlobals().getLabel().getPackageIdentifier().toString());
-    }
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
@@ -1638,12 +1632,6 @@ public abstract class CcModule
       @Nullable Environment environment,
       StarlarkContext starlarkContext)
       throws InterruptedException, EvalException {
-    if (environment != null) {
-      CcCommon.checkLocationWhitelisted(
-          environment.getSemantics(),
-          location,
-          environment.getGlobals().getLabel().getPackageIdentifier().toString());
-    }
     validateLanguage(location, language);
     validateOutputType(location, outputType);
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);

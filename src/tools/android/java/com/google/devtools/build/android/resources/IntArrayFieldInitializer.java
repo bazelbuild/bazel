@@ -18,32 +18,38 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.DependencyInfo;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Objects;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 
 /** Models an int[] field initializer. */
 public final class IntArrayFieldInitializer implements FieldInitializer {
 
-  public static final String DESC = "[I";
+  private static final String DESC = "[I";
 
+  private final DependencyInfo dependencyInfo;
   private final String fieldName;
   private final ImmutableCollection<Integer> values;
 
-  private IntArrayFieldInitializer(String fieldName, ImmutableCollection<Integer> values) {
+  private IntArrayFieldInitializer(
+      DependencyInfo dependencyInfo, String fieldName, ImmutableCollection<Integer> values) {
+    this.dependencyInfo = dependencyInfo;
     this.fieldName = fieldName;
     this.values = values;
   }
 
-  public static FieldInitializer of(String fieldName, String value) {
+  public static FieldInitializer of(DependencyInfo dependencyInfo, String fieldName, String value) {
     Preconditions.checkArgument(value.startsWith("{ "), "Expected list starting with { ");
     Preconditions.checkArgument(value.endsWith(" }"), "Expected list ending with } ");
     // Check for an empty list, which is "{ }".
     if (value.length() < 4) {
-      return of(fieldName, ImmutableList.<Integer>of());
+      return of(dependencyInfo, fieldName, ImmutableList.<Integer>of());
     }
     ImmutableList.Builder<Integer> intValues = ImmutableList.builder();
     String trimmedValue = value.substring(2, value.length() - 2);
@@ -51,16 +57,27 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
     for (String valueString : valueStrings) {
       intValues.add(Integer.decode(valueString));
     }
-    return of(fieldName, intValues.build());
+    return of(dependencyInfo, fieldName, intValues.build());
   }
 
-  public static IntArrayFieldInitializer of(String fieldName, ImmutableCollection<Integer> values) {
-    return new IntArrayFieldInitializer(fieldName, values);
+  public static IntArrayFieldInitializer of(
+      DependencyInfo dependencyInfo, String fieldName, ImmutableCollection<Integer> values) {
+    return new IntArrayFieldInitializer(dependencyInfo, fieldName, values);
   }
 
   @Override
-  public boolean writeFieldDefinition(ClassWriter cw, int accessLevel, boolean isFinal) {
-    cw.visitField(accessLevel, fieldName, DESC, null, null).visitEnd();
+  public boolean writeFieldDefinition(
+      ClassWriter cw, int accessLevel, boolean isFinal, boolean annotateTransitiveFields) {
+    FieldVisitor fv = cw.visitField(accessLevel, fieldName, DESC, null, null);
+    if (annotateTransitiveFields
+        && dependencyInfo.dependencyType() == DependencyInfo.DependencyType.TRANSITIVE) {
+      AnnotationVisitor av =
+          fv.visitAnnotation(
+              RClassGenerator.PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR, /*visible=*/ true);
+      av.visit(RClassGenerator.PROVENANCE_ANNOTATION_LABEL_KEY, dependencyInfo.label());
+      av.visitEnd();
+    }
+    fv.visitEnd();
     return true;
   }
 

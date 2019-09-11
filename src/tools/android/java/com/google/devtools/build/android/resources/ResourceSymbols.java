@@ -21,6 +21,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.android.DependencyInfo;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -76,9 +77,9 @@ public class ResourceSymbols {
 
           FieldInitializer initializer;
           if ("int".equals(type)) {
-            initializer = IntFieldInitializer.of(name, value);
+            initializer = IntFieldInitializer.of(DependencyInfo.UNKNOWN, name, value);
           } else {
-            initializer = IntArrayFieldInitializer.of(name, value);
+            initializer = IntArrayFieldInitializer.of(DependencyInfo.UNKNOWN, name, value);
           }
 
           initializers
@@ -202,7 +203,9 @@ public class ResourceSymbols {
       Path classesOut,
       boolean finalFields)
       throws IOException {
-    RClassGenerator classWriter = RClassGenerator.with(classesOut, values, finalFields);
+    RClassGenerator classWriter =
+        RClassGenerator.with(
+            /*label=*/ null, classesOut, values, finalFields, /*annotateTransitiveFields=*/ false);
     for (String packageName : libMap.keySet()) {
       classWriter.write(packageName, ResourceSymbols.merge(libMap.get(packageName)).values);
     }

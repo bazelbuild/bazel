@@ -183,7 +183,8 @@ class PlaceholderIdFieldInitializerBuilder {
 
   private final AndroidFrameworkAttrIdProvider androidIdProvider;
 
-  private final Map<ResourceType, Set<String>> innerClasses = new EnumMap<>(ResourceType.class);
+  private final Map<ResourceType, SortedMap<String, DependencyInfo>> innerClasses =
+      new EnumMap<>(ResourceType.class);
 
   private final Map<ResourceType, SortedMap<String, Optional<Integer>>> publicIds =
       new EnumMap<>(ResourceType.class);
@@ -217,20 +218,20 @@ class PlaceholderIdFieldInitializerBuilder {
     }
   }
 
-  public void addSimpleResource(ResourceType type, String name) {
-    Set<String> fields = innerClasses.get(type);
-    if (fields == null) {
-      fields = new LinkedHashSet<>();
-      innerClasses.put(type, fields);
-    }
-    fields.add(normalizeName(name));
+  public void addSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
+    innerClasses
+        .computeIfAbsent(type, t -> new TreeMap<>())
+        .put(normalizeName(name), dependencyInfo);
   }
 
-  public void addStyleableResource(FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
+  public void addStyleableResource(
+      DependencyInfo dependencyInfo,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, Boolean> attrs) {
     ResourceType type = ResourceType.STYLEABLE;
     // The configuration can play a role in sorting, but that isn't modeled yet.
     String normalizedStyleableName = normalizeName(key.name());
-    addSimpleResource(type, normalizedStyleableName);
+    addSimpleResource(dependencyInfo, type, normalizedStyleableName);
     // We should have merged styleables, so there should only be one definition per configuration.
     // However, we don't combine across configurations, so there can be a pre-existing definition.
     Map<String, Boolean> normalizedAttrs = styleableAttrs.get(normalizedStyleableName);
@@ -273,9 +274,8 @@ class PlaceholderIdFieldInitializerBuilder {
     int nextId = nextFreeId(getInitialIdForTypeId(attrTypeId), assignedIds);
     // Technically, aapt assigns based on declaration order, but the merge should have sorted
     // the non-inline attributes, so assigning by sorted order is the same.
-    ImmutableList<String> sortedAttrs =
-        Ordering.natural().immutableSortedCopy(innerClasses.get(ResourceType.ATTR));
-    for (String attr : sortedAttrs) {
+    SortedMap<String, ?> sortedAttrs = innerClasses.get(ResourceType.ATTR);
+    for (String attr : sortedAttrs.keySet()) {
       if (!inlineAttrs.contains(attr) && !attrToId.containsKey(attr)) {
         attrToId.put(attr, nextId);
         nextId = nextFreeId(nextId + 1, assignedIds);
@@ -357,10 +357,10 @@ class PlaceholderIdFieldInitializerBuilder {
         new EnumMap<>(ResourceType.class);
     Map<ResourceType, Integer> typeIdMap = chooseTypeIds();
     Map<String, Integer> attrAssignments = assignAttrIds(typeIdMap.get(ResourceType.ATTR));
-    for (Map.Entry<ResourceType, Set<String>> fieldEntries : innerClasses.entrySet()) {
+    for (Map.Entry<ResourceType, SortedMap<String, DependencyInfo>> fieldEntries :
+        innerClasses.entrySet()) {
       ResourceType type = fieldEntries.getKey();
-      ImmutableList<String> sortedFields =
-          Ordering.natural().immutableSortedCopy(fieldEntries.getValue());
+      SortedMap<String, DependencyInfo> sortedFields = fieldEntries.getValue();
       ImmutableList<FieldInitializer> fields;
       if (type == ResourceType.STYLEABLE) {
         fields = getStyleableInitializers(attrAssignments, sortedFields);
@@ -406,17 +406,19 @@ class PlaceholderIdFieldInitializerBuilder {
   }
 
   private static ImmutableList<FieldInitializer> getAttrInitializers(
-      Map<String, Integer> attrAssignments, Collection<String> sortedFields) {
+      Map<String, Integer> attrAssignments, SortedMap<String, DependencyInfo> sortedFields) {
     ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
-    for (String field : sortedFields) {
+    for (Map.Entry<String, DependencyInfo> entry : sortedFields.entrySet()) {
+      String field = entry.getKey();
+      DependencyInfo dependencyInfo = entry.getValue();
       int attrId = attrAssignments.get(field);
-      initList.add(IntFieldInitializer.of(field, attrId));
+      initList.add(IntFieldInitializer.of(dependencyInfo, field, attrId));
     }
     return initList.build();
   }
 
   private ImmutableList<FieldInitializer> getResourceInitializers(
-      ResourceType type, int typeId, Collection<String> sortedFields) {
+      ResourceType type, int typeId, SortedMap<String, DependencyInfo> sortedFields) {
     ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
     Map<String, Integer> publicNameToId = new LinkedHashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
@@ -424,22 +426,26 @@ class PlaceholderIdFieldInitializerBuilder {
       assignedIds = assignPublicIds(publicNameToId, publicIds.get(type), typeId);
     }
     int resourceIds = nextFreeId(getInitialIdForTypeId(typeId), assignedIds);
-    for (String field : sortedFields) {
+    for (Map.Entry<String, DependencyInfo> entry : sortedFields.entrySet()) {
+      String field = entry.getKey();
+      DependencyInfo dependencyInfo = entry.getValue();
       Integer fieldValue = publicNameToId.get(field);
       if (fieldValue == null) {
         fieldValue = resourceIds;
         resourceIds = nextFreeId(resourceIds + 1, assignedIds);
       }
-      initList.add(IntFieldInitializer.of(field, fieldValue));
+      initList.add(IntFieldInitializer.of(dependencyInfo, field, fieldValue));
     }
     return initList.build();
   }
 
   private ImmutableList<FieldInitializer> getStyleableInitializers(
-      Map<String, Integer> attrAssignments, Collection<String> styleableFields)
+      Map<String, Integer> attrAssignments, SortedMap<String, DependencyInfo> sortedFields)
       throws AttrLookupException {
     ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
-    for (String field : styleableFields) {
+    for (Map.Entry<String, DependencyInfo> entry : sortedFields.entrySet()) {
+      String field = entry.getKey();
+      DependencyInfo dependencyInfo = entry.getValue();
       Set<String> attrs = styleableAttrs.get(field).keySet();
       ImmutableMap.Builder<String, Integer> arrayInitValues = ImmutableMap.builder();
       for (String attr : attrs) {
@@ -458,10 +464,10 @@ class PlaceholderIdFieldInitializerBuilder {
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
           arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
-      initList.add(IntArrayFieldInitializer.of(field, arrayInitMap.values()));
+      initList.add(IntArrayFieldInitializer.of(dependencyInfo, field, arrayInitMap.values()));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
-        initList.add(IntFieldInitializer.of(field + "_" + attr, index));
+        initList.add(IntFieldInitializer.of(dependencyInfo, field + "_" + attr, index));
         ++index;
       }
     }

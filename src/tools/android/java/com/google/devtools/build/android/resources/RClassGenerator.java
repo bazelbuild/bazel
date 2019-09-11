@@ -17,6 +17,7 @@ import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -41,27 +43,59 @@ import org.objectweb.asm.commons.InstructionAdapter;
 public class RClassGenerator {
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
+
+  static final String PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR =
+      "Lcom/google/devtools/build/android/resources/Provenance;";
+  static final String PROVENANCE_ANNOTATION_LABEL_KEY = "label";
+
+  private final String label;
   private final Path outFolder;
   private final FieldInitializers initializers;
   private final boolean finalFields;
+  private final boolean annotateTransitiveFields;
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
   /**
    * Create an RClassGenerator given a collection of initializers.
    *
+   * @param label Bazel target which owns the generated R class
    * @param outFolder base folder to place the output R class files.
    * @param initializers the list of initializers to use for each inner class
    * @param finalFields true if the fields should be marked final
+   * @param annotateTransitiveFields whether the R class and fields from transitive dependencies
+   *     should be annotated.
    */
   public static RClassGenerator with(
-      Path outFolder, FieldInitializers initializers, boolean finalFields) {
-    return new RClassGenerator(outFolder, initializers, finalFields);
+      String label,
+      Path outFolder,
+      FieldInitializers initializers,
+      boolean finalFields,
+      boolean annotateTransitiveFields) {
+    return new RClassGenerator(
+        label, outFolder, initializers, finalFields, annotateTransitiveFields);
   }
 
-  private RClassGenerator(Path outFolder, FieldInitializers initializers, boolean finalFields) {
+  @VisibleForTesting
+  static RClassGenerator with(Path outFolder, FieldInitializers initializers, boolean finalFields) {
+    return new RClassGenerator(
+        /* label= */ null,
+        outFolder,
+        initializers,
+        finalFields,
+        /*annotateTransitiveFields=*/ false);
+  }
+
+  private RClassGenerator(
+      String label,
+      Path outFolder,
+      FieldInitializers initializers,
+      boolean finalFields,
+      boolean annotateTransitiveFields) {
+    this.label = label;
     this.outFolder = outFolder;
-    this.finalFields = finalFields;
     this.initializers = initializers;
+    this.finalFields = finalFields;
+    this.annotateTransitiveFields = annotateTransitiveFields;
   }
 
   /**
@@ -107,6 +141,12 @@ public class RClassGenerator {
         null, /* signature */
         SUPER_CLASS,
         null /* interfaces */);
+    if (annotateTransitiveFields) {
+      AnnotationVisitor av =
+          classWriter.visitAnnotation(PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR, /*visible=*/ true);
+      av.visit(PROVENANCE_ANNOTATION_LABEL_KEY, label);
+      av.visitEnd();
+    }
     classWriter.visitSource(SdkConstants.FN_RESOURCE_CLASS, null);
     writeConstructor(classWriter);
     // Build the R.class w/ the inner classes, then later build the individual R$inner.class.
@@ -144,7 +184,8 @@ public class RClassGenerator {
     for (FieldInitializer init : initializers) {
       JavaIdentifierValidator.validate(
           init.getFieldName(), "in class:", fullyQualifiedInnerClass, "and package:", packageDir);
-      if (init.writeFieldDefinition(innerClassWriter, fieldAccessLevel, finalFields)) {
+      if (init.writeFieldDefinition(
+          innerClassWriter, fieldAccessLevel, finalFields, annotateTransitiveFields)) {
         deferredInitializers.add(init);
       }
     }
