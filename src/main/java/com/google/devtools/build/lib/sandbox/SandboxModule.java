@@ -509,7 +509,7 @@ public final class SandboxModule extends BlazeModule {
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
-    if (asyncTreeDeleteThreads > 0) {
+    if (treeDeleter != null && asyncTreeDeleteThreads > 0) {
       // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
       // to delete the base tree synchronously could fail as we can race with those other deletions,
       // and scheduling an asynchronous deletion could race with future builds.

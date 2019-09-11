@@ -75,6 +75,49 @@ function test_sandbox_base_wiped_only_on_startup_with_async_deletions() {
     --experimental_sandbox_async_tree_delete_idle_threads=HOST_CPUS
 }
 
+function do_succeed_when_executor_not_initialized_test() {
+  local extra_args=( "${@}" )
+
+  mkdir pkg
+  mkfifo pkg/BUILD
+
+  bazel build --spawn_strategy=sandboxed --nobuild "${@}" //pkg:all \
+    >"${TEST_log}" 2>&1 &
+  local pid="${!}"
+
+  echo "Waiting for Blaze to finish initializing all modules"
+  while ! grep "currently loading: pkg" "${TEST_log}"; do
+    sleep 1
+  done
+
+  echo "Interrupting Blaze before it gets to init the executor"
+  kill "${pid}"
+
+  echo "And now giving Blaze a chance to finalize all modules"
+  echo "unblock fifo" >pkg/BUILD
+  wait "${pid}" || true
+
+  expect_log "Build did NOT complete successfully"
+  # Disallow some common messages we might see during a crash.
+  expect_not_log "Internal error"
+  expect_not_log "stack trace"
+  expect_not_log "NullPointerException"
+}
+
+function test_succeed_when_executor_not_initialized_with_defaults() {
+  # Pass a no-op flag to the test to workaround a bug in macOS's default
+  # and ancient bash version which causes it to error out on an empty
+  # argument list when $@ is consumed and set -u is enabled.
+  local noop=( --nobuild )
+
+  do_succeed_when_executor_not_initialized_test "${noop[@]}"
+}
+
+function test_succeed_when_executor_not_initialized_with_async_deletions() {
+  do_succeed_when_executor_not_initialized_test \
+    --experimental_sandbox_async_tree_delete_idle_threads=auto
+}
+
 function test_sandbox_base_can_be_rm_rfed() {
   mkdir pkg
   cat >pkg/BUILD <<EOF
