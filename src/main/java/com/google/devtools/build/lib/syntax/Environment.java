@@ -47,6 +47,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -115,7 +116,7 @@ import javax.annotation.Nullable;
 // Once the API is small and sound, we can start to represent all
 // the lexical frames within a single function using just an array,
 // indexed by a small integer computed during the validation pass.
-public final class Environment implements Freezable, Debuggable {
+public final class Environment implements Freezable {
 
   /**
    * A mapping of bindings, either mutable or immutable according to an associated {@link
@@ -1232,7 +1233,7 @@ public final class Environment implements Freezable, Debuggable {
     }
   }
 
-  @Override
+  /** Evaluates a Skylark statement in the adapter's environment. (Debugger API) */
   public Object evaluate(String contents) throws EvalException, InterruptedException {
     ParserInputSource input =
         ParserInputSource.create(contents, PathFragment.create("<debug eval>"));
@@ -1260,7 +1261,13 @@ public final class Environment implements Freezable, Debuggable {
     }
   }
 
-  @Override
+  /**
+   * Returns the stack frames corresponding of the context's current (paused) state. (Debugger API)
+   *
+   * <p>For all stack frames except the innermost, location information is retrieved from the
+   * current context. The innermost frame's location must be supplied as {@code currentLocation} by
+   * the caller.
+   */
   public ImmutableList<DebugFrame> listFrames(Location currentLocation) {
     ImmutableList.Builder<DebugFrame> frameListBuilder = ImmutableList.builder();
 
@@ -1293,7 +1300,16 @@ public final class Environment implements Freezable, Debuggable {
     return frameListBuilder.build();
   }
 
-  @Override
+  /**
+   * Given a requested stepping behavior, returns a predicate over the context that tells the
+   * debugger when to pause. (Debugger API)
+   *
+   * <p>The predicate will return true if we are at the next statement where execution should pause,
+   * and it will return false if we are not yet at that statement. No guarantee is made about the
+   * predicate's return value after we have reached the desired statement.
+   *
+   * <p>A null return value indicates that no further pausing should occur.
+   */
   @Nullable
   public ReadyToPause stepControl(Stepping stepping) {
     final Continuation pausedContinuation = continuation;
@@ -1311,6 +1327,34 @@ public final class Environment implements Freezable, Debuggable {
         return pausedContinuation == null ? null : env -> isOutside(env, pausedContinuation);
     }
     throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
+  }
+
+  /** See stepControl (Debugger API) */
+  public interface ReadyToPause extends Predicate<Environment> {}
+
+  /**
+   * Describes the stepping behavior that should occur when execution of a thread is continued.
+   * (Debugger API)
+   */
+  public enum Stepping {
+    /** Continue execution without stepping. */
+    NONE,
+    /**
+     * If the thread is paused on a statement that contains a function call, step into that
+     * function. Otherwise, this is the same as OVER.
+     */
+    INTO,
+    /**
+     * Step over the current statement and any functions that it may call, stopping at the next
+     * statement in the same frame. If no more statements are available in the current frame, same
+     * as OUT.
+     */
+    OVER,
+    /**
+     * Continue execution until the current frame has been exited and then pause. If we are
+     * currently in the outer-most frame, same as NONE.
+     */
+    OUT,
   }
 
   /** Returns true if {@code env} is in a parent frame of {@code pausedContinuation}. */
