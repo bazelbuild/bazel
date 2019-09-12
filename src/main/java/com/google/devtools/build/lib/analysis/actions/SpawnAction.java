@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -305,13 +306,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
-    // This construction ensures that beginExecution and execute are called with identical exception
-    // handling, pre-processing, and post-processing, at the expense of two throwaway objects.
-    SpawnActionContinuation continuation =
-        new SpawnActionContinuation(
-            actionExecutionContext,
-            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
-    return continuation.execute();
+    SpawnContinuation spawnContinuation =
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, actionExecutionContext);
+    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private ActionExecutionException toActionExecutionException(
