@@ -1363,9 +1363,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private static SkyKey parentDirectoryListingStateKey(RootedPath rootedPath) {
-    RootedPath parentDirRootedPath =
-        RootedPath.toRootedPath(
-            rootedPath.getRoot(), rootedPath.getRootRelativePath().getParentDirectory());
+    RootedPath parentDirRootedPath = rootedPath.getParentDirectory();
     return DirectoryListingStateValue.key(parentDirRootedPath);
   }
 

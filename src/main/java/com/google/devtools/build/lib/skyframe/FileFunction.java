@@ -141,11 +141,6 @@ public class FileFunction implements SkyFunction {
         realFileStateValue);
   }
 
-  private static RootedPath getParent(RootedPath childRootedPath) {
-    return RootedPath.toRootedPath(
-        childRootedPath.getRoot(), childRootedPath.getRootRelativePath().getParentDirectory());
-  }
-
   private static RootedPath getChild(RootedPath parentRootedPath, String baseName) {
     return RootedPath.toRootedPath(
         parentRootedPath.getRoot(), parentRootedPath.getRootRelativePath().getChild(baseName));

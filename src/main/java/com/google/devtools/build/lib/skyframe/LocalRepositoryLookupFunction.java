@@ -85,10 +85,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
     }
 
     // If we haven't found a repository yet, check the parent directory.
-    RootedPath parentDirectory =
-        RootedPath.toRootedPath(
-            directory.getRoot(), directory.getRootRelativePath().getParentDirectory());
-    return env.getValue(LocalRepositoryLookupValue.key(parentDirectory));
+    return env.getValue(LocalRepositoryLookupValue.key(directory.getParentDirectory()));
   }
 
   private Optional<Boolean> maybeGetWorkspaceFileExistence(Environment env, RootedPath directory)

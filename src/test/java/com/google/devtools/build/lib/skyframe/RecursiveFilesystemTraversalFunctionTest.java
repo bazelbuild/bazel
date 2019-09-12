@@ -254,9 +254,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static RootedPath parentOf(RootedPath path) {
-    PathFragment parent =
-        Preconditions.checkNotNull(path.getRootRelativePath().getParentDirectory());
-    return RootedPath.toRootedPath(path.getRoot(), parent);
+    return Preconditions.checkNotNull(path.getParentDirectory());
   }
 
   private static RootedPath siblingOf(RootedPath path, String relative) {
