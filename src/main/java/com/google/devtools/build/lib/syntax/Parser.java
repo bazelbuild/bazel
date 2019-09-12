@@ -239,16 +239,16 @@ final class Parser {
   //        | def_stmt
   //        | for_stmt
   //        | if_stmt
+  //        | load_stmt
   private void parseStatement(List<Statement> list) {
-    // TODO(adonovan): factor the list.add() calls, in this function.
     if (token.kind == TokenKind.DEF) {
-      parseFunctionDefStatement(list);
+      list.add(parseFunctionDefStatement());
     } else if (token.kind == TokenKind.IF) {
       list.add(parseIfStatement());
     } else if (token.kind == TokenKind.FOR) {
-      parseForStatement(list);
+      list.add(parseForStatement());
     } else if (token.kind == TokenKind.LOAD) {
-      parseLoadStatement(list);
+      parseLoadStatement(list); // may add nothing
     } else {
       parseSimpleStatement(list);
     }
@@ -1198,7 +1198,7 @@ final class Parser {
   }
 
   // for_stmt ::= FOR IDENTIFIER IN expr ':' suite
-  private void parseForStatement(List<Statement> list) {
+  private ForStatement parseForStatement() {
     int start = token.left;
     expect(TokenKind.FOR);
     Expression lhs = parseForLoopVariables();
@@ -1206,13 +1206,13 @@ final class Parser {
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    Statement stmt = new ForStatement(lhs, collection, block);
+    ForStatement stmt = new ForStatement(lhs, collection, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
-    list.add(setLocation(stmt, start, end));
+    return setLocation(stmt, start, end);
   }
 
   // def_stmt ::= DEF IDENTIFIER '(' arguments ')' ':' suite
-  private void parseFunctionDefStatement(List<Statement> list) {
+  private FunctionDefStatement parseFunctionDefStatement() {
     int start = token.left;
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
@@ -1225,7 +1225,7 @@ final class Parser {
     List<Statement> block = parseSuite();
     FunctionDefStatement stmt = new FunctionDefStatement(ident, params, signature, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
-    list.add(setLocation(stmt, start, end));
+    return setLocation(stmt, start, end);
   }
 
   private FunctionSignature.WithValues<Expression, Expression> functionSignature(
