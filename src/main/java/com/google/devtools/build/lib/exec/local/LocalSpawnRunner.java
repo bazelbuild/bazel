@@ -372,7 +372,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             terminationStatus =
                 new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
           } catch (InterruptedException e) {
-            subprocess.destroy();
+            subprocess.destroyAndWait();
             throw e;
           }
         } catch (IOException e) {
