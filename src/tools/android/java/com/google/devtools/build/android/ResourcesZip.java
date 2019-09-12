@@ -282,16 +282,17 @@ public class ResourcesZip {
       Path proguardMapping,
       Path logFile,
       Path workingDirectory)
-      throws ParserConfigurationException, IOException, SAXException {
-    final Path shrunkApkProto =
-        workingDirectory.resolve("shrunk." + ResourceLinker.PROTO_EXTENSION);
+      throws ParserConfigurationException, IOException {
+    Path shrunkApkProto = workingDirectory.resolve("shrunk." + ResourceLinker.PROTO_EXTENSION);
+    Path keptResources = workingDirectory.resolve("kept_resources.txt");
+
     try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
       // record resources and manifest
       final ProtoResourceUsageAnalyzer analyzer =
-          new ProtoResourceUsageAnalyzer(packages, rTxt, proguardMapping, logFile);
+          new ProtoResourceUsageAnalyzer(packages, rTxt, proguardMapping, keptResources, logFile);
 
       ProtoApk shrink = analyzer.shrink(apk, classJar, shrunkApkProto, parseToolAttributes());
-      return new ShrunkProtoApk(shrink, logFile, ids);
+      return new ShrunkProtoApk(shrink, keptResources, logFile, ids);
     }
   }
 
@@ -319,11 +320,13 @@ public class ResourcesZip {
 
   static class ShrunkProtoApk implements Closeable {
     private final ProtoApk apk;
+    private final Path keptResources;
     private final Path report;
     private final Path ids;
 
-    ShrunkProtoApk(ProtoApk apk, Path report, Path ids) {
+    ShrunkProtoApk(ProtoApk apk, Path keptResources, Path report, Path ids) {
       this.apk = apk;
+      this.keptResources = keptResources;
       this.report = report;
       this.ids = ids;
     }
@@ -334,6 +337,11 @@ public class ResourcesZip {
           writeAsProto ? apk.asApkPath() : linker.link(apk, ids),
           binaryOut,
           StandardCopyOption.REPLACE_EXISTING);
+      return this;
+    }
+
+    ShrunkProtoApk writeKeptResourcesTo(Path keptResourcesOut) throws IOException {
+      Files.copy(keptResources, keptResourcesOut);
       return this;
     }
 

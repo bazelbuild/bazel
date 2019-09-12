@@ -197,6 +197,15 @@ public class ResourceShrinkerAction {
     public Path log;
 
     @Option(
+        name = "keptResourcesOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the list of kept resources should be written.")
+    public Path keptResourcesOutput;
+
+    @Option(
         name = "packageType",
         defaultValue = "DEFAULT",
         converter = VariantTypeConverter.class,

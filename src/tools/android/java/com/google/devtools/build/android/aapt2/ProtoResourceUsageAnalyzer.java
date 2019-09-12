@@ -29,6 +29,7 @@ import com.android.utils.XmlUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.ListMultimap;
@@ -52,6 +53,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
@@ -65,14 +67,16 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
   private final Set<String> resourcePackages;
   private final Path rTxt;
   private final Path mapping;
+  private final Path keptResourcesFile;
 
   public ProtoResourceUsageAnalyzer(
-      Set<String> resourcePackages, Path rTxt, Path mapping, Path logFile)
+      Set<String> resourcePackages, Path rTxt, Path mapping, Path keptResourcesFile, Path logFile)
       throws DOMException, ParserConfigurationException {
     super(resourcePackages, null, null, null, null, null, logFile);
     this.resourcePackages = resourcePackages;
     this.rTxt = rTxt;
     this.mapping = mapping;
+    this.keptResourcesFile = keptResourcesFile;
   }
 
   private static Resource parse(ResourceUsageModel model, String resourceTypeAndName) {
@@ -132,6 +136,13 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     keepPossiblyReferencedResources();
 
     final List<Resource> resources = model().getResources();
+
+    String keptResources =
+        resources.stream()
+            .filter(Resource::isKeep)
+            .map(r -> r.name)
+            .collect(Collectors.joining(/* delimiter= */ ",", /* prefix= */ "", /* suffix= */ ","));
+    Files.write(keptResourcesFile, ImmutableList.of(keptResources), StandardCharsets.UTF_8);
 
     List<Resource> roots =
         resources.stream().filter(r -> r.isKeep() || r.isReachable()).collect(toList());
