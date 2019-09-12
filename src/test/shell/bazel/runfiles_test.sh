@@ -148,14 +148,14 @@ sh_test(
 )
 EOF
 
-  bazel build --spawn_strategy=local --nobuild_runfile_links //:test \
+  bazel build --spawn_strategy=local --enable_runfiles=yes --nobuild_runfile_links //:test \
     || fail "Building //:test failed"
 
   [[ ! -f "bazel-bin/test${EXT}.runfiles/foo/data/hello" ]] || fail "expected no runfile data/hello"
   [[ ! -f "bazel-bin/test${EXT}.runfiles/foo/data/world" ]] || fail "expected no runfile data/world"
   [[ ! -f "bazel-bin/test${EXT}.runfiles/MANIFEST" ]] || fail "expected output manifest to not exist"
 
-  bazel test --spawn_strategy=local --nobuild_runfile_links //:test \
+  bazel test --spawn_strategy=local --enable_runfiles=yes --nobuild_runfile_links --test_output=errors //:test \
     || fail "Testing //:foo failed"
 
   [[ -f "bazel-bin/test${EXT}.runfiles/foo/data/hello" ]] || fail "expected runfile data/hello to exist"
