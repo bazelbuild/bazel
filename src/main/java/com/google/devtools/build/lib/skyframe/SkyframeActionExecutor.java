@@ -728,7 +728,7 @@ public final class SkyframeActionExecutor {
       ProgressEventBehavior progressEventBehavior,
       Environment env,
       @Nullable FileSystem actionFileSystem)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException, IOException {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
@@ -766,6 +766,7 @@ public final class SkyframeActionExecutor {
           ErrorTiming.BEFORE_EXECUTION);
     } finally {
       actionExecutionContext.getEventHandler().post(new StoppedScanningActionEvent(action));
+      actionExecutionContext.close();
     }
   }
 
