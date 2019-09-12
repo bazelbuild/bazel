@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -43,8 +44,11 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -127,6 +131,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
+    List<JavaSourceInfoProvider> sourceInfos = JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
@@ -140,12 +145,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
-
-
-    // JavaCompilationInfoProvider
-
-    // JavaSourceInfoProvider
-
 
     return JavaInfo.Builder.create()
         .addProvider(
@@ -163,7 +162,9 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
+        .addProvider(JavaSourceInfoProvider.class, JavaSourceInfoProvider.merge(sourceInfos))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+        // TODO(iirina): merge or remove JavaCompilationInfoProvider
         .setRuntimeJars(runtimeJars.build())
         .setJavaConstraints(javaConstraints.build())
         .build();
