@@ -717,6 +717,64 @@ public class AbstractRemoteActionCacheTests {
   }
 
   @Test
+  public void downloadWithDuplicateIOErrorsDoesNotSuppress() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    IOException reusedException = new IOException("reused io exception");
+    Digest digest2 = cache.addException("file2", reusedException);
+    Digest digest3 = cache.addException("file3", reusedException);
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).isEmpty();
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused io exception");
+  }
+
+  @Test
+  public void downloadWithDuplicateInterruptionsDoesNotSuppress() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    InterruptedException reusedInterruption = new InterruptedException("reused interruption");
+    Digest digest2 = cache.addException("file2", reusedInterruption);
+    Digest digest3 = cache.addException("file3", reusedInterruption);
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    InterruptedException e =
+        assertThrows(
+            InterruptedException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).isEmpty();
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused interruption");
+  }
+
+  @Test
   public void testDownloadWithStdoutStderrOnSuccess() throws Exception {
     // Tests that fetching stdout/stderr as a digest works and that OutErr is still
     // writable afterwards.
