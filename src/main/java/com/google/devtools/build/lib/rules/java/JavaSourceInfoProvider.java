@@ -116,7 +116,6 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     ImmutableList.Builder<Artifact> sourceJars = new ImmutableList.Builder<>();
     ImmutableList.Builder<Artifact> sourceJarsForJarFiles = new ImmutableList.Builder<>();
 
-
     for (JavaSourceInfoProvider sourceInfo : sourceInfos) {
       jarFiles.addAll(sourceInfo.getJarFiles());
       resources.putAll(sourceInfo.getResources());
