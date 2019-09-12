@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Set;
@@ -25,10 +26,6 @@ import javax.annotation.Nullable;
 // speed bottleneck, as previously measured in an experiment.
 /**
  * Syntax node for an identifier.
- *
- * <p>Unlike most {@link ASTNode} subclasses, this one supports {@link Object#equals} and {@link
- * Object#hashCode} (but note that these methods ignore location information). They are needed
- * because {@code Identifier}s are stored in maps when constructing {@link LoadStatement}.
  */
 public final class Identifier extends Expression {
 
@@ -172,5 +169,42 @@ public final class Identifier extends Expression {
     }
 
     return true;
+  }
+
+  /**
+   * Returns all names bound by an LHS expression.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li><{@code x = ...} binds x.
+   *   <li><{@code x, [y,z] = ..} binds x, y, z.
+   *   <li><{@code x[5] = ..} does not bind any names.
+   * </ul>
+   */
+  // TODO(adonovan): make this private after weaning Skyframe off it.
+  public static ImmutableSet<Identifier> boundIdentifiers(Expression expr) {
+    if (expr instanceof Identifier) {
+      // Common case/fast path - skip the builder.
+      return ImmutableSet.of((Identifier) expr);
+    } else {
+      ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
+      collectBoundIdentifiers(expr, result);
+      return result.build();
+    }
+  }
+
+  private static void collectBoundIdentifiers(
+      Expression lhs, ImmutableSet.Builder<Identifier> result) {
+    if (lhs instanceof Identifier) {
+      result.add((Identifier) lhs);
+      return;
+    }
+    if (lhs instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lhs;
+      for (Expression expression : variables.getElements()) {
+        collectBoundIdentifiers(expression, result);
+      }
+    }
   }
 }

@@ -427,7 +427,7 @@ public class SkydocMain {
     pending.add(path);
 
     ParserInputSource parserInputSource = getInputSource(path.toString());
-    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
+    BuildFileAST buildFileAST = BuildFileAST.parse(parserInputSource, eventHandler);
 
     moduleDocMap.put(label, getModuleDoc(buildFileAST));
 

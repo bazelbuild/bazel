@@ -133,7 +133,7 @@ public class WorkspaceFactory {
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(source, localReporter);
+    BuildFileAST buildFileAST = BuildFileAST.parse(source, localReporter);
     if (buildFileAST.containsErrors()) {
       throw new BuildFileContainsErrorsException(
           LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
@@ -152,18 +152,19 @@ public class WorkspaceFactory {
    * the //external package.
    */
   public void execute(
-      BuildFileAST ast,
+      BuildFileAST file,
       Map<String, Extension> importedExtensions,
       StarlarkSemantics starlarkSemantics,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
-    Preconditions.checkNotNull(ast);
+    Preconditions.checkNotNull(file);
     Preconditions.checkNotNull(importedExtensions);
-    execute(ast, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
+    execute(
+        file, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
   }
 
   private void execute(
-      BuildFileAST ast,
+      BuildFileAST file,
       @Nullable Map<String, Extension> importedExtensions,
       StarlarkSemantics starlarkSemantics,
       StoredEventHandler localReporter,
@@ -202,8 +203,10 @@ public class WorkspaceFactory {
       }
     }
 
-    if (!ValidationEnvironment.checkBuildSyntax(ast.getStatements(), localReporter, workspaceEnv)
-        || !ast.exec(workspaceEnv, localReporter)) {
+    if (!ValidationEnvironment.validateFile(
+            file, workspaceEnv, /*isBuildFile=*/ true, localReporter)
+        || !PackageFactory.checkBuildSyntax(file, localReporter)
+        || !file.exec(workspaceEnv, localReporter)) {
       localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
     }
 

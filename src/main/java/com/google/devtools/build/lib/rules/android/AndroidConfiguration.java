@@ -686,6 +686,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean useAndroidResourcePathShortening;
 
     @Option(
+        name = "experimental_android_resource_name_obfuscation",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Enables obfuscation of resource names within android_binary APKs.")
+    public boolean useAndroidResourceNameObfuscation;
+
+    @Option(
         name = "android_manifest_merger",
         defaultValue = "android",
         converter = AndroidManifestMergerConverter.class,
@@ -1072,6 +1084,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
+  private final boolean useAndroidResourceNameObfuscation;
   private final AndroidManifestMerger manifestMerger;
   private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
@@ -1122,6 +1135,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.useAndroidResourcePathShortening = options.useAndroidResourcePathShortening;
+    this.useAndroidResourceNameObfuscation = options.useAndroidResourceNameObfuscation;
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
@@ -1299,6 +1313,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useAndroidResourcePathShortening() {
     return useAndroidResourcePathShortening;
+  }
+
+  @Override
+  public boolean useAndroidResourceNameObfuscation() {
+    return useAndroidResourceNameObfuscation;
   }
 
   public AndroidAaptVersion getAndroidAaptVersion() {

@@ -51,10 +51,11 @@ public class LValueBoundNamesTest {
   }
 
   private static void assertBoundNames(String assignment, String... expectedBoundNames) {
-    BuildFileAST buildFileAST = BuildFileAST.parseString(Environment.FAIL_FAST_HANDLER, assignment);
-    Expression lhs = ((AssignmentStatement) buildFileAST.getStatements().get(0)).getLHS();
+    ParserInputSource input = ParserInputSource.fromLines(assignment);
+    BuildFileAST file = BuildFileAST.parse(input, Environment.FAIL_FAST_HANDLER);
+    Expression lhs = ((AssignmentStatement) file.getStatements().get(0)).getLHS();
     Set<String> boundNames =
-        ValidationEnvironment.boundIdentifiers(lhs).stream()
+        Identifier.boundIdentifiers(lhs).stream()
             .map(Identifier::getName)
             .collect(Collectors.toSet());
     Truth.assertThat(boundNames).containsExactlyElementsIn(Arrays.asList(expectedBoundNames));

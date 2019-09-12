@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -75,10 +74,6 @@ public class BazelPrerequisiteValidator
                 rule.getLabel());
         context.ruleError(errorMessage);
       }
-      // We can always post the visibility error as, regardless of the value of keep going,
-      // that target will not be built.
-      context.post(
-          new AnalysisRootCauseEvent(context.getConfiguration(), rule.getLabel(), errorMessage));
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
@@ -130,8 +125,6 @@ public class BazelPrerequisiteValidator
         context.ruleWarning(message);
       } else {
         context.ruleError(message);
-        context.post(
-            new AnalysisRootCauseEvent(context.getConfiguration(), rule.getLabel(), message));
       }
     }
   }

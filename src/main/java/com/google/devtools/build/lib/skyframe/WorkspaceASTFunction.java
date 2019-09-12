@@ -82,13 +82,13 @@ public class WorkspaceASTFunction implements SkyFunction {
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
     try {
-      BuildFileAST ast =
-          BuildFileAST.parseBuildFile(
+      BuildFileAST file =
+          BuildFileAST.parse(
               ParserInputSource.create(
                   ruleClassProvider.getDefaultWorkspacePrefix(),
                   PathFragment.create("/DEFAULT.WORKSPACE")),
               env.getListener());
-      if (ast.containsErrors()) {
+      if (file.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
                 LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
@@ -96,45 +96,45 @@ public class WorkspaceASTFunction implements SkyFunction {
             Transience.PERSISTENT);
       }
       if (newWorkspaceFileContents != null) {
-        ast =
+        file =
             BuildFileAST.parseVirtualBuildFile(
                 ParserInputSource.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
-                ast.getStatements(),
+                file.getStatements(),
                 /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
       } else if (workspaceFileValue.exists()) {
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
-        ast =
-            BuildFileAST.parseBuildFile(
+        file =
+            BuildFileAST.parseWithPrelude(
                 ParserInputSource.create(bytes, repoWorkspace.asFragment()),
-                ast.getStatements(),
+                file.getStatements(),
                 /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
-        if (ast.containsErrors()) {
+        if (file.containsErrors()) {
           throw new WorkspaceASTFunctionException(
               new BuildFileContainsErrorsException(
                   LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse WORKSPACE file"),
               Transience.PERSISTENT);
         }
       }
-      ast =
-          BuildFileAST.parseBuildFile(
+      file =
+          BuildFileAST.parseWithPrelude(
               ParserInputSource.create(
                   resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
-              ast.getStatements(),
+              file.getStatements(),
               /* repositoryMapping= */ ImmutableMap.of(),
               env.getListener());
-      if (ast.containsErrors()) {
+      if (file.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
                 LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
                 "Failed to parse default WORKSPACE file suffix"),
             Transience.PERSISTENT);
       }
-      return new WorkspaceASTValue(splitAST(ast));
+      return new WorkspaceASTValue(splitAST(file));
     } catch (IOException ex) {
       throw new WorkspaceASTFunctionException(ex, Transience.TRANSIENT);
     }

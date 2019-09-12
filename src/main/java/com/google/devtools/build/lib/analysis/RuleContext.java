@@ -1607,7 +1607,9 @@ public final class RuleContext extends TargetContext
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
-        reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
+        reporter =
+            new ErrorReporter(
+                env, target.getAssociatedRule(), configuration, getRuleClassNameForLogging());
       }
     }
 
@@ -2124,10 +2126,16 @@ public final class RuleContext extends TargetContext
   private static final class ErrorReporter extends EventHandlingErrorReporter
       implements RuleErrorConsumer {
     private final Rule rule;
+    private final BuildConfiguration configuration;
 
-    ErrorReporter(AnalysisEnvironment env, Rule rule, String ruleClassNameForLogging) {
+    ErrorReporter(
+        AnalysisEnvironment env,
+        Rule rule,
+        BuildConfiguration configuration,
+        String ruleClassNameForLogging) {
       super(ruleClassNameForLogging, env);
       this.rule = rule;
+      this.configuration = configuration;
     }
 
     @Override
@@ -2147,6 +2155,11 @@ public final class RuleContext extends TargetContext
     @Override
     protected Label getLabel() {
       return rule.getLabel();
+    }
+
+    @Override
+    protected BuildConfiguration getConfiguration() {
+      return configuration;
     }
 
     @Override

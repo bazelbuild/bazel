@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,16 +24,11 @@ import org.junit.runners.JUnit4;
 
 /** Tests for @{code SyntaxTreeVisitor} */
 @RunWith(JUnit4.class)
-public class SyntaxTreeVisitorTest {
+public final class SyntaxTreeVisitorTest {
 
-  private Scratch scratch = new Scratch();
-
-  /** Parses the contents of the specified string and returns the AST. */
   private BuildFileAST parse(String... lines) throws IOException {
-    Path file = scratch.file("/a/build/file/BUILD", lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    return BuildFileAST.parseSkylarkFile(
-        bytes, file.getDigest(), file.asFragment(), /* reporter */ null);
+    ParserInputSource input = ParserInputSource.fromLines(lines);
+    return BuildFileAST.parse(input, Environment.FAIL_FAST_HANDLER);
   }
 
   @Test
@@ -56,14 +48,14 @@ public class SyntaxTreeVisitorTest {
       }
     }
 
-    BuildFileAST ast =
+    BuildFileAST file =
         parse(
-            "a = b",
+            "a = b", //
             "def c(p1, p2=4, **p3):",
             "  for d in e: f(g)",
             "  return h + i.j()");
     IdentVisitor visitor = new IdentVisitor();
-    ast.accept(visitor);
+    file.accept(visitor);
     assertThat(idents).containsExactly("b", "a", "c", "e", "d", "f", "g", "h", "i", "j").inOrder();
     assertThat(params).containsExactly("p1", "p2=4", "**p3").inOrder();
   }

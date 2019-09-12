@@ -13,6 +13,8 @@
 // limitations under the License
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.analysis.config.CompilationMode.OPT;
+
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -21,11 +23,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -178,8 +181,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   /** Indicates whether Busybox actions should be passed the "--debug" flag */
   public boolean useDebug() {
-    return getActionConstructionContext().getConfiguration().getCompilationMode()
-        != CompilationMode.OPT;
+    return getActionConstructionContext().getConfiguration().getCompilationMode() != OPT;
   }
 
   public boolean isPersistentBusyboxToolsEnabled() {
@@ -214,13 +216,33 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return ruleContext.getFeatures().contains(OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES);
   }
 
+  boolean useResourceShrinking() {
+    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
+    if (state == TriState.AUTO) {
+      state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
+    }
+
+    return state == TriState.YES;
+  }
+
   boolean useResourcePathShortening() {
     // Use resource path shortening iff:
     //   1) --experimental_android_resource_path_shortening
     //   2) -c opt
+    //   3) Not on allowlist exempting from compatibleForResourcePathShortening
     return getAndroidConfig().useAndroidResourcePathShortening()
-        && compatibleForResourcePathShortening
-        && getActionConstructionContext().getConfiguration().getCompilationMode()
-            == CompilationMode.OPT;
+        && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
+        && compatibleForResourcePathShortening;
+  }
+
+  boolean useResourceNameObfuscation() {
+    // Use resource name obfuscation iff:
+    //   1) --experimental_android_resource_name_obfuscation
+    //   2) -c opt
+    //   3) resource shrinking is on
+    // TODO(bcsf): Implement an allowlist before activating globally.
+    return getAndroidConfig().useAndroidResourceNameObfuscation()
+        && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
+        && useResourceShrinking();
   }
 }

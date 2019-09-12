@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -102,10 +102,8 @@ public class SkylarkRepositoryContextTest {
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles");
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
-    FuncallExpression ast =
-        (FuncallExpression)
-            Parser.parseExpression(
-                ParserInputSource.create("test()", PathFragment.create("<builtin>")), listener);
+    ParserInputSource input = ParserInputSource.fromLines("test()");
+    FuncallExpression ast = (FuncallExpression) Expression.parse(input, listener);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder, buildRuleClass(attributes), null, kwargs, ast);

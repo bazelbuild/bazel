@@ -141,8 +141,8 @@ public class PackageFactoryApparatus {
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, buildFile.asFragment());
-    return BuildFileAST.parseBuildFile(inputSource, eventHandler);
+    ParserInputSource input = ParserInputSource.create(bytes, buildFile.asFragment());
+    return BuildFileAST.parse(input, eventHandler);
   }
 
   /** Evaluates the {@code buildFileAST} into a {@link Package}. */
