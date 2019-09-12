@@ -672,25 +672,31 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework search paths for clang actions for pre-cleanup mode. */
-  static ImmutableList<String> preCleanupFrameworkSearchPaths(
+  static ImmutableList<PathFragment> preCleanupFrameworkSearchPathFragments(
       ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration) {
 
-    ImmutableList.Builder<String> frameworkNames = new ImmutableList.Builder<>();
-    return frameworkNames
+    ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
+    return searchPaths
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.getStaticFrameworkDirs()),
-                PathFragment::getSafePathString))
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)),
-                PathFragment::getSafePathString))
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)),
-                PathFragment::getSafePathString))
+        .addAll(uniqueParentDirectories(provider.getStaticFrameworkDirs()))
+        .addAll(uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)))
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
+        .build();
+  }
+
+  /** Returns a list of framework header search path fragments. */
+  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(
+      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+      throws InterruptedException {
+    StarlarkSemantics starlarkSemantics =
+        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+      return preCleanupFrameworkSearchPathFragments(provider, ruleContext, buildConfiguration);
+    }
+    ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
+    return searchPaths
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
         .build();
   }
 
@@ -698,18 +704,11 @@ public class CompilationSupport {
   static ImmutableList<String> frameworkHeaderSearchPaths(
       ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
       throws InterruptedException {
-    StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
-    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-      return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
-    }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
-        // Add header search paths corresponding to custom (non-SDK) frameworks. For each framework
-        // foo/bar.framework, include "foo" as a search path.
         .addAll(
             Iterables.transform(
-                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)),
+                frameworkHeaderSearchPathFragments(provider, ruleContext, buildConfiguration),
                 PathFragment::getSafePathString))
         .build();
   }
@@ -720,10 +719,15 @@ public class CompilationSupport {
       throws InterruptedException {
     StarlarkSemantics starlarkSemantics =
         ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
-    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-      return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
-    }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
+    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+      return searchPaths
+          .addAll(
+              Iterables.transform(
+                  preCleanupFrameworkSearchPathFragments(provider, ruleContext, buildConfiguration),
+                  PathFragment::getSafePathString))
+          .build();
+    }
     return searchPaths
         // Add library search paths corresponding to custom (non-SDK) frameworks. For each framework
         // foo/bar.framework, include "foo" as a search path.
