@@ -360,7 +360,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     boolean optimizeResources =
         AndroidAaptVersion.chooseTargetAaptVersion(ruleContext) == AndroidAaptVersion.AAPT2
-            && dataContext.useResourcePathShortening();
+            && (dataContext.useResourcePathShortening()
+                || dataContext.useResourceNameObfuscation());
 
     return createAndroidBinary(
         ruleContext,
@@ -930,7 +931,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       return Optional.empty();
     }
 
-    return Optional.of(
+    ResourceShrinkerActionBuilder resourceShrinkerActionBuilder =
         new ResourceShrinkerActionBuilder()
             .setResourceApkOut(
                 dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
@@ -946,8 +947,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .withDependencies(resourceDeps)
             .setTargetAaptVersion(aaptVersion)
             .setResourceFilterFactory(resourceFilterFactory)
-            .setUncompressedExtensions(noCompressExtensions)
-            .build(dataContext));
+            .setUncompressedExtensions(noCompressExtensions);
+
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
+      resourceShrinkerActionBuilder.setKeptResourcesOut(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_KEPT));
+    }
+    return Optional.of(resourceShrinkerActionBuilder.build(dataContext));
   }
 
   private static ResourceApk optimizeResources(
@@ -963,6 +969,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       builder.setResourcePathShorteningMapOut(
           dataContext.createOutputArtifact(
               AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
+    }
+    if (dataContext.useResourceNameObfuscation()) {
+      builder.setResourceNameObfuscationExemptionList(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_KEPT));
     }
     builder.build().registerAction(dataContext);
 

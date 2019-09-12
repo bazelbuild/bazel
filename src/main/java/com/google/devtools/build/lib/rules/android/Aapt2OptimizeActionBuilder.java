@@ -32,6 +32,12 @@ abstract class Aapt2OptimizeActionBuilder {
           .addFlag("--enable-resource-path-shortening")
           .addOutput("--resource-path-shortening-map", resourcePathShorteningMapOut());
     }
+    if (resourceNameObfuscationExemptionList() != null) {
+      builder
+          .addFlag("--enable-resource-name-obfuscation")
+          .addInput(
+              "--resource-name-obfuscation-exemption-list", resourceNameObfuscationExemptionList());
+    }
     builder
         .addOutput("-o", optimizedApkOut())
         .addInput(resourceApk())
@@ -45,10 +51,14 @@ abstract class Aapt2OptimizeActionBuilder {
   @Nullable
   abstract Artifact resourcePathShorteningMapOut();
 
+  @Nullable
+  abstract Artifact resourceNameObfuscationExemptionList();
+
   static Builder builder() {
     return new AutoValue_Aapt2OptimizeActionBuilder.Builder();
   }
 
+  // NOTE(bcsf): I'm aware this is Aapt2OptimizeActionBuilder.Builder. I'm ok with it. Are you?
   @AutoValue.Builder
   abstract static class Builder {
     abstract Builder setResourceApk(Artifact apk);
@@ -56,6 +66,8 @@ abstract class Aapt2OptimizeActionBuilder {
     abstract Builder setOptimizedApkOut(Artifact apk);
 
     abstract Builder setResourcePathShorteningMapOut(Artifact map);
+
+    abstract Builder setResourceNameObfuscationExemptionList(Artifact whitelist);
 
     abstract Aapt2OptimizeActionBuilder build();
   }

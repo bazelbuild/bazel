@@ -988,7 +988,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShorteningMap_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
+  public void testResourcePathShortening_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("-c", "opt");
 
@@ -1008,6 +1008,93 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
     assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
     assertThat(hasInput(apkAction, "app_optimized.ap_")).isFalse();
+  }
+
+  @Test
+  public void testResourceNameObfuscation_flagEnabledAndCOpt_optimizedApkIsInputToApkBuilderAction()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_name_obfuscation", "-c", "opt");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    SpawnAction shrinkerAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "kept_resources.txt"));
+    assertThat(shrinkerAction.getMnemonic()).isEqualTo("ResourceShrinker");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--enable-resource-name-obfuscation");
+    assertThat(flagValue("--resource-name-obfuscation-exemption-list", processingArgs))
+        .endsWith("kept_resources.txt");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isTrue();
+  }
+
+  @Test
+  public void testResourceNameObfuscation_flagEnabledAndCDefault_optimizeArtifactsAbsent()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_name_obfuscation");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
+
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isFalse();
+  }
+
+  @Test
+  public void testResourceNameObfuscation_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
+      throws Exception {
+    useConfiguration("-c", "opt");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
+
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isFalse();
   }
 
   @Test
@@ -1059,9 +1146,10 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--rOutput", processingArgs));
     assertThat(flagValue("--primaryManifest", shrinkingArgs))
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
-
     assertThat(flagValue("--resourceConfigs", shrinkingArgs))
         .isEqualTo(flagValue("--resourceConfigs", processingArgs));
+
+    assertThat(shrinkingArgs).doesNotContain("--keptResourcesOutput");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
@@ -3938,6 +4026,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("-printmapping", proguardArgs));
     assertThat(flagValue("--rTxt", shrinkingArgs))
         .isEqualTo(flagValue("--rOutput", processingArgs));
+    assertThat(flagValue("--keptResourcesOutput", shrinkingArgs)).endsWith("kept_resources.txt");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
