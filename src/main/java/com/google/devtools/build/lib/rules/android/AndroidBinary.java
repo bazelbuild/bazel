@@ -206,12 +206,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             androidSemantics.getNativeDepsFileName(),
             cppSemantics);
 
-    boolean shrinkResources = shouldShrinkResources(ruleContext);
-
     // Retrieve and compile the resources defined on the android_binary rule.
     AndroidResources.validateRuleContext(ruleContext);
 
     final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
+    boolean shrinkResources = dataContext.useResourceShrinking();
     Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
     StampedAndroidManifest manifest =
@@ -871,18 +870,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     return proguardSpecs;
-  }
-
-  /** Returns {@code true} if resource shrinking should be performed. */
-  private static boolean shouldShrinkResources(RuleContext ruleContext) {
-    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
-    if (state == TriState.AUTO) {
-      boolean globalShrinkResources =
-          ruleContext.getFragment(AndroidConfiguration.class).useAndroidResourceShrinking();
-      state = (globalShrinkResources) ? TriState.YES : TriState.NO;
-    }
-
-    return (state == TriState.YES);
   }
 
   /** Returns {@code true} if resource shrinking should be performed. */
