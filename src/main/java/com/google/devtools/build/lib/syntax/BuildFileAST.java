@@ -370,15 +370,6 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Temporary alias for parseWithoutImports, as, maddeningly, we cannot atomically change our API
-   * and copybara's use of it. TODO(adonovan): delete once copybara is updated, Sep 2019.
-   */
-  public static BuildFileAST parseSkylarkFileWithoutImports(
-      ParserInputSource input, EventHandler handler) {
-    return parseWithoutImports(input, handler);
-  }
-
-  /**
    * Run static checks on the syntax tree.
    *
    * @return a new syntax tree (or the same), with the containsErrors flag updated.
