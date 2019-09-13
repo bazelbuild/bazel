@@ -66,7 +66,10 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "HOST or HOST:PORT of a remote execution endpoint.")
+      help =
+          "HOST or HOST:PORT of a remote execution endpoint.The supported schemas are grpc and"
+              + " grpcs (grpc with TLS enabled). If no schema is provided bazel'll default to"
+              + " grpcs. Specify grpc:// schema to disable TLS.")
   public String remoteExecutor;
 
   @Option(
@@ -76,9 +79,10 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemas are http(s) and grpc. "
-              + "If no schema is provided we'll default to grpc. "
-              + "See https://docs.bazel.build/versions/master/remote-caching.html")
+          "A URI of a caching endpoint. The supported schemas are http, https, grpc and grpcs"
+              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
+              + " Specify grpc:// or http:// schema to disable TLS.See"
+              + " https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
   @Option(
