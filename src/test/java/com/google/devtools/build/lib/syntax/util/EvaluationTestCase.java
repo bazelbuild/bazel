@@ -168,14 +168,17 @@ public class EvaluationTestCase {
     return ast.validate(env, /*isBuildFile=*/ false, getEventHandler());
   }
 
+  /** Parses and validates a file and returns its statements. */
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
+  // Separate all the tests clearly into tests of the scanner, parser, resolver,
+  // and evaluation.
   protected List<Statement> parseFile(String... lines) {
     return parseBuildFileAST(lines).getStatements();
   }
 
-  /** Parses a statement. */
+  /** Parses a statement, without validation. */
   protected final Statement parseStatement(String... lines) {
-    return Statement.parse(ParserInputSource.fromLines(lines), getEventHandler());
+    return parseBuildFileASTWithoutValidation(lines).getStatements().get(0);
   }
 
   /** Parses an expression. */

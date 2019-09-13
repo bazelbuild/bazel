@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.EventHandler;
 
 /**
  * Base class for all statements nodes in the AST.
@@ -42,10 +41,4 @@ public abstract class Statement extends ASTNode {
    * can be used in a switch/case.
    */
   public abstract Kind kind();
-
-  /** Parses a statement. */
-  // TODO(adonovan): eliminate this temporary function; make all callers use BuildFileAST.parse.
-  public static Statement parse(ParserInputSource input, EventHandler eventHandler) {
-    return Parser.parseStatement(input, eventHandler);
-  }
 }
