@@ -92,7 +92,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 causeLabel,
-                "no such package 'bar': BUILD file not found in any of the following directories.\n"
+                "no such package 'bar': A BUILD file marks a directory as a Bazel package. "
+                    + "However, there are no BUILD files in any of the following directories:\n"
                     + " - /workspace/bar"));
   }
 

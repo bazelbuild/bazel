@@ -113,10 +113,12 @@ public class PackageLookupFunction implements SkyFunction {
    */
   public static String explainNoBuildFileValue(PackageIdentifier packageKey, Environment env)
       throws InterruptedException {
+    String educationalMessage = "A BUILD file marks a directory as a Bazel package. However, ";
     if (packageKey.getRepository().isMain()) {
       PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
       StringBuilder message = new StringBuilder();
-      message.append("BUILD file not found in any of the following directories.");
+      message.append(educationalMessage);
+      message.append("there are no BUILD files found in any of the following directories:");
       for (Root root : pkgLocator.getPathEntries()) {
         message
             .append("\n - ")
@@ -124,7 +126,8 @@ public class PackageLookupFunction implements SkyFunction {
       }
       return message.toString();
     } else {
-      return "BUILD file not found in directory '"
+      return educationalMessage
+          + "there is no BUILD file found in the directory '"
           + packageKey.getPackageFragment()
           + "' of external repository "
           + packageKey.getRepository();
