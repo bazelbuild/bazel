@@ -2,7 +2,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "android_tools",
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.9.tar.gz",
-    sha256 = "23011efa92c7566ad0bcea69a90c9efeec1e96e73d865eb88a6dc934fe47db9b", # built at 43fc06881c9ec39712fbfa557b7df1137e3aeec3
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.11.tar.gz",
+    sha256 = "6fc50151063bffdda700038ea7df99c89d54dc066e9377a5baff60d55d482ad2", # built at 4739f69a7afa9ddaa450823cc78e97e8addc22a3
 )
 

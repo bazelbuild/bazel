@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
@@ -57,7 +58,9 @@ public class StandaloneModule extends BlazeModule {
             env.getOptions().getOptions(LocalExecutionOptions.class),
             env.getLocalResourceManager(),
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-            env.getBlazeWorkspace().getBinTools());
+            env.getBlazeWorkspace().getBinTools(),
+            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+            RunfilesTreeUpdater.INSTANCE);
 
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the

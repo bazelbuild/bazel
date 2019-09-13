@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.syntax.Parser.ParsingLevel.LOCAL_LEVEL;
-import static com.google.devtools.build.lib.syntax.Parser.ParsingLevel.TOP_LEVEL;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -94,9 +92,8 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
    * Parses the given string as a statement, and asserts that its pretty print with one indent
    * matches the given string.
    */
-  private void assertStmtIndentedPrettyMatches(
-      Parser.ParsingLevel parsingLevel, String source, String expected) {
-    Statement node = parseStatement(parsingLevel, source);
+  private void assertStmtIndentedPrettyMatches(String source, String expected) {
+    Statement node = parseStatement(source);
     assertIndentedPrettyMatches(node, expected);
   }
 
@@ -104,9 +101,8 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
    * Parses the given string as an statement, and asserts that its {@code toString} matches the
    * given string.
    */
-  private void assertStmtTostringMatches(
-      Parser.ParsingLevel parsingLevel, String source, String expected) {
-    Statement node = parseStatement(parsingLevel, source);
+  private void assertStmtTostringMatches(String source, String expected) {
+    Statement node = parseStatement(source);
     assertThat(node.toString()).isEqualTo(expected);
   }
 
@@ -230,59 +226,53 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
 
   @Test
   public void assignmentStatement() {
-    assertStmtIndentedPrettyMatches(LOCAL_LEVEL, "x = y", "  x = y\n");
-    assertStmtTostringMatches(LOCAL_LEVEL, "x = y", "x = y\n");
+    assertStmtIndentedPrettyMatches("x = y", "  x = y\n");
+    assertStmtTostringMatches("x = y", "x = y\n");
   }
 
   @Test
   public void augmentedAssignmentStatement() {
-    assertStmtIndentedPrettyMatches(LOCAL_LEVEL, "x += y", "  x += y\n");
-    assertStmtTostringMatches(LOCAL_LEVEL, "x += y", "x += y\n");
+    assertStmtIndentedPrettyMatches("x += y", "  x += y\n");
+    assertStmtTostringMatches("x += y", "x += y\n");
   }
 
   @Test
   public void expressionStatement() {
-    assertStmtIndentedPrettyMatches(LOCAL_LEVEL, "5", "  5\n");
-    assertStmtTostringMatches(LOCAL_LEVEL, "5", "5\n");
+    assertStmtIndentedPrettyMatches("5", "  5\n");
+    assertStmtTostringMatches("5", "5\n");
   }
 
   @Test
   public void functionDefStatement() {
     assertStmtIndentedPrettyMatches(
-        TOP_LEVEL,
         join("def f(x):",
              "  print(x)"),
         join("  def f(x):",
              "    print(x)",
              ""));
     assertStmtTostringMatches(
-        TOP_LEVEL,
         join("def f(x):",
              "  print(x)"),
         "def f(x): ...\n");
 
     assertStmtIndentedPrettyMatches(
-        TOP_LEVEL,
         join("def f(a, b=B, *c, d=D, **e):",
              "  print(x)"),
         join("  def f(a, b=B, *c, d=D, **e):",
              "    print(x)",
              ""));
     assertStmtTostringMatches(
-        TOP_LEVEL,
         join("def f(a, b=B, *c, d=D, **e):",
              "  print(x)"),
         "def f(a, b = B, *c, d = D, **e): ...\n");
 
     assertStmtIndentedPrettyMatches(
-        TOP_LEVEL,
         join("def f():",
              "  pass"),
         join("  def f():",
              "    pass",
              ""));
     assertStmtTostringMatches(
-        TOP_LEVEL,
         join("def f():",
              "  pass"),
         "def f(): ...\n");
@@ -303,27 +293,23 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   @Test
   public void forStatement() {
     assertStmtIndentedPrettyMatches(
-        LOCAL_LEVEL,
         join("for x in y:",
              "  print(x)"),
         join("  for x in y:",
              "    print(x)",
              ""));
     assertStmtTostringMatches(
-        LOCAL_LEVEL,
         join("for x in y:",
              "  print(x)"),
         "for x in y: ...\n");
 
     assertStmtIndentedPrettyMatches(
-        LOCAL_LEVEL,
         join("for x in y:",
              "  pass"),
         join("  for x in y:",
              "    pass",
              ""));
     assertStmtTostringMatches(
-        LOCAL_LEVEL,
         join("for x in y:",
              "  pass"),
         "for x in y: ...\n");
@@ -332,20 +318,17 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   @Test
   public void ifStatement() {
     assertStmtIndentedPrettyMatches(
-        LOCAL_LEVEL,
         join("if True:",
              "  print(x)"),
         join("  if True:",
              "    print(x)",
              ""));
     assertStmtTostringMatches(
-        LOCAL_LEVEL,
         join("if True:",
              "  print(x)"),
         "if True: ...\n");
 
     assertStmtIndentedPrettyMatches(
-        LOCAL_LEVEL,
         join("if True:",
              "  print(x)",
              "elif False:",
@@ -360,7 +343,6 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
              "    print(z)",
              ""));
     assertStmtTostringMatches(
-        LOCAL_LEVEL,
         join("if True:",
             "  print(x)",
             "elif False:",

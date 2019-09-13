@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback.OutputType;
-import com.google.devtools.build.lib.query2.engine.ActionGraphQueryHelper;
-import com.google.devtools.build.lib.query2.engine.ActionGraphQueryTest;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;

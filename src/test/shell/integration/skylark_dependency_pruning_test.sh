@@ -265,4 +265,23 @@ function test_experiment_flag_required() {
   expect_log "Use --experimental_starlark_unused_inputs_list"
 }
 
+# Test with orphaned artifacts features.
+# This requires --experimental_inmemory_unused_inputs_list flag.
+function test_orphaned_artifacts() {
+  options="--discard_orphaned_artifacts \
+      --force_multigroup_accounting \
+      --nokeep_state_after_build"
+
+  # Use in-memory files.
+  bazel build ${options} --experimental_inmemory_unused_inputs_list \
+      //pkg:output || fail "build failed"
+
+  # This should fail.
+  bazel build ${options} --noexperimental_inmemory_unused_inputs_list \
+      //pkg:output >& $TEST_log && fail "Expected failure"
+  exitcode=$?
+  assert_equals 1 "$exitcode"
+  expect_log "bin/pkg/output.unused (No such file or directory)"
+}
+
 run_suite "Tests Skylark dependency pruning"

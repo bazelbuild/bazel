@@ -155,13 +155,17 @@ public class GenerateRobolectricResourceSymbolsAction {
         final PlaceholderIdFieldInitializerBuilder robolectricIds =
             PlaceholderIdFieldInitializerBuilder.from(aaptConfigOptions.androidJar);
         ParsedAndroidData.loadedFrom(
-                options.data, executorService, AndroidParsedDataDeserializer.create())
+                DependencyInfo.DependencyType.UNKNOWN,
+                options.data,
+                executorService,
+                AndroidParsedDataDeserializer.create())
             .writeResourcesTo(
                 new AndroidResourceSymbolSink() {
 
                   @Override
-                  public void acceptSimpleResource(ResourceType type, String name) {
-                    robolectricIds.addSimpleResource(type, name);
+                  public void acceptSimpleResource(
+                      DependencyInfo dependencyInfo, ResourceType type, String name) {
+                    robolectricIds.addSimpleResource(dependencyInfo, type, name);
                   }
 
                   @Override
@@ -172,13 +176,16 @@ public class GenerateRobolectricResourceSymbolsAction {
 
                   @Override
                   public void acceptStyleableResource(
-                      FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs) {
-                    robolectricIds.addStyleableResource(key, attrs);
+                      DependencyInfo dependencyInfo,
+                      FullyQualifiedName key,
+                      Map<FullyQualifiedName, Boolean> attrs) {
+                    robolectricIds.addStyleableResource(dependencyInfo, key, attrs);
                   }
                 });
 
         final RClassGenerator generator =
-            RClassGenerator.with(generatedSources, robolectricIds.build(), false);
+            RClassGenerator.with(
+                options.targetLabel, generatedSources, robolectricIds.build(), false, false);
 
         List<SymbolFileProvider> libraries = new ArrayList<>();
         for (DependencyAndroidData dataDep : options.data) {

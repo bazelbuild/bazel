@@ -86,8 +86,10 @@ public class ParsedAndroidDataTest {
                     .createManifest("AndroidManifest.xml", "com.google.foo", "")
                     .buildDependency()));
 
-    DataSource assetSource = DataSource.of(root.resolve("assets/bin/boojum"));
-    DataSource otherAssetSource = DataSource.of(otherRoot.resolve("assets/bin/boojum"));
+    DataSource assetSource =
+        DataSource.of(DependencyInfo.UNKNOWN, root.resolve("assets/bin/boojum"));
+    DataSource otherAssetSource =
+        DataSource.of(DependencyInfo.UNKNOWN, otherRoot.resolve("assets/bin/boojum"));
     RelativeAssetPath key =
         RelativeAssetPath.Factory.of(root.resolve("assets")).create(assetSource.getPath());
 
@@ -329,11 +331,14 @@ public class ParsedAndroidDataTest {
     FullyQualifiedName drawableMenu = fqnFactory.parse("drawable/menu");
     FullyQualifiedName stringExit = fqnFactory.parse("string/exit");
     FullyQualifiedName attributeFoo = fqnFactory.parse("<resources>/foo");
-    DataSource rootDrawableMenuPath = DataSource.of(root.resolve("res/drawable/menu.png"));
+    DataSource rootDrawableMenuPath =
+        DataSource.of(DependencyInfo.UNKNOWN, root.resolve("res/drawable/menu.png"));
     DataSource otherRootDrawableMenuPath =
-        DataSource.of(otherRoot.resolve("res/drawable/menu.png"));
-    DataSource rootValuesPath = DataSource.of(root.resolve("res/values/attr.xml"));
-    DataSource otherRootValuesPath = DataSource.of(otherRoot.resolve("res/values/attr.xml"));
+        DataSource.of(DependencyInfo.UNKNOWN, otherRoot.resolve("res/drawable/menu.png"));
+    DataSource rootValuesPath =
+        DataSource.of(DependencyInfo.UNKNOWN, root.resolve("res/values/attr.xml"));
+    DataSource otherRootValuesPath =
+        DataSource.of(DependencyInfo.UNKNOWN, otherRoot.resolve("res/values/attr.xml"));
     FullyQualifiedName idSomeId = fqnFactory.parse("id/some_id");
 
     Truth.assertAbout(parsedAndroidData)

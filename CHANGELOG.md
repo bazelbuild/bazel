@@ -1,3 +1,150 @@
+## Release 0.29.1 (2019-09-10)
+
+```
+Baseline: 6c5ef5369a3ffceb8a65cc159a2fff1401242810
+
+Cherry picks:
+
+   + 338829f2633e91ae0492ee4169446465e10b5994:
+     Fix retrying of SocketTimeoutExceptions in HttpConnector
+   + 14651cd86b6fc1d48f56a208a9b5278b3e2dcf75:
+     Fallback to next urls if download fails in HttpDownloader
+   + b7d300c6be3e130dec0e62a4f19493105f595d57:
+     Fix incorrect stdout/stderr in remote action cache. Fixes #9072
+   + 960217631abdcab0a7ed95e2ab10acd55f636639:
+     Automated rollback of commit
+     0f0a0d58725603cf2f1c175963360b525718a195.
+   + da557f96c697102ad787e57bbf7db2460f6a60a8:
+     Windows: fix "bazel run" argument quoting
+   + ef8b6f68cc8ffd2e6523a894034ae383e87ec74c:
+     Return JavaInfo from java proto aspects.
+   + 209175ff8ffeb05628ed8a187dd414a3d2935c55:
+     Revert back to the old behavior of not creating a proto source
+     root for generated .proto files.
+   + 644060b7a4bc98384b66e3d2343b950b875b5e35:
+     Fix PatchUtil for parsing special patch format
+   + 067040d7bcb3b24a88432e210a96adacee3f37b4:
+     Put the removal of the legacy repository-relative proto path
+     behind the --incompatible_generated_protos_in_virtual_imports
+     flag.
+   + 76ed014e77d7b862f6eb2894600ae525ea570f11:
+     repository mapping lookup: convert to canonical name first
+   + f791df0aada91c38018ad98b3b40a528ff226204:
+     Release 0.29.0 (2019-08-28)
+   + 2c046486f5febb9e475a5589b59abae77f14245e:
+     Fix git_repository rule to support fetching a commit on a tag
+   + 9e1d65a1fcebff7169a63acad95c7b44302b89c4:
+     Fix a serious regression in remote execution. Fixes #9284
+   + 8b0bfaf6716327ca6b60692704e3d57766f7ab1f:
+     Include cc configure headers in the cache key
+   + 5c02b92c45b5422971b3164685d9edb771367a1b:
+     Make --workspace_status_command work with "Builds without the
+     Bytes".
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+```
+
+This release contains contributions from many people at Google, as well as Artem Zinnatullin.
+
+## Release 0.29.0 (2019-08-28)
+
+```
+Baseline: 6c5ef5369a3ffceb8a65cc159a2fff1401242810
+
+Cherry picks:
+
+   + 338829f2633e91ae0492ee4169446465e10b5994:
+     Fix retrying of SocketTimeoutExceptions in HttpConnector
+   + 14651cd86b6fc1d48f56a208a9b5278b3e2dcf75:
+     Fallback to next urls if download fails in HttpDownloader
+   + b7d300c6be3e130dec0e62a4f19493105f595d57:
+     Fix incorrect stdout/stderr in remote action cache. Fixes #9072
+   + 960217631abdcab0a7ed95e2ab10acd55f636639:
+     Automated rollback of commit
+     0f0a0d58725603cf2f1c175963360b525718a195.
+   + da557f96c697102ad787e57bbf7db2460f6a60a8:
+     Windows: fix "bazel run" argument quoting
+   + ef8b6f68cc8ffd2e6523a894034ae383e87ec74c:
+     Return JavaInfo from java proto aspects.
+   + 209175ff8ffeb05628ed8a187dd414a3d2935c55:
+     Revert back to the old behavior of not creating a proto source
+     root for generated .proto files.
+   + 644060b7a4bc98384b66e3d2343b950b875b5e35:
+     Fix PatchUtil for parsing special patch format
+   + 067040d7bcb3b24a88432e210a96adacee3f37b4:
+     Put the removal of the legacy repository-relative proto path
+     behind the --incompatible_generated_protos_in_virtual_imports
+     flag.
+   + 76ed014e77d7b862f6eb2894600ae525ea570f11:
+     repository mapping lookup: convert to canonical name first
+```
+
+Important changes:
+
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+  - Adds --incompatible_enable_execution_transition, which enables
+    incremental migration of host attributes to exec attributes.
+  - objc_proto_library rule has been deleted from Bazel.
+  - repository_ctx.read is no longer restricted to files
+        in the repository contructed.
+  - tags 'no-remote', 'no-cache', 'no-remote-cache',
+    'no-remote-exec', 'no-sandbox' are propagated now to the actions
+    from targets when '--ncompatible_allow_tags_propagation' flag set
+    to true. See #8830.
+  - Adds flag
+    --//tools/build_defs/pkg:incompatible_no_build_defs_pkg. This
+    flag turns off the rules //tools/build_defs/pkg:{pkg_deb,
+    pkg_rpm, pkg_tar}.
+  - The Android NDK is now integrated with toolchains. To use them,
+    pass the `--extra_toolchains=@androidndk//:all` flag or register
+    them in your WORKSPACE with
+    `register_toolchains("@androidndk//:all")`.
+  - Stdout and stderr are checked to determine if output is going to a
+    terminal. `--is_stderr_atty` is deprecated and `--isatty` is
+    undeprecated.
+  - --incompatible_load_proto_rules_from_bzl was added to forbid
+    loading the native proto rules directly. See more on tracking
+    issue #8922
+  - Docker Sandbox now respects remote_default_platform_properties
+  - pkg_deb, pkg_rpm & pkg_tar deprecation plan announced in the
+    documentation.
+  - The new java_tools release:
+    * fixes https://github.com/bazelbuild/bazel/issues/8614
+    * exposes a new toolchain `@java_tools//:prebuilt_toolchain`
+    which is using all the pre-built tools, including singlejar and
+    ijar, even on remote execution. This toolchain should be used
+    only when host and execution platform are the same, otherwise the
+    binaries will not work on the execution platform.
+  - java_common.compile supports specifying
+    annotation_processor_additional_inputs and
+    annotation_processor_additional_outputs for the Java compilation
+    action for supporting annotation processors that consume or
+    produce artifacts. Fixes #6415
+  - There is now documentation on optimizing Android app build
+    performance. Read it at
+    https://docs.bazel.build/versions/0.29.0/android-build-performance
+    .html
+  - Execution log now respects --remote_default_platform_properties
+  - Include a link to the relevant documenation on transitive Python
+    version errors.
+  - New incompatible flag
+    --incompatible_disable_target_provider_fields removes the ability
+    (in Starlark) to access a target's providers via the field syntax
+    (for example, `ctx.attr.dep.my_provider`). The provider-key
+    syntax should be used instead (for example,
+    `ctx.attr.dep[MyProvider]`). See
+    https://github.com/bazelbuild/bazel/issues/9014 for details.
+  - A new platform exec_properties is added to replace
+    remote_execution_properties.
+  - Added --incompatible_load_python_rules_from_bzl, which will be
+    flipped in Bazel 1.0. See
+    https://github.com/bazelbuild/bazel/issues/9006.
+  - add --break_build_on_parallel_dex2oat_failure to shortcut tests
+    on dex2oat errors
+
+This release contains contributions from many people at Google, as well as Alexander Ilyin, Arek Sredzki, Artem Zinnatullin, Benjamin Peterson, Fan Wu, John Millikin, Loo Rong Jie, Marwan Tammam, Oscar Bonilla, Peter Mounce, Sergio Rodriguez Orellana, Takeo Sawada, and Yannic Bonenberger.
+
 ## Release 0.28.1 (2019-07-19)
 
 ```

@@ -42,7 +42,6 @@ public class AndroidResourcesProcessorBuilder {
 
   private Artifact proguardOut;
   private Artifact mainDexProguardOut;
-  private Artifact resourcePathShorteningMapOut;
   private boolean conditionalKeepRules;
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
@@ -61,8 +60,6 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
   private boolean crunchPng = true;
-  private Artifact featureOf;
-  private Artifact featureAfter;
   private AndroidAaptVersion aaptVersion;
   private boolean throwOnResourceConflict;
   private String packageUnderTest;
@@ -127,12 +124,6 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setResourcePathShorteningMapOut(
-      Artifact resourcePathShorteningMapOut) {
-    this.resourcePathShorteningMapOut = resourcePathShorteningMapOut;
-    return this;
-  }
-
   public AndroidResourcesProcessorBuilder setRTxtOut(Artifact rTxtOut) {
     this.rTxtOut = rTxtOut;
     return this;
@@ -165,16 +156,6 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureOf(Artifact featureOf) {
-    this.featureOf = featureOf;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureAfter(Artifact featureAfter) {
-    this.featureAfter = featureAfter;
     return this;
   }
 
@@ -345,15 +326,7 @@ public class AndroidResourcesProcessorBuilder {
           .addTransitiveInputValues(assetDependencies.getTransitiveCompiledSymbols());
     }
 
-    if (resourcePathShorteningMapOut != null) {
-      builder
-          .addFlag("--resourcePathShortening")
-          .maybeAddOutput("--resourcePathShorteningMapOutput", resourcePathShorteningMapOut);
-    }
-
-    builder
-        .addFlag("--useCompiledResourcesForMerge")
-        .maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
+    builder.maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
 
     configureCommonFlags(dataContext, primaryResources, primaryAssets, primaryManifest, builder)
         .buildAndRegister("Processing Android resources", "AndroidAapt2");
@@ -451,8 +424,6 @@ public class AndroidResourcesProcessorBuilder {
         .maybeAddFlag("--applicationId", applicationId)
         .maybeAddOutput("--dataBindingInfoOut", dataBindingInfoZip)
         .maybeAddFlag("--packageForR", customJavaPackage)
-        .maybeAddInput("--featureOf", featureOf)
-        .maybeAddInput("--featureAfter", featureAfter)
         .maybeAddFlag("--throwOnResourceConflict", throwOnResourceConflict)
         .maybeAddFlag("--packageUnderTest", packageUnderTest)
         .maybeAddFlag("--isTestWithResources", isTestWithResources);

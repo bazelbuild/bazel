@@ -20,7 +20,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Aspe
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -136,7 +136,7 @@ public class MarkdownRenderer {
    * Returns a markdown rendering of a user-defined function's documentation for the function info
    * object.
    */
-  public String render(UserDefinedFunctionInfo functionInfo) throws IOException {
+  public String render(StarlarkFunctionInfo functionInfo) throws IOException {
     VelocityContext context = new VelocityContext();
     context.put("util", new MarkdownUtil());
     context.put("funcInfo", functionInfo);

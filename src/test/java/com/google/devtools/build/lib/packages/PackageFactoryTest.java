@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtracto
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -918,7 +918,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
-        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
+        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
     assertThat(deprAttr).isEqualTo(msg);
   }
 
@@ -934,12 +934,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
     assertThat(
-            attributes(fooRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+            attributes(fooRule)
+                .get("testonly", com.google.devtools.build.lib.packages.Type.BOOLEAN))
         .isTrue();
 
     Rule barRule = (Rule) pkg.getTarget("bar");
     assertThat(
-            attributes(barRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+            attributes(barRule)
+                .get("testonly", com.google.devtools.build.lib.packages.Type.BOOLEAN))
         .isFalse();
   }
 
@@ -956,7 +958,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
-        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
+        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
     assertThat(deprAttr).isEqualTo(msg);
   }
 
@@ -989,7 +991,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("e", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 
@@ -1205,18 +1207,19 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testGlobPatternExtractor() {
     GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
     globPatternExtractor.visit(
-        BuildFileAST.parseString(
+        BuildFileAST.parse(
+            ParserInputSource.fromLines(
+                "pattern = '*'",
+                "some_variable = glob([",
+                "  '**/*',",
+                "  'a' + 'b',",
+                "  pattern,",
+                "])",
+                "other_variable = glob(include = ['a'], exclude = ['b'])",
+                "third_variable = glob(['c'], exclude_directories = 0)"),
             event -> {
               throw new IllegalArgumentException(event.getMessage());
-            },
-            "pattern = '*'",
-            "some_variable = glob([",
-            "  '**/*',",
-            "  'a' + 'b',",
-            "  pattern,",
-            "])",
-            "other_variable = glob(include = ['a'], exclude = ['b'])",
-            "third_variable = glob(['c'], exclude_directories = 0)"));
+            }));
     assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
         .containsExactly("ab", "a", "**/*");
     assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");

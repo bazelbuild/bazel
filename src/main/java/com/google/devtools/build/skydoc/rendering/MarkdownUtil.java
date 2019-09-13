@@ -24,7 +24,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Func
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,6 +34,45 @@ import java.util.stream.Collectors;
  */
 public final class MarkdownUtil {
   private final static int MAX_LINE_LENGTH = 100;
+
+  /**
+   * Return a string that formats the input string so it is displayable in a markdown table cell.
+   * This performs the following operations:
+   *
+   * <ul>
+   *   <li>Trims the string of leading/trailing whitespace.
+   *   <li>Transforms the string using {@link #htmlEscape}.
+   *   <li>Transforms multline code (```) tags into preformatted code HTML tags.
+   *   <li>Transforms single-tick code (`) tags into code HTML tags.
+   *   <li>Transforms newline characters into line break HTML tags.
+   * </ul>
+   */
+  public String markdownCellFormat(String docString) {
+    String resultString = htmlEscape(docString.trim());
+
+    resultString = replaceWithTag(resultString, "```", "<pre><code>", "</code></pre>");
+    resultString = replaceWithTag(resultString, "`", "<code>", "</code>");
+
+    return resultString.replace("\n", "<br>");
+  }
+
+  private static String replaceWithTag(
+      String wholeString, String stringToReplace, String openTag, String closeTag) {
+    String remainingString = wholeString;
+    StringBuilder resultString = new StringBuilder();
+
+    boolean openTagNext = true;
+    int index = remainingString.indexOf(stringToReplace);
+    while (index > -1) {
+      resultString.append(remainingString, 0, index);
+      resultString.append(openTagNext ? openTag : closeTag);
+      openTagNext = !openTagNext;
+      remainingString = remainingString.substring(index + stringToReplace.length());
+      index = remainingString.indexOf(stringToReplace);
+    }
+    resultString.append(remainingString);
+    return resultString.toString();
+  }
 
   /**
    * Return a string that escapes angle brackets for HTML.
@@ -91,11 +130,10 @@ public final class MarkdownUtil {
   /**
    * Return a string representing the summary for the given user-defined function.
    *
-   * For example: 'my_func(foo, bar)'.
-   * The summary will contain hyperlinks for each parameter.
+   * <p>For example: 'my_func(foo, bar)'. The summary will contain hyperlinks for each parameter.
    */
   @SuppressWarnings("unused") // Used by markdown template.
-  public String funcSummary(UserDefinedFunctionInfo funcInfo) {
+  public String funcSummary(StarlarkFunctionInfo funcInfo) {
     List<String> paramNames =
         funcInfo.getParameterList().stream()
             .map(param -> param.getName())

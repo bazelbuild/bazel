@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -119,6 +120,7 @@ public class HttpDownloader {
       mainUrl = urls.get(0);
     }
     Path destination = getDownloadDestination(mainUrl, type, output);
+    ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
     boolean isCachingByProvidedChecksum = false;
@@ -165,27 +167,29 @@ public class HttpDownloader {
         } else if (!dir.isDirectory()) {
           eventHandler.handle(Event.warn("distdir " + dir + " is not a directory"));
         } else {
-          boolean match = false;
-          Path candidate = dir.getRelative(destination.getBaseName());
-          try {
-            match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
-          } catch (IOException e) {
-            // Not finding anything in a distdir is a normal case, so handle it absolutely
-            // quietly. In fact, it is not uncommon to specify a whole list of dist dirs,
-            // with the asumption that only one will contain an entry.
-          }
-          if (match) {
-            if (isCachingByProvidedChecksum) {
-              try {
-                repositoryCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
-              } catch (IOException e) {
-                eventHandler.handle(
-                    Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
-              }
+          for (String name : candidateFileNames) {
+            boolean match = false;
+            Path candidate = dir.getRelative(name);
+            try {
+              match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
+            } catch (IOException e) {
+              // Not finding anything in a distdir is a normal case, so handle it absolutely
+              // quietly. In fact, it is common to specify a whole list of dist dirs,
+              // with the assumption that only one will contain an entry.
             }
-            FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
-            FileSystemUtils.copyFile(candidate, destination);
-            return destination;
+            if (match) {
+              if (isCachingByProvidedChecksum) {
+                try {
+                  repositoryCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
+                } catch (IOException e) {
+                  eventHandler.handle(
+                      Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
+                }
+              }
+              FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+              FileSystemUtils.copyFile(candidate, destination);
+              return destination;
+            }
           }
         }
       }
@@ -285,5 +289,19 @@ public class HttpDownloader {
       }
     }
     return output.getRelative(basename);
+  }
+
+  /**
+   * Deterimine the list of filenames to look for in the distdirs. Note that an output name may be
+   * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
+   * specified in ctx.download.
+   */
+  private static ImmutableSet<String> getCandidateFileNames(URL url, Path destination) {
+    String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
+    if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
+      return ImmutableSet.of(urlBaseName, destination.getBaseName());
+    } else {
+      return ImmutableSet.of(destination.getBaseName());
+    }
   }
 }

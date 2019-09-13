@@ -25,9 +25,9 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 
   def testValidConfig(self):
     input_path = os.path.join(
-        os.path.dirname(__file__), "proguard_whitelister_test_input.cfg")
+        os.path.dirname(__file__), "proguard_whitelister_test_input.pgcfg")
     tmpdir = os.environ["TEST_TMPDIR"]
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     # This will raise an exception if the config is invalid.
     self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
     with open(output_path) as output:
@@ -35,10 +35,10 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 
   def _TestInvalidConfig(self, invalid_args, config):
     tmpdir = os.environ["TEST_TMPDIR"]
-    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.cfg")
+    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.pgcfg")
     with open(input_path, "w") as f:
       f.write(config)
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.cfg")
+    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     validator = self._CreateValidator(input_path, output_path)
     try:
       validator.ValidateAndWriteOutput()

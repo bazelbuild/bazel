@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -213,8 +213,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -274,54 +274,52 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             execRoot,
             getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
 
-    SandboxedSpawn sandbox;
     if (sandboxfsProcess != null) {
-      sandbox =
-          new SandboxfsSandboxedSpawn(
-              sandboxfsProcess,
-              sandboxPath,
-              commandLine,
-              environment,
-              inputs,
-              outputs,
-              ImmutableSet.of(),
-              sandboxfsMapSymlinkTargets,
-              treeDeleter) {
-            @Override
-            public void createFileSystem() throws IOException {
-              super.createFileSystem();
-              writeConfig(
-                  sandboxConfigPath,
-                  writableDirs,
-                  getInaccessiblePaths(),
-                  allowNetworkForThisSpawn,
-                  statisticsPath);
-            }
-          };
-    } else {
-      sandbox =
-          new SymlinkedSandboxedSpawn(
-              sandboxPath,
-              sandboxExecRoot,
-              commandLine,
-              environment,
-              inputs,
-              outputs,
+      return new SandboxfsSandboxedSpawn(
+          sandboxfsProcess,
+          sandboxPath,
+          commandLine,
+          environment,
+          inputs,
+          outputs,
+          ImmutableSet.of(),
+          sandboxfsMapSymlinkTargets,
+          treeDeleter,
+          statisticsPath) {
+        @Override
+        public void createFileSystem() throws IOException {
+          super.createFileSystem();
+          writeConfig(
+              sandboxConfigPath,
               writableDirs,
-              treeDeleter) {
-            @Override
-            public void createFileSystem() throws IOException {
-              super.createFileSystem();
-              writeConfig(
-                  sandboxConfigPath,
-                  writableDirs,
-                  getInaccessiblePaths(),
-                  allowNetworkForThisSpawn,
-                  statisticsPath);
-            }
-          };
+              getInaccessiblePaths(),
+              allowNetworkForThisSpawn,
+              statisticsPath);
+        }
+      };
+    } else {
+      return new SymlinkedSandboxedSpawn(
+          sandboxPath,
+          sandboxExecRoot,
+          commandLine,
+          environment,
+          inputs,
+          outputs,
+          writableDirs,
+          treeDeleter,
+          statisticsPath) {
+        @Override
+        public void createFileSystem() throws IOException {
+          super.createFileSystem();
+          writeConfig(
+              sandboxConfigPath,
+              writableDirs,
+              getInaccessiblePaths(),
+              allowNetworkForThisSpawn,
+              statisticsPath);
+        }
+      };
     }
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   private void writeConfig(

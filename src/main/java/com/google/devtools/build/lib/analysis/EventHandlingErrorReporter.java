@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -36,7 +37,14 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
     this.env = env;
   }
 
-  public void reportError(Location location, String message) {
+  private void reportError(Location location, String message) {
+    // TODO(ulfjack): Consider generating the error message from the root cause event rather than
+    // the other way round.
+    if (!hasErrors()) {
+      // We must not report duplicate events, so we only report the first one for now.
+      env.getEventHandler()
+          .post(new AnalysisRootCauseEvent(getConfiguration(), getLabel(), message));
+    }
     env.getEventHandler().handle(Event.error(location, message));
   }
 
@@ -97,6 +105,8 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
   protected abstract String getMacroMessageAppendix(String attrName);
 
   protected abstract Label getLabel();
+
+  protected abstract BuildConfiguration getConfiguration();
 
   protected abstract Location getRuleLocation();
 

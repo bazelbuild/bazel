@@ -87,7 +87,7 @@ import javax.annotation.Nullable;
 
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
-public abstract class AbstractRemoteActionCache implements AutoCloseable {
+public abstract class AbstractRemoteActionCache implements MissingDigestsFinder, AutoCloseable {
 
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
@@ -146,9 +146,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @param data the blob to upload.
    */
   protected abstract ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
-
-  protected abstract ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
-      throws IOException, InterruptedException;
 
   /**
    * Upload the result of a locally executed action to the remote cache.
@@ -212,7 +209,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     digests.addAll(digestToFile.keySet());
     digests.addAll(digestToBlobs.keySet());
 
-    ImmutableSet<Digest> digestsToUpload = getMissingDigests(digests);
+    ImmutableSet<Digest> digestsToUpload = Utils.getFromFuture(findMissingDigests(digests));
     ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
     for (Digest digest : digestsToUpload) {
       Path file = digestToFile.get(digest);

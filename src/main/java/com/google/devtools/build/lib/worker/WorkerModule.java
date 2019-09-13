@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -153,7 +154,9 @@ public class WorkerModule extends BlazeModule {
                 .getOptions(SandboxOptions.class)
                 .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
             env.getBlazeWorkspace().getBinTools(),
-            env.getLocalResourceManager());
+            env.getLocalResourceManager(),
+            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+            RunfilesTreeUpdater.INSTANCE);
     builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");
@@ -169,7 +172,9 @@ public class WorkerModule extends BlazeModule {
         localExecutionOptions,
         env.getLocalResourceManager(),
         localEnvProvider,
-        env.getBlazeWorkspace().getBinTools());
+        env.getBlazeWorkspace().getBinTools(),
+        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        RunfilesTreeUpdater.INSTANCE);
   }
 
   @Subscribe

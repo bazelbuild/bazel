@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -276,7 +277,8 @@ public final class EvalUtils {
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a SkylarkDict
       return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (StarlarkFunction.class.isAssignableFrom(c)) {
+    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
+      // TODO(adonovan): each StarlarkCallable should report its own type string.
       return "function";
     } else if (c.equals(SelectorValue.class)) {
       return "select";
@@ -371,7 +373,18 @@ public final class EvalUtils {
           "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
               + "--incompatible_depset_is_not_iterable=false to temporarily disable this check.");
     }
-    return set.toCollection();
+    try {
+      return set.toCollection();
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the depset for iteration, "
+              + "as the size of depsets is unknown until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
+    }
   }
 
   public static Iterable<?> toIterable(Object o, Location loc, @Nullable Environment env)

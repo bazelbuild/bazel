@@ -42,17 +42,17 @@ class IFileMtime {
   // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
   // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
   // not generic file-handling logic.
-  virtual bool IsUntampered(const std::string &path) = 0;
+  virtual bool IsUntampered(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToNow(const std::string &path) = 0;
+  virtual bool SetToNow(const Path &path) = 0;
 
   // Sets the mtime of file under `path` to the distant future.
   // "Distant future" should be on the order of some years into the future, like
   // a decade.
   // Returns true if the mtime was changed successfully.
-  virtual bool SetToDistantFuture(const std::string &path) = 0;
+  virtual bool SetToDistantFuture(const Path &path) = 0;
 };
 
 // Creates a platform-specific implementation of `IFileMtime`.
@@ -143,7 +143,7 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name);
 // Reads which directory a symlink points to. Puts the target of the symlink
 // in ``result`` and returns if the operation was successful. Will not work on
 // symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
+bool ReadDirectorySymlink(const blaze_util::Path &symlink, std::string *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
@@ -152,6 +152,7 @@ bool UnlinkPath(const Path &file_path);
 
 // Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
+bool PathExists(const Path &path);
 
 // Returns the real, absolute path corresponding to `path`.
 // The method resolves all symlink components of `path`.
@@ -163,22 +164,27 @@ std::string MakeCanonical(const char *path);
 // Returns true if `path` exists, is a file or symlink to one, and is readable.
 // Follows symlinks.
 bool CanReadFile(const std::string &path);
+bool CanReadFile(const Path &path);
 
 // Returns true if `path` exists, is a file or symlink to one, and is writable.
 // Follows symlinks.
 bool CanExecuteFile(const std::string &path);
+bool CanExecuteFile(const Path &path);
 
 // Returns true if `path` exists, is a directory or symlink/junction to one, and
 // is both readable and writable.
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
+bool CanAccessDirectory(const Path &path);
 
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
+bool IsDirectory(const Path &path);
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);
+void SyncFile(const Path &path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // `mode` should be an octal permission mask, e.g. 0755.

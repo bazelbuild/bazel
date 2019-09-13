@@ -16,24 +16,23 @@ package com.google.devtools.build.lib.syntax.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Ordered;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BazelLibrary;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
@@ -159,32 +158,32 @@ public class EvaluationTestCase {
     return env;
   }
 
-  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
-    return BuildFileAST.parseString(getEventHandler(), input);
+  protected final BuildFileAST parseBuildFileASTWithoutValidation(String... lines) {
+    ParserInputSource input = ParserInputSource.fromLines(lines);
+    return BuildFileAST.parse(input, getEventHandler());
   }
 
-  protected BuildFileAST parseBuildFileAST(String... input) {
-    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
-    return ast.validate(env, getEventHandler());
+  private BuildFileAST parseBuildFileAST(String... lines) {
+    BuildFileAST ast = parseBuildFileASTWithoutValidation(lines);
+    return ast.validate(env, /*isBuildFile=*/ false, getEventHandler());
   }
 
-  protected List<Statement> parseFile(String... input) {
-    return parseBuildFileAST(input).getStatements();
+  /** Parses and validates a file and returns its statements. */
+  // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
+  // Separate all the tests clearly into tests of the scanner, parser, resolver,
+  // and evaluation.
+  protected List<Statement> parseFile(String... lines) {
+    return parseBuildFileAST(lines).getStatements();
   }
 
-  /** Construct a ParserInputSource by concatenating multiple strings with newlines. */
-  private ParserInputSource makeParserInputSource(String... input) {
-    return ParserInputSource.create(Joiner.on("\n").join(input), null);
+  /** Parses a statement, without validation. */
+  protected final Statement parseStatement(String... lines) {
+    return parseBuildFileASTWithoutValidation(lines).getStatements().get(0);
   }
 
-  /** Parses a statement, possibly followed by newlines. */
-  protected Statement parseStatement(Parser.ParsingLevel parsingLevel, String... input) {
-    return Parser.parseStatement(makeParserInputSource(input), getEventHandler(), parsingLevel);
-  }
-
-  /** Parses an expression, possibly followed by newlines. */
-  protected Expression parseExpression(String... input) {
-    return Parser.parseExpression(makeParserInputSource(input), getEventHandler());
+  /** Parses an expression. */
+  protected final Expression parseExpression(String... lines) {
+    return Expression.parse(ParserInputSource.fromLines(lines), getEventHandler());
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
@@ -196,13 +195,19 @@ public class EvaluationTestCase {
     return env.moduleLookup(varname);
   }
 
-  public Object eval(String... input) throws Exception {
+  public Object eval(String... lines) throws Exception {
+    ParserInputSource input = ParserInputSource.fromLines(lines);
     if (testMode == TestMode.SKYLARK) {
-      return BuildFileAST.eval(env, input);
+      // TODO(adonovan): inline this call and factor with 'else' case.
+      return BuildFileAST.eval(input, env);
+    } else {
+      BuildFileAST file = BuildFileAST.parse(input, env.getEventHandler());
+      if (ValidationEnvironment.validateFile(
+          file, env, /*isBuildFile=*/ true, env.getEventHandler())) {
+        PackageFactory.checkBuildSyntax(file, env.getEventHandler());
+      }
+      return file.eval(env);
     }
-    BuildFileAST ast = BuildFileAST.parseString(env.getEventHandler(), input);
-    ValidationEnvironment.checkBuildSyntax(ast.getStatements(), env.getEventHandler(), env);
-    return ast.eval(env);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {

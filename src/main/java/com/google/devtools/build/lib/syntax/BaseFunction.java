@@ -54,7 +54,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction implements StarlarkFunction {
+public abstract class BaseFunction implements StarlarkCallable {
 
   /**
    * The name of the function.
@@ -400,16 +400,6 @@ public abstract class BaseFunction implements StarlarkFunction {
                 type, names.get(i), getName(), EvalUtils.getDataTypeName(value, true), value));
       }
     }
-  }
-
-  /**
-   * Returns the environment for the scope of this function.
-   *
-   * <p>Since this is a BaseFunction, we don't create a new environment.
-   */
-  @SuppressWarnings("unused") // For the exception
-  protected Environment getOrCreateChildEnvironment(Environment parent) throws EvalException {
-    return parent;
   }
 
   /**

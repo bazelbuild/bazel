@@ -22,9 +22,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
+import com.google.devtools.build.buildjar.javac.JavacOptions.JavacOptionNormalizer;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
+import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.turbine.options.TurbineOptions;
+import com.google.turbine.options.TurbineOptions.ReducedClasspathMode;
 import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
@@ -44,6 +47,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -132,72 +137,101 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     Result result = Result.ERROR;
-    JavacTurbineCompileResult compileResult = null;
-    ImmutableList<Path> actualClasspath = ImmutableList.of();
-
-    ImmutableList<Path> originalClasspath = asPaths(turbineOptions.classPath());
-    ImmutableList<Path> compressedClasspath =
-        dependencyModule.computeStrictClasspath(originalClasspath);
+    JavacTurbineCompileResult compileResult;
 
     requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
 
     JavacTransitive transitive = new JavacTransitive(platformJars);
     requestBuilder.setTransitivePlugin(transitive);
 
-    if (turbineOptions.shouldReduceClassPath()) {
-      // compile with reduced classpath
-      actualClasspath = compressedClasspath;
-      requestBuilder.setClassPath(actualClasspath);
-      compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
-      if (compileResult.success()) {
-        result = Result.OK_WITH_REDUCED_CLASSPATH;
-        context = compileResult.context();
-      }
+    ReducedClasspathMode reducedClasspathMode = turbineOptions.reducedClasspathMode();
+    switch (reducedClasspathMode) {
+      case BAZEL_FALLBACK:
+      case NONE:
+        compileResult =
+            JavacTurbineCompiler.compile(
+                requestBuilder.build(), asPaths(turbineOptions.classPath()));
+        if (compileResult.success()) {
+          result = Result.OK_WITH_FULL_CLASSPATH;
+        }
+        break;
+      case JAVABUILDER_REDUCED:
+        // compile with reduced classpath
+        compileResult =
+            JavacTurbineCompiler.compile(
+                requestBuilder.build(),
+                dependencyModule.computeStrictClasspath(asPaths(turbineOptions.classPath())));
+        if (compileResult.success()) {
+          result = Result.OK_WITH_REDUCED_CLASSPATH;
+        } else if (shouldFallBack(compileResult)) {
+          // fall back to transitive classpath
+          printDiagnostics(compileResult);
+          out.println("warning: falling back to transitive classpath");
+          // reset SJD plugin
+          requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
+          compileResult =
+              JavacTurbineCompiler.compile(
+                  requestBuilder.build(), asPaths(turbineOptions.classPath()));
+          if (compileResult.success()) {
+            result = Result.OK_WITH_FULL_CLASSPATH;
+          }
+        }
+        break;
+      case BAZEL_REDUCED:
+        compileResult =
+            JavacTurbineCompiler.compile(
+                requestBuilder.build(), asPaths(turbineOptions.classPath()));
+        if (compileResult.success()) {
+          result = Result.OK_WITH_REDUCED_CLASSPATH;
+        } else {
+          printDiagnostics(compileResult);
+          out.println("warning: falling back to transitive classpath");
+          result = Result.REQUIRES_FALLBACK;
+        }
+        break;
+      default:
+        throw new AssertionError(reducedClasspathMode);
     }
-
-    if (compileResult == null || shouldFallBack(compileResult)) {
-      // fall back to transitive classpath
-      actualClasspath = originalClasspath;
-      // reset SJD plugin
-      requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
-      requestBuilder.setClassPath(actualClasspath);
-      compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
-      if (compileResult.success()) {
-        result = Result.OK_WITH_FULL_CLASSPATH;
-        context = compileResult.context();
-      }
-    }
-
+    context = compileResult.context();
     if (result.ok()) {
       emitClassJar(
           turbineOptions, compileResult.classOutputs(), transitive.collectTransitiveDependencies());
       emitGensrcJar(turbineOptions, compileResult.sourceOutputs());
       dependencyModule.emitDependencyInformation(
-          actualClasspath, compileResult.success(), /*requiresFallback=*/ false);
+          compileResult.classPath(), compileResult.success(), result.requiresFallback());
     } else {
-      for (FormattedDiagnostic diagnostic : compileResult.diagnostics()) {
-        out.println(diagnostic.message());
-      }
-      out.print(compileResult.output());
+      printDiagnostics(compileResult);
     }
     return result;
+  }
+
+  private void printDiagnostics(JavacTurbineCompileResult compileResult) {
+    for (FormattedDiagnostic diagnostic : compileResult.diagnostics()) {
+      out.println(diagnostic.message());
+    }
+    out.print(compileResult.output());
   }
 
   /** A header compilation result. */
   public enum Result {
     /** The compilation succeeded with the reduced classpath optimization. */
-    OK_WITH_REDUCED_CLASSPATH(true),
+    OK_WITH_REDUCED_CLASSPATH(/* ok= */ true, /* requiresFallback= */ false),
 
     /** The compilation succeeded, but had to fall back to a transitive classpath. */
-    OK_WITH_FULL_CLASSPATH(true),
+    OK_WITH_FULL_CLASSPATH(/* ok= */ true, /* requiresFallback= */ false),
+
+    /** The compilation requires bazel transitive classpath fallback. */
+    REQUIRES_FALLBACK(/* ok= */ true, /* requiresFallback= */ true),
 
     /** The compilation did not succeed. */
-    ERROR(false);
+    ERROR(/* ok= */ false, /* requiresFallback= */ false);
 
     private final boolean ok;
+    private final boolean requiresFallback;
 
-    private Result(boolean ok) {
+    private Result(boolean ok, boolean requiresFallback) {
       this.ok = ok;
+      this.requiresFallback = requiresFallback;
     }
 
     public boolean ok() {
@@ -206,6 +240,10 @@ public class JavacTurbine implements AutoCloseable {
 
     public int exitCode() {
       return ok ? 0 : 1;
+    }
+
+    public boolean requiresFallback() {
+      return requiresFallback;
     }
   }
 
@@ -223,13 +261,27 @@ public class JavacTurbine implements AutoCloseable {
     this.turbineOptions = turbineOptions;
   }
 
+  /** Throw away all doclint options to leave it disabled, since we don't care about javadoc. */
+  public static final class DoclintOptionNormalizer implements JavacOptionNormalizer {
+
+    @Override
+    public boolean processOption(String option, Iterator<String> remaining) {
+      return option.startsWith("-Xdoclint");
+    }
+
+    @Override
+    public void normalize(List<String> normalized) {}
+  }
+
   /** Creates the compilation javacopts from {@link TurbineOptions}. */
   @VisibleForTesting
   static ImmutableList<String> processJavacopts(TurbineOptions turbineOptions) {
     ImmutableList<String> javacopts =
         JavacOptions.removeBazelSpecificFlags(
             JavacOptions.normalizeOptionsWithNormalizers(
-                turbineOptions.javacOpts(), new JavacOptions.ReleaseOptionNormalizer()));
+                turbineOptions.javacOpts(),
+                new DoclintOptionNormalizer(),
+                new JavacOptions.ReleaseOptionNormalizer()));
 
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     builder.addAll(javacopts);
@@ -496,6 +548,22 @@ public class JavacTurbine implements AutoCloseable {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Writes a jdeps proto that indiciates to Blaze that the transitive classpath compilation failed,
+   * and it should fall back to the transitive classpath. Used only when {@link
+   * ReducedClasspathMode#BAZEL_REDUCED}.
+   */
+  public static void writeJdepsForFallback(TurbineOptions options) throws IOException {
+    try (OutputStream os =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(options.outputDeps().get())))) {
+      Dependencies.newBuilder()
+          .setRuleLabel(options.targetLabel().get())
+          .setRequiresReducedClasspathFallback(true)
+          .build()
+          .writeTo(os);
+    }
   }
 
   @Override

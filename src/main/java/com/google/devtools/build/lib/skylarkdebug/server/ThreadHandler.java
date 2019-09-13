@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Bre
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Debuggable;
-import com.google.devtools.build.lib.syntax.Debuggable.ReadyToPause;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -45,7 +43,7 @@ final class ThreadHandler {
   private static class PausedThreadState {
     final long id;
     final String name;
-    final Debuggable debuggable;
+    final Environment env;
     /** The {@link Location} where execution is currently paused. */
     final Location location;
     /** Used to block execution of threads */
@@ -53,10 +51,10 @@ final class ThreadHandler {
 
     final ThreadObjectMap objectMap;
 
-    PausedThreadState(long id, String name, Debuggable debuggable, Location location) {
+    PausedThreadState(long id, String name, Environment env, Location location) {
       this.id = id;
       this.name = name;
-      this.debuggable = debuggable;
+      this.env = env;
       this.location = location;
       this.semaphore = new Semaphore(0);
       this.objectMap = new ThreadObjectMap();
@@ -70,9 +68,9 @@ final class ThreadHandler {
    */
   private static class SteppingThreadState {
     /** Determines when execution should next be paused. */
-    final ReadyToPause readyToPause;
+    final Environment.ReadyToPause readyToPause;
 
-    SteppingThreadState(ReadyToPause readyToPause) {
+    SteppingThreadState(Environment.ReadyToPause readyToPause) {
       this.readyToPause = readyToPause;
     }
   }
@@ -192,8 +190,8 @@ final class ThreadHandler {
   private void resumePausedThread(
       PausedThreadState thread, SkylarkDebuggingProtos.Stepping stepping) {
     pausedThreads.remove(thread.id);
-    ReadyToPause readyToPause =
-        thread.debuggable.stepControl(DebugEventHelper.convertSteppingEnum(stepping));
+    Environment.ReadyToPause readyToPause =
+        thread.env.stepControl(DebugEventHelper.convertSteppingEnum(stepping));
     if (readyToPause != null) {
       steppingThreads.put(thread.id, new SteppingThreadState(readyToPause));
     }
@@ -232,10 +230,7 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      return thread
-          .debuggable
-          .listFrames(thread.location)
-          .stream()
+      return thread.env.listFrames(thread.location).stream()
           .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
           .collect(toImmutableList());
     }
@@ -261,7 +256,7 @@ final class ThreadHandler {
 
   SkylarkDebuggingProtos.Value evaluate(long threadId, String statement)
       throws DebugRequestException {
-    Debuggable debuggable;
+    Environment env;
     ThreadObjectMap objectMap;
     synchronized (this) {
       PausedThreadState thread = pausedThreads.get(threadId);
@@ -269,15 +264,15 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      debuggable = thread.debuggable;
+      env = thread.env;
       objectMap = thread.objectMap;
     }
-    // no need to evaluate within the synchronize block: for paused threads, the debuggable and
+    // no need to evaluate within the synchronize block: for paused threads, the env and
     // object map are only accessed in response to a client request, and requests are handled
     // serially
     // TODO(bazel-team): support asynchronous replies, and use finer-grained locks
     try {
-      Object result = doEvaluate(debuggable, statement);
+      Object result = doEvaluate(env, statement);
       return DebuggerSerialization.getValueProto(objectMap, "Evaluation result", result);
     } catch (EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
@@ -285,16 +280,16 @@ final class ThreadHandler {
   }
 
   /**
-   * Evaluate the given expression in the environment defined by the provided {@link Debuggable}.
+   * Evaluate the given expression in the environment defined by the provided {@link Environment}.
    *
    * <p>The caller is responsible for ensuring that the associated skylark thread isn't currently
    * running.
    */
-  private Object doEvaluate(Debuggable debuggable, String expression)
+  private Object doEvaluate(Environment env, String expression)
       throws EvalException, InterruptedException {
     try {
       servicingEvalRequest.set(true);
-      return debuggable.evaluate(expression);
+      return env.evaluate(expression);
     } finally {
       servicingEvalRequest.set(false);
     }

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Platform}. */
@@ -92,7 +92,7 @@ public class PlatformRule implements RuleDefinition {
         This attribute is a full replacement for the deprecated
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT))
+        .override(attr(EXEC_PROPS_ATTR, Type.STRING_DICT))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.

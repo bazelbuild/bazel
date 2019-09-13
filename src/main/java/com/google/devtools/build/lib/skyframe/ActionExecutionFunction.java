@@ -667,16 +667,24 @@ public class ActionExecutionFunction implements SkyFunction {
                 action,
                 /*catastrophe=*/ false);
           }
-          state.discoveredInputs =
-              skyframeActionExecutor.discoverInputs(
-                  action,
-                  metadataHandler,
-                  metadataHandler,
-                  skyframeActionExecutor.probeCompletedAndReset(action)
-                      ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
-                      : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
-                  env,
-                  state.actionFileSystem);
+          try {
+            state.discoveredInputs =
+                skyframeActionExecutor.discoverInputs(
+                    action,
+                    metadataHandler,
+                    metadataHandler,
+                    skyframeActionExecutor.probeCompletedAndReset(action)
+                        ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
+                        : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
+                    env,
+                    state.actionFileSystem);
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "Failed during input discovery: " + e.getMessage(),
+                e,
+                action,
+                /*catastrophe=*/ false);
+          }
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
               "discoverInputs() must return null iff requesting more dependencies.");

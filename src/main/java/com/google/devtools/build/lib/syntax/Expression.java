@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.EventHandler;
 import java.io.IOException;
 
 /**
@@ -111,4 +112,16 @@ public abstract class Expression extends ASTNode {
    * and can be used in a switch/case.
    */
   public abstract Kind kind();
+
+  /** Parses an expression. */
+  // TODO(adonovan): remove dependency from syntax -> EventHandler.
+  // A call to Expression.parse either succeeds or fails; there is no useful middle ground, so an
+  // exception is appropriate. The exception would contain the list of errors.
+  // By contrast, a call to BuildFileAST.parse should return both a partial AST and a list of
+  // errors,
+  // and generally it is useful to keep both around, so if we put the errors in the root of the AST,
+  // then client can deal with them however they like, e.g. by sending them to the event handler.
+  public static Expression parse(ParserInputSource input, EventHandler eventHandler) {
+    return Parser.parseExpression(input, eventHandler);
+  }
 }

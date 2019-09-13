@@ -119,6 +119,7 @@ public class Aapt2ResourcePackagingAction {
       final Path symbolsBin =
           AndroidResourceMerger.mergeDataToSymbols(
               ParsedAndroidData.loadedFrom(
+                  DependencyInfo.DependencyType.PRIMARY,
                   ImmutableList.of(SerializedAndroidData.from(compiled)),
                   executorService,
                   dataDeserializer),

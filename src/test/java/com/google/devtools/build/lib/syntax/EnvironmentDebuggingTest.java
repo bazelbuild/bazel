@@ -21,15 +21,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.syntax.Debuggable.ReadyToPause;
-import com.google.devtools.build.lib.syntax.Debuggable.Stepping;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
+import com.google.devtools.build.lib.syntax.Environment.ReadyToPause;
+import com.google.devtools.build.lib.syntax.Environment.Stepping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests of {@link Environment}s implementation of {@link Debuggable}. */
+/** Unit tests of {@link Environment}s implementation of {@link Environment}. */
 @RunWith(JUnit4.class)
 public class EnvironmentDebuggingTest {
 

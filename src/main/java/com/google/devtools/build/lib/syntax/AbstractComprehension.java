@@ -280,7 +280,7 @@ public abstract class AbstractComprehension extends Expression {
       // Check if a loop variable conflicts with another local variable.
       Expression lhs = clause.getLHS();
       if (lhs != null) {
-        for (Identifier ident : ValidationEnvironment.boundIdentifiers(lhs)) {
+        for (Identifier ident : Identifier.boundIdentifiers(lhs)) {
           env.removeLocalBinding(ident.getName());
         }
       }

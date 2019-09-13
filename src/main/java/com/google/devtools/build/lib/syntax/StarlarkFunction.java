@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,34 +11,84 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
-/**
- * A base interface for function-like objects that are callable in Starlark, whether builtin or
- * user-defined.
- */
-public interface StarlarkFunction extends SkylarkValue {
+/** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
+public class StarlarkFunction extends BaseFunction {
 
-  /**
-   * Call this function with the given arguments.
-   *
-   * @param args a list of all positional arguments (as in *starArg)
-   * @param kwargs a map for key arguments (as in **kwArgs)
-   * @param ast the expression for this function's definition
-   * @param env the Environment in which the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException if there was an error invoking this function
-   */
-  public Object call(
-      List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression ast,
-      Environment env)
-      throws EvalException, InterruptedException;
+  private final ImmutableList<Statement> statements;
+
+  // we close over the globals at the time of definition
+  private final Environment.GlobalFrame definitionGlobals;
+
+  public StarlarkFunction(
+      String name,
+      Location location,
+      FunctionSignature.WithValues<Object, SkylarkType> signature,
+      ImmutableList<Statement> statements,
+      Environment.GlobalFrame definitionGlobals) {
+    super(name, signature, location);
+    this.statements = statements;
+    this.definitionGlobals = definitionGlobals;
+  }
+
+  public ImmutableList<Statement> getStatements() {
+    return statements;
+  }
+
+  public Environment.GlobalFrame getDefinitionGlobals() {
+    return definitionGlobals;
+  }
+
+  @Override
+  public Object call(Object[] arguments, FuncallExpression ast, Environment env)
+      throws EvalException, InterruptedException {
+    if (env.mutability().isFrozen()) {
+      throw new EvalException(getLocation(), "Trying to call in frozen environment");
+    }
+    if (env.isRecursiveCall(this)) {
+      throw new EvalException(getLocation(),
+          String.format("Recursion was detected when calling '%s' from '%s'",
+              getName(), env.getCurrentFunction().getName()));
+    }
+
+    ImmutableList<String> names = signature.getSignature().getNames();
+    LexicalFrame lexicalFrame = LexicalFrame.create(env.mutability(), /*numArgs=*/ names.size());
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
+      env.enterScope(this, lexicalFrame, ast, definitionGlobals);
+
+      // Registering the functions's arguments as variables in the local Environment
+      // foreach loop is not used to avoid iterator overhead
+      for (int i = 0; i < names.size(); ++i) {
+        env.update(names.get(i), arguments[i]);
+      }
+
+      Eval eval = Eval.fromEnvironment(env);
+      eval.execStatements(statements);
+      return eval.getResult();
+    } finally {
+      env.exitScope();
+    }
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    Label label = this.definitionGlobals.getLabel();
+
+    printer.append("<function " + getName());
+    if (label != null) {
+      printer.append(" from " + label);
+    }
+    printer.append(">");
+  }
 }

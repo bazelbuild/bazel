@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -326,12 +328,11 @@ public class JavaCompileAction extends AbstractAction
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
-    JavaActionContinuation continuation =
-        new JavaActionContinuation(
-            actionExecutionContext,
-            reducedClasspath,
-            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
-    return continuation.execute();
+    SpawnContinuation spawnContinuation =
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, actionExecutionContext);
+    return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
   }
 
   @Override
@@ -440,6 +441,7 @@ public class JavaCompileAction extends AbstractAction
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
           executionInfo,
+          EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
       this.inputs = Iterables.concat(inputs, expandedCommandLines.getParamFiles());
@@ -589,11 +591,12 @@ public class JavaCompileAction extends AbstractAction
         } catch (CommandLineExpansionException e) {
           throw new ActionExecutionException(e, JavaCompileAction.this, /*catastrophe=*/ false);
         }
+        SpawnContinuation fallbackContinuation =
+            actionExecutionContext
+                .getContext(SpawnActionContext.class)
+                .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
-                actionExecutionContext,
-                results,
-                SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext))
-            .execute();
+            actionExecutionContext, results, fallbackContinuation);
       } catch (IOException e) {
         throw toActionExecutionException(
             new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());

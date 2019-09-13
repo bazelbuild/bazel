@@ -27,23 +27,30 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 
 /** Represents where the DataValue was derived from. */
-public class DataSource implements Comparable<DataSource> {
+public final class DataSource implements Comparable<DataSource> {
 
-  public static DataSource from(ProtoSource protoSource, FileSystem currentFileSystem) {
+  public static DataSource from(
+      DependencyInfo dependencyInfo, ProtoSource protoSource, FileSystem currentFileSystem) {
     Path path = currentFileSystem.getPath(protoSource.getFilename());
-    return of(path);
+    return of(dependencyInfo, path);
   }
 
-  public static DataSource of(Path sourcePath) {
-    return new DataSource(sourcePath, ImmutableSet.<DataSource>of());
+  public static DataSource of(DependencyInfo dependencyInfo, Path sourcePath) {
+    return new DataSource(dependencyInfo, sourcePath, ImmutableSet.<DataSource>of());
   }
 
+  private final DependencyInfo dependencyInfo;
   private final Path path;
   private final ImmutableSet<DataSource> overrides;
 
-  private DataSource(Path path, ImmutableSet<DataSource> overrides) {
+  private DataSource(DependencyInfo dependencyInfo, Path path, ImmutableSet<DataSource> overrides) {
+    this.dependencyInfo = dependencyInfo;
     this.path = path;
     this.overrides = overrides;
+  }
+
+  public DependencyInfo getDependencyInfo() {
+    return dependencyInfo;
   }
 
   public Path getPath() {
@@ -106,11 +113,11 @@ public class DataSource implements Comparable<DataSource> {
       if (!dataSource.path.equals(path)) {
         // Flatten the DataSource to a placeholder to avoid building trees, which end up being
         // expensive, slow, and hard to reason about.
-        overridesBuilder.add(of(dataSource.path));
+        overridesBuilder.add(of(dataSource.dependencyInfo, dataSource.path));
       }
       overridesBuilder.addAll(dataSource.overrides);
     }
-    return new DataSource(path, overridesBuilder.build());
+    return new DataSource(dependencyInfo, path, overridesBuilder.build());
   }
 
   public ImmutableSet<DataSource> overrides() {
@@ -128,6 +135,7 @@ public class DataSource implements Comparable<DataSource> {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass())
+        .add("dependencyInfo", dependencyInfo)
         .add("path", path)
         .add("overrides", overrides)
         .toString();

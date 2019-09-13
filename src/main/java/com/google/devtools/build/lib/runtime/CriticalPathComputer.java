@@ -185,7 +185,7 @@ public class CriticalPathComputer {
         Preconditions.checkNotNull(outputArtifactToComponent.get(primaryOutput));
 
     SpawnResult spawnResult = event.getSpawnResult();
-    stats.addSpawnMetrics(spawnResult.getMetrics());
+    stats.addSpawnResult(spawnResult);
   }
 
   /** Returns the list of components using the most memory. */

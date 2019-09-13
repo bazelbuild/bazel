@@ -292,7 +292,7 @@ final class JavaInfoBuildHelper {
       JavaSemantics javaSemantics,
       Location location,
       Environment environment)
-      throws EvalException {
+      throws EvalException, InterruptedException {
 
     if (sourceJars.isEmpty()
         && sourceFiles.isEmpty()

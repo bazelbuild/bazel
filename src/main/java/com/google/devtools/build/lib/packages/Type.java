@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -22,7 +22,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -229,12 +232,12 @@ public abstract class Type<T> {
   }
 
   /**
-   *  ConversionException is thrown when a type-conversion fails; it contains
-   *  an explanatory error message.
+   * ConversionException is thrown when a type conversion fails; it contains an explanatory error
+   * message.
    */
   public static class ConversionException extends EvalException {
     private static String message(Type<?> type, Object value, @Nullable Object what) {
-      BasePrinter printer = Printer.getPrinter();
+      Printer.BasePrinter printer = Printer.getPrinter();
       printer.append("expected value of type '").append(type.toString()).append("'");
       if (what != null) {
         printer.append(" for ").append(what.toString());
@@ -668,6 +671,7 @@ public abstract class Type<T> {
     @SuppressWarnings("unchecked")
     public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
+      // TODO(adonovan): converge on EvalUtils.toIterable.
       if (x instanceof SkylarkList) {
         return ((SkylarkList) x).getImmutableList();
       } else if (x instanceof List) {

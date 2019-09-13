@@ -163,10 +163,12 @@ static void handler(int signum) {
       signal_handler_received_signal = SIGPIPE;
       break;
     case SIGQUIT:
-      SigPrintf(
-          "\nSending SIGQUIT to JVM process %d (see %s).\n\n",
-          SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-          SignalHandler::Get().GetServerProcessInfo()->jvm_log_file_.c_str());
+      SigPrintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
+                SignalHandler::Get().GetServerProcessInfo()->server_pid_,
+                SignalHandler::Get()
+                    .GetServerProcessInfo()
+                    ->jvm_log_file_.AsNativePath()
+                    .c_str());
       kill(SignalHandler::Get().GetServerProcessInfo()->server_pid_, SIGQUIT);
       break;
   }
@@ -174,9 +176,9 @@ static void handler(int signum) {
   errno = saved_errno;
 }
 
-void SignalHandler::Install(const string &product_name,
-                            const string &output_base,
-                            const ServerProcessInfo *server_process_info,
+void SignalHandler::Install(const string& product_name,
+                            const blaze_util::Path& output_base,
+                            const ServerProcessInfo* server_process_info,
                             SignalHandler::Callback cancel_server) {
   product_name_ = product_name;
   output_base_ = output_base;
@@ -276,9 +278,9 @@ class CharPP {
   char** charpp_;
 };
 
-static void ExecuteProgram(const string& exe,
+static void ExecuteProgram(const blaze_util::Path& exe,
                            const vector<string>& args_vector) {
-  BAZEL_LOG(INFO) << "Invoking binary " << exe << " in "
+  BAZEL_LOG(INFO) << "Invoking binary " << exe.AsPrintablePath() << " in "
                   << blaze_util::GetCwd();
 
   // TODO(jmmv): This execution does not respect any settings we might apply
@@ -287,23 +289,23 @@ static void ExecuteProgram(const string& exe,
   // priority of Bazel on macOS from a QoS perspective, this could have
   // adverse scheduling effects on any tools invoked via ExecuteProgram.
   CharPP argv(args_vector);
-  execv(exe.c_str(), argv.get());
+  execv(exe.AsNativePath().c_str(), argv.get());
 }
 
-void ExecuteServerJvm(const string& exe,
+void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args) {
   ExecuteProgram(exe, server_jvm_args);
 }
 
-void ExecuteRunRequest(const string& exe,
+void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
   ExecuteProgram(exe, run_request_args);
 }
 
 const char kListSeparator = ':';
 
-bool SymlinkDirectories(const string &target, const string &link) {
-  return symlink(target.c_str(), link.c_str()) == 0;
+bool SymlinkDirectories(const string& target, const blaze_util::Path& link) {
+  return symlink(target.c_str(), link.AsNativePath().c_str()) == 0;
 }
 
 // Notifies the client about the death of the server process by keeping a socket
@@ -355,23 +357,25 @@ int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path& server_dir,
                                           pid_t server_pid);
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+int ExecuteDaemon(const blaze_util::Path& exe,
+                  const std::vector<string>& args_vector,
                   const std::map<string, EnvVarValue>& env,
-                  const string& daemon_output, const bool daemon_output_append,
-                  const string& binaries_dir,
+                  const blaze_util::Path& daemon_output,
+                  const bool daemon_output_append, const string& binaries_dir,
                   const blaze_util::Path& server_dir,
                   const StartupOptions& options,
                   BlazeServerStartup** server_startup) {
   const blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");
 
-  std::vector<string> daemonize_args = {"daemonize", "-l", daemon_output, "-p",
+  std::vector<string> daemonize_args = {"daemonize", "-l",
+                                        daemon_output.AsNativePath(), "-p",
                                         pid_file.AsNativePath()};
   if (daemon_output_append) {
     daemonize_args.push_back("-a");
   }
   daemonize_args.push_back("--");
-  daemonize_args.push_back(exe);
+  daemonize_args.push_back(exe.AsNativePath());
   std::copy(args_vector.begin(), args_vector.end(),
             std::back_inserter(daemonize_args));
 
@@ -448,48 +452,51 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
   return blaze_util::JoinPath(root, digest.String());
 }
 
-void CreateSecureOutputRoot(const string& path) {
-  const char* root = path.c_str();
+void CreateSecureOutputRoot(const blaze_util::Path& path) {
   struct stat fileinfo = {};
 
-  if (!blaze_util::MakeDirectories(root, 0755)) {
+  if (!blaze_util::MakeDirectories(path, 0755)) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "mkdir('" << root << "'): " << GetLastErrorString();
+        << "mkdir('" << path.AsPrintablePath() << "'): " << err;
   }
 
   // The path already exists.
   // Check ownership and mode, and verify that it is a directory.
 
-  if (lstat(root, &fileinfo) < 0) {
+  if (lstat(path.AsNativePath().c_str(), &fileinfo) < 0) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "lstat('" << root << "'): " << GetLastErrorString();
+        << "lstat('" << path.AsPrintablePath() << "'): " << err;
   }
 
   if (fileinfo.st_uid != geteuid()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "'" << root << "' is not owned by me";
+        << "'" << path.AsPrintablePath() << "' is not owned by me";
   }
 
   if ((fileinfo.st_mode & 022) != 0) {
     int new_mode = fileinfo.st_mode & (~022);
-    if (chmod(root, new_mode) < 0) {
+    if (chmod(path.AsNativePath().c_str(), new_mode) < 0) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "'" << root << "' has mode " << (fileinfo.st_mode & 07777)
-          << ", chmod to " << new_mode << " failed";
+          << "'" << path.AsPrintablePath() << "' has mode "
+          << (fileinfo.st_mode & 07777) << ", chmod to " << new_mode
+          << " failed";
     }
   }
 
-  if (stat(root, &fileinfo) < 0) {
+  if (stat(path.AsNativePath().c_str(), &fileinfo) < 0) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "stat('" << root << "'): " << GetLastErrorString();
+        << "stat('" << path.AsPrintablePath() << "'): " << err;
   }
 
   if (!S_ISDIR(fileinfo.st_mode)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "'" << root << "' is not a directory";
+        << "'" << path.AsPrintablePath() << "' is not a directory";
   }
 
-  ExcludePathFromBackup(root);
+  ExcludePathFromBackup(path);
 }
 
 string GetEnv(const string& name) {
@@ -583,22 +590,24 @@ static int setlk(int fd, struct flock *lock) {
   return -1;
 }
 
-uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
-                     BlazeLock* blaze_lock) {
-  string lockfile = blaze_util::JoinPath(output_base, "lock");
-  int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
+uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
+                     bool block, BlazeLock* blaze_lock) {
+  blaze_util::Path lockfile = output_base.GetRelative("lock");
+  int lockfd = open(lockfile.AsNativePath().c_str(), O_CREAT | O_RDWR, 0644);
 
   if (lockfd < 0) {
+    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "cannot open lockfile '" << lockfile
-        << "' for writing: " << GetLastErrorString();
+        << "cannot open lockfile '" << lockfile.AsPrintablePath()
+        << "' for writing: " << err;
   }
 
   // Keep server from inheriting a useless fd if we are not in batch mode
   if (!batch_mode) {
+    string err = GetLastErrorString();
     if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "fcntl(F_SETFD) failed for lockfile: " << GetLastErrorString();
+          << "fcntl(F_SETFD) failed for lockfile: " << err;
     }
   }
 
@@ -680,7 +689,7 @@ void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
 }
 
-bool KillServerProcess(int pid, const string& output_base) {
+bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   // Kill the process and make sure it's dead before proceeding.
   killpg(pid, SIGKILL);
   if (!AwaitServerProcessTermination(pid, output_base,

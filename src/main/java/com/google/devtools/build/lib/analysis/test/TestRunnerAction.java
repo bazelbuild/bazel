@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
@@ -151,6 +151,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
+      RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       boolean useTestWrapperInsteadOfTestSetupSh,
       Artifact testXmlGeneratorScript, // Must be in inputs
@@ -170,8 +171,7 @@ public class TestRunnerAction extends AbstractAction
         owner,
         /*tools=*/ ImmutableList.of(),
         inputs,
-        // Note that this action only cares about the runfiles, not the mapping.
-        new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
+        runfilesSupplier,
         list(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
@@ -268,8 +268,7 @@ public class TestRunnerAction extends AbstractAction
       builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
     }
     if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE,
-          resolver.toPath(getCoverageData())));
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -363,9 +362,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /** Saves cache status to disk. */
-  public void saveCacheStatus(
-      ActionExecutionContext actionExecutionContext,
-      TestResultData data) throws IOException {
+  public void saveCacheStatus(ActionExecutionContext actionExecutionContext, TestResultData data)
+      throws IOException {
     try (OutputStream out = actionExecutionContext.getInputPath(cacheStatus).getOutputStream()) {
       data.writeTo(out);
     }

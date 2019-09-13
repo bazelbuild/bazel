@@ -458,6 +458,12 @@ filegroup(
     srcs = ["lib_cc_configure.bzl"],
 )
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
 load(":compiler_flag.bzl", "compiler_flag")
 
 compiler_flag(name = "compiler")

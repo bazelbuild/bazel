@@ -36,11 +36,8 @@ public class DigestHashFunctionGlobalsTest {
   @Before
   public void resetStaticDefault() throws IllegalAccessException, NoSuchFieldException {
     // The default is effectively a Singleton, and it does not allow itself to be set multiple
-    // times. In order to test this reasonably, though, we reset the sentinel boolean to false and
-    // the value to null, which are the values before setDefault is called.
-    Field defaultHasBeenSet = DigestHashFunction.class.getDeclaredField("defaultHasBeenSet");
-    defaultHasBeenSet.setAccessible(true);
-    defaultHasBeenSet.set(null, false);
+    // times. In order to test this reasonably, though, we reset the value to null,
+    // as it is before setDefault is called.
 
     Field defaultValue = DigestHashFunction.class.getDeclaredField("defaultHash");
     defaultValue.setAccessible(true);

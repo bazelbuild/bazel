@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -85,11 +86,12 @@ class Starlark {
   }
 
   /** Provide a REPL evaluating Starlark code. */
+  @SuppressWarnings("CatchAndPrintStackTrace")
   public void readEvalPrintLoop() {
-    String input;
-    while ((input = prompt()) != null) {
+    String line;
+    while ((line = prompt()) != null) {
       try {
-        Object result = BuildFileAST.eval(env, input);
+        Object result = BuildFileAST.eval(ParserInputSource.fromLines(line), env);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }
@@ -114,7 +116,8 @@ class Starlark {
   /** Execute a Starlark command. */
   public int execute(String content) {
     try {
-      BuildFileAST.eval(env, content);
+      ParserInputSource input = ParserInputSource.create(content, null);
+      BuildFileAST.eval(input, env);
       return 0;
     } catch (EvalException e) {
       System.err.println(e.print());

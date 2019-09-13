@@ -537,7 +537,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> markClean() throws InterruptedException {
+  public synchronized NodeValueAndRdepsToSignal markClean() throws InterruptedException {
     Preconditions.checkNotNull(dirtyBuildingState, this);
     this.value = Preconditions.checkNotNull(dirtyBuildingState.getLastBuildValue());
     Preconditions.checkState(isReady(), "Should be ready when clean: %s", this);
@@ -547,7 +547,8 @@ public class InMemoryNodeEntry implements NodeEntry {
         this);
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
-    return setStateFinishedAndReturnReverseDepsToSignal();
+    Set<SkyKey> rDepsToSignal = setStateFinishedAndReturnReverseDepsToSignal();
+    return new NodeValueAndRdepsToSignal(this.getValueMaybeWithMetadata(), rDepsToSignal);
   }
 
   @Override

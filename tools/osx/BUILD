@@ -5,12 +5,20 @@ filegroup(
     srcs = glob(["**"] + ["**/*"]),
 )
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "//tools/osx/crosstool:bzl_srcs",
+    ],
+    visibility = ["//tools:__pkg__"],
+)
+
 exports_files([
     "xcode_locator.m",
 ])
 
 DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
-  /usr/bin/xcrun clang -fobjc-arc -framework CoreServices \
+  /usr/bin/xcrun --sdk macosx clang -fobjc-arc -framework CoreServices \
       -framework Foundation -o $@ $<
 """
 
@@ -48,11 +56,11 @@ xcode_config_alias(name = "current_xcode_config")
 
 load(
     "//tools/osx:xcode_version_flag.bzl",
-    "xcode_version_flag",
     "ios_sdk_version_flag",
+    "macos_sdk_version_flag",
     "tvos_sdk_version_flag",
     "watchos_sdk_version_flag",
-    "macos_sdk_version_flag",
+    "xcode_version_flag",
 )
 
 xcode_version_flag(name = "xcode_version_flag")

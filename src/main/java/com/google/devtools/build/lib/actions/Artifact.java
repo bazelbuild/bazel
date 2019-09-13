@@ -285,7 +285,6 @@ public abstract class Artifact
     /** Only used for deserializing artifacts. */
     private static final Interner<DerivedArtifact> INTERNER = BlazeInterners.newWeakInterner();
 
-    private final PathFragment rootRelativePath;
     /**
      * An {@link ActionLookupKey} until {@link #setGeneratingActionKey} is set, at which point it is
      * an {@link ActionLookupData}, whose {@link ActionLookupData#getActionLookupKey} will be the
@@ -310,7 +309,6 @@ public abstract class Artifact
       super(root, execPath, contentBasedPath);
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
-      this.rootRelativePath = execPath.relativeTo(root.getExecPath());
       this.owner = owner;
     }
 
@@ -360,7 +358,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return rootRelativePath;
+      return getExecPath().relativeTo(getRoot().getExecPath());
     }
 
     @Override

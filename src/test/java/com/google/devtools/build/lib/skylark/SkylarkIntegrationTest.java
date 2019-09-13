@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -206,7 +206,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testOutputGroups() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setSkylarkSemanticsOptions(
+        "--incompatible_disallow_struct_provider_syntax=false",
+        "--incompatible_no_target_output_group=false");
     scratch.file(
         "test/skylark/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -342,6 +344,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='my', dep = ':lib')");
+
+    setSkylarkSemanticsOptions("--incompatible_no_target_output_group=false");
     NestedSet<Artifact> hiddenTopLevelArtifacts =
         OutputGroupInfo.get(getConfiguredTarget("//test/skylark:lib"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);

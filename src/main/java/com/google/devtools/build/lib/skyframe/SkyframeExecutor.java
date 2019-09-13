@@ -511,7 +511,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.COLLECT_TEST_SUITES_IN_PACKAGE, new CollectTestSuitesInPackageFunction());
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
-        new CollectPackagesUnderDirectoryFunction(directories));
+        newCollectPackagesUnderDirectoryFunction(directories));
     map.put(
         SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
@@ -638,6 +638,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newGlobFunction() {
     return new GlobFunction(/*alwaysUseDirListing=*/ false);
+  }
+
+  protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
+    return new CollectPackagesUnderDirectoryFunction(directories);
   }
 
   @Nullable
@@ -1359,9 +1363,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private static SkyKey parentDirectoryListingStateKey(RootedPath rootedPath) {
-    RootedPath parentDirRootedPath =
-        RootedPath.toRootedPath(
-            rootedPath.getRoot(), rootedPath.getRootRelativePath().getParentDirectory());
+    RootedPath parentDirRootedPath = rootedPath.getParentDirectory();
     return DirectoryListingStateValue.key(parentDirRootedPath);
   }
 
@@ -1818,8 +1820,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             } else if (!configKey.equals(BuildConfigurationValue.key(depConfig))) {
               // Retroactive trimming may change the configuration associated with the dependency.
               // If it does, we need to get that instance.
-              // TODO(mstaib): doing these individually instead of doing them all at once may end
-              // up being wasteful use of Skyframe. Although these configurations are guaranteed
+              // TODO(b/140632978): doing these individually instead of doing them all at once may
+              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
               // to be in the Skyframe cache (because the dependency would have had to retrieve
               // them to be created in the first place), looking them up repeatedly may be slower
               // than just keeping a local cache and assigning the same configuration to all the
@@ -2677,20 +2679,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         starlarkSemanticsOptions,
         commandId,
         clientEnv,
-        tsgm);
+        tsgm,
+        options);
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
   }
 
-  public void syncPackageLoading(
+  protected void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm)
+      TimestampGranularityMonitor tsgm,
+      OptionsProvider options)
       throws AbruptExitException {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(

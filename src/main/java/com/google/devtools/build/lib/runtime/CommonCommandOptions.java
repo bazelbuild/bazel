@@ -57,6 +57,19 @@ public class CommonCommandOptions extends OptionsBase {
   public Void allIncompatibleChanges;
 
   @Option(
+      name = "enable_platform_specific_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, Bazel picks up host-OS-specific config lines from bazelrc files. For example, "
+              + "if the host OS is Linux and you run bazel build, Bazel picks up lines starting "
+              + "with build:linux. Supported OS identifiers are linux, macos, windows, and "
+              + "freebsd. Enabling this flag is equivalent to using --config=linux on Linux, "
+              + "--config=windows on Windows, etc.")
+  public boolean enablePlatformSpecificConfig;
+
+  @Option(
     name = "config",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

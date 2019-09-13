@@ -23,13 +23,13 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.google.turbine.options.TurbineOptions;
+import com.google.turbine.options.TurbineOptions.ReducedClasspathMode;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TaskEvent;
@@ -334,7 +334,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Path libD = temp.newFile("libd.jar").toPath();
     compileLib(
         libD,
-        Collections.<Path>emptyList(),
+        ImmutableList.<Path>of(),
         ImmutableList.of(
             new StringJavaFileObject("D.java", "public class D { static final int CONST = 42; }")));
 
@@ -390,7 +390,6 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
       result = turbine.compile();
     }
-    assertThat(errOutput.toString()).isEmpty();
     assertThat(result).isEqualTo(Result.OK_WITH_FULL_CLASSPATH);
   }
 
@@ -427,7 +426,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Path libC = temp.newFile("libc.jar").toPath();
     compileLib(
         libC,
-        Collections.<Path>emptyList(),
+        ImmutableList.<Path>of(),
         ImmutableList.of(
             new StringJavaFileObject("C.java", "interface C { String getString(); }")));
 
@@ -452,7 +451,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Path libB = temp.newFile("libb.jar").toPath();
     compileLib(
         libB,
-        Collections.<Path>emptyList(),
+        ImmutableList.<Path>of(),
         ImmutableList.of(new StringJavaFileObject("B.java", "interface B {}")));
 
     optionsBuilder.addClassPathEntries(
@@ -476,13 +475,13 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Deps.Dependencies depsProto = getDeps();
 
     assertThat(depsProto.getSuccess()).isTrue();
+    assertThat(depsProto.getRequiresReducedClasspathFallback()).isFalse();
     assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
     assertThat(getEntries(depsProto))
-        .containsExactlyEntriesIn(
-            ImmutableMap.of(
-                libA.toString(), Deps.Dependency.Kind.EXPLICIT,
-                libB.toString(), Deps.Dependency.Kind.INCOMPLETE,
-                libC.toString(), Deps.Dependency.Kind.INCOMPLETE));
+        .containsExactly(
+            libA.toString(), Deps.Dependency.Kind.EXPLICIT,
+            libB.toString(), Deps.Dependency.Kind.INCOMPLETE,
+            libC.toString(), Deps.Dependency.Kind.INCOMPLETE);
   }
 
   private Map<String, Deps.Dependency.Kind> getEntries(Deps.Dependencies deps) {
@@ -562,7 +561,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Path libD = temp.newFile("libd.jar").toPath();
     compileLib(
         libD,
-        Collections.<Path>emptyList(),
+        ImmutableList.<Path>of(),
         ImmutableList.of(new StringJavaFileObject("D.java", "public class D {}")));
 
     Path libC = temp.newFile("libc.jar").toPath();
@@ -627,14 +626,14 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       Deps.Dependencies depsProto = getDeps();
 
       assertThat(depsProto.getSuccess()).isTrue();
+      assertThat(depsProto.getRequiresReducedClasspathFallback()).isFalse();
       assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
       assertThat(getEntries(depsProto))
-          .containsExactlyEntriesIn(
-              ImmutableMap.of(
-                  libA.toString(),
-                  Deps.Dependency.Kind.EXPLICIT,
-                  libB.toString(),
-                  Deps.Dependency.Kind.INCOMPLETE));
+          .containsExactly(
+              libA.toString(),
+              Deps.Dependency.Kind.EXPLICIT,
+              libB.toString(),
+              Deps.Dependency.Kind.INCOMPLETE);
     }
   }
 
@@ -652,7 +651,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     Path libD = temp.newFile("libd.jar").toPath();
     compileLib(
         libD,
-        Collections.<Path>emptyList(),
+        ImmutableList.<Path>of(),
         ImmutableList.of(
             new StringJavaFileObject("D.java", "public class D { static final int CONST = 42; }")));
 
@@ -714,14 +713,14 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       Deps.Dependencies depsProto = getDeps();
 
       assertThat(depsProto.getSuccess()).isTrue();
+      assertThat(depsProto.getRequiresReducedClasspathFallback()).isFalse();
       assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
       assertThat(getEntries(depsProto))
-          .containsExactlyEntriesIn(
-              ImmutableMap.of(
-                  libA.toString(), Deps.Dependency.Kind.EXPLICIT,
-                  libB.toString(), Deps.Dependency.Kind.IMPLICIT,
-                  libC.toString(), Deps.Dependency.Kind.IMPLICIT,
-                  libD.toString(), Deps.Dependency.Kind.IMPLICIT));
+          .containsExactly(
+              libA.toString(), Deps.Dependency.Kind.EXPLICIT,
+              libB.toString(), Deps.Dependency.Kind.IMPLICIT,
+              libC.toString(), Deps.Dependency.Kind.IMPLICIT,
+              libD.toString(), Deps.Dependency.Kind.IMPLICIT);
     }
   }
 
@@ -1054,7 +1053,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   }
 
   @Test
-  public void processorReadsNonexistantFile() throws Exception {
+  public void processorReadsNonexistentFile() throws Exception {
     addSourceLines("Hello.java", "@Deprecated class Hello {}");
     optionsBuilder.addProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(HOST_CLASSPATH);
@@ -1215,7 +1214,6 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
       result = turbine.compile();
     }
-    assertThat(errOutput.toString()).isEmpty();
     assertThat(result).isNotEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 
@@ -1446,6 +1444,29 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   }
 
   @Test
+  public void noDoclint() throws Exception {
+    addSourceLines(
+        "A.java", //
+        "/** {@link Invalid} **/",
+        "public class A {",
+        "}");
+
+    optionsBuilder.addAllJavacOpts(
+        ImmutableList.of("-source", "8", "-target", "8", "-Xdoclint:reference"));
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter output = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(output, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+
+    assertThat(output.toString()).isEmpty();
+    assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+  }
+
+  @Test
   public void processJavacopts_useSourceByDefault() {
     TurbineOptions options = TurbineOptions.builder().setOutput("/out").setTempDir("/tmp").build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
@@ -1476,6 +1497,19 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
     assertThat(javacopts).contains("--release");
     assertThat(javacopts).containsNoneOf("-source", "-target");
+  }
+
+  @Test
+  public void processJavacopts_filtersDoclint() {
+    TurbineOptions options =
+        TurbineOptions.builder()
+            .setOutput("/out")
+            .setTempDir("/tmp")
+            .addAllJavacOpts(ImmutableList.of("-Xmyopt", "-Xdoclint:reference"))
+            .build();
+    ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
+    assertThat(javacopts).contains("-Xmyopt");
+    assertThat(javacopts).doesNotContain("-Xdoclint:reference");
   }
 
   @Test
@@ -1521,5 +1555,129 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
     assertThat(result).isEqualTo(Result.ERROR);
     assertThat(output.toString()).contains("A.java:2: error: class, interface, or enum expected");
+  }
+
+  @Test
+  public void bazelReducedSuccess() throws Exception {
+
+    Path libD = temp.newFile("libd.jar").toPath();
+    compileLib(
+        libD,
+        ImmutableList.<Path>of(),
+        ImmutableList.of(new StringJavaFileObject("D.java", "public class D {}")));
+
+    Path libC = temp.newFile("libc.jar").toPath();
+    compileLib(
+        libC,
+        Collections.singleton(libD),
+        ImmutableList.of(new StringJavaFileObject("C.java", "class C { static D d; }")));
+
+    Path libB = temp.newFile("libb.jar").toPath();
+    compileLib(
+        libB,
+        ImmutableList.of(libC, libD),
+        ImmutableList.of(new StringJavaFileObject("B.java", "class B { static C c; }")));
+
+    Path libA = temp.newFile("liba.jar").toPath();
+    compileLib(
+        libA,
+        ImmutableList.of(libB, libC, libD),
+        ImmutableList.of(new StringJavaFileObject("A.java", "class A { static B b; }")));
+
+    optionsBuilder.addClassPathEntries(ImmutableList.of(libA.toString(), libB.toString()));
+    optionsBuilder.setReducedClasspathMode(ReducedClasspathMode.BAZEL_REDUCED);
+    optionsBuilder.setTargetLabel("//my:target");
+
+    addSourceLines(
+        "Hello.java",
+        "class Hello {",
+        "  public static A a = new A();",
+        "  public static void main(String[] args) {",
+        "    A a = null;",
+        "    B b = null;",
+        "    C c = null;",
+        "    D d = null;",
+        "  }",
+        "}");
+
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    try (JavacTurbine turbine =
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
+            optionsBuilder.build())) {
+      assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+      Context context = turbine.context;
+
+      JavacFileManager fm = (JavacFileManager) context.get(JavaFileManager.class);
+      assertThat(fm.getLocationAsPaths(StandardLocation.CLASS_PATH)).containsExactly(libA, libB);
+
+      Deps.Dependencies depsProto = getDeps();
+
+      assertThat(depsProto.getSuccess()).isTrue();
+      assertThat(depsProto.getRequiresReducedClasspathFallback()).isFalse();
+      assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
+      assertThat(getEntries(depsProto))
+          .containsExactly(
+              libA.toString(),
+              Deps.Dependency.Kind.EXPLICIT,
+              libB.toString(),
+              Deps.Dependency.Kind.INCOMPLETE);
+    }
+  }
+
+  @Test
+  public void bazelReducedClasspath() throws Exception {
+
+    Path libD = temp.newFile("libd.jar").toPath();
+    compileLib(
+        libD,
+        ImmutableList.<Path>of(),
+        ImmutableList.of(
+            new StringJavaFileObject("D.java", "public class D { static final int CONST = 42; }")));
+
+    Path libC = temp.newFile("libc.jar").toPath();
+    compileLib(
+        libC,
+        Collections.singleton(libD),
+        ImmutableList.of(new StringJavaFileObject("C.java", "class C extends D {}")));
+
+    Path libB = temp.newFile("libb.jar").toPath();
+    compileLib(
+        libB,
+        ImmutableList.of(libC, libD),
+        ImmutableList.of(new StringJavaFileObject("B.java", "class B extends C {}")));
+
+    Path libA = temp.newFile("liba.jar").toPath();
+    compileLib(
+        libA,
+        ImmutableList.of(libB, libC, libD),
+        ImmutableList.of(new StringJavaFileObject("A.java", "class A extends B {}")));
+
+    optionsBuilder.addClassPathEntries(ImmutableList.of(libA.toString()));
+    optionsBuilder.setTargetLabel("//my:target");
+    optionsBuilder.setReducedClasspathMode(ReducedClasspathMode.BAZEL_REDUCED);
+
+    addSourceLines(
+        "Hello.java",
+        "class Hello {",
+        "  public static final int CONST = A.CONST;",
+        "  public static void main(String[] args) {}",
+        "}");
+
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    try (JavacTurbine turbine =
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
+      assertThat(turbine.compile()).isEqualTo(Result.REQUIRES_FALLBACK);
+
+      Deps.Dependencies depsProto = getDeps();
+
+      assertThat(depsProto.getSuccess()).isFalse();
+      assertThat(depsProto.getRequiresReducedClasspathFallback()).isTrue();
+      assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
+    }
   }
 }

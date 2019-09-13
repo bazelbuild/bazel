@@ -31,13 +31,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
-import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -47,16 +47,15 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * An {@code Environment} is the main entry point to evaluating Skylark code. It embodies all the
- * state that is required to evaluate such code, except for the current instruction pointer, which
- * is an {@link ASTNode} that is evaluated (for expressions) or executed (for statements) with
- * respect to this {@code Environment}.
+ * An Environment represents a Starlark thread.
  *
- * <p>{@link Continuation}-s are explicitly represented, but only partly, with another part being
- * implicit in a series of try-catch statements, to maintain the direct style.
+ * <p>It holds the stack of active Starlark and built-in function calls. In addition, it may hold
+ * per-thread application state (see {@link #setThreadLocal}) that passes through Starlark functions
+ * but does not directly affect them, such as information about the BUILD file being loaded.
  *
  * <p>Every {@code Environment} has a {@link Mutability} field, and must be used within a function
  * that creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
@@ -69,19 +68,55 @@ import javax.annotation.Nullable;
  * its objects from within a different {@code Environment}.
  *
  * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
- * #setup}, {@link #setupDynamic} and sometimes {@link #setupOverride}, before to evaluate code in
- * it with {@link BuildFileAST#eval}, or with {@link BuildFileAST#exec} (where the AST was obtained
- * by passing a {@link ValidationEnvironment} constructed from the Environment to {@link
- * BuildFileAST#parseBuildFile} or {@link BuildFileAST#parseSkylarkFile}). When the computation is
- * over, the frozen Environment can still be queried with {@link #lookup}.
- *
- * <p>Final fields of an Environment represent its dynamic state, i.e. state that remains the same
- * throughout a given evaluation context, and don't change with source code location, while mutable
- * fields embody its static state, that change with source code location. The seeming paradox is
- * that the words "dynamic" and "static" refer to the point of view of the source code, and here we
- * have a dual point of view.
+ * #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
+ * BuildFileAST#eval}, or with {@link BuildFileAST#exec} (where the AST was obtained by passing a
+ * {@link ValidationEnvironment} constructed from the Environment to {@link BuildFileAST#parse}.
+ * When the computation is over, the frozen Environment can still be queried with {@link #lookup}.
  */
-public final class Environment implements Freezable, Debuggable {
+// TODO(adonovan): further steps for Environmental remediation:
+// This class should be renamed StarlarkThread, for that is what it is.
+// Its API should expose the following concepts, and no more:
+// 1) "thread local variables": this holds per-thread application
+//    state such as the current Label, or BUILD package, for all the
+//    native.* built-ins.
+//    This may include any thread-specific behaviour relevant to the
+//    load and print statements.
+// 2) a stack of call frames, each representing an active function call.
+//    Only clients needing debugger-like powers of reflection should need
+//    this, such as the debugger itself, and the ill-conceived
+//    generator_name attribute. The API for call frames should not
+//    expose an object of class CallFrame, because for efficiency we
+//    will want to recycle objects in place rather than generate garbage
+//    on every call.
+//    So the API will look like getCallerLocation(depth),
+//    not getCaller(depth).location, with one method per "public" CallFrame
+//    attribute, such as location.
+//    We must expose these basic CallFrame attributes, for stack traces and errors:
+//    - function name
+//    - PC location
+//    Advanced clients such as the debugger, and the generator_name rule attribute, also need:
+//    - the function value (Warning: careless clients can pin closures in memory)
+//    - Object getLocalValue(Identifier parameter).
+//    3) Debugging support (thread name, profiling counters, etc).
+// And that is all. See go.starlark.net for the model.
+//
+// The Frame interface should be hidden from clients and then eliminated.
+// The dynamic lookup mechanism should go away.
+// The GlobalFrame class should be redesigned.
+// The concept struggling to get out of it is a Module,
+// which is created before file initialization and
+// populated by execution of the top-level statements in a file;
+// every UserDefinedFunction value should hold a reference to its Module.
+// As best I can tell, all the skyframe serialization
+// as it applies to LexicalFrames is redundant, as these are transient
+// and should not exist after loading.
+// We will remove the FuncallExpression parameter from StarlarkFunction.call.
+// Clients should use getCallerLocation instead.
+// The Continuation class should be deleted.
+// Once the API is small and sound, we can start to represent all
+// the lexical frames within a single function using just an array,
+// indexed by a small integer computed during the validation pass.
+public final class Environment implements Freezable {
 
   /**
    * A mapping of bindings, either mutable or immutable according to an associated {@link
@@ -90,10 +125,10 @@ public final class Environment implements Freezable, Debuggable {
    *
    * <p>Any non-frozen {@link Frame} must have the same {@link Mutability} as the current {@link
    * Environment}, to avoid interference from other evaluation contexts. For example, a {@link
-   * UserDefinedFunction} will close over the global frame of the {@link Environment} in which it
-   * was defined. When the function is called from other {@link Environment}s (possibly
-   * simultaneously), that global frame must already be frozen; a new local {@link Frame} is created
-   * to represent the lexical scope of the function.
+   * StarlarkFunction} will close over the global frame of the {@link Environment} in which it was
+   * defined. When the function is called from other {@link Environment}s (possibly simultaneously),
+   * that global frame must already be frozen; a new local {@link Frame} is created to represent the
+   * lexical scope of the function.
    *
    * <p>A {@link Frame} can have an associated "parent" {@link Frame}, which is used in {@link #get}
    * and {@link #getTransitiveBindings()}
@@ -101,7 +136,7 @@ public final class Environment implements Freezable, Debuggable {
    * <p>TODO(laurentlb): "parent" should be named "universe" since it contains only the builtins.
    * The "get" method shouldn't look at the universe (so that "moduleLookup" works as expected)
    */
-  public interface Frame extends Freezable {
+  private interface Frame extends Freezable {
     /**
      * Gets a binding from this {@link Frame} or one of its transitive parents.
      *
@@ -260,7 +295,7 @@ public final class Environment implements Freezable, Debuggable {
     @Nullable private Mutability mutability;
 
     /** Final, except that it may be initialized after instantiation. */
-    @Nullable private Frame universe;
+    @Nullable private GlobalFrame universe;
 
     /**
      * If this frame is a global frame, the label for the corresponding target, e.g. {@code
@@ -426,7 +461,7 @@ public final class Environment implements Freezable, Debuggable {
      * <p>TODO(laurentlb): Should be called getUniverse.
      */
     @Nullable
-    public Frame getParent() {
+    public GlobalFrame getParent() {
       checkInitialized();
       return universe;
     }
@@ -519,6 +554,29 @@ public final class Environment implements Freezable, Debuggable {
         return String.format("<GlobalFrame%s>", mutability());
       }
     }
+  }
+
+  // The mutability of the Environment comes from its initial global frame.
+  private final Mutability mutability;
+
+  private final Map<Class<?>, Object> threadLocals = new HashMap<>();
+
+  /**
+   * setThreadLocal saves {@code value} as a thread-local variable of this Starlark thread, keyed by
+   * {@code key}, so that it can later be retrieved by {@code getThreadLocal(key)}.
+   */
+  public <T> void setThreadLocal(Class<T> key, T value) {
+    // The clazz parameter is redundant, but it makes the API clearer.
+    threadLocals.put(key, value);
+  }
+
+  /**
+   * getThreadLocal returns the value {@code v} supplied to the most recent {@code
+   * setThreadLocal(key, v)} call, or null if there was no prior call.
+   */
+  public <T> T getThreadLocal(Class<T> key) {
+    Object v = threadLocals.get(key);
+    return v == null ? null : key.cast(v);
   }
 
   /**
@@ -735,13 +793,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   private GlobalFrame globalFrame;
 
-  /**
-   * Dynamic Frame for variables that are always looked up in the runtime Environment, and never in
-   * the lexical or "global" Environment as it was at the time of function definition. For instance,
-   * PACKAGE_NAME.
-   */
-  private final Frame dynamicFrame;
-
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
 
@@ -811,8 +862,7 @@ public final class Environment implements Freezable, Debuggable {
 
   @Override
   public Mutability mutability() {
-    // the mutability of the environment is that of its dynamic frame.
-    return dynamicFrame.mutability();
+    return mutability;
   }
 
   /** Returns the global variables for the Environment (not including dynamic bindings). */
@@ -834,8 +884,10 @@ public final class Environment implements Freezable, Debuggable {
    * Returns if calling the supplied function would be a recursive call, or in other words if the
    * supplied function is already on the stack.
    */
-  boolean isRecursiveCall(UserDefinedFunction function) {
+  boolean isRecursiveCall(StarlarkFunction function) {
     for (Continuation k = continuation; k != null; k = k.continuation) {
+      // TODO(adonovan): compare code, not closure values, otherwise
+      // one can defeat this check by writing the Y combinator.
       if (k.function.equals(function)) {
         return true;
       }
@@ -865,7 +917,6 @@ public final class Environment implements Freezable, Debuggable {
    * Constructs an Environment. This is the main, most basic constructor.
    *
    * @param globalFrame a frame for the global Environment
-   * @param dynamicFrame a frame for the dynamic Environment
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extension-s from which to import bindings with load()
    * @param fileContentHashCode a hash for the source file being evaluated, if any
@@ -873,7 +924,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   private Environment(
       GlobalFrame globalFrame,
-      LexicalFrame dynamicFrame,
       StarlarkSemantics semantics,
       StarlarkContext starlarkContext,
       EventHandler eventHandler,
@@ -882,9 +932,8 @@ public final class Environment implements Freezable, Debuggable {
       @Nullable Label callerLabel) {
     this.lexicalFrame = Preconditions.checkNotNull(globalFrame);
     this.globalFrame = Preconditions.checkNotNull(globalFrame);
-    this.dynamicFrame = Preconditions.checkNotNull(dynamicFrame);
+    this.mutability = globalFrame.mutability();
     Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
-    Preconditions.checkArgument(!dynamicFrame.mutability().isFrozen());
     this.semantics = semantics;
     this.starlarkContext = starlarkContext;
     this.eventHandler = eventHandler;
@@ -996,13 +1045,11 @@ public final class Environment implements Freezable, Debuggable {
       parent = GlobalFrame.filterOutRestrictedBindings(mutability, parent, semantics);
 
       GlobalFrame globalFrame = new GlobalFrame(mutability, parent);
-      LexicalFrame dynamicFrame = LexicalFrame.create(mutability);
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
       return new Environment(
           globalFrame,
-          dynamicFrame,
           semantics,
           starlarkContext,
           eventHandler,
@@ -1024,32 +1071,6 @@ public final class Environment implements Freezable, Debuggable {
   /** Returns the caller's label. */
   public Label getCallerLabel() {
     return callerLabel;
-  }
-
-  /**
-   * Sets a binding for a special dynamic variable in this Environment. This is not for end-users,
-   * and will throw an AssertionError in case of conflict.
-   *
-   * @param varname the name of the dynamic variable to be bound
-   * @param value a value to bind to the variable
-   * @return this Environment, in fluid style
-   */
-  public Environment setupDynamic(String varname, Object value) {
-    if (lookup(varname) != null) {
-      throw new AssertionError(
-          String.format("Trying to bind dynamic variable '%s' but it is already bound", varname));
-    }
-    try {
-      dynamicFrame.put(this, varname, value);
-    } catch (MutabilityException e) {
-      // End users don't have access to setupDynamic, and it is an implementation error
-      // if we encounter a mutability exception.
-      throw new AssertionError(
-          String.format(
-              "Trying to bind dynamic variable '%s' in frozen environment %s", varname, this),
-          e);
-    }
-    return this;
   }
 
   /** Remove variable from local bindings. */
@@ -1148,11 +1169,6 @@ public final class Environment implements Freezable, Debuggable {
     return globalFrame.get(varname);
   }
 
-  /** Returns the value of a variable defined with setupDynamic. */
-  public Object dynamicLookup(String varname) {
-    return dynamicFrame.get(varname);
-  }
-
   /**
    * Returns the value from the environment whose name is "varname" if it exists, otherwise null.
    *
@@ -1160,7 +1176,7 @@ public final class Environment implements Freezable, Debuggable {
    * the corresponding method (e.g. localLookup or moduleLookup).
    */
   Object lookup(String varname) {
-    // Lexical frame takes precedence, then globals, then dynamics.
+    // Lexical frame takes precedence, then globals.
     Object lexicalValue = lexicalFrame.get(varname);
     if (lexicalValue != null) {
       return lexicalValue;
@@ -1203,7 +1219,6 @@ public final class Environment implements Freezable, Debuggable {
     vars.addAll(lexicalFrame.getTransitiveBindings().keySet());
     // No-op when globalFrame = lexicalFrame
     vars.addAll(globalFrame.getTransitiveBindings().keySet());
-    vars.addAll(dynamicFrame.getTransitiveBindings().keySet());
     return vars;
   }
 
@@ -1218,12 +1233,12 @@ public final class Environment implements Freezable, Debuggable {
     }
   }
 
-  @Override
+  /** Evaluates a Skylark statement in the adapter's environment. (Debugger API) */
   public Object evaluate(String contents) throws EvalException, InterruptedException {
     ParserInputSource input =
         ParserInputSource.create(contents, PathFragment.create("<debug eval>"));
     EvalEventHandler eventHandler = new EvalEventHandler();
-    Statement statement = Parser.parseStatement(input, eventHandler, ParsingLevel.LOCAL_LEVEL);
+    Statement statement = Parser.parseStatement(input, eventHandler);
     if (!eventHandler.messages.isEmpty()) {
       throw new EvalException(statement.getLocation(), eventHandler.messages.get(0));
     }
@@ -1246,7 +1261,13 @@ public final class Environment implements Freezable, Debuggable {
     }
   }
 
-  @Override
+  /**
+   * Returns the stack frames corresponding of the context's current (paused) state. (Debugger API)
+   *
+   * <p>For all stack frames except the innermost, location information is retrieved from the
+   * current context. The innermost frame's location must be supplied as {@code currentLocation} by
+   * the caller.
+   */
   public ImmutableList<DebugFrame> listFrames(Location currentLocation) {
     ImmutableList.Builder<DebugFrame> frameListBuilder = ImmutableList.builder();
 
@@ -1279,7 +1300,16 @@ public final class Environment implements Freezable, Debuggable {
     return frameListBuilder.build();
   }
 
-  @Override
+  /**
+   * Given a requested stepping behavior, returns a predicate over the context that tells the
+   * debugger when to pause. (Debugger API)
+   *
+   * <p>The predicate will return true if we are at the next statement where execution should pause,
+   * and it will return false if we are not yet at that statement. No guarantee is made about the
+   * predicate's return value after we have reached the desired statement.
+   *
+   * <p>A null return value indicates that no further pausing should occur.
+   */
   @Nullable
   public ReadyToPause stepControl(Stepping stepping) {
     final Continuation pausedContinuation = continuation;
@@ -1297,6 +1327,34 @@ public final class Environment implements Freezable, Debuggable {
         return pausedContinuation == null ? null : env -> isOutside(env, pausedContinuation);
     }
     throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
+  }
+
+  /** See stepControl (Debugger API) */
+  public interface ReadyToPause extends Predicate<Environment> {}
+
+  /**
+   * Describes the stepping behavior that should occur when execution of a thread is continued.
+   * (Debugger API)
+   */
+  public enum Stepping {
+    /** Continue execution without stepping. */
+    NONE,
+    /**
+     * If the thread is paused on a statement that contains a function call, step into that
+     * function. Otherwise, this is the same as OVER.
+     */
+    INTO,
+    /**
+     * Step over the current statement and any functions that it may call, stopping at the next
+     * statement in the same frame. If no more statements are available in the current frame, same
+     * as OUT.
+     */
+    OVER,
+    /**
+     * Continue execution until the current frame has been exited and then pause. If we are
+     * currently in the outer-most frame, same as NONE.
+     */
+    OUT,
   }
 
   /** Returns true if {@code env} is in a parent frame of {@code pausedContinuation}. */
@@ -1328,6 +1386,7 @@ public final class Environment implements Freezable, Debuggable {
    * An Exception thrown when an attempt is made to import a symbol from a file that was not
    * properly loaded.
    */
+  // TODO(adonovan): replace with plain EvalException.
   static class LoadFailedException extends Exception {
     LoadFailedException(String importString) {
       super(

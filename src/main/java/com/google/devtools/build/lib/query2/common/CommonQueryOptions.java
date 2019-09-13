@@ -32,42 +32,42 @@ import java.util.Set;
 public class CommonQueryOptions extends OptionsBase {
 
   @Option(
-    name = "universe_scope",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "A comma-separated set of target patterns (additive and subtractive). The query may "
-            + "be performed in the universe defined by the transitive closure of the specified "
-            + "targets. This option is used for the query and cquery commands. \n"
-            + "For cquery, the input to this option is the targets all answers are built under and "
-            + "so this option may affect configurations and transitions. If this option is not "
-            + "specified, the top-level targets are assumed to be the targets parsed from the "
-            + "query expression. Note: For cquery, not specifying this option may cause the build "
-            + "to break if targets parsed from the query expression are not buildable with "
-            + "top-level options."
-  )
+      name = "universe_scope",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "A comma-separated set of target patterns (additive and subtractive). The query may be"
+              + " performed in the universe defined by the transitive closure of the specified"
+              + " targets. This option is used for the query and cquery commands. \n"
+              + "For cquery, the input to this option is the targets all answers are built under"
+              + " and so this option may affect configurations and transitions. If this option is"
+              + " not specified, the top-level targets are assumed to be the targets parsed from"
+              + " the query expression. Note: For cquery, not specifying this option may cause the"
+              + " build to break if targets parsed from the query expression are not buildable"
+              + " with top-level options.")
   public List<String> universeScope;
 
   @Option(
-    name = "host_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "Query: If disabled, dependencies on 'host configuration' targets will not be included in "
-            + "the dependency graph over which the query operates. A 'host configuration' "
-            + "dependency edge, such as the one from any 'proto_library' rule to the Protocol "
-            + "Compiler, usually points to a tool executed during the build (on the host machine) "
-            + "rather than a part of the same 'target' program. \n"
-            + "Cquery: If disabled, filters out all configured targets which cross a host "
-            + "transition from the top-level target that discovered this configured target. That "
-            + "means if the top-level target is in the target configuration, only configured "
-            + "targets also in the target configuration will be returned. If the top-level target "
-            + "is in the host configuration, only host configured targets will be returned."
-  )
-  public boolean includeHostDeps;
+      name = "tool_deps",
+      oldName = "host_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "Query: If disabled, dependencies on 'host configuration' or 'execution' targets will"
+              + " not be included in the dependency graph over which the query operates. A 'host"
+              + " configuration' dependency edge, such as the one from any 'proto_library' rule to"
+              + " the Protocol Compiler, usually points to a tool executed during the build rather"
+              + " than a part of the same 'target' program. \n"
+              + "Cquery: If disabled, filters out all configured targets which cross a host or"
+              + " execution transition from the top-level target that discovered this configured"
+              + " target. That means if the top-level target is in the target configuration, only"
+              + " configured targets also in the target configuration will be returned. If the"
+              + " top-level target is in the host configuration, only host configured targets will"
+              + " be returned.")
+  public boolean includeToolDeps;
 
   @Option(
       name = "implicit_deps",
@@ -95,8 +95,8 @@ public class CommonQueryOptions extends OptionsBase {
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
-    if (!includeHostDeps) {
-      settings.add(Setting.NO_HOST_DEPS);
+    if (!includeToolDeps) {
+      settings.add(Setting.ONLY_TARGET_DEPS);
     }
     if (!includeImplicitDeps) {
       settings.add(Setting.NO_IMPLICIT_DEPS);
@@ -120,8 +120,7 @@ public class CommonQueryOptions extends OptionsBase {
           "If true, the location of BUILD files in xml and proto outputs will be relative. "
               + "By default, the location output is an absolute path and will not be consistent "
               + "across machines. You can set this option to true to have a consistent result "
-              + "across machines."
-  )
+              + "across machines.")
   public boolean relativeLocations;
 
   @Option(
@@ -139,8 +138,7 @@ public class CommonQueryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "If true, attributes whose value is not explicitly specified in the BUILD file are "
-              + "included; otherwise they are omitted. This option is applicable to --output=proto"
-  )
+              + "included; otherwise they are omitted. This option is applicable to --output=proto")
   public boolean protoIncludeDefaultValues;
 
   @Option(
@@ -151,8 +149,7 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "If enabled, configurable attributes created by select() are flattened. For list types "
               + "the flattened representation is a list containing each value of the select map "
-              + "exactly once. Scalar types are flattened to null."
-  )
+              + "exactly once. Scalar types are flattened to null.")
   public boolean protoFlattenSelects;
 
   @Option(
@@ -164,8 +161,7 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "Comma separated list of attributes to include in output. Defaults to all attributes. "
               + "Set to empty string to not output any attribute. "
-              + "This option is applicable to --output=proto."
-  )
+              + "This option is applicable to --output=proto.")
   public List<String> protoOutputRuleAttributes = ImmutableList.of("all");
 
   @Option(
@@ -176,7 +172,7 @@ public class CommonQueryOptions extends OptionsBase {
       help = "Whether or not to populate the rule_input and rule_output fields.")
   public boolean protoIncludeRuleInputsAndOutputs;
 
-  /** An enum converter for {@code  AspectResolver.Mode} . Should be used internally only. */
+  /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {
       super(AspectResolver.Mode.class, "Aspect resolution mode");

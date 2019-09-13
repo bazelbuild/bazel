@@ -143,6 +143,13 @@ public interface AndroidConfigurationApi {
   boolean useAndroidResourcePathShortening();
 
   @SkylarkCallable(
+      name = "use_android_resource_name_obfuscation",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useAndroidResourceNameObfuscation();
+
+  @SkylarkCallable(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",

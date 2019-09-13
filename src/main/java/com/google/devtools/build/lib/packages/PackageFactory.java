@@ -20,8 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
@@ -39,10 +38,12 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Argument.Passed;
+import com.google.devtools.build.lib.syntax.ASTNode;
+import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -52,9 +53,12 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ForStatement;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
 import com.google.devtools.build.lib.syntax.ListLiteral;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -70,8 +74,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -274,8 +276,6 @@ public final class PackageFactory {
       pkgBuilder.setDefaultRestrictedTo(value, Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
     }
   }
-
-  public static final String PKG_CONTEXT = "$pkg_context";
 
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
@@ -1252,13 +1252,14 @@ public final class PackageFactory {
    */
   public static PackageContext getContext(Environment env, Location location)
       throws EvalException {
-    PackageContext value = (PackageContext) env.dynamicLookup(PKG_CONTEXT);
+    PackageContext value = env.getThreadLocal(PackageContext.class);
     if (value == null) {
-      // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
+      // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
-      throw new EvalException(location,
-          "The native module cannot be accessed from here. "
-          + "Wrap the function in a macro and call it from a BUILD file");
+      throw new EvalException(
+          location,
+          "The native module can be accessed only from a BUILD thread. "
+              + "Wrap the function in a macro and call it from a BUILD file");
     }
     return value;
   }
@@ -1381,14 +1382,14 @@ public final class PackageFactory {
 
   public static BuildFileAST parseBuildFile(
       PackageIdentifier packageId,
-      ParserInputSource in,
+      ParserInputSource input,
       List<Statement> preludeStatements,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST =
-        BuildFileAST.parseBuildFile(in, preludeStatements, repositoryMapping, eventHandler);
+        BuildFileAST.parseWithPrelude(input, preludeStatements, repositoryMapping, eventHandler);
     logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
@@ -1566,15 +1567,13 @@ public final class PackageFactory {
   }
 
   /**
-   * This tuple holds the current package builder, current lexer, etc, for the
-   * duration of the evaluation of one BUILD file. (We use a PackageContext
-   * object in preference to storing these values in mutable fields of the
-   * PackageFactory.)
+   * This class holds state associated with the construction of a single package for the duration of
+   * execution of one BUILD file. (We use a PackageContext object in preference to storing these
+   * values in mutable fields of the PackageFactory.)
    *
-   * <p>PLEASE NOTE: references to PackageContext objects are held by many
-   * BaseFunction closures, but should become unreachable once the Environment is
-   * discarded at the end of evaluation.  Please be aware of your memory
-   * footprint when making changes here!
+   * <p>PLEASE NOTE: the PackageContext is referred to by the Environment, but should become
+   * unreachable once the Environment is discarded at the end of evaluation. Please be aware of your
+   * memory footprint when making changes here!
    */
   public static class PackageContext {
     final Package.Builder pkgBuilder;
@@ -1686,7 +1685,7 @@ public final class PackageFactory {
       extension.update(pkgEnv);
     }
 
-    pkgEnv.setupDynamic(PKG_CONTEXT, context);
+    pkgEnv.setThreadLocal(PackageContext.class, context);
   }
 
   /**
@@ -1717,7 +1716,7 @@ public final class PackageFactory {
   public Package.Builder evaluateBuildFile(
       String workspaceName,
       PackageIdentifier packageId,
-      BuildFileAST buildFileAST,
+      BuildFileAST file,
       RootedPath buildFilePath,
       Globber globber,
       Iterable<Event> pastEvents,
@@ -1768,11 +1767,11 @@ public final class PackageFactory {
               pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
       buildPkgEnv(pkgEnv, context);
 
-      if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
+      if (!validatePackageIdentifier(packageId, file.getLocation(), eventHandler)) {
         pkgBuilder.setContainsErrors();
       }
 
-      if (buildFileAST.containsErrors()) {
+      if (file.containsErrors()) {
         pkgBuilder.setContainsErrors();
       }
 
@@ -1781,7 +1780,7 @@ public final class PackageFactory {
 
       if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
         GlobPatternExtractor extractor = new GlobPatternExtractor();
-        extractor.visit(buildFileAST);
+        extractor.visit(file);
         try {
           globber.runAsync(
               extractor.getIncludeDirectoriesPatterns(),
@@ -1798,8 +1797,8 @@ public final class PackageFactory {
         }
       }
 
-      if (!ValidationEnvironment.checkBuildSyntax(
-          buildFileAST.getStatements(), eventHandler, pkgEnv)) {
+      if (!ValidationEnvironment.validateFile(file, pkgEnv, /*isBuildFile=*/ true, eventHandler)
+          || !checkBuildSyntax(file, eventHandler)) {
         pkgBuilder.setContainsErrors();
       }
 
@@ -1807,7 +1806,7 @@ public final class PackageFactory {
       // as containing errors" is strewn all over this class.  Refactor to use an
       // event sensor--and see if we can simplify the calling code in
       // createPackage().
-      if (!buildFileAST.exec(pkgEnv, eventHandler)) {
+      if (!file.exec(pkgEnv, eventHandler)) {
         pkgBuilder.setContainsErrors();
       }
     }
@@ -1842,7 +1841,7 @@ public final class PackageFactory {
 
       boolean excludeDirectories = true; // excluded by default.
       List<String> globStrings = new ArrayList<>();
-      for (Passed arg : node.getArguments()) {
+      for (Argument.Passed arg : node.getArguments()) {
         if (arg.getIdentifier() != null
             && arg.getIdentifier().getName().equals("exclude_directories")) {
           if (arg.getValue() instanceof IntegerLiteral) {
@@ -1909,5 +1908,78 @@ public final class PackageFactory {
     public ImmutableList<BaseFunction> nativeModuleFunctions() {
       return ImmutableList.<BaseFunction>of();
     }
+  }
+
+  /**
+   * checkBuildSyntax checks the syntax tree of a BUILD (not .bzl) file. If it discovers a 'def',
+   * 'if', or 'for' statement, or a f(*args) or f(**kwargs) call, it reports an event to handler and
+   * returns false.
+   */
+  // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
+  // files.
+  // TODO(adonovan): this is the ideal place to extract string literals from glob calls for
+  // prefetching. Combine.
+  public static boolean checkBuildSyntax(BuildFileAST file, final EventHandler eventHandler) {
+    final boolean[] success = {true};
+    SyntaxTreeVisitor checker =
+        new SyntaxTreeVisitor() {
+          private void error(ASTNode node, String message) {
+            eventHandler.handle(Event.error(node.getLocation(), message));
+            success[0] = false;
+          }
+
+          // We prune the traversal if we encounter def/if/for,
+          // as we have already reported the root error and there's
+          // no point reporting more.
+
+          @Override
+          public void visit(FunctionDefStatement node) {
+            error(
+                node,
+                "function definitions are not allowed in BUILD files. You may move the function to "
+                    + "a .bzl file and load it.");
+          }
+
+          @Override
+          public void visit(ForStatement node) {
+            error(
+                node,
+                "for statements are not allowed in BUILD files. You may inline the loop, move it "
+                    + "to a function definition (in a .bzl file), or as a last resort use a list "
+                    + "comprehension.");
+          }
+
+          @Override
+          public void visit(IfStatement node) {
+            error(
+                node,
+                "if statements are not allowed in BUILD files. You may move conditional logic to a "
+                    + "function definition (in a .bzl file), or for simple cases use an if "
+                    + "expression.");
+          }
+
+          @Override
+          public void visit(FuncallExpression node) {
+            for (Argument.Passed arg : node.getArguments()) {
+              if (arg.isStarStar()) {
+                error(
+                    node,
+                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              } else if (arg.isStar()) {
+                error(
+                    node,
+                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              }
+            }
+
+            // Continue traversal so as not to miss nested calls
+            // like cc_binary(..., f(**kwargs), ...).
+            super.visit(node);
+          }
+        };
+    checker.visit(file);
+    return success[0];
   }
 }

@@ -63,7 +63,7 @@ public class ResolvedFileFunction implements SkyFunction {
             FileSystemUtils.readWithKnownFileSize(
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
         BuildFileAST ast =
-            BuildFileAST.parseSkylarkFile(
+            BuildFileAST.parse(
                 ParserInputSource.create(bytes, key.getPath().asPath().asFragment()),
                 env.getListener());
         if (ast.containsErrors()) {

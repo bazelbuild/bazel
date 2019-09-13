@@ -192,7 +192,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                     JavaCompilationArgsProvider.class));
     }
 
-    void addProviders(ConfiguredAspect.Builder aspect) {
+    void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
       // Represents the result of compiling the code generated for this proto, including all of its
       // dependencies.
       JavaInfo.Builder javaInfo = JavaInfo.Builder.create();

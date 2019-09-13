@@ -45,7 +45,8 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         inputs,
         outputs,
         ImmutableSet.of(),
-        new SynchronousTreeDeleter());
+        new SynchronousTreeDeleter(),
+        /*statisticsPath=*/ null);
     this.workDir = workDir;
     this.workerFiles = workerFiles;
   }

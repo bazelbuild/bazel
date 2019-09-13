@@ -403,10 +403,16 @@ filegroup(
         "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
-        "proguard_whitelister_test_input.cfg",
+        "proguard_whitelister_test_input.pgcfg",
         "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
     ],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
@@ -427,7 +433,7 @@ py_binary(
 py_test(
     name = "proguard_whitelister_test",
     srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.cfg"],
+    data = ["proguard_whitelister_test_input.pgcfg"],
     deps = [
         ":proguard_whitelister",
     ],

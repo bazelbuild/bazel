@@ -30,11 +30,12 @@ memory and performance
 at scale.
 
 Related issues:
+
 * [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support for custom configuration transitions
 * [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support for multi-arch ("fat") binaries
 * [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support for custom build flags
 * [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration doesn't block native ->
-Skylark rules migration
+  Skylark rules migration
 
 ## User-defined Build Settings
 A build setting is a single piece of

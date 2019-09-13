@@ -28,10 +28,10 @@ import javax.annotation.Nullable;
  * The environment of a Blaze query. Implementations do not need to be thread-safe. The generic type
  * T represents a node of the graph on which the query runs; as such, there is no restriction on T.
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
- * access properties of these nodes. Also, the query engine doesn't assume T's
- * {@link Object#hashCode} and {@link Object#equals} are meaningful and instead uses
- * {@link QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()},
- * and {@link QueryEnvironment#createMutableMap()} when appropriate.
+ * access properties of these nodes. Also, the query engine doesn't assume T's {@link
+ * Object#hashCode} and {@link Object#equals} are meaningful and instead uses {@link
+ * QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()}, and
+ * {@link QueryEnvironment#createMutableMap()} when appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -88,11 +88,14 @@ public interface QueryEnvironment<T> {
     @Override
     public String toString() {
       switch (type) {
-        case WORD: return "'" + word + "'";
-        case EXPRESSION: return expression.toString();
-        case INTEGER: return Integer.toString(integer);
-        default: throw new IllegalStateException();
+        case WORD:
+          return "'" + word + "'";
+        case EXPRESSION:
+          return expression.toString();
+        case INTEGER:
+          return Integer.toString(integer);
       }
+      throw new IllegalStateException();
     }
   }
 
@@ -237,17 +240,15 @@ public interface QueryEnvironment<T> {
       throws InterruptedException;
 
   /**
-   * Construct the dependency graph for a depth-bounded forward transitive closure
-   * of all nodes in "targetNodes".  The identity of the calling expression is
-   * required to produce error messages.
+   * Construct the dependency graph for a depth-bounded forward transitive closure of all nodes in
+   * "targetNodes". The identity of the calling expression is required to produce error messages.
    *
-   * <p>If a larger transitive closure was already built, returns it to
-   * improve incrementality, since all depth-constrained methods filter it
-   * after it is built anyway.
+   * <p>If a larger transitive closure was already built, returns it to improve incrementality,
+   * since all depth-constrained methods filter it after it is built anyway.
    */
-  void buildTransitiveClosure(QueryExpression caller,
-                              ThreadSafeMutableSet<T> targetNodes,
-                              int maxDepth) throws QueryException, InterruptedException;
+  void buildTransitiveClosure(
+      QueryExpression caller, ThreadSafeMutableSet<T> targetNodes, int maxDepth)
+      throws QueryException, InterruptedException;
 
   /** Returns the ordered sequence of nodes on some path from "from" to "to". */
   Iterable<T> getNodesOnPath(T from, T to, QueryExpressionContext<T> context)
@@ -290,8 +291,8 @@ public interface QueryEnvironment<T> {
 
     /**
      * If this {@link QueryTasksFuture}'s encapsulated computation is currently complete and
-     * successful, returns the result. This method is intended to be used in combination with
-     * {@link #whenSucceedsCall}.
+     * successful, returns the result. This method is intended to be used in combination with {@link
+     * #whenSucceedsCall}.
      *
      * <p>See the javadoc for the various helper methods that produce {@link QueryTasksFuture} for
      * the precise definition of "successful".
@@ -302,9 +303,8 @@ public interface QueryEnvironment<T> {
   /**
    * Returns a {@link QueryTaskFuture} representing the successful computation of {@code value}.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful}.
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful}.
    */
   abstract <R> QueryTaskFuture<R> immediateSuccessfulFuture(R value);
 
@@ -312,18 +312,16 @@ public interface QueryEnvironment<T> {
    * Returns a {@link QueryTaskFuture} representing a computation that was unsuccessful because of
    * {@code e}.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful}.
+   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful}.
    */
   abstract <R> QueryTaskFuture<R> immediateFailedFuture(QueryException e);
 
   /**
    * Returns a {@link QueryTaskFuture} representing a cancelled computation.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful}.
+   * <p>The returned {@link QueryTaskFuture} is considered "unsuccessful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful}.
    */
   abstract <R> QueryTaskFuture<R> immediateCancelledFuture();
 
@@ -331,8 +329,8 @@ public interface QueryEnvironment<T> {
   @ThreadSafe
   public interface QueryTaskCallable<T> extends Callable<T> {
     /**
-     * Returns the computed value or throws a {@link QueryException} on failure or a
-     * {@link InterruptedException} on interruption.
+     * Returns the computed value or throws a {@link QueryException} on failure or a {@link
+     * InterruptedException} on interruption.
      */
     @Override
     T call() throws QueryException, InterruptedException;
@@ -366,13 +364,12 @@ public interface QueryEnvironment<T> {
 
   /**
    * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
-   * performed after the successful completion of the computation encapsulated by the given
-   * {@code future} has completed successfully.
+   * performed after the successful completion of the computation encapsulated by the given {@code
+   * future} has completed successfully.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful} iff {@code future} is successful and
-   * {@code callable#call} does not throw an exception.
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
+   * {@code future} is successful and {@code callable#call} does not throw an exception.
    */
   <R> QueryTaskFuture<R> whenSucceedsCall(QueryTaskFuture<?> future, QueryTaskCallable<R> callable);
 
@@ -380,9 +377,9 @@ public interface QueryEnvironment<T> {
    * Returns a {@link QueryTaskFuture} representing the successful completion of all the
    * computations encapsulated by the given {@code futures}.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful} iff all of the given computations are "successful".
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
+   * all of the given computations are "successful".
    */
   QueryTaskFuture<Void> whenAllSucceed(Iterable<? extends QueryTaskFuture<?>> futures);
 
@@ -391,22 +388,21 @@ public interface QueryEnvironment<T> {
    * performed after the successful completion of all the computations encapsulated by the given
    * {@code futures}.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful} iff all of the given computations are "successful" and
-   * {@code callable#call} does not throw an exception.
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
+   * all of the given computations are "successful" and {@code callable#call} does not throw an
+   * exception.
    */
   <R> QueryTaskFuture<R> whenAllSucceedCall(
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable);
 
   /**
-   * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given
-   * {@code function} to the value produced by the computation encapsulated by the given
-   * {@code future}.
+   * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given {@code
+   * function} to the value produced by the computation encapsulated by the given {@code future}.
    *
-   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of
-   * {@link #whenSucceedsCall}, {@link #whenAllSucceed}, and
-   * {@link QueryTaskFuture#getIfSuccessful} iff {@code} future is "successful".
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
+   * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
+   * {@code} future is "successful".
    */
   <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function);
@@ -420,26 +416,24 @@ public interface QueryEnvironment<T> {
    * #whenSucceedsCall} to transform them.
    */
   abstract class QueryTaskFutureImplBase<T> extends QueryTaskFuture<T> {
-    protected QueryTaskFutureImplBase() {
-    }
+    protected QueryTaskFutureImplBase() {}
   }
 
   /**
    * A mutable {@link ThreadSafe} {@link Set} that uses proper equality semantics for {@code T}.
-   * {@link QueryExpression}/{@link QueryFunction} implementations should use
-   * {@code ThreadSafeMutableSet<T>} they need a set-like data structure for {@code T}.
+   * {@link QueryExpression}/{@link QueryFunction} implementations should use {@code
+   * ThreadSafeMutableSet<T>} they need a set-like data structure for {@code T}.
    */
   @ThreadSafe
-  interface ThreadSafeMutableSet<T> extends Set<T> {
-  }
+  interface ThreadSafeMutableSet<T> extends Set<T> {}
 
   /** Returns a fresh {@link ThreadSafeMutableSet} instance for the type {@code T}. */
   ThreadSafeMutableSet<T> createThreadSafeMutableSet();
 
   /**
-   * A simple map-like interface that uses proper equality semantics for the key type.
-   * {@link QueryExpression}/{@link QueryFunction} implementations should use
-   * {@code ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
+   * A simple map-like interface that uses proper equality semantics for the key type. {@link
+   * QueryExpression}/{@link QueryFunction} implementations should use {@code
+   * ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
    */
   interface MutableMap<K, V> {
     /**
@@ -505,14 +499,10 @@ public interface QueryEnvironment<T> {
    */
   boolean isSettingEnabled(@Nonnull Setting setting);
 
-  /**
-   * Returns the set of query functions implemented by this query environment.
-   */
+  /** Returns the set of query functions implemented by this query environment. */
   Iterable<QueryFunction> getFunctions();
 
-  /**
-   * Settings for the query engine. See {@link QueryEnvironment#isSettingEnabled}.
-   */
+  /** Settings for the query engine. See {@link QueryEnvironment#isSettingEnabled}. */
   enum Setting {
 
     /**
@@ -528,14 +518,10 @@ public interface QueryEnvironment<T> {
      */
     NO_IMPLICIT_DEPS,
 
-    /**
-     * Do not consider host dependencies when traversing dependency edges.
-     */
-    NO_HOST_DEPS,
+    /** Do not consider non-target dependencies when traversing dependency edges. */
+    ONLY_TARGET_DEPS,
 
-    /**
-     * Do not consider nodep attributes when traversing dependency edges.
-     */
+    /** Do not consider nodep attributes when traversing dependency edges. */
     NO_NODEP_DEPS;
   }
 
@@ -551,19 +537,13 @@ public interface QueryEnvironment<T> {
      */
     String getTargetKind(T target);
 
-    /**
-     * Returns the full label of the target as a string, e.g. {@code //some:target}.
-     */
+    /** Returns the full label of the target as a string, e.g. {@code //some:target}. */
     String getLabel(T target);
 
-    /**
-     * Returns the label of the target's package as a string, e.g. {@code //some/package}
-     */
+    /** Returns the label of the target's package as a string, e.g. {@code //some/package} */
     String getPackage(T target);
 
-    /**
-     * Returns whether the given target is a rule.
-     */
+    /** Returns whether the given target is a rule. */
     boolean isRule(T target);
 
     /**
@@ -596,8 +576,7 @@ public interface QueryEnvironment<T> {
      * returns it.
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule}), or
-     *                                  if the target does not have an attribute of type string list
-     *                                  with the given name
+     *     if the target does not have an attribute of type string list with the given name
      */
     List<String> getStringListAttr(T target, String attrName);
 
@@ -606,19 +585,18 @@ public interface QueryEnvironment<T> {
      * it.
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule}), or
-     *                                  if the target does not have an attribute of type string with
-     *                                  the given name
+     *     if the target does not have an attribute of type string with the given name
      */
     String getStringAttr(T target, String attrName);
 
     /**
-     * Returns the given attribute represented as a list of strings. For "normal" attributes,
-     * this should just be a list of size one containing the attribute's value. For configurable
+     * Returns the given attribute represented as a list of strings. For "normal" attributes, this
+     * should just be a list of size one containing the attribute's value. For configurable
      * attributes, there should be one entry for each possible value the attribute may take.
      *
-     *<p>Note that for backwards compatibility, tristate and boolean attributes are returned as
-     * int using the values {@code 0, 1} and {@code -1}. If there is no such attribute, this
-     * method returns an empty list.
+     * <p>Note that for backwards compatibility, tristate and boolean attributes are returned as int
+     * using the values {@code 0, 1} and {@code -1}. If there is no such attribute, this method
+     * returns an empty list.
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */

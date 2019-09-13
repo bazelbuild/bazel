@@ -58,10 +58,11 @@ class GraphOutputFormatter extends OutputFormatter {
       QueryOptions options,
       Digraph<Target> result,
       OutputStream out,
-      AspectResolver aspectProvider,
-      ConditionalEdges conditionalEdges) {
+      AspectResolver aspectProvider) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
     this.graphConditionalEdgesLimit = options.graphConditionalEdgesLimit;
+
+    ConditionalEdges conditionalEdges = new ConditionalEdges(result);
 
     boolean sortLabels = options.orderOutput == OrderOutput.FULL;
     if (options.graphFactored) {
@@ -107,11 +108,11 @@ class GraphOutputFormatter extends OutputFormatter {
             }
           }
         },
-        sortLabels ? new TargetOrdering() : null);
+        sortLabels ? new FormatUtils.TargetOrdering() : null);
   }
 
   private static final Ordering<Node<Target>> NODE_COMPARATOR =
-      Ordering.from(new TargetOrdering()).onResultOf(EXTRACT_NODE_LABEL);
+      Ordering.from(new FormatUtils.TargetOrdering()).onResultOf(Node::getLabel);
 
   private static final Comparator<Iterable<Node<Target>>> ITERABLE_COMPARATOR =
       NODE_COMPARATOR.lexicographical();

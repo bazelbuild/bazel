@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StringLiteral;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.skylark.common.DocstringUtils;
 import com.google.devtools.skylark.common.DocstringUtils.DocstringInfo;
 import com.google.devtools.skylark.common.DocstringUtils.DocstringParseError;
@@ -36,8 +36,8 @@ import javax.annotation.Nullable;
 /** Contains a number of utility methods for functions and parameters. */
 public final class FunctionUtil {
   /**
-   * Create and return a {@link UserDefinedFunctionInfo} object encapsulating information obtained
-   * from the given function and from its parsed docstring.
+   * Create and return a {@link StarlarkFunctionInfo} object encapsulating information obtained from
+   * the given function and from its parsed docstring.
    *
    * @param functionName the name of the function in the target scope. (Note this is not necessarily
    *     the original exported function name; the function may have been renamed in the target
@@ -46,8 +46,8 @@ public final class FunctionUtil {
    * @throws com.google.devtools.build.skydoc.rendering.DocstringParseException if the function's
    *     docstring is malformed
    */
-  public static UserDefinedFunctionInfo fromNameAndFunction(
-      String functionName, UserDefinedFunction userDefinedFunction) throws DocstringParseException {
+  public static StarlarkFunctionInfo fromNameAndFunction(
+      String functionName, StarlarkFunction userDefinedFunction) throws DocstringParseException {
     String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
 
@@ -71,7 +71,7 @@ public final class FunctionUtil {
       }
     }
     List<FunctionParamInfo> paramsInfo = parameterInfos(userDefinedFunction, paramNameToDocMap);
-    return UserDefinedFunctionInfo.newBuilder()
+    return StarlarkFunctionInfo.newBuilder()
         .setFunctionName(functionName)
         .setDocString(functionDescription)
         .addAllParameter(paramsInfo)
@@ -108,7 +108,7 @@ public final class FunctionUtil {
   }
 
   private static List<FunctionParamInfo> parameterInfos(
-      UserDefinedFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
+      StarlarkFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
     FunctionSignature.WithValues<Object, SkylarkType> signature =
         userDefinedFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();

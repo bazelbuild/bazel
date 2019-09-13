@@ -293,36 +293,28 @@ function create_and_run_classpath_jar() {
   # Build class path as one single string separated by spaces
   MANIFEST_CLASSPATH=""
   if is_windows; then
-    IFS=';'
+    CLASSPATH_SEPARATOR=";"
     URI_PREFIX="file:/"  # e.g. "file:/C:/temp/foo.jar"
   else
-    IFS=':'
+    CLASSPATH_SEPARATOR=":"
     URI_PREFIX="file:$(pwd)/"  # e.g. "file:/usr/local/foo.jar"
   fi
-  for x in $CLASSPATH; do
-    # Add file:/ prefix and escaped space characters, it should be a URI.
-    x="${URI_PREFIX}${x// /%20}"
-    MANIFEST_CLASSPATH="$MANIFEST_CLASSPATH $x"
-  done
-  unset IFS
+
+  URI_PREFIX=${URI_PREFIX//\//\\/}
+  MANIFEST_CLASSPATH="${CLASSPATH_SEPARATOR}${CLASSPATH}"
+
+  MANIFEST_CLASSPATH=$(sed "s/ /%20/g" <<< "${MANIFEST_CLASSPATH}")
+  MANIFEST_CLASSPATH=$(sed "s/$CLASSPATH_SEPARATOR/ $URI_PREFIX/g" <<< "${MANIFEST_CLASSPATH}")
 
   # Create manifest file
   MANIFEST_FILE="$(mktemp -t XXXXXXXX.jar_manifest)"
-
   (
     echo "Manifest-Version: 1.0"
+
     CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
-    # No line in the MANIFEST.MF file may be longer than 72 bytes.
-    # A space prefix indicates the line is still the content of the last attribute.
-    IFS=$'\n'
-    WRAPPED_LINES=($(echo "$CLASSPATH_LINE" | fold -w 71))
-    for ((i = 0; i < "${#WRAPPED_LINES[*]}"; i += 1)); do
-      PREFIX=" "
-      if ((i == 0)); then
-        PREFIX=""
-      fi
-      echo "$PREFIX${WRAPPED_LINES[$i]}"
-    done
+    CLASSPATH_MANIFEST_LINES=$(sed -E $'s/(.{71})/\\1\\\n /g' <<< "${CLASSPATH_LINE}")
+
+    echo "$CLASSPATH_MANIFEST_LINES"
     echo "Created-By: Bazel"
   ) >$MANIFEST_FILE
 

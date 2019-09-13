@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 
 /**
  * The "attr" module of the Build API.
@@ -152,7 +152,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "0",
             doc = DEFAULT_DOC,
@@ -264,7 +264,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = String.class),
               @ParamType(type = LateBoundDefaultApi.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             noneable = true,
@@ -410,7 +410,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -464,7 +464,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -508,7 +508,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "[]",
@@ -625,7 +625,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "{}",
@@ -734,7 +734,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Boolean.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "False",
             named = true,
@@ -775,7 +775,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -825,7 +825,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -886,7 +886,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             named = true,
             positional = false,
@@ -944,7 +944,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "{}",
             named = true,

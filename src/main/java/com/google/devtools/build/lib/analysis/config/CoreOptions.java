@@ -753,6 +753,21 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to use graphless query and disable output ordering.")
   public boolean useGraphlessQuery;
 
+  @Option(
+      name = "experimental_inmemory_unused_inputs_list",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
+              + "directly from the remote build nodes instead of being written to disk.")
+  public boolean inmemoryUnusedInputsList;
+
   @Override
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
@@ -773,6 +788,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
     host.buildRunfiles = buildRunfiles;
+    host.legacyExternalRunfiles = legacyExternalRunfiles;
 
     // === Filesets ===
     host.strictFilesetOutput = strictFilesetOutput;

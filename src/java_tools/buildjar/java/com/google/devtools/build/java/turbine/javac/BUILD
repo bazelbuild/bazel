@@ -20,6 +20,7 @@ java_library(
         ":zip_util",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
+        "//src/main/protobuf:deps_java_proto",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",

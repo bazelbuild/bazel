@@ -80,6 +80,7 @@ import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
 import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -243,20 +244,24 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     this.filteredResources = filteredResources;
   }
 
-  private void readResourceTable(
-      LittleEndianDataInputStream resourceTableStream, KeyValueConsumers consumers)
+  private static void readResourceTable(
+      DependencyInfo dependencyInfo,
+      LittleEndianDataInputStream resourceTableStream,
+      KeyValueConsumers consumers)
       throws IOException {
     long alignedSize = resourceTableStream.readLong();
     Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
 
     byte[] tableBytes = new byte[(int) alignedSize];
     resourceTableStream.readFully(tableBytes, 0, (int) alignedSize);
-    ResourceTable resourceTable = ResourceTable.parseFrom(tableBytes);
+    ResourceTable resourceTable =
+        ResourceTable.parseFrom(tableBytes, ExtensionRegistry.getEmptyRegistry());
 
-    readPackages(consumers, resourceTable);
+    readPackages(dependencyInfo, consumers, resourceTable);
   }
 
-  private void readPackages(KeyValueConsumers consumers, ResourceTable resourceTable)
+  private static void readPackages(
+      DependencyInfo dependencyInfo, KeyValueConsumers consumers, ResourceTable resourceTable)
       throws UnsupportedEncodingException, InvalidProtocolBufferException {
     List<String> sourcePool =
         decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray());
@@ -282,7 +287,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             // This is a public resource definition.
             int sourceIndex = resource.getVisibility().getSource().getPathIdx();
             String source = sourcePool.get(sourceIndex);
-            DataSource dataSource = DataSource.of(Paths.get(source));
+            DataSource dataSource = DataSource.of(dependencyInfo, Paths.get(source));
 
             DataResourceXml dataResourceXml =
                 DataResourceXml.fromPublic(dataSource, resourceType, resource.getEntryId().getId());
@@ -302,7 +307,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
               int sourceIndex = configValue.getValue().getSource().getPathIdx();
               String source = sourcePool.get(sourceIndex);
-              DataSource dataSource = DataSource.of(Paths.get(source));
+              DataSource dataSource = DataSource.of(dependencyInfo, Paths.get(source));
 
               Value resourceValue = configValue.getValue();
               DataResource dataResource =
@@ -385,7 +390,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  private FullyQualifiedName createAndRecordFqn(
+  private static FullyQualifiedName createAndRecordFqn(
       ReferenceResolver packageResolver,
       String packageName,
       ResourceType resourceType,
@@ -401,7 +406,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     return fqn;
   }
 
-  private List<String> convertToQualifiers(ConfigValue configValue) {
+  private static List<String> convertToQualifiers(ConfigValue configValue) {
     FolderConfiguration configuration = new FolderConfiguration();
     final Configuration protoConfig = configValue.getConfig();
     if (protoConfig.getMcc() > 0) {
@@ -535,7 +540,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
    * @param fqnFactory
    * @throws IOException
    */
-  private void readCompiledFile(
+  private static void readCompiledFile(
+      DependencyInfo dependencyInfo,
       LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
       FullyQualifiedName.Factory fqnFactory)
@@ -550,11 +556,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
     byte[] file = new byte[resFileHeaderSize];
     compiledFileStream.readFully(file);
-    CompiledFile compiledFile = CompiledFile.parseFrom(file);
+    CompiledFile compiledFile = CompiledFile.parseFrom(file, ExtensionRegistry.getEmptyRegistry());
 
     Path sourcePath = Paths.get(compiledFile.getSourcePath());
     FullyQualifiedName fqn = fqnFactory.parse(sourcePath);
-    DataSource dataSource = DataSource.of(sourcePath);
+    DataSource dataSource = DataSource.of(dependencyInfo, sourcePath);
 
     consumers.overwritingConsumer.accept(fqn, DataValueFile.of(dataSource));
 
@@ -572,7 +578,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  private void readAttributesFile(
+  private static void readAttributesFile(
+      DependencyInfo dependencyInfo,
       InputStream resourceFileStream,
       FileSystem fileSystem,
       ParsedAndroidData.KeyValueConsumer<DataKey, DataResource> combine,
@@ -587,7 +594,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       fullyQualifiedNames.add(FullyQualifiedName.fromProto(protoKey));
     }
 
-    DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
+    DataSourceTable sourceTable =
+        DataSourceTable.read(dependencyInfo, resourceFileStream, fileSystem, header);
 
     for (FullyQualifiedName fullyQualifiedName : fullyQualifiedNames) {
       SerializeFormat.DataValue protoValue =
@@ -604,7 +612,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  public Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
+  public static Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
     try (ZipInputStream zipStream = new ZipInputStream(Files.newInputStream(resources.getZip()))) {
       Map<DataKey, DataResource> attributes = new LinkedHashMap<>();
       for (ZipEntry entry = zipStream.getNextEntry();
@@ -612,6 +620,9 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           entry = zipStream.getNextEntry()) {
         if (entry.getName().endsWith(".attributes")) {
           readAttributesFile(
+              // Don't care about origin of ".attributes" values, since they don't feed into field
+              // initializers.
+              DependencyInfo.UNKNOWN,
               zipStream,
               FileSystems.getDefault(),
               (key, value) ->
@@ -630,13 +641,16 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  public void readTable(InputStream in, KeyValueConsumers consumers) throws IOException {
-    final ResourceTable resourceTable = ResourceTable.parseFrom(in);
-    readPackages(consumers, resourceTable);
+  public static void readTable(
+      DependencyInfo dependencyInfo, InputStream in, KeyValueConsumers consumers)
+      throws IOException {
+    final ResourceTable resourceTable =
+        ResourceTable.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+    readPackages(dependencyInfo, consumers, resourceTable);
   }
 
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers) {
+  public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       Enumeration<? extends ZipEntry> resourceFiles = zipFile.entries();
@@ -666,6 +680,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
           if (fileZipPath.endsWith(".attributes")) {
             readAttributesFile(
+                dependencyInfo,
                 resourceFileStream,
                 inPath.getFileSystem(),
                 consumers.combiningConsumer,
@@ -680,9 +695,9 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             int resourceType = dataInputStream.readInt();
 
             if (resourceType == 0) { // 0 is a resource table
-              readResourceTable(dataInputStream, consumers);
+              readResourceTable(dependencyInfo, dataInputStream, consumers);
             } else if (resourceType == 1) { // 1 is a resource file
-              readCompiledFile(dataInputStream, consumers, fqnFactory);
+              readCompiledFile(dependencyInfo, dataInputStream, consumers, fqnFactory);
             } else {
               throw new DeserializationException(
                   "aapt2 version mismatch.",
