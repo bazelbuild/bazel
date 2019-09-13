@@ -290,7 +290,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * if the subprocess execution returns normally, not in case of errors (non-zero exit,
    * setup/network failures, etc.).
    */
-  protected void afterExecute(ActionExecutionContext actionExecutionContext) throws IOException {}
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws IOException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(
@@ -720,6 +722,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           commandLineLimits,
           isShellCommand,
           env,
+          configuration,
           configuration == null
               ? executionInfo
               : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
@@ -740,6 +743,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
+        @Nullable BuildConfiguration configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -1343,7 +1347,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           if (resultConsumer != null) {
             resultConsumer.accept(Pair.of(actionExecutionContext, nextContinuation.get()));
           }
-          afterExecute(actionExecutionContext);
+          List<SpawnResult> spawnResults = nextContinuation.get();
+          afterExecute(actionExecutionContext, spawnResults);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
