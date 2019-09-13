@@ -60,6 +60,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
   private final boolean compatibleForResourcePathShortening;
+  private final boolean compatibleForResourceNameObfuscation;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -80,6 +81,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
         lacksAllowlistExemptions(ruleContext, "allow_raw_access_to_resource_paths", true),
+        lacksAllowlistExemptions(ruleContext, "allow_resource_name_obfuscation_opt_out", true),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_dictionary", false),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_mapping", false),
         lacksAllowlistExemptions(ruleContext, "allow_resource_conflicts", false),
@@ -100,6 +102,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean persistentBusyboxToolsEnabled,
       AndroidSdkProvider sdk,
       boolean compatibleForResourcePathShortening,
+      boolean compatibleForResourceNameObfuscation,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -110,6 +113,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.busybox = busybox;
     this.sdk = sdk;
     this.compatibleForResourcePathShortening = compatibleForResourcePathShortening;
+    this.compatibleForResourceNameObfuscation = compatibleForResourceNameObfuscation;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -192,6 +196,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return compatibleForResourcePathShortening;
   }
 
+  public boolean compatibleForResourceNameObfuscation() {
+    return compatibleForResourceNameObfuscation;
+  }
+
   public boolean throwOnProguardApplyDictionary() {
     return throwOnProguardApplyDictionary;
   }
@@ -240,9 +248,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     //   1) --experimental_android_resource_name_obfuscation
     //   2) -c opt
     //   3) resource shrinking is on
-    // TODO(bcsf): Implement an allowlist before activating globally.
+    //   4) Not on allowlist exempting from compatibleForResourceNameObfuscation
     return getAndroidConfig().useAndroidResourceNameObfuscation()
         && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
-        && useResourceShrinking();
+        && useResourceShrinking()
+        && compatibleForResourceNameObfuscation;
   }
 }
