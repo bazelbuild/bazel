@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -159,7 +161,7 @@ public final class AndroidAssetsInfo extends NativeInfo
     @Override
     public AndroidAssetsInfo createInfo(
         Label label,
-        Artifact validationResult,
+        Object validationResult,
         SkylarkNestedSet directParsedAssets,
         SkylarkNestedSet transitiveParsedAssets,
         SkylarkNestedSet transitiveAssets,
@@ -168,7 +170,7 @@ public final class AndroidAssetsInfo extends NativeInfo
         throws EvalException {
       return new AndroidAssetsInfo(
           label,
-          validationResult,
+          fromNoneable(validationResult, Artifact.class),
           nestedSet(directParsedAssets, ParsedAndroidAssets.class),
           nestedSet(transitiveParsedAssets, ParsedAndroidAssets.class),
           nestedSet(transitiveAssets, Artifact.class),

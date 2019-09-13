@@ -166,7 +166,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
     @SkylarkConstructor(objectType = AndroidAssetsInfoApi.class, receiverNameForDoc = NAME)
     public AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
         Label label,
-        FileT validationResult,
+        Object validationResult,
         SkylarkNestedSet directParsedAssets,
         SkylarkNestedSet transitiveParsedAssets,
         SkylarkNestedSet transitiveAssets,
