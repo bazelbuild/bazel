@@ -605,7 +605,7 @@ public final class EvalUtils {
    * debugger of important events. Closes any previously set debugger. Call {@code
    * setDebugger(null)} to disable debugging.
    */
-  public static void setDebugger(DebugServer dbg) {
+  public static void setDebugger(Debugger dbg) {
     Eval.setDebugger(dbg);
   }
 }

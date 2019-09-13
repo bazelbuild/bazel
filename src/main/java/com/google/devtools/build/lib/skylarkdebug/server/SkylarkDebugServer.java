@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.syntax.DebugServer;
+import com.google.devtools.build.lib.syntax.Debugger;
 import com.google.devtools.build.lib.syntax.Environment;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -29,7 +29,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Skylark code. */
-public final class SkylarkDebugServer implements DebugServer {
+public final class SkylarkDebugServer implements Debugger {
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the

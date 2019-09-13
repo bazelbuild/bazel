@@ -31,16 +31,16 @@ import java.util.concurrent.atomic.AtomicReference;
 // Then move all Expression.eval logic in here too, and simplify.
 final class Eval {
 
-  private static final AtomicReference<DebugServer> debugger = new AtomicReference<>();
+  private static final AtomicReference<Debugger> debugger = new AtomicReference<>();
 
   private final Environment env;
-  private final DebugServer dbg;
+  private final Debugger dbg;
   private Object result = Runtime.NONE;
 
   // ---- entry points ----
 
-  static void setDebugger(DebugServer dbg) {
-    DebugServer prev = debugger.getAndSet(dbg);
+  static void setDebugger(Debugger dbg) {
+    Debugger prev = debugger.getAndSet(dbg);
     if (prev != null) {
       prev.close();
     }

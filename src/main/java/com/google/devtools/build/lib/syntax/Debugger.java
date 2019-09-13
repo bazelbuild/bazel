@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.events.Location;
 /**
  * A simple interface for the Starlark interpreter to notify a debugger of events during execution.
  */
-// TODO(adonovan): rename to Debugger; don't presume the implementation is a server.
-public interface DebugServer {
+public interface Debugger {
 
   /** Notify the debugger that execution is at the point immediately before {@code loc}. */
   void before(Environment env, Location loc);
