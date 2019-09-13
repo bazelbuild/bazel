@@ -36,7 +36,7 @@ Bazel offers the following advantages:
     source files. It works with multiple repositories and user bases in the tens
     of thousands.
 
-*   **Bazel is extensible.** Many [languages](be/overview.html#rules) are
+*   **Bazel is extensible.** Many [languages](rules.html) are
     supported, and you can extend Bazel to support any other language or
     framework.
 

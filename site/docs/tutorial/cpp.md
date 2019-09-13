@@ -393,7 +393,7 @@ Then, check out the following:
 *  [External Dependencies](../external.html) to learn more about working with
    local and remote repositories.
 
-*  The [Build Encyclopedia](../be/overview.html) to learn more about Bazel.
+*  The [other rules](../rules.html) to learn more about Bazel.
 
 *  The [Java build tutorial](java.md) to get started with
    building Java applications with Bazel.

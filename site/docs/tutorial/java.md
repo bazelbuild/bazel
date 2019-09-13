@@ -411,7 +411,7 @@ dependencies.
 *  [External Dependencies](../external.html) to learn more about working with
    local and remote repositories.
 
-*  The [Build Encyclopedia](../be/overview.html) to learn more about Bazel.
+*  The [other rules](../rules.html) to learn more about Bazel.
 
 *  The [C++ build tutorial](../tutorial/cpp.md) to get started with building
    C++ projects with Bazel.
