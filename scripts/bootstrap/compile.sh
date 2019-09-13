@@ -398,7 +398,7 @@ cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 # TODO(b/28965185): Remove when xcode-locator is no longer required in embedded_binaries.
 log "Compiling xcode-locator..."
 if [[ $PLATFORM == "darwin" ]]; then
-  run /usr/bin/xcrun clang -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator tools/osx/xcode_locator.m
+  run /usr/bin/xcrun --sdk macosx clang -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator tools/osx/xcode_locator.m
 else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 fi

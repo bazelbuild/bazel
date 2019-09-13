@@ -18,7 +18,7 @@ exports_files([
 ])
 
 DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
-  /usr/bin/xcrun clang -fobjc-arc -framework CoreServices \
+  /usr/bin/xcrun --sdk macosx clang -fobjc-arc -framework CoreServices \
       -framework Foundation -o $@ $<
 """
 
