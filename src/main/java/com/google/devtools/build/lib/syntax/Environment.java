@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1223,42 +1222,44 @@ public final class Environment implements Freezable {
   }
 
   private static final class EvalEventHandler implements EventHandler {
-    List<String> messages = new ArrayList<>();
+    List<Event> messages = new ArrayList<>();
 
     @Override
     public void handle(Event event) {
       if (event.getKind() == EventKind.ERROR) {
-        messages.add(event.getMessage());
+        messages.add(event);
       }
     }
   }
 
-  /** Evaluates a Skylark statement in the adapter's environment. (Debugger API) */
-  public Object evaluate(String contents) throws EvalException, InterruptedException {
-    ParserInputSource input =
-        ParserInputSource.create(contents, PathFragment.create("<debug eval>"));
-    EvalEventHandler eventHandler = new EvalEventHandler();
-    Statement statement = Parser.parseStatement(input, eventHandler);
-    if (!eventHandler.messages.isEmpty()) {
-      throw new EvalException(statement.getLocation(), eventHandler.messages.get(0));
+  /** Evaluates a Skylark statement in this environment. (Debugger API) */
+  // TODO(adonovan): push this up into the debugger once the eval API is finalized.
+  public Object debugEval(ParserInputSource input) throws EvalException, InterruptedException {
+    EvalEventHandler handler = new EvalEventHandler();
+    Expression expr = Expression.parse(input, handler);
+    if (!handler.messages.isEmpty()) {
+      Event ev = handler.messages.get(0);
+      throw new EvalException(ev.getLocation(), ev.getMessage());
     }
-    // TODO(bazel-team): move statement handling code to Eval
-    // deal with the most common case first
-    if (statement.kind() == Statement.Kind.EXPRESSION) {
-      return ((ExpressionStatement) statement).getExpression().doEval(this);
+    return expr.eval(this);
+  }
+
+  /** Executes a Skylark file (sequence of statements) in this environment. (Debugger API) */
+  // TODO(adonovan): push this up into the debugger once the exec API is finalized.
+  public void debugExec(ParserInputSource input) throws EvalException, InterruptedException {
+    EvalEventHandler handler = new EvalEventHandler();
+    BuildFileAST file = BuildFileAST.parse(input, handler);
+    if (!handler.messages.isEmpty()) {
+      Event ev = handler.messages.get(0);
+      throw new EvalException(ev.getLocation(), ev.getMessage());
     }
-    // all other statement types are executed directly
-    Eval.fromEnvironment(this).exec(statement);
-    switch (statement.kind()) {
-      case ASSIGNMENT:
-      case AUGMENTED_ASSIGNMENT:
-        return ((AssignmentStatement) statement).getLHS().doEval(this);
-      case RETURN:
-        Expression expr = ((ReturnStatement) statement).getReturnExpression();
-        return expr != null ? expr.doEval(this) : Runtime.NONE;
-      default:
-        return Runtime.NONE;
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        throw new EvalException(null, "cannot execute load statements in debugger");
+      }
     }
+    ValidationEnvironment.validateFile(file, this, /*isBuildFile=*/ false);
+    Eval.execStatements(this, file.getStatements());
   }
 
   /**

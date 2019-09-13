@@ -599,4 +599,13 @@ public final class EvalUtils {
     }
     return SkylarkDict.copyOf(env, b.build());
   }
+
+  /**
+   * Installs a global hook that causes subsequently executed Starlark threads to notify the
+   * debugger of important events. Closes any previously set debugger. Call {@code
+   * setDebugger(null)} to disable debugging.
+   */
+  public static void setDebugger(DebugServer dbg) {
+    Eval.setDebugger(dbg);
+  }
 }

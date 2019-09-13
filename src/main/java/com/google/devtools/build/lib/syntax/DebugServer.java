@@ -14,31 +14,17 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import java.util.function.Function;
+import com.google.devtools.build.lib.events.Location;
 
-/** A debug server interface, called from core skylark code. */
+/**
+ * A simple interface for the Starlark interpreter to notify a debugger of events during execution.
+ */
+// TODO(adonovan): rename to Debugger; don't presume the implementation is a server.
 public interface DebugServer {
 
-  /**
-   * Shuts down the debug server, closing any open sockets, etc. This can be safely called multiple
-   * times.
-   */
+  /** Notify the debugger that execution is at the point immediately before {@code loc}. */
+  void before(Environment env, Location loc);
+
+  /** Notify the debugger that it will no longer receive events from the interpreter. */
   void close();
-
-  /**
-   * Returns a custom {@link Eval} supplier used to intercept statement execution to check for
-   * breakpoints.
-   */
-  Function<Environment, Eval> evalOverride();
-
-  /** Represents an invocation that will be tracked as a thread by the Skylark debug server. */
-  interface DebugCallable<T> {
-
-    /**
-     * The invocation that will be tracked.
-     *
-     * @return the result
-     */
-    T call() throws EvalException, InterruptedException;
-  }
 }

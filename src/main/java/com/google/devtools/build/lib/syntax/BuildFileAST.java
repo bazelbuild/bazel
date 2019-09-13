@@ -218,19 +218,19 @@ public class BuildFileAST extends ASTNode {
   /**
    * Executes this build file in a given Environment.
    *
-   * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported through
-   * the event handler and execution continues on the next statement. In effect, there is a
-   * "try/except" block around every top level statement. Such exceptions are not ignored, though:
-   * they are visible via the return value. Rules declared in a package containing any error
-   * (including loading-phase semantical errors that cannot be checked here) must also be considered
-   * "in error".
+   * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
+   * EvalException}. This exception is caught here and reported through reporter and execution
+   * continues on the next statement. In effect, there is a "try/except" block around every top
+   * level statement. Such exceptions are not ignored, though: they are visible via the return
+   * value. Rules declared in a package containing any error (including loading-phase semantical
+   * errors that cannot be checked here) must also be considered "in error".
    *
    * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
    * only to lexer/parser errors.
    *
    * @return true if no error occurred during execution.
    */
+  // TODO(adonovan): move to EvalUtils.
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : statements) {
@@ -242,14 +242,14 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Executes tol-level statement of this build file in a given Environment.
+   * Executes top-level statement of this build file in a given Environment.
    *
-   * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
-   * is thrown by {@link Eval#exec(Statement)}. This exception is caught here and reported through
-   * the event handler. In effect, there is a "try/except" block around every top level statement.
-   * Such exceptions are not ignored, though: they are visible via the return value. Rules declared
-   * in a package containing any error (including loading-phase semantical errors that cannot be
-   * checked here) must also be considered "in error".
+   * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
+   * EvalException}. This exception is caught here and reported through reporter. In effect, there
+   * is a "try/except" block around every top level statement. Such exceptions are not ignored,
+   * though: they are visible via the return value. Rules declared in a package containing any error
+   * (including loading-phase semantical errors that cannot be checked here) must also be considered
+   * "in error".
    *
    * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
    * only to lexer/parser errors.
@@ -259,7 +259,7 @@ public class BuildFileAST extends ASTNode {
   public boolean execTopLevelStatement(Statement stmt, Environment env, EventHandler eventHandler)
       throws InterruptedException {
     try {
-      Eval.fromEnvironment(env).exec(stmt);
+      Eval.execToplevelStatement(env, stmt);
       return true;
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been
@@ -405,29 +405,28 @@ public class BuildFileAST extends ASTNode {
    */
   // TODO(adonovan): move to EvalUtils. Split into two APIs, eval(expr) and exec(file).
   // (Abolish "statement" and "file+expr" as primary API concepts.)
-  @Nullable // why?
+  // Make callers decide whether they want to execute a file or evaluate an expression.
+  @Nullable
   public Object eval(Environment env) throws EvalException, InterruptedException {
-    Object last = null;
-    Eval evaluator = Eval.fromEnvironment(env);
-    for (Statement statement : statements) {
-      if (statement instanceof ExpressionStatement) {
-        last = ((ExpressionStatement) statement).getExpression().eval(env);
-      } else {
-        evaluator.exec(statement);
-        last = null;
-      }
+    List<Statement> stmts = statements;
+    Expression expr = null;
+    int n = statements.size();
+    if (n > 0 && statements.get(n - 1) instanceof ExpressionStatement) {
+      stmts = statements.subList(0, n - 1);
+      expr = ((ExpressionStatement) statements.get(n - 1)).getExpression();
     }
-    return last;
+    Eval.execStatements(env, stmts);
+    return expr == null ? null : expr.eval(env);
   }
 
   /**
    * Parses, resolves and evaluates the input and returns the value of the last statement if it's an
    * Expression or else null. In case of error (either during validation or evaluation), it throws
-   * an EvalException.
+   * an EvalException. The return value is as for eval(Environment).
    */
   // Note: uses Starlark (not BUILD) validation semantics.
   // TODO(adonovan): move to EvalUtils; see other eval function.
-  @Nullable // why?
+  @Nullable
   public static Object eval(ParserInputSource input, Environment env)
       throws EvalException, InterruptedException {
     BuildFileAST ast = parseAndValidateSkylark(input, env);

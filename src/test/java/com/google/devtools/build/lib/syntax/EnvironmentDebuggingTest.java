@@ -190,7 +190,7 @@ public class EnvironmentDebuggingTest {
     Environment env = newEnvironment();
     env.update("a", 1);
 
-    Object result = env.evaluate("a");
+    Object result = env.debugEval(ParserInputSource.create("a", null));
 
     assertThat(result).isEqualTo(1);
   }
@@ -200,7 +200,8 @@ public class EnvironmentDebuggingTest {
     Environment env = newEnvironment();
     env.update("a", 1);
 
-    EvalException e = assertThrows(EvalException.class, () -> env.evaluate("b"));
+    EvalException e =
+        assertThrows(EvalException.class, () -> env.debugEval(ParserInputSource.create("b", null)));
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
@@ -209,8 +210,13 @@ public class EnvironmentDebuggingTest {
     Environment env = newEnvironment();
     env.update("a", "string");
 
-    Object result = env.evaluate("a.startswith(\"str\")");
-
+    Object result =
+        env.debugEval(ParserInputSource.create("a.startswith('str')", PathFragment.EMPTY_FRAGMENT));
     assertThat(result).isEqualTo(Boolean.TRUE);
+
+    env.debugExec(ParserInputSource.create("a = 1", PathFragment.EMPTY_FRAGMENT));
+
+    result = env.debugEval(ParserInputSource.create("a", PathFragment.EMPTY_FRAGMENT));
+    assertThat(result).isEqualTo(1);
   }
 }

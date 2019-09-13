@@ -18,6 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.EventSensor;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
@@ -27,6 +29,10 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -281,15 +287,39 @@ final class ThreadHandler {
 
   /**
    * Evaluate the given expression in the environment defined by the provided {@link Environment}.
+   * The "expression" may be a sequence of statements, in which case it is executed for its side
+   * effects, such as assignments.
    *
    * <p>The caller is responsible for ensuring that the associated skylark thread isn't currently
    * running.
    */
-  private Object doEvaluate(Environment env, String expression)
+  private Object doEvaluate(Environment env, String content)
       throws EvalException, InterruptedException {
     try {
       servicingEvalRequest.set(true);
-      return env.evaluate(expression);
+
+      // doEvaluate used to be vague about what part of syntax 'content' must be.
+      // Historically it was a "list of statements optionally followed by an expression",
+      // such as "x+1" or "x=2" or "x=2; x+1", but lib.syntax no longer supports that,
+      // and its API revolves around expressions and files (sequence of statements).
+      // Ideally the caller of doEvaluate would explicitly choose so we could simplify
+      // the logic below.
+      // The result of evaluating a Statement is None.
+
+      ParserInputSource input =
+          ParserInputSource.create(content, PathFragment.create("<debug eval>"));
+
+      // Try parsing as an expression.
+      EventSensor sensor = new EventSensor(EventKind.ERRORS);
+      Expression.parse(input, sensor); // discard result
+      if (!sensor.wasTriggered()) {
+        // It's a valid expression; evaluate (and parse again).
+        return env.debugEval(input);
+      } else {
+        // Assume it is a file and execute it.
+        env.debugExec(input);
+        return Runtime.NONE;
+      }
     } finally {
       servicingEvalRequest.set(false);
     }
