@@ -15,6 +15,8 @@
 package com.google.devtools.build.skydoc.rendering;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -31,6 +33,7 @@ import java.util.stream.Collectors;
  * Contains a number of utility methods for markdown rendering.
  */
 public final class MarkdownUtil {
+  private static final int MAX_LINE_LENGTH = 100;
 
   /**
    * Return a string that formats the input string so it is displayable in a markdown table cell.
@@ -138,13 +141,49 @@ public final class MarkdownUtil {
     return summary(funcInfo.getFunctionName(), paramNames);
   }
 
-  private String summary(String functionName, List<String> paramNames) {
-    List<String> paramLinks = paramNames.stream()
-        .map(param ->
-             String.format("<a href=\"#%s-%s\">%s</a>",
-                 functionName, param, param))
-        .collect(Collectors.toList());
-    return String.format("%s(%s)", functionName, Joiner.on(", ").join(paramLinks));
+  private static String summary(String functionName, List<String> paramNames) {
+    List<List<String>> paramLines = wrap(functionName, paramNames, MAX_LINE_LENGTH);
+    List<String> paramLinksLines = new ArrayList<>();
+    for (List<String> params : paramLines) {
+      String paramLinksLine =
+          params.stream()
+              .map(param -> String.format("<a href=\"#%s-%s\">%s</a>", functionName, param, param))
+              .collect(Collectors.joining(", "));
+      paramLinksLines.add(paramLinksLine);
+    }
+    String paramList =
+        Joiner.on(String.format(",\n%s", Strings.repeat(" ", functionName.length() + 1)))
+            .join(paramLinksLines);
+    return String.format("%s(%s)", functionName, paramList);
+  }
+
+  /**
+   * Wraps the given function parameter names to be able to construct a function summary that stays
+   * within the provided line length limit.
+   *
+   * @param functionName the function name.
+   * @param paramNames the function parameter names.
+   * @param maxLineLength the maximal line length.
+   * @return the lines with the wrapped parameter names.
+   */
+  private static List<List<String>> wrap(
+      String functionName, List<String> paramNames, int maxLineLength) {
+    List<List<String>> paramLines = new ArrayList<>();
+    ImmutableList.Builder<String> linesBuilder = new ImmutableList.Builder<>();
+    int leading = functionName.length();
+    int length = leading;
+    int punctuation = 2; // cater for left parenthesis/space before and comma after parameter
+    for (String paramName : paramNames) {
+      length += paramName.length() + punctuation;
+      if (length > maxLineLength) {
+        paramLines.add(linesBuilder.build());
+        length = leading + paramName.length();
+        linesBuilder = new ImmutableList.Builder<>();
+      }
+      linesBuilder.add(paramName);
+    }
+    paramLines.add(linesBuilder.build());
+    return paramLines;
   }
 
   /**
@@ -204,7 +243,7 @@ public final class MarkdownUtil {
     return String.format(Joiner.on("; or ").join(finalProviderNames));
   }
 
-  private String attributeTypeDescription(AttributeType attributeType) {
+  private static String attributeTypeDescription(AttributeType attributeType) {
     switch (attributeType) {
       case NAME:
         return "Name";
