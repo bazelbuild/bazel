@@ -148,8 +148,8 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting
   public static final String SINGLE_TARGET_MESSAGE =
-      "Only a single target can be run. "
-          + "Do not use wildcards that match more than one target";
+      "Only a single target can be run. Do not use target patterns that expand to more than one "
+          + "target, or a test_suite that expands to more than one test";
 
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
