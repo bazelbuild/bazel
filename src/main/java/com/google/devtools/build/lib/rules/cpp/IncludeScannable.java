@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,8 +52,15 @@ public interface IncludeScannable {
   List<PathFragment> getIncludeDirs();
 
   /**
-   * Returns an artifact that the compiler may unconditionally include, even if the source file
-   * does not mention it.
+   * Returns an immutable list of "-F" framework include paths that should be used by the
+   * IncludeScanner for this action. The include scanner searches these paths after "-iquote"
+   * include paths, but before other non-framework include paths.
+   */
+  ImmutableList<PathFragment> getFrameworkIncludeDirs();
+
+  /**
+   * Returns an artifact that the compiler may unconditionally include, even if the source file does
+   * not mention it.
    */
   @Nullable
   List<Artifact> getBuiltInIncludeFiles();

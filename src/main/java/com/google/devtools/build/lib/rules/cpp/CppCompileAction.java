@@ -671,6 +671,11 @@ public class CppCompileAction extends AbstractAction
     return result.build();
   }
 
+  @Override
+  public ImmutableList<PathFragment> getFrameworkIncludeDirs() {
+    return ccCompilationContext.getFrameworkIncludeDirs();
+  }
+
   @VisibleForTesting
   List<PathFragment> getSystemIncludeDirs() throws CommandLineExpansionException {
     return getSystemIncludeDirs(getCompilerOptions());

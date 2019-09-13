@@ -129,6 +129,15 @@ public class LegacyIncludeScanner implements IncludeScanner {
         boolean onlyCheckGenerated) {
       PathFragment name = inclusion.getInclusion().pathFragment;
 
+      // A framework header must begin with a framework name, followed by a path separator, followed
+      // by the rest of the header path.  We do not currently support include_next of framework
+      // headers.
+      boolean searchFrameworkIncludePaths =
+          !frameworkIncludePaths.isEmpty()
+              && !inclusion.getInclusion().kind.isNext()
+              && !name.containsUplevelReferences()
+              && PathFragment.containsSeparator(name.getPathString());
+
       // For #include_next directives we start searching on the include path where
       // we found the previous inclusion.
       int searchStart = inclusion.getInclusion().kind.isNext() ? inclusion.getContextPathPos() : 0;
@@ -136,8 +145,26 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // Search the header on the remaining paths.
       List<PathFragment> paths =
           inclusion.getContextKind() == Kind.QUOTE ? quoteIncludePaths : includePaths;
+      int alsoSearchFrameworkAtIndex =
+          inclusion.getContextKind() == Kind.QUOTE ? quoteIncludePathsFrameworkIndex : 0;
+      alsoSearchFrameworkAtIndex = Math.max(alsoSearchFrameworkAtIndex, searchStart);
       boolean viewedIllegalOutput = false;
       for (int i = searchStart; i < paths.size(); ++i) {
+        if (i == alsoSearchFrameworkAtIndex && searchFrameworkIncludePaths) {
+          String frameworkName = name.subFragment(0, 1).getPathString() + ".framework";
+          PathFragment relHeaderPath = name.subFragment(1);
+          LocateOnPathResult result =
+              locateOnFrameworkPaths(
+                  frameworkName,
+                  relHeaderPath,
+                  pathToLegalOutputArtifact,
+                  onlyCheckGenerated,
+                  viewedIllegalOutput);
+          if (result.path != null) {
+            return result;
+          }
+          viewedIllegalOutput = viewedIllegalOutput || result.viewedIllegalOutputFile;
+        }
         PathFragment fileFragment = paths.get(i).getRelative(name);
         if (fileFragment.containsUplevelReferences()) {
           // TODO(janakr): This branch shouldn't be necessary: we should be able to filter such
@@ -203,6 +230,97 @@ public class LegacyIncludeScanner implements IncludeScanner {
         return LocateOnPathResult.create(artifact, i + 1, viewedIllegalOutput);
       }
 
+      // Not found.
+      return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+    }
+
+    /**
+     * Locates an included file along the framework search paths. The result is cacheable.
+     *
+     * @param frameworkName the name of the framework, including the ".framework" suffix
+     * @param relHeaderPath the path of the framework header, relative to the framework
+     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
+     * @param onlyCheckGenerated if true, only search for generated output files
+     * @param viewedIllegalOutput whether the scanner has viewed an illegal output file.
+     * @return a tuple of the found file, the context path position of the input inclusion, and
+     *     whether the scan touched illegal output files
+     */
+    private LocateOnPathResult locateOnFrameworkPaths(
+        String frameworkName,
+        PathFragment relHeaderPath,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        boolean onlyCheckGenerated,
+        boolean viewedIllegalOutput) {
+      Set<PathFragment> outputArtifactPaths = pathToLegalOutputArtifact.keySet();
+      for (int i = 0; i < frameworkIncludePaths.size(); ++i) {
+        PathFragment includePath = frameworkIncludePaths.get(i);
+
+        // Construct the full framework path path/to/foo.framework.
+        PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
+
+        if (onlyCheckGenerated && !isRealOutputFile(fullFrameworkPath)) {
+          return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+        }
+
+        // Look for header in path/to/foo.framework/Headers/
+        PathFragment foundHeaderPath = null;
+        PathFragment fullHeaderPath =
+            fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
+
+        viewedIllegalOutput =
+            viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, outputArtifactPaths);
+        boolean isOutputDirectory = fullHeaderPath.startsWith(outputPathFragment);
+        if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, outputArtifactPaths)) {
+          foundHeaderPath = fullHeaderPath;
+        } else {
+          // Look for header in path/to/foo.framework/PrivateHeaders/
+          fullHeaderPath =
+              fullFrameworkPath.getRelative("PrivateHeaders").getRelative(relHeaderPath);
+          viewedIllegalOutput =
+              viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, outputArtifactPaths);
+          if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, outputArtifactPaths)) {
+            foundHeaderPath = fullHeaderPath;
+          } else {
+            continue;
+          }
+        }
+
+        Artifact artifact;
+        if (isOutputDirectory) {
+          artifact = pathToLegalOutputArtifact.get(foundHeaderPath);
+          if (artifact == null) {
+            // This happens if an included file exists in a framework directory but is not but is
+            // not an output of the framework rule.
+            // Such an include may be conditional, and so failing to find it here will not lead to
+            // problems. If this include is actually needed for compilation, then we will emit a
+            // somewhat unhelpful error message of a missing file, rather than the more helpful one
+            // of an illegal include, but it's hard to emit the illegal include message
+            // consistently, and this is a rare occurrence in any case.
+
+            // Note that the corresponding case for non-framework paths aborts the search here, but
+            // for framdwork paths, we keep going like in other cases where we can't find a header
+            // we have access to.
+            continue;
+          }
+        } else if (!foundHeaderPath.isAbsolute()) {
+          artifact = artifactFactory.resolveSourceArtifact(foundHeaderPath, RepositoryName.MAIN);
+          if (artifact == null) {
+            // There was a real file, but we couldn't resolve it, probably because it belonged to
+            // a package that wasn't actually loaded this build, so user cannot refer to files in
+            // that package.
+            continue;
+          }
+        } else {
+          // This file is given with an absolute path. We will error out after transitive scanning
+          // of the top-level source is finished unless this corresponds to a built-in include
+          // directory, and will ignore this artifact in any case, but track it here so that its
+          // includes can be processed.
+          artifact = artifactFactory.getSourceArtifact(foundHeaderPath, absoluteRoot);
+        }
+        // Reset contextPathPos to 0 so that include_next in a framework header searches the include
+        // paths from the beginning.
+        return LocateOnPathResult.create(artifact, 0, viewedIllegalOutput);
+      }
       // Not found.
       return LocateOnPathResult.createNotFound(viewedIllegalOutput);
     }
@@ -285,10 +403,18 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private final ImmutableList<PathFragment> quoteIncludePaths;
 
   /**
+   * The index position within quoteIncludePaths at which framework paths (-F) should be searched.
+   */
+  private final int quoteIncludePathsFrameworkIndex;
+
+  /**
    * Search path for searching for all includes, composed of all the -I and -isystem paths (in this
    * order).
    */
   private final List<PathFragment> includePaths;
+
+  /** Search path for searching for all includes from frameworks. */
+  private final ImmutableList<PathFragment> frameworkIncludePaths;
 
   private final PathFragment includeRootFragment;
   private final PathFragment outputPathFragment;
@@ -320,7 +446,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @param cache externally scoped cache of file-path to inclusion-set mappings
    * @param pathCache include path existence cache
    * @param quoteIncludePaths the list of quote search path dirs (-iquote)
-   * @param includePaths the list of all other search path dirs (-I and -isystem)
+   * @param includePaths the list of all other non-framework search path dirs (-I and -isystem)
+   * @param frameworkIncludePaths the list of framework other search path dirs (-F)
    */
   LegacyIncludeScanner(
       IncludeParser parser,
@@ -329,6 +456,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       PathExistenceCache pathCache,
       List<PathFragment> quoteIncludePaths,
       List<PathFragment> includePaths,
+      List<PathFragment> frameworkIncludePaths,
       Path outputPath,
       Path execRoot,
       ArtifactFactory artifactFactory,
@@ -344,7 +472,9 @@ public class LegacyIncludeScanner implements IncludeScanner {
         .addAll(quoteIncludePaths)
         .addAll(includePaths)
         .build();
+    this.quoteIncludePathsFrameworkIndex = quoteIncludePaths.size();
     this.includePaths = ImmutableList.copyOf(includePaths);
+    this.frameworkIncludePaths = ImmutableList.copyOf(frameworkIncludePaths);
     this.inclusionCache = new InclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
