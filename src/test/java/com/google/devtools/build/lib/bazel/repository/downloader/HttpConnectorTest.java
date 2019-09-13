@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -271,7 +272,8 @@ public class HttpConnectorTest {
     }
   }
 
-  @Test
+  // Deactivated due to https://github.com/bazelbuild/bazel/issues/9380.
+  @Ignore
   public void socketTimeout_retries() throws Exception {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
