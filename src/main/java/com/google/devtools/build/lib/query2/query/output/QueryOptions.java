@@ -89,10 +89,17 @@ public class QueryOptions extends CommonQueryOptions {
 
   /** Whether and how output should be ordered. */
   public enum OrderOutput {
-    NO, /** Make no effort to order output besides that required by output formatter. */
-    DEPS, /** Output in dependency order when compatible with output formatter. */
-    AUTO, /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
-    FULL /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    /** Make no effort to order output besides that required by output formatter. */
+    NO,
+
+    /** Output in dependency order when compatible with output formatter. */
+    DEPS,
+
+    /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
+    AUTO,
+
+    /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    FULL
   }
 
   @Option(
