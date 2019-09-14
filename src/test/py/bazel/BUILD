@@ -91,6 +91,23 @@ py_test(
 )
 
 py_test(
+    name = "bazel_windows_symlinks_test",
+    size = "medium",
+    srcs = select({
+        "//src/conditions:windows": ["bazel_windows_symlinks_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "bazel_windows_symlinks_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
     name = "windows_remote_test",
     size = "medium",
     srcs = select({
