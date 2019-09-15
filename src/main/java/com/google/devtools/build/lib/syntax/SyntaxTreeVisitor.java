@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.List;
 
@@ -73,14 +72,18 @@ public class SyntaxTreeVisitor {
 
   public void visit(@SuppressWarnings("unused") Identifier node) {}
 
-  public void visit(AbstractComprehension node) {
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      visit(clause.getExpression());
-      if (clause.getLHS() != null) {
-        visit(clause.getLHS());
+  public void visit(Comprehension node) {
+    for (Comprehension.Clause clause : node.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        Comprehension.For forClause = (Comprehension.For) clause;
+        visit(forClause.getVars());
+        visit(forClause.getIterable());
+      } else {
+        Comprehension.If ifClause = (Comprehension.If) clause;
+        visit(ifClause.getCondition());
       }
     }
-    visitAll(node.getOutputExpressions());
+    visit(node.getBody());
   }
 
   public void visit(ForStatement node) {
@@ -149,7 +152,7 @@ public class SyntaxTreeVisitor {
     visitAll(node.getEntries());
   }
 
-  public void visit(DictionaryEntryLiteral node) {
+  public void visit(DictionaryLiteral.Entry node) {
     visit(node.getKey());
     visit(node.getValue());
   }

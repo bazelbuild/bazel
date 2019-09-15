@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.LinkedList;
@@ -78,7 +77,7 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   // helper func for testListLiterals:
-  private static int getIntElem(DictionaryEntryLiteral entry, boolean key) {
+  private static int getIntElem(DictionaryLiteral.Entry entry, boolean key) {
     return ((IntegerLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
   }
 
@@ -88,7 +87,7 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   // helper func for testListLiterals:
-  private static DictionaryEntryLiteral getElem(DictionaryLiteral list, int index) {
+  private static DictionaryLiteral.Entry getElem(DictionaryLiteral list, int index) {
     return list.getEntries().get(index);
   }
 
@@ -745,7 +744,7 @@ public final class ParserTest extends EvaluationTestCase {
     DictionaryLiteral dictionaryList =
       (DictionaryLiteral) parseExpression("{1:42}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryEntryLiteral tuple = getElem(dictionaryList, 0);
+    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
@@ -762,7 +761,7 @@ public final class ParserTest extends EvaluationTestCase {
     DictionaryLiteral dictionaryList =
       (DictionaryLiteral) parseExpression("{1:42,}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryEntryLiteral tuple = getElem(dictionaryList, 0);
+    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
@@ -772,7 +771,7 @@ public final class ParserTest extends EvaluationTestCase {
     DictionaryLiteral dictionaryList = (DictionaryLiteral) parseExpression("{1:42,2:43,3:44}");
     assertThat(dictionaryList.getEntries()).hasSize(3);
     for (int i = 0; i < 3; i++) {
-      DictionaryEntryLiteral tuple = getElem(dictionaryList, i);
+      DictionaryLiteral.Entry tuple = getElem(dictionaryList, i);
       assertThat(getIntElem(tuple, true)).isEqualTo(i + 1);
       assertThat(getIntElem(tuple, false)).isEqualTo(i + 42);
     }
@@ -817,31 +816,38 @@ public final class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionEmptyList() throws Exception {
-    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
-        "['foo/%s.java' % x for x in []]")).getClauses();
+    List<Comprehension.Clause> clauses =
+        ((Comprehension) parseExpression("['foo/%s.java' % x for x in []]")).getClauses();
     assertThat(clauses).hasSize(1);
-    assertThat(clauses.get(0).getExpression().toString()).isEqualTo("[]");
-    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    assertThat(for0.getIterable().toString()).isEqualTo("[]");
+    assertThat(for0.getVars().toString()).isEqualTo("x");
   }
 
   @Test
   public void testListComprehension() throws Exception {
-    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
-        "['foo/%s.java' % x for x in ['bar', 'wiz', 'quux']]")).getClauses();
+    List<Comprehension.Clause> clauses =
+        ((Comprehension) parseExpression("['foo/%s.java' % x for x in ['bar', 'wiz', 'quux']]"))
+            .getClauses();
     assertThat(clauses).hasSize(1);
-    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
-    assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    assertThat(for0.getVars().toString()).isEqualTo("x");
+    assertThat(for0.getIterable()).isInstanceOf(ListLiteral.class);
   }
 
   @Test
   public void testForForListComprehension() throws Exception {
-    List<ListComprehension.Clause> clauses = ((ListComprehension) parseExpression(
-        "['%s/%s.java' % (x, y) for x in ['foo', 'bar'] for y in list]")).getClauses();
+    List<Comprehension.Clause> clauses =
+        ((Comprehension)
+                parseExpression("['%s/%s.java' % (x, y) for x in ['foo', 'bar'] for y in list]"))
+            .getClauses();
     assertThat(clauses).hasSize(2);
-    assertThat(clauses.get(0).getLHS().toString()).isEqualTo("x");
-    assertThat(clauses.get(0).getExpression()).isInstanceOf(ListLiteral.class);
-    assertThat(clauses.get(1).getLHS().toString()).isEqualTo("y");
-    assertThat(clauses.get(1).getExpression()).isInstanceOf(Identifier.class);
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    assertThat(for0.getVars().toString()).isEqualTo("x");
+    assertThat(for0.getIterable()).isInstanceOf(ListLiteral.class);
+    Comprehension.For for1 = (Comprehension.For) clauses.get(1);
+    assertThat(for1.getVars().toString()).isEqualTo("y");
+    assertThat(for1.getIterable()).isInstanceOf(Identifier.class);
   }
 
   @Test

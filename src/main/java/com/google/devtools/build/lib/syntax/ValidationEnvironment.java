@@ -244,21 +244,26 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(AbstractComprehension node) {
+  public void visit(Comprehension node) {
     openBlock(Scope.Local);
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      if (clause.getLHS() != null) {
-        collectDefinitions(clause.getLHS());
+    for (Comprehension.Clause clause : node.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        Comprehension.For forClause = (Comprehension.For) clause;
+        collectDefinitions(forClause.getVars());
       }
     }
     // TODO(adonovan): opt: combine loops
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      visit(clause.getExpression());
-      if (clause.getLHS() != null) {
-        assign(clause.getLHS());
+    for (Comprehension.Clause clause : node.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        Comprehension.For forClause = (Comprehension.For) clause;
+        visit(forClause.getIterable());
+        assign(forClause.getVars());
+      } else {
+        Comprehension.If ifClause = (Comprehension.If) clause;
+        visit(ifClause.getCondition());
       }
     }
-    visitAll(node.getOutputExpressions());
+    visit(node.getBody());
     closeBlock();
   }
 

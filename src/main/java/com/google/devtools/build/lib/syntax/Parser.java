@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -568,8 +567,8 @@ final class Parser {
   }
 
   // dict_entry_list ::= ( (dict_entry ',')* dict_entry ','? )?
-  private List<DictionaryEntryLiteral> parseDictEntryList() {
-    List<DictionaryEntryLiteral> list = new ArrayList<>();
+  private List<DictionaryLiteral.Entry> parseDictEntryList() {
+    List<DictionaryLiteral.Entry> list = new ArrayList<>();
     // the terminating token for a dict entry list
     while (token.kind != TokenKind.RBRACE) {
       list.add(parseDictEntry());
@@ -583,12 +582,12 @@ final class Parser {
   }
 
   // dict_entry ::= nontupleexpr ':' nontupleexpr
-  private DictionaryEntryLiteral parseDictEntry() {
+  private DictionaryLiteral.Entry parseDictEntry() {
     int start = token.left;
     Expression key = parseNonTupleExpression();
     expect(TokenKind.COLON);
     Expression value = parseNonTupleExpression();
-    return setLocation(new DictionaryEntryLiteral(key, value), start, value);
+    return setLocation(new DictionaryLiteral.Entry(key, value), start, value);
   }
 
   /**
@@ -774,36 +773,37 @@ final class Parser {
 
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
   //                        | 'IF' expr comprehension_suffix
-  //                        | ']'
-  private Expression parseComprehensionSuffix(
-      AbstractComprehension.AbstractBuilder comprehensionBuilder,
-      TokenKind closingBracket,
-      int comprehensionStartOffset) {
+  //                        | ']' | '}'
+  private Expression parseComprehensionSuffix(ASTNode body, TokenKind closingBracket, int offset) {
+    ImmutableList.Builder<Comprehension.Clause> clauses = ImmutableList.builder();
     while (true) {
       if (token.kind == TokenKind.FOR) {
         nextToken();
-        Expression lhs = parseForLoopVariables();
+        Expression vars = parseForLoopVariables();
         expect(TokenKind.IN);
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
-        Expression listExpression = parseNonTupleExpression(0);
-        comprehensionBuilder.addFor(lhs, listExpression);
+        Expression seq = parseNonTupleExpression(0);
+        clauses.add(new Comprehension.For(vars, seq));
       } else if (token.kind == TokenKind.IF) {
         nextToken();
         // [x for x in li if 1, 2]  # parse error
         // [x for x in li if (1, 2)]  # ok
-        comprehensionBuilder.addIf(parseNonTupleExpression(0));
+        Expression cond = parseNonTupleExpression(0);
+        clauses.add(new Comprehension.If(cond));
       } else if (token.kind == closingBracket) {
-        Expression expr = comprehensionBuilder.build();
-        setLocation(expr, comprehensionStartOffset, token.right);
-        nextToken();
-        return expr;
+        break;
       } else {
         syntaxError("expected '" + closingBracket + "', 'for' or 'if'");
         syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(comprehensionStartOffset, token.right);
+        return makeErrorExpression(offset, token.right);
       }
     }
+    boolean isDict = closingBracket == TokenKind.RBRACE;
+    Comprehension comp = new Comprehension(isDict, body, clauses.build());
+    setLocation(comp, offset, token.right);
+    nextToken();
+    return comp;
   }
 
   // list_maker ::= '[' ']'
@@ -832,10 +832,7 @@ final class Parser {
         }
       case FOR:
         { // list comprehension
-          return parseComprehensionSuffix(
-              new ListComprehension.Builder().setOutputExpression(expression),
-              TokenKind.RBRACKET,
-              start);
+          return parseComprehensionSuffix(expression, TokenKind.RBRACKET, start);
         }
       case COMMA:
         {
@@ -877,17 +874,12 @@ final class Parser {
       nextToken();
       return literal;
     }
-    DictionaryEntryLiteral entry = parseDictEntry();
+    DictionaryLiteral.Entry entry = parseDictEntry();
     if (token.kind == TokenKind.FOR) {
       // Dict comprehension
-      return parseComprehensionSuffix(
-          new DictComprehension.Builder()
-              .setKeyExpression(entry.getKey())
-              .setValueExpression(entry.getValue()),
-          TokenKind.RBRACE,
-          start);
+      return parseComprehensionSuffix(entry, TokenKind.RBRACE, start);
     }
-    List<DictionaryEntryLiteral> entries = new ArrayList<>();
+    List<DictionaryLiteral.Entry> entries = new ArrayList<>();
     entries.add(entry);
     if (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
