@@ -253,46 +253,16 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void noRemoteExecExecutesLocallyButUsesCache() throws Exception {
-    // Test that if the NO_REMOTE_EXEC execution requirement is specified, the spawn is executed
-    // locally, but its result is still uploaded to the remote cache.
+  public void failedLocalActionShouldNotBeUploaded() throws Exception {
+    // Test that the outputs of a locally executed action that failed are not uploaded.
 
-    remoteOptions.remoteAcceptCached = true;
+    remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = true;
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
 
-    SpawnResult res =
-        new SpawnResult.Builder()
-            .setStatus(Status.SUCCESS)
-            .setExitCode(0)
-            .setRunnerName("test")
-            .build();
-    when(localRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(res);
-
-    Spawn spawn =
-        simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_EXEC, ""));
-    SpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
-
-    SpawnResult result = runner.exec(spawn, policy);
-
-    assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(result.status()).isEqualTo(Status.SUCCESS);
-    verify(localRunner).exec(eq(spawn), eq(policy));
-    verify(runner)
-        .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache).upload(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void failedLocalActionShouldNotBeUploaded() throws Exception {
-    // Test that the outputs of a locally executed action that failed are not uploaded.
-
-    remoteOptions.remoteUploadLocalResults = true;
-
-    RemoteSpawnRunner runner = spy(newSpawnRunnerWithoutExecutor());
+    // Throw an IOException to trigger the local fallback.
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -323,10 +293,15 @@ public class RemoteSpawnRunnerTest {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action
     // locally
 
+    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.remoteUploadLocalResults = true;
+
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
 
-    RemoteSpawnRunner runner = spy(newSpawnRunnerWithoutExecutor());
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+    // Throw an IOException to trigger the local fallback.
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(IOException.class);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -393,7 +368,8 @@ public class RemoteSpawnRunnerTest {
     StoredEventHandler eventHandler = new StoredEventHandler();
     reporter.addHandler(eventHandler);
 
-    RemoteSpawnRunner runner = newSpawnRunnerWithoutExecutor(reporter);
+    RemoteSpawnRunner runner = newSpawnRunner(reporter);
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -428,12 +404,13 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void noRemoteExecutorFallbackFails() throws Exception {
-    // Errors from the fallback runner should be propogated out of the remote runner.
+    // Errors from the fallback runner should be propagated out of the remote runner.
 
     remoteOptions.remoteUploadLocalResults = true;
     remoteOptions.remoteLocalFallback = true;
 
-    RemoteSpawnRunner runner = newSpawnRunnerWithoutExecutor();
+    RemoteSpawnRunner runner = newSpawnRunner();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -452,12 +429,13 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void remoteCacheErrorFallbackFails() throws Exception {
-    // Errors from the fallback runner should be propogated out of the remote runner.
+    // Errors from the fallback runner should be propagated out of the remote runner.
 
     remoteOptions.remoteUploadLocalResults = true;
     remoteOptions.remoteLocalFallback = true;
 
-    RemoteSpawnRunner runner = newSpawnRunnerWithoutExecutor();
+    RemoteSpawnRunner runner = newSpawnRunner();
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -1007,6 +985,14 @@ public class RemoteSpawnRunnerTest {
         /* topLevelOutputs= */ ImmutableSet.of());
   }
 
+  private RemoteSpawnRunner newSpawnRunner(Reporter reporter) {
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        executor,
+        reporter,
+        /* topLevelOutputs= */ ImmutableSet.of());
+  }
+
   private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
     return newSpawnRunner(
         /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
@@ -1032,21 +1018,5 @@ public class RemoteSpawnRunnerTest {
         digestUtil,
         logDir,
         topLevelOutputs);
-  }
-
-  private RemoteSpawnRunner newSpawnRunnerWithoutExecutor() {
-    return newSpawnRunner(
-        /* verboseFailures= */ false,
-        /* executor= */ null,
-        /* reporter= */ null,
-        /* topLevelOutputs= */ ImmutableSet.of());
-  }
-
-  private RemoteSpawnRunner newSpawnRunnerWithoutExecutor(Reporter reporter) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false,
-        /* executor= */ null,
-        reporter,
-        /* topLevelOutputs= */ ImmutableSet.of());
   }
 }

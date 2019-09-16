@@ -125,7 +125,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       String buildRequestId,
       String commandId,
       GrpcRemoteCache remoteCache,
-      @Nullable GrpcRemoteExecutor remoteExecutor,
+      GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
       Path logDir,
