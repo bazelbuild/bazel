@@ -453,4 +453,22 @@ eof
   expect_log "//:foo2/bar2/x.txt"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/pull/9269#issuecomment-531221290
+# Verify that bazel-bin and the other bazel-* symlinks are not treated as
+# packages when expanding the "//..." pattern.
+function test_bazel_bin_is_not_a_package() {
+  echo 'filegroup(name = "x")' > BUILD
+  local -r parent="$(basename "$(dirname "$PWD")")"
+
+  # Ensure bazel-<parent> is created.
+  bazel build //:x >& "$TEST_log"
+  [[ -d "bazel-bin" ]] || fail "bazel-bin was not created"
+  [[ -d "bazel-bin/$parent" ]] || fail "bazel-<parent> was not created"
+
+  # Assert that "//..." expands only to "//:x".
+  bazel query //... >& "$TEST_log"
+  expect_log_once "//:x"
+  expect_not_log "//bazel.*:x"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
