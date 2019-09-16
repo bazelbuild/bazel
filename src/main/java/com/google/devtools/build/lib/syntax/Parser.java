@@ -288,7 +288,7 @@ final class Parser {
     List<Expression> tuple = parseExprList(insideParens);
     tuple.add(0, expression); // add the first expression to the front of the tuple
     return setLocation(
-        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
+        new ListExpression(/*isTuple=*/ true, tuple), start, Iterables.getLast(tuple));
   }
 
   private void reportError(Location location, String message) {
@@ -637,7 +637,7 @@ final class Parser {
           nextToken();
           // check for the empty tuple literal
           if (token.kind == TokenKind.RPAREN) {
-            ListLiteral tuple = new ListLiteral(ListLiteral.Kind.TUPLE, ImmutableList.of());
+            ListExpression tuple = new ListExpression(/*isTuple=*/ true, ImmutableList.of());
             setLocation(tuple, start, token.right);
             nextToken();
             return tuple;
@@ -768,7 +768,7 @@ final class Parser {
       tuple.add(parsePrimaryWithSuffix());
     }
     return setLocation(
-        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
+        new ListExpression(/*isTuple=*/ true, tuple), start, Iterables.getLast(tuple));
   }
 
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
@@ -814,7 +814,7 @@ final class Parser {
     int start = token.left;
     expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.RBRACKET) { // empty List
-      ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of());
+      ListExpression list = new ListExpression(/*isTuple=*/ false, ImmutableList.of());
       setLocation(list, start, token.right);
       nextToken();
       return list;
@@ -825,7 +825,8 @@ final class Parser {
     switch (token.kind) {
       case RBRACKET: // singleton list
         {
-          ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of(expression));
+          ListExpression list =
+              new ListExpression(/*isTuple=*/ false, ImmutableList.of(expression));
           setLocation(list, start, token.right);
           nextToken();
           return list;
@@ -844,7 +845,7 @@ final class Parser {
               token.right);
           elems.add(0, expression); // TODO(adonovan): opt: don't do this
           if (token.kind == TokenKind.RBRACKET) {
-            ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, elems);
+            ListExpression list = new ListExpression(/*isTuple=*/ false, elems);
             setLocation(list, start, token.right);
             nextToken();
             return list;

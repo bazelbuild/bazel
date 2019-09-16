@@ -207,23 +207,22 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    * A Skylark list, i.e., the value represented by {@code [1, 2, 3]}. Lists are mutable datatypes.
    */
   @SkylarkModule(
-    name = "list",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "A language built-in type to support lists. Example of list literal:<br>"
-            + "<pre class=language-python>x = [1, 2, 3]</pre>"
-            + "Accessing elements is possible using indexing (starts from <code>0</code>):<br>"
-            + "<pre class=language-python>e = x[1]   # e == 2</pre>"
-            + "Lists support the <code>+</code> operator to concatenate two lists. Example:<br>"
-            + "<pre class=language-python>x = [1, 2] + [3, 4]   # x == [1, 2, 3, 4]\n"
-            + "x = [\"a\", \"b\"]\n"
-            + "x += [\"c\"]            # x == [\"a\", \"b\", \"c\"]</pre>"
-            + "Similar to strings, lists support slice operations:"
-            + "<pre class=language-python>['a', 'b', 'c', 'd'][1:3]   # ['b', 'c']\n"
-            + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
-            + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
-            + "Lists are mutable, as in Python."
-  )
+      name = "list",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc =
+          "The built-in list type. Example list expressions:<br>"
+              + "<pre class=language-python>x = [1, 2, 3]</pre>"
+              + "Accessing elements is possible using indexing (starts from <code>0</code>):<br>"
+              + "<pre class=language-python>e = x[1]   # e == 2</pre>"
+              + "Lists support the <code>+</code> operator to concatenate two lists. Example:<br>"
+              + "<pre class=language-python>x = [1, 2] + [3, 4]   # x == [1, 2, 3, 4]\n"
+              + "x = [\"a\", \"b\"]\n"
+              + "x += [\"c\"]            # x == [\"a\", \"b\", \"c\"]</pre>"
+              + "Similar to strings, lists support slice operations:"
+              + "<pre class=language-python>['a', 'b', 'c', 'd'][1:3]   # ['b', 'c']\n"
+              + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
+              + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
+              + "Lists are mutable, as in Python.")
   public static final class MutableList<E> extends SkylarkList<E> {
 
     private final ArrayList<E> contents;
@@ -604,23 +603,22 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    * (regardless of the {@link Environment} they are created in).
    */
   @SkylarkModule(
-    name = "tuple",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "A language built-in type to support tuples. Example of tuple literal:<br>"
-            + "<pre class=language-python>x = (1, 2, 3)</pre>"
-            + "Accessing elements is possible using indexing (starts from <code>0</code>):<br>"
-            + "<pre class=language-python>e = x[1]   # e == 2</pre>"
-            + "Lists support the <code>+</code> operator to concatenate two tuples. Example:<br>"
-            + "<pre class=language-python>x = (1, 2) + (3, 4)   # x == (1, 2, 3, 4)\n"
-            + "x = (\"a\", \"b\")\n"
-            + "x += (\"c\",)            # x == (\"a\", \"b\", \"c\")</pre>"
-            + "Similar to lists, tuples support slice operations:"
-            + "<pre class=language-python>('a', 'b', 'c', 'd')[1:3]   # ('b', 'c')\n"
-            + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
-            + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
-            + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported."
-  )
+      name = "tuple",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc =
+          "The built-in tuple type. Example tuple expressions:<br>"
+              + "<pre class=language-python>x = (1, 2, 3)</pre>"
+              + "Accessing elements is possible using indexing (starts from <code>0</code>):<br>"
+              + "<pre class=language-python>e = x[1]   # e == 2</pre>"
+              + "Lists support the <code>+</code> operator to concatenate two tuples. Example:<br>"
+              + "<pre class=language-python>x = (1, 2) + (3, 4)   # x == (1, 2, 3, 4)\n"
+              + "x = (\"a\", \"b\")\n"
+              + "x += (\"c\",)            # x == (\"a\", \"b\", \"c\")</pre>"
+              + "Similar to lists, tuples support slice operations:"
+              + "<pre class=language-python>('a', 'b', 'c', 'd')[1:3]   # ('b', 'c')\n"
+              + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
+              + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
+              + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
   public static final class Tuple<E> extends SkylarkList<E> {
 
     private final ImmutableList<E> contents;

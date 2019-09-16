@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
-import com.google.devtools.build.lib.syntax.ListLiteral;
+import com.google.devtools.build.lib.syntax.ListExpression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
@@ -1850,8 +1850,8 @@ public final class PackageFactory {
           continue;
         }
         if (arg.getIdentifier() == null || arg.getIdentifier().getName().equals("include")) {
-          if (arg.getValue() instanceof ListLiteral) {
-            ListLiteral list = (ListLiteral) arg.getValue();
+          if (arg.getValue() instanceof ListExpression) {
+            ListExpression list = (ListExpression) arg.getValue();
             for (Expression elem : list.getElements()) {
               if (elem instanceof StringLiteral) {
                 globStrings.add(((StringLiteral) elem).getValue());

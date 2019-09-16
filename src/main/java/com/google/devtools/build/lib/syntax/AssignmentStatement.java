@@ -19,7 +19,7 @@ import java.io.IOException;
 /** Syntax node for an assignment statement. */
 public final class AssignmentStatement extends Statement {
 
-  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_LITERAL
+  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_EXPR
   private final Expression rhs;
 
   /**

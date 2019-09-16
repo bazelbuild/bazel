@@ -164,8 +164,8 @@ public final class ValidationEnvironment extends NodeVisitor {
       // no-op
     } else if (lhs instanceof IndexExpression) {
       visit(lhs);
-    } else if (lhs instanceof ListLiteral) {
-      for (Expression elem : ((ListLiteral) lhs).getElements()) {
+    } else if (lhs instanceof ListExpression) {
+      for (Expression elem : ((ListExpression) lhs).getElements()) {
         assign(elem);
       }
     } else {
@@ -309,7 +309,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   @Override
   public void visit(AugmentedAssignmentStatement node) {
-    if (node.getLHS() instanceof ListLiteral) {
+    if (node.getLHS() instanceof ListExpression) {
       throw new ValidationException(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }

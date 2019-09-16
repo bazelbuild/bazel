@@ -97,7 +97,7 @@ public class NodeVisitor {
     }
   }
 
-  public void visit(ListLiteral node) {
+  public void visit(ListExpression node) {
     visitAll(node.getElements());
   }
 
