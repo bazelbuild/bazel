@@ -1066,6 +1066,30 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
+  @Test
+  public void testFileArtifactValueRetainsData() throws Exception {
+    Artifact artifact = derivedArtifact("foo/fooy.txt");
+    Artifact strictArtifact = derivedArtifact("goo/gooy.txt");
+    createFile(rootedPath(artifact), "fooy");
+    createFile(rootedPath(strictArtifact), "gooy");
+    TraversalRequest request = fileLikeRoot(artifact, DONT_CROSS, false);
+    TraversalRequest strictRequest = fileLikeRoot(strictArtifact, DONT_CROSS, true);
+
+    EvaluationResult<RecursiveFilesystemTraversalValue> result = eval(request);
+    EvaluationResult<RecursiveFilesystemTraversalValue> strictResult = eval(strictRequest);
+
+    assertThat(result.values()).hasSize(1);
+    assertThat(strictResult.values()).hasSize(1);
+
+    RecursiveFilesystemTraversalValue value = result.values().iterator().next();
+    RecursiveFilesystemTraversalValue strictValue = strictResult.values().iterator().next();
+    ResolvedFile resolvedFile = value.getResolvedRoot().get();
+    ResolvedFile strictResolvedFile = strictValue.getResolvedRoot().get();
+
+    assertThat(resolvedFile.getMetadata()).isInstanceOf(FileArtifactValue.class);
+    assertThat(strictResolvedFile.getMetadata()).isInstanceOf(FileArtifactValue.class);
+  }
+
   private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<SkyKey> {
     private NonHermeticArtifactSkyKey(SkyKey arg) {
       super(arg);
