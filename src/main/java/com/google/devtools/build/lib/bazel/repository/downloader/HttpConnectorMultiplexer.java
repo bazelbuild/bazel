@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -313,21 +314,29 @@ final class HttpConnectorMultiplexer {
   private HttpStream establishConnection(
       final URL url, Optional<Checksum> checksum, Map<URI, Map<String, String>> additionalHeaders)
       throws IOException {
-    ImmutableMap<String, String> headers = REQUEST_HEADERS;
-    try {
-      if (additionalHeaders.containsKey(url.toURI())) {
-        headers =
-            ImmutableMap.<String, String>builder()
-                .putAll(headers)
-                .putAll(additionalHeaders.get(url.toURI()))
-                .build();
-      }
-    } catch (URISyntaxException e) {
-      // If we can't convert the URL to a URI (because it is syntactically malformed), still try to
-      // do the connection, not adding authentication information as we cannot look it up.
-    }
-    final URLConnection connection = connector.connect(url, headers);
-    final Map<String, String> allHeaders = headers;
+    final Function<URL, ImmutableMap<String, String>> headerFunction =
+        new Function<URL, ImmutableMap<String, String>>() {
+          @Override
+          public ImmutableMap<String, String> apply(URL url) {
+            ImmutableMap<String, String> headers = REQUEST_HEADERS;
+            try {
+              if (additionalHeaders.containsKey(url.toURI())) {
+                headers =
+                    ImmutableMap.<String, String>builder()
+                        .putAll(headers)
+                        .putAll(additionalHeaders.get(url.toURI()))
+                        .build();
+              }
+            } catch (URISyntaxException e) {
+              // If we can't convert the URL to a URI (because it is syntactically malformed), still
+              // try to
+              // do the connection, not adding authentication information as we cannot look it up.
+            }
+            return headers;
+          }
+        };
+
+    final URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
         url,
@@ -340,10 +349,15 @@ final class HttpConnectorMultiplexer {
                 Event.progress(String.format("Lost connection for %s due to %s", url, cause)));
             return connector.connect(
                 connection.getURL(),
-                new ImmutableMap.Builder<String, String>()
-                    .putAll(allHeaders)
-                    .putAll(extraHeaders)
-                    .build());
+                new Function<URL, ImmutableMap<String, String>>() {
+                  @Override
+                  public ImmutableMap<String, String> apply(URL url) {
+                    return new ImmutableMap.Builder<String, String>()
+                        .putAll(headerFunction.apply(url))
+                        .putAll(extraHeaders)
+                        .build();
+                  }
+                });
           }
         });
   }
