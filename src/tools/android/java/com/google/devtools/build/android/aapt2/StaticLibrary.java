@@ -52,11 +52,6 @@ public class StaticLibrary {
     return of(library, Optional.of(rTxt), Optional.empty(), Optional.empty());
   }
 
-  private static StaticLibrary of(
-      Path library, Optional<Path> rTxt, Optional<List<Path>> assets, Optional<Path> sourceJar) {
-    return new StaticLibrary(library, rTxt, assets, sourceJar);
-  }
-
   public static StaticLibrary from(Path library, Path rTxt, ImmutableList<Path> assetDirs) {
     return of(library, Optional.ofNullable(rTxt), Optional.ofNullable(assetDirs), Optional.empty());
   }
@@ -68,6 +63,11 @@ public class StaticLibrary {
         Optional.ofNullable(rTxt),
         Optional.ofNullable(assetDirs),
         Optional.ofNullable(sourceJar));
+  }
+
+  private static StaticLibrary of(
+      Path library, Optional<Path> rTxt, Optional<List<Path>> assets, Optional<Path> sourceJar) {
+    return new StaticLibrary(library, rTxt, assets, sourceJar);
   }
 
   public static Collection<String> toPathStrings(List<StaticLibrary> libraries) {

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
@@ -638,7 +639,23 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public List<PathFragment> getQuoteIncludeDirs() {
-    return ccCompilationContext.getQuoteIncludeDirs();
+    ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
+    result.addAll(ccCompilationContext.getQuoteIncludeDirs());
+    ImmutableList<String> copts = compileCommandLine.getCopts();
+    for (int i = 0; i < copts.size(); i++) {
+      String opt = copts.get(i);
+      if (opt.startsWith("-iquote")) {
+        if (opt.length() > 7) {
+          result.add(PathFragment.create(opt.substring(7).trim()));
+        } else if (i + 1 < copts.size()) {
+          i++;
+          result.add(PathFragment.create(copts.get(i)));
+        } else {
+          System.err.println("WARNING: dangling -iquote flag in options for " + prettyPrint());
+        }
+      }
+    }
+    return result.build();
   }
 
   @Override
@@ -652,6 +669,11 @@ public class CppCompileAction extends AbstractAction
       }
     }
     return result.build();
+  }
+
+  @Override
+  public ImmutableList<PathFragment> getFrameworkIncludeDirs() {
+    return ccCompilationContext.getFrameworkIncludeDirs();
   }
 
   @VisibleForTesting
@@ -919,13 +941,11 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
-    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
-    //   CcCommon.getIncludeDirsFromIncludesAttribute().
     // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
     //   to use an absolute system root, in which case the builtin include dirs might be absolute.
 
     Iterable<PathFragment> includePathsToVerify =
-        Iterables.concat(getIncludeDirs(), systemIncludeDirs);
+        Iterables.concat(getIncludeDirs(), getQuoteIncludeDirs(), systemIncludeDirs);
     for (PathFragment includePath : includePathsToVerify) {
       // includePathsToVerify contains all paths that are added as -isystem directive on the command
       // line, most of which are added for include directives in the CcCompilationContext and are
@@ -1259,13 +1279,16 @@ public class CppCompileAction extends AbstractAction
       clearAdditionalInputs();
     }
 
+    SpawnContinuation spawnContinuation =
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, spawnContext);
     return new CppCompileActionContinuation(
-            actionExecutionContext,
-            spawnContext,
-            showIncludesFilterForStdout,
-            showIncludesFilterForStderr,
-            SpawnContinuation.ofBeginExecution(spawn, spawnContext))
-        .execute();
+        actionExecutionContext,
+        spawnContext,
+        showIncludesFilterForStdout,
+        showIncludesFilterForStderr,
+        spawnContinuation);
   }
 
   protected byte[] getDotDContents(SpawnResult spawnResult) throws EnvironmentalExecException {

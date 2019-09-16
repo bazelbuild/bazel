@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,8 +72,8 @@ public final class StringModule {
 
   // Emulate Python substring function
   // It converts out of range indices, and never fails
-  private static String pythonSubstring(String str, int start, Object end, String msg)
-      throws ConversionException {
+  private static String pythonSubstring(String str, int start, Object end, String what)
+      throws EvalException {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
@@ -82,8 +81,11 @@ public final class StringModule {
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
+    } else if (end instanceof Integer) {
+      stop = EvalUtils.clampRangeEndpoint((Integer) end, str.length());
     } else {
-      stop = EvalUtils.clampRangeEndpoint(Type.INTEGER.convert(end, msg), str.length());
+      throw new EvalException(
+          null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
     }
     if (start >= stop) {
       return "";
@@ -110,7 +112,7 @@ public final class StringModule {
       useLocation = true,
       useEnvironment = true)
   public String join(String self, Object elements, Location loc, Environment env)
-      throws ConversionException, EvalException {
+      throws EvalException {
     Collection<?> items = EvalUtils.toCollection(elements, loc, env);
     if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
       for (Object item : items) {
@@ -586,11 +588,12 @@ public final class StringModule {
 
   /**
    * Common implementation for find, rfind, index, rindex.
+   *
    * @param forward true if we want to return the last matching index.
    */
-  private static int stringFind(boolean forward,
-      String self, String sub, int start, Object end, String msg)
-      throws ConversionException {
+  private static int stringFind(
+      boolean forward, String self, String sub, int start, Object end, String msg)
+      throws EvalException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
     start = EvalUtils.clampRangeEndpoint(start, self.length());
@@ -630,8 +633,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rfind(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer rfind(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(false, self, sub, start, end, "'end' argument to rfind");
   }
 
@@ -665,8 +667,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer invoke(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer invoke(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end, "'end' argument to find");
   }
 
@@ -943,8 +944,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer count(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer count(String self, String sub, Integer start, Object end) throws EvalException {
     String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
     if (sub.isEmpty()) {
       return str.length() + 1;
@@ -965,7 +965,7 @@ public final class StringModule {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", type = String.class, doc = "This string.")})
-  public SkylarkList<String> elems(String self) throws ConversionException {
+  public SkylarkList<String> elems(String self) throws EvalException {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : self.toCharArray()) {
       builder.add(String.valueOf(c));

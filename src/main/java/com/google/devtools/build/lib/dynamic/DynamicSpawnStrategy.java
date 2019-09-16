@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -393,15 +394,32 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
         && Spawns.supportsWorkers(spawn));
   }
 
+  private static StopConcurrentSpawns lockOutputFiles(
+      Class<? extends SpawnActionContext> token,
+      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier) {
+    if (outputWriteBarrier == null) {
+      return null;
+    } else {
+      return () -> {
+        if (outputWriteBarrier.get() != token && !outputWriteBarrier.compareAndSet(null, token)) {
+          throw new InterruptedException();
+        }
+      };
+    }
+  }
+
   private List<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
+      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
       throws ExecException, InterruptedException {
     for (SandboxedSpawnActionContext strategy :
         getValidStrategies(localStrategiesByMnemonic, spawn)) {
       if (!strategy.toString().contains("worker") || supportsWorkers(spawn)) {
-        return strategy.exec(spawn, actionExecutionContext, outputWriteBarrier);
+        return strategy.exec(
+            spawn,
+            actionExecutionContext,
+            lockOutputFiles(strategy.getClass(), outputWriteBarrier));
       }
     }
     throw new RuntimeException(
@@ -411,11 +429,12 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
   private List<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
+      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
       throws ExecException, InterruptedException {
     for (SandboxedSpawnActionContext strategy :
         getValidStrategies(remoteStrategiesByMnemonic, spawn)) {
-      return strategy.exec(spawn, actionExecutionContext, outputWriteBarrier);
+      return strategy.exec(
+          spawn, actionExecutionContext, lockOutputFiles(strategy.getClass(), outputWriteBarrier));
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_remote_strategy set");

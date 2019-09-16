@@ -347,14 +347,13 @@ string GetEmbeddedBinariesRoot(const string &install_base) {
 }
 
 // Returns the JVM command argument array.
-static vector<string> GetServerExeArgs(
-    const string &jvm_path,
-    const string &server_jar_path,
-    const vector<string> &archive_contents,
-    const string &install_md5,
-    const WorkspaceLayout &workspace_layout,
-    const string &workspace,
-    const StartupOptions &startup_options) {
+static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
+                                       const string &server_jar_path,
+                                       const vector<string> &archive_contents,
+                                       const string &install_md5,
+                                       const WorkspaceLayout &workspace_layout,
+                                       const string &workspace,
+                                       const StartupOptions &startup_options) {
   vector<string> result;
 
   // e.g. A Blaze server process running in ~/src/build_root (where there's a
@@ -362,15 +361,15 @@ static vector<string> GetServerExeArgs(
   result.push_back(
       startup_options.GetLowercaseProductName() +
       "(" + workspace_layout.GetPrettyWorkspaceName(workspace) + ")");
-  startup_options.AddJVMArgumentPrefix(
-      blaze_util::Dirname(blaze_util::Dirname(jvm_path)), &result);
+  startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
+                                       &result);
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   result.push_back("-XX:HeapDumpPath=" +
                    startup_options.output_base.AsJvmArgument());
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!startup_options.GetEmbeddedJavabase().empty()) {
+  if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
     // quiet warnings from com.google.protobuf.UnsafeUtil,
     // see: https://github.com/google/protobuf/issues/3781
     result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
@@ -399,14 +398,14 @@ static vector<string> GetServerExeArgs(
   set<string> java_library_paths;
   std::stringstream java_library_path;
   java_library_path << "-Djava.library.path=";
-  string real_install_dir =
-      GetEmbeddedBinariesRoot(startup_options.install_base);
+  blaze_util::Path real_install_dir =
+      blaze_util::Path(GetEmbeddedBinariesRoot(startup_options.install_base));
 
   bool first = true;
   for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
-      string libpath(blaze_util::PathAsJvmFlag(
-          blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it))));
+      string libpath(real_install_dir.GetRelative(blaze_util::Dirname(it))
+                         .AsJvmArgument());
       // Only add the library path if it's not added yet.
       if (java_library_paths.find(libpath) == java_library_paths.end()) {
         java_library_paths.insert(libpath);
@@ -537,9 +536,10 @@ static vector<string> GetServerExeArgs(
   // These flags are passed to the java process only for Blaze reporting
   // purposes; the real interpretation of the jvm flags occurs when we set up
   // the java command line.
-  if (!startup_options.GetExplicitServerJavabase().empty()) {
-    result.push_back("--server_javabase=" +
-                     startup_options.GetExplicitServerJavabase());
+  if (!startup_options.GetExplicitServerJavabase().IsEmpty()) {
+    result.push_back(
+        "--server_javabase=" +
+        startup_options.GetExplicitServerJavabase().AsCommandLineArgument());
   }
   if (startup_options.host_jvm_debug) {
     result.push_back("--host_jvm_debug");
@@ -913,6 +913,8 @@ static void StartServerAndConnect(
 }
 
 static void MoveFiles(const string &embedded_binaries) {
+  blaze_util::Path embedded_binaries_(embedded_binaries);
+
   // Set the timestamps of the extracted files to the future and make sure (or
   // at least as sure as we can...) that the files we have written are actually
   // on the disk.
@@ -923,9 +925,9 @@ static void MoveFiles(const string &embedded_binaries) {
   blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
 
   std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
-  set<string> synced_directories;
-  for (const auto &it : extracted_files) {
-    const char *extracted_path = it.c_str();
+  set<blaze_util::Path> synced_directories;
+  for (const auto &f : extracted_files) {
+    blaze_util::Path it(f);
 
     // Set the time to a distantly futuristic value so we can observe tampering.
     // Note that keeping a static, deterministic timestamp, such as the default
@@ -935,14 +937,15 @@ static void MoveFiles(const string &embedded_binaries) {
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
     if (!mtime->SetToDistantFuture(it)) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << extracted_path
-          << "': " << GetLastErrorString();
+          << "failed to set timestamp on '" << it.AsPrintablePath()
+          << "': " << err;
     }
 
     blaze_util::SyncFile(it);
 
-    string directory = blaze_util::Dirname(extracted_path);
+    blaze_util::Path directory = it.GetParent();
 
     // Now walk up until embedded_binaries and sync every directory in between.
     // synced_directories is used to avoid syncing the same directory twice.
@@ -950,16 +953,16 @@ static void MoveFiles(const string &embedded_binaries) {
     // conditions are not strictly needed, but it makes this loop more robust,
     // because otherwise, if due to some glitch, directory was not under
     // embedded_binaries, it would get into an infinite loop.
-    while (directory != embedded_binaries &&
-           synced_directories.count(directory) == 0 && !directory.empty() &&
+    while (directory != embedded_binaries_ &&
+           synced_directories.count(directory) == 0 && !directory.IsEmpty() &&
            !blaze_util::IsRootDirectory(directory)) {
       blaze_util::SyncFile(directory);
       synced_directories.insert(directory);
-      directory = blaze_util::Dirname(directory);
+      directory = directory.GetParent();
     }
   }
 
-  blaze_util::SyncFile(embedded_binaries);
+  blaze_util::SyncFile(embedded_binaries_);
 }
 
 
@@ -980,8 +983,7 @@ static DurationMillis ExtractData(const string &self_path,
     // Work in a temp dir to avoid races.
     string tmp_install = startup_options.install_base + ".tmp." +
                          blaze::GetProcessIdAsString();
-    string tmp_binaries =
-        blaze_util::JoinPath(tmp_install, "_embedded_binaries");
+    string tmp_binaries = GetEmbeddedBinariesRoot(tmp_install);
     ExtractArchiveOrDie(
         self_path,
         startup_options.product_name,
@@ -1030,13 +1032,14 @@ static DurationMillis ExtractData(const string &self_path,
 
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    string real_install_dir = blaze_util::JoinPath(
-        startup_options.install_base, "_embedded_binaries");
+    blaze_util::Path real_install_dir =
+        blaze_util::Path(startup_options.install_base)
+            .GetRelative("_embedded_binaries");
     for (const auto &it : archive_contents) {
-      string path = blaze_util::JoinPath(real_install_dir, it);
+      blaze_util::Path path = real_install_dir.GetRelative(it);
       if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: file '" << path
+            << "corrupt installation: file '" << path.AsPrintablePath()
             << "' is missing or modified.  Please remove '"
             << startup_options.install_base << "' and try again.";
       }
@@ -1202,10 +1205,11 @@ static void EnsureCorrectRunningVersion(
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime->SetToNow(startup_options.install_base)) {
+    if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
+      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << startup_options.install_base
-          << "': " << GetLastErrorString();
+          << "': " << err;
     }
   }
 }
@@ -1233,7 +1237,8 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // Check for the case when the workspace directory deleted and then gets
     // recreated while the server is running
 
-    string server_cwd = GetProcessCWD(server->ProcessInfo().server_pid_);
+    blaze_util::Path server_cwd =
+        GetProcessCWD(server->ProcessInfo().server_pid_);
     // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
@@ -1245,14 +1250,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // cases, it's better to assume that everything is alright if we can't get
     // the cwd.
 
-    if (!server_cwd.empty() &&
-        (server_cwd != workspace ||                         // changed
-         server_cwd.find(" (deleted)") != string::npos)) {  // deleted.
+    if (!server_cwd.IsEmpty() &&
+        (server_cwd != blaze_util::Path(workspace) ||  // changed
+         server_cwd.Contains(" (deleted)"))) {         // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
-      BAZEL_LOG(INFO) << "Server's cwd moved or deleted (" << server_cwd
-                      << ").";
+      BAZEL_LOG(INFO) << "Server's cwd moved or deleted ("
+                      << server_cwd.AsPrintablePath() << ").";
       server->KillRunningServer();
     } else {
       break;
@@ -1513,7 +1518,7 @@ static void RunLauncher(const string &self_path,
 
   EnsureCorrectRunningVersion(startup_options, logging_info, blaze_server);
 
-  const string jvm_path = startup_options.GetJvm();
+  const blaze_util::Path jvm_path = startup_options.GetJvm();
   const string server_jar_path = GetServerJarPath(archive_contents);
   const vector<string> server_exe_args = GetServerExeArgs(
       jvm_path,

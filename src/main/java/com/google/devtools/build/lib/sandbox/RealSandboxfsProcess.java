@@ -232,8 +232,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   // TODO(jmmv): This is adapted from Worker.java. Should probably replace both with a new variant
   // of Uninterruptibles.callUninterruptibly that takes a lambda instead of a callable.
   private static void destroyProcess(Subprocess process) {
-    process.destroy();
-    SandboxHelpers.waitForProcess(process);
+    process.destroyAndWait();
   }
 
   @Override

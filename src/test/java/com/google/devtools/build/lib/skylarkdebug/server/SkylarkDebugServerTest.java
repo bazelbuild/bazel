@@ -38,8 +38,8 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Sta
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.DebugServerUtils;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -105,7 +105,7 @@ public class SkylarkDebugServerTest {
 
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();
-    DebugServerUtils.initializeDebugServer(server);
+    EvalUtils.setDebugger(server);
   }
 
   @After
@@ -516,9 +516,7 @@ public class SkylarkDebugServerTest {
                         .build())
                 .build());
     assertThat(response.getEvaluate().getResult())
-        .isEqualTo(
-            getValueProto(
-                "Evaluation result", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+        .isEqualTo(getValueProto("Evaluation result", Runtime.NONE));
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
@@ -769,14 +767,11 @@ public class SkylarkDebugServerTest {
     Path file = scratch.file(path, lines);
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
     ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseBuildFile(inputSource, events.reporter());
+    return BuildFileAST.parse(inputSource, events.reporter());
   }
 
   private BuildFileAST parseSkylarkFile(String path, String... lines) throws IOException {
-    Path file = scratch.file(path, lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseSkylarkFile(inputSource, events.reporter());
+    return parseBuildFile(path, lines); // TODO(adonovan): combine these functions
   }
 
   /**

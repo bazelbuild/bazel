@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -34,6 +33,7 @@ import javax.annotation.Nullable;
  * is visible in the entire file; a variable in a function is visible in the entire function block
  * (even on the lines before its first assignment).
  */
+// TODO(adonovan): make this class private. Call it through the EvalUtils facade.
 public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   enum Scope {
@@ -50,7 +50,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       this.qualifier = qualifier;
     }
 
-    public String getQualifier() {
+    String getQualifier() {
       return qualifier;
     }
   }
@@ -134,7 +134,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         collectDefinitions(forStmt.getBlock());
         break;
       case FUNCTION_DEF:
-        Identifier fctName = ((FunctionDefStatement) stmt).getIdentifier();
+        Identifier fctName = ((DefStatement) stmt).getIdentifier();
         declare(fctName.getName(), fctName.getLocation());
         break;
       case LOAD:
@@ -151,7 +151,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   private void collectDefinitions(Expression lhs) {
-    for (Identifier id : boundIdentifiers(lhs)) {
+    for (Identifier id : Identifier.boundIdentifiers(lhs)) {
       declare(id.getName(), id.getLocation());
     }
   }
@@ -205,12 +205,26 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(ForStatement node) {
+    if (block.scope != Scope.Local) {
+      throw new ValidationException(
+          node.getLocation(),
+          "for loops are not allowed at the top level. You may move it inside a function "
+              + "or use a comprehension, [f(x) for x in sequence]");
+    }
     loopCount++;
     visit(node.getCollection());
     assign(node.getLHS());
     visitBlock(node.getBlock());
     Preconditions.checkState(loopCount > 0);
     loopCount--;
+  }
+
+  @Override
+  public void visit(LoadStatement node) {
+    if (block.scope == Scope.Local) {
+      throw new ValidationException(node.getLocation(), "load statement not at top level");
+    }
+    super.visit(node);
   }
 
   @Override
@@ -230,26 +244,36 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(AbstractComprehension node) {
+  public void visit(Comprehension node) {
     openBlock(Scope.Local);
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      if (clause.getLHS() != null) {
-        collectDefinitions(clause.getLHS());
+    for (Comprehension.Clause clause : node.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        Comprehension.For forClause = (Comprehension.For) clause;
+        collectDefinitions(forClause.getVars());
       }
     }
     // TODO(adonovan): opt: combine loops
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      visit(clause.getExpression());
-      if (clause.getLHS() != null) {
-        assign(clause.getLHS());
+    for (Comprehension.Clause clause : node.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        Comprehension.For forClause = (Comprehension.For) clause;
+        visit(forClause.getIterable());
+        assign(forClause.getVars());
+      } else {
+        Comprehension.If ifClause = (Comprehension.If) clause;
+        visit(ifClause.getCondition());
       }
     }
-    visitAll(node.getOutputExpressions());
+    visit(node.getBody());
     closeBlock();
   }
 
   @Override
-  public void visit(FunctionDefStatement node) {
+  public void visit(DefStatement node) {
+    if (block.scope == Scope.Local) {
+      throw new ValidationException(
+          node.getLocation(),
+          "nested functions are not allowed. Move the function to the top level.");
+    }
     for (Parameter<Expression, Expression> param : node.getParameters()) {
       if (param.isOptional()) {
         visit(param.getDefaultValue());
@@ -356,8 +380,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  /** Validates the AST and runs static checks. */
-  private void validateAst(List<Statement> statements) {
+  private void validateToplevelStatements(List<Statement> statements) {
     // Check that load() statements are on top.
     if (!isBuildFile && env.getSemantics().incompatibleBzlDisallowLoadAfterStatement()) {
       checkLoadAfterStatement(statements);
@@ -374,10 +397,13 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     closeBlock();
   }
 
-  public static void validateAst(Environment env, List<Statement> statements) throws EvalException {
+  // Public entry point, throwing variant.
+  // TODO(adonovan): combine with variant below.
+  public static void validateFile(BuildFileAST file, Environment env, boolean isBuildFile)
+      throws EvalException {
     try {
-      ValidationEnvironment venv = new ValidationEnvironment(env, false);
-      venv.validateAst(statements);
+      ValidationEnvironment venv = new ValidationEnvironment(env, isBuildFile);
+      venv.validateToplevelStatements(file.getStatements());
       // Check that no closeBlock was forgotten.
       Preconditions.checkState(venv.block.parent == null);
     } catch (ValidationException e) {
@@ -385,10 +411,11 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
-  public static boolean validateAst(
-      Environment env, List<Statement> statements, EventHandler eventHandler) {
+  // Public entry point, error handling variant.
+  public static boolean validateFile(
+      BuildFileAST file, Environment env, boolean isBuildFile, EventHandler eventHandler) {
     try {
-      validateAst(env, statements);
+      validateFile(file, env, isBuildFile);
       return true;
     } catch (EvalException e) {
       if (!e.isDueToIncompleteAST()) {
@@ -408,116 +435,4 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     block = Preconditions.checkNotNull(block.parent);
   }
 
-  /**
-   * Checks that the AST is using the restricted syntax.
-   *
-   * <p>Restricted syntax is used by Bazel BUILD files. It forbids function definitions, *args, and
-   * **kwargs. This creates a better separation between code and data.
-   */
-  public static boolean checkBuildSyntax(
-      List<Statement> statements, final EventHandler eventHandler, Environment env) {
-    // Wrap the boolean inside an array so that the inner class can modify it.
-    final boolean[] success = new boolean[] {true};
-
-    ValidationEnvironment venv = new ValidationEnvironment(env, true);
-    try {
-      venv.validateAst(statements);
-    } catch (ValidationException e) {
-      eventHandler.handle(Event.error(e.exception.getLocation(), e.exception.getMessage()));
-      return false;
-    }
-
-    // TODO(laurentlb): Merge with the visitor above when possible (i.e. when BUILD files use it).
-    SyntaxTreeVisitor checker =
-        new SyntaxTreeVisitor() {
-
-          private void error(ASTNode node, String message) {
-            eventHandler.handle(Event.error(node.getLocation(), message));
-            success[0] = false;
-          }
-
-          @Override
-          public void visit(FunctionDefStatement node) {
-            error(
-                node,
-                "function definitions are not allowed in BUILD files. You may move the function to "
-                    + "a .bzl file and load it.");
-          }
-
-          @Override
-          public void visit(ForStatement node) {
-            error(
-                node,
-                "for statements are not allowed in BUILD files. You may inline the loop, move it "
-                    + "to a function definition (in a .bzl file), or as a last resort use a list "
-                    + "comprehension.");
-          }
-
-          @Override
-          public void visit(IfStatement node) {
-            error(
-                node,
-                "if statements are not allowed in BUILD files. You may move conditional logic to a "
-                    + "function definition (in a .bzl file), or for simple cases use an if "
-                    + "expression.");
-          }
-
-          @Override
-          public void visit(FuncallExpression node) {
-            for (Argument.Passed arg : node.getArguments()) {
-              if (arg.isStarStar()) {
-                error(
-                    node,
-                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              } else if (arg.isStar()) {
-                error(
-                    node,
-                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              }
-            }
-            super.visit(node);
-          }
-        };
-    checker.visitAll(statements);
-    return success[0];
-  }
-
-  /**
-   * Returns all names bound by an LHS expression.
-   *
-   * <p>Examples:
-   *
-   * <ul>
-   *   <li><{@code x = ...} binds x.
-   *   <li><{@code x, [y,z] = ..} binds x, y, z.
-   *   <li><{@code x[5] = ..} does not bind any names.
-   * </ul>
-   */
-  // TODO(adonovan): make this private after weaning Skyframe off it.
-  public static ImmutableSet<Identifier> boundIdentifiers(Expression expr) {
-    if (expr instanceof Identifier) {
-      // Common case/fast path - skip the builder.
-      return ImmutableSet.of((Identifier) expr);
-    } else {
-      ImmutableSet.Builder<Identifier> result = ImmutableSet.builder();
-      collectBoundIdentifiers(expr, result);
-      return result.build();
-    }
-  }
-
-  private static void collectBoundIdentifiers(
-      Expression lhs, ImmutableSet.Builder<Identifier> result) {
-    if (lhs instanceof Identifier) {
-      result.add((Identifier) lhs);
-      return;
-    }
-    if (lhs instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lhs;
-      for (Expression expression : variables.getElements()) {
-        collectBoundIdentifiers(expression, result);
-      }
-    }
-  }
 }

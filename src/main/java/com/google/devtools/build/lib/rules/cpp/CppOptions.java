@@ -766,7 +766,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_remove_legacy_whole_archive",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

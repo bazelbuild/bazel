@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
@@ -23,12 +23,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
@@ -206,7 +203,7 @@ public class TypeTest {
         .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
     assertThat(BuildType.LABEL.convert("wiz", null, currentRule))
         .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
-    assertThrows(ConversionException.class, () -> BuildType.LABEL.convert("wiz", null));
+    assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert("wiz", null));
   }
 
   @Test
@@ -395,9 +392,9 @@ public class TypeTest {
 
   @Test
   public void testStringDictThrowsConversionException() throws Exception {
-    ConversionException e =
+    Type.ConversionException e =
         assertThrows(
-            ConversionException.class, () -> Type.STRING_DICT.convert("some string", null));
+            Type.ConversionException.class, () -> Type.STRING_DICT.convert("some string", null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(

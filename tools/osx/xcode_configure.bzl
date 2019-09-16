@@ -117,6 +117,8 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         "env",
         "-i",
         "xcrun",
+        "--sdk",
+        "macosx",
         "clang",
         "-fobjc-arc",
         "-framework",

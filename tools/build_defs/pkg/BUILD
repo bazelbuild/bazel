@@ -320,3 +320,9 @@ test_suite(
     tests = [":windows_tests"],
     visibility = ["//tools/build_defs:__pkg__"],
 )
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools/build_defs:__pkg__"],
+)

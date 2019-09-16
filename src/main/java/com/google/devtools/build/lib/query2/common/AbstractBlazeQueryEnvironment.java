@@ -87,8 +87,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   private static DependencyFilter constructDependencyFilter(
       Set<Setting> settings) {
     DependencyFilter specifiedFilter =
-        settings.contains(Setting.NO_HOST_DEPS)
-            ? DependencyFilter.NO_HOST_DEPS
+        settings.contains(Setting.ONLY_TARGET_DEPS)
+            ? DependencyFilter.ONLY_TARGET_DEPS
             : DependencyFilter.ALL_DEPS;
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
       specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_IMPLICIT_DEPS);

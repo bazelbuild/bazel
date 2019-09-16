@@ -32,7 +32,7 @@ public class LastBuildEventTest {
 
   @Test
   public void testForwardsReferencedLocalFilesCall() {
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
     LocalFile localFile = new LocalFile(fs.getPath("/some/file"), LocalFileType.FAILED_TEST_OUTPUT);
     LastBuildEvent event = new LastBuildEvent(new BuildEvent() {
       @Override

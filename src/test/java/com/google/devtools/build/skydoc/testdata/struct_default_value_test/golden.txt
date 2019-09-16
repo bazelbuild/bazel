@@ -5,7 +5,8 @@
 ## check_struct_default_values
 
 <pre>
-check_struct_default_values(<a href="#check_struct_default_values-struct_no_args">struct_no_args</a>, <a href="#check_struct_default_values-struct_arg">struct_arg</a>, <a href="#check_struct_default_values-struct_args">struct_args</a>, <a href="#check_struct_default_values-struct_int_args">struct_int_args</a>, <a href="#check_struct_default_values-struct_struct_args">struct_struct_args</a>)
+check_struct_default_values(<a href="#check_struct_default_values-struct_no_args">struct_no_args</a>, <a href="#check_struct_default_values-struct_arg">struct_arg</a>, <a href="#check_struct_default_values-struct_args">struct_args</a>, <a href="#check_struct_default_values-struct_int_args">struct_int_args</a>,
+                            <a href="#check_struct_default_values-struct_struct_args">struct_struct_args</a>)
 </pre>
 
 Checks the default values of structs.

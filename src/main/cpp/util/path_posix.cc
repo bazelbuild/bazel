@@ -56,6 +56,10 @@ bool IsRootDirectory(const std::string &path) {
   return path.size() == 1 && path[0] == '/';
 }
 
+bool IsRootDirectory(const Path &path) {
+  return IsRootDirectory(path.AsNativePath());
+}
+
 bool IsAbsolute(const std::string &path) {
   return !path.empty() && path[0] == '/';
 }
@@ -143,11 +147,17 @@ bool Path::Contains(const char c) const {
   return path_.find_first_of(c) != std::string::npos;
 }
 
+bool Path::Contains(const std::string &s) const {
+  return path_.find(s) != std::string::npos;
+}
+
 Path Path::GetRelative(const std::string &r) const {
   return Path(JoinPath(path_, r));
 }
 
 Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+
+Path Path::GetParent() const { return Path(SplitPath(path_).first); }
 
 std::string Path::AsPrintablePath() const { return path_; }
 

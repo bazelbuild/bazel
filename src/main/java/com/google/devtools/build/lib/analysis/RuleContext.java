@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -90,12 +89,13 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -124,6 +124,10 @@ import javax.annotation.Nullable;
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+
+  public boolean isAllowTagsPropagation() throws InterruptedException {
+    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+  }
 
   /**
    * The configured version of FilesetEntry.
@@ -1603,7 +1607,9 @@ public final class RuleContext extends TargetContext
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
-        reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
+        reporter =
+            new ErrorReporter(
+                env, target.getAssociatedRule(), configuration, getRuleClassNameForLogging());
       }
     }
 
@@ -2120,10 +2126,16 @@ public final class RuleContext extends TargetContext
   private static final class ErrorReporter extends EventHandlingErrorReporter
       implements RuleErrorConsumer {
     private final Rule rule;
+    private final BuildConfiguration configuration;
 
-    ErrorReporter(AnalysisEnvironment env, Rule rule, String ruleClassNameForLogging) {
+    ErrorReporter(
+        AnalysisEnvironment env,
+        Rule rule,
+        BuildConfiguration configuration,
+        String ruleClassNameForLogging) {
       super(ruleClassNameForLogging, env);
       this.rule = rule;
+      this.configuration = configuration;
     }
 
     @Override
@@ -2143,6 +2155,11 @@ public final class RuleContext extends TargetContext
     @Override
     protected Label getLabel() {
       return rule.getLabel();
+    }
+
+    @Override
+    protected BuildConfiguration getConfiguration() {
+      return configuration;
     }
 
     @Override

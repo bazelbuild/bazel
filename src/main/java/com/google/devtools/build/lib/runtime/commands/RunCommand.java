@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -65,7 +66,6 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -135,7 +135,7 @@ public class RunCommand implements BlazeCommand  {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "On Windows: if true, the \"run\" command runs the binary directly instead of running "
                 + "through Bash; when false, then the binary is ran through Bash. On other "
@@ -148,8 +148,8 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting
   public static final String SINGLE_TARGET_MESSAGE =
-      "Only a single target can be run. "
-          + "Do not use wildcards that match more than one target";
+      "Only a single target can be run. Do not use target patterns that expand to more than one "
+          + "target, or a test_suite that expands to more than one test";
 
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";

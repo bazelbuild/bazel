@@ -127,11 +127,20 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
+    List<JavaSourceInfoProvider> sourceInfos =
+        JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
       Runfiles runfiles = javaRunfilesProvider.getRunfiles();
       mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
+    }
+
+    ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
+    ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
+    for (JavaInfo javaInfo : providers) {
+      runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
+      javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
     return JavaInfo.Builder.create()
@@ -150,7 +159,11 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
+        .addProvider(JavaSourceInfoProvider.class, JavaSourceInfoProvider.merge(sourceInfos))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+        // TODO(iirina): merge or remove JavaCompilationInfoProvider
+        .setRuntimeJars(runtimeJars.build())
+        .setJavaConstraints(javaConstraints.build())
         .build();
   }
 

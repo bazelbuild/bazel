@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.analysis.skylark.annotations.processor;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.io.Resources;
-import com.google.devtools.build.lib.util.OS;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -39,10 +37,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testGoldenConfigurationField() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("GoldenConfigurationField.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -51,10 +45,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testGoldenConfigurationFieldThroughApi() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("GoldenConfigurationFieldThroughApi.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -63,10 +53,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testHasMethodParameters() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("HasMethodParameters.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -77,10 +63,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testMethodIsPrivate() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("MethodIsPrivate.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -90,10 +72,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testMethodThrowsException() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("MethodThrowsException.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -103,10 +81,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testNonConfigurationFragment() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("NonConfigurationFragment.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -117,10 +91,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testNonExposedConfigurationFragment() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("NonExposedConfigurationFragment.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())
@@ -129,10 +99,6 @@ public final class SkylarkConfigurationFieldProcessorTest {
 
   @Test
   public void testReturnsOtherType() throws Exception {
-    // TODO(b/71644521): Compile-testing is not fully functional on Windows; test sources are
-    // unable to resolve cross-package dependencies.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     assertAbout(javaSource())
         .that(getFile("ReturnsOtherType.java"))
         .processedWith(new SkylarkConfigurationFieldProcessor())

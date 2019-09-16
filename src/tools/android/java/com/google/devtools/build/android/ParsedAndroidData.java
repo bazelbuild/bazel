@@ -403,6 +403,8 @@ public class ParsedAndroidData {
 
   private static final class ParseDependencyDataTask implements Callable<Void> {
 
+    private final DependencyInfo.DependencyType dependencyType;
+
     private final SerializedAndroidData dependency;
 
     private final Builder targetBuilder;
@@ -410,9 +412,11 @@ public class ParsedAndroidData {
     private final AndroidDataDeserializer deserializer;
 
     private ParseDependencyDataTask(
+        DependencyInfo.DependencyType dependencyType,
         AndroidDataDeserializer deserializer,
         SerializedAndroidData dependency,
         Builder targetBuilder) {
+      this.dependencyType = dependencyType;
       this.deserializer = deserializer;
       this.dependency = dependency;
       this.targetBuilder = targetBuilder;
@@ -422,7 +426,7 @@ public class ParsedAndroidData {
     public Void call() throws Exception {
       final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
       try {
-        dependency.deserialize(deserializer, parsedDataBuilder.consumers());
+        dependency.deserialize(dependencyType, deserializer, parsedDataBuilder.consumers());
       } catch (DeserializationException e) {
         if (!e.isLegacy()) {
           throw MergingException.wrapException(e);
@@ -450,6 +454,7 @@ public class ParsedAndroidData {
    * @throws MergingException for deserialization errors.
    */
   public static ParsedAndroidData loadedFrom(
+      DependencyInfo.DependencyType dependencyType,
       List<? extends SerializedAndroidData> data,
       ListeningExecutorService executorService,
       AndroidDataDeserializer deserializer) {
@@ -457,7 +462,8 @@ public class ParsedAndroidData {
     final Builder target = Builder.newBuilder();
     for (SerializedAndroidData serialized : data) {
       tasks.add(
-          executorService.submit(new ParseDependencyDataTask(deserializer, serialized, target)));
+          executorService.submit(
+              new ParseDependencyDataTask(dependencyType, deserializer, serialized, target)));
     }
     FailedFutureAggregator.createForMergingExceptionWithMessage(
             "Failure(s) during dependency parsing")

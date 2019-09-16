@@ -274,7 +274,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    explicit_server_javabase_ = blaze::AbsolutePathFromFlag(value);
+    explicit_server_javabase_ =
+        blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
@@ -434,65 +435,64 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
   return blaze_exit_code::SUCCESS;
 }
 
-string StartupOptions::GetSystemJavabase() const {
-  return blaze::GetSystemJavabase();
+blaze_util::Path StartupOptions::GetSystemJavabase() const {
+  return blaze_util::Path(blaze::GetSystemJavabase());
 }
 
-string StartupOptions::GetEmbeddedJavabase() const {
-  string bundled_jre_path = blaze_util::JoinPath(
-      install_base, "_embedded_binaries/embedded_tools/jdk");
-  if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
-          bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
+blaze_util::Path StartupOptions::GetEmbeddedJavabase() const {
+  blaze_util::Path bundled_jre_path = blaze_util::Path(blaze_util::JoinPath(
+      install_base, "_embedded_binaries/embedded_tools/jdk"));
+  if (blaze_util::CanExecuteFile(
+          bundled_jre_path.GetRelative(GetJavaBinaryUnderJavabase()))) {
     return bundled_jre_path;
   }
-  return "";
+  return blaze_util::Path();
 }
 
-std::pair<string, StartupOptions::JavabaseType>
+std::pair<blaze_util::Path, StartupOptions::JavabaseType>
 StartupOptions::GetServerJavabaseAndType() const {
   // 1) Allow overriding the server_javabase via --server_javabase.
-  if (!explicit_server_javabase_.empty()) {
-    return std::pair<string, JavabaseType>(explicit_server_javabase_,
-                                           JavabaseType::EXPLICIT);
+  if (!explicit_server_javabase_.IsEmpty()) {
+    return std::pair<blaze_util::Path, JavabaseType>(explicit_server_javabase_,
+                                                     JavabaseType::EXPLICIT);
   }
-  if (default_server_javabase_.first.empty()) {
-    string bundled_jre_path = GetEmbeddedJavabase();
-    if (!bundled_jre_path.empty()) {
+  if (default_server_javabase_.first.IsEmpty()) {
+    blaze_util::Path bundled_jre_path = GetEmbeddedJavabase();
+    if (!bundled_jre_path.IsEmpty()) {
       // 2) Use a bundled JVM if we have one.
-      default_server_javabase_ = std::pair<string, JavabaseType>(
+      default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           bundled_jre_path, JavabaseType::EMBEDDED);
     } else {
       // 3) Otherwise fall back to using the default system JVM.
-      string system_javabase = GetSystemJavabase();
-      if (system_javabase.empty()) {
+      blaze_util::Path system_javabase = GetSystemJavabase();
+      if (system_javabase.IsEmpty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
                "javac is on your PATH.";
       }
-      default_server_javabase_ = std::pair<string, JavabaseType>(
+      default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           system_javabase, JavabaseType::SYSTEM);
     }
   }
   return default_server_javabase_;
 }
 
-string StartupOptions::GetServerJavabase() const {
+blaze_util::Path StartupOptions::GetServerJavabase() const {
   return GetServerJavabaseAndType().first;
 }
 
-string StartupOptions::GetExplicitServerJavabase() const {
+blaze_util::Path StartupOptions::GetExplicitServerJavabase() const {
   return explicit_server_javabase_;
 }
 
-string StartupOptions::GetJvm() const {
+blaze_util::Path StartupOptions::GetJvm() const {
   auto javabase_and_type = GetServerJavabaseAndType();
   blaze_exit_code::ExitCode sanity_check_code =
       SanityCheckJavabase(javabase_and_type.first, javabase_and_type.second);
   if (sanity_check_code != blaze_exit_code::SUCCESS) {
     exit(sanity_check_code);
   }
-  return blaze_util::JoinPath(javabase_and_type.first,
-                              GetJavaBinaryUnderJavabase());
+  return javabase_and_type.first.GetRelative(GetJavaBinaryUnderJavabase());
 }
 
 // Prints an appropriate error message and returns an appropriate error exit
@@ -526,58 +526,53 @@ static blaze_exit_code::ExitCode BadServerJavabaseError(
 }
 
 blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
-    const std::string &javabase,
+    const blaze_util::Path &javabase,
     StartupOptions::JavabaseType javabase_type) const {
-  std::string java_program =
-      blaze_util::JoinPath(javabase, GetJavaBinaryUnderJavabase());
+  blaze_util::Path java_program =
+      javabase.GetRelative(GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
-      BAZEL_LOG(ERROR) << "Couldn't find java at '" << java_program << "'.";
+      BAZEL_LOG(ERROR) << "Couldn't find java at '"
+                       << java_program.AsPrintablePath() << "'.";
     } else {
-      BAZEL_LOG(ERROR) << "Java at '" << java_program
-                       << "' exists but is not executable: "
-                       << blaze_util::GetLastErrorString();
+      string err = blaze_util::GetLastErrorString();
+      BAZEL_LOG(ERROR) << "Java at '" << java_program.AsPrintablePath()
+                       << "' exists but is not executable: " << err;
     }
     return BadServerJavabaseError(javabase_type, option_sources);
   }
-  // If the full JDK is installed
-  string jdk_rt_jar = blaze_util::JoinPath(javabase, "jre/lib/rt.jar");
-  // If just the JRE is installed
-  string jre_rt_jar = blaze_util::JoinPath(javabase, "lib/rt.jar");
-  // rt.jar does not exist in java 9+ so check for java instead
-  string jre_java = blaze_util::JoinPath(javabase, "bin/java");
-  string jre_java_exe = blaze_util::JoinPath(javabase, "bin/java.exe");
-  if (blaze_util::CanReadFile(jdk_rt_jar) ||
-      blaze_util::CanReadFile(jre_rt_jar) ||
-      blaze_util::CanReadFile(jre_java) ||
-      blaze_util::CanReadFile(jre_java_exe)) {
+  if (  // If the full JDK is installed
+      blaze_util::CanReadFile(javabase.GetRelative("jre/lib/rt.jar")) ||
+      // If just the JRE is installed
+      blaze_util::CanReadFile(javabase.GetRelative("lib/rt.jar")) ||
+      // rt.jar does not exist in java 9+ so check for java instead
+      blaze_util::CanReadFile(javabase.GetRelative("bin/java")) ||
+      blaze_util::CanReadFile(javabase.GetRelative("bin/java.exe"))) {
     return blaze_exit_code::SUCCESS;
   }
   BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
                       "rt.jar or java in "
-                   << javabase;
+                   << javabase.AsPrintablePath();
   return BadServerJavabaseError(javabase_type, option_sources);
 }
 
-blaze_util::Path StartupOptions::GetExe(const string &jvm,
+blaze_util::Path StartupOptions::GetExe(const blaze_util::Path &jvm,
                                         const string &jar_path) const {
-  return blaze_util::Path(jvm);
+  return jvm;
 }
 
-void StartupOptions::AddJVMArgumentPrefix(const string &javabase,
-    std::vector<string> *result) const {
-}
+void StartupOptions::AddJVMArgumentPrefix(const blaze_util::Path &javabase,
+                                          std::vector<string> *result) const {}
 
-void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
-                                          const string &jar_path,
+void StartupOptions::AddJVMArgumentSuffix(
+    const blaze_util::Path &real_install_dir, const string &jar_path,
     std::vector<string> *result) const {
   result->push_back("-jar");
-  result->push_back(blaze_util::PathAsJvmFlag(
-      blaze_util::JoinPath(real_install_dir, jar_path)));
+  result->push_back(real_install_dir.GetRelative(jar_path).AsJvmArgument());
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
-    const string &server_javabase, std::vector<string> *result,
+    const blaze_util::Path &server_javabase, std::vector<string> *result,
     const vector<string> &user_options, string *error) const {
   AddJVMLoggingArguments(result);
 
@@ -631,7 +626,7 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
-    const string &, std::vector<string> *, const vector<string> &,
+    const blaze_util::Path &, std::vector<string> *, const vector<string> &,
     string *) const {
   return blaze_exit_code::SUCCESS;
 }

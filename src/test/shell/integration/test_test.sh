@@ -232,4 +232,23 @@ EOF
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/pull/8322
+# As of 2019-09-06, "bazel test" does not forward input from stdin to the test binary.
+# Maybe Bazel will support that in the future, but until then this test guards the current status.
+# See also test_run_a_test_and_a_binary_rule_with_input_from_stdin() in
+# //src/test/shell/integration:run_test
+function test_a_test_rule_with_input_from_stdin() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
+  echo 'sh_test(name = "x", srcs = ["x.sh"])' > "$pkg/BUILD"
+  cat > "$pkg/x.sh" <<'eof'
+#!/bin/bash
+read -n5 FOO
+echo "foo=($FOO)"
+eof
+  chmod +x "$pkg/x.sh"
+  echo helloworld | bazel test "//$pkg:x" --test_output=all > "$TEST_log" || fail "Expected success"
+  expect_log "foo=()"
+}
+
 run_suite "test tests"

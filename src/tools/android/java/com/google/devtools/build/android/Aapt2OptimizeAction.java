@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
@@ -42,10 +44,29 @@ class Aapt2OptimizeAction {
             .allowResidue(true)
             .build();
     optionsParser.parseAndExitUponError(args);
+
+    ImmutableList<String> rawOptimizeArgs =
+        optionsParser.getResidue().stream()
+            .map(
+                arg -> {
+                  // Translate new (i.e. soon to be renamed) flag into current flag, pending an
+                  // upcoming aapt2 update.
+                  // TODO(bcsf): Prior to the aapt2 drop which introduces the renamed flag, add a
+                  //   check to determine whether this mapping needs to be performed.
+                  switch (arg) {
+                    case "--enable-resource-name-obfuscation":
+                      return "--enable-resource-obfuscation";
+                    case "--resource-name-obfuscation-exemption-list":
+                      return "--whitelist-path";
+                    default:
+                      return arg;
+                  }
+                })
+            .collect(toImmutableList());
     return ImmutableList.<String>builder()
         .add(optionsParser.getOptions(Aapt2ConfigOptions.class).aapt2.toString())
         .add("optimize")
-        .addAll(optionsParser.getResidue())
+        .addAll(rawOptimizeArgs)
         .build();
   }
 

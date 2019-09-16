@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -65,8 +64,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -97,22 +96,20 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
-    SandboxedSpawn sandbox =
-        new SymlinkedSandboxedSpawn(
-            sandboxPath,
-            sandboxExecRoot,
-            commandLineBuilder.build(),
-            environment,
-            SandboxHelpers.processInputFiles(
-                spawn,
-                context,
-                execRoot,
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            SandboxHelpers.getOutputs(spawn),
-            getWritableDirs(sandboxExecRoot, environment),
-            treeDeleter);
-
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
+    return new SymlinkedSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        commandLineBuilder.build(),
+        environment,
+        SandboxHelpers.processInputFiles(
+            spawn,
+            context,
+            execRoot,
+            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+        SandboxHelpers.getOutputs(spawn),
+        getWritableDirs(sandboxExecRoot, environment),
+        treeDeleter,
+        statisticsPath);
   }
 
   @Override

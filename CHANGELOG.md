@@ -1,3 +1,51 @@
+## Release 0.29.1 (2019-09-10)
+
+```
+Baseline: 6c5ef5369a3ffceb8a65cc159a2fff1401242810
+
+Cherry picks:
+
+   + 338829f2633e91ae0492ee4169446465e10b5994:
+     Fix retrying of SocketTimeoutExceptions in HttpConnector
+   + 14651cd86b6fc1d48f56a208a9b5278b3e2dcf75:
+     Fallback to next urls if download fails in HttpDownloader
+   + b7d300c6be3e130dec0e62a4f19493105f595d57:
+     Fix incorrect stdout/stderr in remote action cache. Fixes #9072
+   + 960217631abdcab0a7ed95e2ab10acd55f636639:
+     Automated rollback of commit
+     0f0a0d58725603cf2f1c175963360b525718a195.
+   + da557f96c697102ad787e57bbf7db2460f6a60a8:
+     Windows: fix "bazel run" argument quoting
+   + ef8b6f68cc8ffd2e6523a894034ae383e87ec74c:
+     Return JavaInfo from java proto aspects.
+   + 209175ff8ffeb05628ed8a187dd414a3d2935c55:
+     Revert back to the old behavior of not creating a proto source
+     root for generated .proto files.
+   + 644060b7a4bc98384b66e3d2343b950b875b5e35:
+     Fix PatchUtil for parsing special patch format
+   + 067040d7bcb3b24a88432e210a96adacee3f37b4:
+     Put the removal of the legacy repository-relative proto path
+     behind the --incompatible_generated_protos_in_virtual_imports
+     flag.
+   + 76ed014e77d7b862f6eb2894600ae525ea570f11:
+     repository mapping lookup: convert to canonical name first
+   + f791df0aada91c38018ad98b3b40a528ff226204:
+     Release 0.29.0 (2019-08-28)
+   + 2c046486f5febb9e475a5589b59abae77f14245e:
+     Fix git_repository rule to support fetching a commit on a tag
+   + 9e1d65a1fcebff7169a63acad95c7b44302b89c4:
+     Fix a serious regression in remote execution. Fixes #9284
+   + 8b0bfaf6716327ca6b60692704e3d57766f7ab1f:
+     Include cc configure headers in the cache key
+   + 5c02b92c45b5422971b3164685d9edb771367a1b:
+     Make --workspace_status_command work with "Builds without the
+     Bytes".
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+```
+
+This release contains contributions from many people at Google, as well as Artem Zinnatullin.
+
 ## Release 0.29.0 (2019-08-28)
 
 ```

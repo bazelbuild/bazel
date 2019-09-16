@@ -46,7 +46,7 @@ public class NativePosixFilesTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    testFS = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
     workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     testFile = workingDir.getRelative("test");
   }

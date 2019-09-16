@@ -27,7 +27,7 @@ _java_library_srcs = rule(
         "deps": attr.label_list(
             mandatory = True,
             allow_empty = False,
-            providers = ["java"],
+            providers = [JavaInfo],
         ),
     },
 )

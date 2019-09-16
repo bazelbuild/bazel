@@ -82,6 +82,7 @@ cc_autoconf_toolchains = repository_rule(
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
     ],
     implementation = cc_autoconf_toolchains_impl,
+    configure = True,
 )
 
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
@@ -158,6 +159,7 @@ cc_autoconf = repository_rule(
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
         "BAZEL_LLVM",
+        "BAZEL_IGNORE_SYSTEM_HEADERS_VERSIONS",
         "USE_CLANG_CL",
         "CC",
         "CC_CONFIGURE_DEBUG",
@@ -168,6 +170,7 @@ cc_autoconf = repository_rule(
         "SYSTEMROOT",
     ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
+    configure = True,
 )
 
 def cc_configure():

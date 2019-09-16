@@ -20,8 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -429,17 +427,14 @@ public class SkydocMain {
     pending.add(path);
 
     ParserInputSource parserInputSource = getInputSource(path.toString());
-    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
+    BuildFileAST buildFileAST = BuildFileAST.parse(parserInputSource, eventHandler);
 
     moduleDocMap.put(label, getModuleDoc(buildFileAST));
 
     Map<String, Extension> imports = new HashMap<>();
     for (SkylarkImport anImport : buildFileAST.getImports()) {
-      BazelStarlarkContext context =
-          new BazelStarlarkContext(
-              "", ImmutableMap.of(), ImmutableMap.of(), new SymbolGenerator<>(label));
-      Label relativeLabel = label.getRelative(anImport.getImportString(), context);
-
+      Label relativeLabel =
+          label.getRelativeWithRemapping(anImport.getImportString(), ImmutableMap.of());
       try {
         Environment importEnv =
             recursiveEval(

@@ -19,15 +19,16 @@ import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for dictionary literals. */
+// TODO(adonovan): rename to DictExpression; it's not a literal.
 public final class DictionaryLiteral extends Expression {
 
-  /** Node for an individual key-value pair in a dictionary literal. */
-  public static final class DictionaryEntryLiteral extends ASTNode {
+  /** A key/value pair in a dict expression or comprehension. */
+  public static final class Entry extends ASTNode {
 
     private final Expression key;
     private final Expression value;
 
-    public DictionaryEntryLiteral(Expression key, Expression value) {
+    Entry(Expression key, Expression value) {
       this.key = key;
       this.value = value;
     }
@@ -53,9 +54,9 @@ public final class DictionaryLiteral extends Expression {
     }
   }
 
-  private final ImmutableList<DictionaryEntryLiteral> entries;
+  private final ImmutableList<Entry> entries;
 
-  DictionaryLiteral(List<DictionaryEntryLiteral> entries) {
+  DictionaryLiteral(List<Entry> entries) {
     this.entries = ImmutableList.copyOf(entries);
   }
 
@@ -63,7 +64,7 @@ public final class DictionaryLiteral extends Expression {
   Object doEval(Environment env) throws EvalException, InterruptedException {
     SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
     Location loc = getLocation();
-    for (DictionaryEntryLiteral entry : entries) {
+    for (Entry entry : entries) {
       Object key = entry.key.eval(env);
       Object val = entry.value.eval(env);
       if (dict.containsKey(key)) {
@@ -79,7 +80,7 @@ public final class DictionaryLiteral extends Expression {
   public void prettyPrint(Appendable buffer) throws IOException {
     buffer.append("{");
     String sep = "";
-    for (DictionaryEntryLiteral e : entries) {
+    for (Entry e : entries) {
       buffer.append(sep);
       e.prettyPrint(buffer);
       sep = ", ";
@@ -97,7 +98,7 @@ public final class DictionaryLiteral extends Expression {
     return Kind.DICTIONARY_LITERAL;
   }
 
-  public ImmutableList<DictionaryEntryLiteral> getEntries() {
+  public ImmutableList<Entry> getEntries() {
     return entries;
   }
 }

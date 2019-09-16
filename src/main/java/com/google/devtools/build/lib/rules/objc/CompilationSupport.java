@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
@@ -231,6 +232,13 @@ public class CompilationSupport {
           "c-compile",
           "c++-compile");
 
+  /** The kind of include processing to use. */
+  enum IncludeProcessingType {
+    HEADER_THINNING,
+    INCLUDE_SCANNING,
+    NO_PROCESSING;
+  }
+
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
     return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
@@ -258,21 +266,24 @@ public class CompilationSupport {
 
   private IncludeProcessing createIncludeProcessing(
       Iterable<Artifact> privateHdrs, ObjcProvider objcProvider, @Nullable Artifact pchHdr) {
-    if (isHeaderThinningEnabled()) {
-      Iterable<Artifact> potentialInputs = Iterables.concat(privateHdrs, objcProvider.get(HEADER));
-      if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-        potentialInputs =
-            Iterables.concat(
-                potentialInputs,
-                objcProvider.get(STATIC_FRAMEWORK_FILE),
-                objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
-      }
-      if (pchHdr != null) {
-        potentialInputs = Iterables.concat(potentialInputs, ImmutableList.of(pchHdr));
-      }
-      return new HeaderThinning(potentialInputs);
-    } else {
-      return NoProcessing.INSTANCE;
+    switch (includeProcessingType) {
+      case HEADER_THINNING:
+        Iterable<Artifact> potentialInputs =
+            Iterables.concat(privateHdrs, objcProvider.get(HEADER));
+        if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+          potentialInputs =
+              Iterables.concat(
+                  potentialInputs,
+                  objcProvider.get(STATIC_FRAMEWORK_FILE),
+                  objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
+        }
+        if (pchHdr != null) {
+          potentialInputs = Iterables.concat(potentialInputs, ImmutableList.of(pchHdr));
+        }
+        return new HeaderThinning(potentialInputs);
+      case INCLUDE_SCANNING:
+      default:
+        return NoProcessing.INSTANCE;
     }
   }
 
@@ -292,7 +303,7 @@ public class CompilationSupport {
       ObjcCppSemantics semantics,
       String purpose,
       boolean generateModuleMap)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     CcCompilationHelper result =
         new CcCompilationHelper(
                 ruleContext,
@@ -304,7 +315,9 @@ public class CompilationSupport {
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoContext,
-                buildConfiguration)
+                buildConfiguration,
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .addSources(sources)
             .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))
@@ -424,7 +437,9 @@ public class CompilationSupport {
                 fdoContext,
                 buildConfiguration,
                 ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator())
+                ruleContext.getSymbolGenerator(),
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
@@ -503,9 +518,9 @@ public class CompilationSupport {
       ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
     return new ObjcCppSemantics(
         objcProvider,
+        includeProcessingType,
         createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
         ruleContext.getFragment(ObjcConfiguration.class),
-        isHeaderThinningEnabled(),
         intermediateArtifacts,
         buildConfiguration,
         starlarkSemantics);
@@ -667,25 +682,31 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework search paths for clang actions for pre-cleanup mode. */
-  static ImmutableList<String> preCleanupFrameworkSearchPaths(
+  static ImmutableList<PathFragment> preCleanupFrameworkSearchPathFragments(
       ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration) {
 
-    ImmutableList.Builder<String> frameworkNames = new ImmutableList.Builder<>();
-    return frameworkNames
+    ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
+    return searchPaths
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.getStaticFrameworkDirs()),
-                PathFragment::getSafePathString))
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)),
-                PathFragment::getSafePathString))
-        .addAll(
-            Iterables.transform(
-                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)),
-                PathFragment::getSafePathString))
+        .addAll(uniqueParentDirectories(provider.getStaticFrameworkDirs()))
+        .addAll(uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)))
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
+        .build();
+  }
+
+  /** Returns a list of framework header search path fragments. */
+  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(
+      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+      throws InterruptedException {
+    StarlarkSemantics starlarkSemantics =
+        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+      return preCleanupFrameworkSearchPathFragments(provider, ruleContext, buildConfiguration);
+    }
+    ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
+    return searchPaths
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
         .build();
   }
 
@@ -693,18 +714,11 @@ public class CompilationSupport {
   static ImmutableList<String> frameworkHeaderSearchPaths(
       ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
       throws InterruptedException {
-    StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
-    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-      return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
-    }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
-        // Add header search paths corresponding to custom (non-SDK) frameworks. For each framework
-        // foo/bar.framework, include "foo" as a search path.
         .addAll(
             Iterables.transform(
-                uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)),
+                frameworkHeaderSearchPathFragments(provider, ruleContext, buildConfiguration),
                 PathFragment::getSafePathString))
         .build();
   }
@@ -715,10 +729,15 @@ public class CompilationSupport {
       throws InterruptedException {
     StarlarkSemantics starlarkSemantics =
         ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
-    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-      return preCleanupFrameworkSearchPaths(provider, ruleContext, buildConfiguration);
-    }
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
+    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+      return searchPaths
+          .addAll(
+              Iterables.transform(
+                  preCleanupFrameworkSearchPathFragments(provider, ruleContext, buildConfiguration),
+                  PathFragment::getSafePathString))
+          .build();
+    }
     return searchPaths
         // Add library search paths corresponding to custom (non-SDK) frameworks. For each framework
         // foo/bar.framework, include "foo" as a search path.
@@ -739,6 +758,7 @@ public class CompilationSupport {
   private final CcToolchainProvider toolchain;
   private final boolean isTestRule;
   private final boolean usePch;
+  private final IncludeProcessingType includeProcessingType;
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -783,6 +803,14 @@ public class CompilationSupport {
     }
 
     this.toolchain = toolchain;
+
+    if (objcConfiguration.shouldScanIncludes()) {
+      includeProcessingType = IncludeProcessingType.INCLUDE_SCANNING;
+    } else if (isHeaderThinningEnabled()) {
+      includeProcessingType = IncludeProcessingType.HEADER_THINNING;
+    } else {
+      includeProcessingType = IncludeProcessingType.NO_PROCESSING;
+    }
   }
 
   /** Builder for {@link CompilationSupport} */
@@ -791,7 +819,6 @@ public class CompilationSupport {
     private BuildConfiguration buildConfiguration;
     private IntermediateArtifacts intermediateArtifacts;
     private CompilationAttributes compilationAttributes;
-    private boolean useDeps = true;
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
@@ -1802,7 +1829,8 @@ public class CompilationSupport {
       CompilationArtifacts compilationArtifacts)
       throws RuleErrorException {
     // PIC is not used for Obj-C builds, if that changes this method will need to change
-    if (!isHeaderThinningEnabled() || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
+    if (includeProcessingType != IncludeProcessingType.HEADER_THINNING
+        || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
       return;
     }
 

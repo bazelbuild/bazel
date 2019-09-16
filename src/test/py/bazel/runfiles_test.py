@@ -267,6 +267,52 @@ class RunfilesTest(test_base.TestBase):
         self.fail("lines: %s" % lines)
       self.assertEqual(lines[0], "mock %s data" % lang[0])
 
+  def testLegacyExternalRunfilesOption(self):
+    self.ScratchDir("A")
+    self.ScratchFile("A/WORKSPACE")
+    self.ScratchFile("A/BUILD", [
+        "py_library(",
+        "  name = 'lib',",
+        "  srcs = ['lib.py'],",
+        "  visibility = ['//visibility:public'],",
+        ")",
+    ])
+    self.ScratchFile("A/lib.py")
+    work_dir = self.ScratchDir("B")
+    self.ScratchFile("B/WORKSPACE",
+                     ["local_repository(name = 'A', path='../A')"])
+    self.ScratchFile("B/bin.py")
+    self.ScratchFile("B/BUILD", [
+        "py_binary(",
+        "  name = 'bin',",
+        "  srcs = ['bin.py'],",
+        "  deps = ['@A//:lib'],",
+        ")",
+        "",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['output'],",
+        "  cmd = 'echo $(location //:bin) > $@',",
+        "  tools = ['//:bin'],",
+        ")",
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(
+        args=["info", "output_path"], cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_output = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(
+        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
+    if self.IsWindows():
+      manifest_path = os.path.join(bazel_output,
+                                   "host/bin/bin.exe.runfiles_manifest")
+    else:
+      manifest_path = os.path.join(bazel_output,
+                                   "host/bin/bin.runfiles_manifest")
+    self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
+
 
 if __name__ == "__main__":
   unittest.main()

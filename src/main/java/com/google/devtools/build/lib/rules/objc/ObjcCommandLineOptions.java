@@ -266,15 +266,26 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public int objcHeaderThinningPartitionSize;
 
   @Option(
-    name = "objc_header_scanner_tool",
-    defaultValue = "@bazel_tools//tools/objc:header_scanner",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
-            + "file."
-  )
+      name = "experimental_objc_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      help = "Whether to perform include scanning for objective C/C++.")
+  public boolean scanIncludes;
+
+  @Option(
+      name = "objc_header_scanner_tool",
+      defaultValue = "@bazel_tools//tools/objc:header_scanner",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
+              + "file.")
   public Label objcHeaderScannerTool;
 
   @Option(

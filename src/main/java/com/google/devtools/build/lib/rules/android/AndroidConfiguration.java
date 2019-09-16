@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -686,6 +686,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean useAndroidResourcePathShortening;
 
     @Option(
+        name = "experimental_android_resource_name_obfuscation",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Enables obfuscation of resource names within android_binary APKs.")
+    public boolean useAndroidResourceNameObfuscation;
+
+    @Option(
         name = "android_manifest_merger",
         defaultValue = "android",
         converter = AndroidManifestMergerConverter.class,
@@ -815,17 +827,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If true, robolectric resources will be packaged using aapt2 if available.")
     public boolean useAapt2ForRobolectric;
-
-    @Option(
-        name = "experimental_android_throw_on_resource_conflict",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
-    public boolean throwOnResourceConflict;
 
     @Option(
         name = "experimental_omit_resources_info_provider_from_android_binary",
@@ -1083,6 +1084,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
+  private final boolean useAndroidResourceNameObfuscation;
   private final AndroidManifestMerger manifestMerger;
   private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
@@ -1133,6 +1135,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.useAndroidResourcePathShortening = options.useAndroidResourcePathShortening;
+    this.useAndroidResourceNameObfuscation = options.useAndroidResourceNameObfuscation;
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
@@ -1310,6 +1313,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useAndroidResourcePathShortening() {
     return useAndroidResourcePathShortening;
+  }
+
+  @Override
+  public boolean useAndroidResourceNameObfuscation() {
+    return useAndroidResourceNameObfuscation;
   }
 
   public AndroidAaptVersion getAndroidAaptVersion() {

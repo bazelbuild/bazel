@@ -13,15 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -190,20 +187,5 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
    */
   private static void disableAnsiCharactersFiltering(CommandEnvironment env) {
     env.getReporter().switchToAnsiAllowingHandler();
-  }
-
-  @VisibleForTesting // for com.google.devtools.deps.gquery.test.QueryResultTestUtil
-  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
-      boolean keepGoing, boolean orderedResults, int loadingPhaseThreads,
-      Set<Setting> settings) {
-    return newQueryEnvironment(
-        env,
-        keepGoing,
-        orderedResults,
-        ImmutableList.<String>of(),
-        loadingPhaseThreads,
-        settings,
-        /* useForkJoinPool= */ false,
-        /*useGraphlessQuery=*/ false);
   }
 }

@@ -106,10 +106,11 @@ class DataSourceTable {
   }
 
   /** Deserialize the source table and allow {@link #sourceFromId(int)} queries. */
-  public static DataSourceTable read(InputStream in, FileSystem currentFileSystem, Header header)
+  public static DataSourceTable read(
+      DependencyInfo dependencyInfo, InputStream in, FileSystem currentFileSystem, Header header)
       throws IOException {
     DataSourceTable sourceTable = new DataSourceTable();
-    sourceTable.readSourceInfo(in, currentFileSystem, header);
+    sourceTable.readSourceInfo(dependencyInfo, in, currentFileSystem, header);
     return sourceTable;
   }
 
@@ -118,14 +119,15 @@ class DataSourceTable {
     return idToSource[sourceId];
   }
 
-  private void readSourceInfo(InputStream in, FileSystem currentFileSystem, Header header)
+  private void readSourceInfo(
+      DependencyInfo dependencyInfo, InputStream in, FileSystem currentFileSystem, Header header)
       throws IOException {
     int numberOfSources = header.getSourceCount();
     // Read back the sources.
     idToSource = new DataSource[numberOfSources];
     for (int i = 0; i < numberOfSources; i++) {
       ProtoSource protoSource = SerializeFormat.ProtoSource.parseDelimitedFrom(in);
-      idToSource[i] = DataSource.from(protoSource, currentFileSystem);
+      idToSource[i] = DataSource.from(dependencyInfo, protoSource, currentFileSystem);
     }
   }
 }

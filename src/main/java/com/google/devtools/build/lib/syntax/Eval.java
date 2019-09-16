@@ -19,61 +19,68 @@ import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Evaluation code for the Skylark AST. At the moment, it can execute only statements (and defers to
  * Expression.eval for evaluating expressions).
  */
-public class Eval {
-  protected final Environment env;
+// TODO(adonovan): make this class the sole locus of tree-based evaluation logic.
+// Make all its methods static, and thread Environment (soon: StarlarkThread) explicitly.
+// The only actual state is the return value, which can be saved in the Environment's call frame.
+// Then move all Expression.eval logic in here too, and simplify.
+final class Eval {
+
+  private static final AtomicReference<Debugger> debugger = new AtomicReference<>();
+
+  private final Environment env;
+  private final Debugger dbg;
   private Object result = Runtime.NONE;
 
-  public static Eval fromEnvironment(Environment env) {
-    return evalSupplier.apply(env);
+  // ---- entry points ----
+
+  static void setDebugger(Debugger dbg) {
+    Debugger prev = debugger.getAndSet(dbg);
+    if (prev != null) {
+      prev.close();
+    }
   }
 
-  public static void setEvalSupplier(Function<Environment, Eval> evalSupplier) {
-    Eval.evalSupplier = evalSupplier;
+  static Object execStatements(Environment env, List<Statement> statements)
+      throws EvalException, InterruptedException {
+    Eval eval = new Eval(env);
+    eval.execStatementsInternal(statements);
+    return eval.result;
   }
 
-  /** Reset Eval supplier to the default. */
-  public static void removeCustomEval() {
-    evalSupplier = Eval::new;
+  static void execToplevelStatement(Environment env, Statement stmt)
+      throws EvalException, InterruptedException {
+    // Ignore the returned BREAK/CONTINUE/RETURN/PASS token:
+    // the first three don't exist at top-level, and the last is a no-op.
+    new Eval(env).exec(stmt);
   }
 
-  // TODO(bazel-team): remove this static state in favor of storing Eval instances in Environment
-  private static Function<Environment, Eval> evalSupplier = Eval::new;
-
-  /**
-   * This constructor should never be called directly. Call {@link #fromEnvironment(Environment)}
-   * instead.
-   */
-  protected Eval(Environment env) {
+  private Eval(Environment env) {
     this.env = env;
+    this.dbg = debugger.get(); // capture value and use for lifetime of one Eval
   }
 
-  /** getResult returns the value returned by executing a ReturnStatement. */
-  Object getResult() {
-    return this.result;
-  }
-
-  void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
+  private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
     Object rvalue = node.getRHS().eval(env);
     assign(node.getLHS(), rvalue, env, node.getLocation());
   }
 
-  void execAugmentedAssignment(AugmentedAssignmentStatement node)
+  private void execAugmentedAssignment(AugmentedAssignmentStatement node)
       throws EvalException, InterruptedException {
     assignAugmented(node.getLHS(), node.getOperator(), node.getRHS(), env, node.getLocation());
   }
 
-  TokenKind execIfBranch(IfStatement.ConditionalStatements node)
+  private TokenKind execIfBranch(IfStatement.ConditionalStatements node)
       throws EvalException, InterruptedException {
-    return execStatements(node.getStatements());
+    return execStatementsInternal(node.getStatements());
   }
 
-  TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
+  private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = node.getCollection().eval(env);
     Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), env);
     EvalUtils.lock(o, node.getLocation());
@@ -81,7 +88,7 @@ public class Eval {
       for (Object it : col) {
         assign(node.getLHS(), it, env, node.getLocation());
 
-        switch (execStatements(node.getBlock())) {
+        switch (execStatementsInternal(node.getBlock())) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -102,7 +109,7 @@ public class Eval {
     return TokenKind.PASS;
   }
 
-  void execDef(FunctionDefStatement node) throws EvalException, InterruptedException {
+  private void execDef(DefStatement node) throws EvalException, InterruptedException {
     List<Expression> defaultExpressions = node.getSignature().getDefaultValues();
     ArrayList<Object> defaultValues = null;
 
@@ -129,7 +136,7 @@ public class Eval {
             env.getGlobals()));
   }
 
-  TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
+  private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
     ImmutableList<IfStatement.ConditionalStatements> thenBlocks = node.getThenBlocks();
     // Avoid iterator overhead - most of the time there will be one or few "if"s.
     for (int i = 0; i < thenBlocks.size(); i++) {
@@ -138,10 +145,10 @@ public class Eval {
         return exec(stmt);
       }
     }
-    return execStatements(node.getElseBlock());
+    return execStatementsInternal(node.getElseBlock());
   }
 
-  void execLoad(LoadStatement node) throws EvalException, InterruptedException {
+  private void execLoad(LoadStatement node) throws EvalException, InterruptedException {
     for (LoadStatement.Binding binding : node.getBindings()) {
       try {
         Identifier name = binding.getLocalName();
@@ -161,7 +168,7 @@ public class Eval {
     }
   }
 
-  TokenKind execReturn(ReturnStatement node) throws EvalException, InterruptedException {
+  private TokenKind execReturn(ReturnStatement node) throws EvalException, InterruptedException {
     Expression ret = node.getReturnExpression();
     if (ret != null) {
       this.result = ret.eval(env);
@@ -169,13 +176,11 @@ public class Eval {
     return TokenKind.RETURN;
   }
 
-  /**
-   * Execute the statement.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
-   * @throws InterruptedException may be thrown in a sub class.
-   */
-  protected TokenKind exec(Statement st) throws EvalException, InterruptedException {
+  private TokenKind exec(Statement st) throws EvalException, InterruptedException {
+    if (dbg != null) {
+      dbg.before(env, st.getLocation());
+    }
+
     try {
       return execDispatch(st);
     } catch (EvalException ex) {
@@ -183,7 +188,7 @@ public class Eval {
     }
   }
 
-  TokenKind execDispatch(Statement st) throws EvalException, InterruptedException {
+  private TokenKind execDispatch(Statement st) throws EvalException, InterruptedException {
     switch (st.kind()) {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
@@ -201,7 +206,7 @@ public class Eval {
       case FOR:
         return execFor((ForStatement) st);
       case FUNCTION_DEF:
-        execDef((FunctionDefStatement) st);
+        execDef((DefStatement) st);
         return TokenKind.PASS;
       case IF:
         return execIf((IfStatement) st);
@@ -214,7 +219,7 @@ public class Eval {
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
 
-  public TokenKind execStatements(ImmutableList<Statement> statements)
+  private TokenKind execStatementsInternal(List<Statement> statements)
       throws EvalException, InterruptedException {
     // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
@@ -230,7 +235,8 @@ public class Eval {
    * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
    * to the given expression. The expression must be valid for an {@code LValue}.
    */
-  // TODO(adonovan): make this a private instance method once all Expression.eval methods move here.
+  // TODO(adonovan): make this a private instance method once all Expression.eval methods move here,
+  // in particular, AbstractComprehension.
   static void assign(Expression expr, Object value, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {

@@ -190,7 +190,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     Environment env = newEnvironmentWithSkylarkOptions().setup("special_var", 42);
-    BuildFileAST.eval(env, "special_var = 41");
+    BuildFileAST.eval(ParserInputSource.fromLines("special_var = 41"), env);
     assertThat(env.moduleLookup("special_var")).isEqualTo(41);
   }
 
@@ -198,7 +198,10 @@ public class EnvironmentTest extends EvaluationTestCase {
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     Environment env = newSkylarkEnvironment().update("global_var", 666);
     try {
-      BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
+      BuildFileAST.eval(
+          ParserInputSource.fromLines(
+              "def foo(x): x += global_var; global_var = 36; return x", "foo(1)"),
+          env);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
       assertThat(e)

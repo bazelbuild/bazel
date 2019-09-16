@@ -89,33 +89,7 @@ class Worker {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
     if (process != null) {
-      destroyProcess(process);
-    }
-  }
-
-  /**
-   * Destroys a process and waits for it to exit. This is necessary for the child to not become a
-   * zombie.
-   *
-   * @param process the process to destroy.
-   */
-  private static void destroyProcess(Subprocess process) {
-    boolean wasInterrupted = false;
-    try {
-      process.destroy();
-      while (true) {
-        try {
-          process.waitFor();
-          return;
-        } catch (InterruptedException ie) {
-          wasInterrupted = true;
-        }
-      }
-    } finally {
-      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
-      if (wasInterrupted) {
-        Thread.currentThread().interrupt(); // preserve interrupted status
-      }
+      process.destroyAndWait();
     }
   }
 

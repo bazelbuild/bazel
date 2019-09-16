@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules;
+package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -25,16 +26,26 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Collection;
 
-/** Class reporting that a configured target will not be built due an error in the analysis phase */
-public class VisibilityErrorEvent implements BuildEventWithConfiguration {
-  BuildConfiguration configuration;
-  Label label;
-  String errorMessage;
+/**
+ * Error message of an analysis root cause. This is separate from {@link AnalysisFailureEvent} to
+ * avoid duplicating error messages in the stream if multiple targets fail due to the same root
+ * cause. It also allows UIs to collate errors by root cause.
+ */
+public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
+  private final BuildConfiguration configuration;
+  private final Label label;
+  private final String errorMessage;
 
-  public VisibilityErrorEvent(BuildConfiguration configuration, Label label, String errorMessage) {
+  public AnalysisRootCauseEvent(
+      BuildConfiguration configuration, Label label, String errorMessage) {
     this.configuration = configuration;
     this.label = label;
     this.errorMessage = errorMessage;
+  }
+
+  @VisibleForTesting
+  public Label getLabel() {
+    return label;
   }
 
   @Override

@@ -35,7 +35,7 @@ public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
       fail("Test requires TEST_TMPDIR to be defined in the environment");
     }
 
-    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
     Path tmpDir = fileSystem.getPath(rawTmpDir);
     if (!tmpDir.isDirectory()) {
       fail("TEST_TMPDIR must point to a directory");
@@ -50,7 +50,7 @@ public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
       fail("Test requires SANDBOXFS to be defined in the environment");
     }
 
-    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
     Path sandboxfs = fileSystem.getPath(rawSandboxfs);
     if (!sandboxfs.isExecutable()) {
       fail("SANDBOXFS must point to an executable binary");

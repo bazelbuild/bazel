@@ -443,3 +443,9 @@ sh_binary(
     srcs = ["dex_list_obfuscator.sh"],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)

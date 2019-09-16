@@ -21,20 +21,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.syntax.DebugServer;
+import com.google.devtools.build.lib.syntax.Debugger;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Eval;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.TokenKind;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Skylark code. */
-public final class SkylarkDebugServer implements DebugServer {
+public final class SkylarkDebugServer implements Debugger {
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the
@@ -140,19 +135,15 @@ public final class SkylarkDebugServer implements DebugServer {
     }
   }
 
-  @Override
-  public Function<Environment, Eval> evalOverride() {
-    return DebugAwareEval::new;
-  }
-
   /**
-   * Pauses the execution of the current thread if there are conditions that should cause it to be
-   * paused, such as a breakpoint being reached.
+   * Called by the interpreter before execution of the code at the specified location. Pauses the
+   * execution of the current thread if there are conditions that should cause it to be paused, such
+   * as a breakpoint being reached.
    *
    * @param location the location of the statement or expression currently being executed
    */
-  @VisibleForTesting
-  void pauseIfNecessary(Environment env, Location location) {
+  @Override
+  public void before(Environment env, Location location) {
     if (!transport.isClosed()) {
       threadHandler.pauseIfNecessary(env, location, transport);
     }
@@ -245,19 +236,5 @@ public final class SkylarkDebugServer implements DebugServer {
       threadHandler.pauseThread(threadId);
     }
     return DebugEventHelper.pauseThreadResponse(sequenceNumber);
-  }
-
-  /** A subclass of {@link Eval} with debugging hooks. */
-  private final class DebugAwareEval extends Eval {
-
-    DebugAwareEval(Environment env) {
-      super(env);
-    }
-
-    @Override
-    protected TokenKind exec(Statement st) throws EvalException, InterruptedException {
-      pauseIfNecessary(env, st.getLocation());
-      return super.exec(st);
-    }
   }
 }

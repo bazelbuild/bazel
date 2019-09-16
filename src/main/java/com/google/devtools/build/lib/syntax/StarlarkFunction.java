@@ -73,9 +73,7 @@ public class StarlarkFunction extends BaseFunction {
         env.update(names.get(i), arguments[i]);
       }
 
-      Eval eval = Eval.fromEnvironment(env);
-      eval.execStatements(statements);
-      return eval.getResult();
+      return Eval.execStatements(env, statements);
     } finally {
       env.exitScope();
     }

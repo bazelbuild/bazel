@@ -448,10 +448,10 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // TODO(bazel-team): There should be a similar function on Windows.
 }
 
-string GetProcessCWD(int pid) {
+blaze_util::Path GetProcessCWD(int pid) {
   // TODO(bazel-team) 2016-11-18: decide whether we need this on Windows and
   // implement or delete.
-  return "";
+  return blaze_util::Path();
 }
 
 bool IsSharedLibrary(const string &filename) {

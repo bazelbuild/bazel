@@ -122,11 +122,11 @@ distdir_tar(
         "java_tools_javac11_linux-v5.0.zip",
         "java_tools_javac11_windows-v5.0.zip",
         "java_tools_javac11_darwin-v5.0.zip",
-        "coverage_output_generator-v1.0.zip",
+        "coverage_output_generator-v2.0.zip",
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
-        "android_tools_pkg-0.10.tar.gz",
+        "android_tools_pkg-0.11.tar.gz",
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
@@ -147,11 +147,11 @@ distdir_tar(
         "java_tools_javac11_linux-v5.0.zip": "b644b1eb3743376ce3aeb0cc6a15374ca5676bf872cc653c3633751c8226e060",
         "java_tools_javac11_windows-v5.0.zip": "116fef8a385873bfda5fa76e831959aa0ad0b12ca9a880bd0fc7252413ed7c1f",
         "java_tools_javac11_darwin-v5.0.zip": "dfa0e6b6320325eb28023ed754022d985d462b4db468394be305a82f55e7dafa",
-        "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
+        "coverage_output_generator-v2.0.zip": "3a6951051272d51613ac4c77af6ce238a3db321bf06506fde1b8866eb18a89dd",
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.10.tar.gz": "9c5081f93276fefb3db7ca61cc1225ff6d1913e7e315568265bb1a728265a9b1", # built at c91a9535302f13521a8875c384ff0b87639ce149
+        "android_tools_pkg-0.11.tar.gz": "6fc50151063bffdda700038ea7df99c89d54dc066e9377a5baff60d55d482ad2", # built at 4739f69a7afa9ddaa450823cc78e97e8addc22a3
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
@@ -183,8 +183,8 @@ distdir_tar(
         "java_tools_javac11_darwin-v5.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.0/java_tools_javac11_darwin-v5.0.zip",
         ],
-        "coverage_output_generator-v1.0.zip": [
-            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip",
+        "coverage_output_generator-v2.0.zip": [
+            "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.0.zip",
         ],
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
@@ -198,8 +198,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
             "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
         ],
-        "android_tools_pkg-0.10.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.10.tar.gz",
+        "android_tools_pkg-0.11.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.11.tar.gz",
         ],
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [
@@ -500,7 +500,7 @@ distdir_tar(
         "java_tools_javac11_linux-v5.0.zip",
         "java_tools_javac11_windows-v5.0.zip",
         "java_tools_javac11_darwin-v5.0.zip",
-        "coverage_output_generator-v1.0.zip",
+        "coverage_output_generator-v2.0.zip",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
         "zulu11.2.3-jdk11.0.1-win_x64.zip",
@@ -508,7 +508,7 @@ distdir_tar(
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
-        "android_tools_pkg-0.10.tar.gz",
+        "android_tools_pkg-0.11.tar.gz",
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip",
         # bazelbuild/rules_java
@@ -531,7 +531,7 @@ distdir_tar(
         "java_tools_javac11_linux-v5.0.zip": "b644b1eb3743376ce3aeb0cc6a15374ca5676bf872cc653c3633751c8226e060",
         "java_tools_javac11_windows-v5.0.zip": "116fef8a385873bfda5fa76e831959aa0ad0b12ca9a880bd0fc7252413ed7c1f",
         "java_tools_javac11_darwin-v5.0.zip": "dfa0e6b6320325eb28023ed754022d985d462b4db468394be305a82f55e7dafa",
-        "coverage_output_generator-v1.0.zip": "cc470e529fafb6165b5be3929ff2d99b38429b386ac100878687416603a67889",
+        "coverage_output_generator-v2.0.zip": "3a6951051272d51613ac4c77af6ce238a3db321bf06506fde1b8866eb18a89dd",
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
@@ -539,7 +539,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "android_tools_pkg-0.10.tar.gz": "9c5081f93276fefb3db7ca61cc1225ff6d1913e7e315568265bb1a728265a9b1", # built at c91a9535302f13521a8875c384ff0b87639ce149
+        "android_tools_pkg-0.11.tar.gz": "6fc50151063bffdda700038ea7df99c89d54dc066e9377a5baff60d55d482ad2", # built at 4739f69a7afa9ddaa450823cc78e97e8addc22a3
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": "a07fe5e75964361885db725039c2ba673f0ee0313d971ae4f50c9b18cd28b0b5",
         # bazelbuild/rules_java
@@ -561,7 +561,7 @@ distdir_tar(
         "java_tools_javac11_linux-v5.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.0/java_tools_javac11_linux-v5.0.zip"],
         "java_tools_javac11_windows-v5.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.0/java_tools_javac11_windows-v5.0.zip"],
         "java_tools_javac11_darwin-v5.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.0/java_tools_javac11_darwin-v5.0.zip"],
-        "coverage_output_generator-v1.0.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v1.0.zip"],
+        "coverage_output_generator-v2.0.zip": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.0.zip"],
         "zulu11.2.3-jdk11.0.1-linux_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz"],
         "zulu11.2.3-jdk11.0.1-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-win_x64.zip"],
@@ -569,8 +569,8 @@ distdir_tar(
         "zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz"],
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip"],
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.29.3-ca-jdk11.0.2/zulu11.29.3-ca-jdk11.0.2-win_x64.zip"],
-        "android_tools_pkg-0.10.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.10.tar.gz",
+        "android_tools_pkg-0.11.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.11.tar.gz",
         ],
         # bazelbuild/platforms
         "441afe1bfdadd6236988e9cac159df6b5a9f5a98.zip": [

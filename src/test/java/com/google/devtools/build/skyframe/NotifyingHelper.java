@@ -296,9 +296,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> markClean() throws InterruptedException {
+    public NodeValueAndRdepsToSignal markClean() throws InterruptedException {
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.BEFORE, this);
-      Set<SkyKey> result = super.markClean();
+      NodeValueAndRdepsToSignal result = super.markClean();
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.AFTER, this);
       return result;
     }

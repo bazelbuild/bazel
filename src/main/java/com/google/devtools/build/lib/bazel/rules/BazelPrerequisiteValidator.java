@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.syntax.Type;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
 public class BazelPrerequisiteValidator
@@ -74,10 +74,6 @@ public class BazelPrerequisiteValidator
                 rule.getLabel());
         context.ruleError(errorMessage);
       }
-      // We can always post the visibility error as, regardless of the value of keep going,
-      // that target will not be built.
-      context.post(
-          new VisibilityErrorEvent(context.getConfiguration(), rule.getLabel(), errorMessage));
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {

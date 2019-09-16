@@ -33,7 +33,6 @@ java_test(
     srcs = ["SkydocTest.java"],
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -208,6 +207,12 @@ skydoc_test(
     name = "function_basic_test",
     golden_file = "testdata/function_basic_test/golden.txt",
     input_file = "testdata/function_basic_test/input.bzl",
+)
+
+skydoc_test(
+    name = "function_wrap_multiple_lines_test",
+    golden_file = "testdata/function_wrap_multiple_lines_test/golden.txt",
+    input_file = "testdata/function_wrap_multiple_lines_test/input.bzl",
 )
 
 skydoc_test(

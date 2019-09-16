@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -232,6 +231,24 @@ public final class TargetUtils {
       }
     }
     return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
+   *
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   */
+  public static ImmutableMap<String, String> getExecutionInfo(
+      Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation) {
+      return ImmutableMap.copyOf(getExecutionInfo(rule));
+    } else {
+      return ImmutableMap.of();
+    }
   }
 
   /**

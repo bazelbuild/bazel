@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;

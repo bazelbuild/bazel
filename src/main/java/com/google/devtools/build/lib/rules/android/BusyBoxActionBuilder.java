@@ -71,6 +71,14 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a direct input artifact. */
+  public BusyBoxActionBuilder addInput(Artifact value) {
+    Preconditions.checkNotNull(value);
+    commandLine.addExecPath(value);
+    inputs.add(value);
+    return this;
+  }
+
+  /** Adds a direct input artifact. */
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);

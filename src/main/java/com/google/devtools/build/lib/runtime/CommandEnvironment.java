@@ -461,11 +461,11 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the directory where actions' outputs and errors will be written. Is below the directory
+   * Returns the directory where actions' temporary files will be written. Is below the directory
    * returned by {@link #getExecRoot}.
    */
-  public Path getActionConsoleOutputDirectory() {
-    return getDirectories().getActionConsoleOutputDirectory(getExecRoot());
+  public Path getActionTempsDirectory() {
+    return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
   /**

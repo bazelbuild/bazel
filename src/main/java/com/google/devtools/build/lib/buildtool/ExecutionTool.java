@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -443,23 +444,23 @@ public class ExecutionTool {
       throws ExecutorInitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
-    if (!packageRootMap.isPresent()) {
-      return;
-    }
-    // Prepare for build.
-    Profiler.instance().markPhase(ProfilePhase.PREPARE);
+    if (packageRootMap.isPresent()) {
+      // Prepare for build.
+      Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
-    // Plant the symlink forest.
-    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-      new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
-          .plantSymlinkForest();
-    } catch (IOException e) {
-      throw new ExecutorInitException("Source forest creation failed", e);
+      // Plant the symlink forest.
+      try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
+        new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
+            .plantSymlinkForest();
+      } catch (IOException e) {
+        throw new ExecutorInitException("Source forest creation failed", e);
+      }
     }
+    env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
   private void createActionLogDirectory() throws ExecutorInitException {
-    Path directory = env.getActionConsoleOutputDirectory();
+    Path directory = env.getActionTempsDirectory();
     try {
       if (directory.exists()) {
         directory.deleteTree();
@@ -608,7 +609,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    Path actionOutputRoot = env.getActionConsoleOutputDirectory();
+    Path actionOutputRoot = env.getActionTempsDirectory();
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
 

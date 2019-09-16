@@ -268,15 +268,15 @@ analysis time.
 A generated file that is addressable by a label is called a *predeclared
 output*. There are multiple ways for a rule to introduce a predeclared output:
 
-* If the rule declares an [`outputs`](lib/globals.html#rule.outputs) dict in its
-  call to `rule()`, then each entry in this dict becomes an output. The output's
-  label is chosen automatically as specified by the entry, usually by
-  substituting into a string template. This is the most common way to define
-  outputs.
-
 * The rule can have an attribute of type [`output`](lib/attr.html#output) or
   [`output_list`](lib/attr.html#output_list). In this case the user explicitly
   chooses the label for the output when they instantiate the rule.
+
+* **(Deprecated)** If the rule declares an
+  [`outputs`](lib/globals.html#rule.outputs) dict in its call to `rule()`, then
+  each entry in this dict becomes an output. The output's label is chosen
+  automatically as specified by the entry, usually by substituting into a string
+  template.
 
 * **(Deprecated)** If the rule is marked
   [`executable`](lib/globals.html#rule.executable) or

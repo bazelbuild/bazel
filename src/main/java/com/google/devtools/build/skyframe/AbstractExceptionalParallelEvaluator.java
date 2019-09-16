@@ -540,18 +540,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     return bubbleErrorInfo;
   }
 
-  private void replay(ValueWithMetadata valueWithMetadata) {
-    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
-    // graph. Under those conditions, using the regular NestedSet flattening with .toList() is more
-    // efficient than using NestedSetVisitor's custom traversal logic.
-    evaluatorContext
-        .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables().toList());
-    evaluatorContext
-        .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents().toList());
-  }
-
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
       Iterable<SkyKey> skyKeys,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,

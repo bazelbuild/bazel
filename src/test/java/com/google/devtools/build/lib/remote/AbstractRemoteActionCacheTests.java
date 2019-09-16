@@ -1168,7 +1168,7 @@ public class AbstractRemoteActionCacheTests {
     }
 
     @Override
-    protected ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests) {
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
       throw new UnsupportedOperationException();
     }
 

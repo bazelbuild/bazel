@@ -30,12 +30,14 @@ class FormatUtils {
   private FormatUtils() {}
 
   static DependencyFilter getDependencyFilter(CommonQueryOptions queryOptions) {
-    // TODO(bazel-team): Optimize: and(ALL_DEPS, x) -> x, etc.
-    return DependencyFilter.and(
-        queryOptions.includeHostDeps ? DependencyFilter.ALL_DEPS : DependencyFilter.NO_HOST_DEPS,
-        queryOptions.includeImplicitDeps
-            ? DependencyFilter.ALL_DEPS
-            : DependencyFilter.NO_IMPLICIT_DEPS);
+    if (queryOptions.includeToolDeps) {
+      return queryOptions.includeImplicitDeps
+          ? DependencyFilter.ALL_DEPS
+          : DependencyFilter.NO_IMPLICIT_DEPS;
+    }
+    return queryOptions.includeImplicitDeps
+        ? DependencyFilter.and(DependencyFilter.NO_IMPLICIT_DEPS, DependencyFilter.ONLY_TARGET_DEPS)
+        : DependencyFilter.ONLY_TARGET_DEPS;
   }
 
   /** An ordering of Targets based on the ordering of their labels. */
@@ -57,7 +59,8 @@ class FormatUtils {
   static String getLocation(Target target, boolean relative) {
     Location location = target.getLocation();
     return relative
-        ? location.print(target.getPackage().getPackageDirectory().asFragment(),
+        ? location.print(
+            target.getPackage().getPackageDirectory().asFragment(),
             target.getPackage().getNameFragment())
         : location.print();
   }
