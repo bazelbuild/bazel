@@ -35,7 +35,7 @@ public abstract class Expression extends ASTNode {
     BINARY_OPERATOR,
     COMPREHENSION,
     CONDITIONAL,
-    DICTIONARY_LITERAL,
+    DICT_EXPR,
     DOT,
     FUNCALL,
     IDENTIFIER,

@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.List;
 
-/** Syntax node for dictionary literals. */
-// TODO(adonovan): rename to DictExpression; it's not a literal.
-public final class DictionaryLiteral extends Expression {
+/** Syntax node for dict expressions. */
+public final class DictExpression extends Expression {
 
   /** A key/value pair in a dict expression or comprehension. */
   public static final class Entry extends ASTNode {
@@ -56,7 +55,7 @@ public final class DictionaryLiteral extends Expression {
 
   private final ImmutableList<Entry> entries;
 
-  DictionaryLiteral(List<Entry> entries) {
+  DictExpression(List<Entry> entries) {
     this.entries = ImmutableList.copyOf(entries);
   }
 
@@ -95,7 +94,7 @@ public final class DictionaryLiteral extends Expression {
 
   @Override
   public Kind kind() {
-    return Kind.DICTIONARY_LITERAL;
+    return Kind.DICT_EXPR;
   }
 
   public ImmutableList<Entry> getEntries() {

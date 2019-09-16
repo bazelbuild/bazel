@@ -130,7 +130,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   }
 
   @Test
-  public void dictionaryLiteral() {
+  public void dictExpression() {
     assertExprBothRoundTrip("{1: \"a\", 2: \"b\"}");
   }
 
@@ -409,7 +409,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
 
   /* Not tested explicitly because they're covered implicitly by tests for other nodes:
    * - LValue
-   * - DictionaryEntryLiteral
+   * - DictExpression.Entry
    * - passed arguments / formal parameters
    * - ConditionalStatements
    */

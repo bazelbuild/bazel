@@ -77,7 +77,7 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   // helper func for testListLiterals:
-  private static int getIntElem(DictionaryLiteral.Entry entry, boolean key) {
+  private static int getIntElem(DictExpression.Entry entry, boolean key) {
     return ((IntegerLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
   }
 
@@ -87,7 +87,7 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   // helper func for testListLiterals:
-  private static DictionaryLiteral.Entry getElem(DictionaryLiteral list, int index) {
+  private static DictExpression.Entry getElem(DictExpression list, int index) {
     return list.getEntries().get(index);
   }
 
@@ -521,7 +521,7 @@ public final class ParserTest extends EvaluationTestCase {
   public void testDictPositions() throws Exception {
     String expr = "{1:2,2:f(1),3:4}";
     assertExpressionLocationCorrect(expr);
-    DictionaryLiteral list = (DictionaryLiteral) parseExpression(expr);
+    DictExpression list = (DictExpression) parseExpression(expr);
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("1:2");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("2:f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("3:4");
@@ -740,38 +740,37 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictionaryLiterals() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{1:42}"); // a singleton dictionary
+  public void testDictExpressions() throws Exception {
+    DictExpression dictionaryList =
+        (DictExpression) parseExpression("{1:42}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
+    DictExpression.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
 
   @Test
-  public void testDictionaryLiterals1() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{}"); // an empty dictionary
+  public void testDictExpressions1() throws Exception {
+    DictExpression dictionaryList = (DictExpression) parseExpression("{}"); // an empty dictionary
     assertThat(dictionaryList.getEntries()).isEmpty();
   }
 
   @Test
-  public void testDictionaryLiterals2() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{1:42,}"); // a singleton dictionary
+  public void testDictExpressions2() throws Exception {
+    DictExpression dictionaryList =
+        (DictExpression) parseExpression("{1:42,}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
+    DictExpression.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
 
   @Test
-  public void testDictionaryLiterals3() throws Exception {
-    DictionaryLiteral dictionaryList = (DictionaryLiteral) parseExpression("{1:42,2:43,3:44}");
+  public void testDictExpressions3() throws Exception {
+    DictExpression dictionaryList = (DictExpression) parseExpression("{1:42,2:43,3:44}");
     assertThat(dictionaryList.getEntries()).hasSize(3);
     for (int i = 0; i < 3; i++) {
-      DictionaryLiteral.Entry tuple = getElem(dictionaryList, i);
+      DictExpression.Entry tuple = getElem(dictionaryList, i);
       assertThat(getIntElem(tuple, true)).isEqualTo(i + 1);
       assertThat(getIntElem(tuple, false)).isEqualTo(i + 42);
     }

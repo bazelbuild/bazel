@@ -148,11 +148,11 @@ public class SyntaxTreeVisitor {
 
   public void visit(FlowStatement node) {}
 
-  public void visit(DictionaryLiteral node) {
+  public void visit(DictExpression node) {
     visitAll(node.getEntries());
   }
 
-  public void visit(DictionaryLiteral.Entry node) {
+  public void visit(DictExpression.Entry node) {
     visit(node.getKey());
     visit(node.getValue());
   }

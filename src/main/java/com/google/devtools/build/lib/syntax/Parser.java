@@ -567,8 +567,8 @@ final class Parser {
   }
 
   // dict_entry_list ::= ( (dict_entry ',')* dict_entry ','? )?
-  private List<DictionaryLiteral.Entry> parseDictEntryList() {
-    List<DictionaryLiteral.Entry> list = new ArrayList<>();
+  private List<DictExpression.Entry> parseDictEntryList() {
+    List<DictExpression.Entry> list = new ArrayList<>();
     // the terminating token for a dict entry list
     while (token.kind != TokenKind.RBRACE) {
       list.add(parseDictEntry());
@@ -582,12 +582,12 @@ final class Parser {
   }
 
   // dict_entry ::= nontupleexpr ':' nontupleexpr
-  private DictionaryLiteral.Entry parseDictEntry() {
+  private DictExpression.Entry parseDictEntry() {
     int start = token.left;
     Expression key = parseNonTupleExpression();
     expect(TokenKind.COLON);
     Expression value = parseNonTupleExpression();
-    return setLocation(new DictionaryLiteral.Entry(key, value), start, value);
+    return setLocation(new DictExpression.Entry(key, value), start, value);
   }
 
   /**
@@ -869,27 +869,27 @@ final class Parser {
     int start = token.left;
     expect(TokenKind.LBRACE);
     if (token.kind == TokenKind.RBRACE) { // empty Dict
-      DictionaryLiteral literal = new DictionaryLiteral(ImmutableList.of());
+      DictExpression literal = new DictExpression(ImmutableList.of());
       setLocation(literal, start, token.right);
       nextToken();
       return literal;
     }
-    DictionaryLiteral.Entry entry = parseDictEntry();
+    DictExpression.Entry entry = parseDictEntry();
     if (token.kind == TokenKind.FOR) {
       // Dict comprehension
       return parseComprehensionSuffix(entry, TokenKind.RBRACE, start);
     }
-    List<DictionaryLiteral.Entry> entries = new ArrayList<>();
+    List<DictExpression.Entry> entries = new ArrayList<>();
     entries.add(entry);
     if (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
       entries.addAll(parseDictEntryList());
     }
     if (token.kind == TokenKind.RBRACE) {
-      DictionaryLiteral literal = new DictionaryLiteral(entries);
-      setLocation(literal, start, token.right);
+      DictExpression dict = new DictExpression(entries);
+      setLocation(dict, start, token.right);
       nextToken();
-      return literal;
+      return dict;
     }
     expect(TokenKind.RBRACE);
     int end = syncPast(DICT_TERMINATOR_SET);

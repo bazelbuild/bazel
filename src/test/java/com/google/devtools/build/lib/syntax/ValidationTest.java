@@ -159,7 +159,7 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictLiteralDifferentValueTypeWorks() throws Exception {
+  public void testDictExpressionDifferentValueTypeWorks() throws Exception {
     parse("{'a': 1, 'b': 'c'}");
   }
 
