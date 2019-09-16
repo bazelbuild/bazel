@@ -507,7 +507,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent(
-        "While resolving configuation keys for //foo:g: no such target '//bar:fake'");
+        "While resolving configuration keys for //foo:g: no such target '//bar:fake'");
   }
 
   /**

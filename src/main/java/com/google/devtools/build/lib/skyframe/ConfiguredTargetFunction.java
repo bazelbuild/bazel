@@ -696,7 +696,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           .handle(
               Event.error(
                   String.format(
-                      "While resolving configuation keys for %s: %s",
+                      "While resolving configuration keys for %s: %s",
                       target.getLabel(), e.getCause().getMessage())));
 
       // Re-throw the exception so it is handled by compute().
