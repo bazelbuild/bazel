@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATHS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SUFFIX;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -691,7 +691,7 @@ public class CompilationSupport {
         // include "foo" as a search path.
         .addAll(uniqueParentDirectories(provider.getStaticFrameworkDirs()))
         .addAll(uniqueParentDirectories(provider.get(DYNAMIC_FRAMEWORK_DIR)))
-        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATHS)))
         .build();
   }
 
@@ -706,7 +706,7 @@ public class CompilationSupport {
     }
     ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
-        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
+        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATHS)))
         .build();
   }
 
