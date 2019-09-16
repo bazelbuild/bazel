@@ -25,7 +25,7 @@ import java.io.IOException;
  * slice expressions and starred expressions cannot appear on the LHS. TODO(bazel-team): Add support
  * for assigning to slices (e.g. a[2:6] = [3]).
  */
-public abstract class Expression extends ASTNode {
+public abstract class Expression extends Node {
 
   /**
    * Kind of the expression. This is similar to using instanceof, except that it's more efficient

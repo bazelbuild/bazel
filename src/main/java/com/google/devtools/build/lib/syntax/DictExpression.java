@@ -22,7 +22,7 @@ import java.util.List;
 public final class DictExpression extends Expression {
 
   /** A key/value pair in a dict expression or comprehension. */
-  public static final class Entry extends ASTNode {
+  public static final class Entry extends Node {
 
     private final Expression key;
     private final Expression value;
@@ -48,7 +48,7 @@ public final class DictExpression extends Expression {
     }
 
     @Override
-    public void accept(SyntaxTreeVisitor visitor) {
+    public void accept(NodeVisitor visitor) {
       visitor.visit(this);
     }
   }
@@ -88,7 +88,7 @@ public final class DictExpression extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

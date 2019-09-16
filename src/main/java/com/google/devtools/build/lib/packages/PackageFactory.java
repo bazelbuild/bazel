@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -62,6 +61,8 @@ import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
 import com.google.devtools.build.lib.syntax.ListLiteral;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Node;
+import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -73,7 +74,6 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
-import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1824,7 +1824,7 @@ public final class PackageFactory {
    * networked file systems, executed sequentially in them can be very time consuming.
    */
   @VisibleForTesting
-  static class GlobPatternExtractor extends SyntaxTreeVisitor {
+  static class GlobPatternExtractor extends NodeVisitor {
     private final Set<String> includeDirectoriesPatterns = new HashSet<>();
     private final Set<String> excludeDirectoriesPatterns = new HashSet<>();
 
@@ -1921,9 +1921,9 @@ public final class PackageFactory {
   // prefetching. Combine.
   public static boolean checkBuildSyntax(BuildFileAST file, final EventHandler eventHandler) {
     final boolean[] success = {true};
-    SyntaxTreeVisitor checker =
-        new SyntaxTreeVisitor() {
-          private void error(ASTNode node, String message) {
+    NodeVisitor checker =
+        new NodeVisitor() {
+          private void error(Node node, String message) {
             eventHandler.handle(Event.error(node.getLocation(), message));
             success[0] = false;
           }

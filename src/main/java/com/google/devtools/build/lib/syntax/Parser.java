@@ -428,13 +428,13 @@ final class Parser {
     return setLocation(Identifier.of("$error$"), start, end);
   }
 
-  // Convenience wrapper method around ASTNode.setLocation
-  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, int endOffset) {
-    return ASTNode.setLocation(lexer.createLocation(startOffset, endOffset), node);
+  // Convenience wrapper method around Node.setLocation
+  private <NodeT extends Node> NodeT setLocation(NodeT node, int startOffset, int endOffset) {
+    return Node.setLocation(lexer.createLocation(startOffset, endOffset), node);
   }
 
   // Convenience method that uses end offset from the last node.
-  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, ASTNode lastNode) {
+  private <NodeT extends Node> NodeT setLocation(NodeT node, int startOffset, Node lastNode) {
     Preconditions.checkNotNull(lastNode, "can't extract end offset from a null node");
     Preconditions.checkNotNull(lastNode.getLocation(), "lastNode doesn't have a location");
     return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
@@ -774,7 +774,7 @@ final class Parser {
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
   //                        | 'IF' expr comprehension_suffix
   //                        | ']' | '}'
-  private Expression parseComprehensionSuffix(ASTNode body, TokenKind closingBracket, int offset) {
+  private Expression parseComprehensionSuffix(Node body, TokenKind closingBracket, int offset) {
     ImmutableList.Builder<Comprehension.Clause> clauses = ImmutableList.builder();
     while (true) {
       if (token.kind == TokenKind.FOR) {

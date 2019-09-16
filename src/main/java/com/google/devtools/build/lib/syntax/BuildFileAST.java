@@ -28,13 +28,11 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Abstract syntax node for an entire BUILD file.
- */
-// TODO(bazel-team): Consider breaking this up into two classes: One that extends ASTNode and does
+/** Abstract syntax node for an entire BUILD file. */
+// TODO(bazel-team): Consider breaking this up into two classes: One that extends Node and does
 // not include import info; and one that wraps that object with additional import info but that
-// does not itself extend ASTNode. This would help keep the AST minimalistic.
-public class BuildFileAST extends ASTNode {
+// does not itself extend Node. This would help keep the AST minimalistic.
+public class BuildFileAST extends Node {
 
   private final ImmutableList<Statement> statements;
 
@@ -292,7 +290,7 @@ public class BuildFileAST extends ASTNode {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

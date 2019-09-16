@@ -22,9 +22,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for @{code SyntaxTreeVisitor} */
+/** Tests for @{code NodeVisitor} */
 @RunWith(JUnit4.class)
-public final class SyntaxTreeVisitorTest {
+public final class NodeVisitorTest {
 
   private BuildFileAST parse(String... lines) throws IOException {
     ParserInputSource input = ParserInputSource.fromLines(lines);
@@ -36,7 +36,7 @@ public final class SyntaxTreeVisitorTest {
     final List<String> idents = new ArrayList<>();
     final List<String> params = new ArrayList<>();
 
-    class IdentVisitor extends SyntaxTreeVisitor {
+    class IdentVisitor extends NodeVisitor {
       @Override
       public void visit(Identifier node) {
         idents.add(node.getName());

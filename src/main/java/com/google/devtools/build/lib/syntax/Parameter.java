@@ -199,7 +199,7 @@ public abstract class Parameter<V, T> extends Argument {
 
   @Override
   @SuppressWarnings("unchecked")
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit((Parameter<Expression, Expression>) this);
   }
 }

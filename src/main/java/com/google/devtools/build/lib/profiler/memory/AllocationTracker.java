@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
+import com.google.devtools.build.lib.syntax.Node;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -254,8 +254,8 @@ public class AllocationTracker implements Sampler {
         Object object = allocationSample.callstack.get(i);
         if (line == -1) {
           final Location location;
-          if (object instanceof ASTNode) {
-            location = ((ASTNode) object).getLocation();
+          if (object instanceof Node) {
+            location = ((Node) object).getLocation();
           } else if (object instanceof BaseFunction) {
             location = ((BaseFunction) object).getLocation();
           } else {

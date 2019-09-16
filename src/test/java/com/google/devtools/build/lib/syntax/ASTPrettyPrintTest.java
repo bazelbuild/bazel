@@ -24,7 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests the {@code toString} and pretty printing methods for {@link ASTNode} subclasses. */
+/** Tests the {@code toString} and pretty printing methods for {@link Node} subclasses. */
 @RunWith(JUnit4.class)
 public class ASTPrettyPrintTest extends EvaluationTestCase {
 
@@ -35,7 +35,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   /**
    * Asserts that the given node's pretty print at a given indent level matches the given string.
    */
-  private void assertPrettyMatches(ASTNode node, int indentLevel, String expected) {
+  private void assertPrettyMatches(Node node, int indentLevel, String expected) {
     StringBuilder prettyBuilder = new StringBuilder();
     try {
       node.prettyPrint(prettyBuilder, indentLevel);
@@ -47,17 +47,17 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   }
 
   /** Asserts that the given node's pretty print with no indent matches the given string. */
-  private void assertPrettyMatches(ASTNode node, String expected) {
+  private void assertPrettyMatches(Node node, String expected) {
     assertPrettyMatches(node, 0, expected);
   }
 
   /** Asserts that the given node's pretty print with one indent matches the given string. */
-  private void assertIndentedPrettyMatches(ASTNode node, String expected) {
+  private void assertIndentedPrettyMatches(Node node, String expected) {
     assertPrettyMatches(node, 1, expected);
   }
 
   /** Asserts that the given node's {@code toString} matches the given string. */
-  private void assertTostringMatches(ASTNode node, String expected) {
+  private void assertTostringMatches(Node node, String expected) {
     assertThat(node.toString()).isEqualTo(expected);
   }
 
@@ -281,11 +281,11 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   @Test
   public void flowStatement() {
     // The parser would complain if we tried to construct them from source.
-    ASTNode breakNode = new FlowStatement(TokenKind.BREAK);
+    Node breakNode = new FlowStatement(TokenKind.BREAK);
     assertIndentedPrettyMatches(breakNode, "  break\n");
     assertTostringMatches(breakNode, "break\n");
 
-    ASTNode continueNode = new FlowStatement(TokenKind.CONTINUE);
+    Node continueNode = new FlowStatement(TokenKind.CONTINUE);
     assertIndentedPrettyMatches(continueNode, "  continue\n");
     assertTostringMatches(continueNode, "continue\n");
   }
@@ -355,7 +355,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   @Test
   public void loadStatement() {
     // load("foo.bzl", a="A", "B")
-    ASTNode loadStatement =
+    Node loadStatement =
         new LoadStatement(
             new StringLiteral("foo.bzl"),
             ImmutableList.of(
@@ -389,7 +389,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
 
   @Test
   public void buildFileAST() {
-    ASTNode node = parseBuildFileASTWithoutValidation("print(x)\nprint(y)");
+    Node node = parseBuildFileASTWithoutValidation("print(x)\nprint(y)");
     assertIndentedPrettyMatches(
         node,
         join("  print(x)",

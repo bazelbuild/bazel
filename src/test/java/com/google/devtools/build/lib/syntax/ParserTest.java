@@ -60,7 +60,7 @@ public final class ParserTest extends EvaluationTestCase {
     return parseFileForSkylarkAsAST(lines).getStatements();
   }
 
-  private static String getText(String text, ASTNode node) {
+  private static String getText(String text, Node node) {
     return text.substring(node.getLocation().getStartOffset(),
                           node.getLocation().getEndOffset());
   }
@@ -1487,8 +1487,8 @@ public final class ParserTest extends EvaluationTestCase {
     BuildFileAST file =
         parseFileForSkylarkAsAST("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
     Set<String> uniqueStringInstances = Sets.newIdentityHashSet();
-    SyntaxTreeVisitor collectAllStringsInStringLiteralsVisitor =
-        new SyntaxTreeVisitor() {
+    NodeVisitor collectAllStringsInStringLiteralsVisitor =
+        new NodeVisitor() {
           @Override
           public void visit(StringLiteral stringLiteral) {
             uniqueStringInstances.add(stringLiteral.getValue());
