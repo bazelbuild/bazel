@@ -130,7 +130,7 @@ public class SyntaxTreeVisitor {
     visitBlock(node.getStatements());
   }
 
-  public void visit(FunctionDefStatement node) {
+  public void visit(DefStatement node) {
     visit(node.getIdentifier());
     // Do not use visitAll for the parameters, because we would lose the type information.
     // Inside the AST, we know that Parameters are using Expressions.

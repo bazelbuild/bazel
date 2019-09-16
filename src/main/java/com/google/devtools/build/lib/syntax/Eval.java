@@ -109,7 +109,7 @@ final class Eval {
     return TokenKind.PASS;
   }
 
-  private void execDef(FunctionDefStatement node) throws EvalException, InterruptedException {
+  private void execDef(DefStatement node) throws EvalException, InterruptedException {
     List<Expression> defaultExpressions = node.getSignature().getDefaultValues();
     ArrayList<Object> defaultValues = null;
 
@@ -206,7 +206,7 @@ final class Eval {
       case FOR:
         return execFor((ForStatement) st);
       case FUNCTION_DEF:
-        execDef((FunctionDefStatement) st);
+        execDef((DefStatement) st);
         return TokenKind.PASS;
       case IF:
         return execIf((IfStatement) st);

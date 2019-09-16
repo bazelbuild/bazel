@@ -621,7 +621,7 @@ public final class ParserTest extends EvaluationTestCase {
             "    pass",
             "    break");
     assertThat(file).hasSize(1);
-    List<Statement> body = ((FunctionDefStatement) file.get(0)).getStatements();
+    List<Statement> body = ((DefStatement) file.get(0)).getStatements();
     assertThat(body).hasSize(1);
 
     List<Statement> loop = ((ForStatement) body.get(0)).getBlock();
@@ -1025,7 +1025,7 @@ public final class ParserTest extends EvaluationTestCase {
   public void testDefSingleLine() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "def foo(): x = 1; y = 2\n");
-    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    DefStatement stmt = (DefStatement) statements.get(0);
     assertThat(stmt.getStatements()).hasSize(2);
   }
 
@@ -1036,7 +1036,7 @@ public final class ParserTest extends EvaluationTestCase {
         "  pass\n");
 
     assertThat(statements).hasSize(1);
-    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    DefStatement stmt = (DefStatement) statements.get(0);
     assertThat(stmt.getStatements().get(0)).isInstanceOf(FlowStatement.class);
   }
 
@@ -1057,7 +1057,7 @@ public final class ParserTest extends EvaluationTestCase {
     List<Statement> defNone = parseFileForSkylark("def foo():", "  return None\n");
     assertThat(defNone).hasSize(1);
 
-    List<Statement> bodyNone = ((FunctionDefStatement) defNone.get(0)).getStatements();
+    List<Statement> bodyNone = ((DefStatement) defNone.get(0)).getStatements();
     assertThat(bodyNone).hasSize(1);
 
     ReturnStatement returnNone = (ReturnStatement) bodyNone.get(0);
@@ -1069,7 +1069,7 @@ public final class ParserTest extends EvaluationTestCase {
       i++;
       assertThat(defNoExpr).hasSize(1);
 
-      List<Statement> bodyNoExpr = ((FunctionDefStatement) defNoExpr.get(0)).getStatements();
+      List<Statement> bodyNoExpr = ((DefStatement) defNoExpr.get(0)).getStatements();
       assertThat(bodyNoExpr).hasSize(1);
 
       ReturnStatement returnNoExpr = (ReturnStatement) bodyNoExpr.get(0);
@@ -1386,8 +1386,8 @@ public final class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "def func(a, b1=2, b2=3, *, c1, d=4, c2): return a + b1 + b2 + c1 + c2 + d\n");
     assertThat(statements).hasSize(1);
-    assertThat(statements.get(0)).isInstanceOf(FunctionDefStatement.class);
-    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    assertThat(statements.get(0)).isInstanceOf(DefStatement.class);
+    DefStatement stmt = (DefStatement) statements.get(0);
     FunctionSignature sig = stmt.getSignature().getSignature();
     // Note the reordering of optional named-only at the end.
     assertThat(sig.getNames()).isEqualTo(ImmutableList.<String>of(

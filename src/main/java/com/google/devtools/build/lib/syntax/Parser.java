@@ -241,7 +241,7 @@ final class Parser {
   //        | load_stmt
   private void parseStatement(List<Statement> list) {
     if (token.kind == TokenKind.DEF) {
-      list.add(parseFunctionDefStatement());
+      list.add(parseDefStatement());
     } else if (token.kind == TokenKind.IF) {
       list.add(parseIfStatement());
     } else if (token.kind == TokenKind.FOR) {
@@ -1204,7 +1204,7 @@ final class Parser {
   }
 
   // def_stmt ::= DEF IDENTIFIER '(' arguments ')' ':' suite
-  private FunctionDefStatement parseFunctionDefStatement() {
+  private DefStatement parseDefStatement() {
     int start = token.left;
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
@@ -1215,7 +1215,7 @@ final class Parser {
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    FunctionDefStatement stmt = new FunctionDefStatement(ident, params, signature, block);
+    DefStatement stmt = new DefStatement(ident, params, signature, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
     return setLocation(stmt, start, end);
   }

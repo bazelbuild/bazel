@@ -134,7 +134,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         collectDefinitions(forStmt.getBlock());
         break;
       case FUNCTION_DEF:
-        Identifier fctName = ((FunctionDefStatement) stmt).getIdentifier();
+        Identifier fctName = ((DefStatement) stmt).getIdentifier();
         declare(fctName.getName(), fctName.getLocation());
         break;
       case LOAD:
@@ -268,7 +268,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
-  public void visit(FunctionDefStatement node) {
+  public void visit(DefStatement node) {
     if (block.scope == Scope.Local) {
       throw new ValidationException(
           node.getLocation(),

@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
-import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
@@ -68,12 +68,11 @@ public final class DocstringUtils {
   private static Map.Entry<String, StringLiteral> getNameAndDocstring(
       @Nullable Statement previousStatement, Statement currentStatement) {
     // function docstring:
-    if (currentStatement instanceof FunctionDefStatement) {
-      StringLiteral docstring =
-          extractDocstring(((FunctionDefStatement) currentStatement).getStatements());
+    if (currentStatement instanceof DefStatement) {
+      StringLiteral docstring = extractDocstring(((DefStatement) currentStatement).getStatements());
       if (docstring != null) {
         return new AbstractMap.SimpleEntry<>(
-            ((FunctionDefStatement) currentStatement).getIdentifier().getName(), docstring);
+            ((DefStatement) currentStatement).getIdentifier().getName(), docstring);
       }
     } else {
       StringLiteral docstring = getStringLiteral(currentStatement);
