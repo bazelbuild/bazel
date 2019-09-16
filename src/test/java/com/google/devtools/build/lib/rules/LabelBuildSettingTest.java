@@ -116,4 +116,51 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     assertThat(b.get("value")).isEqualTo("command_line_value");
   }
+
+  @Test
+  public void withSelect() throws Exception {
+    writeRulesBzl("flag");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
+        "simple_rule(name = 'default', value = 'default_value')",
+        "simple_rule(name = 'command_line', value = 'command_line_value')",
+        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
+        "config_setting(",
+        "    name = 'is_default_label',",
+        "    flag_values = {':my_label_flag': '//test:default'}",
+        ")",
+        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+
+    useConfiguration();
+    getConfiguredTarget("//test:selector");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(
+        ImmutableMap.of(
+            "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
+    getConfiguredTarget("//test:selector");
+    assertContainsEvent("Configurable attribute \"value\" doesn't match this configuration");
+  }
+
+  @Test
+  public void selectAlwaysMatchesFullLabel() throws Exception {
+    writeRulesBzl("flag");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
+        "simple_rule(name = 'default', value = 'default_value')",
+        "simple_rule(name = 'command_line', value = 'command_line_value')",
+        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
+        "config_setting(",
+        "    name = 'is_default_label',",
+        "    flag_values = {':my_label_flag': ':default'}",
+        ")",
+        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:selector");
+    assertContainsEvent("Configurable attribute \"value\" doesn't match this configuration");
+  }
 }
