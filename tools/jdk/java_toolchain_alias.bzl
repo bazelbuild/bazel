@@ -46,10 +46,14 @@ java_runtime_alias = rule(
 def _java_host_runtime_alias(ctx):
     """An experimental implementation of java_host_runtime_alias using toolchain resolution."""
     runtime = ctx.attr._runtime
+    toolchain = runtime[java_common.JavaRuntimeInfo]
     return [
-        runtime[java_common.JavaRuntimeInfo],
+        toolchain,
         runtime[platform_common.TemplateVariableInfo],
-        runtime[DefaultInfo],
+        DefaultInfo(
+            runfiles = ctx.runfiles(transitive_files = toolchain.files),
+            files = toolchain.files,
+        ),
     ]
 
 java_host_runtime_alias = rule(
