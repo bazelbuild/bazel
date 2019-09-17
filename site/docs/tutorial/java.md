@@ -408,6 +408,9 @@ dependencies.
 
 ## Further reading
 
+*  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) for
+   rules to manage transitive Maven dependencies.
+
 *  [External Dependencies](../external.html) to learn more about working with
    local and remote repositories.
 
