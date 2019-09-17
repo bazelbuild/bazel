@@ -76,15 +76,17 @@ class LaunchUtilTest : public ::testing::Test {
 TEST_F(LaunchUtilTest, GetBinaryPathWithoutExtensionTest) {
   ASSERT_EQ(L"foo", GetBinaryPathWithoutExtension(L"foo.exe"));
   ASSERT_EQ(L"foo.sh", GetBinaryPathWithoutExtension(L"foo.sh.exe"));
+  ASSERT_EQ(L"Foo", GetBinaryPathWithoutExtension(L"Foo.EXE"));
+  ASSERT_EQ(L"Foo.Sh", GetBinaryPathWithoutExtension(L"Foo.Sh.EXE"));
   ASSERT_EQ(L"foo.sh", GetBinaryPathWithoutExtension(L"foo.sh"));
 }
 
 TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
   ASSERT_EQ(L"foo.exe", GetBinaryPathWithExtension(L"foo"));
   ASSERT_EQ(L"foo.exe", GetBinaryPathWithExtension(L"foo.exe"));
-  ASSERT_EQ(L"foo.EXE", GetBinaryPathWithExtension(L"foo.EXE"));
+  ASSERT_EQ(L"Foo.EXE", GetBinaryPathWithExtension(L"Foo.EXE"));
   ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh.exe"));
-  ASSERT_EQ(L"foo.sh.EXE", GetBinaryPathWithExtension(L"foo.sh.EXE"));
+  ASSERT_EQ(L"Foo.Sh.EXE", GetBinaryPathWithExtension(L"Foo.Sh.EXE"));
   ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh"));
 }
 
