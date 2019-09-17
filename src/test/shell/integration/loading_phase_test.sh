@@ -457,26 +457,19 @@ eof
 # Verify that bazel-bin and the other bazel-* symlinks are not treated as
 # packages when expanding the "//..." pattern.
 function test_bazel_bin_is_not_a_package() {
-  local -r pkg=${FUNCNAME[0]}
+  local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "Could not mkdir $pkg"
-
-  echo 'workspace(name = "foo_ws")' > "$pkg/WORKSPACE"
-  echo 'filegroup(name = "x")' > "$pkg/BUILD"
+  echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
 
   # Ensure bazel-<pkg> is created.
-  ( cd "$pkg"
-    bazel build //:x >& "$TEST_log"
-  )
-  [[ -d "$pkg/bazel-bin" ]] || fail "bazel-bin was not created"
-  [[ -d "$pkg/bazel-$pkg" ]] || fail "bazel-$pkg was not created"
+  bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
+  [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
 
-  # Assert that "//..." expands only to "//:x".
-  ( cd "$pkg"
-    bazel query //... >& "$TEST_log"
-    bazel shutdown
-  )
-  expect_log_once "//:x"
-  expect_not_log "//bazel.*:x"
+  # Assert that "//..." does not expand to //foo_prefix-*
+  bazel query //... >& "$TEST_log"
+  expect_log_once "//$pkg:$pkg"
+  expect_log_once "//.*:$pkg"
+  expect_not_log "//foo_prefix"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
