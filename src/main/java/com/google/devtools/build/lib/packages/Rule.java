@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * An instance of a build rule in the build language.  A rule has a name, a
- * package to which it belongs, a class such as <code>cc_library</code>, and
- * set of typed attributes.  The set of attribute names and types is a property
- * of the rule's class.  The use of the term "class" here has nothing to do
- * with Java classes.  All rules are implemented by the same Java classes, Rule
- * and RuleClass.
+ * An instance of a build rule in the build language. A rule has a name, a package to which it
+ * belongs, a class such as <code>cc_library</code>, and set of typed attributes. The set of
+ * attribute names and types is a property of the rule's class. The use of the term "class" here has
+ * nothing to do with Java classes. All rules are implemented by the same Java classes, Rule and
+ * RuleClass.
  *
  * <p>Here is a typical rule as it appears in a BUILD file:
+ *
  * <pre>
  * cc_library(name = 'foo',
  *            defines = ['-Dkey=value'],
@@ -56,7 +56,8 @@ import java.util.Set;
  *            deps = ['bar'])
  * </pre>
  */
-public final class Rule implements Target, DependencyFilter.AttributeInfoProvider {
+// Non-final only for mocking in tests. Do not subclass!
+public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();

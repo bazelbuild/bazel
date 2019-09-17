@@ -462,9 +462,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
     Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
-    // We use an immutable map builder for the nice side effect that it throws if a duplicate key
-    // is inserted.
-    ImmutableMap.Builder<SkyFunctionName, SkyFunction> map = ImmutableMap.builder();
+
+    // We don't check for duplicates in order to allow extraSkyfunctions to override existing
+    // entries.
+    Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
@@ -610,7 +611,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
     map.putAll(extraSkyFunctions);
-    return map.build();
+    return ImmutableMap.copyOf(map);
   }
 
   protected boolean traverseTestSuites() {

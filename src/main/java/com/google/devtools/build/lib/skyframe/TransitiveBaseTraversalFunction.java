@@ -59,7 +59,7 @@ import javax.annotation.Nullable;
  * target' aspects' dependencies via {@link #processDeps}. Finally, it calls {@link
  * #computeSkyValue} with the {#code ProcessedTargets} to get the {@link SkyValue} to return.
  */
-abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements SkyFunction {
+public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements SkyFunction {
   /**
    * Returns a {@link SkyKey} corresponding to the traversal of a target specified by {@code label}
    * and its transitive dependencies.
@@ -333,10 +333,10 @@ abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> implements Sky
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link TransitiveTraversalFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * TransitiveTraversalFunction#compute}.
    */
-  static class TransitiveBaseTraversalFunctionException extends SkyFunctionException {
+  public static class TransitiveBaseTraversalFunctionException extends SkyFunctionException {
     /**
      * Used to propagate an error from a direct target dependency to the target that depended on
      * it.
