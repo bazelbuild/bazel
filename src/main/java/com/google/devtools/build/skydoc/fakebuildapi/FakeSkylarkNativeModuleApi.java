@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -23,11 +26,10 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import javax.annotation.Nullable;
 
-/**
- * Fake implementation of {@link SkylarkNativeModuleApi}.
- */
-public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi {
+/** Fake implementation of {@link SkylarkNativeModuleApi}. */
+public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, ClassObject {
 
   @Override
   public SkylarkList<?> glob(
@@ -72,6 +74,27 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi {
 
   @Override
   public String repositoryName(Location location, Environment env) throws EvalException {
+    return "";
+  }
+
+  @Nullable
+  @Override
+  public Object getValue(String name) throws EvalException {
+    // Bazel's notion of the global "native" isn't fully exposed via public interfaces, for example,
+    // as far as native rules are concerned. Returning None on all unsupported invocations of
+    // native.[func_name]() is the safest "best effort" approach to implementing a fake for
+    // "native".
+    return new FakeStarlarkCallable(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getFieldNames() throws EvalException {
+    return ImmutableList.of();
+  }
+
+  @Nullable
+  @Override
+  public String getErrorMessageForUnknownField(String field) {
     return "";
   }
 }
