@@ -1241,7 +1241,7 @@ public final class Environment implements Freezable {
       Event ev = handler.messages.get(0);
       throw new EvalException(ev.getLocation(), ev.getMessage());
     }
-    return expr.eval(this);
+    return Eval.eval(this, expr);
   }
 
   /** Executes a Skylark file (sequence of statements) in this environment. (Debugger API) */

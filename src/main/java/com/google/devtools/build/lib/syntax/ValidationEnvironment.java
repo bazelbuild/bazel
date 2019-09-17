@@ -185,7 +185,7 @@ public final class ValidationEnvironment extends NodeVisitor {
             result.getEvalExceptionFromAttemptingAccess(
                 node.getLocation(), env.getSemantics(), node.getName()));
       }
-      throw new ValidationException(node.createInvalidIdentifierException(getAllSymbols()));
+      throw new ValidationException(Eval.createInvalidIdentifierException(node, getAllSymbols()));
     }
     // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
     // because some AST nodes are shared across multipe ASTs (due to the prelude file).

@@ -48,16 +48,12 @@ public final class IndexExpression extends Expression {
     buffer.append(']');
   }
 
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(object.eval(env), key.eval(env), env, getLocation());
-  }
-
   /**
    * Retrieves the value associated with a key in the given object.
    *
    * @throws EvalException if {@code object} is not a list or dictionary
    */
+  // TODO(adonovan): move to EvalUtils.index.
   public static Object evaluate(Object object, Object key, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (object instanceof SkylarkIndexable) {

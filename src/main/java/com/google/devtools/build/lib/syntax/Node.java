@@ -33,25 +33,6 @@ public abstract class Node {
     return false;
   }
 
-  /** Returns an exception which should be thrown instead of the original one. */
-  protected final EvalException maybeTransformException(EvalException original) {
-    // If there is already a non-empty stack trace, we only add this node iff it describes a
-    // new scope (e.g. FuncallExpression).
-    if (original instanceof EvalExceptionWithStackTrace) {
-      EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      if (isNewScope()) {
-        real.registerNode(this);
-      }
-      return real;
-    }
-
-    if (original.canBeAddedToStackTrace()) {
-      return new EvalExceptionWithStackTrace(original, this);
-    } else {
-      return original;
-    }
-  }
-
   @VisibleForTesting  // productionVisibility = Visibility.PACKAGE_PRIVATE
   public void setLocation(Location location) {
     this.location = location;

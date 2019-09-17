@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /** Syntax node for list and tuple expressions. */
@@ -62,19 +59,6 @@ public final class ListExpression extends Expression {
         isTuple(),
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    ArrayList<Object> result = new ArrayList<>(elements.size());
-    for (Expression element : elements) {
-      // Convert NPEs to EvalExceptions.
-      if (element == null) {
-        throw new EvalException(getLocation(), "null expression in " + this);
-      }
-      result.add(element.eval(env));
-    }
-    return isTuple() ? Tuple.copyOf(result) : MutableList.wrapUnsafe(env, result);
   }
 
   @Override

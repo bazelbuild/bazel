@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
-import java.util.ArrayList;
 
 /**
  * Syntax node for list and dict comprehensions.
@@ -129,74 +127,6 @@ public final class Comprehension extends Expression {
   @Override
   public Kind kind() {
     return Kind.COMPREHENSION;
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    final SkylarkDict<Object, Object> dict = isDict ? SkylarkDict.of(env) : null;
-    final ArrayList<Object> list = isDict ? null : new ArrayList<>();
-
-    // The Lambda class serves as a recursive lambda closure.
-    class Lambda {
-      // execClauses(index) recursively executes the clauses starting at index,
-      // and finally evaluates the body and adds its value to the result.
-      void execClauses(int index) throws EvalException, InterruptedException {
-        // recursive case: one or more clauses
-        if (index < clauses.size()) {
-          Clause clause = clauses.get(index);
-          if (clause instanceof For) {
-            For forClause = (For) clause;
-
-            Object iterable = forClause.getIterable().eval(env);
-            Location loc = getLocation();
-            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, env);
-            EvalUtils.lock(iterable, loc);
-            try {
-              for (Object elem : listValue) {
-                Eval.assign(forClause.getVars(), elem, env, loc);
-                execClauses(index + 1);
-              }
-            } finally {
-              EvalUtils.unlock(iterable, loc);
-            }
-
-          } else {
-            If ifClause = (If) clause;
-            if (EvalUtils.toBoolean(ifClause.condition.eval(env))) {
-              execClauses(index + 1);
-            }
-          }
-          return;
-        }
-
-        // base case: evaluate body and add to result.
-        if (dict != null) {
-          DictExpression.Entry body = (DictExpression.Entry) Comprehension.this.body;
-          Object k = body.getKey().eval(env);
-          EvalUtils.checkValidDictKey(k, env);
-          Object v = body.getValue().eval(env);
-          dict.put(k, v, getLocation(), env);
-        } else {
-          list.add(((Expression) body).eval(env));
-        }
-      }
-    }
-    new Lambda().execClauses(0);
-
-    // Undefine loop variables (remove them from the environment).
-    // This code is useful for the transition, to make sure no one relies on the old behavior
-    // (where loop variables were leaking).
-    // TODO(laurentlb): Instead of removing variables, we should create them in a nested scope.
-    for (Clause clause : clauses) {
-      // Check if a loop variable conflicts with another local variable.
-      if (clause instanceof For) {
-        for (Identifier ident : Identifier.boundIdentifiers(((For) clause).getVars())) {
-          env.removeLocalBinding(ident.getName());
-        }
-      }
-    }
-
-    return isDict ? dict : SkylarkList.MutableList.copyOf(env, list);
   }
 
 }

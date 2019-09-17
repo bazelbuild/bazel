@@ -451,8 +451,8 @@ public final class FuncallExpression extends Expression {
   /**
    * Invokes the given structField=true method and returns the result.
    *
-   * <p>The given method must <b>not</b> require extra-interpreter parameters, such as
-   * {@link Environment}. This method throws {@link IllegalArgumentException} for violations.</p>
+   * <p>The given method must <b>not</b> require extra-interpreter parameters, such as {@link
+   * Environment}. This method throws {@link IllegalArgumentException} for violations.
    *
    * @param methodDescriptor the descriptor of the method to invoke
    * @param fieldName the name of the struct field
@@ -460,6 +460,7 @@ public final class FuncallExpression extends Expression {
    * @return the method return value
    * @throws EvalException if there was an issue evaluating the method
    */
+  // TODO(adonovan): Where does this belong? Clearly not here, but EvalUtils? MethodDescriptor?
   public static Object invokeStructField(
       MethodDescriptor methodDescriptor, String fieldName, Object obj)
       throws EvalException, InterruptedException {
@@ -489,12 +490,13 @@ public final class FuncallExpression extends Expression {
    *     example, if any arguments are of unexpected type, or not all mandatory parameters are
    *     specified by the user
    */
-  public Object[] convertStarlarkArgumentsToJavaMethodArguments(
+  static Object[] convertStarlarkArgumentsToJavaMethodArguments(
+      Environment environment,
+      FuncallExpression call,
       MethodDescriptor method,
       Class<?> objClass,
       List<Object> args,
-      Map<String, Object> kwargs,
-      Environment environment)
+      Map<String, Object> kwargs)
       throws EvalException {
     Preconditions.checkArgument(!method.isStructField(),
         "struct field methods should be handled by DotExpression separately");
@@ -531,6 +533,7 @@ public final class FuncallExpression extends Expression {
         value = args.get(argIndex);
         if (!type.contains(value)) {
           throw argumentMismatchException(
+              call,
               String.format(
                   "expected value of type '%s' for parameter '%s'", type, param.getName()),
               method,
@@ -538,6 +541,7 @@ public final class FuncallExpression extends Expression {
         }
         if (param.isNamed() && keys.contains(param.getName())) {
           throw argumentMismatchException(
+              call,
               String.format("got multiple values for keyword argument '%s'", param.getName()),
               method,
               objClass);
@@ -549,6 +553,7 @@ public final class FuncallExpression extends Expression {
           value = kwargs.get(param.getName());
           if (!type.contains(value)) {
             throw argumentMismatchException(
+                call,
                 String.format(
                     "expected value of type '%s' for parameter '%s'", type, param.getName()),
                 method,
@@ -556,7 +561,7 @@ public final class FuncallExpression extends Expression {
           }
         } else { // Param not specified by user. Use default value.
           if (param.getDefaultValue().isEmpty()) {
-            throw unspecifiedParameterException(param, method, objClass, kwargs);
+            throw unspecifiedParameterException(call, param, method, objClass, kwargs);
           }
           value =
               SkylarkSignatureProcessor.getDefaultValue(
@@ -565,7 +570,10 @@ public final class FuncallExpression extends Expression {
       }
       if (!param.isNoneable() && value instanceof NoneType) {
         throw argumentMismatchException(
-            String.format("parameter '%s' cannot be None", param.getName()), method, objClass);
+            call,
+            String.format("parameter '%s' cannot be None", param.getName()),
+            method,
+            objClass);
       }
       builder.add(value);
     }
@@ -581,6 +589,7 @@ public final class FuncallExpression extends Expression {
         extraArgs = extraArgsBuilder.build();
       } else {
         throw argumentMismatchException(
+            call,
             String.format(
                 "expected no more than %s positional arguments, but got %s", argIndex, args.size()),
             method,
@@ -597,7 +606,7 @@ public final class FuncallExpression extends Expression {
         }
         extraKwargs = extraKwargsBuilder.build();
       } else {
-        throw unexpectedKeywordArgumentException(keys, method, objClass, environment);
+        throw unexpectedKeywordArgumentException(call, keys, method, objClass, environment);
       }
     }
 
@@ -608,28 +617,34 @@ public final class FuncallExpression extends Expression {
     if (acceptsExtraKwargs) {
       builder.add(SkylarkDict.copyOf(environment, extraKwargs));
     }
-    appendExtraInterpreterArgs(builder, method, this, getLocation(), environment);
+    appendExtraInterpreterArgs(builder, method, call, call.getLocation(), environment);
 
     return builder.toArray();
   }
 
-  private EvalException unspecifiedParameterException(
+  private static EvalException unspecifiedParameterException(
+      FuncallExpression call,
       ParamDescriptor param,
       MethodDescriptor method,
       Class<?> objClass,
       Map<String, Object> kwargs) {
     if (kwargs.containsKey(param.getName())) {
       return argumentMismatchException(
+          call,
           String.format("parameter '%s' may not be specified by name", param.getName()),
           method,
           objClass);
     } else {
       return argumentMismatchException(
-          String.format("parameter '%s' has no default value", param.getName()), method, objClass);
+          call,
+          String.format("parameter '%s' has no default value", param.getName()),
+          method,
+          objClass);
     }
   }
 
-  private EvalException unexpectedKeywordArgumentException(
+  private static EvalException unexpectedKeywordArgumentException(
+      FuncallExpression call,
       Set<String> unexpectedKeywords,
       MethodDescriptor method,
       Class<?> objClass,
@@ -643,14 +658,14 @@ public final class FuncallExpression extends Expression {
         // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
         if (env.getSemantics().flagValue(flagIdentifier)) {
           return new EvalException(
-              getLocation(),
+              call.getLocation(),
               String.format(
                   "parameter '%s' is deprecated and will be removed soon. It may be "
                       + "temporarily re-enabled by setting --%s=false",
                   param.getName(), flagIdentifier.getFlagName()));
         } else {
           return new EvalException(
-              getLocation(),
+              call.getLocation(),
               String.format(
                   "parameter '%s' is experimental and thus unavailable with the current "
                       + "flags. It may be enabled by setting --%s",
@@ -660,6 +675,7 @@ public final class FuncallExpression extends Expression {
     }
 
     return argumentMismatchException(
+        call,
         String.format(
             "unexpected keyword%s %s",
             unexpectedKeywords.size() > 1 ? "s" : "",
@@ -668,17 +684,20 @@ public final class FuncallExpression extends Expression {
         objClass);
   }
 
-  private EvalException argumentMismatchException(
-      String errorDescription, MethodDescriptor methodDescriptor, Class<?> objClass) {
+  private static EvalException argumentMismatchException(
+      FuncallExpression call,
+      String errorDescription,
+      MethodDescriptor methodDescriptor,
+      Class<?> objClass) {
     if (methodDescriptor.isSelfCall() || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(objClass)) {
       return new EvalException(
-          getLocation(),
+          call.getLocation(),
           String.format(
               "%s, for call to function %s",
               errorDescription, formatMethod(objClass, methodDescriptor)));
     } else {
       return new EvalException(
-          getLocation(),
+          call.getLocation(),
           String.format(
               "%s, for call to method %s of '%s'",
               errorDescription,
@@ -687,9 +706,10 @@ public final class FuncallExpression extends Expression {
     }
   }
 
-  private EvalException missingMethodException(Class<?> objClass, String methodName) {
+  private static EvalException missingMethodException(
+      FuncallExpression call, Class<?> objClass, String methodName) {
     return new EvalException(
-        getLocation(),
+        call.getLocation(),
         String.format(
             "type '%s' has no method %s()",
             EvalUtils.getDataTypeNameFromClass(objClass), methodName));
@@ -702,7 +722,7 @@ public final class FuncallExpression extends Expression {
    * <p>This method accepts null {@code ast} only if {@code callable.useAst()} is false. It is up to
    * the caller to validate this invariant.
    */
-  public static List<Object> extraInterpreterArgs(
+  static List<Object> extraInterpreterArgs(
       MethodDescriptor method, @Nullable FuncallExpression ast, Location loc, Environment env) {
     List<Object> builder = new ArrayList<>();
     appendExtraInterpreterArgs(builder, method, ast, loc, env);
@@ -813,18 +833,17 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Evaluate this FuncallExpression's arguments, and put the resulting evaluated expressions
-   * into the given {@code posargs} and {@code kwargs} collections.
+   * Evaluate this FuncallExpression's arguments, and put the resulting evaluated expressions into
+   * the given {@code posargs} and {@code kwargs} collections.
    *
    * @param posargs a list to which all positional arguments will be added
-   * @param kwargs a mutable map to which all keyword arguments will be added. A mutable map
-   *     is used here instead of an immutable map builder to deal with duplicates
-   *     without memory overhead
+   * @param kwargs a mutable map to which all keyword arguments will be added. A mutable map is used
+   *     here instead of an immutable map builder to deal with duplicates without memory overhead
    * @param env the current environment
    */
   @SuppressWarnings("unchecked")
-  private void evalArguments(
-      List<Object> posargs, Map<String, Object> kwargs, Environment env)
+  private static void evalArguments(
+      Environment env, FuncallExpression call, List<Object> posargs, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
 
     // Optimize allocations for the common case where they are no duplicates.
@@ -835,15 +854,15 @@ public final class FuncallExpression extends Expression {
     // which should be the only place that build FuncallExpression-s.
     // Argument lists are typically short and functions are frequently called, so go by index
     // (O(1) for ImmutableList) to avoid the iterator overhead.
-    for (int i = 0; i < arguments.size(); i++) {
-      Argument.Passed arg = arguments.get(i);
-      Object value = arg.getValue().eval(env);
+    for (int i = 0; i < call.arguments.size(); i++) {
+      Argument.Passed arg = call.arguments.get(i);
+      Object value = Eval.eval(env, arg.getValue());
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) { // expand the starArg
         if (!(value instanceof Iterable)) {
           throw new EvalException(
-              getLocation(),
+              call.getLocation(),
               "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
         }
         for (Object starArgUnit : (Iterable<Object>) value) {
@@ -851,7 +870,7 @@ public final class FuncallExpression extends Expression {
         }
       } else if (arg.isStarStar()) { // expand the kwargs
         ImmutableList<String> duplicates =
-            addKeywordArgsAndReturnDuplicates(kwargs, value, getLocation());
+            addKeywordArgsAndReturnDuplicates(kwargs, value, call.getLocation());
         if (duplicates != null) {
           if (duplicatesBuilder == null) {
             duplicatesBuilder = ImmutableList.builder();
@@ -870,24 +889,27 @@ public final class FuncallExpression extends Expression {
     if (duplicatesBuilder != null) {
       ImmutableList<String> dups = duplicatesBuilder.build();
       throw new EvalException(
-          getLocation(),
+          call.getLocation(),
           "duplicate keyword"
               + (dups.size() > 1 ? "s" : "")
               + " '"
               + Joiner.on("', '").join(dups)
               + "' in call to "
-              + function);
+              + call.function);
     }
   }
 
+  // TODO(adonovan): move to EvalUtils.
   @VisibleForTesting
   public static boolean isNamespace(Class<?> classObject) {
     return classObject.isAnnotationPresent(SkylarkModule.class)
         && classObject.getAnnotation(SkylarkModule.class).namespace();
   }
 
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
+  // TODO(adonovan): move the basic call operation to EvalUtils.call,
+  // once subexpression evaluation has been moved to Eval.
+  static Object call(Environment env, FuncallExpression call)
+      throws EvalException, InterruptedException {
     // This is a hack which provides some performance improvement over the alternative:
     // Consider 'foo.bar()'. Without this hack, the parser would evaluate the DotExpression
     // 'foo.bar' first, determine that 'foo.bar' is a callable object, and then invoke the
@@ -895,28 +917,29 @@ public final class FuncallExpression extends Expression {
     // new function object to represent 'foo.bar' *just* so it could invoke method 'bar' of 'foo'.
     // Constructing throwaway function objects would be a performance hit, so instead this code
     // effectively 'looks ahead' to invoke an object method directly.
-    if (function instanceof DotExpression) {
-      return invokeObjectMethod(env, (DotExpression) function);
+    if (call.function instanceof DotExpression) {
+      return invokeObjectMethod(env, call, (DotExpression) call.function);
     }
-    Object funcValue = function.eval(env);
+    Object funcValue = Eval.eval(env, call.function);
     ArrayList<Object> posargs = new ArrayList<>();
     Map<String, Object> kwargs = new LinkedHashMap<>();
-    evalArguments(posargs, kwargs, env);
-    return callFunction(funcValue, posargs, kwargs, env);
+    evalArguments(env, call, posargs, kwargs);
+    return callFunction(env, call, funcValue, posargs, kwargs);
   }
 
   /** Invokes object.function() and returns the result. */
-  private Object invokeObjectMethod(Environment env, DotExpression dot)
+  private static Object invokeObjectMethod(
+      Environment env, FuncallExpression call, DotExpression dot)
       throws EvalException, InterruptedException {
-    Object objValue = dot.getObject().eval(env);
+    Object objValue = Eval.eval(env, dot.getObject());
     String methodName = dot.getField().getName();
     ArrayList<Object> posargs = new ArrayList<>();
     Map<String, Object> kwargs = new LinkedHashMap<>();
-    evalArguments(posargs, kwargs, env);
+    evalArguments(env, call, posargs, kwargs);
 
     // Case 1: Object is a String. String is an unusual special case.
     if (objValue instanceof String) {
-      return callStringMethod((String) objValue, methodName, posargs, kwargs, env);
+      return callStringMethod(env, call, (String) objValue, methodName, posargs, kwargs);
     }
 
     // Case 2: Object is a Java object with a matching @SkylarkCallable method.
@@ -926,9 +949,10 @@ public final class FuncallExpression extends Expression {
     MethodDescriptor methodDescriptor =
         FuncallExpression.getMethod(env.getSemantics(), objValue.getClass(), methodName);
     if (methodDescriptor != null && !methodDescriptor.isStructField()) {
-      Object[] javaArguments = convertStarlarkArgumentsToJavaMethodArguments(
-          methodDescriptor, objValue.getClass(), posargs, kwargs, env);
-      return methodDescriptor.call(objValue, javaArguments, getLocation(), env);
+      Object[] javaArguments =
+          convertStarlarkArgumentsToJavaMethodArguments(
+              env, call, methodDescriptor, objValue.getClass(), posargs, kwargs);
+      return methodDescriptor.call(objValue, javaArguments, call.getLocation(), env);
     }
 
     // Case 3: Object is a function registered with the BuiltinRegistry.
@@ -938,69 +962,85 @@ public final class FuncallExpression extends Expression {
         Runtime.getBuiltinRegistry().getFunction(objValue.getClass(), methodName);
     if (legacyRuntimeFunction != null) {
       return callLegacyBuiltinRegistryFunction(
-          legacyRuntimeFunction, objValue, posargs, kwargs, env);
+          call, legacyRuntimeFunction, objValue, posargs, kwargs, env);
     }
 
     // Case 4: All other cases. Evaluate "foo.bar" as a dot expression, then try to invoke it
     // as a callable.
-    Object functionObject = DotExpression.eval(objValue, methodName, dot.getLocation(), env);
+    Object functionObject = EvalUtils.getAttr(env, dot.getLocation(), objValue, methodName);
     if (functionObject == null) {
-      throw missingMethodException(objValue.getClass(), methodName);
+      throw missingMethodException(call, objValue.getClass(), methodName);
     } else {
-      return callFunction(functionObject, posargs, kwargs, env);
+      return callFunction(env, call, functionObject, posargs, kwargs);
     }
   }
 
-  private Object callLegacyBuiltinRegistryFunction(BaseFunction legacyRuntimeFunction,
-      Object objValue, ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
+  private static Object callLegacyBuiltinRegistryFunction(
+      FuncallExpression call,
+      BaseFunction legacyRuntimeFunction,
+      Object objValue,
+      ArrayList<Object> posargs,
+      Map<String, Object> kwargs,
+      Environment env)
       throws EvalException, InterruptedException {
     if (!isNamespace(objValue.getClass())) {
       posargs.add(0, objValue);
     }
-    return legacyRuntimeFunction.call(posargs, kwargs, this, env);
+    return legacyRuntimeFunction.call(posargs, kwargs, call, env);
   }
 
-  private Object callStringMethod(String objValue, String methodName,
-      ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
+  private static Object callStringMethod(
+      Environment env,
+      FuncallExpression call,
+      String objValue,
+      String methodName,
+      ArrayList<Object> posargs,
+      Map<String, Object> kwargs)
       throws InterruptedException, EvalException {
     // String is a special case, since it can't be subclassed. Methods on strings defer
     // to StringModule, and thus need to include the actual string as a 'self' parameter.
     posargs.add(0, objValue);
 
-    MethodDescriptor method = getMethod(env.getSemantics(), StringModule.class, methodName);
+    MethodDescriptor method =
+        FuncallExpression.getMethod(env.getSemantics(), StringModule.class, methodName);
     if (method == null) {
-      throw missingMethodException(StringModule.class, methodName);
+      throw missingMethodException(call, StringModule.class, methodName);
     }
 
-    Object[] javaArguments = convertStarlarkArgumentsToJavaMethodArguments(
-        method, StringModule.class, posargs, kwargs, env);
-    return method.call(
-        StringModule.INSTANCE, javaArguments, getLocation(), env);
+    Object[] javaArguments =
+        convertStarlarkArgumentsToJavaMethodArguments(
+            env, call, method, StringModule.class, posargs, kwargs);
+    return method.call(StringModule.INSTANCE, javaArguments, call.getLocation(), env);
   }
 
-  private Object callFunction(
-      Object fn, ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
+  private static Object callFunction(
+      Environment env,
+      FuncallExpression call,
+      Object fn,
+      ArrayList<Object> posargs,
+      Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
 
     if (fn instanceof StarlarkCallable) {
       StarlarkCallable callable = (StarlarkCallable) fn;
-      return callable.call(posargs, ImmutableMap.copyOf(kwargs), this, env);
+      return callable.call(posargs, ImmutableMap.copyOf(kwargs), call, env);
     } else if (hasSelfCallMethod(env.getSemantics(), fn.getClass())) {
       MethodDescriptor descriptor = getSelfCallMethodDescriptor(env.getSemantics(), fn);
       Object[] javaArguments =
           convertStarlarkArgumentsToJavaMethodArguments(
-              descriptor, fn.getClass(), posargs, kwargs, env);
-      return descriptor.call(fn, javaArguments, getLocation(), env);
+              env, call, descriptor, fn.getClass(), posargs, kwargs);
+      return descriptor.call(fn, javaArguments, call.getLocation(), env);
     } else {
       throw new EvalException(
-          getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
+          call.getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
     }
   }
 
   /**
-   * Returns the value of the argument 'name' (or null if there is none).
-   * This function is used to associate debugging information to rules created by skylark "macros".
+   * Returns the value of the argument 'name' (or null if there is none). This function is used to
+   * associate debugging information to rules created by skylark "macros".
    */
+  // TODO(adonovan): move this into sole caller.
   @Nullable
   public String getNameArg() {
     for (Argument.Passed arg : arguments) {

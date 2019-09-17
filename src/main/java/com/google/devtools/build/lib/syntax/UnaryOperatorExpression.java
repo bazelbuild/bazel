@@ -56,7 +56,8 @@ public final class UnaryOperatorExpression extends Expression {
     return (op == TokenKind.NOT ? "not " : op.toString()) + x;
   }
 
-  private static Object evaluate(TokenKind op, Object value, Location loc)
+  // TODO(adonovan): move to EvalUtils.unary.
+  static Object evaluate(TokenKind op, Object value, Location loc)
       throws EvalException, InterruptedException {
     switch (op) {
       case NOT:
@@ -91,11 +92,6 @@ public final class UnaryOperatorExpression extends Expression {
     throw new EvalException(
         loc,
         String.format("unsupported unary operation: %s%s", op, EvalUtils.getDataTypeName(value)));
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(op, x.eval(env), getLocation());
   }
 
   @Override

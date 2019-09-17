@@ -26,15 +26,17 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Utilities used by the evaluator.
- */
+/** Utilities used by the evaluator. */
+// TODO(adonovan): rename this class to Starlark. Its API should contain all the fundamental values
+// and operators of the language: None, len, truth, str, iterate, equal, compare, getattr, index,
+// slice, parse, exec, eval, and so on.
 public final class EvalUtils {
 
   private EvalUtils() {}
@@ -607,5 +609,98 @@ public final class EvalUtils {
    */
   public static void setDebugger(Debugger dbg) {
     Eval.setDebugger(dbg);
+  }
+
+  /** Returns the named field or method of the specified object. */
+  static Object getAttr(Environment env, Location loc, Object object, String name)
+      throws EvalException, InterruptedException {
+    MethodDescriptor method =
+        object instanceof Class<?>
+            ? FuncallExpression.getMethod(env.getSemantics(), (Class<?>) object, name)
+            : FuncallExpression.getMethod(env.getSemantics(), object.getClass(), name);
+    if (method != null && method.isStructField()) {
+      return method.call(
+          object,
+          FuncallExpression.extraInterpreterArgs(method, /*ast=*/ null, loc, env).toArray(),
+          loc,
+          env);
+    }
+
+    if (object instanceof SkylarkClassObject) {
+      try {
+        return ((SkylarkClassObject) object).getValue(loc, env.getSemantics(), name);
+      } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
+        throw new EvalException(loc, ex);
+      }
+    }
+
+    if (object instanceof ClassObject) {
+      Object result = null;
+      try {
+        result = ((ClassObject) object).getValue(name);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
+      // ClassObjects may have fields that are annotated with @SkylarkCallable.
+      // Since getValue() does not know about those, we cannot expect that result is a valid object.
+      if (result != null) {
+        result = SkylarkType.convertToSkylark(result, env);
+        // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
+        // so we have to disable it. This should not happen.
+        SkylarkType.checkTypeAllowedInSkylark(result, loc);
+        return result;
+      }
+    }
+    if (method != null) {
+      return new BuiltinCallable(object, name);
+    }
+    return null;
+  }
+
+  static EvalException getMissingFieldException(
+      Object object, String name, Location loc, StarlarkSemantics semantics, String accessName) {
+    String suffix = "";
+    EvalException toSuppress = null;
+    if (object instanceof ClassObject) {
+      String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
+      if (customErrorMessage != null) {
+        return new EvalException(loc, customErrorMessage);
+      }
+      try {
+        suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
+      } catch (EvalException ee) {
+        toSuppress = ee;
+      }
+    } else {
+      suffix =
+          SpellChecker.didYouMean(
+              name,
+              FuncallExpression.getStructFieldNames(
+                  semantics, object instanceof Class ? (Class<?>) object : object.getClass()));
+    }
+    if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
+      // If looking up the field failed, then we know that this method must have struct_field=false
+      suffix = ", however, a method of that name exists";
+    }
+    EvalException ee =
+        new EvalException(
+            loc,
+            String.format(
+                "object of type '%s' has no %s '%s'%s",
+                EvalUtils.getDataTypeName(object), accessName, name, suffix));
+    if (toSuppress != null) {
+      ee.addSuppressed(toSuppress);
+    }
+    return ee;
+  }
+
+  /** Returns whether the given object has a method with the given name. */
+  static boolean hasMethod(StarlarkSemantics semantics, Object object, String name) {
+    Class<?> cls = object instanceof Class ? (Class<?>) object : object.getClass();
+    if (Runtime.getBuiltinRegistry().getFunctionNames(cls).contains(name)) {
+      return true;
+    }
+
+    return FuncallExpression.getMethodNames(semantics, cls).contains(name);
   }
 }

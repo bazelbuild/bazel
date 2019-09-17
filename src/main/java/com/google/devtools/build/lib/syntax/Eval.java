@@ -16,19 +16,18 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Evaluation code for the Skylark AST. At the moment, it can execute only statements (and defers to
- * Expression.eval for evaluating expressions).
- */
+/** A syntax-tree-walking evaluator. */
 // TODO(adonovan): make this class the sole locus of tree-based evaluation logic.
 // Make all its methods static, and thread Environment (soon: StarlarkThread) explicitly.
 // The only actual state is the return value, which can be saved in the Environment's call frame.
-// Then move all Expression.eval logic in here too, and simplify.
+// Move remaining Expression.eval logic here, and simplify.
 final class Eval {
 
   private static final AtomicReference<Debugger> debugger = new AtomicReference<>();
@@ -66,7 +65,7 @@ final class Eval {
   }
 
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
-    Object rvalue = node.getRHS().eval(env);
+    Object rvalue = eval(env, node.getRHS());
     assign(node.getLHS(), rvalue, env, node.getLocation());
   }
 
@@ -81,7 +80,7 @@ final class Eval {
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
-    Object o = node.getCollection().eval(env);
+    Object o = eval(env, node.getCollection());
     Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), env);
     EvalUtils.lock(o, node.getLocation());
     try {
@@ -116,7 +115,7 @@ final class Eval {
     if (defaultExpressions != null) {
       defaultValues = new ArrayList<>(defaultExpressions.size());
       for (Expression expr : defaultExpressions) {
-        defaultValues.add(expr.eval(env));
+        defaultValues.add(eval(env, expr));
       }
     }
 
@@ -141,7 +140,7 @@ final class Eval {
     // Avoid iterator overhead - most of the time there will be one or few "if"s.
     for (int i = 0; i < thenBlocks.size(); i++) {
       IfStatement.ConditionalStatements stmt = thenBlocks.get(i);
-      if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
+      if (EvalUtils.toBoolean(eval(env, stmt.getCondition()))) {
         return exec(stmt);
       }
     }
@@ -171,7 +170,7 @@ final class Eval {
   private TokenKind execReturn(ReturnStatement node) throws EvalException, InterruptedException {
     Expression ret = node.getReturnExpression();
     if (ret != null) {
-      this.result = ret.eval(env);
+      this.result = eval(env, ret);
     }
     return TokenKind.RETURN;
   }
@@ -184,7 +183,7 @@ final class Eval {
     try {
       return execDispatch(st);
     } catch (EvalException ex) {
-      throw st.maybeTransformException(ex);
+      throw maybeTransformException(st, ex);
     }
   }
 
@@ -199,7 +198,7 @@ final class Eval {
       case CONDITIONAL:
         return execIfBranch((IfStatement.ConditionalStatements) st);
       case EXPRESSION:
-        ((ExpressionStatement) st).getExpression().eval(env);
+        eval(env, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
       case FLOW:
         return ((FlowStatement) st).getKind();
@@ -235,15 +234,13 @@ final class Eval {
    * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
    * to the given expression. The expression must be valid for an {@code LValue}.
    */
-  // TODO(adonovan): make this a private instance method once all Expression.eval methods move here,
-  // in particular, AbstractComprehension.
-  static void assign(Expression expr, Object value, Environment env, Location loc)
+  private static void assign(Expression expr, Object value, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
       assignIdentifier((Identifier) expr, value, env);
     } else if (expr instanceof IndexExpression) {
-      Object object = ((IndexExpression) expr).getObject().eval(env);
-      Object key = ((IndexExpression) expr).getKey().eval(env);
+      Object object = eval(env, ((IndexExpression) expr).getObject());
+      Object key = eval(env, ((IndexExpression) expr).getKey());
       assignItem(object, key, value, env, loc);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
@@ -329,16 +326,16 @@ final class Eval {
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
       Object result =
-          BinaryOperatorExpression.evaluateAugmented(op, expr.eval(env), rhs.eval(env), env, loc);
+          BinaryOperatorExpression.evaluateAugmented(op, eval(env, expr), eval(env, rhs), env, loc);
       assignIdentifier((Identifier) expr, result, env);
     } else if (expr instanceof IndexExpression) {
       IndexExpression indexExpression = (IndexExpression) expr;
       // The object and key should be evaluated only once, so we don't use expr.eval().
-      Object object = indexExpression.getObject().eval(env);
-      Object key = indexExpression.getKey().eval(env);
+      Object object = eval(env, indexExpression.getObject());
+      Object key = eval(env, indexExpression.getKey());
       Object oldValue = IndexExpression.evaluate(object, key, env, loc);
       // Evaluate rhs after lhs.
-      Object rhsValue = rhs.eval(env);
+      Object rhsValue = eval(env, rhs);
       Object result = BinaryOperatorExpression.evaluateAugmented(op, oldValue, rhsValue, env, loc);
       assignItem(object, key, result, env, loc);
     } else if (expr instanceof ListExpression) {
@@ -347,5 +344,377 @@ final class Eval {
       // Not possible for validated ASTs.
       throw new EvalException(loc, "cannot perform augmented assignment on '" + expr + "'");
     }
+  }
+
+  // ---- expressions ----
+
+  /**
+   * Returns the result of evaluating this build-language expression in the specified environment.
+   * All BUILD language datatypes are mapped onto the corresponding Java types as follows:
+   *
+   * <pre>
+   *    int   -> Integer
+   *    float -> Double          (currently not generated by the grammar)
+   *    str   -> String
+   *    [...] -> List&lt;Object>    (mutable)
+   *    (...) -> List&lt;Object>    (immutable)
+   *    {...} -> Map&lt;Object, Object>
+   *    func  -> Function
+   * </pre>
+   *
+   * @return the result of evaluting the expression: a Java object corresponding to a datatype in
+   *     the BUILD language.
+   * @throws EvalException if the expression could not be evaluated.
+   * @throws InterruptedException may be thrown in a sub class.
+   */
+  static Object eval(Environment env, Expression expr) throws EvalException, InterruptedException {
+    // TODO(adonovan): don't push and pop all the time. We should only need the stack of function
+    // call frames, and we should recycle them.
+    // TODO(adonovan): put the Environment (Starlark thread) into the Java thread-local store
+    // once only, in enterScope, and undo this in exitScope.
+    try {
+      if (Callstack.enabled) {
+        Callstack.push(expr);
+      }
+      try {
+        return doEval(env, expr);
+      } catch (EvalException ex) {
+        throw maybeTransformException(expr, ex);
+      }
+    } finally {
+      if (Callstack.enabled) {
+        Callstack.pop();
+      }
+    }
+  }
+
+  private static Object doEval(Environment env, Expression expr)
+      throws EvalException, InterruptedException {
+    switch (expr.kind()) {
+      case BINARY_OPERATOR:
+        {
+          // AND and OR require short-circuit evaluation.
+          BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
+          switch (binop.getOperator()) {
+            case AND:
+              {
+                Object xval = eval(env, binop.getX());
+                return EvalUtils.toBoolean(xval) ? Eval.eval(env, binop.getY()) : xval;
+              }
+            case OR:
+              {
+                Object xval = eval(env, binop.getX());
+                return EvalUtils.toBoolean(xval) ? xval : Eval.eval(env, binop.getY());
+              }
+            default:
+              return BinaryOperatorExpression.evaluate(
+                  binop.getOperator(),
+                  eval(env, binop.getX()),
+                  eval(env, binop.getY()),
+                  env,
+                  binop.getLocation());
+          }
+        }
+
+      case COMPREHENSION:
+        {
+          return evalComprehension(env, (Comprehension) expr);
+        }
+
+      case CONDITIONAL:
+        {
+          ConditionalExpression cond = (ConditionalExpression) expr;
+          Object v = eval(env, cond.getCondition());
+          return eval(env, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
+        }
+
+      case DICT_EXPR:
+        {
+          DictExpression dictexpr = (DictExpression) expr;
+          SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
+          Location loc = dictexpr.getLocation();
+          for (DictExpression.Entry entry : dictexpr.getEntries()) {
+            Object k = eval(env, entry.getKey());
+            Object v = eval(env, entry.getValue());
+            int before = dict.size();
+            dict.put(k, v, loc, env);
+            if (dict.size() == before) {
+              throw new EvalException(
+                  loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
+            }
+          }
+          return dict;
+        }
+
+      case DOT:
+        {
+          DotExpression dot = (DotExpression) expr;
+          Object object = eval(env, dot.getObject());
+          String name = dot.getField().getName();
+          Object result = EvalUtils.getAttr(env, dot.getLocation(), object, name);
+          return checkResult(object, result, name, dot.getLocation(), env.getSemantics());
+        }
+
+      case FUNCALL:
+        {
+          FuncallExpression call = (FuncallExpression) expr;
+          // TODO(adonovan): inline this one in a follow-up. It's a whopper.
+          return FuncallExpression.call(env, call);
+        }
+
+      case IDENTIFIER:
+        {
+          Identifier id = (Identifier) expr;
+          String name = id.getName();
+          if (id.getScope() == null) {
+            // Legacy behavior, to be removed.
+            Object result = env.lookup(name);
+            if (result == null) {
+              throw createInvalidIdentifierException(id, env.getVariableNames());
+            }
+            return result;
+          }
+
+          Object result;
+          switch (id.getScope()) {
+            case Local:
+              result = env.localLookup(name);
+              break;
+            case Module:
+              result = env.moduleLookup(name);
+              break;
+            case Universe:
+              result = env.universeLookup(name);
+              break;
+            default:
+              throw new IllegalStateException(id.getScope().toString());
+          }
+          if (result == null) {
+            // Since Scope was set, we know that the variable is defined in the scope.
+            // However, the assignment was not yet executed.
+            EvalException e = getSpecialException(id);
+            throw e != null
+                ? e
+                : new EvalException(
+                    id.getLocation(),
+                    id.getScope().getQualifier()
+                        + " variable '"
+                        + name
+                        + "' is referenced before assignment.");
+          }
+          return result;
+        }
+
+      case INDEX:
+        {
+          IndexExpression index = (IndexExpression) expr;
+          Object object = eval(env, index.getObject());
+          Object key = eval(env, index.getKey());
+          return IndexExpression.evaluate(object, key, env, index.getLocation());
+        }
+
+      case INTEGER_LITERAL:
+        return ((IntegerLiteral) expr).getValue();
+
+      case LIST_EXPR:
+        {
+          ListExpression list = (ListExpression) expr;
+          ArrayList<Object> result = new ArrayList<>(list.getElements().size());
+          for (Expression elem : list.getElements()) {
+            // Convert NPEs to EvalExceptions.
+            if (elem == null) {
+              throw new EvalException(list.getLocation(), "null expression in " + list);
+            }
+            result.add(eval(env, elem));
+          }
+          return list.isTuple()
+              ? SkylarkList.Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
+              : SkylarkList.MutableList.wrapUnsafe(env, result);
+        }
+
+      case SLICE:
+        {
+          SliceExpression slice = (SliceExpression) expr;
+          Object object = eval(env, slice.getObject());
+          Object start = slice.getStart() == null ? Runtime.NONE : eval(env, slice.getStart());
+          Object end = slice.getEnd() == null ? Runtime.NONE : eval(env, slice.getEnd());
+          Object step = slice.getStep() == null ? Runtime.NONE : eval(env, slice.getStep());
+          Location loc = slice.getLocation();
+
+          // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
+
+          if (object instanceof SkylarkList) {
+            return ((SkylarkList<?>) object).getSlice(start, end, step, loc, env.mutability());
+          }
+
+          if (object instanceof String) {
+            String string = (String) object;
+            List<Integer> indices =
+                EvalUtils.getSliceIndices(start, end, step, string.length(), loc);
+            // TODO(adonovan): opt: optimize for common case, step=1.
+            char[] result = new char[indices.size()];
+            char[] original = string.toCharArray();
+            int resultIndex = 0;
+            for (int originalIndex : indices) {
+              result[resultIndex] = original[originalIndex];
+              ++resultIndex;
+            }
+            return new String(result);
+          }
+
+          throw new EvalException(
+              loc,
+              String.format(
+                  "type '%s' has no operator [:](%s, %s, %s)",
+                  EvalUtils.getDataTypeName(object),
+                  EvalUtils.getDataTypeName(start),
+                  EvalUtils.getDataTypeName(end),
+                  EvalUtils.getDataTypeName(step)));
+        }
+
+      case STRING_LITERAL:
+        return ((StringLiteral) expr).getValue();
+
+      case UNARY_OPERATOR:
+        {
+          UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
+          Object x = eval(env, unop.getX());
+          return UnaryOperatorExpression.evaluate(unop.getOperator(), x, unop.getLocation());
+        }
+    }
+    throw new IllegalArgumentException("unexpected expression: " + expr.kind());
+  }
+
+  /** Exception to provide a better error message for using PACKAGE_NAME or REPOSITORY_NAME. */
+  private static EvalException getSpecialException(Identifier id) {
+    if (id.getName().equals("PACKAGE_NAME")) {
+      return new EvalException(
+          id.getLocation(),
+          "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
+              + "please use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). ");
+    }
+    if (id.getName().equals("REPOSITORY_NAME")) {
+      return new EvalException(
+          id.getLocation(),
+          "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', please"
+              + " use the latter ("
+              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name).");
+    }
+    return null;
+  }
+
+  static EvalException createInvalidIdentifierException(Identifier id, Set<String> symbols) {
+    if (id.getName().equals("$error$")) {
+      return new EvalException(id.getLocation(), "contains syntax error(s)", true);
+    }
+
+    EvalException e = getSpecialException(id);
+    if (e != null) {
+      return e;
+    }
+
+    String suggestion = SpellChecker.didYouMean(id.getName(), symbols);
+    return new EvalException(
+        id.getLocation(), "name '" + id.getName() + "' is not defined" + suggestion);
+  }
+
+  private static Object evalComprehension(Environment env, Comprehension comp)
+      throws EvalException, InterruptedException {
+    final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(env) : null;
+    final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
+
+    // The Lambda class serves as a recursive lambda closure.
+    class Lambda {
+      // execClauses(index) recursively executes the clauses starting at index,
+      // and finally evaluates the body and adds its value to the result.
+      void execClauses(int index) throws EvalException, InterruptedException {
+        // recursive case: one or more clauses
+        if (index < comp.getClauses().size()) {
+          Comprehension.Clause clause = comp.getClauses().get(index);
+          if (clause instanceof Comprehension.For) {
+            Comprehension.For forClause = (Comprehension.For) clause;
+
+            Object iterable = eval(env, forClause.getIterable());
+            Location loc = comp.getLocation();
+            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, env);
+            EvalUtils.lock(iterable, loc);
+            try {
+              for (Object elem : listValue) {
+                Eval.assign(forClause.getVars(), elem, env, loc);
+                execClauses(index + 1);
+              }
+            } finally {
+              EvalUtils.unlock(iterable, loc);
+            }
+
+          } else {
+            Comprehension.If ifClause = (Comprehension.If) clause;
+            if (EvalUtils.toBoolean(eval(env, ifClause.getCondition()))) {
+              execClauses(index + 1);
+            }
+          }
+          return;
+        }
+
+        // base case: evaluate body and add to result.
+        if (dict != null) {
+          DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
+          Object k = eval(env, body.getKey());
+          EvalUtils.checkValidDictKey(k, env);
+          Object v = eval(env, body.getValue());
+          dict.put(k, v, comp.getLocation(), env);
+        } else {
+          list.add(eval(env, ((Expression) comp.getBody())));
+        }
+      }
+    }
+    new Lambda().execClauses(0);
+
+    // Undefine loop variables (remove them from the environment).
+    // This code is useful for the transition, to make sure no one relies on the old behavior
+    // (where loop variables were leaking).
+    // TODO(laurentlb): Instead of removing variables, we should create them in a nested scope.
+    for (Comprehension.Clause clause : comp.getClauses()) {
+      // Check if a loop variable conflicts with another local variable.
+      if (clause instanceof Comprehension.For) {
+        for (Identifier ident :
+            Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
+          env.removeLocalBinding(ident.getName());
+        }
+      }
+    }
+
+    return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(env, list);
+  }
+
+  /** Returns an exception which should be thrown instead of the original one. */
+  private static EvalException maybeTransformException(Node node, EvalException original) {
+    // If there is already a non-empty stack trace, we only add this node iff it describes a
+    // new scope (e.g. FuncallExpression).
+    if (original instanceof EvalExceptionWithStackTrace) {
+      EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
+      if (node.isNewScope()) {
+        real.registerNode(node);
+      }
+      return real;
+    }
+
+    if (original.canBeAddedToStackTrace()) {
+      return new EvalExceptionWithStackTrace(original, node);
+    } else {
+      return original;
+    }
+  }
+
+  /** Throws the correct error message if the result is null depending on the objValue. */
+  // TODO(adonovan): inline sole call and simplify.
+  private static Object checkResult(
+      Object objValue, Object result, String name, Location loc, StarlarkSemantics semantics)
+      throws EvalException {
+    if (result != null) {
+      return result;
+    }
+    throw EvalUtils.getMissingFieldException(objValue, name, loc, semantics, "field");
   }
 }

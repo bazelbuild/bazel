@@ -413,7 +413,7 @@ public class BuildFileAST extends Node {
       expr = ((ExpressionStatement) statements.get(n - 1)).getExpression();
     }
     Eval.execStatements(env, stmts);
-    return expr == null ? null : expr.eval(env);
+    return expr == null ? null : Eval.eval(env, expr);
   }
 
   /**

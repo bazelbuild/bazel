@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.List;
 
@@ -57,22 +56,6 @@ public final class DictExpression extends Expression {
 
   DictExpression(List<Entry> entries) {
     this.entries = ImmutableList.copyOf(entries);
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
-    Location loc = getLocation();
-    for (Entry entry : entries) {
-      Object key = entry.key.eval(env);
-      Object val = entry.value.eval(env);
-      if (dict.containsKey(key)) {
-        throw new EvalException(
-            loc, "Duplicated key " + Printer.repr(key) + " when creating dictionary");
-      }
-      dict.put(key, val, loc, env);
-    }
-    return dict;
   }
 
   @Override

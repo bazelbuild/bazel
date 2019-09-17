@@ -752,7 +752,7 @@ public class MethodLibrary {
       return true;
     }
     // shouldn't this filter things with struct_field = false?
-    return DotExpression.hasMethod(env.getSemantics(), obj, name);
+    return EvalUtils.hasMethod(env.getSemantics(), obj, name);
   }
 
   @SkylarkCallable(
@@ -789,12 +789,12 @@ public class MethodLibrary {
       useEnvironment = true)
   public Object getAttr(Object obj, String name, Object defaultValue, Location loc, Environment env)
       throws EvalException, InterruptedException {
-    Object result = DotExpression.eval(obj, name, loc, env);
+    Object result = EvalUtils.getAttr(env, loc, obj, name);
     if (result == null) {
       if (defaultValue != Runtime.UNBOUND) {
         return defaultValue;
       }
-      throw DotExpression.getMissingFieldException(obj, name, loc, env.getSemantics(), "attribute");
+      throw EvalUtils.getMissingFieldException(obj, name, loc, env.getSemantics(), "attribute");
     }
     return result;
   }
