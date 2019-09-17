@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedFileValue.Resolved
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -64,8 +64,7 @@ public class ResolvedFileFunction implements SkyFunction {
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
         BuildFileAST ast =
             BuildFileAST.parse(
-                ParserInputSource.create(bytes, key.getPath().asPath().asFragment()),
-                env.getListener());
+                ParserInput.create(bytes, key.getPath().asPath().asFragment()), env.getListener());
         if (ast.containsErrors()) {
           throw new ResolvedFileFunctionException(
               new BuildFileContainsErrorsException(

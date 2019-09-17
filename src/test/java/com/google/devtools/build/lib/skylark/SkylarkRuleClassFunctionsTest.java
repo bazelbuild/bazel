@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -703,7 +703,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   protected void evalAndExport(String... lines) throws Exception {
-    ParserInputSource input = ParserInputSource.fromLines(lines);
+    ParserInput input = ParserInput.fromLines(lines);
     BuildFileAST file = BuildFileAST.parseAndValidateSkylark(input, ev.getEnvironment());
     SkylarkImportLookupFunction.execAndExport(
         file, FAKE_LABEL, ev.getEventHandler(), ev.getEnvironment());

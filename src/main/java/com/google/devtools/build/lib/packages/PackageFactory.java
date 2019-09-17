@@ -63,7 +63,7 @@ import com.google.devtools.build.lib.syntax.ListExpression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -1347,7 +1347,7 @@ public final class PackageFactory {
       String workspaceName,
       PackageIdentifier packageId,
       RootedPath buildFile,
-      ParserInputSource input,
+      ParserInput input,
       List<Statement> preludeStatements,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
@@ -1382,7 +1382,7 @@ public final class PackageFactory {
 
   public static BuildFileAST parseBuildFile(
       PackageIdentifier packageId,
-      ParserInputSource input,
+      ParserInput input,
       List<Statement> preludeStatements,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       ExtendedEventHandler eventHandler) {
@@ -1492,8 +1492,8 @@ public final class PackageFactory {
 
     Globber globber =
         createLegacyGlobber(buildFile.asPath().getParentDirectory(), packageId, locator);
-    ParserInputSource input =
-        ParserInputSource.create(
+    ParserInput input =
+        ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().asFragment());
 
     Package result =

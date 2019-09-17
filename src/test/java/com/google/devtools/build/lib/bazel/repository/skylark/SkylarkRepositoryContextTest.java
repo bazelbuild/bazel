@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
@@ -102,7 +102,7 @@ public class SkylarkRepositoryContextTest {
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles");
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
-    ParserInputSource input = ParserInputSource.fromLines("test()");
+    ParserInput input = ParserInput.fromLines("test()");
     FuncallExpression ast = (FuncallExpression) Expression.parse(input, listener);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(

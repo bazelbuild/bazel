@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -766,7 +766,7 @@ public class SkylarkDebugServerTest {
   private BuildFileAST parseBuildFile(String path, String... lines) throws IOException {
     Path file = scratch.file(path, lines);
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
+    ParserInput inputSource = ParserInput.create(bytes, file.asFragment());
     return BuildFileAST.parse(inputSource, events.reporter());
   }
 

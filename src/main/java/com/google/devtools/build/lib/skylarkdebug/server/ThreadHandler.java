@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -306,8 +306,7 @@ final class ThreadHandler {
       // the logic below.
       // The result of evaluating a Statement is None.
 
-      ParserInputSource input =
-          ParserInputSource.create(content, PathFragment.create("<debug eval>"));
+      ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
 
       // Try parsing as an expression.
       EventSensor sensor = new EventSensor(EventKind.ERRORS);

@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkIm
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -1152,7 +1152,7 @@ public class PackageFunction implements SkyFunction {
         if (showLoadingProgress.get()) {
           env.getListener().handle(Event.progress("Loading package: " + packageId));
         }
-        ParserInputSource input;
+        ParserInput input;
         Preconditions.checkNotNull(buildFileValue, packageId);
         byte[] buildFileBytes = null;
         try {
@@ -1175,7 +1175,7 @@ public class PackageFunction implements SkyFunction {
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
         input =
-            ParserInputSource.create(
+            ParserInput.create(
                 FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
         StoredEventHandler astParsingEventHandler = new StoredEventHandler();
         BuildFileAST ast =

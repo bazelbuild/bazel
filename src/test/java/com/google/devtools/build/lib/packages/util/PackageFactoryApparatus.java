@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -141,7 +141,7 @@ public class PackageFactoryApparatus {
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
-    ParserInputSource input = ParserInputSource.create(bytes, buildFile.asFragment());
+    ParserInput input = ParserInput.create(bytes, buildFile.asFragment());
     return BuildFileAST.parse(input, eventHandler);
   }
 

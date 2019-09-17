@@ -823,7 +823,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
    * parameter of the template_action function contains a hack that assumes its input is a UTF-8
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
    * "correct" UTF-8 value. Once {@link
-   * com.google.devtools.build.lib.syntax.ParserInputSource#create(byte[],
+   * com.google.devtools.build.lib.syntax.ParserInput#create(byte[],
    * com.google.devtools.build.lib.vfs.PathFragment)} parses files using UTF-8 and the hack for the
    * substituations parameter is removed, this test will fail.
    */

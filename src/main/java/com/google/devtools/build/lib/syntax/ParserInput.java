@@ -18,27 +18,34 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** An abstraction for reading input from a file or taking it as a pre-cooked char[] or String. */
-// TODO(adonovan): make this final and concrete;
-// create returns the only implementation that matters.
-// TODO(adonovan): rename to "ParserInput".
-public abstract class ParserInputSource {
+/** The apparent name and contents of a source file, for consumption by the parser. */
+public final class ParserInput {
 
-  protected ParserInputSource() {}
+  private final char[] content;
+  private final PathFragment path;
 
-  /** Returns the content of the input source. */
-  public abstract char[] getContent();
+  private ParserInput(char[] content, @Nullable PathFragment path) {
+    this.content = content;
+    this.path = path == null ? PathFragment.EMPTY_FRAGMENT : path;
+  }
+
+  /** Returns the content of the input source. Callers must not modify the result. */
+  char[] getContent() {
+    return content;
+  }
 
   /**
-   * Returns the (non-null) path of the input source. Note: Once constructed, this object will never
-   * re-read the content from path.
+   * Returns the (non-null) apparent file name of the input source, for use in error messages; the
+   * file will not be opened.
    */
   // TODO(adonovan): use Strings, to avoid dependency on vfs; but first we need to avoid depending
   // on events.Location.
-  public abstract PathFragment getPath();
+  public PathFragment getPath() {
+    return path;
+  }
 
   /** Returns an unnamed input source that reads from a list of strings, joined by newlines. */
-  public static ParserInputSource fromLines(String... lines) {
+  public static ParserInput fromLines(String... lines) {
     return create(Joiner.on("\n").join(lines), null);
   }
 
@@ -47,10 +54,9 @@ public abstract class ParserInputSource {
    * name of the file, for use in source locations and error messages; a null path implies the empty
    * string.
    */
-  public static ParserInputSource create(byte[] bytes, @Nullable PathFragment path)
-      throws IOException {
+  public static ParserInput create(byte[] bytes, @Nullable PathFragment path) throws IOException {
     char[] content = convertFromLatin1(bytes);
-    return create(content, path);
+    return new ParserInput(content, path);
   }
 
   /**
@@ -58,27 +64,16 @@ public abstract class ParserInputSource {
    * be used in error messages etc. but we will *never* attempt to read the content from path. A
    * null path implies the empty string.
    */
-  public static ParserInputSource create(String content, @Nullable PathFragment path) {
+  public static ParserInput create(String content, @Nullable PathFragment path) {
     return create(content.toCharArray(), path);
   }
 
   /**
-   * Create an input source from the given content, and associate path with
-   * this source.  Path will be used in error messages etc. but we will *never*
-   * attempt to read the content from path.
+   * Create an input source from the given content, and associate path with this source. Path will
+   * be used in error messages etc. but we will *never* attempt to read the content from path.
    */
-  public static ParserInputSource create(final char[] content, final PathFragment path) {
-    return new ParserInputSource() {
-      @Override
-      public char[] getContent() {
-        return content;
-      }
-
-      @Override
-      public PathFragment getPath() {
-        return path == null ? PathFragment.EMPTY_FRAGMENT : path;
-      }
-    };
+  public static ParserInput create(char[] content, PathFragment path) {
+    return new ParserInput(content, path);
   }
 
   private static char[] convertFromLatin1(byte[] content) {

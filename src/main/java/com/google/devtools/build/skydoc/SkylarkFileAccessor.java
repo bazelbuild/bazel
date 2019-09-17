@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc;
 
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import java.io.IOException;
 
 /**
@@ -23,11 +23,8 @@ import java.io.IOException;
  */
 public interface SkylarkFileAccessor {
 
-  /**
-   * Returns a {@link ParserInputSource} for accessing the content of the given absolute path
-   * string.
-   */
-  ParserInputSource inputSource(String pathString) throws IOException;
+  /** Returns a {@link ParserInput} for accessing the content of the given absolute path string. */
+  ParserInput inputSource(String pathString) throws IOException;
 
   /** Returns true if a file exists at the current path. */
   boolean fileExists(String pathString);

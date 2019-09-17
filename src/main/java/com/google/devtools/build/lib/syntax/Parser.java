@@ -192,7 +192,7 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
+  static ParseResult parseFile(ParserInput input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
     List<Statement> statements;
@@ -211,7 +211,7 @@ final class Parser {
   }
 
   /** Parses a sequence of statements, possibly followed by newline tokens. */
-  static List<Statement> parseStatements(ParserInputSource input, EventHandler eventHandler) {
+  static List<Statement> parseStatements(ParserInput input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
     List<Statement> result = new ArrayList<>();
@@ -229,7 +229,7 @@ final class Parser {
    * @throws IllegalArgumentException if the number of parsed statements was not exactly one
    */
   @VisibleForTesting
-  static Statement parseStatement(ParserInputSource input, EventHandler eventHandler) {
+  static Statement parseStatement(ParserInput input, EventHandler eventHandler) {
     List<Statement> stmts = parseStatements(input, eventHandler);
     return Iterables.getOnlyElement(stmts);
   }
@@ -255,7 +255,7 @@ final class Parser {
 
   /** Parses an expression, possibly followed by newline tokens. */
   @VisibleForTesting
-  static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
+  static Expression parseExpression(ParserInput input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
     Expression result = parser.parseExpression();

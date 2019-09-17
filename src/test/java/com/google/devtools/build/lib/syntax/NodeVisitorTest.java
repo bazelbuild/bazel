@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 public final class NodeVisitorTest {
 
   private BuildFileAST parse(String... lines) throws IOException {
-    ParserInputSource input = ParserInputSource.fromLines(lines);
+    ParserInput input = ParserInput.fromLines(lines);
     return BuildFileAST.parse(input, Environment.FAIL_FAST_HANDLER);
   }
 

@@ -37,7 +37,7 @@ public final class ParserTest extends EvaluationTestCase {
 
   // Joins the lines, parses, and returns the file. No validation.
   private BuildFileAST parseFileWithComments(String... lines) {
-    ParserInputSource input = ParserInputSource.fromLines(lines);
+    ParserInput input = ParserInput.fromLines(lines);
     return BuildFileAST.parse(input, getEventHandler());
   }
 

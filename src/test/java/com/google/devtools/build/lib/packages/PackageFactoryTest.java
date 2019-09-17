@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtracto
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1208,7 +1208,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
     globPatternExtractor.visit(
         BuildFileAST.parse(
-            ParserInputSource.fromLines(
+            ParserInput.fromLines(
                 "pattern = '*'",
                 "some_variable = glob([",
                 "  '**/*',",

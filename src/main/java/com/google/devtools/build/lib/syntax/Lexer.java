@@ -118,8 +118,7 @@ final class Lexer {
    * Constructs a lexer which tokenizes the contents of the specified InputBuffer. Any errors during
    * lexing are reported on "handler".
    */
-  public Lexer(
-      ParserInputSource input, EventHandler eventHandler, LineNumberTable lineNumberTable) {
+  public Lexer(ParserInput input, EventHandler eventHandler, LineNumberTable lineNumberTable) {
     this.buffer = input.getContent();
     this.pos = 0;
     this.eventHandler = eventHandler;
@@ -132,7 +131,7 @@ final class Lexer {
     indentStack.push(0);
   }
 
-  public Lexer(ParserInputSource input, EventHandler eventHandler) {
+  public Lexer(ParserInput input, EventHandler eventHandler) {
     this(input, eventHandler, LineNumberTable.create(input.getContent(), input.getPath()));
   }
 

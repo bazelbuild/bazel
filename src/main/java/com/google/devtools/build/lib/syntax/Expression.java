@@ -121,7 +121,7 @@ public abstract class Expression extends Node {
   // errors,
   // and generally it is useful to keep both around, so if we put the errors in the root of the AST,
   // then client can deal with them however they like, e.g. by sending them to the event handler.
-  public static Expression parse(ParserInputSource input, EventHandler eventHandler) {
+  public static Expression parse(ParserInput input, EventHandler eventHandler) {
     return Parser.parseExpression(input, eventHandler);
   }
 }

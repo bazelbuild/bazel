@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -426,7 +426,7 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInputSource parserInputSource = getInputSource(path.toString());
+    ParserInput parserInputSource = getInputSource(path.toString());
     BuildFileAST buildFileAST = BuildFileAST.parse(parserInputSource, eventHandler);
 
     moduleDocMap.put(label, getModuleDoc(buildFileAST));
@@ -472,7 +472,7 @@ public class SkydocMain {
     return Paths.get(workspacePrefix + label.toPathFragment());
   }
 
-  private ParserInputSource getInputSource(String bzlWorkspacePath) throws IOException {
+  private ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
     for (String rootPath : depRoots) {
       if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
         return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);

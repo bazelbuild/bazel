@@ -1234,7 +1234,7 @@ public final class Environment implements Freezable {
 
   /** Evaluates a Skylark statement in this environment. (Debugger API) */
   // TODO(adonovan): push this up into the debugger once the eval API is finalized.
-  public Object debugEval(ParserInputSource input) throws EvalException, InterruptedException {
+  public Object debugEval(ParserInput input) throws EvalException, InterruptedException {
     EvalEventHandler handler = new EvalEventHandler();
     Expression expr = Expression.parse(input, handler);
     if (!handler.messages.isEmpty()) {
@@ -1246,7 +1246,7 @@ public final class Environment implements Freezable {
 
   /** Executes a Skylark file (sequence of statements) in this environment. (Debugger API) */
   // TODO(adonovan): push this up into the debugger once the exec API is finalized.
-  public void debugExec(ParserInputSource input) throws EvalException, InterruptedException {
+  public void debugExec(ParserInput input) throws EvalException, InterruptedException {
     EvalEventHandler handler = new EvalEventHandler();
     BuildFileAST file = BuildFileAST.parse(input, handler);
     if (!handler.messages.isEmpty()) {

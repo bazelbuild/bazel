@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -125,7 +125,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                 /*importMap=*/ null,
                 /*repoMapping=*/ ImmutableMap.of());
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
-        ParserInputSource input = ParserInputSource.create(bytes, path.asFragment());
+        ParserInput input = ParserInput.create(bytes, path.asFragment());
         file = BuildFileAST.parseWithDigest(input, path.getDigest(), env.getListener());
         file = file.validate(validationEnv, /*isBuildFile=*/ false, env.getListener());
       }

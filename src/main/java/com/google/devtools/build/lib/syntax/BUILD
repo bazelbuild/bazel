@@ -28,7 +28,7 @@ filegroup(
 # This should eventually include all AST nodes plus the lexer and parser.
 FRONTEND_FILES = [
     "LineNumberTable.java",
-    "ParserInputSource.java",
+    "ParserInput.java",
     "SkylarkImport.java",
     "StarlarkSemantics.java",
     "Token.java",

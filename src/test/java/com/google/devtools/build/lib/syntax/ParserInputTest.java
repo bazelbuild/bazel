@@ -26,9 +26,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** A test case for {@link ParserInputSource}. */
+/** A test case for {@link ParserInput}. */
 @RunWith(JUnit4.class)
-public class ParserInputSourceTest {
+public class ParserInputTest {
 
   private Scratch scratch = new Scratch();
 
@@ -37,7 +37,7 @@ public class ParserInputSourceTest {
     String content = joinLines("Line 1", "Line 2", "Line 3", "");
     Path file = scratch.file("/tmp/my/file.txt", content.getBytes(StandardCharsets.UTF_8));
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource input = ParserInputSource.create(bytes, file.asFragment());
+    ParserInput input = ParserInput.create(bytes, file.asFragment());
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getPath().toString()).isEqualTo("/tmp/my/file.txt");
   }
@@ -46,7 +46,7 @@ public class ParserInputSourceTest {
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    ParserInputSource input = ParserInputSource.create(content, PathFragment.create(pathName));
+    ParserInput input = ParserInput.create(content, PathFragment.create(pathName));
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getPath().toString()).isEqualTo(pathName);
   }
@@ -56,20 +56,19 @@ public class ParserInputSourceTest {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
     char[] contentChars = content.toCharArray();
-    ParserInputSource input = ParserInputSource.create(contentChars, PathFragment.create(pathName));
+    ParserInput input = ParserInput.create(contentChars, PathFragment.create(pathName));
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getPath().toString()).isEqualTo(pathName);
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
-    ParserInputSource.create(
-        "Content provided as string.", PathFragment.create("/will/not/try/to/read"));
+    ParserInput.create("Content provided as string.", PathFragment.create("/will/not/try/to/read"));
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
     char[] content = "Content provided as char array.".toCharArray();
-    ParserInputSource.create(content, PathFragment.create("/will/not/try/to/read"));
+    ParserInput.create(content, PathFragment.create("/will/not/try/to/read"));
   }
 }

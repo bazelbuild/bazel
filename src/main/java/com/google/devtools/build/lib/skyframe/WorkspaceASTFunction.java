@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -84,7 +84,7 @@ public class WorkspaceASTFunction implements SkyFunction {
     try {
       BuildFileAST file =
           BuildFileAST.parse(
-              ParserInputSource.create(
+              ParserInput.create(
                   ruleClassProvider.getDefaultWorkspacePrefix(),
                   PathFragment.create("/DEFAULT.WORKSPACE")),
               env.getListener());
@@ -98,7 +98,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       if (newWorkspaceFileContents != null) {
         file =
             BuildFileAST.parseVirtualBuildFile(
-                ParserInputSource.create(
+                ParserInput.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
                 file.getStatements(),
                 /* repositoryMapping= */ ImmutableMap.of(),
@@ -108,7 +108,7 @@ public class WorkspaceASTFunction implements SkyFunction {
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
             BuildFileAST.parseWithPrelude(
-                ParserInputSource.create(bytes, repoWorkspace.asFragment()),
+                ParserInput.create(bytes, repoWorkspace.asFragment()),
                 file.getStatements(),
                 /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
@@ -121,7 +121,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       }
       file =
           BuildFileAST.parseWithPrelude(
-              ParserInputSource.create(
+              ParserInput.create(
                   resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
               file.getStatements(),

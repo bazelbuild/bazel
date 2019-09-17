@@ -258,7 +258,7 @@ public class SkylarkSignatureProcessor {
                   .setEventHandler(Environment.FAIL_FAST_HANDLER)
                   .build()
                   .update("unbound", Runtime.UNBOUND);
-          defaultValue = BuildFileAST.eval(ParserInputSource.fromLines(paramDefaultValue), env);
+          defaultValue = BuildFileAST.eval(ParserInput.fromLines(paramDefaultValue), env);
           defaultValueCache.put(paramDefaultValue, defaultValue);
           return defaultValue;
         }

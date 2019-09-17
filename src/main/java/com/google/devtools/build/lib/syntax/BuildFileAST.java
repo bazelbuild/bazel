@@ -300,7 +300,7 @@ public class BuildFileAST extends Node {
    * event handler.
    */
   public static BuildFileAST parseWithPrelude(
-      ParserInputSource input,
+      ParserInput input,
       List<Statement> preludeStatements,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       EventHandler eventHandler) {
@@ -315,7 +315,7 @@ public class BuildFileAST extends Node {
    * the event handler.
    */
   public static BuildFileAST parseVirtualBuildFile(
-      ParserInputSource input,
+      ParserInput input,
       List<Statement> preludeStatements,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       EventHandler eventHandler) {
@@ -330,7 +330,7 @@ public class BuildFileAST extends Node {
   }
 
   public static BuildFileAST parseWithDigest(
-      ParserInputSource input, byte[] digest, EventHandler eventHandler) throws IOException {
+      ParserInput input, byte[] digest, EventHandler eventHandler) throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         /* preludeStatements= */ ImmutableList.of(),
@@ -340,7 +340,7 @@ public class BuildFileAST extends Node {
         eventHandler);
   }
 
-  public static BuildFileAST parse(ParserInputSource input, EventHandler eventHandler) {
+  public static BuildFileAST parse(ParserInput input, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         /* preludeStatements= */ ImmutableList.<Statement>of(),
@@ -354,8 +354,7 @@ public class BuildFileAST extends Node {
    * Parse the specified file but avoid the validation of the imports, returning its AST. All errors
    * during scanning or parsing will be reported to the event handler.
    */
-  public static BuildFileAST parseWithoutImports(
-      ParserInputSource input, EventHandler eventHandler) {
+  public static BuildFileAST parseWithoutImports(ParserInput input, EventHandler eventHandler) {
     ParseResult result = Parser.parseFile(input, eventHandler);
     return new BuildFileAST(
         ImmutableList.copyOf(result.statements),
@@ -425,7 +424,7 @@ public class BuildFileAST extends Node {
   // Note: uses Starlark (not BUILD) validation semantics.
   // TODO(adonovan): move to EvalUtils; see other eval function.
   @Nullable
-  public static Object eval(ParserInputSource input, Environment env)
+  public static Object eval(ParserInput input, Environment env)
       throws EvalException, InterruptedException {
     BuildFileAST ast = parseAndValidateSkylark(input, env);
     return ast.eval(env);
@@ -436,7 +435,7 @@ public class BuildFileAST extends Node {
    * it throws an EvalException. Uses Starlark (not BUILD) validation semantics.
    */
   // TODO(adonovan): move to EvalUtils; see above.
-  public static BuildFileAST parseAndValidateSkylark(ParserInputSource input, Environment env)
+  public static BuildFileAST parseAndValidateSkylark(ParserInput input, Environment env)
       throws EvalException {
     BuildFileAST file = parse(input, env.getEventHandler());
     file.replayLexerEvents(env, env.getEventHandler());
