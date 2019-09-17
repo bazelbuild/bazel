@@ -482,7 +482,25 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "''",
             doc =
                 "A description of the aspect that can be extracted by documentation generating "
-                    + "tools.")
+                    + "tools."),
+        @Param(
+            name = "apply_to_generating_rules",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION,
+            valueWhenDisabled = "False",
+            doc =
+                "If true, the aspect will, when applied to an output file, instead apply to the "
+                    + "output file's generating rule. "
+                    + "<p>For example, suppose an aspect propagates transitively through attribute "
+                    + "`deps` and it is applied to target `alpha`. Suppose `alpha` has "
+                    + "`deps = [':beta_output']`, where `beta_output` is a declared output of "
+                    + "a target `beta`. Suppose `beta` has a target `charlie` as one of its "
+                    + "`deps`. If `apply_to_generating_rules=True` for the aspect, then the aspect "
+                    + "will propagate through `alpha`, `beta`, and `charlie`. If False, then the "
+                    + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
       useEnvironment = true,
       useAst = true,
@@ -497,6 +515,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
+      Boolean applyToGeneratingRules,
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)

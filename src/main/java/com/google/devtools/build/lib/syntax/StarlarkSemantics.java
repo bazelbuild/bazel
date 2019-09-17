@@ -43,6 +43,7 @@ public abstract class StarlarkSemantics {
   public enum FlagIdentifier {
     EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
         StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
+    EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION(StarlarkSemantics::experimentalAspectOutputPropagation),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
@@ -124,6 +125,8 @@ public abstract class StarlarkSemantics {
 
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
+
+  public abstract boolean experimentalAspectOutputPropagation();
 
   public abstract boolean experimentalBuildSettingApi();
 
@@ -241,6 +244,7 @@ public abstract class StarlarkSemantics {
       builder()
           // <== Add new options here in alphabetic order ==>
           .experimentalAllowTagsPropagation(false)
+          .experimentalAspectOutputPropagation(false)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
@@ -291,6 +295,10 @@ public abstract class StarlarkSemantics {
     // <== Add new options here in alphabetic order ==>
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
+    public abstract Builder experimentalAllowTagsPropagation(boolean value);
+
+    public abstract Builder experimentalAspectOutputPropagation(boolean value);
+
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
@@ -304,8 +312,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
-
-    public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

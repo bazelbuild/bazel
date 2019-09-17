@@ -2805,6 +2805,318 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(configuredAspect).isNotNull();
   }
 
+  @Test
+  public void testApplyToGeneratingRules() throws Exception {
+    // Create test rules:
+    // dep_rule: a rule which may depend on other dep_rule targets and may optionally create
+    //     an output file.
+    // root_{with,no}_files: a rule which depends on dep_rule targets and attaches an aspect.
+    //     The rule returns a RootInfo provider which contains two fields:
+    //        'from_aspect' : a list of all labels that the aspect propagated to
+    //        'non_aspect' : a list of all labels that information was obtained from without aspect
+    //     root_with_files uses an aspect with apply_to_generating_rules=True, and root_no_files
+    //     uses an aspect with apply_to_generating_rules=False.
+    scratch.file(
+        "test/lib.bzl",
+        "RootInfo = provider()",
+        "NonAspectInfo = provider()",
+        "FromAspectInfo = provider()",
+        "def _aspect_impl(target, ctx):",
+        "  dep_labels = []",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if FromAspectInfo in dep:",
+        "      dep_labels += [dep[FromAspectInfo].labels]",
+        "  return FromAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))",
+        "",
+        "def _rule_impl(ctx):",
+        "  non_aspect = []",
+        "  from_aspect = []",
+        "  for dep in ctx.attr.deps:",
+        "    if NonAspectInfo in dep:",
+        "      non_aspect +=  dep[NonAspectInfo].labels.to_list()",
+        "    if FromAspectInfo in dep:",
+        "      from_aspect += dep[FromAspectInfo].labels.to_list()",
+        "  return RootInfo(from_aspect = from_aspect, non_aspect = non_aspect)",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  if ctx.outputs.output:",
+        "    ctx.actions.run_shell(outputs = [ctx.outputs.output], command = 'dont run me')",
+        "  dep_labels = []",
+        "  for dep in ctx.attr.deps:",
+        "    if NonAspectInfo in dep:",
+        "      dep_labels += [dep[NonAspectInfo].labels]",
+        "  return NonAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))",
+        "",
+        "aspect_with_files = aspect(",
+        "  implementation = _aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  apply_to_generating_rules = True)",
+        "",
+        "aspect_no_files = aspect(",
+        "  implementation = _aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  apply_to_generating_rules = False)",
+        "",
+        "root_with_files = rule(implementation = _rule_impl,",
+        "  attrs = {'deps' : attr.label_list(aspects = [aspect_with_files])})",
+        "",
+        "root_no_files = rule(implementation = _rule_impl,",
+        "  attrs = {'deps' : attr.label_list(aspects = [aspect_no_files])})",
+        "",
+        "dep_rule = rule(implementation = _dep_rule_impl,",
+        "  attrs = {'deps' : attr.label_list(allow_files = True), 'output' : attr.output()})");
+
+    // Create a target graph such that two graph roots each point to a common subgraph
+    // alpha -> beta_output -> charlie, where beta_output is a generated output file of target
+    // 'beta'.
+    scratch.file(
+        "test/BUILD",
+        "load('//test:lib.bzl', 'root_with_files', 'root_no_files', 'dep_rule')",
+        "",
+        "root_with_files(name = 'test_with_files', deps = [':alpha'])",
+        "root_no_files(name = 'test_no_files', deps = [':alpha'])",
+        "dep_rule(name = 'alpha', deps = [':beta_output'])",
+        "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
+        "dep_rule(name = 'charlie')");
+
+    useConfiguration("--experimental_aspect_output_propagation=true");
+
+    SkylarkKey rootInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootInfo");
+
+    AnalysisResult analysisResultWithFiles = update("//test:test_with_files");
+    ConfiguredTarget targetWithFiles =
+        Iterables.getOnlyElement(analysisResultWithFiles.getTargetsToBuild());
+    StructImpl rootInfoWithFiles = (StructImpl) targetWithFiles.get(rootInfoKey);
+    // With apply_to_generating_rules=True, the aspect should have traversed :beta_output and
+    // applied to both :beta and :charlie.
+    assertThat(rootInfoWithFiles.getValue("from_aspect", SkylarkList.class))
+        .containsExactly(
+            Label.parseAbsolute("//test:charlie", ImmutableMap.of()),
+            Label.parseAbsolute("//test:beta", ImmutableMap.of()),
+            Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+    assertThat(rootInfoWithFiles.getValue("non_aspect", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+
+    AnalysisResult analysisResultNoFiles = update("//test:test_no_files");
+    ConfiguredTarget targetNoFiles =
+        Iterables.getOnlyElement(analysisResultNoFiles.getTargetsToBuild());
+    StructImpl rootInfoNoFiles = (StructImpl) targetNoFiles.get(rootInfoKey);
+    // With apply_to_generating_rules=False, the aspect should have only accessed :alpha, as it
+    // must have stopped before :beta_output.
+    assertThat(rootInfoNoFiles.getValue("from_aspect", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+    assertThat(rootInfoWithFiles.getValue("non_aspect", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+  }
+
+  private void setupAspectOnAspectTargetGraph(
+      boolean applyRootToGeneratingRules, boolean applyDepToGeneratingRules) throws Exception {
+    // RootAspectInfo.both_labels returns a list of target labels which
+    //     were evaluated as [root_aspect(dep_aspect(target))].
+    // RootAspectInfo.root_only_labels returns a list of target labels which
+    //     were evaluated as [root_aspect(target)].
+    // DepAspectInfo.labels returns a list of target labels which were evaluated by dep_aspect.
+    scratch.file(
+        "test/lib.bzl",
+        "RootAspectInfo = provider()",
+        "DepAspectInfo = provider()",
+        "def _root_aspect_impl(target, ctx):",
+        "  both_labels = []",
+        "  root_only_labels = []",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if RootAspectInfo in dep:",
+        "      both_labels += dep[RootAspectInfo].both_labels",
+        "      root_only_labels += dep[RootAspectInfo].root_only_labels",
+        "      if DepAspectInfo in dep:",
+        "        both_labels += [dep.label]",
+        "      else:",
+        "        root_only_labels += [dep.label]",
+        "  return RootAspectInfo(both_labels = both_labels, root_only_labels = root_only_labels)",
+        "",
+        "def _dep_aspect_impl(target, ctx):",
+        "  dep_labels = [ctx.label]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if DepAspectInfo in dep:",
+        "      dep_labels += dep[DepAspectInfo].labels",
+        "  return DepAspectInfo(labels = dep_labels)",
+        "",
+        "def _root_rule_impl(ctx):",
+        "  return [ctx.attr.deps[0][RootAspectInfo], ctx.attr.deps[0][DepAspectInfo]]",
+        "",
+        "def _dep_with_aspect_rule_impl(ctx):",
+        "  return [ctx.attr.deps[0][DepAspectInfo]]",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  if ctx.outputs.output:",
+        "    ctx.actions.run_shell(outputs = [ctx.outputs.output], command = 'dont run me')",
+        "  return []",
+        "",
+        "root_aspect = aspect(",
+        "  implementation = _root_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [DepAspectInfo],",
+        "  apply_to_generating_rules = " + (applyRootToGeneratingRules ? "True" : "False") + ")",
+        "",
+        "dep_aspect = aspect(",
+        "  implementation = _dep_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [DepAspectInfo],",
+        "  apply_to_generating_rules = " + (applyDepToGeneratingRules ? "True" : "False") + ")",
+        "",
+        "root_rule = rule(implementation = _root_rule_impl,",
+        "  attrs = {'deps' : attr.label_list(aspects = [root_aspect])})",
+        "",
+        "dep_with_aspect_rule = rule(implementation = _dep_with_aspect_rule_impl,",
+        "  attrs = {'deps' : attr.label_list(aspects = [dep_aspect])})",
+        "",
+        "dep_rule = rule(implementation = _dep_rule_impl,",
+        "  attrs = {'deps' : attr.label_list(allow_files = True), 'output' : attr.output()})");
+
+    // Target graph: test -> aspect_propagating_target -> alpha -> beta_output
+    // beta_output is an output of target `beta`
+    // beta -> charlie
+    scratch.file(
+        "test/BUILD",
+        "load('//test:lib.bzl', 'root_rule', 'dep_with_aspect_rule', 'dep_rule')",
+        "",
+        "root_rule(name = 'test', deps = [':aspect_propagating_target'])",
+        "dep_with_aspect_rule(name = 'aspect_propagating_target', deps = [':alpha'])",
+        "dep_rule(name = 'alpha', deps = [':beta_output'])",
+        "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
+        "dep_rule(name = 'charlie')");
+
+    useConfiguration("--experimental_aspect_output_propagation=true");
+  }
+
+  @Test
+  public void testAspectOnAspectApplyToGeneratingRules_bothPropagate() throws Exception {
+    setupAspectOnAspectTargetGraph(
+        /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ true);
+
+    SkylarkKey rootInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    SkylarkKey depInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+
+    AnalysisResult analysisResult = update("//test:test");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
+    StructImpl depInfo = (StructImpl) target.get(depInfoKey);
+
+    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+        .containsExactly(
+            Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
+            Label.parseAbsolute("//test:beta_output", ImmutableMap.of()),
+            Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
+    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", SkylarkList.class))
+        .containsExactly(
+            Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
+            Label.parseAbsolute("//test:beta", ImmutableMap.of()),
+            Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testAspectOnAspectApplyToGeneratingRules_neitherPropagate() throws Exception {
+    setupAspectOnAspectTargetGraph(
+        /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ false);
+
+    SkylarkKey rootInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    SkylarkKey depInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+
+    AnalysisResult analysisResult = update("//test:test");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
+    StructImpl depInfo = (StructImpl) target.get(depInfoKey);
+
+    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testAspectOnAspectApplyToGeneratingRules_rootOnly() throws Exception {
+    setupAspectOnAspectTargetGraph(
+        /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ false);
+
+    SkylarkKey rootInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    SkylarkKey depInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+
+    AnalysisResult analysisResult = update("//test:test");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
+    StructImpl depInfo = (StructImpl) target.get(depInfoKey);
+
+    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class))
+        .containsExactly(
+            Label.parseAbsolute("//test:beta_output", ImmutableMap.of()),
+            Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
+    assertThat(depInfo.getValue("labels", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testAspectOnAspectApplyToGeneratingRules_depOnly() throws Exception {
+    setupAspectOnAspectTargetGraph(
+        /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ true);
+
+    SkylarkKey rootInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    SkylarkKey depInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+
+    AnalysisResult analysisResult = update("//test:test");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
+    StructImpl depInfo = (StructImpl) target.get(depInfoKey);
+
+    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+        .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
+    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", SkylarkList.class))
+        .containsExactly(
+            Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
+            Label.parseAbsolute("//test:beta", ImmutableMap.of()),
+            Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testAspectOutputPropagationFlag() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return []",
+        "def _rule_impl(ctx):",
+        "   return []",
+        "my_aspect = aspect(implementation=_aspect_impl, apply_to_generating_rules = True)",
+        "my_rule = rule(implementation=_rule_impl)");
+
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "", "my_rule(name = 'xxx')");
+
+    useConfiguration("--experimental_aspect_output_propagation=false");
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult analysisResult = update("//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(analysisResult.hasError()).isTrue();
+    } catch (ViewCreationFailedException | TargetParsingException e) {
+      // expected
+    }
+
+    assertContainsEvent(
+        "parameter 'apply_to_generating_rules' is experimental and thus "
+            + "unavailable with the current flags");
+  }
+
   /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkDefinedAspectsTest {

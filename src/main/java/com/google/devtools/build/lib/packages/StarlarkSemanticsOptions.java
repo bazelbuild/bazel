@@ -75,6 +75,17 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalAllowIncrementalRepositoryUpdates;
 
   @Option(
+      name = "experimental_aspect_output_propagation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, allows Starlark aspects to be defined with `apply_to_generating_rules`, "
+              + "which will enable them to propagate through output file target nodes.")
+  public boolean experimentalAspectOutputPropagation;
+
+  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -645,6 +656,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
+            .experimentalAspectOutputPropagation(experimentalAspectOutputPropagation)
             .experimentalBuildSettingApi(experimentalBuildSettingApi)
             .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)

@@ -202,6 +202,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
+      Boolean applyToFiles,
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)

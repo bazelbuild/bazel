@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
@@ -582,6 +583,16 @@ public final class AspectFunction implements SkyFunction {
     // the real configured target.
     Label aliasLabel = aliasChain.size() > 1 ? aliasChain.get(1) : configuredTarget.getLabel();
 
+    return createAliasAspect(env, originalTarget, aspect, originalKey, aliasLabel);
+  }
+
+  private AspectValue createAliasAspect(
+      Environment env,
+      Target originalTarget,
+      Aspect aspect,
+      AspectKey originalKey,
+      Label aliasLabel)
+      throws InterruptedException {
     SkyKey depKey = originalKey.withLabel(aliasLabel);
 
     // Compute the AspectValue of the target the alias refers to (which can itself be either an
@@ -623,7 +634,6 @@ public final class AspectFunction implements SkyFunction {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws AspectFunctionException, InterruptedException {
-
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
 
     StoredEventHandler events = new StoredEventHandler();
@@ -634,7 +644,12 @@ public final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredAspect configuredAspect;
-    if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
+    if (aspect.getDefinition().applyToGeneratingRules()
+        && associatedTarget.getTarget() instanceof OutputFile) {
+      OutputFile outputFile = (OutputFile) associatedTarget.getTarget();
+      Label label = outputFile.getGeneratingRule().getLabel();
+      return createAliasAspect(env, associatedTarget.getTarget(), aspect, key, label);
+    } else if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =

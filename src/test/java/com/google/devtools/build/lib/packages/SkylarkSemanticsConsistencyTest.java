@@ -119,6 +119,7 @@ public class SkylarkSemanticsConsistencyTest {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
+        "--experimental_aspect_output_propagation=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
@@ -173,6 +174,7 @@ public class SkylarkSemanticsConsistencyTest {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
+        .experimentalAspectOutputPropagation(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))

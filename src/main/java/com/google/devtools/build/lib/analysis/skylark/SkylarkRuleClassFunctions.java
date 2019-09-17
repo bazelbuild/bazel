@@ -500,6 +500,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
+      Boolean applyToGeneratingRules,
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)
@@ -595,7 +596,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping));
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping),
+        applyToGeneratingRules);
   }
 
   /**
