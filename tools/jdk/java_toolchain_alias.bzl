@@ -49,7 +49,10 @@ def _java_host_runtime_alias(ctx):
     return [
         runtime[java_common.JavaRuntimeInfo],
         runtime[platform_common.TemplateVariableInfo],
-        runtime[DefaultInfo],
+        DefaultInfo(
+            runfiles = ctx.runfiles(transitive_files = runtime.files),
+            files = runtime.files,
+        ),
     ]
 
 java_host_runtime_alias = rule(
