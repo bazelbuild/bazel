@@ -457,16 +457,24 @@ eof
 # Verify that bazel-bin and the other bazel-* symlinks are not treated as
 # packages when expanding the "//..." pattern.
 function test_bazel_bin_is_not_a_package() {
-  echo 'filegroup(name = "x")' > BUILD
-  local -r parent="$(basename "$(dirname "$PWD")")"
+  local -r pkg=${FUNCNAME[0]}
+  mkdir "$pkg" || fail "Could not mkdir $pkg"
 
-  # Ensure bazel-<parent> is created.
-  bazel build //:x >& "$TEST_log"
-  [[ -d "bazel-bin" ]] || fail "bazel-bin was not created"
-  [[ -d "bazel-bin/$parent" ]] || fail "bazel-<parent> was not created"
+  echo 'workspace(name = "foo_ws")' > "$pkg/WORKSPACE"
+  echo 'filegroup(name = "x")' > "$pkg/BUILD"
+
+  # Ensure bazel-<pkg> is created.
+  ( cd "$pkg"
+    bazel build //:x >& "$TEST_log"
+  )
+  [[ -d "$pkg/bazel-bin" ]] || fail "bazel-bin was not created"
+  [[ -d "$pkg/bazel-$pkg" ]] || fail "bazel-$pkg was not created"
 
   # Assert that "//..." expands only to "//:x".
-  bazel query //... >& "$TEST_log"
+  ( cd "$pkg"
+    bazel query //... >& "$TEST_log"
+    bazel shutdown
+  )
   expect_log_once "//:x"
   expect_not_log "//bazel.*:x"
 }
