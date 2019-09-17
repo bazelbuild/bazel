@@ -307,7 +307,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
             .setAdditionalBlacklistedPackagePrefixesFile(additionalBlacklistedPackagePrefixesFile)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))

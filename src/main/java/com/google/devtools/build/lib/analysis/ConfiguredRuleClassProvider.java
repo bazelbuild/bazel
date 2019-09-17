@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -776,11 +777,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return nativeAspectClassMap.get(key);
   }
 
-  /**
-   * Returns a list of build info factories that are needed for the supported languages.
-   */
-  public ImmutableList<BuildInfoFactory> getBuildInfoFactories() {
-    return buildInfoFactories;
+  public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
+    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
+    for (BuildInfoFactory factory : buildInfoFactories) {
+      factoryMapBuilder.put(factory.getKey(), factory);
+    }
+    return factoryMapBuilder.build();
   }
 
   /**

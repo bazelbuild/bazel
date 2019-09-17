@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -650,6 +651,9 @@ public final class AspectFunction implements SkyFunction {
                     aspectConfiguration,
                     view.getHostConfiguration(aspectConfiguration),
                     key);
+      } catch (MissingDepException e) {
+        Preconditions.checkState(env.valuesMissing());
+        return null;
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }

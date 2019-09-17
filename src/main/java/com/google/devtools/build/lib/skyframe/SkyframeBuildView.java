@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -692,43 +690,12 @@ public final class SkyframeBuildView {
     return artifactFactory;
   }
 
-  /**
-   * Because we don't know what build-info artifacts this configured target may request, we
-   * conservatively register a dep on all of them.
-   */
-  // TODO(bazel-team): Allow analysis to return null so the value builder can exit and wait for a
-  // restart deps are not present.
-  private static boolean getWorkspaceStatusValues(
-      Environment env,
-      BuildConfiguration config,
-      ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories)
-      throws InterruptedException {
-    env.getValue(WorkspaceStatusValue.BUILD_INFO_KEY);
-    // These factories may each create their own build info artifacts, all depending on the basic
-    // build-info.txt and build-changelist.txt.
-    List<SkyKey> depKeys = Lists.newArrayList();
-    for (BuildInfoKey key : buildInfoFactories.keySet()) {
-      if (buildInfoFactories.get(key).isEnabled(config)) {
-        depKeys.add(BuildInfoCollectionValue.key(key, config));
-      }
-    }
-    env.getValues(depKeys);
-    return !env.valuesMissing();
-  }
-
-  /** Returns null if any build-info values are not ready. */
-  @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(
       ActionLookupValue.ActionLookupKey owner,
       boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,
-      BuildConfiguration config)
-      throws InterruptedException {
-    if (config != null
-        && !getWorkspaceStatusValues(env, config, skyframeExecutor.getBuildInfoFactories())) {
-      return null;
-    }
+      BuildConfiguration config) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
     return new CachingAnalysisEnvironment(

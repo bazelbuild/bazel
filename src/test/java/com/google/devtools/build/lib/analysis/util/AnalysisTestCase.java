@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -185,14 +184,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
-  protected SkyframeExecutor createSkyframeExecutor(
-      PackageFactory pkgFactory, ImmutableList<BuildInfoFactory> buildInfoFactories) {
+  protected SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
         .setDirectories(directories)
         .setActionKeyContext(actionKeyContext)
-        .setBuildInfoFactories(buildInfoFactories)
         .setDefaultBuildOptions(
             DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
@@ -211,8 +208,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
-    skyframeExecutor =
-        createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
+    skyframeExecutor = createSkyframeExecutor(pkgFactory);
     reinitializeSkyframeExecutor();
     packageManager = skyframeExecutor.getPackageManager();
     buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
@@ -241,7 +237,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 ImmutableMap.<RepositoryName, PathFragment>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(
+                PrecomputedValue.BUILD_INFO_FACTORIES,
+                ruleClassProvider.getBuildInfoFactoriesAsMap())));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
