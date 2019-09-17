@@ -114,6 +114,10 @@ nav: docs
                 </ul>
               </li>
 
+              {% if major_version != 0 %}
+                <li><a href="/versions/{{ current_version }}/rules.html">Rules</a></li>
+              {% endif %}
+
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#query-menu" aria-expanded="false"
@@ -166,6 +170,7 @@ nav: docs
               </li>
              </ul>
 
+           {% if major_version == 0 %}
            <h3>Rules</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/be/overview.html">Build Encyclopedia</a></li>
@@ -255,6 +260,7 @@ nav: docs
               </li>
 
            </ul>
+           {% endif %}
 
            <h3>Reference</h3>
            <ul class="sidebar-nav">
