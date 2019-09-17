@@ -273,7 +273,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * Syntax node for comments.
- */
-public final class Comment extends ASTNode {
+/** Syntax node for comments. */
+public final class Comment extends Node {
 
   protected final String value;
 
@@ -31,7 +29,7 @@ public final class Comment extends ASTNode {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

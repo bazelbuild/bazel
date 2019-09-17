@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * (even on the lines before its first assignment).
  */
 // TODO(adonovan): make this class private. Call it through the EvalUtils facade.
-public final class ValidationEnvironment extends SyntaxTreeVisitor {
+public final class ValidationEnvironment extends NodeVisitor {
 
   enum Scope {
     /** Symbols defined inside a function or a comprehension. */
@@ -67,8 +67,8 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   /**
-   * We use an unchecked exception around EvalException because the SyntaxTreeVisitor doesn't let
-   * visit methods throw checked exceptions. We might change that later.
+   * We use an unchecked exception around EvalException because the NodeVisitor doesn't let visit
+   * methods throw checked exceptions. We might change that later.
    */
   private static class ValidationException extends RuntimeException {
     EvalException exception;
@@ -164,8 +164,8 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       // no-op
     } else if (lhs instanceof IndexExpression) {
       visit(lhs);
-    } else if (lhs instanceof ListLiteral) {
-      for (Expression elem : ((ListLiteral) lhs).getElements()) {
+    } else if (lhs instanceof ListExpression) {
+      for (Expression elem : ((ListExpression) lhs).getElements()) {
         assign(elem);
       }
     } else {
@@ -309,7 +309,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(AugmentedAssignmentStatement node) {
-    if (node.getLHS() instanceof ListLiteral) {
+    if (node.getLHS() instanceof ListExpression) {
       throw new ValidationException(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }

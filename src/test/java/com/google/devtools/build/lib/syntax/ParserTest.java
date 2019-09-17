@@ -60,7 +60,7 @@ public final class ParserTest extends EvaluationTestCase {
     return parseFileForSkylarkAsAST(lines).getStatements();
   }
 
-  private static String getText(String text, ASTNode node) {
+  private static String getText(String text, Node node) {
     return text.substring(node.getLocation().getStartOffset(),
                           node.getLocation().getEndOffset());
   }
@@ -76,23 +76,23 @@ public final class ParserTest extends EvaluationTestCase {
     }
   }
 
-  // helper func for testListLiterals:
-  private static int getIntElem(DictionaryLiteral.Entry entry, boolean key) {
+  // helper func for testListExpressions:
+  private static int getIntElem(DictExpression.Entry entry, boolean key) {
     return ((IntegerLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
   }
 
-  // helper func for testListLiterals:
-  private static int getIntElem(ListLiteral list, int index) {
+  // helper func for testListExpressions:
+  private static int getIntElem(ListExpression list, int index) {
     return ((IntegerLiteral) list.getElements().get(index)).getValue();
   }
 
-  // helper func for testListLiterals:
-  private static DictionaryLiteral.Entry getElem(DictionaryLiteral list, int index) {
+  // helper func for testListExpressions:
+  private static DictExpression.Entry getElem(DictExpression list, int index) {
     return list.getEntries().get(index);
   }
 
-  // helper func for testListLiterals:
-  private static Expression getElem(ListLiteral list, int index) {
+  // helper func for testListExpressions:
+  private static Expression getElem(ListExpression list, int index) {
     return list.getElements().get(index);
   }
 
@@ -456,7 +456,7 @@ public final class ParserTest extends EvaluationTestCase {
     assertThat(statements).hasSize(1);
     assertThat(statements.get(0)).isInstanceOf(AssignmentStatement.class);
     AssignmentStatement assign = (AssignmentStatement) statements.get(0);
-    assertThat(assign.getLHS()).isInstanceOf(ListLiteral.class);
+    assertThat(assign.getLHS()).isInstanceOf(ListExpression.class);
   }
 
   @Test
@@ -511,7 +511,7 @@ public final class ParserTest extends EvaluationTestCase {
   public void testListPositions() throws Exception {
     String expr = "[0,f(1),2]";
     assertExpressionLocationCorrect(expr);
-    ListLiteral list = (ListLiteral) parseExpression(expr);
+    ListExpression list = (ListExpression) parseExpression(expr);
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("0");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("2");
@@ -521,7 +521,7 @@ public final class ParserTest extends EvaluationTestCase {
   public void testDictPositions() throws Exception {
     String expr = "{1:2,2:f(1),3:4}";
     assertExpressionLocationCorrect(expr);
-    DictionaryLiteral list = (DictionaryLiteral) parseExpression(expr);
+    DictExpression list = (DictExpression) parseExpression(expr);
     assertThat(getText(expr, getElem(list, 0))).isEqualTo("1:2");
     assertThat(getText(expr, getElem(list, 1))).isEqualTo("2:f(1)");
     assertThat(getText(expr, getElem(list, 2))).isEqualTo("3:4");
@@ -641,8 +641,8 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListLiterals1() throws Exception {
-    ListLiteral list = (ListLiteral) parseExpression("[0,1,2]");
+  public void testListExpressions1() throws Exception {
+    ListExpression list = (ListExpression) parseExpression("[0,1,2]");
     assertThat(list.isTuple()).isFalse();
     assertThat(list.getElements()).hasSize(3);
     assertThat(list.isTuple()).isFalse();
@@ -653,7 +653,7 @@ public final class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testTupleLiterals2() throws Exception {
-    ListLiteral tuple = (ListLiteral) parseExpression("(0,1,2)");
+    ListExpression tuple = (ListExpression) parseExpression("(0,1,2)");
     assertThat(tuple.isTuple()).isTrue();
     assertThat(tuple.getElements()).hasSize(3);
     assertThat(tuple.isTuple()).isTrue();
@@ -664,7 +664,7 @@ public final class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testTupleWithoutParens() throws Exception {
-    ListLiteral tuple = (ListLiteral) parseExpression("0, 1, 2");
+    ListExpression tuple = (ListExpression) parseExpression("0, 1, 2");
     assertThat(tuple.isTuple()).isTrue();
     assertThat(tuple.getElements()).hasSize(3);
     assertThat(tuple.isTuple()).isTrue();
@@ -686,7 +686,7 @@ public final class ParserTest extends EvaluationTestCase {
     assertContainsError("Trailing comma");
     clearEvents();
 
-    ListLiteral tuple = (ListLiteral) parseExpression("(0, 1, 2, 3,)");
+    ListExpression tuple = (ListExpression) parseExpression("(0, 1, 2, 3,)");
     assertThat(tuple.isTuple()).isTrue();
     assertThat(tuple.getElements()).hasSize(4);
     assertThat(tuple.isTuple()).isTrue();
@@ -697,14 +697,14 @@ public final class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testTupleLiterals3() throws Exception {
-    ListLiteral emptyTuple = (ListLiteral) parseExpression("()");
+    ListExpression emptyTuple = (ListExpression) parseExpression("()");
     assertThat(emptyTuple.isTuple()).isTrue();
     assertThat(emptyTuple.getElements()).isEmpty();
   }
 
   @Test
   public void testTupleLiterals4() throws Exception {
-    ListLiteral singletonTuple = (ListLiteral) parseExpression("(42,)");
+    ListExpression singletonTuple = (ListExpression) parseExpression("(42,)");
     assertThat(singletonTuple.isTuple()).isTrue();
     assertThat(singletonTuple.getElements()).hasSize(1);
     assertThat(getIntElem(singletonTuple, 0)).isEqualTo(42);
@@ -717,70 +717,69 @@ public final class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListLiterals6() throws Exception {
-    ListLiteral emptyList = (ListLiteral) parseExpression("[]");
+  public void testListExpressions6() throws Exception {
+    ListExpression emptyList = (ListExpression) parseExpression("[]");
     assertThat(emptyList.isTuple()).isFalse();
     assertThat(emptyList.getElements()).isEmpty();
   }
 
   @Test
-  public void testListLiterals7() throws Exception {
-    ListLiteral singletonList = (ListLiteral) parseExpression("[42,]");
+  public void testListExpressions7() throws Exception {
+    ListExpression singletonList = (ListExpression) parseExpression("[42,]");
     assertThat(singletonList.isTuple()).isFalse();
     assertThat(singletonList.getElements()).hasSize(1);
     assertThat(getIntElem(singletonList, 0)).isEqualTo(42);
   }
 
   @Test
-  public void testListLiterals8() throws Exception {
-    ListLiteral singletonList = (ListLiteral) parseExpression("[42]"); // a singleton
+  public void testListExpressions8() throws Exception {
+    ListExpression singletonList = (ListExpression) parseExpression("[42]"); // a singleton
     assertThat(singletonList.isTuple()).isFalse();
     assertThat(singletonList.getElements()).hasSize(1);
     assertThat(getIntElem(singletonList, 0)).isEqualTo(42);
   }
 
   @Test
-  public void testDictionaryLiterals() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{1:42}"); // a singleton dictionary
+  public void testDictExpressions() throws Exception {
+    DictExpression dictionaryList =
+        (DictExpression) parseExpression("{1:42}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
+    DictExpression.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
 
   @Test
-  public void testDictionaryLiterals1() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{}"); // an empty dictionary
+  public void testDictExpressions1() throws Exception {
+    DictExpression dictionaryList = (DictExpression) parseExpression("{}"); // an empty dictionary
     assertThat(dictionaryList.getEntries()).isEmpty();
   }
 
   @Test
-  public void testDictionaryLiterals2() throws Exception {
-    DictionaryLiteral dictionaryList =
-      (DictionaryLiteral) parseExpression("{1:42,}"); // a singleton dictionary
+  public void testDictExpressions2() throws Exception {
+    DictExpression dictionaryList =
+        (DictExpression) parseExpression("{1:42,}"); // a singleton dictionary
     assertThat(dictionaryList.getEntries()).hasSize(1);
-    DictionaryLiteral.Entry tuple = getElem(dictionaryList, 0);
+    DictExpression.Entry tuple = getElem(dictionaryList, 0);
     assertThat(getIntElem(tuple, true)).isEqualTo(1);
     assertThat(getIntElem(tuple, false)).isEqualTo(42);
   }
 
   @Test
-  public void testDictionaryLiterals3() throws Exception {
-    DictionaryLiteral dictionaryList = (DictionaryLiteral) parseExpression("{1:42,2:43,3:44}");
+  public void testDictExpressions3() throws Exception {
+    DictExpression dictionaryList = (DictExpression) parseExpression("{1:42,2:43,3:44}");
     assertThat(dictionaryList.getEntries()).hasSize(3);
     for (int i = 0; i < 3; i++) {
-      DictionaryLiteral.Entry tuple = getElem(dictionaryList, i);
+      DictExpression.Entry tuple = getElem(dictionaryList, i);
       assertThat(getIntElem(tuple, true)).isEqualTo(i + 1);
       assertThat(getIntElem(tuple, false)).isEqualTo(i + 42);
     }
   }
 
   @Test
-  public void testListLiterals9() throws Exception {
-    ListLiteral singletonList =
-      (ListLiteral) parseExpression("[ abi + opt_level + \'/include\' ]");
+  public void testListExpressions9() throws Exception {
+    ListExpression singletonList =
+        (ListExpression) parseExpression("[ abi + opt_level + \'/include\' ]");
     assertThat(singletonList.isTuple()).isFalse();
     assertThat(singletonList.getElements()).hasSize(1);
   }
@@ -832,7 +831,7 @@ public final class ParserTest extends EvaluationTestCase {
     assertThat(clauses).hasSize(1);
     Comprehension.For for0 = (Comprehension.For) clauses.get(0);
     assertThat(for0.getVars().toString()).isEqualTo("x");
-    assertThat(for0.getIterable()).isInstanceOf(ListLiteral.class);
+    assertThat(for0.getIterable()).isInstanceOf(ListExpression.class);
   }
 
   @Test
@@ -844,7 +843,7 @@ public final class ParserTest extends EvaluationTestCase {
     assertThat(clauses).hasSize(2);
     Comprehension.For for0 = (Comprehension.For) clauses.get(0);
     assertThat(for0.getVars().toString()).isEqualTo("x");
-    assertThat(for0.getIterable()).isInstanceOf(ListLiteral.class);
+    assertThat(for0.getIterable()).isInstanceOf(ListExpression.class);
     Comprehension.For for1 = (Comprehension.For) clauses.get(1);
     assertThat(for1.getVars().toString()).isEqualTo("y");
     assertThat(for1.getIterable()).isInstanceOf(Identifier.class);
@@ -1488,8 +1487,8 @@ public final class ParserTest extends EvaluationTestCase {
     BuildFileAST file =
         parseFileForSkylarkAsAST("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
     Set<String> uniqueStringInstances = Sets.newIdentityHashSet();
-    SyntaxTreeVisitor collectAllStringsInStringLiteralsVisitor =
-        new SyntaxTreeVisitor() {
+    NodeVisitor collectAllStringsInStringLiteralsVisitor =
+        new NodeVisitor() {
           @Override
           public void visit(StringLiteral stringLiteral) {
             uniqueStringInstances.add(stringLiteral.getValue());

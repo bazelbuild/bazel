@@ -58,7 +58,7 @@ java_library(
 # The Starlark evaluator
 #
 # TODO(adonovan): migrate frontend classes to :syntax as we break dependencies.
-# ASTNode is the main blocker.
+# Node is the main blocker.
 java_library(
     name = "evaluator",
     srcs = glob(

@@ -1587,7 +1587,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testInvalidAugmentedAssignment_ListLiteral() throws Exception {
+  public void testInvalidAugmentedAssignment_ListExpression() throws Exception {
     new SkylarkTest().testIfErrorContains(
         "cannot perform augmented assignment on a list or tuple expression",
         "def f(a, b):",

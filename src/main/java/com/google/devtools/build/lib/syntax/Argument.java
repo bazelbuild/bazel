@@ -22,11 +22,11 @@ import javax.annotation.Nullable;
 /**
  * Syntax node for a function argument.
  *
- * <p>Argument is a base class for arguments passed in a call (@see Argument.Passed)
- * or defined as part of a function definition (@see Parameter).
- * It is notably used by some {@link Parser} and printer functions.
+ * <p>Argument is a base class for arguments passed in a call (@see Argument.Passed) or defined as
+ * part of a function definition (@see Parameter). It is notably used by some {@link Parser} and
+ * printer functions.
  */
-public abstract class Argument extends ASTNode {
+public abstract class Argument extends Node {
 
   public boolean isStar() {
     return false;
@@ -76,7 +76,7 @@ public abstract class Argument extends ASTNode {
     }
 
     @Override
-    public void accept(SyntaxTreeVisitor visitor) {
+    public void accept(NodeVisitor visitor) {
       visitor.visit(this);
     }
   }

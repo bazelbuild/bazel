@@ -19,12 +19,12 @@ import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.List;
 
-/** An ASTNode is a node in a Starlark syntax tree. */
-public abstract class ASTNode {
+/** An Node is a node in a Starlark syntax tree. */
+public abstract class Node {
 
   private Location location;
 
-  protected ASTNode() {}
+  protected Node() {}
 
   /**
    * Returns whether this node represents a new scope, e.g. a function call.
@@ -58,7 +58,7 @@ public abstract class ASTNode {
   }
 
   /** @return the same node with its location set, in a slightly more fluent style */
-  public static <NodeT extends ASTNode> NodeT setLocation(Location location, NodeT node) {
+  public static <NodeT extends Node> NodeT setLocation(Location location, NodeT node) {
     node.setLocation(location);
     return node;
   }
@@ -146,11 +146,10 @@ public abstract class ASTNode {
   }
 
   /**
-   * Implements the double dispatch by calling into the node specific
-   * <code>visit</code> method of the {@link SyntaxTreeVisitor}
+   * Implements the double dispatch by calling into the node specific <code>visit</code> method of
+   * the {@link NodeVisitor}
    *
-   * @param visitor the {@link SyntaxTreeVisitor} instance to dispatch to.
+   * @param visitor the {@link NodeVisitor} instance to dispatch to.
    */
-  public abstract void accept(SyntaxTreeVisitor visitor);
-
+  public abstract void accept(NodeVisitor visitor);
 }

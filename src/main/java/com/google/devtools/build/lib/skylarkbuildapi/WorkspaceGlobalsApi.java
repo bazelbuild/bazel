@@ -33,16 +33,35 @@ public interface WorkspaceGlobalsApi {
   @SkylarkCallable(
       name = "workspace",
       doc =
-          "Sets the name for this workspace. Workspace names should be a Java-package-style "
+          "<p>This command can only be used in a <code>WORKSPACE</code> file and must come "
+              + "before all other commands in the <code>WORKSPACE</code> file. "
+              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> command.</p>"
+              + "<p>Sets the name for this workspace. "
+              + "Workspace names should be a Java-package-style "
               + "description of the project, using underscores as separators, e.g., "
-              + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
-              + "start with a letter and can only contain letters, numbers, and underscores.",
+              + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. "
+              + "<p>This name is used for the directory that the repository's runfiles are stored "
+              + "in. For example, if there is a runfile <code>foo/bar</code> in the local "
+              + "repository and the WORKSPACE file contains "
+              + "<code>workspace(name = 'baz')</code>, then the runfile will be available under "
+              + "<code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is "
+              + "specified, then the runfile will be symlinked to "
+              + "<code>bar.runfiles/foo/bar</code>.</p> "
+              + "<p><a href=\"../../external.html\">Remote repository</a> rule names must be"
+              + "  valid workspace names. For example, you could have"
+              + "  <code>maven_jar(name = 'foo')</code>, but not"
+              + "  <code>maven_jar(name = 'foo.bar')</code>, as Bazel would attempt to write a"
+              + "  WORKSPACE file for the <code>maven_jar</code> containing"
+              + "  <code>workspace(name = 'foo.bar')</code>."
+              + "</p>",
       allowReturnNones = true,
       parameters = {
         @Param(
             name = "name",
             type = String.class,
-            doc = "the name of the workspace.",
+            doc =
+                "the name of the workspace. Names must start with a letter and can only contain "
+                    + "letters, numbers, and underscores.",
             named = true,
             positional = false),
         @Param(

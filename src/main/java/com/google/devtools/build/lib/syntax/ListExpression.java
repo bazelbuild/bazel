@@ -19,46 +19,25 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Syntax node for list and tuple literals.
- *
- * <p>(Note that during evaluation, both list and tuple values are represented by java.util.List
- * objects, the only difference between them being whether or not they are mutable.)
- */
-// TODO(adonovan): rename ListExpression.
-public final class ListLiteral extends Expression {
+/** Syntax node for list and tuple expressions. */
+public final class ListExpression extends Expression {
 
-  /** Types of the ListLiteral. */
-  // TODO(laurentlb): This conflicts with Expression.Kind, maybe remove it?
   // TODO(adonovan): split class into {List,Tuple}Expression, as a tuple may have no parens.
-  //  (Do this after we materialize ParenExpressions.)
-  public enum Kind {
-    LIST,
-    TUPLE
-  }
-
-  private final Kind kind;
-
+  private final boolean isTuple;
   private final List<Expression> elements;
 
-  ListLiteral(Kind kind, List<Expression> elements) {
-    this.kind = kind;
+  ListExpression(boolean isTuple, List<Expression> elements) {
+    this.isTuple = isTuple;
     this.elements = elements;
-  }
-
-  public Kind getKind() {
-    return kind;
   }
 
   public List<Expression> getElements() {
     return elements;
   }
 
-  /**
-   * Returns true if this list is a tuple (a hash table, immutable list).
-   */
+  /** Reports whether this is a tuple expression. */
   public boolean isTuple() {
-    return kind == Kind.TUPLE;
+    return isTuple;
   }
 
   @Override
@@ -99,12 +78,12 @@ public final class ListLiteral extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
   public Expression.Kind kind() {
-    return Expression.Kind.LIST_LITERAL;
+    return Expression.Kind.LIST_EXPR;
   }
 }

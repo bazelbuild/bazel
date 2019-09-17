@@ -288,7 +288,7 @@ final class Parser {
     List<Expression> tuple = parseExprList(insideParens);
     tuple.add(0, expression); // add the first expression to the front of the tuple
     return setLocation(
-        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
+        new ListExpression(/*isTuple=*/ true, tuple), start, Iterables.getLast(tuple));
   }
 
   private void reportError(Location location, String message) {
@@ -428,13 +428,13 @@ final class Parser {
     return setLocation(Identifier.of("$error$"), start, end);
   }
 
-  // Convenience wrapper method around ASTNode.setLocation
-  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, int endOffset) {
-    return ASTNode.setLocation(lexer.createLocation(startOffset, endOffset), node);
+  // Convenience wrapper method around Node.setLocation
+  private <NodeT extends Node> NodeT setLocation(NodeT node, int startOffset, int endOffset) {
+    return Node.setLocation(lexer.createLocation(startOffset, endOffset), node);
   }
 
   // Convenience method that uses end offset from the last node.
-  private <NodeT extends ASTNode> NodeT setLocation(NodeT node, int startOffset, ASTNode lastNode) {
+  private <NodeT extends Node> NodeT setLocation(NodeT node, int startOffset, Node lastNode) {
     Preconditions.checkNotNull(lastNode, "can't extract end offset from a null node");
     Preconditions.checkNotNull(lastNode.getLocation(), "lastNode doesn't have a location");
     return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
@@ -567,8 +567,8 @@ final class Parser {
   }
 
   // dict_entry_list ::= ( (dict_entry ',')* dict_entry ','? )?
-  private List<DictionaryLiteral.Entry> parseDictEntryList() {
-    List<DictionaryLiteral.Entry> list = new ArrayList<>();
+  private List<DictExpression.Entry> parseDictEntryList() {
+    List<DictExpression.Entry> list = new ArrayList<>();
     // the terminating token for a dict entry list
     while (token.kind != TokenKind.RBRACE) {
       list.add(parseDictEntry());
@@ -582,12 +582,12 @@ final class Parser {
   }
 
   // dict_entry ::= nontupleexpr ':' nontupleexpr
-  private DictionaryLiteral.Entry parseDictEntry() {
+  private DictExpression.Entry parseDictEntry() {
     int start = token.left;
     Expression key = parseNonTupleExpression();
     expect(TokenKind.COLON);
     Expression value = parseNonTupleExpression();
-    return setLocation(new DictionaryLiteral.Entry(key, value), start, value);
+    return setLocation(new DictExpression.Entry(key, value), start, value);
   }
 
   /**
@@ -637,7 +637,7 @@ final class Parser {
           nextToken();
           // check for the empty tuple literal
           if (token.kind == TokenKind.RPAREN) {
-            ListLiteral tuple = new ListLiteral(ListLiteral.Kind.TUPLE, ImmutableList.of());
+            ListExpression tuple = new ListExpression(/*isTuple=*/ true, ImmutableList.of());
             setLocation(tuple, start, token.right);
             nextToken();
             return tuple;
@@ -768,13 +768,13 @@ final class Parser {
       tuple.add(parsePrimaryWithSuffix());
     }
     return setLocation(
-        new ListLiteral(ListLiteral.Kind.TUPLE, tuple), start, Iterables.getLast(tuple));
+        new ListExpression(/*isTuple=*/ true, tuple), start, Iterables.getLast(tuple));
   }
 
   // comprehension_suffix ::= 'FOR' loop_variables 'IN' expr comprehension_suffix
   //                        | 'IF' expr comprehension_suffix
   //                        | ']' | '}'
-  private Expression parseComprehensionSuffix(ASTNode body, TokenKind closingBracket, int offset) {
+  private Expression parseComprehensionSuffix(Node body, TokenKind closingBracket, int offset) {
     ImmutableList.Builder<Comprehension.Clause> clauses = ImmutableList.builder();
     while (true) {
       if (token.kind == TokenKind.FOR) {
@@ -814,7 +814,7 @@ final class Parser {
     int start = token.left;
     expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.RBRACKET) { // empty List
-      ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of());
+      ListExpression list = new ListExpression(/*isTuple=*/ false, ImmutableList.of());
       setLocation(list, start, token.right);
       nextToken();
       return list;
@@ -825,7 +825,8 @@ final class Parser {
     switch (token.kind) {
       case RBRACKET: // singleton list
         {
-          ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, ImmutableList.of(expression));
+          ListExpression list =
+              new ListExpression(/*isTuple=*/ false, ImmutableList.of(expression));
           setLocation(list, start, token.right);
           nextToken();
           return list;
@@ -844,7 +845,7 @@ final class Parser {
               token.right);
           elems.add(0, expression); // TODO(adonovan): opt: don't do this
           if (token.kind == TokenKind.RBRACKET) {
-            ListLiteral list = new ListLiteral(ListLiteral.Kind.LIST, elems);
+            ListExpression list = new ListExpression(/*isTuple=*/ false, elems);
             setLocation(list, start, token.right);
             nextToken();
             return list;
@@ -869,27 +870,27 @@ final class Parser {
     int start = token.left;
     expect(TokenKind.LBRACE);
     if (token.kind == TokenKind.RBRACE) { // empty Dict
-      DictionaryLiteral literal = new DictionaryLiteral(ImmutableList.of());
+      DictExpression literal = new DictExpression(ImmutableList.of());
       setLocation(literal, start, token.right);
       nextToken();
       return literal;
     }
-    DictionaryLiteral.Entry entry = parseDictEntry();
+    DictExpression.Entry entry = parseDictEntry();
     if (token.kind == TokenKind.FOR) {
       // Dict comprehension
       return parseComprehensionSuffix(entry, TokenKind.RBRACE, start);
     }
-    List<DictionaryLiteral.Entry> entries = new ArrayList<>();
+    List<DictExpression.Entry> entries = new ArrayList<>();
     entries.add(entry);
     if (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
       entries.addAll(parseDictEntryList());
     }
     if (token.kind == TokenKind.RBRACE) {
-      DictionaryLiteral literal = new DictionaryLiteral(entries);
-      setLocation(literal, start, token.right);
+      DictExpression dict = new DictExpression(entries);
+      setLocation(dict, start, token.right);
       nextToken();
-      return literal;
+      return dict;
     }
     expect(TokenKind.RBRACE);
     int end = syncPast(DICT_TERMINATOR_SET);

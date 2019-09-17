@@ -416,7 +416,7 @@ public class Printer {
       } else if (o instanceof Class<?>) {
         this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
 
-      } else if (o instanceof ASTNode || o instanceof Location) {
+      } else if (o instanceof Node || o instanceof Location) {
         // AST node objects and locations are printed in tracebacks and error messages,
         // it's safe to print their toString representations
         this.append(o.toString());

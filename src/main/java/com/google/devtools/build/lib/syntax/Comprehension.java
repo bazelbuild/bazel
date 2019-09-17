@@ -75,10 +75,10 @@ public final class Comprehension extends Expression {
   }
 
   private final boolean isDict; // {k: v for vars in iterable}
-  private final ASTNode body; // Expression or DictionaryLiteral.Entry
+  private final Node body; // Expression or DictExpression.Entry
   private final ImmutableList<Clause> clauses;
 
-  Comprehension(boolean isDict, ASTNode body, ImmutableList<Clause> clauses) {
+  Comprehension(boolean isDict, Node body, ImmutableList<Clause> clauses) {
     this.isDict = isDict;
     this.body = body;
     this.clauses = clauses;
@@ -89,10 +89,10 @@ public final class Comprehension extends Expression {
   }
 
   /**
-   * Returns the loop body: an expression for a list comprehension, or a DictionaryLiteral.Entry for
-   * a dict comprehension.
+   * Returns the loop body: an expression for a list comprehension, or a DictExpression.Entry for a
+   * dict comprehension.
    */
-  public ASTNode getBody() {
+  public Node getBody() {
     return body;
   }
 
@@ -122,7 +122,7 @@ public final class Comprehension extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
@@ -171,7 +171,7 @@ public final class Comprehension extends Expression {
 
         // base case: evaluate body and add to result.
         if (dict != null) {
-          DictionaryLiteral.Entry body = (DictionaryLiteral.Entry) Comprehension.this.body;
+          DictExpression.Entry body = (DictExpression.Entry) Comprehension.this.body;
           Object k = body.getKey().eval(env);
           EvalUtils.checkValidDictKey(k, env);
           Object v = body.getValue().eval(env);

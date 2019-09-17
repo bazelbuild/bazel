@@ -976,6 +976,6 @@ final class Lexer {
   }
 
   private void makeComment(int start, int end, String content) {
-    comments.add(ASTNode.setLocation(createLocation(start, end), new Comment(content)));
+    comments.add(Node.setLocation(createLocation(start, end), new Comment(content)));
   }
 }

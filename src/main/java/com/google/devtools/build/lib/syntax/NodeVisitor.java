@@ -16,18 +16,17 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.List;
 
-/** A visitor for visiting the nodes in the syntax tree left to right, top to bottom. */
-// TODO(adonovan): rename NodeVisitor (and ASTNode to Node).
-public class SyntaxTreeVisitor {
+/** A visitor for visiting the nodes of a syntax tree in lexical order. */
+public class NodeVisitor {
 
-  public void visit(ASTNode node) {
+  public void visit(Node node) {
     // dispatch to the node specific method
     node.accept(this);
   }
 
   // methods dealing with sequences of nodes
-  public void visitAll(List<? extends ASTNode> nodes) {
-    for (ASTNode node : nodes) {
+  public void visitAll(List<? extends Node> nodes) {
+    for (Node node : nodes) {
       visit(node);
     }
   }
@@ -98,7 +97,7 @@ public class SyntaxTreeVisitor {
     }
   }
 
-  public void visit(ListLiteral node) {
+  public void visit(ListExpression node) {
     visitAll(node.getElements());
   }
 
@@ -148,11 +147,11 @@ public class SyntaxTreeVisitor {
 
   public void visit(FlowStatement node) {}
 
-  public void visit(DictionaryLiteral node) {
+  public void visit(DictExpression node) {
     visitAll(node.getEntries());
   }
 
-  public void visit(DictionaryLiteral.Entry node) {
+  public void visit(DictExpression.Entry node) {
     visit(node.getKey());
     visit(node.getValue());
   }

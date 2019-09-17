@@ -415,17 +415,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the output directory for this build configuration. */
   public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getOutputDirectory(repositoryName);
+    return outputDirectories.getOutputDirectory();
   }
 
   @Override
   public ArtifactRoot getBinDir() {
-    return outputDirectories.getBinDir();
+    return outputDirectories.getBinDirectory();
   }
 
   /** Returns the bin directory for this build configuration. */
   public ArtifactRoot getBinDirectory() {
-    return outputDirectories.getBinDirectory(RepositoryName.MAIN);
+    return outputDirectories.getBinDirectory();
   }
 
   /**
@@ -435,7 +435,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * repositories (external) but will need to be fixed.
    */
   public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName);
+    return outputDirectories.getBinDirectory();
   }
 
   /** Returns a relative path to the bin directory at execution time. */
@@ -445,12 +445,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the include directory for this build configuration. */
   public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getIncludeDirectory(repositoryName);
+    return outputDirectories.getIncludeDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDir() {
-    return outputDirectories.getGenfilesDirectory(RepositoryName.MAIN);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   /** Returns the genfiles directory for this build configuration. */
@@ -459,7 +459,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesDirectory(repositoryName);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   public boolean hasSeparateGenfilesDirectory() {
@@ -472,12 +472,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * tools.
    */
   public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getCoverageMetadataDirectory(repositoryName);
+    return outputDirectories.getCoverageMetadataDirectory();
   }
 
   /** Returns the testlogs directory for this build configuration. */
   public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getTestLogsDirectory(repositoryName);
+    return outputDirectories.getTestLogsDirectory();
   }
 
   /** Returns a relative path to the genfiles directory at execution time. */
@@ -498,7 +498,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */
   public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory(repositoryName);
+    return outputDirectories.getMiddlemanDirectory();
   }
 
   public boolean isStrictFilesets() {

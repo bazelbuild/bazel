@@ -101,7 +101,7 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
@@ -200,8 +200,8 @@ public final class Identifier extends Expression {
       result.add((Identifier) lhs);
       return;
     }
-    if (lhs instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lhs;
+    if (lhs instanceof ListExpression) {
+      ListExpression variables = (ListExpression) lhs;
       for (Expression expression : variables.getElements()) {
         collectBoundIdentifiers(expression, result);
       }

@@ -245,8 +245,8 @@ final class Eval {
       Object object = ((IndexExpression) expr).getObject().eval(env);
       Object key = ((IndexExpression) expr).getKey().eval(env);
       assignItem(object, key, value, env, loc);
-    } else if (expr instanceof ListLiteral) {
-      ListLiteral list = (ListLiteral) expr;
+    } else if (expr instanceof ListExpression) {
+      ListExpression list = (ListExpression) expr;
       assignList(list, value, env, loc);
     } else {
       // Not possible for validated ASTs.
@@ -287,12 +287,12 @@ final class Eval {
   }
 
   /**
-   * Recursively assigns an iterable value to a list literal.
+   * Recursively assigns an iterable value to a sequence of assignable expressions.
    *
    * @throws EvalException if the list literal has length 0, or if the value is not an iterable of
    *     matching length
    */
-  private static void assignList(ListLiteral list, Object value, Environment env, Location loc)
+  private static void assignList(ListExpression list, Object value, Environment env, Location loc)
       throws EvalException, InterruptedException {
     Collection<?> collection = EvalUtils.toCollection(value, loc, env);
     int len = list.getElements().size();
@@ -341,7 +341,7 @@ final class Eval {
       Object rhsValue = rhs.eval(env);
       Object result = BinaryOperatorExpression.evaluateAugmented(op, oldValue, rhsValue, env, loc);
       assignItem(object, key, result, env, loc);
-    } else if (expr instanceof ListLiteral) {
+    } else if (expr instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
       // Not possible for validated ASTs.

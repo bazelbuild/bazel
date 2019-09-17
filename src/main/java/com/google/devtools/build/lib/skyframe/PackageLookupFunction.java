@@ -113,10 +113,12 @@ public class PackageLookupFunction implements SkyFunction {
    */
   public static String explainNoBuildFileValue(PackageIdentifier packageKey, Environment env)
       throws InterruptedException {
+    String educationalMessage = "Add a BUILD file to a directory to mark it as a package.";
     if (packageKey.getRepository().isMain()) {
       PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
       StringBuilder message = new StringBuilder();
-      message.append("BUILD file not found in any of the following directories.");
+      message.append("BUILD file not found in any of the following directories. ");
+      message.append(educationalMessage);
       for (Root root : pkgLocator.getPathEntries()) {
         message
             .append("\n - ")
@@ -127,7 +129,9 @@ public class PackageLookupFunction implements SkyFunction {
       return "BUILD file not found in directory '"
           + packageKey.getPackageFragment()
           + "' of external repository "
-          + packageKey.getRepository();
+          + packageKey.getRepository()
+          + ". "
+          + educationalMessage;
     }
   }
 

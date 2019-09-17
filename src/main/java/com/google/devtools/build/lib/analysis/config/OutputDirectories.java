@@ -119,18 +119,16 @@ public class OutputDirectories {
   }
 
   private final BlazeDirectories directories;
-  private final RepositoryName mainRepositoryName;
   private final String mnemonic;
   private final String outputDirName;
 
-  // We precompute the roots for the main repository, since that's the common case.
-  private final ArtifactRoot outputDirectoryForMainRepository;
-  private final ArtifactRoot binDirectoryForMainRepository;
-  private final ArtifactRoot includeDirectoryForMainRepository;
-  private final ArtifactRoot genfilesDirectoryForMainRepository;
-  private final ArtifactRoot coverageDirectoryForMainRepository;
-  private final ArtifactRoot testlogsDirectoryForMainRepository;
-  private final ArtifactRoot middlemanDirectoryForMainRepository;
+  private final ArtifactRoot outputDirectory;
+  private final ArtifactRoot binDirectory;
+  private final ArtifactRoot includeDirectory;
+  private final ArtifactRoot genfilesDirectory;
+  private final ArtifactRoot coverageDirectory;
+  private final ArtifactRoot testlogsDirectory;
+  private final ArtifactRoot middlemanDirectory;
 
   private final boolean mergeGenfilesDirectory;
 
@@ -140,24 +138,22 @@ public class OutputDirectories {
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName) {
     this.directories = directories;
-    this.mainRepositoryName = mainRepositoryName;
     this.mnemonic = buildMnemonic(options, fragments);
     this.outputDirName =
         (options.outputDirectoryName != null) ? options.outputDirectoryName : mnemonic;
 
-    this.outputDirectoryForMainRepository =
+    this.outputDirectory =
         OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
-    this.binDirectoryForMainRepository =
-        OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
-    this.includeDirectoryForMainRepository =
+    this.binDirectory = OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
+    this.includeDirectory =
         OutputDirectory.INCLUDE.getRoot(outputDirName, directories, mainRepositoryName);
-    this.genfilesDirectoryForMainRepository =
+    this.genfilesDirectory =
         OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
-    this.coverageDirectoryForMainRepository =
+    this.coverageDirectory =
         OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
-    this.testlogsDirectoryForMainRepository =
+    this.testlogsDirectory =
         OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
-    this.middlemanDirectoryForMainRepository =
+    this.middlemanDirectory =
         OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
@@ -179,70 +175,23 @@ public class OutputDirectories {
   }
 
   /** Returns the output directory for this build configuration. */
-  ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? outputDirectoryForMainRepository
-        : OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
-  }
-
-  ArtifactRoot getBinDir() {
-    return getBinDirectory(RepositoryName.MAIN);
+  ArtifactRoot getOutputDirectory() {
+    return outputDirectory;
   }
 
   /** Returns the bin directory for this build configuration. */
   ArtifactRoot getBinDirectory() {
-    return getBinDirectory(RepositoryName.MAIN);
-  }
-
-  /**
-   * TODO(kchodorow): This (and the other get*Directory functions) won't work with external
-   * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
-   * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
-   * repositories (external) but will need to be fixed.
-   */
-  ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? binDirectoryForMainRepository
-        : OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
-  }
-
-  /** Returns a relative path to the bin directory at execution time. */
-  PathFragment getBinFragment() {
-    return getBinDirectory().getExecPath();
+    return binDirectory;
   }
 
   /** Returns the include directory for this build configuration. */
-  ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? includeDirectoryForMainRepository
-        : OutputDirectory.INCLUDE.getRoot(outputDirName, directories, mainRepositoryName);
-  }
-
-  ArtifactRoot getGenfilesDir() {
-    return getGenfilesDirectory(RepositoryName.MAIN);
+  ArtifactRoot getIncludeDirectory() {
+    return includeDirectory;
   }
 
   /** Returns the genfiles directory for this build configuration. */
   ArtifactRoot getGenfilesDirectory() {
-    if (mergeGenfilesDirectory) {
-      return getBinDirectory();
-    }
-
-    return getGenfilesDirectory(RepositoryName.MAIN);
-  }
-
-  ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    if (mergeGenfilesDirectory) {
-      return getBinDirectory(repositoryName);
-    }
-
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? genfilesDirectoryForMainRepository
-        : OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
-  }
-
-  boolean hasSeparateGenfilesDirectory() {
-    return !mergeGenfilesDirectory;
+    return mergeGenfilesDirectory ? binDirectory : genfilesDirectory;
   }
 
   /**
@@ -250,17 +199,13 @@ public class OutputDirectories {
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
    * tools.
    */
-  ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? coverageDirectoryForMainRepository
-        : OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
+  ArtifactRoot getCoverageMetadataDirectory() {
+    return coverageDirectory;
   }
 
   /** Returns the testlogs directory for this build configuration. */
-  ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? testlogsDirectoryForMainRepository
-        : OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
+  ArtifactRoot getTestLogsDirectory() {
+    return testlogsDirectory;
   }
 
   /** Returns a relative path to the genfiles directory at execution time. */
@@ -280,10 +225,8 @@ public class OutputDirectories {
   }
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */
-  ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
-        ? middlemanDirectoryForMainRepository
-        : OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
+  ArtifactRoot getMiddlemanDirectory() {
+    return middlemanDirectory;
   }
 
   String getMnemonic() {
