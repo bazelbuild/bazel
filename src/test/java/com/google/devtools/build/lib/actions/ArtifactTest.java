@@ -121,48 +121,6 @@ public class ArtifactTest {
   }
 
   @Test
-  public void testRootPrefixedExecPath_normal() throws IOException {
-    Path f1 = scratch.file("/exec/root/dir/file.ext");
-    Artifact a1 = ActionsTestUtil.createArtifactWithExecPath(rootDir, f1.relativeTo(execDir));
-    assertThat(Artifact.asRootPrefixedExecPath(a1)).isEqualTo("root:dir/file.ext");
-  }
-
-  @Test
-  public void testRootPrefixedExecPath_noRoot() throws IOException {
-    Path f1 = scratch.file("/exec/dir/file.ext");
-    Artifact a1 =
-        ActionsTestUtil.createArtifactWithExecPath(
-            ArtifactRoot.asSourceRoot(Root.fromPath(execDir)), f1.relativeTo(execDir));
-    assertThat(Artifact.asRootPrefixedExecPath(a1)).isEqualTo(":dir/file.ext");
-  }
-
-  @Test
-  public void testRootPrefixedExecPath_nullRootDir() throws IOException {
-    Path f1 = scratch.file("/exec/dir/file.ext");
-    assertThrows(
-        NullPointerException.class,
-        () ->
-            new Artifact.DerivedArtifact(
-                null, f1.relativeTo(execDir), ActionsTestUtil.NULL_ARTIFACT_OWNER));
-  }
-
-  @Test
-  public void testRootPrefixedExecPaths() throws IOException {
-    Path f1 = scratch.file("/exec/root/dir/file1.ext");
-    Path f2 = scratch.file("/exec/root/dir/dir/file2.ext");
-    Path f3 = scratch.file("/exec/root/dir/dir/dir/file3.ext");
-    Artifact a1 = ActionsTestUtil.createArtifactWithExecPath(rootDir, f1.relativeTo(execDir));
-    Artifact a2 = ActionsTestUtil.createArtifactWithExecPath(rootDir, f2.relativeTo(execDir));
-    Artifact a3 = ActionsTestUtil.createArtifactWithExecPath(rootDir, f3.relativeTo(execDir));
-    List<String> strings = new ArrayList<>();
-    Artifact.addRootPrefixedExecPaths(Lists.newArrayList(a1, a2, a3), strings);
-    assertThat(strings).containsExactly(
-        "root:dir/file1.ext",
-        "root:dir/dir/file2.ext",
-        "root:dir/dir/dir/file3.ext").inOrder();
-  }
-
-  @Test
   public void testGetFilename() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));
@@ -214,28 +172,6 @@ public class ArtifactTest {
   }
 
   @Test
-  public void testAddExpandedExecPathStrings() throws Exception {
-    List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExpandedExecPathStrings(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-    assertThat(paths).containsExactly("bar1.h", "bar1.h", "bar2.h", "bar3.h");
-  }
-
-  @Test
-  public void testAddExpandedExecPaths() throws Exception {
-    List<PathFragment> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExpandedExecPaths(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-    assertThat(paths).containsExactly(
-        PathFragment.create("bar1.h"),
-        PathFragment.create("bar1.h"),
-        PathFragment.create("bar2.h"),
-        PathFragment.create("bar3.h"));
-  }
-
-  @Test
   public void testAddExpandedArtifacts() throws Exception {
     List<Artifact> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
@@ -261,49 +197,6 @@ public class ArtifactTest {
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
     assertThat(paths).containsExactly("bar1.h", "bar2.h");
-  }
-
-  @Test
-  public void testAddExpandedExecPathStringsNewActionGraph() throws Exception {
-    List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExpandedExecPathStrings(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-    assertThat(paths).containsExactly("bar1.h", "bar1.h", "bar2.h", "bar3.h");
-  }
-
-  @Test
-  public void testAddExpandedExecPathsNewActionGraph() throws Exception {
-    List<PathFragment> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExpandedExecPaths(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-    assertThat(paths).containsExactly(
-        PathFragment.create("bar1.h"),
-        PathFragment.create("bar1.h"),
-        PathFragment.create("bar2.h"),
-        PathFragment.create("bar3.h"));
-  }
-
-  // TODO consider tests for the future
-  @Test
-  public void testAddExpandedArtifactsNewActionGraph() throws Exception {
-    List<Artifact> expanded = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    List<Artifact> original = getFooBarArtifacts(actionGraph, true);
-    Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-
-    List<Artifact> manuallyExpanded = new ArrayList<>();
-    for (Artifact artifact : original) {
-      ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
-      if (artifact.isMiddlemanArtifact()) {
-        Iterables.addAll(manuallyExpanded, action.getInputs());
-      } else {
-        manuallyExpanded.add(artifact);
-      }
-    }
-    assertThat(expanded).containsExactlyElementsIn(manuallyExpanded);
   }
 
   @Test
