@@ -49,9 +49,12 @@ def _java_host_runtime_alias(ctx):
     return [
         runtime[java_common.JavaRuntimeInfo],
         runtime[platform_common.TemplateVariableInfo],
+        # Create a new DefaultInfo instead of propagating runtime[DefaultInfo]
+        # directly.
         DefaultInfo(
-            runfiles = ctx.runfiles(transitive_files = runtime.files),
-            files = runtime.files,
+            files = runtime[DefaultInfo].files,
+            data_runfiles = runtime[DefaultInfo].data_runfiles,
+            default_runfiles = runtime[DefaultInfo].default_runfiles,
         ),
     ]
 
