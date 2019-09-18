@@ -75,11 +75,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
             .collect(Collectors.toList());
     Map<String, Collection<Target>> resolvedTargetsMap =
         parser.preloadTargetPatterns(
-            eventHandler,
-            relativeWorkingDirectory,
-            positivePatterns,
-            keepGoing,
-            /* useForkJoinPool= */ false);
+            eventHandler, relativeWorkingDirectory, positivePatterns, keepGoing);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (String pattern : targetPatterns) {
       if (pattern.startsWith("-")) {

@@ -85,7 +85,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
   protected final int loadingPhaseThreads;
-  private final boolean useForkJoinPool;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
 
@@ -113,8 +112,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions,
-      boolean useForkJoinPool) {
+      Iterable<QueryFunction> extraFunctions) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
@@ -123,8 +121,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, useForkJoinPool);
-    this.useForkJoinPool = useForkJoinPool;
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
   }
 
   @Override
@@ -364,7 +361,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // preloading will be outweighed by the cost of doing more work than necessary.
       Set<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
       ((SkyframeLabelVisitor) transitivePackageLoader)
-          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, false, useForkJoinPool);
+          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, /* errorOnCycles= */ false);
     }
   }
 
@@ -471,7 +468,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // being called from within a SkyFunction.
       resolvedTargetPatterns.putAll(
           targetPatternPreloader.preloadTargetPatterns(
-              eventHandler, relativeWorkingDirectory, patterns, keepGoing, useForkJoinPool));
+              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
     }
   }
 

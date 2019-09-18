@@ -165,7 +165,6 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               queryOptions.universeScope,
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
-              queryOptions.useForkJoinPool,
               queryOptions.useGraphlessQuery)) {
         result =
             doQuery(
@@ -215,7 +214,6 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       List<String> universeScope,
       int loadingPhaseThreads,
       Set<Setting> settings,
-      boolean useForkJoinPool,
       boolean useGraphlessQuery) {
 
     WalkableGraph walkableGraph =
@@ -251,7 +249,6 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
             /*blockUniverseEvaluationErrors=*/ false,
-            useForkJoinPool,
             useGraphlessQuery);
   }
 }
