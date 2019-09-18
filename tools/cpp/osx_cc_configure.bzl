@@ -111,6 +111,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             "--sdk",
             "macosx",
             "clang",
+            "-mmacosx-version-min=10.9",
             "-std=c++11",
             "-lc++",
             "-o",

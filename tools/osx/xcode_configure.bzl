@@ -120,6 +120,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         "--sdk",
         "macosx",
         "clang",
+        "-mmacosx-version-min=10.9",
         "-fobjc-arc",
         "-framework",
         "CoreServices",
