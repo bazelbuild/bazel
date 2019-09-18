@@ -788,7 +788,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ruleLabel,
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
-        /*ast=*/ null,
         location,
         new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);

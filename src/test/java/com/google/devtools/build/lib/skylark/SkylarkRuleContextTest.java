@@ -176,7 +176,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertContainsEvent(
         ". Since this "
             + "rule was created by the macro 'macro_native_rule', the error might have been caused "
-            + "by the macro implementation in /workspace/test/macros.bzl:10:41");
+            + "by the macro implementation");
   }
 
   @Test
@@ -188,7 +188,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
             + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
-            + "have been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
+            + "have been caused by the macro implementation");
   }
 
   @Test
@@ -206,7 +206,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:11:10: in deps attribute of "
+        "ERROR /workspace/test/BUILD:10:1: in deps attribute of "
             + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
             + "'some_provider'");
   }
@@ -247,7 +247,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+        "ERROR /workspace/test/BUILD:8:1: in deps attribute of "
             + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
             + "mandatory providers: 'a' or 'c'");
   }
@@ -279,7 +279,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+        "ERROR /workspace/test/BUILD:8:1: in deps attribute of "
             + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
             + "does not have mandatory providers: 'a' or 'c'");
   }
@@ -294,7 +294,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:cclib");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:10: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:1:1: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -319,7 +319,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:skyrule");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:3:10: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -368,7 +368,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//:cclib");
     assertContainsEvent(
-        "/workspace/BUILD:2:10: Label '//:r/my_sub_lib.h' is invalid because "
+        "/workspace/BUILD:1:1: Label '//:r/my_sub_lib.h' is invalid because "
             + "'@r//' is a subpackage");
   }
 
@@ -387,7 +387,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
-        "/external/r/BUILD:2:10: Label '@r//:sub/my_sub_lib.h' is invalid because "
+        "/external/r/BUILD:1:1: Label '@r//:sub/my_sub_lib.h' is invalid because "
             + "'@r//sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'@r//sub:my_sub_lib.h'?");
   }

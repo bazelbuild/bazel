@@ -131,10 +131,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     attributes.setAttributeValueByName(attrName, value);
   }
 
-  void setAttributeLocation(int attrIndex, Location location) {
-    attributes.setAttributeLocation(attrIndex, location);
-  }
-
   void setContainsErrors() {
     this.containsErrors = true;
   }
@@ -341,50 +337,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
     return attributes.isAttributeValueExplicitlySpecified(attrName);
-  }
-
-  /**
-   * Returns the location of the attribute definition for this rule, if known;
-   * or the location of the whole rule otherwise. "attrName" need not be a
-   * valid attribute name for this rule.
-   *
-   * <p>This method ignores whether the present rule was created by a macro or not.
-   */
-  public Location getAttributeLocationWithoutMacro(String attrName) {
-    return getAttributeLocation(attrName, /* useBuildLocation= */ false);
-  }
-
-  /**
-   * Returns the location of the attribute definition for this rule, if known;
-   * or the location of the whole rule otherwise. "attrName" need not be a
-   * valid attribute name for this rule.
-   *
-   * <p>If this rule was created by a macro, this method returns the
-   * location of the macro invocation in the BUILD file instead.
-   */
-  public Location getAttributeLocation(String attrName) {
-    return getAttributeLocation(attrName, /* useBuildLocation= */ true);
-  }
-
-  private Location getAttributeLocation(String attrName, boolean useBuildLocation) {
-    /*
-     * If the rule was created by a macro, we have to deal with two locations: one in the BUILD
-     * file where the macro is invoked and one in the bzl file where the rule is created.
-     * For error reporting, we are usually more interested in the former one.
-     * Different methods in this class refer to different locations, though:
-     * - getLocation() points to the location of the macro invocation in the BUILD file (thanks to
-     *   RuleFactory).
-     * - attributes.getAttributeLocation() points to the location in the bzl file.
-     */
-    if (wasCreatedByMacro() && useBuildLocation) {
-      return getLocation();
-    }
-
-    Location attrLocation = null;
-    if (!attrName.equals("name")) {
-      attrLocation = attributes.getAttributeLocation(attrName);
-    }
-    return attrLocation != null ? attrLocation : getLocation();
   }
 
   /**

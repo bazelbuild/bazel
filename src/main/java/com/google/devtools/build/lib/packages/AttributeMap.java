@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -108,9 +107,6 @@ public interface AttributeMap {
    * can be a difficult bug to track down. (See #7071, b/122596733).
    */
   boolean isAttributeValueExplicitlySpecified(String attributeName);
-
-  /** Returns the {@link Location} at which the attribute was defined. */
-  Location getAttributeLocation(String attrName);
 
   /**
    * Returns a {@link Collection} with a {@link DepEdge} for every attribute that contains labels in

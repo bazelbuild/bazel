@@ -2139,12 +2139,17 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    protected String getMacroMessageAppendix(String attrName) {
+    protected String getMacroMessageAppendix(String unusedAttrName) {
+      // TODO(b/141234726):  Historically this reported the location
+      // of the rule attribute in the macro call (assuming no **kwargs),
+      // but we no longer locations for individual attributes.
+      // We should record the instantiation call stack in each rule
+      // and report the position of its topmost frame here.
       return rule.wasCreatedByMacro()
           ? String.format(
               ". Since this rule was created by the macro '%s', the error might have been "
-                  + "caused by the macro implementation in %s",
-              getGeneratorFunction(), rule.getAttributeLocationWithoutMacro(attrName))
+                  + "caused by the macro implementation",
+              getGeneratorFunction())
           : "";
     }
 
@@ -2165,11 +2170,6 @@ public final class RuleContext extends TargetContext
     @Override
     protected Location getRuleLocation() {
       return rule.getLocation();
-    }
-
-    @Override
-    protected Location getAttributeLocation(String attrName) {
-      return rule.getAttributeLocation(attrName);
     }
   }
 

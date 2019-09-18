@@ -171,7 +171,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
     if (matchingConditions.size() > 1) {
       throw new EvalException(
-          rule.getAttributeLocation(attributeName),
+          rule.getLocation(),
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
               + "\" in "
@@ -194,7 +194,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           noMatchMessage += " (would a default condition help?).\nConditions checked:\n "
               + Joiner.on("\n ").join(conditionLabels);
         }
-        throw new EvalException(rule.getAttributeLocation(attributeName), noMatchMessage);
+        throw new EvalException(rule.getLocation(), noMatchMessage);
       }
       matchingResult = selector.hasDefault()
           ? new ConfigKeyAndValue<>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault())

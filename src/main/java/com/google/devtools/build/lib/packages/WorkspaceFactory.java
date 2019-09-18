@@ -117,7 +117,7 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.environmentExtensions = environmentExtensions;
-    this.ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
+    this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.workspaceFunctions =
         WorkspaceFactory.createWorkspaceFunctions(
@@ -370,7 +370,7 @@ public class WorkspaceFactory {
       }
       workspaceEnv.setThreadLocal(
           PackageFactory.PackageContext.class,
-          new PackageFactory.PackageContext(builder, null, localReporter, AttributeContainer::new));
+          new PackageFactory.PackageContext(builder, null, localReporter));
     } catch (EvalException e) {
       throw new AssertionError(e);
     }
@@ -403,7 +403,7 @@ public class WorkspaceFactory {
   }
 
   static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(false, ruleFactory);
     return WorkspaceFactory.newNativeModule(
         WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory, workspaceGlobals), version);

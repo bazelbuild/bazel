@@ -255,7 +255,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
             nameLabel,
             actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
             ast.getLocation(),
-            ruleFactory.getAttributeContainer(ruleClass));
+            new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException
           | Package.NameConflictException
           | LabelSyntaxException e) {

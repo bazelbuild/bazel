@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,15 +48,9 @@ public class RuleFactory {
    * Maps rule class name to the metaclass instance for that rule.
    */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
-  private final Function<RuleClass, AttributeContainer> attributeContainerFactory;
 
-  /**
-   * Constructs a RuleFactory instance.
-   */
-  public RuleFactory(
-      RuleClassProvider provider,
-      Function<RuleClass, AttributeContainer> attributeContainerFactory) {
-    this.attributeContainerFactory = attributeContainerFactory;
+  /** Constructs a RuleFactory instance. */
+  public RuleFactory(RuleClassProvider provider) {
     this.ruleClassMap = ImmutableMap.copyOf(provider.getRuleClassMap());
   }
 
@@ -75,14 +68,6 @@ public class RuleFactory {
     return ruleClassMap.get(ruleClassName);
   }
 
-  AttributeContainer getAttributeContainer(RuleClass ruleClass) {
-    return attributeContainerFactory.apply(ruleClass);
-  }
-
-  Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-    return attributeContainerFactory;
-  }
-
   /**
    * Creates and returns a rule instance.
    *
@@ -94,7 +79,6 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      @Nullable FuncallExpression ast,
       Location location,
       @Nullable Environment env,
       AttributeContainer attributeContainer)
@@ -141,7 +125,6 @@ public class RuleFactory {
           label,
           generator.attributes,
           eventHandler,
-          ast,
           generator.location,
           attributeContainer,
           checkThirdPartyLicenses);
@@ -162,7 +145,6 @@ public class RuleFactory {
    *     be a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during
    *     rule creation
-   * @param ast the abstract syntax tree of the rule expression (optional)
    * @param location the location at which this rule was declared
    * @param env the lexical environment of the function call which declared this rule (optional)
    * @param attributeContainer the {@link AttributeContainer} the rule will contain
@@ -177,7 +159,6 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      @Nullable FuncallExpression ast,
       Location location,
       @Nullable Environment env,
       AttributeContainer attributeContainer)
@@ -188,7 +169,6 @@ public class RuleFactory {
             ruleClass,
             attributeValues,
             eventHandler,
-            ast,
             location,
             env,
             attributeContainer);
@@ -202,12 +182,11 @@ public class RuleFactory {
    * @param context the package-building context in which this rule was declared
    * @param ruleClass the {@link RuleClass} of the rule
    * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
-   *     attribute values of build-language type. Each attribute must be defined for this class
-   *     of rule, and have a build-language-typed value which can be converted to the appropriate
-   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must
-   *     be a map entry for each non-optional attribute of this class of rule.
-   * @param ast the abstract syntax tree of the rule expression (mandatory because this looks up a
-   *     {@link Location} from the {@code ast})
+   *     attribute values of build-language type. Each attribute must be defined for this class of
+   *     rule, and have a build-language-typed value which can be converted to the appropriate
+   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must be
+   *     a map entry for each non-optional attribute of this class of rule.
+   * @param loc the location of the rule expression
    * @param env the lexical environment of the function call which declared this rule (optional)
    * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
@@ -220,7 +199,7 @@ public class RuleFactory {
       PackageContext context,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
-      FuncallExpression ast,
+      Location loc,
       @Nullable Environment env,
       AttributeContainer attributeContainer)
       throws InvalidRuleException, NameConflictException, InterruptedException {
@@ -229,8 +208,7 @@ public class RuleFactory {
         ruleClass,
         attributeValues,
         context.eventHandler,
-        ast,
-        ast.getLocation(),
+        loc,
         env,
         attributeContainer);
   }

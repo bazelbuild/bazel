@@ -1242,9 +1242,10 @@ public class BuildViewTest extends BuildViewTestBase {
         "    deps = [':genlib'])");
 
     update("//foo");
-    assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
-        + "//foo:foo: genrule rule '//foo:genlib' is unexpected here (expected java_library or "
-        + "java_binary); continuing anyway");
+    assertContainsEvent(
+        "WARNING /workspace/foo/BUILD:6:1: in deps attribute of custom_rule rule "
+            + "//foo:foo: genrule rule '//foo:genlib' is unexpected here (expected java_library or "
+            + "java_binary); continuing anyway");
   }
 
   @Test
@@ -1304,8 +1305,9 @@ public class BuildViewTest extends BuildViewTestBase {
         "    deps = [':genlib'])");
 
     update("//foo");
-    assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
-        + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
+    assertContainsEvent(
+        "WARNING /workspace/foo/BUILD:6:1: in deps attribute of custom_rule rule "
+            + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
   }
 
   @Test

@@ -55,7 +55,7 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
 
   @Override
   public void attributeError(String attrName, String message) {
-    reportError(getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
+    reportError(getRuleLocation(), completeAttributeMessage(attrName, message));
   }
 
   @Override
@@ -74,7 +74,7 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
 
   @Override
   public void attributeWarning(String attrName, String message) {
-    reportWarning(getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
+    reportWarning(getRuleLocation(), completeAttributeMessage(attrName, message));
   }
 
   private String prefixRuleMessage(String message) {
@@ -109,6 +109,4 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
   protected abstract BuildConfiguration getConfiguration();
 
   protected abstract Location getRuleLocation();
-
-  protected abstract Location getAttributeLocation(String attrName);
 }

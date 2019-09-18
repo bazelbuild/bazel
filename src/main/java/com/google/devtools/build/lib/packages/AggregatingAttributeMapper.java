@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
@@ -583,11 +582,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public <T> boolean has(String attrName, Type<T> type) {
         return owner.has(attrName, type);
-      }
-
-      @Override
-      public Location getAttributeLocation(String attrName) {
-        return owner.getAttributeLocation(attrName);
       }
     };
   }

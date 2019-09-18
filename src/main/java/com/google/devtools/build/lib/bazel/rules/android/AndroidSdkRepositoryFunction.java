@@ -333,18 +333,16 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       Revision buildToolsRevision = Revision.parseRevision(buildToolsVersion);
       if (buildToolsRevision.compareTo(MIN_BUILD_TOOLS_REVISION) < 0) {
         throw new EvalException(
-            rule.getAttributeLocation("build_tools_version"),
+            rule.getLocation(),
             String.format(
                 "Bazel requires Android build tools version %s or newer, %s was provided",
-                MIN_BUILD_TOOLS_REVISION,
-                buildToolsRevision));
+                MIN_BUILD_TOOLS_REVISION, buildToolsRevision));
       }
     } catch (NumberFormatException e) {
       throw new EvalException(
-          rule.getAttributeLocation("build_tools_version"),
+          rule.getLocation(),
           String.format(
-              "Bazel does not recognize Android build tools version %s",
-              buildToolsVersion),
+              "Bazel does not recognize Android build tools version %s", buildToolsVersion),
           e);
     }
   }

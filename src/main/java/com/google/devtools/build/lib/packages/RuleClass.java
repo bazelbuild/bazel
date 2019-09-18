@@ -55,10 +55,8 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -1876,7 +1874,6 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
-      @Nullable FuncallExpression ast,
       Location location,
       AttributeContainer attributeContainer,
       boolean checkThirdPartyRulesHaveLicenses)
@@ -1885,9 +1882,6 @@ public class RuleClass {
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
-    if (ast != null) {
-      populateAttributeLocations(rule, ast);
-    }
     checkForDuplicateLabels(rule, eventHandler);
 
     boolean actuallyCheckLicense;
@@ -2019,19 +2013,6 @@ public class RuleClass {
       definedAttrIndices.set(attrIndex);
     }
     return definedAttrIndices;
-  }
-
-  /** Populates attribute locations for attributes defined in {@code ast}. */
-  private void populateAttributeLocations(Rule rule, FuncallExpression ast) {
-    for (Argument.Passed arg : ast.getArguments()) {
-      if (arg.isKeyword()) {
-        String name = arg.getName();
-        Integer attrIndex = getAttributeIndex(name);
-        if (attrIndex != null) {
-          rule.setAttributeLocation(attrIndex, arg.getValue().getLocation());
-        }
-      }
-    }
   }
 
   /**

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -363,8 +362,6 @@ public final class PackageFactory {
   public abstract static class BuilderForTesting {
     protected final String version = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
-    protected Function<RuleClass, AttributeContainer> attributeContainerFactory =
-        AttributeContainer::new;
     protected boolean doChecksForTesting = true;
 
     public BuilderForTesting setEnvironmentExtensions(
@@ -397,11 +394,10 @@ public final class PackageFactory {
    */
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
-      Function<RuleClass, AttributeContainer> attributeContainerFactory,
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       Package.Builder.Helper packageBuilderHelper) {
-    this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
+    this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
     setGlobbingThreads(100);
@@ -1283,13 +1279,12 @@ public final class PackageFactory {
    */
   private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
     private final String ruleClassName;
-    private final RuleFactory ruleFactory;
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(String ruleClassName, RuleFactory ruleFactory) {
-      super(ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV, /*isRule=*/ true);
+      super(ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_LOC_ENV, /*isRule=*/ true);
       this.ruleClassName = ruleClassName;
-      this.ruleFactory = Preconditions.checkNotNull(ruleFactory, "ruleFactory was null");
+      Preconditions.checkNotNull(ruleFactory, "ruleFactory was null");
       this.ruleClass = Preconditions.checkNotNull(
           ruleFactory.getRuleClass(ruleClassName),
           "No such rule class: %s",
@@ -1297,30 +1292,25 @@ public final class PackageFactory {
     }
 
     @SuppressWarnings({"unchecked", "unused"})
-    public Runtime.NoneType invoke(
-        Map<String, Object> kwargs, FuncallExpression ast, Environment env)
+    public Runtime.NoneType invoke(Map<String, Object> kwargs, Location loc, Environment env)
         throws EvalException, InterruptedException {
-      SkylarkUtils.checkLoadingOrWorkspacePhase(env, ruleClassName, ast.getLocation());
+      SkylarkUtils.checkLoadingOrWorkspacePhase(env, ruleClassName, loc);
       try {
-        addRule(getContext(env, ast.getLocation()), kwargs, ast, env);
+        addRule(getContext(env, loc), kwargs, loc, env);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(loc, e.getMessage());
       }
       return Runtime.NONE;
     }
 
     private void addRule(
-        PackageContext context,
-        Map<String, Object> kwargs,
-        FuncallExpression ast,
-        Environment env)
-            throws RuleFactory.InvalidRuleException, Package.NameConflictException,
-                InterruptedException {
+        PackageContext context, Map<String, Object> kwargs, Location loc, Environment env)
+        throws RuleFactory.InvalidRuleException, Package.NameConflictException,
+            InterruptedException {
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
-      AttributeContainer attributeContainer = ruleFactory.getAttributeContainer(ruleClass);
       RuleFactory.createAndAddRule(
-          context, ruleClass, attributeValues, ast, env, attributeContainer);
+          context, ruleClass, attributeValues, loc, env, new AttributeContainer(ruleClass));
     }
 
     @Override
@@ -1579,18 +1569,13 @@ public final class PackageFactory {
     final Package.Builder pkgBuilder;
     final Globber globber;
     final ExtendedEventHandler eventHandler;
-    private final Function<RuleClass, AttributeContainer> attributeContainerFactory;
 
     @VisibleForTesting
     public PackageContext(
-        Package.Builder pkgBuilder,
-        Globber globber,
-        ExtendedEventHandler eventHandler,
-        Function<RuleClass, AttributeContainer> attributeContainerFactory) {
+        Package.Builder pkgBuilder, Globber globber, ExtendedEventHandler eventHandler) {
       this.pkgBuilder = pkgBuilder;
       this.eventHandler = eventHandler;
       this.globber = globber;
-      this.attributeContainerFactory = attributeContainerFactory;
     }
 
     /**
@@ -1612,10 +1597,6 @@ public final class PackageFactory {
      */
     public Package.Builder getBuilder() {
       return pkgBuilder;
-    }
-
-    public Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-      return attributeContainerFactory;
     }
   }
 
@@ -1762,9 +1743,7 @@ public final class PackageFactory {
       }
 
       // Stuff that closes over the package context:
-      PackageContext context =
-          new PackageContext(
-              pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
+      PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
       buildPkgEnv(pkgEnv, context);
 
       if (!validatePackageIdentifier(packageId, file.getLocation(), eventHandler)) {

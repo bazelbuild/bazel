@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.AstParseResult;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -266,7 +265,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     pkgFactory =
         new PackageFactory(
             ruleClassProvider,
-            AttributeContainer::new,
             getEnvironmentExtensions(),
             "PackageLoader",
             Package.Builder.DefaultHelper.INSTANCE);

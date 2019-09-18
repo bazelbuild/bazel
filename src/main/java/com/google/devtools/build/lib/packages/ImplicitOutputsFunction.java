@@ -542,7 +542,7 @@ public abstract class ImplicitOutputsFunction {
     for (String placeholder : parsedTemplate.attributeNames()) {
       if (rule.isConfigurable(placeholder)) {
         throw new EvalException(
-            rule.getAttributeLocation(placeholder),
+            /*location=*/ null,
             String.format(
                 "Attribute %s is configurable and cannot be used in outputs", placeholder));
       }

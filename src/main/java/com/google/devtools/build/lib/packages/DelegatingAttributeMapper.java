@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -116,10 +115,5 @@ public class DelegatingAttributeMapper implements AttributeMap {
   @Override
   public <T> boolean has(String attrName, Type<T> type) {
     return delegate.has(attrName, type);
-  }
-
-  @Override
-  public Location getAttributeLocation(String attrName) {
-    return delegate.getAttributeLocation(attrName);
   }
 }

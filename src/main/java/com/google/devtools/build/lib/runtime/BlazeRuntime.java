@@ -1533,7 +1533,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
-              serverBuilder.getAttributeContainerFactory(),
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper);
