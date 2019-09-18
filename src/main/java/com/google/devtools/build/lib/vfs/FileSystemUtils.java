@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** Helper functions that implement often-used complex operations on file systems. */
 @ConditionallyThreadSafe
@@ -495,19 +495,16 @@ public class FileSystemUtils {
     return target;
   }
 
-  /****************************************************************************
-   * Directory tree operations.
-   */
+  /* Directory tree operations. */
 
   /**
-   * Returns a new collection containing all of the paths below a given root
-   * path, for which the given predicate is true. Symbolic links are not
-   * followed, and may appear in the result.
+   * Returns a new collection containing all of the paths below a given root path, for which the
+   * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static Collection<Path> traverseTree(Path root, Predicate<? super Path> predicate)
+  public static Collection<Path> traverseTree(Path root, Predicate<Path> predicate)
       throws IOException {
     List<Path> paths = new ArrayList<>();
     traverseTree(paths, root, predicate);
@@ -515,17 +512,16 @@ public class FileSystemUtils {
   }
 
   /**
-   * Populates an existing Path List, adding all of the paths below a given root
-   * path for which the given predicate is true. Symbolic links are not
-   * followed, and may appear in the result.
+   * Populates an existing Path List, adding all of the paths below a given root path for which the
+   * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static void traverseTree(Collection<Path> paths, Path root,
-      Predicate<? super Path> predicate) throws IOException {
+  public static void traverseTree(Collection<Path> paths, Path root, Predicate<Path> predicate)
+      throws IOException {
     for (Path p : root.getDirectoryEntries()) {
-      if (predicate.apply(p)) {
+      if (predicate.test(p)) {
         paths.add(p);
       }
       if (p.isDirectory(Symlinks.NOFOLLOW)) {
