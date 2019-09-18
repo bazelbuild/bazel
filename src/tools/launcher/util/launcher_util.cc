@@ -121,16 +121,16 @@ bool DeleteDirectoryByPath(const wchar_t* path) {
   return RemoveDirectoryW(AsAbsoluteWindowsPath(path).c_str());
 }
 
+static bool EndsWithExe(const wstring& s) {
+  return s.size() >= 4 && _wcsnicmp(s.c_str() + s.size() - 4, L".exe", 4) == 0;
+}
+
 wstring GetBinaryPathWithoutExtension(const wstring& binary) {
-  if (binary.size() >= 4 &&
-      binary.find(L".exe", binary.size() - 4) != wstring::npos) {
-    return binary.substr(0, binary.size() - 4);
-  }
-  return binary;
+  return EndsWithExe(binary) ? binary.substr(0, binary.size() - 4) : binary;
 }
 
 wstring GetBinaryPathWithExtension(const wstring& binary) {
-  return GetBinaryPathWithoutExtension(binary) + L".exe";
+  return EndsWithExe(binary) ? binary : (binary + L".exe");
 }
 
 std::wstring BashEscapeArg(const std::wstring& argument) {
