@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
         "Encapsulates information provided by js_module, a unit of JavaScript code that is part of"
             + " a bigger whole (a js_module_binary), but is not necessarily loaded at start-up.")
 public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
+  /** Name of this info object. */
+  String NAME = "JsModuleInfo";
 
   @SkylarkCallable(
       name = "label",
@@ -58,7 +60,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
   public interface JsModuleInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
-        name = "JsModuleInfo",
+        name = NAME,
         doc = "The <code>JsModuleInfo</code> constructor.",
         parameters = {
           @Param(

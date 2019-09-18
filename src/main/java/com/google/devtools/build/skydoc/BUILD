@@ -67,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
