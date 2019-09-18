@@ -719,17 +719,15 @@ public class DynamicSpawnStrategyTest {
     SpawnActionContext dynamicSpawnStrategy = createSpawnStrategy(localStrategy, remoteStrategy);
 
     TestThread testThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            try {
-              Spawn spawn = newDynamicSpawn();
-              dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
-            } catch (InterruptedException e) {
-              // This is expected.
-            }
-          }
-        };
+        new TestThread(
+            () -> {
+              try {
+                Spawn spawn = newDynamicSpawn();
+                dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+              } catch (InterruptedException e) {
+                // This is expected.
+              }
+            });
     testThread.start();
     countDownLatch.await(5, TimeUnit.SECONDS);
     testThread.interrupt();
@@ -779,22 +777,20 @@ public class DynamicSpawnStrategyTest {
     SpawnActionContext dynamicSpawnStrategy = createSpawnStrategy(localStrategy, remoteStrategy);
 
     TestThread testThread =
-        new TestThread() {
-          @Override
-          public void runTest() {
-            try {
-              Spawn spawn = newDynamicSpawn();
-              dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
-              checkState(!interruptThread && !executionFails);
-            } catch (InterruptedException e) {
-              checkState(interruptThread && !executionFails);
-              checkState(!Thread.currentThread().isInterrupted());
-            } catch (ExecException e) {
-              checkState(executionFails);
-              checkState(Thread.currentThread().isInterrupted() == interruptThread);
-            }
-          }
-        };
+        new TestThread(
+            () -> {
+              try {
+                Spawn spawn = newDynamicSpawn();
+                dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+                checkState(!interruptThread && !executionFails);
+              } catch (InterruptedException e) {
+                checkState(interruptThread && !executionFails);
+                checkState(!Thread.currentThread().isInterrupted());
+              } catch (ExecException e) {
+                checkState(executionFails);
+                checkState(Thread.currentThread().isInterrupted() == interruptThread);
+              }
+            });
     testThread.start();
     if (!executionFails) {
       assertThat(remoteStrategy.awaitSuccess()).isTrue();

@@ -453,12 +453,10 @@ public class ParallelEvaluatorTest {
     // And we have a dedicated thread that kicks off the evaluation of A and B together (in that
     // order).
     TestThread evalThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            assertThrows(InterruptedException.class, () -> eval(/*keepGoing=*/ true, keyA, keyB));
-          }
-        };
+        new TestThread(
+            () ->
+                assertThrows(
+                    InterruptedException.class, () -> eval(/*keepGoing=*/ true, keyA, keyB)));
 
     // Then when we start that thread,
     evalThread.start();
@@ -518,13 +516,10 @@ public class ParallelEvaluatorTest {
               }
             });
     TestThread evalThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            assertThrows(
-                InterruptedException.class, () -> eval(/*keepGoing=*/ true, waitKey, fastKey));
-          }
-        };
+        new TestThread(
+            () ->
+                assertThrows(
+                    InterruptedException.class, () -> eval(/*keepGoing=*/ true, waitKey, fastKey)));
     evalThread.start();
     assertThat(allValuesReady.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
     evalThread.interrupt();

@@ -110,14 +110,7 @@ public class ParallelVisitorTest {
         new DelayGettingVisitResultParallelVisitor(invocationLatch, delayLatch);
     ImmutableList<String> keysToVisit = ImmutableList.of("for_testing");
 
-    TestThread testThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            visitor.visitAndWaitForCompletion(keysToVisit);
-          }
-        };
-
+    TestThread testThread = new TestThread(() -> visitor.visitAndWaitForCompletion(keysToVisit));
     testThread.start();
 
     // Send an interrupt signal to the visitor after #visitAndWaitForCompletion is invoked.

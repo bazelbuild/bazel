@@ -85,18 +85,8 @@ public class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
     FileSystemUtils.writeContentAsLatin1(myFile2, Strings.repeat("b", fileSize2));
 
-     TestThread thread1 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile1, fileSize1);
-       }
-     };
-
-     TestThread thread2 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile2, fileSize2);
-       }
-     };
-
+    TestThread thread1 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile1, fileSize1));
+    TestThread thread2 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile2, fileSize2));
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.

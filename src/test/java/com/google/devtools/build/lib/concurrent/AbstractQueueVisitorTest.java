@@ -222,20 +222,17 @@ public class AbstractQueueVisitorTest {
         });
 
     TestThread interrupterThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            latch1.await();
-            mainThread.interrupt();
-            assertThat(
-                    visitor
-                        .getInterruptionLatchForTestingOnly()
-                        .await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
-                .isTrue();
-            latch2.countDown();
-          }
-        };
-
+        new TestThread(
+            () -> {
+              latch1.await();
+              mainThread.interrupt();
+              assertThat(
+                      visitor
+                          .getInterruptionLatchForTestingOnly()
+                          .await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
+                  .isTrue();
+              latch2.countDown();
+            });
     interrupterThread.start();
 
     assertThrows(

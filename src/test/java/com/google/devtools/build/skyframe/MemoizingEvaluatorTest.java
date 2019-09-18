@@ -3019,14 +3019,11 @@ public class MemoizingEvaluatorTest {
           });
       tester.invalidate();
       TestThread evalThread =
-          new TestThread() {
-            @Override
-            public void runTest() {
-              assertThrows(
-                  InterruptedException.class,
-                  () -> tester.eval(/*keepGoing=*/ false, tops.toArray(new SkyKey[0])));
-            }
-          };
+          new TestThread(
+              () ->
+                  assertThrows(
+                      InterruptedException.class,
+                      () -> tester.eval(/*keepGoing=*/ false, tops.toArray(new SkyKey[0]))));
       evalThread.start();
       assertThat(notifyStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
       evalThread.interrupt();

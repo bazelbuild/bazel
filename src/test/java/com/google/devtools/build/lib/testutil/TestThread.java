@@ -17,24 +17,32 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 /**
- * Test thread implementation that allows the use of assertions within
- * spawned threads.
+ * Test thread implementation that allows the use of assertions within spawned threads.
  *
- * Main test method must call {@link TestThread#joinAndAssertState(long)}
- * for each spawned test thread.
+ * <p>Main test method must call {@link TestThread#joinAndAssertState(long)} for each spawned test
+ * thread.
  */
-public abstract class TestThread extends Thread {
-  Throwable testException = null;
-  boolean isSucceeded = false;
+public final class TestThread extends Thread {
+  private final TestRunnable runnable;
 
-  /**
-   * Specific test thread implementation overrides this method.
-   */
-  abstract public void runTest() throws Exception;
+  private Throwable testException = null;
+  private boolean isSucceeded = false;
 
-  @Override public final void run() {
+  /** Same as a {@link Runnable} but allowed to throw any exception. */
+  @FunctionalInterface
+  public interface TestRunnable {
+    void run() throws Exception;
+  }
+
+  /** Constructs a new test thread that will run the given runnable. */
+  public TestThread(TestRunnable runnable) {
+    this.runnable = runnable;
+  }
+
+  @Override
+  public void run() {
     try {
-      runTest();
+      runnable.run();
       isSucceeded = true;
     } catch (Exception | AssertionError e) {
       testException = e;
