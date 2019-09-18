@@ -60,7 +60,7 @@ public final class PathFragment
         CommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
-  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = create("");
+  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
   public static final char SEPARATOR_CHAR = OS.getSeparator();
   public static final int INVALID_SEGMENT = -1;
 
@@ -69,6 +69,9 @@ public final class PathFragment
 
   /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
+    if (path.isEmpty()) {
+      return EMPTY_FRAGMENT;
+    }
     int normalizationLevel = OS.needsToNormalize(path);
     String normalizedPath =
         normalizationLevel != OsPathPolicy.NORMALIZED
@@ -96,6 +99,9 @@ public final class PathFragment
    */
   @AutoCodec.Instantiator
   static PathFragment createAlreadyNormalized(String normalizedPath, int driveStrLength) {
+    if (normalizedPath.isEmpty()) {
+      return EMPTY_FRAGMENT;
+    }
     return new PathFragment(normalizedPath, driveStrLength);
   }
 
