@@ -88,6 +88,9 @@ public class Aapt2ResourceShrinkingAction {
         if (options.keptResourcesOutput != null) {
           shrunk.writeKeptResourcesTo(options.keptResourcesOutput);
         }
+        if (options.resourcesConfigOutput != null) {
+          shrunk.writeResourcesConfigTo(options.resourcesConfigOutput);
+        }
         if (options.rTxtOutput != null) {
           // Fulfill the contract -- however, we do not generate an R.txt from the shrunk
           // resources.

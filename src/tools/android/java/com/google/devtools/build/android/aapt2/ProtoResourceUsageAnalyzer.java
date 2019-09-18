@@ -16,6 +16,7 @@ package com.google.devtools.build.android.aapt2;
 
 import static com.android.SdkConstants.ATTR_DISCARD;
 import static com.android.SdkConstants.ATTR_KEEP;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -68,15 +69,22 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
   private final Path rTxt;
   private final Path mapping;
   private final Path keptResourcesFile;
+  private final Path resourcesConfigFile;
 
   public ProtoResourceUsageAnalyzer(
-      Set<String> resourcePackages, Path rTxt, Path mapping, Path keptResourcesFile, Path logFile)
+      Set<String> resourcePackages,
+      Path rTxt,
+      Path mapping,
+      Path keptResourcesFile,
+      Path resourcesConfigFile,
+      Path logFile)
       throws DOMException, ParserConfigurationException {
     super(resourcePackages, null, null, null, null, null, logFile);
     this.resourcePackages = resourcePackages;
     this.rTxt = rTxt;
     this.mapping = mapping;
     this.keptResourcesFile = keptResourcesFile;
+    this.resourcesConfigFile = resourcesConfigFile;
   }
 
   private static Resource parse(ResourceUsageModel model, String resourceTypeAndName) {
@@ -143,6 +151,14 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
             .map(r -> r.name)
             .collect(Collectors.joining(/* delimiter= */ ",", /* prefix= */ "", /* suffix= */ ","));
     Files.write(keptResourcesFile, ImmutableList.of(keptResources), StandardCharsets.UTF_8);
+
+    ImmutableList<String> resourceConfigs =
+        resources.stream()
+            .filter(Resource::isKeep)
+            // TODO(b/141204955): Update this to no_collapse.
+            .map(r -> String.format("%s/%s#no_obfuscate", r.type.getName(), r.name))
+            .collect(toImmutableList());
+    Files.write(resourcesConfigFile, resourceConfigs, StandardCharsets.UTF_8);
 
     List<Resource> roots =
         resources.stream().filter(r -> r.isKeep() || r.isReachable()).collect(toList());

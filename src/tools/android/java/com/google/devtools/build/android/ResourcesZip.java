@@ -285,14 +285,16 @@ public class ResourcesZip {
       throws ParserConfigurationException, IOException {
     Path shrunkApkProto = workingDirectory.resolve("shrunk." + ResourceLinker.PROTO_EXTENSION);
     Path keptResources = workingDirectory.resolve("kept_resources.txt");
+    Path resourcesConfig = workingDirectory.resolve("resources.cfg");
 
     try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
       // record resources and manifest
       final ProtoResourceUsageAnalyzer analyzer =
-          new ProtoResourceUsageAnalyzer(packages, rTxt, proguardMapping, keptResources, logFile);
+          new ProtoResourceUsageAnalyzer(
+              packages, rTxt, proguardMapping, keptResources, resourcesConfig, logFile);
 
       ProtoApk shrink = analyzer.shrink(apk, classJar, shrunkApkProto, parseToolAttributes());
-      return new ShrunkProtoApk(shrink, keptResources, logFile, ids);
+      return new ShrunkProtoApk(shrink, keptResources, resourcesConfig, logFile, ids);
     }
   }
 
@@ -321,12 +323,14 @@ public class ResourcesZip {
   static class ShrunkProtoApk implements Closeable {
     private final ProtoApk apk;
     private final Path keptResources;
+    private final Path resourcesConfig;
     private final Path report;
     private final Path ids;
 
-    ShrunkProtoApk(ProtoApk apk, Path keptResources, Path report, Path ids) {
+    ShrunkProtoApk(ProtoApk apk, Path keptResources, Path resourcesConfig, Path report, Path ids) {
       this.apk = apk;
       this.keptResources = keptResources;
+      this.resourcesConfig = resourcesConfig;
       this.report = report;
       this.ids = ids;
     }
@@ -340,9 +344,12 @@ public class ResourcesZip {
       return this;
     }
 
-    ShrunkProtoApk writeKeptResourcesTo(Path keptResourcesOut) throws IOException {
+    void writeKeptResourcesTo(Path keptResourcesOut) throws IOException {
       Files.copy(keptResources, keptResourcesOut);
-      return this;
+    }
+
+    void writeResourcesConfigTo(Path resourcesConfigOut) throws Exception {
+      Files.copy(resourcesConfig, resourcesConfigOut);
     }
 
     ShrunkProtoApk writeReportTo(Path reportOut) throws IOException {

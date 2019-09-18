@@ -196,6 +196,11 @@ public class ResourceShrinkerAction {
     )
     public Path log;
 
+    /**
+     * @deprecated pending an upcoming AAPT2 drop, we will always write to resourcesConfigOutput and
+     *     stop writing to this output.
+     */
+    @Deprecated // TODO(b/141204955): remove
     @Option(
         name = "keptResourcesOutput",
         defaultValue = "null",
@@ -204,6 +209,15 @@ public class ResourceShrinkerAction {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Path to where the list of kept resources should be written.")
     public Path keptResourcesOutput;
+
+    @Option(
+        name = "resourcesConfigOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the list of resources configuration directives should be written.")
+    public Path resourcesConfigOutput;
 
     @Option(
         name = "packageType",
