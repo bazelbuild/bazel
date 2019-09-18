@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -147,11 +149,6 @@ public class RunCommand implements BlazeCommand  {
   private static final class NoShellFoundException extends Exception {}
 
   @VisibleForTesting
-  public static final String SINGLE_TARGET_MESSAGE =
-      "Only a single target can be run. Do not use target patterns that expand to more than one "
-          + "target, or a test_suite that expands to more than one test";
-
-  @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
 
   public static final String MULTIPLE_TESTS_MESSAGE =
@@ -172,9 +169,13 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   protected BuildResult processRequest(final CommandEnvironment env, BuildRequest request) {
-    return new BuildTool(env).processRequest(request,
-        (Collection<Target> targets, boolean keepGoing) ->
-            RunCommand.this.validateTargets(env.getReporter(), targets, keepGoing));
+    List<String> targetPatternStrings = request.getTargets();
+    return new BuildTool(env)
+        .processRequest(
+            request,
+            (Collection<Target> targets, boolean keepGoing) ->
+                RunCommand.this.validateTargets(
+                    env.getReporter(), targetPatternStrings, targets, keepGoing));
   }
 
   @Override
@@ -317,7 +318,12 @@ public class RunCommand implements BlazeCommand  {
     if (targetsBuilt != null) {
       int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
       if (targetsBuilt.size() > maxTargets) {
-        env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
+        env.getReporter()
+            .handle(
+                Event.error(
+                    makeErrorMessageForNotHavingASingleTarget(
+                        targetString,
+                        Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString()))));
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
       for (ConfiguredTarget target : targetsBuilt) {
@@ -335,7 +341,12 @@ public class RunCommand implements BlazeCommand  {
         } else if (targetToRun == null) {
           targetToRun = target;
         } else {
-          env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
+          env.getReporter()
+              .handle(
+                  Event.error(
+                      makeErrorMessageForNotHavingASingleTarget(
+                          targetString,
+                          Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString()))));
           return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
         }
       }
@@ -617,7 +628,11 @@ public class RunCommand implements BlazeCommand  {
 
   // Make sure we are building exactly 1 binary target.
   // If keepGoing, we'll build all the targets even if they are non-binary.
-  private void validateTargets(Reporter reporter, Collection<Target> targets, boolean keepGoing)
+  private void validateTargets(
+      Reporter reporter,
+      List<String> targetPatternStrings,
+      Collection<Target> targets,
+      boolean keepGoing)
       throws LoadingFailedException {
     Target targetToRun = null;
     Target runUnderTarget = null;
@@ -625,7 +640,12 @@ public class RunCommand implements BlazeCommand  {
     boolean singleTargetWarningWasOutput = false;
     int maxTargets = currentRunUnder != null && currentRunUnder.getLabel() != null ? 2 : 1;
     if (targets.size() > maxTargets) {
-      warningOrException(reporter, SINGLE_TARGET_MESSAGE, keepGoing);
+      warningOrException(
+          reporter,
+          makeErrorMessageForNotHavingASingleTarget(
+              targetPatternStrings.get(0),
+              Iterables.transform(targets, t -> t.getLabel().toString())),
+          keepGoing);
       singleTargetWarningWasOutput = true;
     }
     for (Target target : targets) {
@@ -642,7 +662,12 @@ public class RunCommand implements BlazeCommand  {
         targetToRun = target;
       } else {
         if (!singleTargetWarningWasOutput) {
-          warningOrException(reporter, SINGLE_TARGET_MESSAGE, keepGoing);
+          warningOrException(
+              reporter,
+              makeErrorMessageForNotHavingASingleTarget(
+                  targetPatternStrings.get(0),
+                  Iterables.transform(targets, t -> t.getLabel().toString())),
+              keepGoing);
         }
         return;
       }
@@ -763,5 +788,20 @@ public class RunCommand implements BlazeCommand  {
 
     Rule rule = (Rule) target;
     return rule.getRuleClass().equals("alias") || rule.getRuleClass().equals("bind");
+  }
+
+  private String makeErrorMessageForNotHavingASingleTarget(
+      String targetPatternString, Iterable<String> expandedTargetNames) {
+    final int maxNumExpandedTargetsToIncludeInErrorMessage = 5;
+    boolean truncateTargetNameList = Iterables.size(expandedTargetNames) > 5;
+    Iterable<String> targetNamesToIncludeInErrorMessage =
+        truncateTargetNameList
+            ? Iterables.limit(expandedTargetNames, maxNumExpandedTargetsToIncludeInErrorMessage)
+            : expandedTargetNames;
+    return String.format(
+        "Only a single target can be run. Your target pattern %s expanded to the targets %s%s",
+        targetPatternString,
+        Joiner.on(", ").join(ImmutableSortedSet.copyOf(targetNamesToIncludeInErrorMessage)),
+        truncateTargetNameList ? "[TRUNCATED]" : "");
   }
 }
