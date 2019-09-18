@@ -59,11 +59,11 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -427,35 +427,37 @@ public class SkydocMain {
     pending.add(path);
 
     ParserInput parserInputSource = getInputSource(path.toString());
-    BuildFileAST buildFileAST = BuildFileAST.parse(parserInputSource, eventHandler);
+    BuildFileAST file = BuildFileAST.parse(parserInputSource, eventHandler);
 
-    moduleDocMap.put(label, getModuleDoc(buildFileAST));
+    moduleDocMap.put(label, getModuleDoc(file));
 
     Map<String, Extension> imports = new HashMap<>();
-    for (SkylarkImport anImport : buildFileAST.getImports()) {
-      Label relativeLabel =
-          label.getRelativeWithRemapping(anImport.getImportString(), ImmutableMap.of());
-      try {
-        Environment importEnv =
-            recursiveEval(
-                semantics,
-                relativeLabel,
-                ruleInfoList,
-                providerInfoList,
-                aspectInfoList,
-                moduleDocMap);
-        imports.put(anImport.getImportString(), new Extension(importEnv));
-      } catch (NoSuchFileException noSuchFileException) {
-        throw new StarlarkEvaluationException(
-            String.format(
-                "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots));
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        LoadStatement load = (LoadStatement) stmt;
+        String module = load.getImport().getValue();
+        Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
+        try {
+          Environment importEnv =
+              recursiveEval(
+                  semantics,
+                  relativeLabel,
+                  ruleInfoList,
+                  providerInfoList,
+                  aspectInfoList,
+                  moduleDocMap);
+          imports.put(module, new Extension(importEnv));
+        } catch (NoSuchFileException noSuchFileException) {
+          throw new StarlarkEvaluationException(
+              String.format(
+                  "File %s imported '%s', yet %s was not found, even at roots %s.",
+                  path, module, pathOfLabel(relativeLabel), depRoots));
+        }
       }
     }
 
     Environment env =
-        evalSkylarkBody(
-            semantics, buildFileAST, imports, ruleInfoList, providerInfoList, aspectInfoList);
+        evalSkylarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
     env.mutability().freeze();
