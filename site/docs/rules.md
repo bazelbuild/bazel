@@ -24,16 +24,15 @@ Here is a selection of recommended rules:
 * [Go](https://github.com/bazelbuild/rules_go)
 * [Haskell](https://github.com/tweag/rules_haskell)
 * [Java](bazel-and-java.html)
+* [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs)
 * [Kubernetes](https://github.com/bazelbuild/rules_k8s)
 * [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external)
-* [NodeJS](https://github.com/bazelbuild/rules_nodejs)
 * [Objective C](bazel-and-apple.html)
 * [Package building and fetching rules](https://github.com/bazelbuild/rules_pkg)
 * [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel)
 * [Python](https://github.com/bazelbuild/rules_python)
 * [Scala](https://github.com/bazelbuild/rules_scala)
 * [Shell](be/shell.html)
-* [Typescript](https://github.com/bazelbuild/rules_typescript)
 * [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
 
 The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
