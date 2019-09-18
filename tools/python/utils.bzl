@@ -21,7 +21,7 @@ file is less likely to cause bootstrapping issues.
 
 def _expand_pyversion_template_impl(ctx):
     for output, version, strict in [
-        (ctx.outputs.out2, "2", "1"),
+        (ctx.outputs.out2, "2.7", "1"),
         (ctx.outputs.out3, "3", "1"),
         (ctx.outputs.out2_nonstrict, "2", "0"),
         (ctx.outputs.out3_nonstrict, "3", "0"),
