@@ -220,16 +220,6 @@ public final class FuncallExpression extends Expression {
     return methods;
   }
 
-  /**
-   * An exception class to handle exceptions in direct Java API calls.
-   */
-  public static final class FuncallException extends Exception {
-
-    public FuncallException(String msg) {
-      super(msg);
-    }
-  }
-
   private final Expression function;
 
   private final ImmutableList<Argument.Passed> arguments;

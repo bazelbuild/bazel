@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -331,57 +330,51 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public SkylarkIndexable toolchains() throws EvalException;
 
   @SkylarkCallable(
-    name = "tokenize",
-    doc = "Splits a shell command into a list of tokens.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "option",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string to split."
-      ),
-    }
-  )
-  public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException;
+      name = "tokenize",
+      doc = "Splits a shell command into a list of tokens.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "option",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string to split."),
+      })
+  public SkylarkList<String> tokenize(String optionString) throws EvalException;
 
   @SkylarkCallable(
-    name = "expand",
-    doc =
-        "Expands all references to labels embedded within a string for all files using a mapping "
-            + "from definition labels (i.e. the label in the output type attribute) to files. "
-            + "Deprecated.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "expression",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string expression to expand."
-      ),
-      @Param(
-        name = "files",
-        positional = true,
-        named = false,
-        type = SkylarkList.class,
-        doc = "The list of files."
-      ),
-      @Param(
-        name = "label_resolver",
-        positional = true,
-        named = false,
-        type = Label.class,
-        doc = "The label resolver."
-      ),
-    }
-  )
+      name = "expand",
+      doc =
+          "Expands all references to labels embedded within a string for all files using a mapping "
+              + "from definition labels (i.e. the label in the output type attribute) to files. "
+              + "Deprecated.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "expression",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string expression to expand."),
+        @Param(
+            name = "files",
+            positional = true,
+            named = false,
+            type = SkylarkList.class,
+            doc = "The list of files."),
+        @Param(
+            name = "label_resolver",
+            positional = true,
+            named = false,
+            type = Label.class,
+            doc = "The label resolver."),
+      })
   public String expand(
       @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
-      throws EvalException, FuncallException;
+      throws EvalException;
 
   @SkylarkCallable(
       name = "new_file",

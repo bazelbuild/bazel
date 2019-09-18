@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -700,13 +699,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException {
+  public SkylarkList<String> tokenize(String optionString) throws EvalException {
     checkMutable("tokenize");
     List<String> options = new ArrayList<>();
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {
-      throw new FuncallException(e.getMessage() + " while tokenizing '" + optionString + "'");
+      throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
     }
     return SkylarkList.createImmutable(options);
   }
@@ -714,7 +713,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   @Override
   public String expand(
       @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
-      throws EvalException, FuncallException {
+      throws EvalException {
     checkMutable("expand");
     try {
       Map<Label, Iterable<Artifact>> labelMap = new HashMap<>();
@@ -723,7 +722,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       }
       return LabelExpander.expand(expression, labelMap, labelResolver);
     } catch (NotUniqueExpansionException e) {
-      throw new FuncallException(e.getMessage() + " while expanding '" + expression + "'");
+      throw new EvalException(null, e.getMessage() + " while expanding '" + expression + "'");
     }
   }
 

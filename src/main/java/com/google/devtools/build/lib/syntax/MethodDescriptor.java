@@ -118,11 +118,6 @@ public final class MethodDescriptor {
         annotation.useContext());
   }
 
-  /** @return The result of this method invocation on the {@code obj} as a target. */
-  public Object invoke(Object obj) throws InvocationTargetException, IllegalAccessException {
-    return method.invoke(obj);
-  }
-
   /**
    * Invokes this method using {@code obj} as a target and {@code args} as arguments.
    *
@@ -150,9 +145,6 @@ public final class MethodDescriptor {
             x);
       }
       Throwables.propagateIfPossible(e, InterruptedException.class);
-      if (e instanceof FuncallExpression.FuncallException) {
-        throw new EvalException(loc, e.getMessage());
-      }
       if (e instanceof EvalException) {
         throw ((EvalException) e).ensureLocation(loc);
       }
