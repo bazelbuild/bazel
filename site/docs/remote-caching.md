@@ -247,7 +247,7 @@ Use the following flags to:
 
 ```
 build --remote_cache=http://replace-with-your.host:port
-build --spawn_strategy=standalone
+build --spawn_strategy=local
 ```
 
 Using the remote cache with sandboxing enabled is the default. Use the
@@ -266,7 +266,7 @@ disabled.
 ```
 build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
-build --spawn_strategy=standalone
+build --spawn_strategy=local
 ```
 
 Using the remote cache with sandboxing enabled is experimental. Use the
