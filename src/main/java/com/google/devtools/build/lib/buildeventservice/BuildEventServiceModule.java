@@ -97,7 +97,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
    * value for can result in BEP events that are too big for BES to handle.
    */
-  private static final int RUNS_PER_TEST_LIMIT = 100000;
+  @VisibleForTesting static final int RUNS_PER_TEST_LIMIT = 100000;
 
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
@@ -549,6 +549,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         googleLogger.atWarning().log("Attempting to close BES streamer after command");
         String msg = "BES was not properly closed";
         LoggingUtil.logToRemote(Level.WARNING, msg, new IllegalStateException(msg));
+        reporter.handle(Event.warn(msg));
         forceShutdownBuildEventStreamer();
       }
 

@@ -192,4 +192,8 @@ public final class EventCollectionApparatus {
   public void assertDoesNotContainEvent(String unexpectedEvent) {
     MoreAsserts.assertDoesNotContainEvent(eventCollector, unexpectedEvent);
   }
+
+  public void assertContainsEventsInOrder(String... expectedMessages) {
+    MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
+  }
 }

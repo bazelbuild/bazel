@@ -416,12 +416,12 @@ public class MoreAsserts {
   }
 
   /**
-   * Check to see if each element of expectedMessages is the beginning of a message
-   * in eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}.
-   * If not, an informative assertion is failed
+   * Check to see if each element of expectedMessages is the beginning of a message in
+   * eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}. If not, an
+   * informative assertion is failed
    */
-  protected static void assertContainsEventsInOrder(Iterable<Event> eventCollector,
-      String... expectedMessages) {
+  public static void assertContainsEventsInOrder(
+      Iterable<Event> eventCollector, String... expectedMessages) {
     String failure =
         containsSublistWithGapsAndEqualityChecker(
             ImmutableList.copyOf(eventCollector),

@@ -1491,6 +1491,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Preconditions.checkNotNull(clock);
 
+      int metricsModules = 0;
+      for (BlazeModule module : blazeModules) {
+        if (module.postsBuildMetricsEvent()) {
+          metricsModules++;
+        }
+      }
+      Preconditions.checkArgument(
+          metricsModules < 2, "At most one module may post a BuildMetricsEvent");
+      if (metricsModules == 0) {
+        blazeModules.add(new DummyMetricsModule());
+      }
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,
