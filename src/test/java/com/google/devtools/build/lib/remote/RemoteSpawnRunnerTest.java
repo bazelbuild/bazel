@@ -839,7 +839,7 @@ public class RemoteSpawnRunnerTest {
             retrier,
             digestUtil,
             logDir,
-            /* topLevelOutputs= */ ImmutableSet.of());
+            /* filesToDownload= */ ImmutableSet.of());
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()

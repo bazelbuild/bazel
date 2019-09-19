@@ -226,7 +226,7 @@ public class RemoteSpawnCacheTest {
         "command-id",
         reporter,
         digestUtil,
-        /* topLevelOutputs= */ ImmutableSet.of());
+        /* filesToDownload= */ ImmutableSet.of());
   }
 
   @Before
