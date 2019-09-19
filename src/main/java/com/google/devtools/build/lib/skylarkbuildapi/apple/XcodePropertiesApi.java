@@ -40,6 +40,13 @@ public interface XcodePropertiesApi extends StructApi {
   public String getXcodeVersionString();
 
   @SkylarkCallable(
+      name = "is_local",
+      doc = "Whether this xcode came from the user's machine. Defaults to true (local) if unknown.",
+      structField = true,
+      allowReturnNones = true)
+  public boolean isLocal();
+
+  @SkylarkCallable(
       name = "default_ios_sdk_version",
       doc = "The default iOS sdk version for this version of xcode, or <code>None</code> if "
           + "unknown.",

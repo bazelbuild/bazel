@@ -39,6 +39,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
 
+  private final boolean isLocal;
   private final Optional<DottedVersion> xcodeVersion;
   private final DottedVersion defaultIosSdkVersion;
   private final DottedVersion defaultWatchosSdkVersion;
@@ -62,7 +63,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
    * specified.
    */
   XcodeVersionProperties(DottedVersion xcodeVersion) {
-    this(xcodeVersion, null, null, null, null);
+    this(xcodeVersion, true, null, null, null, null);
   }
 
   /**
@@ -71,12 +72,14 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
    */
   XcodeVersionProperties(
       DottedVersion xcodeVersion,
+      boolean isLocal,
       @Nullable String defaultIosSdkVersion,
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
       @Nullable String defaultMacosSdkVersion) {
     super(SKYLARK_CONSTRUCTOR);
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
+    this.isLocal = isLocal;
     this.defaultIosSdkVersion =
         Strings.isNullOrEmpty(defaultIosSdkVersion)
             ? DottedVersion.fromStringUnchecked(DEFAULT_IOS_SDK_VERSION)
@@ -103,6 +106,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     }
     return null;
   }
+
 
   /** Returns the default ios sdk version to use if this xcode version is in use. */
   @Override
@@ -131,6 +135,11 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   /** Returns the xcode version, or {@link Optional#absent} if the xcode version is unknown. */
   public Optional<DottedVersion> getXcodeVersion() {
     return xcodeVersion;
+  }
+
+  @Override
+  public boolean isLocal() {
+    return isLocal;
   }
 
   @Nullable
