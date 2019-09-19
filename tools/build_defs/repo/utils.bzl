@@ -66,10 +66,8 @@ def workspace_and_buildfile(ctx):
 def _is_windows(ctx):
     return ctx.os.name.lower().find("windows") != -1
 
-def _use_native_patch(patch_tool, patch_args):
-    """If patch_tool is empty and patch_args only contains -p<NUM> options, we use the native patch implementation."""
-    if patch_tool:
-        return False
+def _use_native_patch(patch_args):
+    """If patch_args only contains -p<NUM> options, we can use the native patch implementation."""
     for arg in patch_args:
         if not arg.startswith("-p"):
             return False
@@ -90,7 +88,9 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
       patch_cmds: Bash commands to run for patching, passed one at a
         time to bash -c. List of strings
       patch_cmds_win: Powershell commands to run for patching, passed
-        one at a time to powershell /c. List of strings.
+        one at a time to powershell /c. List of strings. If the
+        boolean value of this parameter is false, patch_cmds will be
+        used and this parameter will be ignored.
       patch_tool: Path of the patch tool to execute for applying
         patches. String.
       patch_args: Arguments to pass to the patch tool. List of strings.
@@ -98,21 +98,39 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
+
     if patches == None and hasattr(ctx.attr, "patches"):
         patches = ctx.attr.patches
+    if patches == None:
+        patches = []
+
     if patch_cmds == None and hasattr(ctx.attr, "patch_cmds"):
         patch_cmds = ctx.attr.patch_cmds
+    if patch_cmds == None:
+        patch_cmds = []
+
     if patch_cmds_win == None and hasattr(ctx.attr, "patch_cmds_win"):
         patch_cmds_win = ctx.attr.patch_cmds_win
+    if patch_cmds_win == None:
+        patch_cmds_win = []
+
     if patch_tool == None and hasattr(ctx.attr, "patch_tool"):
         patch_tool = ctx.attr.patch_tool
+    if patch_tool == None:
+        patch_tool = "patch"
+        native_patch = True
+    else:
+        native_patch = False
+
     if patch_args == None and hasattr(ctx.attr, "patch_args"):
         patch_args = ctx.attr.patch_args
+    if patch_args == None:
+        patch_args = []
 
     if len(patches) > 0 or len(patch_cmds) > 0:
         ctx.report_progress("Patching repository")
 
-    if _use_native_patch(patch_tool, patch_args):
+    if native_patch and _use_native_patch(patch_args):
         if patch_args:
             strip = int(patch_args[-1][2:])
         else:
@@ -121,9 +139,6 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
             ctx.patch(patchfile, strip)
     else:
         for patchfile in patches:
-            patch_tool = patch_tool
-            if not patch_tool:
-                patch_tool = "patch"
             command = "{patchtool} {patch_args} < {patchfile}".format(
                 patchtool = patch_tool,
                 patchfile = ctx.path(patchfile),
@@ -137,7 +152,7 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
                 fail("Error applying patch %s:\n%s%s" %
                      (str(patchfile), st.stderr, st.stdout))
 
-    if _is_windows(ctx) and hasattr(ctx.attr, "patch_cmds_win") and patch_cmds_win:
+    if _is_windows(ctx) and patch_cmds_win:
         for cmd in patch_cmds_win:
             st = ctx.execute([powershell_exe, "/c", cmd])
             if st.return_code:
