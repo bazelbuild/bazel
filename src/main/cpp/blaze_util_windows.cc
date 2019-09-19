@@ -407,15 +407,28 @@ string GetOutputRoot() {
 }
 
 string GetHomeDir() {
-  if (IsRunningWithinTest()) {
+  // Check HOME, for sake of consistency with Linux / macOS. This is only set
+  // under MSYS2, or potentially in tests.
+  string home = GetPathEnv("HOME");
+  if (IsRunningWithinTest() || !home.empty()) {
     // Bazel is running inside of a test. Respect $HOME that the test setup has
-    // set instead of using the actual home directory of the current user.
+    // set, even if it's empty.
     return GetPathEnv("HOME");
+  }
+
+  // Check USERPROFILE before calling SHGetKnownFolderPath. Doing so allows the
+  // user to customize (or override) the home directory.
+  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+  string userprofile = GetPathEnv("USERPROFILE");
+  if (!userprofile.empty()) {
+    return userprofile;
   }
 
   PWSTR wpath;
   // Look up the user's home directory. The default value of "FOLDERID_Profile"
   // is the same as %USERPROFILE%, but it does not require the envvar to be set.
+  // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
+  // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
   if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
                                        &wpath))) {
     string result = blaze_util::WstringToCstring(wpath);
@@ -423,14 +436,7 @@ string GetHomeDir() {
     return result;
   }
 
-  // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
-  // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
-  string userprofile = GetPathEnv("USERPROFILE");
-  if (!userprofile.empty()) {
-    return userprofile;
-  }
-
-  return GetPathEnv("HOME");  // only defined in MSYS/Cygwin
+  return "";
 }
 
 string FindSystemWideBlazerc() {
@@ -1158,6 +1164,21 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 #endif
 
 string GetUserName() {
+  // Check USER, for sake of consistency with Linux / macOS. This is only set
+  // under MSYS2, or potentially in tests.
+  string user = GetEnv("USER");
+  if (!user.empty()) {
+    return user;
+  }
+
+  // Check USERNAME before calling GetUserNameW. Doing so allows the user to
+  // customize (or override) the user name.
+  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+  user = GetEnv("USERNAME");
+  if (!user.empty()) {
+    return user;
+  }
+
   WCHAR buffer[UNLEN + 1];
   DWORD len = UNLEN + 1;
   if (!::GetUserNameW(buffer, &len)) {
