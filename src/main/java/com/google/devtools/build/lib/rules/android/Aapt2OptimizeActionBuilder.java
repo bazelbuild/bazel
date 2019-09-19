@@ -32,11 +32,10 @@ abstract class Aapt2OptimizeActionBuilder {
           .addFlag("--shorten-resource-paths")
           .addOutput("--resource-path-shortening-map", resourcePathShorteningMapOut());
     }
-    if (resourceNameObfuscationExemptionList() != null) {
+    if (resourceOptimizationConfig() != null) {
       builder
           .addFlag("--collapse-resource-names")
-          .addInput(
-              "--resource-name-obfuscation-exemption-list", resourceNameObfuscationExemptionList());
+          .addInput("--resources-config-path", resourceOptimizationConfig());
     }
     builder
         .addOutput("-o", optimizedApkOut())
@@ -52,7 +51,7 @@ abstract class Aapt2OptimizeActionBuilder {
   abstract Artifact resourcePathShorteningMapOut();
 
   @Nullable
-  abstract Artifact resourceNameObfuscationExemptionList();
+  abstract Artifact resourceOptimizationConfig();
 
   static Builder builder() {
     return new AutoValue_Aapt2OptimizeActionBuilder.Builder();
@@ -67,7 +66,7 @@ abstract class Aapt2OptimizeActionBuilder {
 
     abstract Builder setResourcePathShorteningMapOut(Artifact map);
 
-    abstract Builder setResourceNameObfuscationExemptionList(Artifact whitelist);
+    abstract Builder setResourceOptimizationConfig(Artifact resourceOptimizationConfig);
 
     abstract Aapt2OptimizeActionBuilder build();
   }

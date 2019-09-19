@@ -1027,7 +1027,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
     SpawnAction shrinkerAction =
-        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "kept_resources.txt"));
+        getGeneratingSpawnAction(
+            getFirstArtifactEndingWith(artifacts, "resource_optimization.cfg"));
     assertThat(shrinkerAction.getMnemonic()).isEqualTo("ResourceShrinker");
     SpawnAction optimizeAction =
         getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_"));
@@ -1035,8 +1036,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     List<String> processingArgs = optimizeAction.getArguments();
     assertThat(processingArgs).contains("--collapse-resource-names");
-    assertThat(flagValue("--resource-name-obfuscation-exemption-list", processingArgs))
-        .endsWith("kept_resources.txt");
+    assertThat(flagValue("--resources-config-path", processingArgs))
+        .endsWith("resource_optimization.cfg");
 
     // Verify that the optimized APK is an input to build the unsigned APK.
     SpawnAction apkAction =
@@ -4026,7 +4027,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("-printmapping", proguardArgs));
     assertThat(flagValue("--rTxt", shrinkingArgs))
         .isEqualTo(flagValue("--rOutput", processingArgs));
-    assertThat(flagValue("--keptResourcesOutput", shrinkingArgs)).endsWith("kept_resources.txt");
+    assertThat(flagValue("--resourcesConfigOutput", shrinkingArgs))
+        .endsWith("resource_optimization.cfg");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));

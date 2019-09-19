@@ -950,8 +950,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .setUncompressedExtensions(noCompressExtensions);
 
     if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      resourceShrinkerActionBuilder.setKeptResourcesOut(
-          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_KEPT));
+      resourceShrinkerActionBuilder.setResourceOptimizationConfigOut(
+          dataContext.createOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_OPTIMIZATION_CONFIG));
     }
     return Optional.of(resourceShrinkerActionBuilder.build(dataContext));
   }
@@ -971,8 +972,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP));
     }
     if (dataContext.useResourceNameObfuscation()) {
-      builder.setResourceNameObfuscationExemptionList(
-          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_KEPT));
+      builder.setResourceOptimizationConfig(
+          dataContext.createOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_OPTIMIZATION_CONFIG));
     }
     builder.build().registerAction(dataContext);
 

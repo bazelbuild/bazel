@@ -31,7 +31,7 @@ public class ResourceShrinkerActionBuilder {
   private ResourceDependencies dependencyResources;
   private Artifact resourceApkOut;
   private Artifact shrunkResourcesOut;
-  private Artifact keptResourcesOut;
+  private Artifact resourceOptimizationConfigOut;
   private Artifact logOut;
 
   private List<String> uncompressedExtensions = Collections.emptyList();
@@ -98,9 +98,10 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param keptResourcesOut The location to write the list of kept resources. */
-  public ResourceShrinkerActionBuilder setKeptResourcesOut(Artifact keptResourcesOut) {
-    this.keptResourcesOut = keptResourcesOut;
+  /** @param resourceOptimizationConfigOut The location to write the config for the optimizer. */
+  public ResourceShrinkerActionBuilder setResourceOptimizationConfigOut(
+      Artifact resourceOptimizationConfigOut) {
+    this.resourceOptimizationConfigOut = resourceOptimizationConfigOut;
     return this;
   }
 
@@ -152,7 +153,7 @@ public class ResourceShrinkerActionBuilder {
         .addInput("--rTxt", primaryResources.getRTxt())
         .addOutput("--shrunkResourceApk", resourceApkOut)
         .addOutput("--shrunkResources", shrunkResourcesOut)
-        .maybeAddOutput("--keptResourcesOutput", keptResourcesOut)
+        .maybeAddOutput("--resourcesConfigOutput", resourceOptimizationConfigOut)
         .addOutput("--log", logOut)
         .buildAndRegister("Shrinking resources", "ResourceShrinker");
 
