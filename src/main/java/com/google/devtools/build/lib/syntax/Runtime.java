@@ -452,8 +452,8 @@ public final class Runtime {
       builder.put(skylarkModule.name(), moduleInstance);
     }
     if (hasSkylarkGlobalLibrary) {
-      for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
-        builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+      for (String methodName : CallUtils.getMethodNames(moduleClass)) {
+        builder.put(methodName, CallUtils.getBuiltinCallable(moduleInstance, methodName));
       }
     }
   }

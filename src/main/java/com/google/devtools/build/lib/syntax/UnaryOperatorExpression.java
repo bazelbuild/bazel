@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 
 /** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
@@ -54,44 +53,6 @@ public final class UnaryOperatorExpression extends Expression {
     // "not False in mylist", which evaluates to opposite results in the case that mylist is empty.
     // TODO(adonovan): record parentheses explicitly in syntax tree.
     return (op == TokenKind.NOT ? "not " : op.toString()) + x;
-  }
-
-  // TODO(adonovan): move to EvalUtils.unary.
-  static Object evaluate(TokenKind op, Object value, Location loc)
-      throws EvalException, InterruptedException {
-    switch (op) {
-      case NOT:
-        return !EvalUtils.toBoolean(value);
-
-      case MINUS:
-        if (value instanceof Integer) {
-          try {
-            return Math.negateExact((Integer) value);
-          } catch (ArithmeticException e) {
-            // Fails for -MIN_INT.
-            throw new EvalException(loc, e.getMessage());
-          }
-        }
-        break;
-
-      case PLUS:
-        if (value instanceof Integer) {
-          return value;
-        }
-        break;
-
-      case TILDE:
-        if (value instanceof Integer) {
-          return ~((Integer) value);
-        }
-        break;
-
-        // ignore any other operator and proceed to report an error
-      default:
-    }
-    throw new EvalException(
-        loc,
-        String.format("unsupported unary operation: %s%s", op, EvalUtils.getDataTypeName(value)));
   }
 
   @Override

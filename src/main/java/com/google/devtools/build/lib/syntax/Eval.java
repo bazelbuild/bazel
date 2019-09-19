@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /** A syntax-tree-walking evaluator. */
 // TODO(adonovan): make this class the sole locus of tree-based evaluation logic.
@@ -67,11 +71,6 @@ final class Eval {
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
     Object rvalue = eval(env, node.getRHS());
     assign(node.getLHS(), rvalue, env, node.getLocation());
-  }
-
-  private void execAugmentedAssignment(AugmentedAssignmentStatement node)
-      throws EvalException, InterruptedException {
-    assignAugmented(node.getLHS(), node.getOperator(), node.getRHS(), env, node.getLocation());
   }
 
   private TokenKind execIfBranch(IfStatement.ConditionalStatements node)
@@ -321,29 +320,50 @@ final class Eval {
    * behavior (hence why the right-hand side is passed as an expression rather than as an evaluated
    * value).
    */
-  private static void assignAugmented(
-      Expression expr, TokenKind op, Expression rhs, Environment env, Location loc)
+  private void execAugmentedAssignment(AugmentedAssignmentStatement stmt)
       throws EvalException, InterruptedException {
-    if (expr instanceof Identifier) {
-      Object result =
-          BinaryOperatorExpression.evaluateAugmented(op, eval(env, expr), eval(env, rhs), env, loc);
-      assignIdentifier((Identifier) expr, result, env);
-    } else if (expr instanceof IndexExpression) {
-      IndexExpression indexExpression = (IndexExpression) expr;
-      // The object and key should be evaluated only once, so we don't use expr.eval().
-      Object object = eval(env, indexExpression.getObject());
-      Object key = eval(env, indexExpression.getKey());
-      Object oldValue = IndexExpression.evaluate(object, key, env, loc);
+    Expression lhs = stmt.getLHS();
+    TokenKind op = stmt.getOperator();
+    Expression rhs = stmt.getRHS();
+    Location loc = stmt.getLocation();
+
+    if (lhs instanceof Identifier) {
+      Object x = eval(env, lhs);
+      Object y = eval(env, rhs);
+      Object z = inplaceBinaryOp(op, x, y, env, loc);
+      assignIdentifier((Identifier) lhs, z, env);
+    } else if (lhs instanceof IndexExpression) {
+      // object[index] op= y
+      // The object and key should be evaluated only once, so we don't use lhs.eval().
+      IndexExpression index = (IndexExpression) lhs;
+      Object object = eval(env, index.getObject());
+      Object key = eval(env, index.getKey());
+      Object x = EvalUtils.index(object, key, env, loc);
       // Evaluate rhs after lhs.
-      Object rhsValue = eval(env, rhs);
-      Object result = BinaryOperatorExpression.evaluateAugmented(op, oldValue, rhsValue, env, loc);
-      assignItem(object, key, result, env, loc);
-    } else if (expr instanceof ListExpression) {
+      Object y = eval(env, rhs);
+      Object z = inplaceBinaryOp(op, x, y, env, loc);
+      assignItem(object, key, z, env, loc);
+    } else if (lhs instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
       // Not possible for validated ASTs.
-      throw new EvalException(loc, "cannot perform augmented assignment on '" + expr + "'");
+      throw new EvalException(loc, "cannot perform augmented assignment on '" + lhs + "'");
     }
+  }
+
+  private static Object inplaceBinaryOp(
+      TokenKind op, Object x, Object y, Environment env, Location location)
+      throws EvalException, InterruptedException {
+    // list += iterable  behaves like  list.extend(iterable)
+    // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
+    if (op == TokenKind.PLUS
+        && x instanceof SkylarkList.MutableList
+        && y instanceof SkylarkList.MutableList) {
+      SkylarkList.MutableList<?> list = (SkylarkList.MutableList) x;
+      list.extend(y, location, env);
+      return list;
+    }
+    return EvalUtils.binaryOp(op, x, y, env, location);
   }
 
   // ---- expressions ----
@@ -393,33 +413,22 @@ final class Eval {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         {
-          // AND and OR require short-circuit evaluation.
           BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
+          Object x = eval(env, binop.getX());
+          // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              {
-                Object xval = eval(env, binop.getX());
-                return EvalUtils.toBoolean(xval) ? Eval.eval(env, binop.getY()) : xval;
-              }
+              return EvalUtils.toBoolean(x) ? Eval.eval(env, binop.getY()) : x;
             case OR:
-              {
-                Object xval = eval(env, binop.getX());
-                return EvalUtils.toBoolean(xval) ? xval : Eval.eval(env, binop.getY());
-              }
+              return EvalUtils.toBoolean(x) ? x : Eval.eval(env, binop.getY());
             default:
-              return BinaryOperatorExpression.evaluate(
-                  binop.getOperator(),
-                  eval(env, binop.getX()),
-                  eval(env, binop.getY()),
-                  env,
-                  binop.getLocation());
+              Object y = eval(env, binop.getY());
+              return EvalUtils.binaryOp(binop.getOperator(), x, y, env, binop.getLocation());
           }
         }
 
       case COMPREHENSION:
-        {
-          return evalComprehension(env, (Comprehension) expr);
-        }
+        return evalComprehension(env, (Comprehension) expr);
 
       case CONDITIONAL:
         {
@@ -458,8 +467,23 @@ final class Eval {
       case FUNCALL:
         {
           FuncallExpression call = (FuncallExpression) expr;
-          // TODO(adonovan): inline this one in a follow-up. It's a whopper.
-          return FuncallExpression.call(env, call);
+
+          ArrayList<Object> posargs = new ArrayList<>();
+          Map<String, Object> kwargs = new LinkedHashMap<>();
+
+          // Optimization: call x.f() without materializing
+          // a closure for x.f if f is a Java method.
+          if (call.getFunction() instanceof DotExpression) {
+            DotExpression dot = (DotExpression) call.getFunction();
+            Object object = Eval.eval(env, dot.getObject());
+            evalArguments(env, call, posargs, kwargs);
+            return CallUtils.callMethod(
+                env, call, object, posargs, kwargs, dot.getField().getName(), dot.getLocation());
+          }
+
+          Object fn = Eval.eval(env, call.getFunction());
+          evalArguments(env, call, posargs, kwargs);
+          return CallUtils.call(env, call, fn, posargs, kwargs);
         }
 
       case IDENTIFIER:
@@ -510,7 +534,7 @@ final class Eval {
           IndexExpression index = (IndexExpression) expr;
           Object object = eval(env, index.getObject());
           Object key = eval(env, index.getKey());
-          return IndexExpression.evaluate(object, key, env, index.getLocation());
+          return EvalUtils.index(object, key, env, index.getLocation());
         }
 
       case INTEGER_LITERAL:
@@ -521,10 +545,6 @@ final class Eval {
           ListExpression list = (ListExpression) expr;
           ArrayList<Object> result = new ArrayList<>(list.getElements().size());
           for (Expression elem : list.getElements()) {
-            // Convert NPEs to EvalExceptions.
-            if (elem == null) {
-              throw new EvalException(list.getLocation(), "null expression in " + list);
-            }
             result.add(eval(env, elem));
           }
           return list.isTuple()
@@ -579,7 +599,7 @@ final class Eval {
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
           Object x = eval(env, unop.getX());
-          return UnaryOperatorExpression.evaluate(unop.getOperator(), x, unop.getLocation());
+          return EvalUtils.unaryOp(unop.getOperator(), x, unop.getLocation());
         }
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
@@ -716,5 +736,111 @@ final class Eval {
       return result;
     }
     throw EvalUtils.getMissingFieldException(objValue, name, loc, semantics, "field");
+  }
+
+  /**
+   * Add one named argument to the keyword map, and returns whether that name has been encountered
+   * before.
+   */
+  private static boolean addKeywordArgAndCheckIfDuplicate(
+      Map<String, Object> kwargs, String name, Object value) {
+    return kwargs.put(name, value) != null;
+  }
+
+  /**
+   * Add multiple arguments to the keyword map (**kwargs), and returns all the names of those
+   * arguments that have been encountered before or {@code null} if there are no such names.
+   */
+  @Nullable
+  private static ImmutableList<String> addKeywordArgsAndReturnDuplicates(
+      Map<String, Object> kwargs, Object items, Location location) throws EvalException {
+    if (!(items instanceof Map<?, ?>)) {
+      throw new EvalException(
+          location,
+          "argument after ** must be a dictionary, not '" + EvalUtils.getDataTypeName(items) + "'");
+    }
+    ImmutableList.Builder<String> duplicatesBuilder = null;
+    for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
+      if (!(entry.getKey() instanceof String)) {
+        throw new EvalException(
+            location,
+            "keywords must be strings, not '" + EvalUtils.getDataTypeName(entry.getKey()) + "'");
+      }
+      String argName = (String) entry.getKey();
+      if (addKeywordArgAndCheckIfDuplicate(kwargs, argName, entry.getValue())) {
+        if (duplicatesBuilder == null) {
+          duplicatesBuilder = ImmutableList.builder();
+        }
+        duplicatesBuilder.add(argName);
+      }
+    }
+    return duplicatesBuilder == null ? null : duplicatesBuilder.build();
+  }
+
+  /**
+   * Evaluate this FuncallExpression's arguments, and put the resulting evaluated expressions into
+   * the given {@code posargs} and {@code kwargs} collections.
+   *
+   * @param posargs a list to which all positional arguments will be added
+   * @param kwargs a mutable map to which all keyword arguments will be added. A mutable map is used
+   *     here instead of an immutable map builder to deal with duplicates without memory overhead
+   * @param env the current environment
+   */
+  @SuppressWarnings("unchecked")
+  private static void evalArguments(
+      Environment env, FuncallExpression call, List<Object> posargs, Map<String, Object> kwargs)
+      throws EvalException, InterruptedException {
+
+    // Optimize allocations for the common case where they are no duplicates.
+    ImmutableList.Builder<String> duplicatesBuilder = null;
+    // Iterate over the arguments. We assume all positional arguments come before any keyword
+    // or star arguments, because the argument list was already validated by
+    // Argument#validateFuncallArguments, as called by the Parser,
+    // which should be the only place that build FuncallExpression-s.
+    // Argument lists are typically short and functions are frequently called, so go by index
+    // (O(1) for ImmutableList) to avoid the iterator overhead.
+    for (int i = 0; i < call.getArguments().size(); i++) {
+      Argument.Passed arg = call.getArguments().get(i);
+      Object value = Eval.eval(env, arg.getValue());
+      if (arg.isPositional()) {
+        posargs.add(value);
+      } else if (arg.isStar()) { // expand the starArg
+        if (!(value instanceof Iterable)) {
+          throw new EvalException(
+              call.getLocation(),
+              "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
+        }
+        for (Object starArgUnit : (Iterable<Object>) value) {
+          posargs.add(starArgUnit);
+        }
+      } else if (arg.isStarStar()) { // expand the kwargs
+        ImmutableList<String> duplicates =
+            addKeywordArgsAndReturnDuplicates(kwargs, value, call.getLocation());
+        if (duplicates != null) {
+          if (duplicatesBuilder == null) {
+            duplicatesBuilder = ImmutableList.builder();
+          }
+          duplicatesBuilder.addAll(duplicates);
+        }
+      } else {
+        if (addKeywordArgAndCheckIfDuplicate(kwargs, arg.getName(), value)) {
+          if (duplicatesBuilder == null) {
+            duplicatesBuilder = ImmutableList.builder();
+          }
+          duplicatesBuilder.add(arg.getName());
+        }
+      }
+    }
+    if (duplicatesBuilder != null) {
+      ImmutableList<String> dups = duplicatesBuilder.build();
+      throw new EvalException(
+          call.getLocation(),
+          "duplicate keyword"
+              + (dups.size() > 1 ? "s" : "")
+              + " '"
+              + Joiner.on("', '").join(dups)
+              + "' in call to "
+              + call.getFunction());
+    }
   }
 }

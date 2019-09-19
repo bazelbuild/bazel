@@ -61,14 +61,14 @@ public final class BuiltinCallable implements StarlarkCallable {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, methodName)) {
       Object[] javaArguments =
-          FuncallExpression.convertStarlarkArgumentsToJavaMethodArguments(
+          CallUtils.convertStarlarkArgumentsToJavaMethodArguments(
               env, ast, methodDescriptor, clazz, args, kwargs);
       return methodDescriptor.call(objValue, javaArguments, ast.getLocation(), env);
     }
   }
 
   public MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
-    return FuncallExpression.getMethod(semantics, obj.getClass(), methodName);
+    return CallUtils.getMethod(semantics, obj.getClass(), methodName);
   }
 
   @Override

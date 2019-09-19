@@ -821,7 +821,7 @@ public class MethodLibrary {
       fields.addAll(((ClassObject) object).getFieldNames());
     }
     fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
-    fields.addAll(FuncallExpression.getMethodNames(env.getSemantics(), object.getClass()));
+    fields.addAll(CallUtils.getMethodNames(env.getSemantics(), object.getClass()));
     return MutableList.copyOf(env, fields);
   }
 

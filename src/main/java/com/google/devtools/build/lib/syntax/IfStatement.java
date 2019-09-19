@@ -27,6 +27,7 @@ public final class IfStatement extends Statement {
    * <p>This extends Statement, but it is not actually an independent statement in the grammar. We
    * should probably eliminate it in favor of a recursive representation of if/else chains.
    */
+  // TODO(adonovan): eliminate this class; represent if/else-chains as a linked list.
   public static final class ConditionalStatements extends Statement {
 
     private final Expression condition;

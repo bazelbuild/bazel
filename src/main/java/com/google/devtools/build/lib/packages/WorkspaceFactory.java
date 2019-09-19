@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -385,9 +386,9 @@ public class WorkspaceFactory {
       ImmutableMap<String, Object> workspaceFunctions, String version) {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     SkylarkNativeModule nativeModuleInstance = new SkylarkNativeModule();
-    for (String nativeFunction : FuncallExpression.getMethodNames(SkylarkNativeModule.class)) {
-      builder.put(nativeFunction,
-          FuncallExpression.getBuiltinCallable(nativeModuleInstance, nativeFunction));
+    for (String nativeFunction : CallUtils.getMethodNames(SkylarkNativeModule.class)) {
+      builder.put(
+          nativeFunction, CallUtils.getBuiltinCallable(nativeModuleInstance, nativeFunction));
     }
     for (Map.Entry<String, Object> function : workspaceFunctions.entrySet()) {
       // "workspace" is explicitly omitted from the native module, as it must only occur at the

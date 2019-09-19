@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -1615,9 +1616,9 @@ public final class PackageFactory {
   private ClassObject newNativeModule() {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     SkylarkNativeModule nativeModuleInstance = new SkylarkNativeModule();
-    for (String nativeFunction : FuncallExpression.getMethodNames(SkylarkNativeModule.class)) {
-      builder.put(nativeFunction,
-          FuncallExpression.getBuiltinCallable(nativeModuleInstance, nativeFunction));
+    for (String nativeFunction : CallUtils.getMethodNames(SkylarkNativeModule.class)) {
+      builder.put(
+          nativeFunction, CallUtils.getBuiltinCallable(nativeModuleInstance, nativeFunction));
     }
     builder.putAll(ruleFunctions);
     builder.put("package", newPackageFunction(packageArguments));
