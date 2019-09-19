@@ -374,12 +374,14 @@ public class CompactPersistentActionCache implements ActionCache {
       // + 5 bytes max for the file list length
       // + 5 bytes max for each file id
       // + 16 bytes for the environment digest
+      // + 16 bytes for the remote default platform properties digest
       int maxSize =
           VarInt.MAX_VARINT_SIZE
               + actionKeyBytes.length
               + Md5Digest.MD5_SIZE
               + VarInt.MAX_VARINT_SIZE
               + files.size() * VarInt.MAX_VARINT_SIZE
+              + Md5Digest.MD5_SIZE
               + Md5Digest.MD5_SIZE;
       ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
@@ -394,6 +396,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
 
       DigestUtils.write(entry.getUsedClientEnvDigest(), sink);
+      DigestUtils.write(entry.getRemoteDefaultPlatformPropertiesDigest(), sink);
 
       return sink.toByteArray();
     } catch (IOException e) {
@@ -433,11 +436,12 @@ public class CompactPersistentActionCache implements ActionCache {
       }
 
       Md5Digest usedClientEnvDigest = DigestUtils.read(source);
+      Md5Digest remoteDefaultPlatformPropertiesDigest = DigestUtils.read(source);
 
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
-      return new ActionCache.Entry(actionKey, usedClientEnvDigest, files, md5Digest);
+      return new ActionCache.Entry(actionKey, usedClientEnvDigest, files, md5Digest, remoteDefaultPlatformPropertiesDigest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

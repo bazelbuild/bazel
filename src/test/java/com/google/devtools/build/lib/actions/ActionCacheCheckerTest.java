@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
@@ -107,10 +108,36 @@ public class ActionCacheCheckerTest {
     }
 
     Token token = cacheChecker.getTokenIfNeedToExecute(
-        action, null, clientEnv, null, metadataHandler);
+        action, null, clientEnv, null, metadataHandler, ImmutableSortedMap.of());
     if (token != null) {
       // Real action execution would happen here.
-      cacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
+      cacheChecker.updateActionCache(action, token, metadataHandler, clientEnv, ImmutableSortedMap.of());
+    }
+  }
+
+  private void runActionWithPlatform(Action action, Map<String, String> clientEnv, Map<String, String> platform)
+          throws Exception {
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
+
+    for (Artifact artifact : action.getOutputs()) {
+      Path path = artifact.getPath();
+
+      // Record all action outputs as files to be deleted across tests to prevent cross-test
+      // pollution.  We need to do this on a path basis because we don't know upfront which file
+      // system they live in so we cannot just recreate the file system.  (E.g. all NullActions
+      // share an in-memory file system to hold dummy outputs.)
+      filesToDelete.add(path);
+
+      if (!path.exists()) {
+        FileSystemUtils.writeContentAsLatin1(path, "");
+      }
+    }
+
+    Token token = cacheChecker.getTokenIfNeedToExecute(
+            action, null, clientEnv, null, metadataHandler, platform);
+    if (token != null) {
+      // Real action execution would happen here.
+      cacheChecker.updateActionCache(action, token, metadataHandler, clientEnv, platform);
     }
   }
 
@@ -218,6 +245,36 @@ public class ActionCacheCheckerTest {
             .set(MissReason.DIFFERENT_ENVIRONMENT, 1)
             .set(MissReason.NOT_CACHED, 1)
             .build());
+  }
+
+  @Test
+  public void testDifferentRemoteDefaultPlatform() throws Exception {
+    Action action = new NullAction();
+    Map<String, String> env = new HashMap<>();
+    env.put("unused-var", "1");
+
+    Map<String, String> platform = new HashMap<>();
+    platform.put("some-var", "1");
+    // Not cached.
+    runActionWithPlatform(action, env, platform);
+    // Cache hit because nothing changed.
+    runActionWithPlatform(action, env, platform);
+    // Cache miss because platform changed to an empty from a previous value.
+    runActionWithPlatform(action, env, ImmutableSortedMap.of());
+    // Cache hit with an empty platform.
+    runActionWithPlatform(action, env, ImmutableSortedMap.of());
+    // Cache miss because platform changed to a value from an empty one.
+    runActionWithPlatform(action, env, ImmutableSortedMap.copyOf(platform));
+    platform.put("another-var", "1234");
+    // Cache miss because platform value changed.
+    runActionWithPlatform(action, env, ImmutableSortedMap.copyOf(platform));
+
+    assertStatistics(
+            2,
+            new MissDetailsBuilder()
+                    .set(MissReason.DIFFERENT_DEFAULT_PLATFORM, 3)
+                    .set(MissReason.NOT_CACHED, 1)
+                    .build());
   }
 
   @Test

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -223,7 +225,8 @@ public class ActionCacheChecker {
       Iterable<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       EventHandler handler,
-      MetadataHandler metadataHandler) {
+      MetadataHandler metadataHandler,
+      Map<String, String> remotePlatform) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
     // that inputs and outputs are still exist (and new inputs have not appeared). All other checks
@@ -252,7 +255,7 @@ public class ActionCacheChecker {
       actionInputs = resolvedCacheArtifacts;
     }
     ActionCache.Entry entry = getCacheEntry(action);
-    if (mustExecute(action, entry, handler, metadataHandler, actionInputs, clientEnv)) {
+    if (mustExecute(action, entry, handler, metadataHandler, actionInputs, clientEnv, remotePlatform)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -271,7 +274,8 @@ public class ActionCacheChecker {
       EventHandler handler,
       MetadataHandler metadataHandler,
       Iterable<Artifact> actionInputs,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv,
+      Map<String, String> remotePlatform) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
@@ -304,6 +308,12 @@ public class ActionCacheChecker {
       actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
       return true;
     }
+    if (!entry.getRemoteDefaultPlatformPropertiesDigest().equals(
+        DigestUtils.fromEnv(remotePlatform))) {
+      reportDefaultPlatformChanged(handler, action);
+      actionCache.accountMiss(MissReason.DIFFERENT_DEFAULT_PLATFORM);
+      return true;
+    }
 
     entry.getFileDigest();
     actionCache.accountHit();
@@ -333,7 +343,8 @@ public class ActionCacheChecker {
   }
 
   public void updateActionCache(
-      Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv)
+      Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv,
+      Map<String, String> platform)
       throws IOException {
     Preconditions.checkState(
         cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
@@ -346,7 +357,7 @@ public class ActionCacheChecker {
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     ActionCache.Entry entry =
         new ActionCache.Entry(
-            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs());
+            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs(), ImmutableSortedMap.copyOf(platform));
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -473,7 +484,7 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
+      entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false, ImmutableSortedMap.of());
       for (Artifact input : action.getInputs()) {
         entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
       }
@@ -529,6 +540,10 @@ public class ActionCacheChecker {
 
   private static void reportCorruptedCacheEntry(@Nullable EventHandler handler, Action action) {
     reportRebuild(handler, action, "cache entry is corrupted");
+  }
+
+  private static void reportDefaultPlatformChanged(@Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "remote default platform properties were changed");
   }
 
   /** Wrapper for all context needed by the ActionCacheChecker to handle a single action. */

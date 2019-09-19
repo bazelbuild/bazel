@@ -1373,6 +1373,67 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
+
+function test_platform_default_properties_invalidation() {
+  # Test that when changing values of --remote_default_platform_properties all actions are
+  # invalidated.
+mkdir -p test
+  cat << EOF >> test/BUILD
+load(":skylark.bzl", "test_rule")
+
+test_rule(
+    name = "test",
+    out = "output.txt",
+    tags = ["no-cache", "no-remote", "local"]
+)
+EOF
+
+  cat << 'EOF' >> test/skylark.bzl
+def _test_impl(ctx):
+  ctx.actions.run_shell(outputs = [ctx.outputs.out],
+                        command = ["touch", ctx.outputs.out.path])
+  files_to_build = depset([ctx.outputs.out])
+  return DefaultInfo(
+      files = files_to_build,
+  )
+
+test_rule = rule(
+    implementation=_test_impl,
+    attrs = {
+        "out": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  bazel build \
+  --genrule_strategy=remote \
+     --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  expect_log "1 process: 1 remote"
+
+  bazel build \
+  --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_platform_properties='properties:{name:"build" value:"88888"}' \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
+  # caching and make it re-run the action.
+  expect_log "1 process: 1 remote"
+
+  bazel  build \
+  --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_platform_properties='properties:{name:"build" value:"88888"}' \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
+  #  and make the action should not be re-run.
+  expect_log "0 processes"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

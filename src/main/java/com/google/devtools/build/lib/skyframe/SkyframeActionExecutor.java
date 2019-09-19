@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -73,6 +74,7 @@ import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -639,15 +641,20 @@ public final class SkyframeActionExecutor {
       Map<String, String> clientEnv) {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      SortedMap<String, String> remoteDefaultProperties = remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableSortedMap.of();
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
               clientEnv,
-              options.getOptions(BuildRequestOptions.class).explanationPath != null
+              this.options.getOptions(BuildRequestOptions.class).explanationPath != null
                   ? reporter
                   : null,
-              metadataHandler);
+              metadataHandler,
+              remoteDefaultProperties);
+    } catch (UserExecException e) {
+      throw new IllegalStateException("failed to check action cache for " + action.prettyPrint(), e);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -699,8 +706,10 @@ public final class SkyframeActionExecutor {
       return;
     }
     try {
-      actionCacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
-    } catch (IOException e) {
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      SortedMap<String, String> remoteDefaultProperties = remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableSortedMap.of();
+      actionCacheChecker.updateActionCache(action, token, metadataHandler, clientEnv, remoteDefaultProperties);
+    } catch (IOException | UserExecException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
       throw new IllegalStateException(

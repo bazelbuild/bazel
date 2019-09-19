@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions.cache;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
@@ -73,7 +74,7 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance to represent a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new ActionCache.Entry(null, ImmutableMap.<String, String>of(), false);
+        new ActionCache.Entry(null, ImmutableMap.of(), false, ImmutableSortedMap.of());
 
     private final String actionKey;
     @Nullable
@@ -83,23 +84,28 @@ public interface ActionCache {
     private Map<String, FileArtifactValue> mdMap;
     private Md5Digest md5Digest;
     private final Md5Digest usedClientEnvDigest;
+    private final Md5Digest remoteDefaultPlatformPropertiesDigest;
 
-    public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
+    public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs,
+                 ImmutableSortedMap<String, String> remoteDefaultPlatformProperties) {
       actionKey = key;
       this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
       files = discoversInputs ? new ArrayList<String>() : null;
       mdMap = new HashMap<>();
+      remoteDefaultPlatformPropertiesDigest = DigestUtils.fromEnv(remoteDefaultPlatformProperties);
     }
 
     public Entry(
         String key,
         Md5Digest usedClientEnvDigest,
         @Nullable List<String> files,
-        Md5Digest md5Digest) {
+        Md5Digest md5Digest,
+        Md5Digest remoteDefaultPlatformDigest) {
       actionKey = key;
       this.usedClientEnvDigest = usedClientEnvDigest;
       this.files = files;
       this.md5Digest = md5Digest;
+      this.remoteDefaultPlatformPropertiesDigest = remoteDefaultPlatformDigest;
       mdMap = null;
     }
 
@@ -171,6 +177,7 @@ public interface ActionCache {
       StringBuilder builder = new StringBuilder();
       builder.append("      actionKey = ").append(actionKey).append("\n");
       builder.append("      usedClientEnvKey = ").append(usedClientEnvDigest).append("\n");
+      builder.append("      remoteDefaultPlatformDigest = ").append(remoteDefaultPlatformPropertiesDigest).append("\n");
       builder.append("      digestKey = ");
       if (md5Digest == null) {
         builder.append(DigestUtils.fromMetadata(mdMap)).append(" (from mdMap)\n");
@@ -188,6 +195,10 @@ public interface ActionCache {
       }
       return builder.toString();
     }
+
+    public Md5Digest getRemoteDefaultPlatformPropertiesDigest() {
+          return remoteDefaultPlatformPropertiesDigest;
+      }
   }
 
   /**
