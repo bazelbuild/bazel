@@ -559,31 +559,33 @@ steps:
 
 Runfiles are a set of files used by the (often executable) output of a rule
 during runtime (as opposed to build time, i.e. when the binary itself is
-generated).
-During the [execution phase](concepts.md#evaluation-model), Bazel creates a
-directory tree containing symlinks pointing to the runfiles. This stages the
-environment for the binary so it can access the runfiles during runtime.
+generated). During the
+[execution phase](concepts.md#evaluation-model), Bazel creates a directory tree
+containing symlinks pointing to the runfiles. This stages the environment for
+the binary so it can access the runfiles during runtime.
 
 [See example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/execute.bzl)
 
 Runfiles can be added manually during rule creation and/or collected
-transitively from the rule's dependencies:
+transitively from the rule's dependencies. [`runfiles`](lib/runfiles.html)
+objects can be created by the `runfiles` method on the rule context,
+[`ctx.runfiles`](lib/ctx.html#runfiles):
 
 ```python
 def _rule_implementation(ctx):
   ...
-  transitive_runfiles = depset(transitive=
-    [dep.transitive_runtime_files for dep in ctx.attr.special_dependencies])
-
   runfiles = ctx.runfiles(
-      # Add some files manually.
+      # Optionally add some files manually.
       files = [ctx.file.some_data_file],
-      # Add transitive files from dependencies manually.
-      transitive_files = transitive_runfiles,
-      # Collect runfiles from the common locations: transitively from srcs,
-      # deps and data attributes.
+      # Optionally add files from some dependencies' providers manually.
+      transitive_files = [ctx.attr.something[SomeProviderInfo].depset_of_files],
+      # Optionally collect default_runfiles from the common locations:
+      # transitively from srcs, deps and data attributes.
       collect_default = True,
   )
+  # Optionally merge in runfiles from specific dependencies.
+  for dep in ctx.attr.special_dependencies:
+    runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)
   # Add a field named "runfiles" to the DefaultInfo provider in order to actually
   # create the symlink tree.
   return [DefaultInfo(runfiles=runfiles)]
