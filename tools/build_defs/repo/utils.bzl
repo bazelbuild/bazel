@@ -116,7 +116,7 @@ def patch(ctx, patches=None, patch_cmds=None, patch_cmds_win=None, patch_tool=No
 
     if patch_tool == None and hasattr(ctx.attr, "patch_tool"):
         patch_tool = ctx.attr.patch_tool
-    if patch_tool == None:
+    if not patch_tool:
         patch_tool = "patch"
         native_patch = True
     else:
