@@ -46,11 +46,11 @@ using std::wstring;
         ::GetEnvironmentVariableA(blaze_util::AsLower(key).c_str(), NULL, 0), \
         (DWORD)0);                                                            \
     ASSERT_EQ(::GetEnvironmentVariableW(                                      \
-                  blaze_util::CstringToWstring(key).get(), NULL, 0),          \
+                  blaze_util::CstringToWstring(key).c_str(), NULL, 0),        \
               (DWORD)0);                                                      \
     ASSERT_EQ(::GetEnvironmentVariableW(blaze_util::CstringToWstring(         \
-                                            blaze_util::AsLower(key).c_str()) \
-                                            .get(),                           \
+                                            blaze_util::AsLower(key))         \
+                                            .c_str(),                         \
                                         NULL, 0),                             \
               (DWORD)0);                                                      \
   }
@@ -82,8 +82,8 @@ using std::wstring;
     ASSERT_EQ(string(buf.get()), expected);                                  \
                                                                              \
     /* Assert that GetEnvironmentVariableW can retrieve the value. */        \
-    wstring wkey(blaze_util::CstringToWstring(key.c_str()).get());           \
-    wstring wexpected(blaze_util::CstringToWstring(expected.c_str()).get()); \
+    wstring wkey(blaze_util::CstringToWstring(key));                         \
+    wstring wexpected(blaze_util::CstringToWstring(expected));               \
     size = ::GetEnvironmentVariableW(wkey.c_str(), NULL, 0);                 \
     ASSERT_GT(size, (DWORD)0);                                               \
     unique_ptr<WCHAR[]> wbuf(new WCHAR[size]);                               \
@@ -92,7 +92,7 @@ using std::wstring;
     ASSERT_EQ(wstring(wbuf.get()), wexpected);                               \
                                                                              \
     /* Assert that widechar envvar keys are case-insensitive. */             \
-    wstring wlkey(blaze_util::CstringToWstring(lkey.c_str()).get());         \
+    wstring wlkey(blaze_util::CstringToWstring(lkey));                       \
     ASSERT_EQ(::GetEnvironmentVariableW(wlkey.c_str(), wbuf.get(), size),    \
               size - 1);                                                     \
     ASSERT_EQ(wstring(wbuf.get()), wexpected);                               \

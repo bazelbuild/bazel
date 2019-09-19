@@ -303,16 +303,6 @@ TEST(BlazeUtil, StringPrintf) {
   EXPECT_EQ("a b", out);
 }
 
-TEST(BlazeUtil, CstringToWstringTest) {
-  unique_ptr<wchar_t[]> actual = CstringToWstring("hello world");
-  EXPECT_EQ(0, wcscmp(actual.get(), L"hello world"));
-}
-
-TEST(BlazeUtil, WstringToCstringTest) {
-  unique_ptr<char[]> actual = WstringToCstring(L"hello world");
-  EXPECT_EQ(0, strcmp(actual.get(), "hello world"));
-}
-
 TEST(BlazeUtil, EndsWithTest) {
   ASSERT_TRUE(ends_with("", ""));
   ASSERT_TRUE(ends_with(L"", L""));

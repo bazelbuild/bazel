@@ -443,7 +443,7 @@ bool ReadDirectorySymlink(const blaze_util::Path& name, string* result) {
   if (!RealPath(name.AsNativePath().c_str(), &result_ptr)) {
     return false;
   }
-  *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get())).get();
+  *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get()));
   return true;
 }
 
@@ -490,7 +490,7 @@ string MakeCanonical(const char* path) {
     *p_to++ = towlower(*p_from++);
   }
   *p_to = 0;
-  return string(WstringToCstring(lcase_realpath.get()).get());
+  return WstringToCstring(lcase_realpath.get());
 }
 
 static bool CanReadFileW(const wstring& path) {
@@ -600,7 +600,7 @@ bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   std::string error;
   if (!AsAbsoluteWindowsPath(path, &abs_path, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "MakeDirectoriesW(" << blaze_util::WstringToString(path)
+        << "MakeDirectoriesW(" << blaze_util::WstringToCstring(path)
         << "): " << error;
   }
   if (IsRootDirectoryW(abs_path) || IsDirectoryW(abs_path)) {
@@ -611,7 +611,7 @@ bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
     // Since `abs_path` is not a root directory, there should have been at least
     // one directory above it.
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "MakeDirectoriesW(" << blaze_util::WstringToString(abs_path)
+        << "MakeDirectoriesW(" << blaze_util::WstringToCstring(abs_path)
         << ") could not find dirname: " << GetLastErrorString();
   }
   return MakeDirectoriesW(parent, mode) &&
@@ -674,8 +674,7 @@ std::wstring GetCwdW() {
 }
 
 string GetCwd() {
-  return string(
-      WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().c_str())).get());
+  return WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().c_str()));
 }
 
 bool ChangeDirectory(const string& path) {
@@ -717,9 +716,10 @@ void ForEachDirectoryEntryW(const wstring& path,
   }
   string error;
   if (!AsWindowsPath(path, &wpath, &error)) {
+    std::string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ForEachDirectoryEntryW(" << path
-        << "): AsWindowsPath failed: " << GetLastErrorString();
+        << "ForEachDirectoryEntryW(" << WstringToCstring(path)
+        << "): AsWindowsPath failed: " << err;
   }
 
   static const wstring kUncPrefix(L"\\\\?\\");
@@ -794,7 +794,7 @@ void ForEachDirectoryEntry(const string &path,
   do {
     if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
       wstring wname = wpath + metadata.cFileName;
-      string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()).get());
+      string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()));
       bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
       bool is_junc =
           (metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;

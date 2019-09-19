@@ -199,7 +199,7 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
   ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
 
   WCHAR cwd[MAX_PATH];
-  wstring cwdw(CstringToWstring(GetCwd().c_str()).get());
+  wstring cwdw(CstringToWstring(GetCwd()));
   wstring expected =
       wstring(L"\\\\?\\") + cwdw +
       ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");

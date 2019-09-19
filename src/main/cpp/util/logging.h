@@ -53,7 +53,6 @@ class LogMessage {
              int exit_code);
 
   LogMessage& operator<<(const std::string& value);
-  LogMessage& operator<<(const std::wstring& wstr);
   LogMessage& operator<<(const char* value);
   LogMessage& operator<<(char value);
   LogMessage& operator<<(bool value);
