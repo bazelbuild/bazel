@@ -104,6 +104,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -318,6 +319,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           }
         }
         profiledTasksBuilder.addAll(options.additionalProfileTasks);
+        if (options.recordFullProfilerData) {
+          profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
+        }
       } else if (options.profilePath != null) {
         profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
