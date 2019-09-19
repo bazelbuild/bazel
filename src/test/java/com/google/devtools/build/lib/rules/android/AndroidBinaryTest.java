@@ -953,7 +953,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(optimizeAction);
 
     List<String> processingArgs = optimizeAction.getArguments();
-    assertThat(processingArgs).contains("--enable-resource-path-shortening");
+    assertThat(processingArgs).contains("--shorten-resource-paths");
     assertThat(flagValue("--resource-path-shortening-map", processingArgs))
         .endsWith("app_resource_paths.map");
 
@@ -1034,7 +1034,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
 
     List<String> processingArgs = optimizeAction.getArguments();
-    assertThat(processingArgs).contains("--enable-resource-name-obfuscation");
+    assertThat(processingArgs).contains("--collapse-resource-names");
     assertThat(flagValue("--resource-name-obfuscation-exemption-list", processingArgs))
         .endsWith("kept_resources.txt");
 

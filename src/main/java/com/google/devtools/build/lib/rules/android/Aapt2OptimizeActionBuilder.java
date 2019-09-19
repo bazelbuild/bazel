@@ -29,12 +29,12 @@ abstract class Aapt2OptimizeActionBuilder {
             .addFlag("--");
     if (resourcePathShorteningMapOut() != null) {
       builder
-          .addFlag("--enable-resource-path-shortening")
+          .addFlag("--shorten-resource-paths")
           .addOutput("--resource-path-shortening-map", resourcePathShorteningMapOut());
     }
     if (resourceNameObfuscationExemptionList() != null) {
       builder
-          .addFlag("--enable-resource-name-obfuscation")
+          .addFlag("--collapse-resource-names")
           .addInput(
               "--resource-name-obfuscation-exemption-list", resourceNameObfuscationExemptionList());
     }
