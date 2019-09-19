@@ -110,6 +110,9 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<RemoteOutputsMode> REMOTE_OUTPUTS_MODE =
       new Precomputed<>(Key.create("remote_outputs_mode"));
 
+  public static final Precomputed<String> REMOTE_DEFAULT_PLATFORM_PROPERTIES =
+      new Precomputed<>(Key.create("remote_default_platform_properties"));
+
   private final Object value;
 
   @AutoCodec.Instantiator

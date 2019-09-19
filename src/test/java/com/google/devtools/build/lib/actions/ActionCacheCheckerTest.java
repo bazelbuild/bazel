@@ -115,7 +115,7 @@ public class ActionCacheCheckerTest {
     }
   }
 
-  private void runActionWithPlatform(Action action, Map<String, String> clientEnv, Map<String, String> platform)
+  private void runAction(Action action, Map<String, String> clientEnv, Map<String, String> platform)
           throws Exception {
     MetadataHandler metadataHandler = new FakeMetadataHandler();
 
@@ -256,18 +256,18 @@ public class ActionCacheCheckerTest {
     Map<String, String> platform = new HashMap<>();
     platform.put("some-var", "1");
     // Not cached.
-    runActionWithPlatform(action, env, platform);
+    runAction(action, env, platform);
     // Cache hit because nothing changed.
-    runActionWithPlatform(action, env, platform);
+    runAction(action, env, platform);
     // Cache miss because platform changed to an empty from a previous value.
-    runActionWithPlatform(action, env, ImmutableSortedMap.of());
+    runAction(action, env, ImmutableSortedMap.of());
     // Cache hit with an empty platform.
-    runActionWithPlatform(action, env, ImmutableSortedMap.of());
+    runAction(action, env, ImmutableSortedMap.of());
     // Cache miss because platform changed to a value from an empty one.
-    runActionWithPlatform(action, env, ImmutableSortedMap.copyOf(platform));
+    runAction(action, env, ImmutableSortedMap.copyOf(platform));
     platform.put("another-var", "1234");
     // Cache miss because platform value changed.
-    runActionWithPlatform(action, env, ImmutableSortedMap.copyOf(platform));
+    runAction(action, env, ImmutableSortedMap.copyOf(platform));
 
     assertStatistics(
             2,

@@ -138,6 +138,7 @@ public class ActionExecutionFunction implements SkyFunction {
       // the value of the flag changes. We are doing this conditionally only in Bazel if remote
       // execution is available in order to not introduce additional skyframe edges in Blaze.
       PrecomputedValue.REMOTE_OUTPUTS_MODE.get(env);
+      PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.get(env);
     }
 
     // Look up the parts of the environment that influence the action.

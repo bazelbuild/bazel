@@ -2673,6 +2673,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ? remoteOptions.remoteOutputsMode
             // If no value is specified then set it to some value so that it's not null.
             : RemoteOutputsMode.ALL);
+    setRemoteDefaultPlatformProperties(remoteOptions != null ? remoteOptions.remoteDefaultPlatformProperties : "");
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
@@ -2711,6 +2712,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
+  }
+
+  private void setRemoteDefaultPlatformProperties(String remoteDefaultPlatformProperties) {
+    PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(injectable(), remoteDefaultPlatformProperties);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {

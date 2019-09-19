@@ -648,7 +648,7 @@ public final class SkyframeActionExecutor {
               action,
               resolvedCacheArtifacts,
               clientEnv,
-              this.options.getOptions(BuildRequestOptions.class).explanationPath != null
+              options.getOptions(BuildRequestOptions.class).explanationPath != null
                   ? reporter
                   : null,
               metadataHandler,
