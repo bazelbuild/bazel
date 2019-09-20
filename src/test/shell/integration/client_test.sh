@@ -87,15 +87,17 @@ function test_server_restart_due_to_startup_options_with_client_debug_informatio
 
 function test_no_server_restart_if_effective_options_remain() {
   # Using --[no]watchfs for no particular reason. Any other flag would do.
-  local server_pid1=$(bazel --watchfs --nowatchfs --nowatchfs info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --nowatchfs --watchfs --nowatchfs info server_pid 2>$TEST_log)
+  local server_pid1=$(bazel --client_debug --watchfs --nowatchfs --nowatchfs info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --client_debug --nowatchfs --watchfs --nowatchfs info server_pid 2>$TEST_log)
   assert_equals "$server_pid1" "$server_pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 
-  local server_pid3=$(bazel --nowatchfs --nowatchfs --watchfs info server_pid 2>$TEST_log)
+  local server_pid3=$(bazel --client_debug --nowatchfs --nowatchfs --watchfs info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid2" "$server_pid3"
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "Args from the running server that are not included in the current request:"
   expect_log "--nowatchfs"
+  expect_log "Args from the current request that were not included when creating the server:"
   expect_log "--watchfs"
 }
 
