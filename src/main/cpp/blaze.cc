@@ -1048,19 +1048,30 @@ static DurationMillis ExtractData(const string &self_path,
   }
 }
 
-// Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists.
-static bool AreStartupOptionsDifferent(
-    const vector<string> &running_server_args,
-    const vector<string> &requested_args) {
+static bool IsVolatileArg(const string& arg) {
   // TODO(ccalvarin) when --batch is gone and the startup_options field in the
   // gRPC message is always set, there is no reason for client options that are
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::vector<string> volatile_startup_options = {
-      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-      "--client_debug="};
+    "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+    "--client_debug="};
 
+  // Split arg based on the first "=" if one exists in arg.
+  const string::size_type eq_pos = arg.find_first_of('=');
+  const string stripped_arg =
+      (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
+
+  return std::find(volatile_startup_options.begin(),
+                   volatile_startup_options.end(),
+                   stripped_arg) != volatile_startup_options.end();
+}
+
+// Returns true if the server needs to be restarted to accommodate changes
+// between the two argument lists.
+static bool AreStartupOptionsDifferent(
+    const vector<string> &running_server_args,
+    const vector<string> &requested_args) {
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
@@ -1073,58 +1084,37 @@ static bool AreStartupOptionsDifferent(
     options_different = true;
   }
 
-  // Args in running_server_args that are not in requested_args.
-  bool found_missing_args = false;
-  for (const string &arg : running_server_args) {
-    // Split arg based on the first "=" if one exists in arg.
-    const string::size_type eq_pos = arg.find_first_of('=');
-    const string stripped_arg =
-        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
+  std::unordered_set<string> missing_from_new;
+  vector<string> missing_from_old;
 
-    // If arg is not volatile, then check whether or not it's in requested_args.
-    if (std::find(volatile_startup_options.begin(),
-                  volatile_startup_options.end(),
-                  stripped_arg) == volatile_startup_options.end()) {
-      if (std::find(requested_args.begin(), requested_args.end(), arg) ==
-          requested_args.end()) {
-        // If this is the first missing arg we've encountered, then print out
-        // the list header.
-        if (!found_missing_args) {
-          BAZEL_LOG(INFO) << "Args from the running server that are not "
-                             "included in the current request:";
-          found_missing_args = true;
-        }
-        BAZEL_LOG(INFO) << "  " << arg;
-        options_different = true;
-      }
+  // Add all of 'running_server_args' to 'missing_from_new', then remove all of
+  // 'requested_args' from 'missing_from_new'. What remains in
+  // 'missing_from_new' is the set difference.
+  for (const string &arg : running_server_args) {
+    if (!IsVolatileArg(arg)) {
+      missing_from_new.insert(arg);
+    }
+  }
+  for (const string &arg : requested_args) {
+    if (!IsVolatileArg(arg) && missing_from_new.erase(arg) == 0) {
+      missing_from_old.push_back(arg);
     }
   }
 
-  // Args in requested_args that are not in running_server_args.
-  bool found_new_args = false;
-  for (const string &arg : requested_args) {
-    // Split arg based on the first "=" if one exists in arg.
-    const string::size_type eq_pos = arg.find_first_of('=');
-    const string stripped_arg =
-        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
-
-    // If arg is not volatile, then check whether or not it's in
-    // running_server_args.
-    if (std::find(volatile_startup_options.begin(),
-                  volatile_startup_options.end(),
-                  stripped_arg) == volatile_startup_options.end()) {
-      if (std::find(running_server_args.begin(), running_server_args.end(),
-                    arg) == running_server_args.end()) {
-        // If this is the first new arg we've encountered, then print out the
-        // list header.
-        if (!found_new_args) {
-          BAZEL_LOG(INFO) << "Args from the current request that were not "
-                             "included when creating the server:";
-          found_new_args = true;
-        }
-        BAZEL_LOG(INFO) << "  " << arg;
-        options_different = true;
-      }
+  if (!missing_from_new.empty()) {
+    options_different = true;
+    BAZEL_LOG(INFO) << "Args from the running server that are not "
+                       "included in the current request:";
+    for (const string& arg : missing_from_new) {
+      BAZEL_LOG(INFO) << "  " << arg;
+    }
+  }
+  if (!missing_from_old.empty()) {
+    options_different = true;
+    BAZEL_LOG(INFO) << "Args from the current request that were not "
+                       "included when creating the server:";
+    for (const string& arg: missing_from_old) {
+      BAZEL_LOG(INFO) << "  " << arg;
     }
   }
 

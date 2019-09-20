@@ -42,7 +42,7 @@ function test_client_debug() {
   expect_not_log "Debug logging requested"
 }
 
-function test_client_debug_change_does_not_restart_server() {
+function test_volatile_flag_change_does_not_restart_server() {
   local server_pid1=$(bazel --client_debug info server_pid 2>$TEST_log)
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_equals "$server_pid1" "$server_pid2"
@@ -72,16 +72,17 @@ function test_shutdown() {
 }
 
 function test_server_restart_due_to_startup_options_with_client_debug_information() {
-  # Using --write_command_log for no particular reason, if that flag is removed, another startup
-  # option will do just fine.
-  local server_pid1=$(bazel --client_debug --write_command_log info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
+  # Using --write_command_log and --watchfs for no particular reason. If the
+  # flags removed, another startup option will do just fine.
+  local server_pid1=$(bazel --client_debug --nowatchfs --write_command_log info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --client_debug --nowatchfs --nowrite_command_log info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "\\[bazel WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
   expect_log "\\[bazel INFO .*\\] Args from the running server that are not included in the current request:"
   expect_log "\\[bazel INFO .*\\]   --write_command_log"
   expect_log "\\[bazel INFO .*\\] Args from the current request that were not included when creating the server:"
   expect_log "\\[bazel INFO .*\\]   --nowrite_command_log"
+  expect_not_log "watchfs"
 }
 
 function test_exit_code() {
