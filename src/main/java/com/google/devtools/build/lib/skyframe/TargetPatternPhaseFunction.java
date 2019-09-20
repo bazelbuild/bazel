@@ -18,14 +18,18 @@ import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutab
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -89,9 +93,17 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       workspaceName = packageValue.getPackage().getWorkspaceName();
     }
 
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+
     // Determine targets to build:
     List<String> failedPatterns = new ArrayList<String>();
-    List<ExpandedPattern> expandedPatterns = getTargetsToBuild(env, options, failedPatterns);
+    List<ExpandedPattern> expandedPatterns =
+        getTargetsToBuild(
+            env, options, repositoryMappingValue.getRepositoryMapping(), failedPatterns);
     ResolvedTargets<Target> targets =
         env.valuesMissing()
             ? null
@@ -258,12 +270,21 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param failedPatterns a list into which failed patterns are added
    */
   private static List<ExpandedPattern> getTargetsToBuild(
-      Environment env, TargetPatternPhaseKey options, List<String> failedPatterns)
+      Environment env,
+      TargetPatternPhaseKey options,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      List<String> failedPatterns)
       throws InterruptedException {
+
+    ImmutableList.Builder<String> canonicalPatterns = new ImmutableList.Builder<>();
+    for (String rawPattern : options.getTargetPatterns()) {
+      canonicalPatterns.add(TargetPattern.renameRepository(rawPattern, repoMapping));
+    }
+
     List<TargetPatternKey> patternSkyKeys = new ArrayList<>(options.getTargetPatterns().size());
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(
-            options.getTargetPatterns(),
+            canonicalPatterns.build(),
             options.getBuildManualTests()
                 ? FilteringPolicies.NO_FILTER
                 : FilteringPolicies.FILTER_MANUAL,

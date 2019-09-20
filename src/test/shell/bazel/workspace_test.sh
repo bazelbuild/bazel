@@ -1125,5 +1125,42 @@ EOF
    bazel build @foo//:y || fail "Expected success"
 }
 
+function test_renaming_visibility_main() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    echo; echo not remapping main repo; echo
+    bazel build --incompatible_remap_main_repo=false @foo//:y \
+          || fail "Expected success"
+
+    echo; echo remapping main repo; echo
+    bazel build --incompatible_remap_main_repo=true @foo//:y \
+        || fail "Expected success"
+
+}
 
 run_suite "workspace tests"
