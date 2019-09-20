@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -79,9 +80,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
       }
       try (Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8)) {
         writer.write(
-            EXPORTED_NAME
-                + " = "
-                + Printer.getWorkspacePrettyPrinter().repr(resultBuilder.build()));
+            EXPORTED_NAME + " = " + getWorkspacePrettyPrinter().repr(resultBuilder.build()));
         writer.close();
       } catch (IOException e) {
         logger.warning("IO Error writing to file " + resolvedFile + ": " + e);
@@ -89,6 +88,26 @@ public final class RepositoryResolvedModule extends BlazeModule {
     }
 
     this.resolvedValues = null;
+  }
+
+  /**
+   * Returns a pretty printer that represents values in a form usable in WORKSPACE files.
+   *
+   * <p>In WORKSPACE files, the Label constructor is not available. Fortunately, in all places where
+   * a label is needed, we can pass the canonical string associated with this label.
+   */
+  private static Printer.PrettyPrinter getWorkspacePrettyPrinter() {
+    return new Printer.PrettyPrinter(new StringBuilder()) {
+      @Override
+      public Printer.BasePrinter repr(Object o) {
+        if (o instanceof Label) {
+          this.repr(((Label) o).getCanonicalForm());
+        } else {
+          super.repr(o);
+        }
+        return this;
+      }
+    };
   }
 
   @Subscribe

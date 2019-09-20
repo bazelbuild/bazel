@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -243,12 +244,12 @@ public final class SyncCommand implements BlazeCommand {
 
   private static ResolvedEvent resolveBind(Rule rule) {
     String name = rule.getName();
-    Object actual = rule.getAttributeContainer().getAttr("actual");
+    Label actual = (Label) rule.getAttributeContainer().getAttr("actual");
     String nativeCommand =
         "bind(name = "
             + Printer.getPrinter().repr(name)
             + ", actual = "
-            + Printer.getWorkspacePrettyPrinter().repr(actual)
+            + Printer.getPrinter().repr(actual.getCanonicalForm())
             + ")";
 
     return new ResolvedEvent() {
