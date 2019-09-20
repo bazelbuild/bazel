@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -75,8 +76,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -320,12 +319,12 @@ public class BuildView {
             bzlFileLoadLikeString = bzlFileLoadLikeString + ".bzl";
           }
         }
-        SkylarkImport skylarkImport;
+        Label skylarkFileLabel;
         try {
-          skylarkImport =
-              SkylarkImport.create(
+          skylarkFileLabel =
+              Label.parseAbsolute(
                   bzlFileLoadLikeString, /* repositoryMapping= */ ImmutableMap.of());
-        } catch (SkylarkImportSyntaxException e) {
+        } catch (LabelSyntaxException e) {
           throw new ViewCreationFailedException(
               String.format("Invalid aspect '%s': %s", aspect, e.getMessage()), e);
         }
@@ -346,7 +345,7 @@ public class BuildView {
                   // aspect and the base target while the top-level configuration is untrimmed.
                   targetSpec.getConfiguration(),
                   targetSpec.getConfiguration(),
-                  skylarkImport,
+                  skylarkFileLabel,
                   skylarkFunctionName));
         }
       } else {

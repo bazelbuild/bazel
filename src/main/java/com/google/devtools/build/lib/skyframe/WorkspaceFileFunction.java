@@ -128,6 +128,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           PackageFunction.fetchImportsFromBuildFile(
               repoWorkspace,
               rootPackage,
+              /*repoMapping=*/ ImmutableMap.of(),
               ast,
               key.getIndex(),
               env,

@@ -29,8 +29,9 @@ import javax.annotation.Nullable;
 /**
  * Encapsulates the two syntactic variants of Starlark imports: absolute labels and relative labels.
  */
+// TODO(adonovan): this does not belong in Starlark. Delete it.
 @AutoCodec
-public class SkylarkImport {
+class SkylarkImport {
   private final String importString;
   @Nullable private final Label importLabel;
 
