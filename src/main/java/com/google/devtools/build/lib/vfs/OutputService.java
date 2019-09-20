@@ -103,7 +103,7 @@ public interface OutputService {
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, MetadataHandler metadataHandler)
-      throws IOException, EnvironmentalExecException;
+      throws IOException, EnvironmentalExecException, InterruptedException;
 
   /**
    * @return the BatchStat instance or null.

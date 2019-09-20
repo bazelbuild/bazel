@@ -185,7 +185,7 @@ final class ActionExecutionState {
      * of executing the action. This must only be called if {@link #isDone} returns false, and must
      * only be called by one thread at a time for the same instance.
      */
-    ActionStepOrResult run(SkyFunction.Environment env);
+    ActionStepOrResult run(SkyFunction.Environment env) throws InterruptedException;
 
     /**
      * Returns the final value of the action or an exception to indicate that the action failed (or

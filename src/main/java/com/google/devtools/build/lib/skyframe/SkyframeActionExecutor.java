@@ -883,7 +883,7 @@ public final class SkyframeActionExecutor {
     }
 
     @Override
-    public ActionStepOrResult run(SkyFunction.Environment env) {
+    public ActionStepOrResult run(SkyFunction.Environment env) throws InterruptedException {
       // There are three ExtendedEventHandler instances available while this method is running.
       //   SkyframeActionExecutor.this.reporter
       //   actionExecutionContext.getEventHandler
@@ -979,7 +979,8 @@ public final class SkyframeActionExecutor {
 
     /** Executes the given continuation and returns a new one or a final result. */
     private ActionStepOrResult continueAction(
-        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation) {
+        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation)
+        throws InterruptedException {
       // Every code path that exits this method must call notifyActionCompletion, except for the
       // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
       // duplication.
@@ -1021,7 +1022,7 @@ public final class SkyframeActionExecutor {
 
     private ActionExecutionValue actuallyCompleteAction(
         ExtendedEventHandler eventHandler, ActionResult actionResult)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       boolean outputAlreadyDumped = false;
       if (actionResult != ActionResult.EMPTY) {
         eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
@@ -1123,7 +1124,7 @@ public final class SkyframeActionExecutor {
       }
 
       @Override
-      public ActionStepOrResult run(Environment env) {
+      public ActionStepOrResult run(Environment env) throws InterruptedException {
         ListenableFuture<?> future = actionContinuationOrResult.getFuture();
         if (future != null && !future.isDone()) {
           env.dependOnFuture(future);
