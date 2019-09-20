@@ -226,7 +226,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       EventHandler handler,
       MetadataHandler metadataHandler,
-      Map<String, String> remotePlatform) {
+      Map<String, String> remoteDefaultPlatformProperties) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
     // that inputs and outputs are still exist (and new inputs have not appeared). All other checks
@@ -255,7 +255,7 @@ public class ActionCacheChecker {
       actionInputs = resolvedCacheArtifacts;
     }
     ActionCache.Entry entry = getCacheEntry(action);
-    if (mustExecute(action, entry, handler, metadataHandler, actionInputs, clientEnv, remotePlatform)) {
+    if (mustExecute(action, entry, handler, metadataHandler, actionInputs, clientEnv, remoteDefaultPlatformProperties)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -275,7 +275,7 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       Iterable<Artifact> actionInputs,
       Map<String, String> clientEnv,
-      Map<String, String> remotePlatform) {
+      Map<String, String> remoteDefaultPlatformProperties) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
@@ -309,7 +309,7 @@ public class ActionCacheChecker {
       return true;
     }
     if (!entry.getRemoteDefaultPlatformPropertiesDigest().equals(
-        DigestUtils.fromEnv(remotePlatform))) {
+        DigestUtils.fromEnv(remoteDefaultPlatformProperties))) {
       reportDefaultPlatformChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_DEFAULT_PLATFORM);
       return true;
@@ -344,7 +344,7 @@ public class ActionCacheChecker {
 
   public void updateActionCache(
       Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv,
-      Map<String, String> platform)
+      Map<String, String> remoteDefaultPlatformProperties)
       throws IOException {
     Preconditions.checkState(
         cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
@@ -357,7 +357,7 @@ public class ActionCacheChecker {
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     ActionCache.Entry entry =
         new ActionCache.Entry(
-            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs(), ImmutableSortedMap.copyOf(platform));
+            action.getKey(actionKeyContext), usedClientEnv, action.discoversInputs(), ImmutableSortedMap.copyOf(remoteDefaultPlatformProperties));
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();

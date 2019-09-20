@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -2673,7 +2674,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ? remoteOptions.remoteOutputsMode
             // If no value is specified then set it to some value so that it's not null.
             : RemoteOutputsMode.ALL);
-    setRemoteDefaultPlatformProperties(remoteOptions != null ? remoteOptions.remoteDefaultPlatformProperties : "");
+    try {
+      setRemoteDefaultPlatformProperties(remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
+    } catch (UserExecException e) {
+      throw new IllegalStateException("Failed to initialize the graph", e);
+    }
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
@@ -2714,7 +2719,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     invalidateTransientErrors();
   }
 
-  private void setRemoteDefaultPlatformProperties(String remoteDefaultPlatformProperties) {
+  private void setRemoteDefaultPlatformProperties(Map<String, String> remoteDefaultPlatformProperties) {
     PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(injectable(), remoteDefaultPlatformProperties);
   }
 

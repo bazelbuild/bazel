@@ -100,12 +100,12 @@ public interface ActionCache {
         Md5Digest usedClientEnvDigest,
         @Nullable List<String> files,
         Md5Digest md5Digest,
-        Md5Digest remoteDefaultPlatformDigest) {
+        Md5Digest remoteDefaultPlatformPropertiesDigest) {
       actionKey = key;
       this.usedClientEnvDigest = usedClientEnvDigest;
       this.files = files;
       this.md5Digest = md5Digest;
-      this.remoteDefaultPlatformPropertiesDigest = remoteDefaultPlatformDigest;
+      this.remoteDefaultPlatformPropertiesDigest = remoteDefaultPlatformPropertiesDigest;
       mdMap = null;
     }
 
