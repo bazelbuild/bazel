@@ -80,7 +80,7 @@ local_repository(
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
 `@coworkers_project//foo:bar`. External project names must be
-[valid workspace names](be/functions.html#workspace), so `_` (valid) is used to
+[valid workspace names](skylark/lib/globals.html#workspace), so `_` (valid) is used to
 replace `-` (invalid) in the name `coworkers_project`.
 
 <a name="non-bazel-projects"></a>
