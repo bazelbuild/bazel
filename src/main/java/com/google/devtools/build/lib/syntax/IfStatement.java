@@ -13,104 +13,75 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
+import javax.annotation.Nullable;
 
-/** Syntax node for an if/else statement. */
+/** Syntax node for an if or elif statement. */
 public final class IfStatement extends Statement {
 
+  private final TokenKind token; // IF or ELIF
+  private final Expression condition;
+  private final ImmutableList<Statement> thenBlock; // non-empty
+  @Nullable ImmutableList<Statement> elseBlock; // non-empty if non-null; set after construction
+
+  IfStatement(TokenKind token, Expression condition, List<Statement> thenBlock) {
+    this.token = token;
+    this.condition = condition;
+    this.thenBlock = ImmutableList.copyOf(thenBlock);
+  }
+
   /**
-   * Syntax node for an [el]if statement.
+   * Reports whether this is an 'elif' statement.
    *
-   * <p>This extends Statement, but it is not actually an independent statement in the grammar. We
-   * should probably eliminate it in favor of a recursive representation of if/else chains.
+   * <p>An elif statement may appear only as the sole statement in the "else" block of another
+   * IfStatement.
    */
-  // TODO(adonovan): eliminate this class; represent if/else-chains as a linked list.
-  public static final class ConditionalStatements extends Statement {
-
-    private final Expression condition;
-    private final ImmutableList<Statement> statements;
-
-    public ConditionalStatements(Expression condition, List<Statement> statements) {
-      this.condition = Preconditions.checkNotNull(condition);
-      this.statements = ImmutableList.copyOf(statements);
-    }
-
-    // No prettyPrint function; handled directly by IfStatement#prettyPrint.
-    @Override
-    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-      throw new UnsupportedOperationException("Cannot pretty print ConditionalStatements node");
-    }
-
-    @Override
-    public String toString() {
-      return "[el]if " + condition + ": " + statements + "\n";
-    }
-
-    @Override
-    public void accept(NodeVisitor visitor) {
-      visitor.visit(this);
-    }
-
-    @Override
-    public Kind kind() {
-      return Kind.CONDITIONAL;
-    }
-
-    public Expression getCondition() {
-      return condition;
-    }
-
-    public ImmutableList<Statement> getStatements() {
-      return statements;
-    }
+  public boolean isElif() {
+    return token == TokenKind.ELIF;
   }
 
-  /** "if" or "elif" clauses. Must be non-empty. */
-  private final ImmutableList<ConditionalStatements> thenBlocks;
-  private final ImmutableList<Statement> elseBlock;
-
-  /**
-   * Constructs a if-elif-else statement. The else part is mandatory, but the list may be empty.
-   * ThenBlocks has to have at least one element.
-   */
-  IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
-    Preconditions.checkArgument(!thenBlocks.isEmpty());
-    this.thenBlocks = ImmutableList.copyOf(thenBlocks);
-    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  public Expression getCondition() {
+    return condition;
   }
 
-  public ImmutableList<ConditionalStatements> getThenBlocks() {
-    return thenBlocks;
+  public ImmutableList<Statement> getThenBlock() {
+    return thenBlock;
   }
 
+  @Nullable
   public ImmutableList<Statement> getElseBlock() {
     return elseBlock;
   }
 
+  void setElseBlock(List<Statement> elseBlock) {
+    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  }
+
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    String clauseWord = "if ";
-    for (ConditionalStatements condStmt : thenBlocks) {
-      printIndent(buffer, indentLevel);
-      buffer.append(clauseWord);
-      condStmt.getCondition().prettyPrint(buffer);
-      buffer.append(":\n");
-      printSuite(buffer, condStmt.getStatements(), indentLevel);
-      clauseWord = "elif ";
-    }
-    if (!elseBlock.isEmpty()) {
-      printIndent(buffer, indentLevel);
-      buffer.append("else:\n");
-      printSuite(buffer, elseBlock, indentLevel);
+    printIndent(buffer, indentLevel);
+    buffer.append(token == TokenKind.IF ? "if " : "elif ");
+    condition.prettyPrint(buffer);
+    buffer.append(":\n");
+    printSuite(buffer, thenBlock, indentLevel);
+    if (elseBlock != null) {
+      if (elseBlock.size() == 1
+          && elseBlock.get(0) instanceof IfStatement
+          && ((IfStatement) elseBlock.get(0)).isElif()) {
+        elseBlock.get(0).prettyPrint(buffer, indentLevel);
+      } else {
+        printIndent(buffer, indentLevel);
+        buffer.append("else:\n");
+        printSuite(buffer, elseBlock, indentLevel);
+      }
     }
   }
 
   @Override
   public String toString() {
-    return String.format("if %s: ...\n", thenBlocks.get(0).getCondition());
+    return String.format("if %s: ...\n", condition);
   }
 
   @Override

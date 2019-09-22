@@ -123,10 +123,10 @@ public final class ValidationEnvironment extends NodeVisitor {
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
-        for (IfStatement.ConditionalStatements cond : ifStmt.getThenBlocks()) {
-          collectDefinitions(cond.getStatements());
+        collectDefinitions(ifStmt.getThenBlock());
+        if (ifStmt.getElseBlock() != null) {
+          collectDefinitions(ifStmt.getElseBlock());
         }
-        collectDefinitions(ifStmt.getElseBlock());
         break;
       case FOR:
         ForStatement forStmt = (ForStatement) stmt;
@@ -142,7 +142,6 @@ public final class ValidationEnvironment extends NodeVisitor {
           declare(binding.getLocalName().getName(), binding.getLocalName().getLocation());
         }
         break;
-      case CONDITIONAL:
       case EXPRESSION:
       case FLOW:
       case RETURN:

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.List;
 
 /** A visitor for visiting the nodes of a syntax tree in lexical order. */
@@ -120,13 +119,11 @@ public class NodeVisitor {
   }
 
   public void visit(IfStatement node) {
-    visitAll(node.getThenBlocks());
-    visitBlock(node.getElseBlock());
-  }
-
-  public void visit(ConditionalStatements node) {
     visit(node.getCondition());
-    visitBlock(node.getStatements());
+    visitBlock(node.getThenBlock());
+    if (node.getElseBlock() != null) {
+      visitBlock(node.getElseBlock());
+    }
   }
 
   public void visit(DefStatement node) {

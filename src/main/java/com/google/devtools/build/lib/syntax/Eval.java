@@ -73,11 +73,6 @@ final class Eval {
     assign(node.getLHS(), rvalue, env, node.getLocation());
   }
 
-  private TokenKind execIfBranch(IfStatement.ConditionalStatements node)
-      throws EvalException, InterruptedException {
-    return execStatementsInternal(node.getStatements());
-  }
-
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = eval(env, node.getCollection());
     Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), env);
@@ -135,15 +130,13 @@ final class Eval {
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
-    ImmutableList<IfStatement.ConditionalStatements> thenBlocks = node.getThenBlocks();
-    // Avoid iterator overhead - most of the time there will be one or few "if"s.
-    for (int i = 0; i < thenBlocks.size(); i++) {
-      IfStatement.ConditionalStatements stmt = thenBlocks.get(i);
-      if (EvalUtils.toBoolean(eval(env, stmt.getCondition()))) {
-        return exec(stmt);
-      }
+    boolean cond = EvalUtils.toBoolean(eval(env, node.getCondition()));
+    if (cond) {
+      return execStatementsInternal(node.getThenBlock());
+    } else if (node.getElseBlock() != null) {
+      return execStatementsInternal(node.getElseBlock());
     }
-    return execStatementsInternal(node.getElseBlock());
+    return TokenKind.PASS;
   }
 
   private void execLoad(LoadStatement node) throws EvalException, InterruptedException {
@@ -194,8 +187,6 @@ final class Eval {
       case AUGMENTED_ASSIGNMENT:
         execAugmentedAssignment((AugmentedAssignmentStatement) st);
         return TokenKind.PASS;
-      case CONDITIONAL:
-        return execIfBranch((IfStatement.ConditionalStatements) st);
       case EXPRESSION:
         eval(env, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;

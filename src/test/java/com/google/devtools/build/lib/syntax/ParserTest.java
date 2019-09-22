@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
@@ -575,6 +576,27 @@ public final class ParserTest extends EvaluationTestCase {
     // Also try it with another token at the end (newline), which broke the location in the past.
     stmt = (LoadStatement) parseFile(input + "\n").get(0);
     assertThat(getText(input, stmt)).isEqualTo(input);
+  }
+
+  @Test
+  public void testElif() throws Exception {
+    IfStatement ifA =
+        (IfStatement)
+            parseFile(
+                    //
+                    "if a:", "  pass", "elif b:", "  pass", "else:", "  pass", "")
+                .get(0);
+    IfStatement ifB = (IfStatement) Iterables.getOnlyElement(ifA.getElseBlock());
+    assertThat(ifB.isElif()).isTrue();
+
+    ifA =
+        (IfStatement)
+            parseFile(
+                    //
+                    "if a:", "  pass", "else:", "  if b:", "    pass", "  else:", "    pass", "")
+                .get(0);
+    ifB = (IfStatement) Iterables.getOnlyElement(ifA.getElseBlock());
+    assertThat(ifB.isElif()).isFalse();
   }
 
   @Test

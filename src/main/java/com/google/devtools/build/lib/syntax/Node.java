@@ -39,7 +39,7 @@ public abstract class Node {
   }
 
   /** @return the same node with its location set, in a slightly more fluent style */
-  public static <NodeT extends Node> NodeT setLocation(Location location, NodeT node) {
+  static <NodeT extends Node> NodeT setLocation(Location location, NodeT node) {
     node.setLocation(location);
     return node;
   }
@@ -98,7 +98,7 @@ public abstract class Node {
   public abstract void prettyPrint(Appendable buffer, int indentLevel) throws IOException;
 
   /** Same as {@link #prettyPrint(Appendable, int)}, except with no indent. */
-  public void prettyPrint(Appendable buffer) throws IOException {
+  void prettyPrint(Appendable buffer) throws IOException {
     prettyPrint(buffer, 0);
   }
 

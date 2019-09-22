@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -1152,42 +1151,48 @@ final class Parser {
 
   // if_stmt ::= IF expr ':' suite [ELIF expr ':' suite]* [ELSE ':' suite]?
   private IfStatement parseIfStatement() {
-    int start = token.left;
-    List<ConditionalStatements> thenBlocks = new ArrayList<>();
-    thenBlocks.add(parseConditionalStatements(TokenKind.IF));
+    List<Integer> startOffsets = new ArrayList<>();
+    startOffsets.add(token.left);
+    expect(TokenKind.IF);
+    Expression cond = parseNonTupleExpression();
+    expect(TokenKind.COLON);
+    List<Statement> body = parseSuite();
+    IfStatement ifStmt = new IfStatement(TokenKind.IF, cond, body);
+    IfStatement tail = ifStmt;
     while (token.kind == TokenKind.ELIF) {
-      thenBlocks.add(parseConditionalStatements(TokenKind.ELIF));
+      startOffsets.add(token.left);
+      expect(TokenKind.ELIF);
+      cond = parseNonTupleExpression();
+      expect(TokenKind.COLON);
+      body = parseSuite();
+      IfStatement elif = new IfStatement(TokenKind.ELIF, cond, body);
+      tail.setElseBlock(ImmutableList.of(elif));
+      tail = elif;
     }
-    List<Statement> elseBlock;
     if (token.kind == TokenKind.ELSE) {
       expect(TokenKind.ELSE);
       expect(TokenKind.COLON);
-      elseBlock = parseSuite();
-    } else {
-      elseBlock = ImmutableList.of();
+      body = parseSuite();
+      tail.setElseBlock(body);
     }
-    List<Statement> lastBlock =
-        elseBlock.isEmpty() ? Iterables.getLast(thenBlocks).getStatements() : elseBlock;
-    int end =
-        lastBlock.isEmpty()
-            ? token.left
-            : Iterables.getLast(lastBlock).getLocation().getEndOffset();
-    return setLocation(new IfStatement(thenBlocks, elseBlock), start, end);
-  }
 
-  // cond_stmts ::= [EL]IF expr ':' suite
-  private ConditionalStatements parseConditionalStatements(TokenKind tokenKind) {
-    int start = token.left;
-    expect(tokenKind);
-    Expression expr = parseNonTupleExpression();
-    expect(TokenKind.COLON);
-    List<Statement> thenBlock = parseSuite();
-    ConditionalStatements stmt = new ConditionalStatements(expr, thenBlock);
+    // Because locations are allocated and stored redundantly rather
+    // than computed on demand from token offsets in the tree, we must
+    // wait till the end of the chain, after all setElseBlock calls,
+    // before setting the end location of each IfStatement.
+    // Body may be empty after a parse error.
     int end =
-        thenBlock.isEmpty()
-            ? token.left
-            : Iterables.getLast(thenBlock).getLocation().getEndOffset();
-    return setLocation(stmt, start, end);
+        (body.isEmpty() ? tail.getCondition() : Iterables.getLast(body))
+            .getLocation()
+            .getEndOffset();
+    IfStatement s = ifStmt;
+    setLocation(s, startOffsets.get(0), end);
+    for (int i = 1; i < startOffsets.size(); i++) {
+      s = (IfStatement) s.elseBlock.get(0);
+      setLocation(s, startOffsets.get(i), end);
+    }
+
+    return ifStmt;
   }
 
   // for_stmt ::= FOR IDENTIFIER IN expr ':' suite
