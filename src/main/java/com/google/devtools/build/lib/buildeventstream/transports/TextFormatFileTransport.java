@@ -46,6 +46,10 @@ public final class TextFormatFileTransport extends FileTransport {
   @Override
   protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
     String protoTextRepresentation = TextFormat.printToString(buildEvent);
-    return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(Charsets.UTF_8);
+    return (
+        "event {\n"
+        + protoTextRepresentation.replaceAll("(?m)^", "  ") // indent by 2 spaces
+        + "}\n\n"
+    ).getBytes(Charsets.UTF_8);
   }
 }
