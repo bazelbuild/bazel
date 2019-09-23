@@ -678,9 +678,6 @@ static void RunServerMode(
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
     ExecuteServerJvm(server_exe, server_exe_args);
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "execv of '" << server_exe.AsPrintablePath() << "' failed: " << err;
   }
 }
 
@@ -740,9 +737,6 @@ static void RunBatchMode(
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
     ExecuteServerJvm(server_exe, jvm_args_vector);
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "execv of '" << server_exe.AsPrintablePath() << "' failed: " << err;
   }
 }
 

@@ -741,8 +741,9 @@ int ExecuteDaemon(const blaze_util::Path& exe,
 // Run the given program in the current working directory, using the given
 // argument vector, wait for it to finish, then exit ourselves with the exitcode
 // of that program.
-static void ExecuteProgram(const blaze_util::Path& exe,
-                           const std::vector<std::wstring>& wargs_vector) {
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 

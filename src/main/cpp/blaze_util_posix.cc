@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cinttypes>
+#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <set>
@@ -278,8 +279,8 @@ class CharPP {
   char** charpp_;
 };
 
-static void ExecuteProgram(const blaze_util::Path& exe,
-                           const vector<string>& args_vector) {
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe, const vector<string>& args_vector) {
   BAZEL_LOG(INFO) << "Invoking binary " << exe.AsPrintablePath() << " in "
                   << blaze_util::GetCwd();
 
@@ -290,6 +291,12 @@ static void ExecuteProgram(const blaze_util::Path& exe,
   // adverse scheduling effects on any tools invoked via ExecuteProgram.
   CharPP argv(args_vector);
   execv(exe.AsNativePath().c_str(), argv.get());
+  string err = GetLastErrorString();
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "execv of '" << exe.AsPrintablePath() << "' failed: " << err;
+  // TODO(jmmv): Mark BAZEL_DIE as ATTRIBUTE_NORETURN so that the following
+  // code is not necessary.
+  std::abort();  // Not reachable.
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
