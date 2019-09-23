@@ -133,7 +133,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
                       /* toolsRepository = */ null,
                       /* fragmentNameToClass = */ null,
                       rule.getPackage().getRepositoryMapping(),
-                      new SymbolGenerator<>(key)))
+                      new SymbolGenerator<>(key),
+                      /* analysisRuleLabel= */ null))
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(

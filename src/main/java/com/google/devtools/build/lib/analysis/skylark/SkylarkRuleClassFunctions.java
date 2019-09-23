@@ -803,15 +803,65 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Environment env,
       StarlarkContext context)
       throws EvalException {
-
     BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+
+    // This function is surprisingly complex.
+    //
+    // Doc:
+    // "When relative_to_caller_repository is True and the calling thread is a
+    // rule's implementation function, then a repo-relative label //foo:bar is
+    // resolved relative to the rule's repository. For calls to Label from any
+    // other thread, or calls in which the relative_to_caller_repository flag is
+    // False, a repo-relative label is resolved relative to the file in which the
+    // Label() call appears.)"
+    //
+    // - The "and" conjunction in first line of the doc above doesn't match the code.
+    //   There are three cases to consider, not two, as parentLabel can be null or
+    //   in the relativeToCallerRepository branch.
+    //   Thus in a loading phase thread with relativeToCallerRepository=True,
+    //   the repo mapping is (I suspect) erroneously skipped.
+    //   TODO(adonovan): verify, and file a doc bug if so.
+    //
+    // - The deprecated relative_to_caller_repository semantics can be explained
+    //   as thread-local state, something we've embraced elsewhere in the build language.
+    //   (For example, in the loading phase, calling cc_binary creates a rule in the
+    //   package associated with the calling thread.)
+    //
+    //   By contrast, the default relative_to_caller_repository=False semantics
+    //   are more magical, using dynamic scope: introspection on the call stack.
+    //   This is an obstacle to removing GlobalFrame.
+    //
+    //   An alternative way to implement that would be to say that each BUILD/.bzl file
+    //   has its own function value called Label that is a closure over the current
+    //   file label. (That would mean that if you export the Label function from a.bzl
+    //   file and load it into b.bzl, it would behave differently from the Label function
+    //   predeclared in b.bzl, so the choice of implementation strategy is observable.
+    //   However this case is not important in practice.)
+    //   TODO(adonovan): use this alternative implementation.
+    //
+    // - Logically all we really need from this process is a RepoID, not a Label
+    //   or PackageID, but the Label class doesn't yet have the necessary primitives.
+    //   TODO(adonovan): augment the Label class.
+    //
+    // - When repository mapping does occur, the result is converted back to a string
+    //   "unambiguous" canonical form and then parsed again by the cache, with
+    //   no repo mapping.
+    //   TODO(adonovan): augment the Label class so that we can validate, remap,
+    //   and cache without needing four allocations (parseAbsoluteLabel,
+    //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
+    //   in labelCache)
 
     Label parentLabel;
     if (relativeToCallerRepository) {
-      parentLabel = env.getCallerLabel();
+      // This is the label of the rule, if this is an analysis-phase
+      // rule or aspect implementation thread, or null otherwise.
+      parentLabel = bazelStarlarkContext.getAnalysisRuleLabel();
     } else {
+      // This is the label of the BUILD/.bzl file on the top of the current call stack.
+      // (Function enter/exit changes getGlobals.)
       parentLabel = env.getGlobals().getLabel();
     }
+
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);

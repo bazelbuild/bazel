@@ -68,8 +68,10 @@ public class EvaluationTestCase {
     BazelStarlarkContext context =
         new BazelStarlarkContext(
             TestConstants.TOOLS_REPOSITORY,
+            /* fragmentNameToClass= */ null,
             /* repoMapping= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()));
+            new SymbolGenerator<>(new Object()),
+            /* analysisRuleLabel= */ null);
     Environment env =
         Environment.builder(mutability)
             .useDefaultSemantics()

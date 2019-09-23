@@ -78,8 +78,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               .setStarlarkContext(
                   new BazelStarlarkContext(
                       toolsRepository,
+                      /* fragmentNameToClass=*/ null,
                       ruleContext.getRule().getPackage().getRepositoryMapping(),
-                      ruleContext.getSymbolGenerator()))
+                      ruleContext.getSymbolGenerator(),
+                      ruleContext.getLabel()))
               // NB: loading phase functions are not available: this is analysis already, so we do
               // *not* setLoadingPhase().
               .build();

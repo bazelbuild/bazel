@@ -54,7 +54,6 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private static final String OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES =
       "android_resources_strict_deps";
 
-  private final Label label;
   private final RuleContext ruleContext;
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
@@ -75,7 +74,6 @@ public class AndroidDataContext implements AndroidDataContextApi {
         ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
 
     return new AndroidDataContext(
-        ruleContext.getLabel(),
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
         androidConfig.persistentBusyboxTools(),
@@ -96,7 +94,6 @@ public class AndroidDataContext implements AndroidDataContextApi {
   }
 
   protected AndroidDataContext(
-      Label label,
       RuleContext ruleContext,
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
@@ -107,7 +104,6 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
       boolean useDataBindingV2) {
-    this.label = label;
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.ruleContext = ruleContext;
     this.busybox = busybox;
@@ -121,7 +117,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   }
 
   public Label getLabel() {
-    return label;
+    return ruleContext.getLabel();
   }
 
   public ActionConstructionContext getActionConstructionContext() {

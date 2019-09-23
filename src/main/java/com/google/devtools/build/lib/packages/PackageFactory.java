@@ -1717,8 +1717,10 @@ public final class PackageFactory {
       BazelStarlarkContext starlarkContext =
           new BazelStarlarkContext(
               ruleClassProvider.getToolsRepository(),
+              /*fragmentNameToClass=*/ null,
               repositoryMapping,
-              new SymbolGenerator<>(packageId));
+              new SymbolGenerator<>(packageId),
+              /*analysisRuleLabel=*/ null);
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)

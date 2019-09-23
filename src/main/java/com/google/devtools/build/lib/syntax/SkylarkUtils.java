@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
+// TODO(adonovan): move this into BazelStarlarkContext.
 public final class SkylarkUtils {
 
   /** A phase for enabling or disabling certain builtin functions */
