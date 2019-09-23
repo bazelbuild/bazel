@@ -519,7 +519,11 @@ public class CppCompileAction extends AbstractAction
           findUsedHeaders(
               actionExecutionContext,
               ccCompilationContext
-                  .createIncludeScanningHeaderData(usePic, useHeaderModules, headerInfo)
+                  .createIncludeScanningHeaderData(
+                      actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+                      usePic,
+                      useHeaderModules,
+                      headerInfo)
                   .setSystemIncludeDirs(systemIncludeDirs)
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
@@ -1477,7 +1481,10 @@ public class CppCompileAction extends AbstractAction
               actionExecutionContext,
               ccCompilationContext
                   .createIncludeScanningHeaderData(
-                      usePic, useHeaderModules, ccCompilationContext.getTransitiveHeaderInfos())
+                      actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+                      usePic,
+                      useHeaderModules,
+                      ccCompilationContext.getTransitiveHeaderInfos())
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
                   .build());

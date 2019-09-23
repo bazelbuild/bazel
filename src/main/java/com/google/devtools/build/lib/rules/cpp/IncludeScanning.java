@@ -142,7 +142,13 @@ public class IncludeScanning implements IncludeProcessing {
             "illegal absolute path to include file: "
                 + actionExecutionContext.getInputPath(included));
       }
-      inputs.add(included);
+      if (included.hasParent() && included.getParent().isTreeArtifact()) {
+        // Note that this means every file in the TreeArtifact becomes an input to the action, and
+        // we have spurious rebuilds if non-included files change.
+        inputs.add(included.getParent());
+      } else {
+        inputs.add(included);
+      }
     }
     return inputs.build();
   }

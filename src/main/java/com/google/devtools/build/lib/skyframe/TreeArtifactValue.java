@@ -112,7 +112,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return digest.clone();
   }
 
-  Iterable<TreeFileArtifact> getChildren() {
+  public Iterable<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
@@ -178,7 +178,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         }
 
         @Override
-        Iterable<TreeFileArtifact> getChildren() {
+        public Iterable<TreeFileArtifact> getChildren() {
           throw new UnsupportedOperationException();
         }
 

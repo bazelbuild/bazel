@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -33,12 +34,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -283,7 +289,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
-      boolean usePic, boolean createModularHeaders, List<HeaderInfo> transitiveHeaderInfoList) {
+      Environment env,
+      boolean usePic,
+      boolean createModularHeaders,
+      List<HeaderInfo> transitiveHeaderInfoList)
+      throws InterruptedException {
+    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
@@ -296,17 +307,26 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.modularHeaders.get(i);
-        if (!a.isSourceArtifact()) {
-          pathToLegalOutputArtifact.put(a.getExecPath(), a);
-        }
+        handleIncludeScanningArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
         if (isModule) {
           modularHeaders.add(a);
         }
       }
       for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.textualHeaders.get(i);
-        if (!a.isSourceArtifact()) {
-          pathToLegalOutputArtifact.put(a.getExecPath(), a);
+        handleIncludeScanningArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+      }
+    }
+    if (!treeArtifacts.isEmpty()) {
+      // TODO(djasper): We aren't getting any exceptions here. Investigate whether that is
+      // correct. Build errors should already have been propagated through compilationPrerequisites.
+      Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
+      Preconditions.checkState(!env.valuesMissing());
+      for (SkyValue value : valueMap.values()) {
+        Preconditions.checkState(value instanceof TreeArtifactValue);
+        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+          pathToLegalOutputArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
         }
       }
     }
@@ -315,6 +335,20 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return new IncludeScanningHeaderData.Builder(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
         Collections.unmodifiableSet(modularHeaders));
+  }
+
+  private void handleIncludeScanningArtifact(
+      Artifact artifact,
+      Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+      ArrayList<Artifact> treeArtifacts) {
+    if (artifact.isSourceArtifact()) {
+      return;
+    }
+    if (artifact.isTreeArtifact()) {
+      treeArtifacts.add(artifact);
+      return;
+    }
+    pathToLegalOutputArtifact.put(artifact.getExecPath(), artifact);
   }
 
   /** Simple container for a collection of headers and corresponding modules. */
