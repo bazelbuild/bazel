@@ -353,11 +353,11 @@ def _myrule_validation_test_impl(ctx):
 
 myrule_validation_test = rule(
   implementation = _myrule_validation_test_impl,
-  attrs = {"target": attr.label(single_file=True),
+  attrs = {"target": attr.label(allow_single_file=True),
            # We need an implicit dependency in order to access the template.
            # A target could potentially override this attribute to modify
            # the test logic.
-           "_script": attr.label(single_file=True,
+           "_script": attr.label(allow_single_file=True,
                                  default=Label("//mypkg:myrule_validator"))},
   test = True,
 )
