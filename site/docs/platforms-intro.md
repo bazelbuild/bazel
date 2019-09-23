@@ -8,6 +8,19 @@ title: Building With Platforms
 - [Overview](#overview)
 - [Background](#background)
 - [Goal](#goal)
+- [Should I use platforms?](#should-i-use-platforms)
+- [API review](#api-review)
+- [Status](#status)
+  - [C++](#c)
+  - [Java](#java)
+  - [Android](#android)
+  - [Go](#go)
+  - [Other languages](#other-languages)
+  - [select()](#select)
+  - [Starlark transitions](#starlark-transitions)
+- [How to use platforms today](#how-to-use-platforms-today)
+- [Questions](#questions)
+- [See also](#see-also)
 
 ## Overview
 
@@ -20,14 +33,17 @@ This page summarizes the arguments for using platforms and shows how to
 navigate these relationships for maximum value with minimum cognitive
 overhead.
 
+**In short:** the core APIs are available but the rule and depot migrations required
+to make them work universally are ongoing. This means you *may* be able to use
+platforms and toolchains with your project, with some work. But you have to
+explicitly opt your project in.
+
 For more formal documentation, see:
 
 * [Platforms](platforms.html)
 * [Toolchains](toolchains.html)
 
 ## Background
-
-### The Problem
 
 *Platforms* and *toolchains* were introduced to *standardize* the need for
  software projects to target different kinds of computers with different
@@ -37,11 +53,10 @@ This is a relatively recent addition to Bazel. It was
 [inspired](https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html)
 by the observation that language maintainers were *already* doing this in ad hoc
 and incompatible ways. For example, C++ rules use `--cpu` and `--crosstool_top`
-to set a build's target CPU and C++ toolchain. Neither of these represents a
-complete "platform". Historic attempts to use them for that inevitably led to
-awkward and inaccurate build APIs. They also don't say anything about Java
-toolchains, which evolved their own independent interface with
-`--java_toolchain`.
+to set a build's target CPU and C++ toolchain. Neither of these correctly models a
+"platform". Historic attempts to use them for that inevitably led to awkward and
+inaccurate build APIs. They also don't say anything about Java  toolchains,
+which evolved their own independent interface with `--java_toolchain`.
 
 Bazel aims to excel at large, mixed-language, multi-platform projects. This
 demands more principled support for these concepts, including clear APIs that
@@ -50,16 +65,15 @@ and toolchain APIs achieve.
 
 ### Migration
 
-But this isn't enough for all projects to use platforms. It's also necessary to
-stop using the old APIs. This isn't trivial because all of a project's
-languages, toolchains, dependencies, and `select()`s have to support the new
-APIs. This requires an *ordered migration sequence* if you don't want your
-project to break.
+These APIs aren't enough for all projects to use platforms. We also have to
+retire the old APIs. This isn't trivial because all of a project's languages,
+toolchains, dependencies, and `select()`s have to support the new APIs. This
+requires an *ordered migration sequence* to keep projects working correctly.
 
 For example, Bazel's [C++](/versions/master/bazel-and-cpp.html) rules aleady
 support platforms while the [Android](/versions/master/bazel-and-android.html)
 rules don't. *Your* C++ project may not care about Android. But others may. So
-it's not yet safe to globally enable platform support for all C++ builds.
+it's not yet safe to globally enable platforms for all C++ builds.
 
 The thrust of this page describes this migration sequence and how and when your
 projects can fit in.
@@ -72,10 +86,88 @@ Bazel's platform migration is complete when all projects can build with the form
 $ bazel build //myproject --platforms=//my:platform
 ```
 
-This implies
+This implies:
+
+1. The rules your project uses can infer correct toolchains from
+`//my:platform`.
+1. The rules your project's dependencies use can infer correct toolchains
+from `//my:platform`.
+1. *Either* the projects depending on yours support `//my:platform` *or* your
+project supports the legacy APIs (like `--crosstool_top`).
+1. `//my:platform` references
+[common declarations](https://github.com/bazelbuild/platforms#motivation) of
+`CPU`, `OS`, and other generic concepts that support automatic cross-project
+compatibility.
+1. All relevant projects'
+[`select()`s](https://docs.bazel.build/versions/master/configurable-attributes.html)
+understand `//my:platform`.
+1. `//my:platform` is defined in a clear, reusable place: in your project's
+repo if the platform is unique to your project, otherwise somewhere all projects
+that may use this platform can find. 
+
+As soon as this goal is achieved, we'll remove the old APIs and make this *the*
+way all projects select platforms and toolchains.
+
+## Should I use platforms?
+Yes. Bazel's platform and toolchain APIs are a major upgrade over legacy ways to
+select toolchains and perform multi-platform builds. The real question is, given
+the migration work required to make platform support ubiquitous, *when* should
+your project fit in? 
+
+The answer varies across projects. You should opt yours in when the value added
+outweighs current costs:
+
+### Value
+### Costs
+
+## API review
+* platform()
+* toolchain()
+* --platforms
+* --extra_toolchains
+
+
+## Status
+### C++
+* Replaces `--cpu`, `--crosstool_top`, `--compiler`, and more.
+* Need 
+* C++-specific constraints in [rules_cc](https://github.com/bazelbuild/rules_cc).
+* --incompatible_enable_cc_toolchain_resolution ([#7260](https://github.com/bazelbuild/bazel/issues/7260))
+* Android Fat APKs still change with --cpu
+* Same as multiarch Apple binaries
+* #7260 includes migration instructions.
+* Starlark rules depending on C++ toolchain: `toolchains = ["@rules_cc//cc:toolchain_type"]`
+* [find_cc_toolchain](https://github.com/bazelbuild/rules_cc/blob/master/cc/find_cc_toolchain.bzl) ([example](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_compile/my_c_compile.bzl))
+* [example of iOS dependency](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303)
+
+### Java
+* Replace --java_toolchain, --host_java_toolchain, --javabase, --host_javabase.
+*  --incompatible_use_toolchain_resolution_for_java_rules
+(https://github.com/bazelbuild/bazel/issues/7849)
+* blocked on downstream projects failing
+* Add relevant toolchain definitions? https://github.com/bazelbuild/rules_java/pull/8
+
+### Android
+* @ahumesky and @jin said that for Android rules, toolchains are defined in a
+ standard place and it's highly unusual for users to use a custom
+ --crosstool_top. So it may be realistic to define platforms and platform
+ mappings alongside these toolchains. See here for early precedent. Apple
+ rules are presumably similar.
+* https://docs.bazel.build/versions/master/android-ndk.html#integration-with-platforms-and-toolchains
 
 
 
+### Go
+### Other languages
+### `select()`
+### Starlark transitions
 
+## How to use platforms today
+### Platform mappings
+* Tracking bug: [#6426](https://github.com/bazelbuild/bazel/issues/6426)
+* [example fix for iOS / C++ breakage](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378)
+
+## Questions
+## See also
 
 
