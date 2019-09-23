@@ -429,7 +429,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_compile_dependency_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(SdkFrameworksDependerRule.class)
+          .ancestors(CppRuleClasses.CcIncludeScanningRule.class, SdkFrameworksDependerRule.class)
           .build();
     }
   }
@@ -839,8 +839,14 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(PlatformRule.class, CrosstoolRule.class, BaseRuleClasses.RuleBase.class,
-              XcrunRule.class, SdkFrameworksDependerRule.class, LibtoolRule.class)
+          .ancestors(
+              PlatformRule.class,
+              CrosstoolRule.class,
+              BaseRuleClasses.RuleBase.class,
+              CppRuleClasses.CcIncludeScanningRule.class,
+              XcrunRule.class,
+              SdkFrameworksDependerRule.class,
+              LibtoolRule.class)
           .build();
     }
   }

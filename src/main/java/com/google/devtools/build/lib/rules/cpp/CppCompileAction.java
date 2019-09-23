@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.IncludeScanningHeaderDataHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
@@ -87,6 +88,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -189,6 +192,8 @@ public class CppCompileAction extends AbstractAction
 
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
+
+  private Iterable<Artifact> alternateIncludeScanningDataInputs = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -296,6 +301,7 @@ public class CppCompileAction extends AbstractAction
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
     }
+    this.alternateIncludeScanningDataInputs = cppSemantics.getAlternateIncludeScanningDataInputs();
   }
 
   static CompileCommandLine buildCommandLine(
@@ -492,6 +498,34 @@ public class CppCompileAction extends AbstractAction
     return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
+  private static IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
+      SkyFunction.Environment env, Iterable<Artifact> inputs) throws InterruptedException {
+    Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
+    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    for (Artifact a : inputs) {
+      IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+    }
+    IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts);
+    return new IncludeScanningHeaderData.Builder(
+        Collections.unmodifiableMap(pathToLegalOutputArtifact),
+        Collections.unmodifiableSet(CompactHashSet.create()));
+  }
+
+  public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
+      SkyFunction.Environment env,
+      boolean usePic,
+      boolean useHeaderModules,
+      List<CcCompilationContext.HeaderInfo> headerInfo)
+      throws InterruptedException {
+    if (alternateIncludeScanningDataInputs != null) {
+      return createIncludeScanningHeaderData(env, alternateIncludeScanningDataInputs);
+    } else {
+      return ccCompilationContext.createIncludeScanningHeaderData(
+          env, usePic, useHeaderModules, headerInfo);
+    }
+  }
+
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -518,8 +552,7 @@ public class CppCompileAction extends AbstractAction
       additionalInputs =
           findUsedHeaders(
               actionExecutionContext,
-              ccCompilationContext
-                  .createIncludeScanningHeaderData(
+              createIncludeScanningHeaderData(
                       actionExecutionContext.getEnvironmentForDiscoveringInputs(),
                       usePic,
                       useHeaderModules,
@@ -1479,8 +1512,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<Artifact> discoveredInputs =
           findUsedHeaders(
               actionExecutionContext,
-              ccCompilationContext
-                  .createIncludeScanningHeaderData(
+              createIncludeScanningHeaderData(
                       actionExecutionContext.getEnvironmentForDiscoveringInputs(),
                       usePic,
                       useHeaderModules,

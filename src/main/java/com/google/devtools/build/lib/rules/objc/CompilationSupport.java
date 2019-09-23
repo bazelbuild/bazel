@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanning;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
@@ -264,24 +265,35 @@ public class CompilationSupport {
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
 
-  private IncludeProcessing createIncludeProcessing(
-      Iterable<Artifact> privateHdrs, ObjcProvider objcProvider, @Nullable Artifact pchHdr) {
+  /**
+   * Returns additional inputs to include processing, outside of the headers provided by
+   * ObjProvider.
+   */
+  private Iterable<Artifact> getExtraIncludeProcessingInputs(
+      ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
+    Iterable<Artifact> extraInputs = privateHdrs;
+    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
+      extraInputs =
+          Iterables.concat(
+              extraInputs,
+              objcProvider.get(STATIC_FRAMEWORK_FILE),
+              objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
+    }
+    if (pchHdr != null) {
+      extraInputs = Iterables.concat(extraInputs, ImmutableList.of(pchHdr));
+    }
+    return extraInputs;
+  }
+
+  /**
+   * Create and return the include processing to be used. Only HeaderThinning uses potentialInputs.
+   */
+  private IncludeProcessing createIncludeProcessing(Iterable<Artifact> potentialInputs) {
     switch (includeProcessingType) {
       case HEADER_THINNING:
-        Iterable<Artifact> potentialInputs =
-            Iterables.concat(privateHdrs, objcProvider.get(HEADER));
-        if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-          potentialInputs =
-              Iterables.concat(
-                  potentialInputs,
-                  objcProvider.get(STATIC_FRAMEWORK_FILE),
-                  objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
-        }
-        if (pchHdr != null) {
-          potentialInputs = Iterables.concat(potentialInputs, ImmutableList.of(pchHdr));
-        }
         return new HeaderThinning(potentialInputs);
       case INCLUDE_SCANNING:
+        return IncludeScanning.INSTANCE;
       default:
         return NoProcessing.INSTANCE;
     }
@@ -297,6 +309,7 @@ public class CompilationSupport {
       Collection<Artifact> sources,
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
+      Collection<Artifact> dependentGeneratedHdrs,
       Artifact pchHdr,
       // TODO(b/70777494): Find out how deps get used and remove if not needed.
       Iterable<? extends TransitiveInfoCollection> deps,
@@ -322,6 +335,7 @@ public class CompilationSupport {
             .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))
             .addPublicHeaders(publicHdrs)
+            .addPrivateHeadersUnchecked(dependentGeneratedHdrs)
             .addCcCompilationContexts(
                 Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
                     .map(CcInfo::getCcCompilationContext)
@@ -335,6 +349,8 @@ public class CompilationSupport {
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
+            .addFrameworkIncludeDirs(
+                frameworkHeaderSearchPathFragments(objcProvider, ruleContext, buildConfiguration))
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
@@ -379,6 +395,17 @@ public class CompilationSupport {
                 Streams.stream(attributes.hdrs()),
                 Streams.stream(compilationArtifacts.getAdditionalHdrs()))
             .collect(toImmutableSortedSet(naturalOrder()));
+    // This is a hack to inject generated headers into the action graph for include scanning.  This
+    // is supposed to be done via the compilation prerequisite middleman artifact of dependent
+    // CcCompilationContexts, but ObjcProvider does not propagate that.  This issue will go away
+    // when we finish migrating the compile info in ObjcProvider to CcCompilationContext.
+    //
+    // To limit the extra work we're adding, we only add what is required, i.e. the
+    // generated headers.
+    Collection<Artifact> dependentGeneratedHdrs =
+        (includeProcessingType == IncludeProcessingType.INCLUDE_SCANNING)
+            ? objcProvider.getGeneratedHeaderList()
+            : ImmutableList.of();
     Artifact pchHdr = getPchFile().orNull();
     Iterable<? extends TransitiveInfoCollection> deps =
         ruleContext.getPrerequisites("deps", Mode.TARGET);
@@ -397,6 +424,7 @@ public class CompilationSupport {
             arcSources,
             privateHdrs,
             publicHdrs,
+            dependentGeneratedHdrs,
             pchHdr,
             deps,
             semantics,
@@ -416,6 +444,7 @@ public class CompilationSupport {
             nonArcSources,
             privateHdrs,
             publicHdrs,
+            dependentGeneratedHdrs,
             pchHdr,
             deps,
             semantics,
@@ -516,10 +545,13 @@ public class CompilationSupport {
 
   private ObjcCppSemantics createObjcCppSemantics(
       ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
+    Iterable<Artifact> extraInputs =
+        getExtraIncludeProcessingInputs(objcProvider, privateHdrs, pchHdr);
     return new ObjcCppSemantics(
         objcProvider,
         includeProcessingType,
-        createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
+        createIncludeProcessing(Iterables.concat(extraInputs, objcProvider.get(HEADER))),
+        extraInputs,
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
         buildConfiguration,

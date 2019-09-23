@@ -348,8 +348,11 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
-  // Lazily initialized because it's only needed when header thinning is not enabled.
+  // Lazily initialized because it's only needed when there is no include processing.
   @Nullable private volatile NestedSet<Artifact> generatedHeaders;
+
+  // Lazily initialized because it's only needed for including scanning.
+  @Nullable private volatile ImmutableList<Artifact> generatedHeaderList;
 
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
@@ -736,6 +739,24 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       }
     }
     return generatedHeaders;
+  }
+
+  /** Returns the list of generated header files. */
+  List<Artifact> getGeneratedHeaderList() {
+    if (generatedHeaderList == null) {
+      synchronized (this) {
+        if (generatedHeaderList == null) {
+          ImmutableList.Builder<Artifact> generatedHeadersBuilder = ImmutableList.builder();
+          for (Artifact header : header()) {
+            if (!header.isSourceArtifact()) {
+              generatedHeadersBuilder.add(header);
+            }
+          }
+          generatedHeaderList = generatedHeadersBuilder.build();
+        }
+      }
+    }
+    return generatedHeaderList;
   }
 
   /**

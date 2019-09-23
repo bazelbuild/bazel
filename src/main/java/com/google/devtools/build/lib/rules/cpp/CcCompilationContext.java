@@ -288,6 +288,43 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return transitiveHeaderInfos.toList();
   }
 
+  /** Helper class for creating include scanning header data. */
+  public static class IncludeScanningHeaderDataHelper {
+    private IncludeScanningHeaderDataHelper() {}
+
+    public static void handleArtifact(
+        Artifact artifact,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        ArrayList<Artifact> treeArtifacts) {
+      if (artifact.isSourceArtifact()) {
+        return;
+      }
+      if (artifact.isTreeArtifact()) {
+        treeArtifacts.add(artifact);
+        return;
+      }
+      pathToLegalOutputArtifact.put(artifact.getExecPath(), artifact);
+    }
+
+    public static void handleTreeArtifacts(
+        Environment env,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        ArrayList<Artifact> treeArtifacts)
+        throws InterruptedException {
+      if (!treeArtifacts.isEmpty()) {
+        Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
+        Preconditions.checkState(!env.valuesMissing());
+        for (SkyValue value : valueMap.values()) {
+          Preconditions.checkState(value instanceof TreeArtifactValue);
+          TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+            pathToLegalOutputArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
+          }
+        }
+      }
+    }
+  }
+
   public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
       Environment env,
       boolean usePic,
@@ -307,48 +344,23 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.modularHeaders.get(i);
-        handleIncludeScanningArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
         if (isModule) {
           modularHeaders.add(a);
         }
       }
       for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.textualHeaders.get(i);
-        handleIncludeScanningArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
       }
     }
-    if (!treeArtifacts.isEmpty()) {
-      // TODO(djasper): We aren't getting any exceptions here. Investigate whether that is
-      // correct. Build errors should already have been propagated through compilationPrerequisites.
-      Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
-      Preconditions.checkState(!env.valuesMissing());
-      for (SkyValue value : valueMap.values()) {
-        Preconditions.checkState(value instanceof TreeArtifactValue);
-        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-          pathToLegalOutputArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-        }
-      }
-    }
+    IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts);
     removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     return new IncludeScanningHeaderData.Builder(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
         Collections.unmodifiableSet(modularHeaders));
-  }
-
-  private void handleIncludeScanningArtifact(
-      Artifact artifact,
-      Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-      ArrayList<Artifact> treeArtifacts) {
-    if (artifact.isSourceArtifact()) {
-      return;
-    }
-    if (artifact.isTreeArtifact()) {
-      treeArtifacts.add(artifact);
-      return;
-    }
-    pathToLegalOutputArtifact.put(artifact.getExecPath(), artifact);
   }
 
   /** Simple container for a collection of headers and corresponding modules. */

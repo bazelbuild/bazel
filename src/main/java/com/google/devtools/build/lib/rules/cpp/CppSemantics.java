@@ -39,9 +39,12 @@ public interface CppSemantics {
    */
   NestedSet<Artifact> getAdditionalPrunableIncludes();
 
-  /**
-   * Determines the applicable mode of headers checking for the passed in ruleContext.
-   */
+  /** Return an alternate source of inputs for constructing the include scanning data. */
+  default Iterable<Artifact> getAlternateIncludeScanningDataInputs() {
+    return null;
+  }
+
+  /** Determines the applicable mode of headers checking for the passed in ruleContext. */
   HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
 
   /** Returns the include processing closure, which handles include processing for this build */
