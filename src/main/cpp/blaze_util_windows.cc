@@ -389,7 +389,7 @@ string GetSelfPath() {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "GetSelfPath: GetModuleFileNameW: " << GetLastErrorString();
   }
-  return string(blaze_util::WstringToCstring(buffer).get());
+  return blaze_util::WstringToCstring(buffer);
 }
 
 string GetOutputRoot() {
@@ -418,7 +418,7 @@ string GetHomeDir() {
   // is the same as %USERPROFILE%, but it does not require the envvar to be set.
   if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
                                        &wpath))) {
-    string result = string(blaze_util::WstringToCstring(wpath).get());
+    string result = blaze_util::WstringToCstring(wpath);
     ::CoTaskMemFree(wpath);
     return result;
   }
@@ -515,7 +515,7 @@ static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Command line too long (" << cmdline_str.size() << " > "
         << MAX_CMDLINE_LENGTH
-        << "): " << blaze_util::WstringToCstring(cmdline_str.c_str()).get();
+        << "): " << blaze_util::WstringToCstring(cmdline_str);
   }
 
   // Copy command line into a mutable buffer.
@@ -675,7 +675,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe.AsPrintablePath()
         << "): attribute list creation failed: "
-        << blaze_util::WstringToString(werror);
+        << blaze_util::WstringToCstring(werror);
   }
 
   PROCESS_INFORMATION processInfo = {0};
@@ -685,7 +685,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   std::vector<std::wstring> wesc_args_vector;
   wesc_args_vector.reserve(args_vector.size());
   for (const string& a : args_vector) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wesc_args_vector.push_back(wesc);
   }
@@ -755,14 +755,14 @@ static void ExecuteProgram(const blaze_util::Path& exe,
           bazel::windows::WaitableProcess::kWaitSuccess) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteProgram(" << exe.AsPrintablePath()
-        << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
+        << ") failed: " << blaze_util::WstringToCstring(werror);
   }
   werror.clear();
   int x = proc.GetExitCode(&werror);
   if (!werror.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteProgram(" << exe.AsPrintablePath()
-        << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
+        << ") failed: " << blaze_util::WstringToCstring(werror);
   }
   exit(x);
 }
@@ -772,7 +772,7 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
   std::vector<std::wstring> wargs;
   wargs.reserve(server_jvm_args.size());
   for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wargs.push_back(wesc);
   }
@@ -786,7 +786,7 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
   wargs.reserve(run_request_args.size());
   std::wstringstream joined;
   for (const string& a : run_request_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     // The arguments are already escaped (Bash-style or Windows-style, depending
     // on --[no]incompatible_windows_bashless_run_command).
     wargs.push_back(wa);
@@ -812,7 +812,7 @@ bool SymlinkDirectories(const string& posix_target,
   wstring werror;
   if (CreateJunction(name.AsNativePath(), target, &werror) !=
       CreateJunctionResult::kSuccess) {
-    string error(blaze_util::WstringToCstring(werror.c_str()).get());
+    string error(blaze_util::WstringToCstring(werror));
     BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
                      << name.AsPrintablePath()
                      << "): CreateJunction: " << error;
@@ -1163,7 +1163,7 @@ string GetUserName() {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "GetUserNameW failed: " << GetLastErrorString();
   }
-  return string(blaze_util::WstringToCstring(buffer).get());
+  return blaze_util::WstringToCstring(buffer);
 }
 
 bool IsEmacsTerminal() {
