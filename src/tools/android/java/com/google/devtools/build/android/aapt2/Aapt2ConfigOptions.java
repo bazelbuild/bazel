@@ -17,9 +17,7 @@ package com.google.devtools.build.android.aapt2;
 
 import com.android.repository.Revision;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
-import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -83,26 +81,6 @@ public class Aapt2ConfigOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Have AAPT2 produce conditional keep rules.")
   public TriState conditionalKeepRules;
-
-  @Option(
-      name = "resourcePathShortening",
-      defaultValue = "false",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Enable the resource path shortening optimization.")
-  public boolean resourcePathShortening;
-
-  @Option(
-      name = "resourcePathShorteningMapOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path to write the map of old resource paths to shortened paths, if resource path"
-              + " shortening is enabled.")
-  public Path resourcePathShorteningMapOutput;
 
   @Option(
       name = "uncompressedExtensions",
