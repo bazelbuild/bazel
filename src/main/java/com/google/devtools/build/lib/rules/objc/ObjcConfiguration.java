@@ -62,7 +62,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final boolean moduleMapsEnabled;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
-  @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
@@ -92,7 +91,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
-    this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
@@ -235,14 +233,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   @Override
   public String getSigningCertName() {
     return this.signingCertName;
-  }
-
-  /**
-   * Returns the extra entitlements plist specified as a flag or {@code null} if none was given.
-   */
-  @Nullable
-  public Label getExtraEntitlements() {
-    return extraEntitlements;
   }
 
   /**

@@ -202,18 +202,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean debugWithGlibcxx;
 
   @Option(
-    name = "extra_entitlements",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of a .entitlements file that is merged into any iOS signing action in this "
-            + "build."
-  )
-  public Label extraEntitlements;
-
-  @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.SIGNING,
