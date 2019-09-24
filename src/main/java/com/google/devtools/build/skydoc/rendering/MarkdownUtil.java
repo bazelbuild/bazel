@@ -44,7 +44,9 @@ public final class MarkdownUtil {
    *   <li>Transforms the string using {@link #htmlEscape}.
    *   <li>Transforms multline code (```) tags into preformatted code HTML tags.
    *   <li>Transforms single-tick code (`) tags into code HTML tags.
-   *   <li>Transforms newline characters into line break HTML tags.
+   *   <li>Transforms 'new paraphgraph' patterns (two or more sequential newline characters) into
+   *       line break HTML tags.
+   *   <li>Turns lingering new line tags into spaces (as they generally indicate intended line wrap.
    * </ul>
    */
   public String markdownCellFormat(String docString) {
@@ -53,7 +55,7 @@ public final class MarkdownUtil {
     resultString = replaceWithTag(resultString, "```", "<pre><code>", "</code></pre>");
     resultString = replaceWithTag(resultString, "`", "<code>", "</code>");
 
-    return resultString.replace("\n", "<br>");
+    return resultString.replaceAll("\n(\\s*\n)+", "<br><br>").replace('\n', ' ');
   }
 
   private static String replaceWithTag(

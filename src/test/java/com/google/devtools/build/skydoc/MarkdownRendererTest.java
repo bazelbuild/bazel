@@ -99,11 +99,17 @@ public final class MarkdownRendererTest {
         ProviderFieldInfo.newBuilder()
             .setName("one")
             .setDocString(
-                "This field <is totally> the `one`.\na **second** line.\n"
+                "This field <is totally> the `one`.\n"
+                    + "\n"
+                    + "a **second** line.\n"
+                    + "  \n"
+                    + "  \n"
                     + "For example:\n"
+                    + "\n"
                     + "```thisfield > otherfield\n"
                     + "  otherotherfield < thisfield```\n"
-                    + "Usage: `thisfield.<some method>`")
+                    + "\n"
+                    + "Usage: `thisfield.<some method>`\n")
             .build();
 
     ProviderInfo providerInfo =
@@ -129,9 +135,9 @@ public final class MarkdownRendererTest {
                 + "| Name  | Description |\n"
                 + "| :-------------: | :-------------: |\n"
                 + "| one |  This field &lt;is totally&gt; the "
-                + "<code>one</code>.<br>a **second** line.<br>For example:<br>"
-                + "<pre><code>thisfield &gt; otherfield<br>  otherotherfield &lt;"
-                + " thisfield</code></pre><br>Usage: <code>thisfield.&lt;some "
+                + "<code>one</code>.<br><br>a **second** line.<br><br>For example:<br><br>"
+                + "<pre><code>thisfield &gt; otherfield   otherotherfield &lt;"
+                + " thisfield</code></pre><br><br>Usage: <code>thisfield.&lt;some "
                 + "method&gt;</code>    |\n");
   }
 
