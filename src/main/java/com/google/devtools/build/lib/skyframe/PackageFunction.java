@@ -1165,13 +1165,11 @@ public class PackageFunction implements SkyFunction {
           // If control flow reaches here, we're in territory that is deliberately unsound.
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
-        input =
-            ParserInput.create(
-                FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
+        input = ParserInput.create(buildFileBytes, inputFile.asFragment());
         StoredEventHandler astParsingEventHandler = new StoredEventHandler();
         BuildFileAST ast =
             PackageFactory.parseBuildFile(
-                packageId, input, preludeStatements, repositoryMapping, astParsingEventHandler);
+                packageId, input, preludeStatements, astParsingEventHandler);
         astParseResult = new AstParseResult(ast, astParsingEventHandler);
         astCache.put(packageId, astParseResult);
       }

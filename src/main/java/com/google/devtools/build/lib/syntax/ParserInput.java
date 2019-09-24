@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** The apparent name and contents of a source file, for consumption by the parser. */
@@ -54,7 +53,7 @@ public final class ParserInput {
    * name of the file, for use in source locations and error messages; a null path implies the empty
    * string.
    */
-  public static ParserInput create(byte[] bytes, @Nullable PathFragment path) throws IOException {
+  public static ParserInput create(byte[] bytes, @Nullable PathFragment path) {
     char[] content = convertFromLatin1(bytes);
     return new ParserInput(content, path);
   }

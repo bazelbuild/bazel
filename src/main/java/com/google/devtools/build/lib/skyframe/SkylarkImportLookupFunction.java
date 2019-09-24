@@ -460,7 +460,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
         // Parse the load statement's module string as a label.
         // It must end in .bzl and not be in package "//external".
-        // These checks duplicate checks done at parse time. TODO(adonovan): eliminate the latter.
         try {
           Label label = buildLabel.getRelativeWithRemapping(module, repoMapping);
           if (!label.getName().endsWith(".bzl")) {
@@ -472,7 +471,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           }
           loadMap.put(module, label);
         } catch (LabelSyntaxException ex) {
-          handler.handle(Event.error(load.getImport().getLocation(), ex.getMessage()));
+          handler.handle(
+              Event.error(load.getImport().getLocation(), "in load statement: " + ex.getMessage()));
           ok = false;
         }
       }

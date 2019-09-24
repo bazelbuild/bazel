@@ -582,18 +582,49 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadRelativePath() throws Exception {
-    scratch.file("pkg/BUILD", "load(':ext.bzl', 'a')");
-    scratch.file("pkg/ext.bzl", "a = 1");
-    validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//pkg")));
+  public void testLoadOK() throws Exception {
+    scratch.file("p/a.bzl", "a = 1; b = 1; d = 1");
+    scratch.file("p/subdir/a.bzl", "c = 1; e = 1");
+    scratch.file(
+        "p/BUILD",
+        //
+        "load(':a.bzl', 'a')",
+        "load('a.bzl', 'b')",
+        "load('subdir/a.bzl', 'c')",
+        "load('//p:a.bzl', 'd')",
+        "load('//p:subdir/a.bzl', 'e')");
+    validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//p")));
+  }
+
+  // See WorkspaceASTFunctionTest for tests that exercise load('@repo...').
+
+  @Test
+  public void testLoadBadLabel() throws Exception {
+    scratch.file("p/BUILD", "load('this\tis not a label', 'a')");
+    reporter.removeHandler(failFastHandler);
+    SkyKey key = PackageValue.key(PackageIdentifier.parse("@//p"));
+    SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
+    assertContainsEvent(
+        "in load statement: invalid target name 'this<?>is not a label': target names may not"
+            + " contain non-printable characters");
   }
 
   @Test
-  public void testLoadAbsolutePath() throws Exception {
-    scratch.file("pkg1/BUILD");
-    scratch.file("pkg2/BUILD", "load('//pkg1:ext.bzl', 'a')");
-    scratch.file("pkg1/ext.bzl", "a = 1");
-    validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//pkg2")));
+  public void testLoadFromExternalPackage() throws Exception {
+    scratch.file("p/BUILD", "load('//external:file.bzl', 'a')");
+    reporter.removeHandler(failFastHandler);
+    SkyKey key = PackageValue.key(PackageIdentifier.parse("@//p"));
+    SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
+    assertContainsEvent("Starlark files may not be loaded from the //external package");
+  }
+
+  @Test
+  public void testLoadWithoutBzlSuffix() throws Exception {
+    scratch.file("p/BUILD", "load('//p:file.starlark', 'a')");
+    reporter.removeHandler(failFastHandler);
+    SkyKey key = PackageValue.key(PackageIdentifier.parse("@//p"));
+    SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
+    assertContainsEvent("The label must reference a file with extension '.bzl'");
   }
 
   @Test

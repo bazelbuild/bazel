@@ -14,22 +14,17 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
-import com.google.devtools.build.lib.syntax.SkylarkImport.SkylarkImportSyntaxException;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/** Abstract syntax node for an entire BUILD file. */
-// TODO(bazel-team): Consider breaking this up into two classes: One that extends Node and does
-// not include import info; and one that wraps that object with additional import info but that
-// does not itself extend Node. This would help keep the AST minimalistic.
+/** Syntax tree for a Starlark file, such as a Bazel BUILD or .bzl file. */
+// TODO(adonovan): rename to StarlarkFile.
 public class BuildFileAST extends Node {
 
   private final ImmutableList<Statement> statements;
@@ -64,8 +59,6 @@ public class BuildFileAST extends Node {
       List<Statement> preludeStatements,
       ParseResult result,
       String contentHashCode,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      EventHandler eventHandler,
       boolean allowImportInternal) {
     ImmutableList.Builder<Statement> statementsbuilder =
         ImmutableList.<Statement>builder().addAll(preludeStatements);
@@ -82,25 +75,13 @@ public class BuildFileAST extends Node {
       statementsbuilder.addAll(result.statements);
     }
     ImmutableList<Statement> statements = statementsbuilder.build();
-    boolean containsErrors = result.containsErrors;
-    containsErrors |= fetchLoads(statements, repositoryMapping, eventHandler);
     return new BuildFileAST(
         statements,
-        containsErrors,
+        result.containsErrors,
         contentHashCode,
         result.location,
         ImmutableList.copyOf(result.comments),
         result.stringEscapeEvents);
-  }
-
-  private static BuildFileAST create(
-      List<Statement> preludeStatements,
-      ParseResult result,
-      String contentHashCode,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      EventHandler eventHandler) {
-    return create(
-        preludeStatements, result, contentHashCode, repositoryMapping, eventHandler, false);
   }
 
   /**
@@ -109,17 +90,6 @@ public class BuildFileAST extends Node {
    */
   public BuildFileAST subTree(int firstStatement, int lastStatement) {
     ImmutableList<Statement> statements = this.statements.subList(firstStatement, lastStatement);
-    for (Statement stmt : statements) {
-      if (stmt instanceof LoadStatement) {
-        String str = ((LoadStatement) stmt).getImport().getValue();
-        try {
-          SkylarkImport.create(str, /* repositoryMapping= */ ImmutableMap.of()); // discard result
-        } catch (SkylarkImportSyntaxException e) {
-          throw new IllegalStateException(
-              "Cannot create SkylarkImport for '" + str + "'. This is an internal error.", e);
-        }
-      }
-    }
     return new BuildFileAST(
         statements,
         containsErrors,
@@ -127,26 +97,6 @@ public class BuildFileAST extends Node {
         this.statements.get(firstStatement).getLocation(),
         ImmutableList.of(),
         stringEscapeEvents);
-  }
-
-  /** Checks all load statements. Reports whether there were errors resolving imports. */
-  private static boolean fetchLoads(
-      List<Statement> statements,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      EventHandler eventHandler) {
-    boolean error = false;
-    for (Statement stmt : statements) {
-      if (stmt instanceof LoadStatement) {
-        String importString = ((LoadStatement) stmt).getImport().getValue();
-        try {
-          SkylarkImport.create(importString, repositoryMapping); // discard result
-        } catch (SkylarkImportSyntaxException e) {
-          eventHandler.handle(Event.error(stmt.getLocation(), e.getMessage()));
-          error = true;
-        }
-      }
-    }
-    return error;
   }
 
   /**
@@ -246,7 +196,7 @@ public class BuildFileAST extends Node {
 
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    // Only statements are printed, not comments and processed import data.
+    // Only statements are printed, not comments.
     for (Statement stmt : statements) {
       stmt.prettyPrint(buffer, indentLevel);
     }
@@ -270,11 +220,10 @@ public class BuildFileAST extends Node {
   public static BuildFileAST parseWithPrelude(
       ParserInput input,
       List<Statement> preludeStatements,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
-        preludeStatements, result, /* contentHashCode= */ null, repositoryMapping, eventHandler);
+        preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ false);
   }
 
   /**
@@ -285,16 +234,10 @@ public class BuildFileAST extends Node {
   public static BuildFileAST parseVirtualBuildFile(
       ParserInput input,
       List<Statement> preludeStatements,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
-        preludeStatements,
-        result,
-        /* contentHashCode= */ null,
-        repositoryMapping,
-        eventHandler,
-        true);
+        preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ true);
   }
 
   public static BuildFileAST parseWithDigest(
@@ -304,8 +247,7 @@ public class BuildFileAST extends Node {
         /* preludeStatements= */ ImmutableList.of(),
         result,
         HashCode.fromBytes(digest).toString(),
-        /* repositoryMapping= */ ImmutableMap.of(),
-        eventHandler);
+        /* allowImportInternal= */ false);
   }
 
   public static BuildFileAST parse(ParserInput input, EventHandler eventHandler) {
@@ -314,8 +256,7 @@ public class BuildFileAST extends Node {
         /* preludeStatements= */ ImmutableList.<Statement>of(),
         result,
         /* contentHashCode= */ null,
-        /* repositoryMapping= */ ImmutableMap.of(),
-        eventHandler);
+        /* allowImportInternal=*/ false);
   }
 
   /**

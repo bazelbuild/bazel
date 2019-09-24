@@ -29,7 +29,6 @@ filegroup(
 FRONTEND_FILES = [
     "LineNumberTable.java",
     "ParserInput.java",
-    "SkylarkImport.java",
     "StarlarkSemantics.java",
     "Token.java",
     "TokenKind.java",
@@ -43,7 +42,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

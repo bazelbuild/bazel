@@ -27,6 +27,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ValidationTest extends EvaluationTestCase {
 
+  // TODO(adonovan): break dependency on EvaluationTestCase.
+
   @Test
   public void testAssignmentNotValidLValue() {
     checkError("cannot assign to '\"a\"'", "'a' = 1");
@@ -262,6 +264,24 @@ public class ValidationTest extends EvaluationTestCase {
         "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)",
         "def fct(*args, **kwargs): pass",
         "fct(1, *[2], a=3)");
+  }
+
+  @Test
+  public void testTopLevelForFails() throws Exception {
+    setFailFast(false);
+    parseFile("for i in []: 0\n");
+    assertContainsError("for loops are not allowed at the top level");
+  }
+
+  @Test
+  public void testNestedFunctionFails() throws Exception {
+    setFailFast(false);
+    parseFile(
+        "def func(a):", //
+        "  def bar(): return 0",
+        "  return bar()",
+        "");
+    assertContainsError("nested functions are not allowed. Move the function to the top level");
   }
 
   private void parse(String... lines) {

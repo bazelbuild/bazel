@@ -2215,41 +2215,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testLoadStatementWithAbsolutePath() throws Exception {
-    checkEvalErrorContains(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('/tmp/foo.bzl', 'arg')");
-  }
-
-  @Test
-  public void testLoadStatementWithRelativePath() throws Exception {
-    checkEvalErrorContains(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('foo.bzl', 'arg')");
-  }
-
-  @Test
-  public void testLoadStatementWithExternalLabel() throws Exception {
-    checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('@other//foo.bzl', 'arg')");
-  }
-
-  @Test
-  public void testLoadStatementWithAbsoluteLabel() throws Exception {
-    checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load('//foo.bzl', 'arg')");
-  }
-
-  @Test
-  public void testLoadStatementWithRelativeLabel() throws Exception {
-    checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
-        "load(':foo.bzl', 'arg')");
-  }
-
-  @Test
   public void testAnalysisFailureInfo() throws Exception {
     AnalysisFailure cause = new AnalysisFailure(Label.create("test", "test"), "ErrorMessage");
 

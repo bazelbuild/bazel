@@ -1354,7 +1354,6 @@ public final class PackageFactory {
             packageId,
             input,
             preludeStatements,
-            /* repositoryMapping= */ ImmutableMap.of(),
             localReporterForParsing);
     AstParseResult astParseResult =
         new AstParseResult(buildFileAST, localReporterForParsing);
@@ -1375,12 +1374,11 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       ParserInput input,
       List<Statement> preludeStatements,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST =
-        BuildFileAST.parseWithPrelude(input, preludeStatements, repositoryMapping, eventHandler);
+        BuildFileAST.parseWithPrelude(input, preludeStatements, eventHandler);
     logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }

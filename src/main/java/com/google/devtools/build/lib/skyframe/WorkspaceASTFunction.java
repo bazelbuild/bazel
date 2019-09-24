@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -101,7 +100,6 @@ public class WorkspaceASTFunction implements SkyFunction {
                 ParserInput.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
                 file.getStatements(),
-                /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
       } else if (workspaceFileValue.exists()) {
         byte[] bytes =
@@ -110,7 +108,6 @@ public class WorkspaceASTFunction implements SkyFunction {
             BuildFileAST.parseWithPrelude(
                 ParserInput.create(bytes, repoWorkspace.asFragment()),
                 file.getStatements(),
-                /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
         if (file.containsErrors()) {
           throw new WorkspaceASTFunctionException(
@@ -125,7 +122,6 @@ public class WorkspaceASTFunction implements SkyFunction {
                   resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
               file.getStatements(),
-              /* repositoryMapping= */ ImmutableMap.of(),
               env.getListener());
       if (file.containsErrors()) {
         throw new WorkspaceASTFunctionException(
