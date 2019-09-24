@@ -176,6 +176,32 @@ command line with [`--extra_toolchains`](command-line-reference.html#flag--extra
 See [here](toolchains.html) for a deeper dive.
 
 ## Status
+
+Current platform support varies among languages. All of Bazel's major rules are
+moving to platforms. But this process will take time. This is for three main reasons:
+
+1. Rule logic must be updated to get tool info from the new [toolchain
+API](toolchains.html) (`ctx.toolchains`) and stop reading legacy settings like
+`--cpu` and `--crosstool_top`. This is relatively straightforward.
+
+1. Rule and toolchain maintainers must define toolchains and make them
+   accessible to end users (through repository entries and `WORKSPACE`
+   registrations). This is technically straightforward but must be coherently
+   organized to maintain an easy user experience. 
+
+   Platform definitions are also necessary (unless you build for the machine
+   Bazel runs on). But we generally expect projects to define their own platforms.
+
+1. Existing projects must be migrated. `select()`s and transitions also have to be migrated. This is the biggest challenge. It's particularly challenging for
+multi-language projects (which will fail if *all* languages can't read
+`--platforms`). 
+
+
+If you're writing rule sets for a new language, we *strongly* recommend you incorporate platforms from the beginning.
+
+Common constraints
+
+if you're writing your own
 ### C++
 * Replaces `--cpu`, `--crosstool_top`, `--compiler`, and more.
 * Need 
