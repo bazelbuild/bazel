@@ -708,9 +708,15 @@ public final class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
 
-    eventBus.post(new CommandStartEvent(
-        command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
-        waitTimeInMs + commonOptions.waitTime));
+    eventBus.post(
+        new CommandStartEvent(
+            command.name(),
+            getCommandId(),
+            getBuildRequestId(),
+            getClientEnv(),
+            workingDirectory,
+            getDirectories(),
+            waitTimeInMs + commonOptions.waitTime));
 
     // Modules that are subscribed to CommandStartEvents may create pending exceptions.
     throwPendingException();
