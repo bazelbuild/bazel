@@ -452,11 +452,17 @@ class PlaceholderIdFieldInitializerBuilder {
         Integer attrId = attrAssignments.get(attr);
         if (attrId == null) {
           // It should be a framework resource, otherwise we don't know about the resource.
-          if (!attr.startsWith(NORMALIZED_ANDROID_PREFIX)) {
+          if (attr.startsWith(NORMALIZED_ANDROID_PREFIX)) {
+            String attrWithoutPrefix = attr.substring(NORMALIZED_ANDROID_PREFIX.length());
+            attrId = androidIdProvider.getAttrId(attrWithoutPrefix);
+          } else if (dependencyInfo.dependencyType() == DependencyInfo.DependencyType.DIRECT) {
+            // The <declare-stylable/> is in a direct dependency; assume that we don't know about
+            // the attribute because it's in a transitive dependency.  The actual ID doesn't
+            // matter---this is the PlaceholderIdFieldInitializerBuilder, after all.
+            attrId = 0x7FFFFFFF;
+          } else {
             throw new AttrLookupException("App attribute not found: " + attr);
           }
-          String attrWithoutPrefix = attr.substring(NORMALIZED_ANDROID_PREFIX.length());
-          attrId = androidIdProvider.getAttrId(attrWithoutPrefix);
         }
         arrayInitValues.put(attr, attrId);
       }
