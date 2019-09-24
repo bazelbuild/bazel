@@ -11,6 +11,7 @@ title: Building With Platforms
 - [Should I use platforms?](#should-i-use-platforms)
 - [API review](#api-review)
 - [Status](#status)
+  - [Common platform properties](#common-platform-properties)
   - [C++](#c)
   - [Java](#java)
   - [Android](#android)
@@ -184,24 +185,44 @@ moving to platforms. But this process will take time. This is for three main rea
 API](toolchains.html) (`ctx.toolchains`) and stop reading legacy settings like
 `--cpu` and `--crosstool_top`. This is relatively straightforward.
 
-1. Rule and toolchain maintainers must define toolchains and make them
-   accessible to end users (through repository entries and `WORKSPACE`
-   registrations). This is technically straightforward but must be coherently
-   organized to maintain an easy user experience. 
+1. Toolchain maintainers must define toolchains and make them accessible to
+   users (in GitHub repositories and `WORKSPACE` entries). This is technically
+   straightforward but must be intelligently organized to maintain an easy user
+   experience.
 
-   Platform definitions are also necessary (unless you build for the machine
+   Platform definitions are also necessary (unless you build for the same machine
    Bazel runs on). But we generally expect projects to define their own platforms.
 
-1. Existing projects must be migrated. `select()`s and transitions also have to be migrated. This is the biggest challenge. It's particularly challenging for
+1. Existing projects must be migrated. `select()`s and
+[transitions](skylark/config.html#user-defined-transitions) also have to be
+migrated. This is the biggest challenge. It's particularly challenging for
 multi-language projects (which will fail if *all* languages can't read
-`--platforms`). 
+`--platforms`).
+
+If you're designing a new rule set, we *strongly* recommend you support
+platforms from the beginning. This automatically makes your rules compatible
+with other rules and projects, with increasing value as the platform API becomes
+more ubiquitious. 
+
+More details:
 
 
-If you're writing rule sets for a new language, we *strongly* recommend you incorporate platforms from the beginning.
+### Common platform properties
+Platform properties like `OS` and `CPU` that are common across projects should
+be declared in a standard, centralized place. This encourages cross-project
+compatibility.
 
-Common constraints
+For example, if *MyApp* has a `select()` on `constraint_value`
+`@myapp//cpus:arm` and *SomeCommonLib* has a `select()` on
+`@commonlib//constraints:arm`, these trigger their "arm" modes with incompatible
+criteria.
 
-if you're writing your own
+Globally common properties are declared in the
+[`@platforms`](https://github.com/bazelbuild/platforms) repo (so the canonical
+label for the above example is `@platforms//cpu:arm`). Language-common
+properties should be declared in the repos of their respective languages.
+
+
 ### C++
 * Replaces `--cpu`, `--crosstool_top`, `--compiler`, and more.
 * Need 
