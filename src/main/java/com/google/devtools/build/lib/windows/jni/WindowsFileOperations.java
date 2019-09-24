@@ -85,6 +85,8 @@ public class WindowsFileOperations {
 
   private static native int nativeDeletePath(String path, String[] error);
 
+  private static native void nativeGetCorrectCasing(String path, String[] result);
+
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isSymlinkOrJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
@@ -227,5 +229,15 @@ public class WindowsFileOperations {
         // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
     }
+  }
+
+  public static String getCorrectCasing(String path) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] result = new String[] {null};
+    nativeGetCorrectCasing(path, result);
+    if (result[0].isEmpty()) {
+      throw new IOException(String.format("Path is not Windows-style: '%s'", path));
+    }
+    return removeUncPrefixAndUseSlashes(result[0]);
   }
 }

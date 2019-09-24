@@ -781,5 +781,46 @@ bool GetCwd(std::wstring* result, DWORD* err_code) {
   }
 }
 
+std::wstring GetCorrectCasing(const std::wstring& abs_path, bool with_unc) {
+  if (!HasDriveSpecifierPrefix(abs_path.c_str())) {
+    return L"";
+  }
+  std::wstring path = Normalize(abs_path);
+  std::unique_ptr<wchar_t[]> result(new wchar_t[4 + path.size() + 1]);
+  wcscpy(result.get(), L"\\\\?\\");
+  wcscpy(result.get() + 4, path.c_str());
+  result[4] = towupper(result[4]);
+  wchar_t* start = result.get() + 7;
+  while (true) {
+    wchar_t* seg_end = wcschr(start, L'\\');
+    if (seg_end) {
+      *seg_end = 0;
+    }
+    WIN32_FIND_DATAW metadata;
+    HANDLE handle = FindFirstFileW(result.get(), &metadata);
+    if (handle != INVALID_HANDLE_VALUE) {
+      // Found the child, metadata.cFileName has the correct casing.
+      wcscpy(start, metadata.cFileName);
+      FindClose(handle);
+      if (seg_end) {
+        *seg_end = L'\\';
+        start = seg_end + 1;
+      }
+    } else {
+      // Non-existent path, leave the rest of it unchanged.
+      if (seg_end) {
+        *seg_end = L'\\';
+      }
+      break;
+    }
+    if (!seg_end) {
+      // This was the last segment.
+      break;
+    }
+  }
+
+  return result.get() + (with_unc ? 0 : 4);
+}
+
 }  // namespace windows
 }  // namespace bazel
