@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -503,8 +503,7 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
-   * @param context the application context associated with the calling Starlark thread. It must
-   *     implement {@code HasRepoMapping}.
+   * @param env the Starlark thread. Its StarlarkContext must implement {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -538,9 +537,10 @@ public final class Label
             type = String.class,
             doc = "The label that will be resolved relative to this one.")
       },
-      useContext = true)
-  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
-    return getRelativeWithRemapping(relName, ((HasRepoMapping) context).getRepoMapping());
+      useEnvironment = true)
+  public Label getRelative(String relName, Environment env) throws LabelSyntaxException {
+    return getRelativeWithRemapping(
+        relName, ((HasRepoMapping) env.getStarlarkContext()).getRepoMapping());
   }
 
   /**
