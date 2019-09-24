@@ -30,20 +30,18 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
-/**
- * Global constants and support for static registration of builtin symbols.
- */
-// TODO(bazel-team): Rename to SkylarkRuntime to avoid conflict with java.lang.Runtime.
+/** Global constants and support for static registration of builtin symbols. */
+// TODO(adonovan): migrate None and Unbound to Starlark.java. Get rid of the rest.
 public final class Runtime {
 
   private Runtime() {}
 
-  @SkylarkSignature(name = "True", returnType = Boolean.class,
-      doc = "Literal for the boolean true.")
+  // (for documentation only)
+  @SkylarkSignature(name = "True", returnType = Boolean.class, doc = "The Boolean true value.")
   private static final Boolean TRUE = true;
 
-  @SkylarkSignature(name = "False", returnType = Boolean.class,
-      doc = "Literal for the boolean false.")
+  // (for documentation only)
+  @SkylarkSignature(name = "False", returnType = Boolean.class, doc = "The Boolean false value.")
   private static final Boolean FALSE = false;
 
   /** There should be only one instance of this type to allow "== None" tests. */
@@ -104,27 +102,28 @@ public final class Runtime {
       doc = "Literal for the None value.")
   public static final NoneType NONE = new NoneType();
 
-  @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> "
-          + "instead.</b> The name of the package being evaluated. "
-          + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
-          + "will be <code>some/package</code>. "
-          + "If the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will "
-          + "match the caller BUILD file package. "
-          + "In .bzl files, do not access PACKAGE_NAME at the file-level (outside of functions), "
-          + "either directly or by calling a function at the file-level that accesses "
-          + "PACKAGE_NAME (PACKAGE_NAME is only defined during BUILD file evaluation)."
-          + "Here is an example of a .bzl file:<br>"
-          + "<pre class=language-python>"
-          + "# a = PACKAGE_NAME  # not allowed outside functions\n"
-          + "def extension():\n"
-          + "  return PACKAGE_NAME</pre>"
-          + "In this case, <code>extension()</code> can be called from a BUILD file (even "
-          + "indirectly), but not in a file-level expression in the .bzl file. "
-          + "When implementing a rule, use <a href=\"ctx.html#label\">ctx.label</a> to know where "
-          + "the rule comes from. ")
-  public static final String PKG_NAME = "PACKAGE_NAME";
+  // (for documentation only)
+  @SkylarkSignature(
+      name = "PACKAGE_NAME",
+      returnType = String.class,
+      doc =
+          "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> instead.</b>"
+              + " The name of the package being evaluated. For example, in the BUILD file"
+              + " <code>some/package/BUILD</code>, its value will be <code>some/package</code>. If"
+              + " the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will match"
+              + " the caller BUILD file package. In .bzl files, do not access PACKAGE_NAME at the"
+              + " file-level (outside of functions), either directly or by calling a function at"
+              + " the file-level that accesses PACKAGE_NAME (PACKAGE_NAME is only defined during"
+              + " BUILD file evaluation).Here is an example of a .bzl file:<br><pre"
+              + " class=language-python># a = PACKAGE_NAME  # not allowed outside functions\n"
+              + "def extension():\n"
+              + "  return PACKAGE_NAME</pre>In this case, <code>extension()</code> can be called"
+              + " from a BUILD file (even indirectly), but not in a file-level expression in the"
+              + " .bzl file. When implementing a rule, use <a"
+              + " href=\"ctx.html#label\">ctx.label</a> to know where the rule comes from. ")
+  private final String unusedPackageName = "PACKAGE_NAME";
 
+  // (for documentation only)
   @SkylarkSignature(
       name = "REPOSITORY_NAME",
       returnType = String.class,
@@ -138,7 +137,7 @@ public final class Runtime {
               + "<code>@</code>. It can only be accessed in functions (transitively) called from "
               + "BUILD files, i.e. it follows the same restrictions as "
               + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
-  public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
+  private final String unusedRepositoryName = "REPOSITORY_NAME";
 
   /** Adds bindings for False/True/None constants to the given map builder. */
   public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
@@ -152,12 +151,11 @@ public final class Runtime {
         .put("None", NONE);
   }
 
-
   /**
    * Returns the canonical class representing the namespace associated with the given class, i.e.,
    * the class under which builtins should be registered.
    */
-  public static Class<?> getSkylarkNamespace(Class<?> clazz) {
+  private static Class<?> getSkylarkNamespace(Class<?> clazz) {
     return String.class.isAssignableFrom(clazz)
         ? StringModule.class
         : EvalUtils.getSkylarkType(clazz);
@@ -176,6 +174,7 @@ public final class Runtime {
    * accesses are only allowed before this object has been frozen ({@link #freeze}). Prior to
    * freezing, all operations are synchronized, while after freezing they are lockless.
    */
+  @Deprecated
   public static class BuiltinRegistry {
 
     /**
@@ -240,7 +239,7 @@ public final class Runtime {
      *
      * <p>This is independent of {@link #registerBuiltin}.
      */
-    public synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
+    synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
       Preconditions.checkNotNull(namespace);
       Preconditions.checkNotNull(function.getObjectType());
       Class<?> skylarkNamespace = getSkylarkNamespace(namespace);
@@ -280,7 +279,7 @@ public final class Runtime {
      *
      * <p>If the namespace does not exist or has no function with that name, returns null.
      */
-    public BaseFunction getFunction(Class<?> namespace, String name) {
+    BaseFunction getFunction(Class<?> namespace, String name) {
       if (frozen) {
         Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
         return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
@@ -297,7 +296,7 @@ public final class Runtime {
      *
      * <p>If the namespace does not exist, returns an empty set.
      */
-    public ImmutableSet<String> getFunctionNames(Class<?> namespace) {
+    ImmutableSet<String> getFunctionNames(Class<?> namespace) {
       if (frozen) {
         Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
         if (namespaceFunctions == null) {
