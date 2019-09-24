@@ -90,7 +90,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
+        (Label) funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(builder, ast.getLocation());
   }

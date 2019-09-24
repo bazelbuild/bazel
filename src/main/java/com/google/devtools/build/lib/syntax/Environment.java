@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -296,13 +295,8 @@ public final class Environment implements Freezable {
     /** Final, except that it may be initialized after instantiation. */
     @Nullable private GlobalFrame universe;
 
-    /**
-     * If this frame is a global frame, the label for the corresponding target, e.g. {@code
-     * //foo:bar.bzl}.
-     *
-     * <p>Final, except that it may be initialized after instantiation.
-     */
-    @Nullable private Label label;
+    // The label (an optional piece of metatata) associated with the file.
+    @Nullable private Object label;
 
     /** Bindings are maintained in order of creation. */
     private final LinkedHashMap<String, Object> bindings;
@@ -331,7 +325,7 @@ public final class Environment implements Freezable {
     public GlobalFrame(
         Mutability mutability,
         @Nullable GlobalFrame universe,
-        @Nullable Label label,
+        @Nullable Object label,
         @Nullable Map<String, Object> bindings,
         @Nullable Map<String, FlagGuardedValue> restrictedBindings) {
       Preconditions.checkState(universe == null || universe.universe == null);
@@ -367,7 +361,7 @@ public final class Environment implements Freezable {
     }
 
     public GlobalFrame(
-        Mutability mutability, @Nullable GlobalFrame universe, @Nullable Label label) {
+        Mutability mutability, @Nullable GlobalFrame universe, @Nullable Object label) {
       this(mutability, universe, label, null, null);
     }
 
@@ -419,7 +413,7 @@ public final class Environment implements Freezable {
     public void initialize(
         Mutability mutability,
         @Nullable GlobalFrame universe,
-        @Nullable Label label,
+        @Nullable Object label,
         Map<String, Object> bindings) {
       Preconditions.checkState(
           universe == null || universe.universe == null); // no more than 1 universe
@@ -439,9 +433,11 @@ public final class Environment implements Freezable {
 
     /**
      * Returns a new {@link GlobalFrame} with the same fields, except that {@link #label} is set to
-     * the given value.
+     * the given value. The label associated with each function (frame) on the stack is accessible
+     * using {@link #getLabel}, and is included in the result of {@code str(fn)} where {@code fn} is
+     * a StarlarkFunction.
      */
-    public GlobalFrame withLabel(Label label) {
+    public GlobalFrame withLabel(Object label) {
       checkInitialized();
       return new GlobalFrame(mutability, /*universe*/ null, label, bindings,
           /*restrictedBindings*/ null);
@@ -465,9 +461,12 @@ public final class Environment implements Freezable {
       return universe;
     }
 
-    /** Returns the label of this {@code Frame}, which may be null. */
+    /**
+     * Returns the label (an optional piece of metadata) associated with this {@code GlobalFrame}.
+     * (For Bazel LOADING threads, this is the build label of its BUILD or .bzl file.)
+     */
     @Nullable
-    public Label getLabel() {
+    public Object getLabel() {
       checkInitialized();
       return label;
     }

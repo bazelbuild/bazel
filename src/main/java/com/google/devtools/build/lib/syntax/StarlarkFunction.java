@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -81,7 +80,7 @@ public class StarlarkFunction extends BaseFunction {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    Label label = this.definitionGlobals.getLabel();
+    Object label = this.definitionGlobals.getLabel();
 
     printer.append("<function " + getName());
     if (label != null) {

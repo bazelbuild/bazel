@@ -907,7 +907,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         ruleDefinitionEnvironment == null
             ? null
-            : ruleDefinitionEnvironment.getGlobals().getLabel(),
+            : (Label) ruleDefinitionEnvironment.getGlobals().getLabel(),
         ruleDefinitionEnvironmentHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)

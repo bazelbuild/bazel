@@ -211,7 +211,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   private static List<String> renamePatterns(
       List<String> patterns, Package.Builder builder, Environment env) {
-    RepositoryName myName = getRepositoryName(env.getGlobals().getLabel());
+    RepositoryName myName = getRepositoryName((Label) env.getGlobals().getLabel());
     Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
         .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
