@@ -1,4 +1,4 @@
-# Copyright 2017 The Bazel Authors. All rights reserved.
+# Copyright 2019 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,17 @@ import unittest
 from src.test.py.bazel import test_base
 
 
-class BazelWindowsTest(test_base.TestBase):
+class BazelWindowsSymlinksTest(test_base.TestBase):
 
     def createProjectFiles(self):
         self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-        self.ScratchFile(
-            'foo/BUILD', ['genrule(name="x", srcs=[":sample"], outs=["link"], cmd="python -c \\"import os; os.symlink(os.path.join(os.getcwd(), \'$<\'),\'$@\')\\"",)'])
+        self.ScratchFile('foo/BUILD', [
+               'py_binary(name="symlinker", srcs=[":symlinker.py"])',
+               'genrule(name="x",srcs=[":sample"],outs=["link"],cmd="$(location symlinker) $< $@",tools=[":symlinker"])'
+        ])
+        self.ScratchFile('foo/symlinker.py', [
+            'import os; import sys; os.symlink(os.path.join(os.getcwd(), sys.argv[1]), sys.argv[2])',
+        ])
         self.ScratchFile('foo/sample', [
             'sample',
         ])
