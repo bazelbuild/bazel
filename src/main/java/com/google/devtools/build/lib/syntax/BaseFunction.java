@@ -82,22 +82,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   // or those displayed to the user in the documentation.
   @Nullable protected List<SkylarkType> enforcedArgumentTypes;
 
-  // Defaults to be used when configure(annotation) is called (after the function is constructed).
-  @Nullable private Iterable<Object> unconfiguredDefaultValues;
-  // The configure(annotation) function will include these defaults in the function signature.
-  // We need to supply these defaultValues to the constructor, that will store them here, because
-  // they can't be supplied via Java annotations, due to the limitations in the annotation facility.
-  // (For extra brownies, we could supply them as Skylark expression strings, to be evaluated by our
-  // evaluator without the help of any unconfigured functions, or to be processed at compile-time;
-  // but we resolve annotations at runtime for now.)
-  // Limitations in Java annotations mean we can't express them in the SkylarkSignature annotation.
-  // (In the future, we could parse and evaluate simple Skylark expression strings, but then
-  // we'd have to be very careful of circularities during initialization).
-  // Note that though we want this list to be immutable, we don't use ImmutableList,
-  // because that can't store nulls and nulls are essential for some BuiltinFunction-s.
-  // We trust the user not to modify the list behind our back.
-
-
   /**
    * Returns the name of this function.
    *
@@ -124,7 +108,7 @@ public abstract class BaseFunction implements StarlarkCallable {
   }
 
   /**
-   * Creates an unconfigured BaseFunction with the given name.
+   * Creates an unconfigured (signature-less) BaseFunction with the given name.
    *
    * <p>The name must be null if called from a subclass constructor where the subclass overrides
    * {@link #getName}; otherwise it must be non-null.
@@ -169,17 +153,6 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   public BaseFunction(@Nullable String name, FunctionSignature signature) {
     this(name, FunctionSignature.WithValues.create(signature), null);
-  }
-
-  /**
-   * Constructs a BaseFunction with a given name and list of unconfigured defaults.
-   *
-   * @param name the function name; null iff this is a subclass overriding {@link #getName}
-   * @param defaultValues a list of default values for the optional arguments to be configured.
-   */
-  public BaseFunction(@Nullable String name, @Nullable Iterable<Object> defaultValues) {
-    this(name);
-    this.unconfiguredDefaultValues = defaultValues;
   }
 
   /** Get parameter documentation as a list corresponding to each parameter */
@@ -489,8 +462,9 @@ public abstract class BaseFunction implements StarlarkCallable {
     Preconditions.checkState(!isConfigured()); // must not be configured yet
 
     this.paramDoc = new ArrayList<>();
-    this.signature = SkylarkSignatureProcessor.getSignatureForCallable(
-        getName(), annotation, unconfiguredDefaultValues, paramDoc, getEnforcedArgumentTypes());
+    this.signature =
+        SkylarkSignatureProcessor.getSignatureForCallable(
+            getName(), annotation, paramDoc, getEnforcedArgumentTypes());
     this.objectType = annotation.objectType().equals(Object.class)
         ? null : annotation.objectType();
     configure();

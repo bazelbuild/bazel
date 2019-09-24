@@ -74,14 +74,9 @@ public class BuiltinFunction extends BaseFunction {
   // True if the function is a rule class
   private boolean isRule;
 
-  /** Create unconfigured function from its name */
+  /** Create unconfigured (signature-less) function from its name */
   public BuiltinFunction(String name) {
     super(name);
-  }
-
-  /** Creates an unconfigured BuiltinFunction with the given name and defaultValues */
-  public BuiltinFunction(String name, Iterable<Object> defaultValues) {
-    super(name, defaultValues);
   }
 
   /** Creates a BuiltinFunction with the given name and signature */
@@ -354,11 +349,6 @@ public class BuiltinFunction extends BaseFunction {
     /** Create unconfigured function Factory from its name */
     public Factory(String name) {
       super(name);
-    }
-
-    /** Creates an unconfigured function Factory with the given name and defaultValues */
-    public Factory(String name, Iterable<Object> defaultValues) {
-      super(name, defaultValues);
     }
 
     @Override
