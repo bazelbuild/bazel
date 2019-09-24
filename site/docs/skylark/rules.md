@@ -256,50 +256,45 @@ corresponding `Target`. The `File` object can be obtained from this `Target`'s
 `files` field. This allows the file to be referenced in both the target graph
 and the action graph.
 
-During the analysis phase, a rule's implementation function can create
-additional output files. Since all labels have to be known during the loading
-phase, these additional output files are not associated with labels or
-`Target`s. Generally these are intermediate files needed for a later compilation
-step, or auxiliary outputs that don't need to be referenced in the target graph.
-Even though these files don't have a label, they can still be passed along in a
-[`provider`](#providers) to make them available to other depending targets at
-analysis time.
+### Outputs
 
 A generated file that is addressable by a label is called a *predeclared
-output*. There are multiple ways for a rule to introduce a predeclared output:
+output*. Rules can specify predeclared outputs via
+[`output`](lib/attr.html#output) or [`output_list`](lib/attr.html#output_list)
+attributes. In that case, the user explicitly chooses labels for outputs when
+they instantiate the rule. To obtain file objects for output attributes, use
+the corresponding attribute of [`ctx.outputs`](lib/ctx.html#outputs).
 
-* The rule can have an attribute of type [`output`](lib/attr.html#output) or
-  [`output_list`](lib/attr.html#output_list). In this case the user explicitly
-  chooses the label for the output when they instantiate the rule.
+During the analysis phase, a rule's implementation function can create
+additional outputs. Since all labels have to be known during the loading phase,
+these additional outputs have no labels. Non-predeclared outputs are created
+using [`ctx.actions.declare_file`](lib/actions.html#declare_file),
+[`ctx.actions.write`](lib/actions.html#write), and
+[`ctx.actions.declare_directory`](lib/actions.html#declare_directory).
 
-* **(Deprecated)** If the rule declares an
-  [`outputs`](lib/globals.html#rule.outputs) dict in its call to `rule()`, then
-  each entry in this dict becomes an output. The output's label is chosen
-  automatically as specified by the entry, usually by substituting into a string
-  template.
+All outputs can be passed along in [providers](#providers) to make them
+available to a target's consumers, whether or not they have a label. A target's
+*default outputs* are specified by the `files` parameter of
+[`DefaultInfo`](lib/DefaultInfo.html). If `DefaultInfo` is not returned by a
+rule implementation or the `files` parameter is not specified,
+`DefaultInfo.files` defaults to all *predeclared* outputs.
 
-* **(Deprecated)** If the rule is marked
-  [`executable`](lib/globals.html#rule.executable) or
-  [`test`](lib/globals.html#rule.test), an output is created with the same name
-  as the rule instance itself. (Technically, the file has no label since it
-  would clash with the rule instance's own label, but it is still considered a
-  predeclared output.) By default, this file serves as the binary to run if the
-  target appears on the command line of a `bazel run` or `bazel test` command.
-  See [Executable rules](#executable-rules-and-test-rules) below.
+There are also two **deprecated** ways of using predeclared outputs:
 
-All predeclared outputs can be accessed within the rule's implementation
-function under the [`ctx.outputs`](lib/ctx.html#outputs) struct; see that page
-for details and restrictions. Non-predeclared outputs are created during
-analysis using the [`ctx.actions.declare_file`](lib/actions.html#declare_file)
-and [`ctx.actions.declare_directory`](lib/actions.html#declare_directory)
-functions. Both kinds of outputs may be passed along in providers.
+*   The [`outputs`](lib/globals.html#rule.outputs) parameter of `rule` specifies
+    a mapping between output attribute names and string templates for
+    generating predeclared output labels. Prefer using non-predeclared outputs
+    and explicitly adding outputs to `DefaultInfo.files`. Use the rule target's
+    label as input for rules which consume the output instead of a predeclared
+    output's label.
 
-Although the input files of a target -- those files passed through dependency
-attributes -- can be accessed indirectly via `ctx.attr`, it is more convenient
-to use `ctx.file` and `ctx.files`. For output files that are predeclared using
-output attributes (attributes of type `attr.output` or `attr.output_list`),
-`ctx.attr` will only return the label, and you must use `ctx.outputs` to get the
-actual `File` object.
+*   For [executable rules](#executable-rules-and-test-rules),
+    `ctx.outputs.executable` refers to a predeclared executable output with the
+    same name as the rule target. Prefer declaring the output explicitly, for
+    example with `ctx.actions.declare_file(ctx.label.name)`, and ensure that the
+    command that generates the executable sets its permissions to allow
+    execution. Explicitly pass the executable output to the `executable`
+    parameter of `DefaultInfo`.
 
 [See example of predeclared outputs](https://github.com/bazelbuild/examples/blob/master/rules/predeclared_outputs/hash.bzl)
 
