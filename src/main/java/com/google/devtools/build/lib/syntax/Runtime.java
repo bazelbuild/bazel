@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -338,79 +337,6 @@ public final class Runtime {
   @Deprecated
   public static BuiltinRegistry getBuiltinRegistry() {
     return builtins;
-  }
-
-  /**
-   * Convenience overload of {@link #setupModuleGlobals(ImmutableMap.Builder, Class)} to add
-   * bindings directly to an {@link Environment}.
-   *
-   * @param env the Environment into which to register fields
-   * @param moduleClass the Class object containing globals
-   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
-   *     {@link SkylarkSignature})
-   */
-  @Deprecated
-  public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-
-    setupModuleGlobals(envBuilder, moduleClass);
-    for (Map.Entry<String, Object> envEntry : envBuilder.build().entrySet()) {
-      env.setup(envEntry.getKey(), envEntry.getValue());
-    }
-  }
-
-  /**
-   * Adds global (top-level) symbols, provided by the given class object, to the given bindings
-   * builder.
-   *
-   * <p>Global symbols may be provided by the given class in the following ways:
-   * <ul>
-   *   <li>If the class is annotated with {@link SkylarkModule}, an instance of that object is
-   *       a global object with the module's name.</li>
-   *   <li>If the class has fields annotated with {@link SkylarkSignature}, each of these
-   *       fields is a global object with the signature's name.</li>
-   *   <li>If the class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
-   *       which are annotated with
-   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
-   *       callables.</li>
-   * </ul>
-   *
-   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
-   * multiple global libraries have functions of the same name, two modules of the same name
-   * are given, or if two subclasses of the same module are given.
-   *
-   * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
-   *     and which will be built into a global frame
-   * @param moduleClass the Class object containing globals
-   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
-   *     {@link SkylarkSignature})
-   */
-  @Deprecated
-  public static void setupModuleGlobals(ImmutableMap.Builder<String, Object> builder,
-      Class<?> moduleClass) {
-    try {
-      if (SkylarkInterfaceUtils.getSkylarkModule(moduleClass) != null
-          || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
-        setupSkylarkLibrary(builder, moduleClass.getConstructor().newInstance());
-      }
-      for (Field field : moduleClass.getDeclaredFields()) {
-        if (field.isAnnotationPresent(SkylarkSignature.class)) {
-          // Fields in Skylark modules are sometimes private.
-          // Nevertheless they have to be annotated with SkylarkSignature.
-          field.setAccessible(true);
-          SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
-          Object value = field.get(null);
-          // Ignore function factories and non-global functions
-          if (!(value instanceof BuiltinFunction.Factory
-              || (value instanceof BaseFunction
-                  && !annotation.objectType().equals(Object.class)))) {
-            builder.put(annotation.name(), value);
-          }
-        }
-      }
-    } catch (ReflectiveOperationException e) {
-      throw new AssertionError(e);
-    }
   }
 
   /**
