@@ -19,7 +19,6 @@ title: Functions
     <li><a href="#exports_files">exports_files</a></li>
     <li><a href="#glob">glob</a></li>
     <li><a href="#select">select</a></li>
-    <li><a href="#workspace">workspace</a></li>
   </ul>
 </div>
 #end
