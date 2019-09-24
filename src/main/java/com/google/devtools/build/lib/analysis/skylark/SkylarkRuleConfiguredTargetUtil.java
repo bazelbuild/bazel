@@ -413,40 +413,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
         StructImpl insStruct = cast("instrumented_files", oldStyleProviders, StructImpl.class, loc);
         addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
       } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(field))) {
-        addNativeDeclaredProviderWithLegacySkylarkName(
-            (InfoInterface) oldStyleProviders.getValue(field), field, builder, loc);
+        builder.addNativeDeclaredProvider((InfoInterface) oldStyleProviders.getValue(field));
       } else if (!field.equals("providers")) {
         // We handled providers already.
         builder.addSkylarkTransitiveInfo(field, oldStyleProviders.getValue(field), loc);
       }
     }
-  }
-
-  @SuppressWarnings("deprecation") // For legacy migrations
-  private static void addNativeDeclaredProviderWithLegacySkylarkName(
-      InfoInterface provider, String field, RuleConfiguredTargetBuilder builder, Location loc)
-      throws EvalException {
-
-    // For legacy reasons, if the provider is specified using a struct field name which
-    // does not match the provider key:
-    // 1. It must be added under the specified key.
-    // 2. It must be added under the legacy provider key *only if* there is not already
-    //    a provider registered under that key.
-    // (This mechanism is heavily deprecated and being removed with
-    // --incompatible_disallow_struct_provider_syntax)
-    if (provider.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
-      NativeProvider.WithLegacySkylarkName legacyProvider =
-          (NativeProvider.WithLegacySkylarkName) provider.getProvider();
-      if (!field.equals(legacyProvider.getSkylarkName())) {
-        builder.addSkylarkTransitiveInfo(field, provider, loc);
-        if (!builder.containsProviderKey(provider.getProvider().getKey())) {
-          builder.addNativeDeclaredProvider(provider);
-        }
-        return;
-      }
-    }
-
-    builder.addNativeDeclaredProvider(provider);
   }
 
   /**

@@ -451,14 +451,6 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Returns true if a provider matching the given provider key has already been added to the
-   * configured target builder.
-   */
-  public boolean containsProviderKey(Provider.Key providerKey) {
-    return providersBuilder.contains(providerKey);
-  }
-
-  /**
    * Add a Skylark transitive info. The provider value must be safe.
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
