@@ -83,30 +83,30 @@ projects can fit in.
 Bazel's platform migration is complete when all projects can build with the form:
 
 ```sh
-$ bazel build //myproject --platforms=//my:platform
+$ bazel build //:myproject --platforms=//:myplatform
 ```
 
 This implies:
 
 1. The rules your project uses can infer correct toolchains from
-`//my:platform`.
+`//:platform`.
 1. The rules your project's dependencies use can infer correct toolchains
-from `//my:platform`.
-1. *Either* the projects depending on yours support `//my:platform` *or* your
+from `//:myplatform`.
+1. *Either* the projects depending on yours support `//:myplatform` *or* your
 project supports the legacy APIs (like `--crosstool_top`).
-1. `//my:platform` references
+1. `//:myplatform` references
 [common declarations](https://github.com/bazelbuild/platforms#motivation) of
 `CPU`, `OS`, and other generic concepts that support automatic cross-project
 compatibility.
 1. All relevant projects'
 [`select()`s](https://docs.bazel.build/versions/master/configurable-attributes.html)
-understand `//my:platform`.
-1. `//my:platform` is defined in a clear, reusable place: in your project's
+understand the machine properties implied by `//:myplatform`.
+1. `//:myplatform` is defined in a clear, reusable place: in your project's
 repo if the platform is unique to your project, otherwise somewhere all projects
 that may use this platform can find. 
 
 As soon as this goal is achieved, we'll remove the old APIs and make this *the*
-way all projects select platforms and toolchains.
+way projects select platforms and toolchains.
 
 ## Should I use platforms?
 Yes. Bazel's platform and toolchain APIs are a major upgrade over legacy ways to
@@ -118,14 +118,62 @@ The answer varies across projects. You should opt yours in when the value added
 outweighs current costs:
 
 ### Value
+* "just works" for end users
+
 ### Costs
+* rule / toolchain maintainers have to understand this
+
 
 ## API review
-* platform()
-* toolchain()
-* --platforms
-* --extra_toolchains
+A [`platform`](be/platform.html#platform) is a collection of
+[`constraint_value`](be/platform.html#constraint_value)s: 
 
+```python
+platform(
+    name = "myplatform",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm",
+    ],
+)
+```
+
+A [`constraint_value`](be/platform.html#constraint_value) is a machine
+property. Values of the same "kind" are grouped under a common
+[`constraint_setting`](be/platform.html#constraint_setting): 
+
+```python
+constraint_setting(name = "os")
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+constraint_value(
+    name = "mac",
+    constraint_setting = ":os",
+)
+```
+
+A [`toolchain`](toolchains.html) is a [Starlark rule](skylark/rules.html). Its
+attributes declare a language's tools (like `compiler =
+"//mytoolchain:custom_gcc"`). Its [providers](skylark/rules.html#providers) pass
+this information to rules that need to build with these tools.
+
+Toolchains declare the `constraint_value`s of machines they can
+[target](be/platform.html#toolchain.target_compatible_with)
+(`target_compatible_with = ["@platforms//os:linux"]`) and machines their tools can
+[run on](be/platform.html#toolchain.exec_compatible_with)
+(`exec_compatible_with = ["@platforms//os:mac"]`).
+
+When building `$ bazel build //:myproject --platforms=//:myplatform`, Bazel
+automatically selects a toolchain that can run on the build machine and
+build binaries for `//:myplatform`. This is known as *toolchain resolution*.
+
+The set of available toolchains can be registered in the `WORKSPACE` with
+[`register_toolchains`](skylark/lib/globals.html#register_toolchains) or at the
+command line with [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
+
+See [here](toolchains.html) for a deeper dive.
 
 ## Status
 ### C++
