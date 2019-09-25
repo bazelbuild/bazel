@@ -85,6 +85,8 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final String TEST_RULE_MODULE =
       "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
+  public static final String TEST_STRATEGY_MODULE =
+      "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
   public static final String TEST_WORKSPACE_STATUS_MODULE =
