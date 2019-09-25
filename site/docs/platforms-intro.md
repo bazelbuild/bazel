@@ -16,10 +16,10 @@ title: Building With Platforms
   - [C++](#c)
   - [Java](#java)
   - [Android](#android)
-  - [Go](#go)
+  - [Apple](#apple)
   - [Other languages](#other-languages)
   - [select()](#select)
-  - [Starlark transitions](#starlark-transitions)
+  - [Transitions](#transitions)
 - [How to use platforms today](#how-to-use-platforms-today)
 - [Questions](#questions)
 - [See also](#see-also)
@@ -197,7 +197,7 @@ API](toolchains.html) (`ctx.toolchains`) and stop reading legacy settings like
 1. Existing projects must be migrated. `select()`s and
 [transitions](skylark/config.html#user-defined-transitions) also have to be
 migrated. This is the biggest challenge. It's particularly challenging for
-multi-language projects (which will fail if *all* languages can't read
+multi-language projects (which may fail if *all* languages can't read
 `--platforms`).
 
 If you're designing a new rule set, we *strongly* recommend you support
@@ -205,7 +205,7 @@ platforms from the beginning. This automatically makes your rules compatible
 with other rules and projects, with increasing value as the platform API becomes
 more ubiquitious. 
 
-More details:
+Details:
 
 
 ### Common platform properties
@@ -238,7 +238,7 @@ and `CPU` with `constraint_value`s declared in
 
 
 ### C++
-Bazel's C++ rules use platforms when you set
+Bazel's C++ rules use platforms to select toolchains when you set
 `--incompatible_enable_cc_toolchain_resolution`
 ([#7260](https://github.com/bazelbuild/bazel/issues/7260)).
 
@@ -254,43 +254,124 @@ instead of the legacy
 $ bazel build //:my_cpp_project` --cpu=... --crosstool_top=...  --compiler=...
 ```
 
+If your project is pure C++ and not depended on by non-C++ projects, you can use
+this mode safely as long as your [`select`](#select)s and
+[transitions](#transitions) also work with platforms. See
+[#7260](https://github.com/bazelbuild/bazel/issues/7260) and [Configuring C++
+toolchains](tutorial/cc-toolchain-config.html) for further migration guidance.
 
-* C++-specific constraints in [rules_cc](https://github.com/bazelbuild/rules_cc).
-* Android Fat APKs still change with --cpu
-* Same as multiarch Apple binaries
-* #7260 includes migration instructions.
-* Starlark rules depending on C++ toolchain: `toolchains = ["@rules_cc//cc:toolchain_type"]`
-* [find_cc_toolchain](https://github.com/bazelbuild/rules_cc/blob/master/cc/find_cc_toolchain.bzl) ([example](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_compile/my_c_compile.bzl))
-* [example of iOS dependency](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303)
+This mode is not enabled by default. This is because Android and iOS projects
+still configure C++ dependencies with `--cpu` and `--crosstool_top`
+([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303)). Enabling
+it requires adding platform support for Android and iOS.
 
 ### Java
-* Replace --java_toolchain, --host_java_toolchain, --javabase, --host_javabase.
-*  --incompatible_use_toolchain_resolution_for_java_rules
-(https://github.com/bazelbuild/bazel/issues/7849)
-* blocked on downstream projects failing
-* Add relevant toolchain definitions? https://github.com/bazelbuild/rules_java/pull/8
+Bazel's Java rules use platforms to select toolchains when you set
+`--incompatible_use_toolchain_resolution_for_java_rules`
+([#7849](https://github.com/bazelbuild/bazel/issues/7849)).
+
+This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
+`--javabase`, and `--host_javabase`.
+
+[PR #8](https://github.com/bazelbuild/rules_java/pull/8) defines the Java-specific
+`constraint_value`s, toolchains, and other settings that make migration
+practical. This mode will be enabled by default after those changes are
+committed.
 
 ### Android
-* @ahumesky and @jin said that for Android rules, toolchains are defined in a
- standard place and it's highly unusual for users to use a custom
- --crosstool_top. So it may be realistic to define platforms and platform
- mappings alongside these toolchains. See here for early precedent. Apple
- rules are presumably similar.
-* https://docs.bazel.build/versions/master/android-ndk.html#integration-with-platforms-and-toolchains
+Bazel's Android rules do not yet support platforms to select Android toolchains.
 
+They do support setting `--platforms` to select NDK toolchains: see
+[here](android-ndk.html#integration-with-platforms-and-toolchains).
 
+Most importantly,
+[`--fat_apk_cpu`](android-ndk.html#integration-with-platforms-and-toolchains),
+which builds multi-architecture fat APKs, does not work with platform-enabled
+C++. This is because it sets legacy flags like `--cpu` and `--crosstool_top`,
+which platform-enabled C++ rules don't read. Until this is migrated, using
+`--fat_apk_cpu` with `--platforms` requires [platform
+mappings](#platform-mappings).
 
-### Go
+### Apple
+Bazel's Apple rules do not yet support platforms to select Apple toolchains.
+
+They also don't support platform-enabled C++ dependencies because they use the
+legacy `--crosstool_top` to set the C++ toolchain. Until this is migrated, you
+can mix Apple projects with platorm-enabled C++ with [platform
+mappings](#platform-mappings)
+([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378)).
+
 ### Other languages
+* Bazel's [Rust rules](https://github.com/bazelbuild/rules_rust) fully support
+platforms.
+* Bazel's [Go rules](https://github.com/bazelbuild/rules_go) fully support
+platforms
+([details](https://github.com/bazelbuild/rules_go#how-do-i-cross-compile)).
+
+If you're designing rules for a new language, we *strongly* encourage you to use
+platforms to select your language's toolchains. See
+the [toolchains documentation](toolchains.html) for a good walkthrough.
+
 ### `select()`
-### Starlark transitions
+
+Projects can [`select()`](configurable-attributes.html) on
+[`constraint_value`](be/platform.html#constraint_value)s but not complete
+platforms. This is intentional: we want `select()`s to support as wide a variety
+of machines as possible. A library with `ARM`-specific sources should support
+*all* `ARM`-powered machines unless there's reason to be more specific.
+
+To select on one or more `constraint_value`s, use 
+
+```python
+config_setting(
+    name = "is_arm",
+    constraint_values = [
+        "@platforms//cpu:arm",
+    ],
+)
+```
+
+This is equivalent to traditionally selecting on `--cpu`:
+
+```python
+config_setting(
+    name = "is_arm",
+    values = {
+        "cpu": "arm",
+    },
+)
+```
+
+More details [here](configurable-attributes.html#platforms).
+
+`select`s on `--cpu`, `--crosstool_top`, etc. don't understand `--platforms`. When
+migrating your project to platforms, you must either convert them to
+`constraint_values` or use [platform mappings](#platform-mappings) to support
+both styles through the migration window. 
+
+### Transitions
+[Starlark transitions](skylark/config.html#user-defined-transitions) change
+flags down parts of your build graph. If your project uses a transition that
+sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
+`--platforms` won't see these changes.
+
+When migrating your project to platforms, you must either convert changes like
+`return { "//command_line_option:cpu": "arm" }` to `return {
+"//command_line_options:platforms": "//:my_arm_platform" }` or use [platform
+mappings](#platform-mappings) to support both styles through the migration
+window.
 
 ## How to use platforms today
+
+
 ### Platform mappings
 * Tracking bug: [#6426](https://github.com/bazelbuild/bazel/issues/6426)
 * [example fix for iOS / C++ breakage](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378)
 
 ## Questions
 ## See also
+
+* [Migrate Java toolchains to
+platforms](https://docs.google.com/document/d/1dumNYb-3L8xswa2zjz7HizjhT05HIsEbQc2KuV3rdnk/edit#)
 
 
