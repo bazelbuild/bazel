@@ -1077,6 +1077,19 @@ public final class StarlarkThread implements Freezable {
     return this;
   }
 
+  // Used only for Eval.evalComprehension..
+  void updateInternal(String name, @Nullable Object value) {
+    try {
+      if (value != null) {
+        lexicalFrame.put(this, name, value);
+      } else {
+        lexicalFrame.remove(this, name);
+      }
+    } catch (MutabilityException ex) {
+      throw new IllegalStateException(ex);
+    }
+  }
+
   /**
    * Initializes a binding in this StarlarkThread. It is an error if the variable is already bound.
    * This is not for end-users, and will throw an AssertionError in case of conflict.

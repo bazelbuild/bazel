@@ -638,6 +638,21 @@ final class Eval {
     final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(thread) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
+    // Save values of all variables bound in a 'for' clause
+    // so we can restore them later.
+    // TODO(adonovan) throw all this away when we implement flat environments.
+    List<Object> saved = new ArrayList<>(); // alternating keys and values
+    for (Comprehension.Clause clause : comp.getClauses()) {
+      if (clause instanceof Comprehension.For) {
+        for (Identifier ident : Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
+          String name = ident.getName();
+          Object value = thread.localLookup(ident.getName());
+          saved.add(name);
+          saved.add(value);
+        }
+      }
+    }
+
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
       // execClauses(index) recursively executes the clauses starting at index,
@@ -685,18 +700,12 @@ final class Eval {
     }
     new Lambda().execClauses(0);
 
-    // Undefine loop variables (remove them from the environment).
-    // This code is useful for the transition, to make sure no one relies on the old behavior
-    // (where loop variables were leaking).
-    // TODO(laurentlb): Instead of removing variables, we should create them in a nested scope.
-    for (Comprehension.Clause clause : comp.getClauses()) {
-      // Check if a loop variable conflicts with another local variable.
-      if (clause instanceof Comprehension.For) {
-        for (Identifier ident :
-            Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
-          thread.removeLocalBinding(ident.getName());
-        }
-      }
+    // Restore outer scope variables.
+    // This loop implicitly undefines comprehension variables.
+    for (int i = 0; i != saved.size(); ) {
+      String name = (String) saved.get(i++);
+      Object value = saved.get(i++);
+      thread.updateInternal(name, value);
     }
 
     return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(thread, list);
