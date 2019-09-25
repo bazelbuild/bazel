@@ -1163,4 +1163,65 @@ EOF
 
 }
 
+function test_renaming_visibility_via_default() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//data:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    mkdir data
+    cat > data/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    cat > datarule.bzl <<'EOF'
+def _data_impl(ctx):
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files._data,
+    outputs = [output],
+    command = "cp $1 $2",
+    arguments = [ctx.files._data[0].path, output.path],
+  )
+
+data = rule(
+         implementation = _data_impl,
+         attrs = {
+          "_data": attr.label(default="@foo//data:y"),
+         },
+         outputs = { "txt" : "%{name}.txt"},
+)
+EOF
+    cat >BUILD <<'EOF'
+load("//:datarule.bzl", "data")
+data(name="it")
+EOF
+    echo; echo not remapping main repo; echo
+    bazel build --incompatible_remap_main_repo=false @foo//:it \
+          || fail "Expected success"
+
+    echo; echo remapping main repo; echo
+    bazel build --incompatible_remap_main_repo=true @foo//:it \
+        || fail "Expected success"
+
+}
 run_suite "workspace tests"

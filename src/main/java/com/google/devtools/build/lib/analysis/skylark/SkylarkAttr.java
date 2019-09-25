@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
@@ -145,7 +146,12 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       } else if (defaultValue instanceof SkylarkLateBoundDefault) {
         builder.value((SkylarkLateBoundDefault) defaultValue);
       } else {
-        builder.defaultValue(defaultValue, env.getGlobals().getLabel(), DEFAULT_ARG);
+        builder.defaultValue(
+            defaultValue,
+            new BuildType.LabelConversionContext(
+                (Label) env.getGlobals().getLabel(),
+                BazelStarlarkContext.from(env).getRepoMapping()),
+            DEFAULT_ARG);
       }
     }
 
