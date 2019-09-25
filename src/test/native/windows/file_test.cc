@@ -468,6 +468,7 @@ static void GetTestTempDirWithCorrectCasing(
       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
   ASSERT_NE(h, INVALID_HANDLE_VALUE);
   ASSERT_GT(GetFinalPathNameByHandleW(h, buf, kMaxPath, 0), 0);
+  CloseHandle(h);
   *result = RemoveUncPrefixMaybe(buf);
 
   for (wchar_t* c = buf; *c; ++c) {
