@@ -12,6 +12,7 @@ title: Building With Platforms
 - [API review](#api-review)
 - [Status](#status)
   - [Common platform properties](#common-platform-properties)
+  - [Default platforms](#default-platforms)
   - [C++](#c)
   - [Java](#java)
   - [Android](#android)
@@ -210,7 +211,7 @@ More details:
 ### Common platform properties
 Platform properties like `OS` and `CPU` that are common across projects should
 be declared in a standard, centralized place. This encourages cross-project
-compatibility.
+and cross-language compatibility.
 
 For example, if *MyApp* has a `select()` on `constraint_value`
 `@myapp//cpus:arm` and *SomeCommonLib* has a `select()` on
@@ -222,12 +223,39 @@ Globally common properties are declared in the
 label for the above example is `@platforms//cpu:arm`). Language-common
 properties should be declared in the repos of their respective languages.
 
+### Default platforms
+
+Generally, project owners should define explicit
+[platforms](platforms.html#defining-constraints-and-platforms) to describe the
+kinds of machines they want to build for. These are then triggered with
+`--platforms`.
+
+When `--platforms` isn't set, Bazel defaults to a `platform` representing the
+local build machine. This is auto-generated at `@local_config_platform//:host`
+so there's no need to explicitly define it. It maps the local machine's `OS`
+and `CPU` with `constraint_value`s declared in
+[`@platforms`](https://github.com/bazelbuild/platforms).
+
 
 ### C++
-* Replaces `--cpu`, `--crosstool_top`, `--compiler`, and more.
-* Need 
+Bazel's C++ rules use platforms when you set
+`--incompatible_enable_cc_toolchain_resolution`
+([#7260](https://github.com/bazelbuild/bazel/issues/7260)).
+
+This means you can configure a C++ project with
+
+```sh
+$ bazel build //:my_cpp_project --platforms=//:myplatform
+```
+
+instead of the legacy
+
+```sh
+$ bazel build //:my_cpp_project` --cpu=... --crosstool_top=...  --compiler=...
+```
+
+
 * C++-specific constraints in [rules_cc](https://github.com/bazelbuild/rules_cc).
-* --incompatible_enable_cc_toolchain_resolution ([#7260](https://github.com/bazelbuild/bazel/issues/7260))
 * Android Fat APKs still change with --cpu
 * Same as multiarch Apple binaries
 * #7260 includes migration instructions.
