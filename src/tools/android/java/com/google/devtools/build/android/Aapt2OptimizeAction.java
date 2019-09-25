@@ -51,16 +51,12 @@ class Aapt2OptimizeAction {
                   switch (arg) {
                     case "--shorten-resource-paths":
                     case "--enable-resource-path-shortening":
-                      /* TODO(bcsf): Start using this at the time we drop AAPT2 5880457.
                       return "--shorten-resource-paths";
-                      */
-                      return "--enable-resource-path-shortening";
+
                     case "--collapse-resource-names":
                     case "--enable-resource-name-obfuscation":
-                      /* TODO(bcsf): Start using this at the time we drop AAPT2 5880457.
                       return "--collapse-resource-names";
-                      */
-                      return "--enable-resource-obfuscation";
+
                     case "--resource-name-obfuscation-exemption-list":
                       // TODO(bcsf): This case goes away soon.
                       return "--whitelist-path";
