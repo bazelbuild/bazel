@@ -231,12 +231,31 @@ public class WindowsFileOperations {
     }
   }
 
-  public static String getCorrectCasing(String path) throws IOException {
+  /**
+   * Returns the case-corrected copy of <code>absPath</code>
+   *
+   * <p>Windows paths are case-insensitive, but the filesystem preserves the casing. For example you
+   * can create <code>C:\Foo\Bar</code> and access it as <code>c:\FOO\bar</code>, but the correct
+   * casing would be <code>C:\Foo\Bar</code>. Sometimes Bazel needs the correct casing (see
+   * https://github.com/bazelbuild/bazel/issues/8799 for example).
+   *
+   * <p>This method fixes paths to have the correct casing, up to the last existing segment of the
+   * path.
+   *
+   * @param absPath an absolute Windows path. May not be normalized (i.e. have <code>./</code> and
+   *                <code>../</code> segments) and may have <code>/</code> separators instead of
+   *                <code>\\</code>.
+   * @return an absolute, normalized Windows path. The path is case-corrected up to the last
+   *         existing segment of <code>absPath</code>. The rest of the segments are left unchanged
+   *         (with regard to casing) but are normalized and copied into the result.
+   * @throws IOException if <code>absPath</code> was empty or was not absolute
+   */
+  public static String getCorrectCasing(String absPath) throws IOException {
     WindowsJniLoader.loadJni();
     String[] result = new String[] {null};
-    nativeGetCorrectCasing(path, result);
+    nativeGetCorrectCasing(absPath, result);
     if (result[0].isEmpty()) {
-      throw new IOException(String.format("Path is not Windows-style: '%s'", path));
+      throw new IOException(String.format("Path is not absolute: '%s'", absPath));
     }
     return removeUncPrefixAndUseSlashes(result[0]);
   }

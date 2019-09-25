@@ -481,48 +481,32 @@ static void GetTestTempDirWithCorrectCasing(
 }
 
 TEST(FileTests, TestGetCorrectCase) {
-  EXPECT_EQ(GetCorrectCasing(L"", false), L"");
-  EXPECT_EQ(GetCorrectCasing(L"", true), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d", false), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d", true), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d:", false), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d:", true), L"");
+  EXPECT_EQ(GetCorrectCasing(L""), L"");
+  EXPECT_EQ(GetCorrectCasing(L"d"), L"");
+  EXPECT_EQ(GetCorrectCasing(L"d:"), L"");
 
-  EXPECT_EQ(GetCorrectCasing(L"d:\\", false), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:/", false), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:\\\\", false), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d://", false), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:\\\\\\", false), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:///", false), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d:\\"), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d:/"), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d:\\\\"), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d://"), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d:\\\\\\"), L"D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"d:///"), L"D:\\");
 
-  EXPECT_EQ(GetCorrectCasing(L"d:///", true), L"\\\\?\\D:\\");
+  EXPECT_EQ(GetCorrectCasing(L"A:/Non:Existent"), L"A:\\Non:Existent");
 
-  EXPECT_EQ(GetCorrectCasing(L"A:/Non:Existent", false), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:/Non:Existent", true), L"\\\\?\\A:\\Non:Existent");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:\\\\Non:Existent", false), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\\\Non:Existent", true), L"\\\\?\\A:\\Non:Existent");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.", false), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.", true), L"\\\\?\\A:\\Non:Existent");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\..\\..", false), L"A:\\");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\..\\..", true), L"\\\\?\\A:\\");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.\\", false), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.\\", true), L"\\\\?\\A:\\Non:Existent");
+  EXPECT_EQ(GetCorrectCasing(L"A:\\\\Non:Existent"), L"A:\\Non:Existent");
+  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\."), L"A:\\Non:Existent");
+  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\..\\.."), L"A:\\");
+  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.\\"), L"A:\\Non:Existent");
 
   std::wstring tmp, tmp_inverse;
   GetTestTempDirWithCorrectCasing(&tmp, &tmp_inverse);
   ASSERT_GT(tmp.size(), 0);
   ASSERT_NE(tmp, tmp_inverse);
-  EXPECT_EQ(GetCorrectCasing(tmp, false), tmp);
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse, false), tmp);
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse, true), L"\\\\?\\" + tmp);
-
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\", false), tmp);
-
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\Does\\\\Not\\./Exist", false),
+  EXPECT_EQ(GetCorrectCasing(tmp), tmp);
+  EXPECT_EQ(GetCorrectCasing(tmp_inverse), tmp);
+  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\"), tmp);
+  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\Does\\\\Not\\./Exist"),
             tmp + L"\\Does\\Not\\Exist");
 }
 
