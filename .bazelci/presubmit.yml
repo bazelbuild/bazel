@@ -1,7 +1,7 @@
 ---
 platforms:
   centos7:
-    shards: 2
+    shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -36,7 +36,7 @@ platforms:
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
   ubuntu1604:
-    shards: 2
+    shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -67,7 +67,7 @@ platforms:
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
   ubuntu1804:
-    shards: 2
+    shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -119,7 +119,7 @@ platforms:
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
   ubuntu1804_javabase9:
-    shards: 2
+    shards: 4
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 9 Javabase"
     shell_commands:
@@ -188,7 +188,7 @@ platforms:
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
   ubuntu1804_javabase10:
-    shards: 2
+    shards: 4
     platform: ubuntu1804_nojava
     name: ":java: OpenJDK 10 Javabase"
     shell_commands:
@@ -257,7 +257,7 @@ platforms:
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
   macos:
-    shards: 2
+    shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -310,7 +310,7 @@ platforms:
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
   windows:
-    shards: 2
+    shards: 4
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
