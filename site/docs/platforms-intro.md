@@ -25,7 +25,6 @@ title: Building With Platforms
 - [See also](#see-also)
 
 ## Overview
-
 Bazel has sophisticated support for modeling [platforms](platforms.html) and
 [toolchains](toolchains.html). Integrating this into real projects requires
 coherent cooperation between project and library owners, rule maintainers,
@@ -46,7 +45,6 @@ For more formal documentation, see:
 * [Toolchains](toolchains.html)
 
 ## Background
-
 *Platforms* and *toolchains* were introduced to *standardize* the need for
  software projects to target different kinds of computers with different
  language-appropriate tools.
@@ -66,7 +64,6 @@ bind rather than diverge languages and projects. This is what the new platform
 and toolchain APIs achieve.
 
 ### Migration
-
 These APIs aren't enough for all projects to use platforms. We also have to
 retire the old APIs. This isn't trivial because all of a project's languages,
 toolchains, dependencies, and `select()`s have to support the new APIs. This
@@ -81,7 +78,6 @@ The thrust of this page describes this migration sequence and how and when your
 projects can fit in.
 
 ## Goal
-
 Bazel's platform migration is complete when all projects can build with the form:
 
 ```sh
@@ -121,10 +117,12 @@ outweighs current costs:
 
 ### Value
 * "just works" for end users
+* cleaner selects() (see Ori's ISA doc: haswell vs.k86 doesn't work, is a
+maintenance burden, bug-ridden, might miss something. Instead we want to select
+on the *quality* we car eabout. 
 
 ### Costs
 * rule / toolchain maintainers have to understand this
-
 
 ## API review
 A [`platform`](be/platform.html#platform) is a collection of
@@ -178,7 +176,6 @@ command line with [`--extra_toolchains`](command-line-reference.html#flag--extra
 See [here](toolchains.html) for a deeper dive.
 
 ## Status
-
 Current platform support varies among languages. All of Bazel's major rules are
 moving to platforms. But this process will take time. This is for three main reasons:
 
@@ -207,7 +204,6 @@ more ubiquitious.
 
 Details:
 
-
 ### Common platform properties
 Platform properties like `OS` and `CPU` that are common across projects should
 be declared in a standard, centralized place. This encourages cross-project
@@ -224,7 +220,6 @@ label for the above example is `@platforms//cpu:arm`). Language-common
 properties should be declared in the repos of their respective languages.
 
 ### Default platforms
-
 Generally, project owners should define explicit
 [platforms](platforms.html#defining-constraints-and-platforms) to describe the
 kinds of machines they want to build for. These are then triggered with
@@ -313,7 +308,6 @@ platforms to select your language's toolchains. See
 the [toolchains documentation](toolchains.html) for a good walkthrough.
 
 ### `select()`
-
 Projects can [`select()`](configurable-attributes.html) on
 [`constraint_value`](be/platform.html#constraint_value)s but not complete
 platforms. This is intentional: we want `select()`s to support as wide a variety
@@ -362,16 +356,76 @@ mappings](#platform-mappings) to support both styles through the migration
 window.
 
 ## How to use platforms today
+If you just want to build or cross-compile a project, you should follow the
+project's official documentation. It's up to language and project maintainers to
+determine how and when to integrate with platforms, and what value that offers.
 
+If you're a project, language, or toolchain maintainer and your build doesn't
+use platforms by default, you have three options (besides waiting for the global
+migration):
+
+1. Flip on the "use platforms" flag for your project's languages ([if they have
+   one](#status)) and do whatever testing you need to see if the projects you care
+   about work.
+
+1. If the projects you care about still depend on legacy flags like `--cpu` and
+   `--crosstool_top`, use these together with `--platforms`:
+   
+
+   `$ bazel build //:my_mixed_project --platforms==//:myplatform
+   --cpu=... --crosstool_top=...`
+
+    This has some maintenance cost (you have to manually make sure the settings
+    match). But this should work in the absense of renegade
+    [transitions](#transitions).  
+
+1. Write [platform mappings](#platform-mappings) to support both styles by
+   mapping `--cpu`-style settings to corresponding platforms and vice versa.
 
 ### Platform mappings
-* Tracking bug: [#6426](https://github.com/bazelbuild/bazel/issues/6426)
-* [example fix for iOS / C++ breakage](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378)
+*Platform mappings* is a temporary API that lets platform-powered and
+legacy-powered logic co-exist in the same build through the latter's deprecation
+window.
+
+A platform mapping is a map of either a `platform()` to a
+corresponding set of legacy flags or the reverse. For example:
+
+```python
+platforms:
+  # Maps "--platforms=//platforms:ios" to "--cpu=ios_x86_64 --apple_platform_type=ios".
+  //platforms:ios  
+    --cpu=ios_x86_64
+    --apple_platform_type=ios
+
+flags:
+  # Maps "--cpu=ios_x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
+  --cpu=ios_x86_64
+  --apple_platform_type=ios
+    //platforms:ios
+
+  # Maps "--cpu=darwin --apple_platform_type=macos" to "//platform:macos".
+  --cpu=darwin
+  --apple_platform_type=macos
+    //platforms:macos
+```
+
+Bazel uses this to guarantee all settings, both platform-based and
+legacy, are consistently applied throughout the build, including through
+[transitions](#transitions). 
+
+By default Bazel reads mappings from the `platform_mappings` file in your
+workspace root. You can also set
+`--platform_mappings=//:my_custom_mapping`.
+
+See
+[here](https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit)
+for complete details.
 
 ## Questions
 ## See also
 
-* [Migrate Java toolchains to
-platforms](https://docs.google.com/document/d/1dumNYb-3L8xswa2zjz7HizjhT05HIsEbQc2KuV3rdnk/edit#)
+* [Configurable Builds - Part 1](https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html)
+* [Platforms](platforms.html)
+* [Toolchains](toolchains.html)
 
 
