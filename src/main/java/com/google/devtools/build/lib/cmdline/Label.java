@@ -503,7 +503,7 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
-   * @param env the Starlark thread. Its StarlarkContext must implement {@code HasRepoMapping}.
+   * @param env the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -539,8 +539,8 @@ public final class Label
       },
       useEnvironment = true)
   public Label getRelative(String relName, Environment env) throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName, ((HasRepoMapping) env.getStarlarkContext()).getRepoMapping());
+    HasRepoMapping hrm = env.getThreadLocal(HasRepoMapping.class);
+    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
   }
 
   /**

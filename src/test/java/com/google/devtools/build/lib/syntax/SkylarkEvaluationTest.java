@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -316,14 +315,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         useLocation = true,
         useAst = true,
         useEnvironment = true,
-        useStarlarkSemantics = true,
-        useContext = true)
+        useStarlarkSemantics = true)
     public String withExtraInterpreterParams(
-        Location location,
-        FuncallExpression func,
-        Environment env,
-        StarlarkSemantics sem,
-        StarlarkContext context) {
+        Location location, FuncallExpression func, Environment env, StarlarkSemantics sem) {
       return "with_extra("
           + location.getStartLine()
           + ", "
@@ -332,8 +326,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + env.isGlobal()
           + ", "
           + (sem != null)
-          + ", "
-          + (context != null)
           + ")";
     }
 
@@ -1319,7 +1311,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
-        .testLookup("v", "with_extra(1, 0, true, true, true)");
+        .testLookup("v", "with_extra(1, 0, true, true)");
   }
 
   @Test

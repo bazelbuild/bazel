@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -580,7 +579,7 @@ public abstract class CcModule
       Object userLinkFlagsObject,
       SkylarkList<Artifact> nonCodeInputs,
       Location location,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     @SuppressWarnings("unchecked")
     SkylarkList<LibraryToLink> librariesToLink =
@@ -601,7 +600,7 @@ public abstract class CcModule
                 ImmutableList.of(
                     CcLinkingContext.LinkOptions.of(
                         userLinkFlags.getImmutableList(),
-                        ((BazelStarlarkContext) context).getSymbolGenerator()))));
+                        BazelStarlarkContext.from(env).getSymbolGenerator()))));
       }
       ccLinkingContextBuilder.addNonCodeInputs(
           NestedSetBuilder.wrap(Order.LINK_ORDER, nonCodeInputs));
@@ -1400,7 +1399,7 @@ public abstract class CcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      StarlarkContext starlarkContext)
+      Environment env)
       throws InterruptedException, EvalException {
     validateLanguage(location, language);
     SkylarkActionFactory actions = skylarkActionFactoryApi;
@@ -1433,7 +1432,7 @@ public abstract class CcModule
                     .getActionConstructionContext()
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                BazelStarlarkContext.from(env).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -1629,8 +1628,7 @@ public abstract class CcModule
       SkylarkList<Artifact> additionalInputs,
       Object grepIncludes,
       Location location,
-      @Nullable Environment environment,
-      StarlarkContext starlarkContext)
+      Environment env)
       throws InterruptedException, EvalException {
     validateLanguage(location, language);
     validateOutputType(location, outputType);
@@ -1675,7 +1673,7 @@ public abstract class CcModule
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
                 cppConfiguration,
-                ((BazelStarlarkContext) starlarkContext).getSymbolGenerator(),
+                BazelStarlarkContext.from(env).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))

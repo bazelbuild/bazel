@@ -73,7 +73,7 @@ public abstract class AndroidSkylarkData
   public AndroidAssetsInfo assetsFromDeps(
       SkylarkList<AndroidAssetsInfo> deps, boolean neverlink, Environment env) {
     // We assume this is an analysis-phase thread.
-    Label label = ((BazelStarlarkContext) env.getStarlarkContext()).getAnalysisRuleLabel();
+    Label label = BazelStarlarkContext.from(env).getAnalysisRuleLabel();
     return AssetDependencies.fromProviders(deps, neverlink).toInfo(label);
   }
 

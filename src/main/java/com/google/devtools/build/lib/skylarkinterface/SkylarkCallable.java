@@ -46,7 +46,7 @@ import java.lang.annotation.Target;
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
- *       (Location)(FuncallExpression)(Envrionment)(StarlarkSemantics)(StarlarkContext))</pre>
+ *       (Location)(FuncallExpression)(Envrionment)(StarlarkSemantics))</pre>
  *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
  *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
  *       Environment, and StarlarkSemantics are supplied by the interpreter if and only if
@@ -168,13 +168,6 @@ public @interface SkylarkCallable {
    * interface-level javadoc for details.)
    */
   boolean useStarlarkSemantics() default false;
-
-  /**
-   * If true, StarlarkContext will be passed as an argument of the annotated function. (Thus, the
-   * annotated method signature must contain StarlarkContext as a parameter. See the interface-level
-   * javadoc for details.)
-   */
-  boolean useContext() default false;
 
   /**
    * If not NONE, the annotated method will only be callable if the given semantic flag is true.

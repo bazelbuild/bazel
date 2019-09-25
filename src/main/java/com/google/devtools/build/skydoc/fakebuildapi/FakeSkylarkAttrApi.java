@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -42,8 +41,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of());
   }
@@ -55,8 +53,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.STRING, doc, mandatory, ImmutableList.of());
   }
@@ -75,8 +72,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
@@ -93,8 +89,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
   }
@@ -107,8 +102,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.INT_LIST, doc, mandatory, ImmutableList.of());
   }
@@ -127,8 +121,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
@@ -151,8 +144,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
     if (providers != null) {
@@ -163,24 +155,14 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.BOOLEAN, doc, mandatory, ImmutableList.of());
   }
 
   @Override
   public Descriptor outputAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of());
   }
@@ -193,8 +175,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of());
   }
@@ -207,8 +188,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of());
   }
@@ -221,20 +201,14 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of());
   }
 
   @Override
   public Descriptor licenseAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
       throws EvalException {
     return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
   }

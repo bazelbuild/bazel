@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -604,7 +603,7 @@ public interface CcModuleApi<
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useLocation = true,
-      useContext = true,
+      useEnvironment = true,
       parameters = {
         @Param(
             name = "libraries_to_link",
@@ -635,7 +634,7 @@ public interface CcModuleApi<
       Object userLinkFlagsObject,
       SkylarkList<FileT> nonCodeInputs,
       Location location,
-      StarlarkContext context)
+      Environment env)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -926,7 +925,7 @@ public interface CcModuleApi<
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
       useLocation = true,
-      useContext = true,
+      useEnvironment = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1038,6 +1037,6 @@ public interface CcModuleApi<
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      StarlarkContext bazelStarlarkContext)
+      Environment env)
       throws InterruptedException, EvalException;
 }

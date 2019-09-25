@@ -37,18 +37,29 @@ public class StarlarkCallbackHelper {
 
   private final StarlarkFunction callback;
   private final FuncallExpression ast;
+
+  // These fields, parts of the state of the loading-phase
+  // thread that instantiated a rule, must be propagated to
+  // the child threads (implicit outputs, attribute defaults).
+  // This includes any other thread-local state, such as
+  // the Label.HasRepoMapping or PackageFactory.PackageContext.
+  // TODO(adonovan): it would be cleaner and less error prone to
+  // perform these callbacks in the actual loading-phase thread,
+  // at the end of BUILD file execution.
+  // Alternatively (or additionally), we could put PackageContext
+  // into BazelStarlarkContext so there's only a single blob of state.
   private final StarlarkSemantics starlarkSemantics;
-  private final BazelStarlarkContext starlarkContext;
+  private final BazelStarlarkContext context;
 
   public StarlarkCallbackHelper(
       StarlarkFunction callback,
       FuncallExpression ast,
       StarlarkSemantics starlarkSemantics,
-      BazelStarlarkContext starlarkContext) {
+      BazelStarlarkContext context) {
     this.callback = callback;
     this.ast = ast;
     this.starlarkSemantics = starlarkSemantics;
-    this.starlarkContext = starlarkContext;
+    this.context = context;
   }
 
   public ImmutableList<String> getParameterNames() {
@@ -64,8 +75,8 @@ public class StarlarkCallbackHelper {
           Environment.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
-              .setStarlarkContext(starlarkContext)
               .build();
+      context.storeInThread(env);
       return callback.call(buildArgumentList(ctx, arguments), null, ast, env);
     } catch (ClassCastException | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());

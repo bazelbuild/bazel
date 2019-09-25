@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -28,8 +28,8 @@ public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
 
   @Override
   public SkylarkLateBoundDefault<?> configurationField(
-      String fragment, String name, Location loc, StarlarkContext context) throws EvalException {
-    BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
+      String fragment, String name, Location loc, Environment env) throws EvalException {
+    BazelStarlarkContext bazelContext = BazelStarlarkContext.from(env);
     Class<?> fragmentClass = bazelContext.getFragmentNameToClass().get(fragment);
 
     if (fragmentClass == null) {

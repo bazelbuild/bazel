@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -56,7 +56,7 @@ public interface SkylarkBuildApiGlobals {
             doc = "The name of the value to obtain from the configuration fragment."),
       },
       useLocation = true,
-      useContext = true)
+      useEnvironment = true)
   public LateBoundDefaultApi configurationField(
-      String fragment, String name, Location loc, StarlarkContext context) throws EvalException;
+      String fragment, String name, Location loc, Environment env) throws EvalException;
 }

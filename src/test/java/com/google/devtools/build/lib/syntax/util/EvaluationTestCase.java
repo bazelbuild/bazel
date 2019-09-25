@@ -65,21 +65,23 @@ public class EvaluationTestCase {
    * No PythonPreprocessing, mostly empty mutable Environment.
    */
   public Environment newBuildEnvironment() {
-    BazelStarlarkContext context =
-        new BazelStarlarkContext(
-            TestConstants.TOOLS_REPOSITORY,
-            /* fragmentNameToClass= */ null,
-            /* repoMapping= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()),
-            /* analysisRuleLabel= */ null);
     Environment env =
         Environment.builder(mutability)
             .useDefaultSemantics()
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
-            .setStarlarkContext(context)
             .build();
+
     SkylarkUtils.setPhase(env, Phase.LOADING);
+
+    new BazelStarlarkContext(
+            TestConstants.TOOLS_REPOSITORY,
+            /* fragmentNameToClass= */ null,
+            /* repoMapping= */ ImmutableMap.of(),
+            new SymbolGenerator<>(new Object()),
+            /* analysisRuleLabel= */ null)
+        .storeInThread(env);
+
     return env;
   }
 

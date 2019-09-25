@@ -126,16 +126,18 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(env.getListener())
-              // The fetch phase does not need the tools repository or the fragment map because
-              // it happens before analysis.
-              .setStarlarkContext(
-                  new BazelStarlarkContext(
-                      /* toolsRepository = */ null,
-                      /* fragmentNameToClass = */ null,
-                      rule.getPackage().getRepositoryMapping(),
-                      new SymbolGenerator<>(key),
-                      /* analysisRuleLabel= */ null))
               .build();
+
+      // The fetch phase does not need the tools repository
+      // or the fragment map because it happens before analysis.
+      new BazelStarlarkContext(
+              /* toolsRepository = */ null,
+              /* fragmentNameToClass = */ null,
+              rule.getPackage().getRepositoryMapping(),
+              new SymbolGenerator<>(key),
+              /* analysisRuleLabel= */ null)
+          .storeInThread(buildEnv);
+
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
               rule,

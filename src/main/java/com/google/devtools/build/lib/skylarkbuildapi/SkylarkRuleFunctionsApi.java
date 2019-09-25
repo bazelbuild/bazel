@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -342,8 +341,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "apply to its own configuration before analysis.")
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useEnvironment = true)
   public BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
@@ -363,8 +361,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv,
-      StarlarkContext context)
+      Environment env)
       throws EvalException;
 
   @SkylarkCallable(
@@ -503,8 +500,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
       useEnvironment = true,
-      useAst = true,
-      useContext = true)
+      useAst = true)
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
       SkylarkList<?> attributeAspects,
@@ -517,8 +513,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       String doc,
       Boolean applyToGeneratingRules,
       FuncallExpression ast,
-      Environment funcallEnv,
-      StarlarkContext context)
+      Environment env)
       throws EvalException;
 
   @SkylarkCallable(
@@ -550,14 +545,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Label() call appears.")
       },
       useLocation = true,
-      useEnvironment = true,
-      useContext = true)
+      useEnvironment = true)
   @SkylarkConstructor(objectType = Label.class)
   public Label label(
-      String labelString,
-      Boolean relativeToCallerRepository,
-      Location loc,
-      Environment env,
-      StarlarkContext context)
+      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
       throws EvalException;
 }

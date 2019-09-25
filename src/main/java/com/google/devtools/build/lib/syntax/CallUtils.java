@@ -389,8 +389,7 @@ public final class CallUtils {
     Preconditions.checkArgument(
         !methodDescriptor.isUseEnvironment()
             || !methodDescriptor.isUseStarlarkSemantics()
-            || !methodDescriptor.isUseLocation()
-            || !methodDescriptor.isUseContext(),
+            || !methodDescriptor.isUseLocation(),
         "Cannot be invoked on structField callables with extra interpreter params");
     return methodDescriptor.call(obj, new Object[0], Location.BUILTIN, null);
   }
@@ -674,9 +673,6 @@ public final class CallUtils {
     }
     if (method.isUseStarlarkSemantics()) {
       builder.add(env.getSemantics());
-    }
-    if (method.isUseContext()) {
-      builder.add(env.getStarlarkContext());
     }
   }
 

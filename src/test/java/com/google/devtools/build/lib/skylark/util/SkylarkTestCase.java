@@ -67,15 +67,6 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
-        BazelStarlarkContext context =
-            new BazelStarlarkContext(
-                TestConstants.TOOLS_REPOSITORY,
-                /*fragmentNameToClass=*/ null,
-                /*repoMapping=*/ ImmutableMap.of(),
-                new SymbolGenerator<>(new Object()),
-                /*analysisRuleLabel=*/ null);
-        // This Environment has no PackageContext, so attempts to create a rule will fail.
-        // Rule creation is tested by SkylarkIntegrationTest.
         Environment env =
             Environment.builder(mutability)
                 .setSemantics(semantics)
@@ -84,9 +75,21 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     getSkylarkGlobals()
                         .withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
-                .setStarlarkContext(context)
                 .build();
+
         SkylarkUtils.setPhase(env, Phase.LOADING);
+
+        // This Environment has no PackageContext, so attempts to create a rule will fail.
+        // Rule creation is tested by SkylarkIntegrationTest.
+
+        new BazelStarlarkContext(
+                TestConstants.TOOLS_REPOSITORY,
+                /*fragmentNameToClass=*/ null,
+                /*repoMapping=*/ ImmutableMap.of(),
+                new SymbolGenerator<>(new Object()),
+                /*analysisRuleLabel=*/ null)
+            .storeInThread(env);
+
         return env;
       }
     };

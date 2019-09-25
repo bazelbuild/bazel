@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -123,8 +122,7 @@ public class BazelCcModule extends CcModule
       boolean linkDepsStatically,
       SkylarkList<Artifact> additionalInputs,
       Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      Environment env)
       throws InterruptedException, EvalException {
     return super.link(
         actions,
@@ -140,8 +138,7 @@ public class BazelCcModule extends CcModule
         additionalInputs,
         /* grepIncludes= */ null,
         location,
-        /* environment= */ null,
-        starlarkContext);
+        env);
   }
 
   @Override

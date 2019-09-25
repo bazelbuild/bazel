@@ -17,7 +17,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.config;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -35,8 +34,7 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       List<String> inputs,
       List<String> outputs,
       Location location,
-      Environment env,
-      StarlarkContext context) {
+      Environment env) {
     return new FakeConfigurationTransition();
   }
 

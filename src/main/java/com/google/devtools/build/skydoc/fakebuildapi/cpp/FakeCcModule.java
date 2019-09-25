@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -159,7 +158,7 @@ public class FakeCcModule
       Object userLinkFlagsObject,
       SkylarkList<FileApi> nonCodeInputs,
       Location location,
-      StarlarkContext context) {
+      Environment env) {
     return null;
   }
 
@@ -232,7 +231,7 @@ public class FakeCcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      StarlarkContext starlarkContext)
+      Environment env)
       throws InterruptedException, EvalException {
     return null;
   }
@@ -251,8 +250,7 @@ public class FakeCcModule
       boolean linkDepsStatically,
       SkylarkList<FileApi> additionalInputs,
       Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      Environment environment)
       throws InterruptedException, EvalException {
     return null;
   }

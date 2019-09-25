@@ -182,20 +182,22 @@ public class WorkspaceFactory {
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
-            // The workspace environment doesn't need the tools repository or the fragment map
-            // because executing workspace rules happens before analysis and it doesn't need a
-            // repository mapping because calls to the Label constructor in the WORKSPACE file
-            // are, by definition, not in an external repository and so they don't need the mapping
-            .setStarlarkContext(
-                new BazelStarlarkContext(
-                    /* toolsRepository= */ null,
-                    /* fragmentNameToClass= */ null,
-                    /* repoMapping= */ ImmutableMap.of(),
-                    new SymbolGenerator<>(workspaceFileKey),
-                    /* analysisRuleLabel= */ null))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
     addWorkspaceFunctions(workspaceEnv, localReporter);
+
+    // The workspace environment doesn't need the tools repository or the fragment map
+    // because executing workspace rules happens before analysis and it doesn't need a
+    // repository mapping because calls to the Label constructor in the WORKSPACE file
+    // are, by definition, not in an external repository and so they don't need the mapping
+    new BazelStarlarkContext(
+            /* toolsRepository= */ null,
+            /* fragmentNameToClass= */ null,
+            /* repoMapping= */ ImmutableMap.of(),
+            new SymbolGenerator<>(workspaceFileKey),
+            /* analysisRuleLabel= */ null)
+        .storeInThread(workspaceEnv);
+
     for (Map.Entry<String, Object> binding : parentVariableBindings.entrySet()) {
       try {
         workspaceEnv.update(binding.getKey(), binding.getValue());

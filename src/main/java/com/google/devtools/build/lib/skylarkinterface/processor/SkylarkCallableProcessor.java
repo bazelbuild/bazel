@@ -85,8 +85,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
   private static final String STARLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.StarlarkSemantics";
-  private static final String STARLARK_CONTEXT =
-      "com.google.devtools.build.lib.skylarkinterface.StarlarkContext";
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -452,16 +450,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
       currentIndex++;
     }
-    if (annotation.useContext()) {
-      if (!STARLARK_CONTEXT.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            String.format(
-                "Expected parameter index %d to be the %s type, matching useContext, "
-                    + "but was %s",
-                currentIndex, STARLARK_CONTEXT, methodSignatureParams.get(currentIndex).asType()));
-      }
-    }
   }
 
   private int numExpectedExtraInterpreterParams(SkylarkCallable annotation) {
@@ -472,7 +460,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;
     numExtraInterpreterParams += annotation.useStarlarkSemantics() ? 1 : 0;
-    numExtraInterpreterParams += annotation.useContext() ? 1 : 0;
     return numExtraInterpreterParams;
   }
 

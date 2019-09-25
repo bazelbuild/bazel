@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -322,7 +321,7 @@ public final class Environment implements Freezable {
       this.exportedBindings = new HashSet<>();
     }
 
-    public GlobalFrame(
+    GlobalFrame(
         Mutability mutability,
         @Nullable GlobalFrame universe,
         @Nullable Object label,
@@ -375,7 +374,7 @@ public final class Environment implements Freezable {
      * Constructs a global frame based on the given parent frame, filtering out flag-restricted
      * global objects.
      */
-    public static GlobalFrame filterOutRestrictedBindings(
+    private static GlobalFrame filterOutRestrictedBindings(
         Mutability mutability, GlobalFrame parent, StarlarkSemantics semantics) {
       if (parent == null) {
         return new GlobalFrame(mutability);
@@ -648,7 +647,7 @@ public final class Environment implements Freezable {
           env.getTransitiveContentHashCode());
     }
 
-    public String getTransitiveContentHashCode() {
+    private String getTransitiveContentHashCode() {
       return transitiveContentHashCode;
     }
 
@@ -794,8 +793,6 @@ public final class Environment implements Freezable {
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
 
-  private final StarlarkContext starlarkContext;
-
   /**
    * An EventHandler for errors and warnings. This is not used in the BUILD language, however it
    * might be used in Skylark code called from the BUILD language, so shouldn't be null.
@@ -867,6 +864,8 @@ public final class Environment implements Freezable {
    *
    * @return an EventHandler
    */
+  // TODO(adonovan): turn this into a print handler and break dependency on EventHandler.
+  // First, we must report scan/parse/validation errors using an exception containing events.
   public EventHandler getEventHandler() {
     return eventHandler;
   }
@@ -893,6 +892,7 @@ public final class Environment implements Freezable {
   }
 
   /** Returns the FuncallExpression and the BaseFunction for the top-level call being evaluated. */
+  // TODO(adonovan): replace this by an API for walking the call stack.
   public Pair<FuncallExpression, BaseFunction> getTopCall() {
     Continuation continuation = this.continuation;
     if (continuation == null) {
@@ -915,7 +915,6 @@ public final class Environment implements Freezable {
   private Environment(
       GlobalFrame globalFrame,
       StarlarkSemantics semantics,
-      StarlarkContext starlarkContext,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode) {
@@ -924,7 +923,6 @@ public final class Environment implements Freezable {
     this.mutability = globalFrame.mutability();
     Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
     this.semantics = semantics;
-    this.starlarkContext = starlarkContext;
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
     this.transitiveHashCode =
@@ -941,15 +939,12 @@ public final class Environment implements Freezable {
     private final Mutability mutability;
     @Nullable private GlobalFrame parent;
     @Nullable private StarlarkSemantics semantics;
-    @Nullable private StarlarkContext starlarkContext;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
-      // TODO(cparsons): Require specifying a starlarkContext (or declaring use of an empty stub).
-      this.starlarkContext = new StarlarkContext() {};
     }
 
     /**
@@ -970,16 +965,6 @@ public final class Environment implements Freezable {
 
     public Builder useDefaultSemantics() {
       this.semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
-      return this;
-    }
-
-    public Builder setStarlarkContext(StarlarkContext starlarkContext) {
-      this.starlarkContext = starlarkContext;
-      return this;
-    }
-
-    public Builder useEmptyStarlarkContext() {
-      this.starlarkContext = new StarlarkContext() {};
       return this;
     }
 
@@ -1038,7 +1023,6 @@ public final class Environment implements Freezable {
       return new Environment(
           globalFrame,
           semantics,
-          starlarkContext,
           eventHandler,
           importedExtensions,
           fileContentHashCode);
@@ -1059,7 +1043,7 @@ public final class Environment implements Freezable {
   }
 
   /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
-  public Environment updateAndExport(String varname, Object value) throws EvalException {
+  Environment updateAndExport(String varname, Object value) throws EvalException {
     update(varname, value);
     if (isGlobal()) {
       globalFrame.exportedBindings.add(varname);
@@ -1128,7 +1112,7 @@ public final class Environment implements Freezable {
    * Returns the value of a variable defined in Local scope. Do not search in any parent scope. This
    * function should be used once the AST has been analysed and we know which variables are local.
    */
-  public Object localLookup(String varname) {
+  Object localLookup(String varname) {
     return lexicalFrame.get(varname);
   }
 
@@ -1167,10 +1151,10 @@ public final class Environment implements Freezable {
   /**
    * Returns a map containing all bindings that are technically <i>present</i> but are
    * <i>restricted</i> in the current frame with the current semantics. Such bindings should be
-   * treated unresolvable; this method should be invoked to prepare error messaging for
-   * evaluation environments where access of these restricted objects may have been attempted.
+   * treated unresolvable; this method should be invoked to prepare error messaging for evaluation
+   * environments where access of these restricted objects may have been attempted.
    */
-  public Map<String, FlagGuardedValue> getRestrictedBindings() {
+  Map<String, FlagGuardedValue> getRestrictedBindings() {
     return globalFrame.restrictedBindings;
   }
 
@@ -1178,11 +1162,7 @@ public final class Environment implements Freezable {
     return semantics;
   }
 
-  public StarlarkContext getStarlarkContext() {
-    return starlarkContext;
-  }
-
-  public void handleEvent(Event event) {
+  void handleEvent(Event event) {
     eventHandler.handle(event);
   }
 
@@ -1190,6 +1170,7 @@ public final class Environment implements Freezable {
    * Returns a set of all names of variables that are accessible in this {@code Environment}, in a
    * deterministic order.
    */
+  // TODO(adonovan): eliminate sole external call from docgen.
   public Set<String> getVariableNames() {
     LinkedHashSet<String> vars = new LinkedHashSet<>();
     vars.addAll(lexicalFrame.getTransitiveBindings().keySet());

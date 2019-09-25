@@ -19,14 +19,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Environment;
 import javax.annotation.Nullable;
 
-/**
- * Contextual information associated with each Starlark thread created by Bazel.
- */
-public class BazelStarlarkContext
-    implements StarlarkContext, RuleDefinitionContext, Label.HasRepoMapping {
+/** Contextual information associated with each Starlark thread created by Bazel. */
+public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+
+  /** Return the Bazel information associated with the specified Starlark thread. */
+  public static BazelStarlarkContext from(Environment env) {
+    return env.getThreadLocal(BazelStarlarkContext.class);
+  }
+
+  /** Save this BazelStarlarkContext in the specified Starlark thread. */
+  public void storeInThread(Environment env) {
+    env.setThreadLocal(BazelStarlarkContext.class, this);
+    env.setThreadLocal(Label.HasRepoMapping.class, this);
+  }
+
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
