@@ -78,7 +78,7 @@ The thrust of this page describes this migration sequence and how and when your
 projects can fit in.
 
 ## Goal
-Bazel's platform migration is complete when all projects can build with the form:
+Bazel's platform migration is complete when all projects build with the form:
 
 ```sh
 $ bazel build //:myproject --platforms=//:myplatform
@@ -87,7 +87,7 @@ $ bazel build //:myproject --platforms=//:myplatform
 This implies:
 
 1. The rules your project uses can infer correct toolchains from
-`//:platform`.
+`//:myplatform`.
 1. The rules your project's dependencies use can infer correct toolchains
 from `//:myplatform`.
 1. *Either* the projects depending on yours support `//:myplatform` *or* your
@@ -107,19 +107,19 @@ As soon as this goal is achieved, we'll remove the old APIs and make this *the*
 way projects select platforms and toolchains.
 
 ## Should I use platforms?
-Yes. Bazel's platform and toolchain APIs are a major upgrade over legacy ways to
-select toolchains and perform multi-platform builds. The real question is, given
-the migration work required to make platform support ubiquitous, *when* should
-your project fit in? 
+If you just want to build or cross-compile a project, you should follow the
+project’s official documentation.
 
-The answer varies across projects. You should opt yours in when the value added
-outweighs current costs:
+If you’re a project, language, or toolchain maintainer, you'll eventually want
+to support the new APIs. Whether you wait until the global migration is complete
+or opt in sooner depends on your specific cost vs. value needs:
 
 ### Value
-* "just works" for end users
-* cleaner selects() (see Ori's ISA doc: haswell vs.k86 doesn't work, is a
-maintenance burden, bug-ridden, might miss something. Instead we want to select
-on the *quality* we car eabout. 
+* Intrinsically more accurate than ad hoc flags like `--cpu` and
+  `-crosstool_top`. For example, how do you `select()` on GPU architecture or
+  OS?
+* Common API that all languages and projects understand: `--platforms=//:myplatform`
+* Automatic toolchain selection
 
 ### Costs
 * rule / toolchain maintainers have to understand this
@@ -422,10 +422,20 @@ See
 for complete details.
 
 ## Questions
+For general support and questions about the migration timeline, contact
+[bazel-discuss@googlegroups.com](https://groups.google.com/forum/#!forum/bazel-discuss)
+or the owners of the appropriate rules.
+
+For discussions on the design and evolution of the platform/toolchain APIs,
+contact
+[bazel-dev@googlegroups.com](https://groups.google.com/forum/#!forum/bazel-dev).
+
 ## See also
 
 * [Configurable Builds - Part 1](https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html)
 * [Platforms](platforms.html)
 * [Toolchains](toolchains.html)
+* [Bazel Platforms Cookbook](https://docs.google.com/document/d/1UZaVcL08wePB41ATZHcxQV4Pu1YfA1RvvWm8FbZHuW8/)
+* [`hlopko/bazel_platforms_examples`](https://github.com/hlopko/bazel_platforms_examples)
 
 
