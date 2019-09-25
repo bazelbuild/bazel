@@ -51,22 +51,12 @@ public class EvalException extends Exception {
     this.dueToIncompleteAST = false;
   }
 
-  public EvalException(Location location, String message, String url) {
-    this.location = location;
-    this.dueToIncompleteAST = false;
-    this.message =
-        Preconditions.checkNotNull(message)
-            + "\n"
-            + "Need help? See "
-            + Preconditions.checkNotNull(url);
-  }
-
   /**
    * @param location the location where evaluation/execution failed.
    * @param message the error message.
    * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
    */
-  public EvalException(Location location, String message, boolean dueToIncompleteAST) {
+  EvalException(Location location, String message, boolean dueToIncompleteAST) {
     super(null, null, /*enableSuppression=*/ true, /*writableStackTrace=*/ true);
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
@@ -174,29 +164,5 @@ public class EvalException extends Exception {
    */
   public boolean canBeAddedToStackTrace() {
     return true;
-  }
-
-  /**
-   * A class to support a special case of EvalException when the cause of the error is an
-   * Exception during a direct Java call. Allow the throwing code to provide context in a message.
-   */
-  public static final class EvalExceptionWithJavaCause extends EvalException {
-
-    /**
-     * @param location the location where evaluation/execution failed.
-     * @param message the error message.
-     * @param cause a Throwable that caused this exception.
-     */
-    public EvalExceptionWithJavaCause(Location location, String message, Throwable cause) {
-      super(location, message, cause);
-    }
-
-    /**
-     * @param location the location where evaluation/execution failed.
-     * @param cause a Throwable that caused this exception.
-     */
-    public EvalExceptionWithJavaCause(Location location, Throwable cause) {
-      this(location, null, cause);
-    }
   }
 }

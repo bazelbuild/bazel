@@ -77,10 +77,6 @@ public final class ValidationEnvironment extends NodeVisitor {
       exception = e;
     }
 
-    ValidationException(Location location, String message, String url) {
-      exception = new EvalException(location, message, url);
-    }
-
     ValidationException(Location location, String message) {
       exception = new EvalException(location, message);
     }
@@ -324,8 +320,10 @@ public final class ValidationEnvironment extends NodeVisitor {
       // Symbols defined in the module scope cannot be reassigned.
       throw new ValidationException(
           location,
-          String.format("Variable %s is read only", varname),
-          "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html");
+          String.format(
+              "Variable %s is read only (read more at %s)",
+              varname,
+              "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html"));
     }
     block.variables.add(varname);
   }

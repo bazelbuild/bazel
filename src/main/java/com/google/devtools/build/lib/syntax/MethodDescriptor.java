@@ -144,7 +144,7 @@ public final class MethodDescriptor {
       if (e instanceof EvalException) {
         throw ((EvalException) e).ensureLocation(loc);
       }
-      throw new EvalException.EvalExceptionWithJavaCause(loc, e);
+      throw new EvalException(loc, null, e);
     }
     if (method.getReturnType().equals(Void.TYPE)) {
       return Runtime.NONE;
