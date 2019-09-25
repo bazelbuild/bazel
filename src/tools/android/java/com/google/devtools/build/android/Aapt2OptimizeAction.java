@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.common.options.OptionsParser;
@@ -35,8 +34,7 @@ class Aapt2OptimizeAction {
     logger.fine(CommandHelper.execute("Optimizing resources", buildCommand(args)));
   }
 
-  @VisibleForTesting
-  static List<String> buildCommand(String... args) {
+  private static List<String> buildCommand(String... args) {
     OptionsParser optionsParser =
         OptionsParser.builder()
             .optionsClasses(Aapt2ConfigOptions.class)
