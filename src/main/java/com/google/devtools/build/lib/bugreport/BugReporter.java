@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bugreport;
 
+import java.util.List;
+
 /**
  * Logs bug reports.
  *
@@ -26,5 +28,9 @@ public interface BugReporter {
     return BugReport.REPORTER_INSTANCE;
   }
 
+  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable)}. */
   void sendBugReport(Throwable exception);
+
+  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String[])}. */
+  void sendBugReport(Throwable exception, List<String> args, String... values);
 }
