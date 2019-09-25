@@ -784,6 +784,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
+    host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
