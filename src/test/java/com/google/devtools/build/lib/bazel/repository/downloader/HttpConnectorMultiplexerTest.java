@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -43,8 +44,10 @@ import com.google.devtools.build.lib.util.Sleeper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -274,5 +277,54 @@ public class HttpConnectorMultiplexerTest {
 
   private static HttpStream fakeStream(URL url, byte[] data) {
     return new HttpStream(new ByteArrayInputStream(data), url);
+  }
+
+  @Test
+  public void testHeaderComputationFunction() throws Exception {
+    Map<String, String> baseHeaders =
+        ImmutableMap.of("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    Map<URI, Map<String, String>> additionalHeaders =
+        ImmutableMap.of(
+            new URI("http://hosting.example.com/user/foo/file.txt"),
+            ImmutableMap.of("Authentication", "Zm9vOmZvb3NlY3JldA=="));
+
+    Function<URL, ImmutableMap<String, String>> headerFunction =
+        HttpConnectorMultiplexer.getHeaderFunction(baseHeaders, additionalHeaders);
+
+    // Unreleated URL
+    assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+
+    // With auth headers
+    assertThat(headerFunction.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            "gzip",
+            "User-Agent",
+            "Bazel/testing",
+            "Authentication",
+            "Zm9vOmZvb3NlY3JldA==");
+
+    // Other hosts
+    assertThat(headerFunction.apply(new URL("http://hosting2.example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(headerFunction.apply(new URL("http://sub.hosting.example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(headerFunction.apply(new URL("http://example.com/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+    assertThat(
+            headerFunction.apply(
+                new URL("http://hosting.example.com.evil.example/user/foo/file.txt")))
+        .containsExactly("Accept-Encoding", "gzip", "User-Agent", "Bazel/testing");
+
+    // Verify that URL-specific headers overwrite
+    Map<String, String> annonAuth =
+        ImmutableMap.of("Authentication", "YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw==");
+    Function<URL, ImmutableMap<String, String>> combinedHeaders =
+        HttpConnectorMultiplexer.getHeaderFunction(annonAuth, additionalHeaders);
+    assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+        .containsExactly("Authentication", "Zm9vOmZvb3NlY3JldA==");
+    assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))
+        .containsExactly("Authentication", "YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw==");
   }
 }
