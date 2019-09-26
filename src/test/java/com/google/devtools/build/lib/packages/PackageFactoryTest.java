@@ -149,24 +149,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testDuplicateRuleName() throws Exception {
-    events.setFailFast(false);
-    Path buildFile =
-        scratch.file(
-            "/duplicaterulename/BUILD",
-            "# -*- python -*-",
-            "proto_library(name = 'spell_proto', srcs = ['spell.proto'], cc_api_version = 2)",
-            "cc_library(name = 'spell_proto')");
-    Package pkg =
-        packages.createPackage("duplicaterulename", RootedPath.toRootedPath(root, buildFile));
-
-    events.assertContainsError(
-        "cc_library rule 'spell_proto' in package "
-            + "'duplicaterulename' conflicts with existing proto_library rule");
-    assertThat(pkg.containsErrors()).isTrue();
-  }
-
-  @Test
   public void testDuplicatedDependencies() throws Exception {
     events.setFailFast(false);
     Path buildFile =
@@ -286,31 +268,23 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testMultipleDuplicateRuleName() throws Exception {
+  public void testDuplicateRuleName() throws Exception {
     events.setFailFast(false);
 
     Path buildFile =
         scratch.file(
-            "/multipleduplicaterulename/BUILD",
-            "# -*- python -*-",
+            "/duplicaterulename/BUILD",
             "proto_library(name = 'spellcheck_proto',",
             "         srcs = ['spellcheck.proto'],",
             "         cc_api_version = 2)",
-            "cc_library(name = 'spellcheck_proto')",
-            "proto_library(name = 'spell_proto',",
-            "         srcs = ['spell.proto'],",
-            "         cc_api_version = 2)",
-            "cc_library(name = 'spell_proto')");
+            "cc_library(name = 'spellcheck_proto')", // conflict error stops execution
+            "x = 1//0"); // not reached
     Package pkg =
-        packages.createPackage(
-            "multipleduplicaterulename", RootedPath.toRootedPath(root, buildFile));
-
+        packages.createPackage("duplicaterulename", RootedPath.toRootedPath(root, buildFile));
     events.assertContainsError(
-        "cc_library rule 'spellcheck_proto' in package "
-            + "'multipleduplicaterulename' conflicts with existing proto_library rule");
-    events.assertContainsError(
-        "cc_library rule 'spell_proto' in package "
-            + "'multipleduplicaterulename' conflicts with existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' in package 'duplicaterulename' conflicts with existing"
+            + " proto_library rule");
+    events.assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
 
@@ -437,8 +411,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   // Was: Regression test for bug "Rules declared after an error in
   // a package should be considered 'in error'".
-  // Now: Regression test for bug "Why aren't ERRORS considered
+  // Then: Regression test for bug "Why aren't ERRORS considered
   // fatal?*"
+  // Now: Regression test for: execution should stop at the first EvalException;
+  // all rules created prior to the exception error are marked in error.
   @Test
   public void testAllRulesInErrantPackageAreInError() throws Exception {
     events.setFailFast(false);
@@ -461,13 +437,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     // rule1 would be fine but is still marked as in error:
     assertThat(pkg.getRule("rule1").containsErrors()).isTrue();
 
-    // rule2 is considered "in error" because it's after an error.
-    // Indeed, it has the wrong "outs" set because the call to PopulateList
-    // failed.
+    // rule2's genrule is never executed.
     Rule rule2 = pkg.getRule("rule2");
-    assertThat(rule2.containsErrors()).isTrue();
-    assertThat(Sets.newHashSet(rule2.getOutputFiles()))
-        .isEqualTo(Sets.newHashSet(pkg.getTarget("bad")));
+    assertThat(rule2).isNull();
   }
 
   @Test

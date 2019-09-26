@@ -624,7 +624,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     ast.replayLexerEvents(extensionThread, eventHandler);
     ImmutableList<Statement> statements = ast.getStatements();
     for (Statement statement : statements) {
-      ast.execTopLevelStatement(statement, extensionThread, eventHandler);
+      if (!ast.execTopLevelStatement(statement, extensionThread, eventHandler)) {
+        break;
+      }
       possiblyExport(statement, extensionLabel, eventHandler, extensionThread);
     }
   }

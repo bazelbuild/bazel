@@ -132,44 +132,37 @@ public class StarlarkFile extends Node {
   }
 
   /**
-   * Executes this build file in a given StarlarkThread.
+   * Executes this Starlark file in the given StarlarkThread.
    *
-   * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
-   * EvalException}. This exception is caught here and reported through reporter and execution
-   * continues on the next statement. In effect, there is a "try/except" block around every top
-   * level statement. Such exceptions are not ignored, though: they are visible via the return
-   * value. Rules declared in a package containing any error (including loading-phase semantical
-   * errors that cannot be checked here) must also be considered "in error".
+   * <p>Execution stops at the first execution error, which is reported to the event handler. (Other
+   * kinds of errors, such as problems within calls to built-in functions like rule or attr, cause
+   * events to be reported but do not cause Starlark execution to fail.
    *
-   * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
-   * only to lexer/parser errors.
+   * <p>This method does not affect the value of {@link #containsErrors()}, which refers only to
+   * lexer/parser errors.
    *
    * @return true if no error occurred during execution.
    */
   // TODO(adonovan): move to EvalUtils.
   public boolean exec(StarlarkThread thread, EventHandler eventHandler)
       throws InterruptedException {
-    boolean ok = true;
     for (Statement stmt : statements) {
       if (!execTopLevelStatement(stmt, thread, eventHandler)) {
-        ok = false;
+        return false;
       }
     }
-    return ok;
+    return true;
   }
 
   /**
-   * Executes top-level statement of this build file in a given StarlarkThread.
+   * Executes a top-level statement of this Starlark file in the given StarlarkThread.
    *
-   * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
-   * EvalException}. This exception is caught here and reported through reporter. In effect, there
-   * is a "try/except" block around every top level statement. Such exceptions are not ignored,
-   * though: they are visible via the return value. Rules declared in a package containing any error
-   * (including loading-phase semantical errors that cannot be checked here) must also be considered
-   * "in error".
+   * <p>If there was an execution error, it is reported to the event handler, and the function
+   * returns false. (Other kinds of errors, such as problems within calls to built-in functions like
+   * rule or attr, cause events to be reported but do not cause Starlark execution to fail.
    *
-   * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
-   * only to lexer/parser errors.
+   * <p>This method does not affect the value of {@link #containsErrors()}, which refers only to
+   * lexer/parser errors.
    *
    * @return true if no error occurred during execution.
    */

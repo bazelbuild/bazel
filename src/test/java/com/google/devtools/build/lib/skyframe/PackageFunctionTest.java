@@ -226,10 +226,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     scratch.file(
         "foo/BUILD",
-        "subinclude('//a:a')",
-        "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))");
-    scratch.file("a/BUILD");
-    scratch.file("a/a");
+        "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))",
+        "x = 1//0" // causes 'foo' to be marked in error
+        );
     Path bazFile = scratch.file("foo/bar/baz/baz.sh");
     Path bazDir = bazFile.getParentDirectory();
     Path barDir = bazDir.getParentDirectory();

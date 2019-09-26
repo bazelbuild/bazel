@@ -66,7 +66,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
             LOCATION_42,
-            /*env=*/ null,
+            /*thread=*/ null,
             new AttributeContainer(ruleClass));
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -118,7 +118,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
             Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-            /*env=*/ null,
+            /*thread=*/ null,
             new AttributeContainer(ruleClass));
     assertThat(rule.containsErrors()).isFalse();
   }
@@ -146,7 +146,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     LOCATION_42,
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
@@ -174,7 +174,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
@@ -214,7 +214,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))

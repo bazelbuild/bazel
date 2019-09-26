@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -49,6 +51,30 @@ public class EvaluationTest extends EvaluationTestCase {
    */
   protected ModalTestCase newTest(String... skylarkOptions) {
     return new BuildTest(skylarkOptions);
+  }
+
+  @Test
+  public void testExecutionStopsAtFirstError() throws Exception {
+    EventCollector printEvents = new EventCollector(); // for print events
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
+            .useDefaultSemantics()
+            .setGlobals(BazelLibrary.GLOBALS) // for print... this should not be necessary
+            .setEventHandler(printEvents)
+            .build();
+    ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
+    try {
+      StarlarkFile.eval(input, thread);
+      throw new AssertionError("execution succeeded unexpectedly");
+    } catch (EvalException ex) {
+      // ok, division by zero
+    }
+    if (!printEvents.toString().contains("hello")) {
+      throw new AssertionError("first print statement not executed: " + printEvents);
+    }
+    if (printEvents.toString().contains("goodbye")) {
+      throw new AssertionError("first print statement unexpected executed: " + printEvents);
+    }
   }
 
   @Test

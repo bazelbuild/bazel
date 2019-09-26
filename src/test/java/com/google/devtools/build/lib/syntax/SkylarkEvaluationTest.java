@@ -45,7 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Evaluation tests with Skylark StarlarkThread. */
+/** Tests of Starlark evaluation. */
 @RunWith(JUnit4.class)
 public class SkylarkEvaluationTest extends EvaluationTest {
 

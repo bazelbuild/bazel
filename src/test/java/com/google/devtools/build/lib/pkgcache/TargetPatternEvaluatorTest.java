@@ -307,11 +307,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//x/...");
 
     assertContainsEvent("name 'BROKEN' is not defined");
-    assertThat(result.first)
-        .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x/y:a", ImmutableMap.of()),
-                Label.parseAbsolute("//x/y:b", ImmutableMap.of())));
+    // Execution stops at the first error,
+    // Subsequent rule statements are not executed,
+    // But thanks to --keep_going, we learn about the ones before the error.
+    assertThat(result.first).containsExactly(Label.parseAbsolute("//x/y:a", ImmutableMap.of()));
     assertThat(result.second).isFalse();
   }
 

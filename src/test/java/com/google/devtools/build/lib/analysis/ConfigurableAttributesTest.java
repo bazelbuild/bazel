@@ -395,7 +395,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_Int() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "int_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
@@ -407,7 +408,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_Bool() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "bool_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
@@ -419,7 +421,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_None() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "none_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'none_key',",
         "    srcs = select({None: ['a.java']})",
@@ -433,7 +436,6 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "foo/BUILD",
-        "nothing",
         "genrule(",
         "    name = 'nothing',",
         "    srcs = [],",
