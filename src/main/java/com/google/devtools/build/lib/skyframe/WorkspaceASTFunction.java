@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,9 +45,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A SkyFunction to parse WORKSPACE files into a BuildFileAST.
- */
+/** A SkyFunction to parse WORKSPACE files into a StarlarkFile. */
 public class WorkspaceASTFunction implements SkyFunction {
   private final RuleClassProvider ruleClassProvider;
 
@@ -81,8 +79,8 @@ public class WorkspaceASTFunction implements SkyFunction {
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
     try {
-      BuildFileAST file =
-          BuildFileAST.parse(
+      StarlarkFile file =
+          StarlarkFile.parse(
               ParserInput.create(
                   ruleClassProvider.getDefaultWorkspacePrefix(),
                   PathFragment.create("/DEFAULT.WORKSPACE")),
@@ -96,7 +94,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       }
       if (newWorkspaceFileContents != null) {
         file =
-            BuildFileAST.parseVirtualBuildFile(
+            StarlarkFile.parseVirtualBuildFile(
                 ParserInput.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
                 file.getStatements(),
@@ -105,7 +103,7 @@ public class WorkspaceASTFunction implements SkyFunction {
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
-            BuildFileAST.parseWithPrelude(
+            StarlarkFile.parseWithPrelude(
                 ParserInput.create(bytes, repoWorkspace.asFragment()),
                 file.getStatements(),
                 env.getListener());
@@ -117,7 +115,7 @@ public class WorkspaceASTFunction implements SkyFunction {
         }
       }
       file =
-          BuildFileAST.parseWithPrelude(
+          StarlarkFile.parseWithPrelude(
               ParserInput.create(
                   resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
@@ -222,8 +220,8 @@ public class WorkspaceASTFunction implements SkyFunction {
    * Cut {@code ast} into a list of AST separated by load statements. We cut right before each load
    * statement series.
    */
-  private static ImmutableList<BuildFileAST> splitAST(BuildFileAST ast) {
-    ImmutableList.Builder<BuildFileAST> asts = ImmutableList.builder();
+  private static ImmutableList<StarlarkFile> splitAST(StarlarkFile ast) {
+    ImmutableList.Builder<StarlarkFile> asts = ImmutableList.builder();
     int prevIdx = 0;
     boolean lastIsLoad = true; // don't cut if the first statement is a load.
     List<Statement> statements = ast.getStatements();

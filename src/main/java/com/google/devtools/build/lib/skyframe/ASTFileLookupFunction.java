@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -41,10 +41,10 @@ import javax.annotation.Nullable;
 /**
  * A SkyFunction for {@link ASTFileLookupValue}s.
  *
- * <p> Given a {@link Label} referencing a Skylark file, loads it as a syntax tree
- * ({@link BuildFileAST}). The Label must be absolute, and must not reference the special
- * {@code external} package. If the file (or the package containing it) doesn't exist, the
- * function doesn't fail, but instead returns a specific {@code NO_FILE} {@link ASTFileLookupValue}.
+ * <p>Given a {@link Label} referencing a Skylark file, loads it as a syntax tree ({@link
+ * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
+ * package. If the file (or the package containing it) doesn't exist, the function doesn't fail, but
+ * instead returns a specific {@code NO_FILE} {@link ASTFileLookupValue}.
  */
 public class ASTFileLookupFunction implements SkyFunction {
 
@@ -110,7 +110,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     }
 
     // Both the package and the file exist; load the file and parse it as an AST.
-    BuildFileAST file = null;
+    StarlarkFile file = null;
     Path path = rootedPath.asPath();
     try {
       long astFileSize = fileValue.getSize();
@@ -127,7 +127,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                 /*repoMapping=*/ ImmutableMap.of());
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
         ParserInput input = ParserInput.create(bytes, path.asFragment());
-        file = BuildFileAST.parseWithDigest(input, path.getDigest(), env.getListener());
+        file = StarlarkFile.parseWithDigest(input, path.getDigest(), env.getListener());
         file = file.validate(thread, /*isBuildFile=*/ false, env.getListener());
       }
     } catch (IOException e) {

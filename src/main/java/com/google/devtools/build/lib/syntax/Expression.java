@@ -69,7 +69,7 @@ public abstract class Expression extends Node {
   // TODO(adonovan): remove dependency from syntax -> EventHandler.
   // A call to Expression.parse either succeeds or fails; there is no useful middle ground, so an
   // exception is appropriate. The exception would contain the list of errors.
-  // By contrast, a call to BuildFileAST.parse should return both a partial AST and a list of
+  // By contrast, a call to StarlarkFile.parse should return both a partial AST and a list of
   // errors,
   // and generally it is useful to keep both around, so if we put the errors in the root of the AST,
   // then client can deal with them however they like, e.g. by sending them to the event handler.

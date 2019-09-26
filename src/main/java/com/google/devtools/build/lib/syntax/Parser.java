@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  */
 // TODO(adonovan): break syntax->events dependency and simplify error handling in the API. The
 // result of parsing is a complete, partial, or even empty, file plus a list of errors. For
-// BuildFileAST.parse, we should materialize the error list within the BuildFileAST and remove all
+// StarlarkFile.parse, we should materialize the error list within the StarlarkFile and remove all
 // mention of event handlers; let the client decide whether to throw or report errors. For
 // Expression.parse, throwing an exception is appropriate: expressions are typically so short that
 // only one error is wanted, so the result can be all-or-nothing.

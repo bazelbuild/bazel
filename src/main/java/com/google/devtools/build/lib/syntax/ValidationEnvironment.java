@@ -396,7 +396,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   // Public entry point, throwing variant.
   // TODO(adonovan): combine with variant below.
-  public static void validateFile(BuildFileAST file, StarlarkThread thread, boolean isBuildFile)
+  public static void validateFile(StarlarkFile file, StarlarkThread thread, boolean isBuildFile)
       throws EvalException {
     try {
       ValidationEnvironment venv = new ValidationEnvironment(thread, isBuildFile);
@@ -410,7 +410,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   // Public entry point, error handling variant.
   public static boolean validateFile(
-      BuildFileAST file, StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
+      StarlarkFile file, StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
     try {
       validateFile(file, thread, isBuildFile);
       return true;

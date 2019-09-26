@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -153,7 +153,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     assertThat(loads).containsExactly(":ext2.bzl");
   }
 
-  private static List<String> getLoads(BuildFileAST file) {
+  private static List<String> getLoads(StarlarkFile file) {
     List<String> loads = Lists.newArrayList();
     for (Statement stmt : file.getStatements()) {
       if (stmt instanceof LoadStatement) {

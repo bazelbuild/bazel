@@ -27,11 +27,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for BuildFileAST.
- */
+/** Unit tests for StarlarkFile. */
 @RunWith(JUnit4.class)
-public class BuildFileASTTest extends EvaluationTestCase {
+public class StarlarkFileTest extends EvaluationTestCase {
 
   private Scratch scratch = new Scratch();
 
@@ -41,22 +39,23 @@ public class BuildFileASTTest extends EvaluationTestCase {
   }
 
   /**
-   * Parses the contents of the specified string (using DUMMY_PATH as the fake
-   * filename) and returns the AST. Resets the error handler beforehand.
+   * Parses the contents of the specified string (using DUMMY_PATH as the fake filename) and returns
+   * the AST. Resets the error handler beforehand.
    */
-  private BuildFileAST parseBuildFile(String... lines) throws IOException {
+  private StarlarkFile parseBuildFile(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
     ParserInput input = ParserInput.create(bytes, file.asFragment());
-    return BuildFileAST.parse(input, getEventHandler());
+    return StarlarkFile.parse(input, getEventHandler());
   }
 
   @Test
   public void testParseBuildFileOK() throws Exception {
-    BuildFileAST buildfile = parseBuildFile(
-        "# a file in the build language",
-        "",
-        "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
+    StarlarkFile buildfile =
+        parseBuildFile(
+            "# a file in the build language",
+            "",
+            "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
 
     assertThat(buildfile.exec(thread, getEventHandler())).isTrue();
 
@@ -71,11 +70,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   @Test
   public void testEvalException() throws Exception {
     setFailFast(false);
-    BuildFileAST buildfile = parseBuildFile(
-        "x = 1",
-        "y = [2,3]",
-        "",
-        "z = x + y");
+    StarlarkFile buildfile = parseBuildFile("x = 1", "y = [2,3]", "", "z = x + y");
 
     assertThat(buildfile.exec(thread, getEventHandler())).isFalse();
     Event e = assertContainsError("unsupported operand type(s) for +: 'int' and 'list'");
@@ -84,7 +79,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
 
   @Test
   public void testParsesFineWithNewlines() throws Exception {
-    BuildFileAST buildFileAST = parseBuildFile("foo()", "bar()", "something = baz()", "bar()");
+    StarlarkFile buildFileAST = parseBuildFile("foo()", "bar()", "something = baz()", "bar()");
     assertThat(buildFileAST.getStatements()).hasSize(4);
   }
 
@@ -92,8 +87,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   public void testFailsIfNewlinesAreMissing() throws Exception {
     setFailFast(false);
 
-    BuildFileAST buildFileAST =
-      parseBuildFile("foo() bar() something = baz() bar()");
+    StarlarkFile buildFileAST = parseBuildFile("foo() bar() something = baz() bar()");
 
     Event event = assertContainsError("syntax error at \'bar\': expected newline");
     assertThat(event.getLocation().getPath().toString()).isEqualTo("/a/build/file/BUILD");
@@ -104,7 +98,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   @Test
   public void testImplicitStringConcatenationFails() throws Exception {
     setFailFast(false);
-    BuildFileAST buildFileAST = parseBuildFile("a = 'foo' 'bar'");
+    StarlarkFile buildFileAST = parseBuildFile("a = 'foo' 'bar'");
     Event event = assertContainsError(
         "Implicit string concatenation is forbidden, use the + operator");
     assertThat(event.getLocation().getPath().toString()).isEqualTo("/a/build/file/BUILD");
@@ -116,7 +110,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   @Test
   public void testImplicitStringConcatenationAcrossLinesIsIllegal() throws Exception {
     setFailFast(false);
-    BuildFileAST buildFileAST = parseBuildFile("a = 'foo'\n  'bar'");
+    StarlarkFile buildFileAST = parseBuildFile("a = 'foo'\n  'bar'");
 
     Event event = assertContainsError("indentation error");
     assertThat(event.getLocation().getPath().toString()).isEqualTo("/a/build/file/BUILD");
@@ -128,14 +122,15 @@ public class BuildFileASTTest extends EvaluationTestCase {
   @Test
   public void testWithSyntaxErrorsDoesNotPrintDollarError() throws Exception {
     setFailFast(false);
-    BuildFileAST buildFile = parseBuildFile(
-        "abi = '$(ABI)-glibc-' + glibc_version + '-' + $(TARGET_CPU) + '-linux'",
-        "libs = [abi + opt_level + '/lib/libcc.a']",
-        "shlibs = [abi + opt_level + '/lib/libcc.so']",
-        "+* shlibs", // syntax error at '+'
-        "cc_library(name = 'cc',",
-        "           srcs = libs,",
-        "           includes = [ abi + opt_level + '/include' ])");
+    StarlarkFile buildFile =
+        parseBuildFile(
+            "abi = '$(ABI)-glibc-' + glibc_version + '-' + $(TARGET_CPU) + '-linux'",
+            "libs = [abi + opt_level + '/lib/libcc.a']",
+            "shlibs = [abi + opt_level + '/lib/libcc.so']",
+            "+* shlibs", // syntax error at '+'
+            "cc_library(name = 'cc',",
+            "           srcs = libs,",
+            "           includes = [ abi + opt_level + '/include' ])");
     assertThat(buildFile.containsErrors()).isTrue();
     assertContainsError("syntax error at '*': expected expression");
     assertThat(buildFile.exec(thread, getEventHandler())).isFalse();

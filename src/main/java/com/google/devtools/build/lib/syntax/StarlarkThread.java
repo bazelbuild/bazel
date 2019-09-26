@@ -1206,7 +1206,7 @@ public final class StarlarkThread implements Freezable {
   // TODO(adonovan): push this up into the debugger once the exec API is finalized.
   public void debugExec(ParserInput input) throws EvalException, InterruptedException {
     EvalEventHandler handler = new EvalEventHandler();
-    BuildFileAST file = BuildFileAST.parse(input, handler);
+    StarlarkFile file = StarlarkFile.parse(input, handler);
     if (!handler.messages.isEmpty()) {
       Event ev = handler.messages.get(0);
       throw new EvalException(ev.getLocation(), ev.getMessage());

@@ -24,8 +24,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Syntax tree for a Starlark file, such as a Bazel BUILD or .bzl file. */
-// TODO(adonovan): rename to StarlarkFile.
-public class BuildFileAST extends Node {
+public class StarlarkFile extends Node {
 
   private final ImmutableList<Statement> statements;
 
@@ -40,7 +39,7 @@ public class BuildFileAST extends Node {
 
   @Nullable private final String contentHashCode;
 
-  private BuildFileAST(
+  private StarlarkFile(
       ImmutableList<Statement> statements,
       boolean containsErrors,
       String contentHashCode,
@@ -55,7 +54,7 @@ public class BuildFileAST extends Node {
     this.stringEscapeEvents = stringEscapeEvents;
   }
 
-  private static BuildFileAST create(
+  private static StarlarkFile create(
       List<Statement> preludeStatements,
       ParseResult result,
       String contentHashCode,
@@ -75,7 +74,7 @@ public class BuildFileAST extends Node {
       statementsbuilder.addAll(result.statements);
     }
     ImmutableList<Statement> statements = statementsbuilder.build();
-    return new BuildFileAST(
+    return new StarlarkFile(
         statements,
         result.containsErrors,
         contentHashCode,
@@ -88,9 +87,9 @@ public class BuildFileAST extends Node {
    * Extract a subtree containing only statements from {@code firstStatement} (included) up to
    * {@code lastStatement} excluded.
    */
-  public BuildFileAST subTree(int firstStatement, int lastStatement) {
+  public StarlarkFile subTree(int firstStatement, int lastStatement) {
     ImmutableList<Statement> statements = this.statements.subList(firstStatement, lastStatement);
-    return new BuildFileAST(
+    return new StarlarkFile(
         statements,
         containsErrors,
         null,
@@ -207,7 +206,7 @@ public class BuildFileAST extends Node {
 
   @Override
   public String toString() {
-    return "<BuildFileAST with " + statements.size() + " statements>";
+    return "<StarlarkFile with " + statements.size() + " statements>";
   }
 
   @Override
@@ -220,10 +219,8 @@ public class BuildFileAST extends Node {
    * front of its statement list. All errors during scanning or parsing will be reported to the
    * event handler.
    */
-  public static BuildFileAST parseWithPrelude(
-      ParserInput input,
-      List<Statement> preludeStatements,
-      EventHandler eventHandler) {
+  public static StarlarkFile parseWithPrelude(
+      ParserInput input, List<Statement> preludeStatements, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ false);
@@ -234,16 +231,14 @@ public class BuildFileAST extends Node {
    * exempt from visibility restrictions. All errors during scanning or parsing will be reported to
    * the event handler.
    */
-  public static BuildFileAST parseVirtualBuildFile(
-      ParserInput input,
-      List<Statement> preludeStatements,
-      EventHandler eventHandler) {
+  public static StarlarkFile parseVirtualBuildFile(
+      ParserInput input, List<Statement> preludeStatements, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ true);
   }
 
-  public static BuildFileAST parseWithDigest(
+  public static StarlarkFile parseWithDigest(
       ParserInput input, byte[] digest, EventHandler eventHandler) throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
@@ -253,7 +248,7 @@ public class BuildFileAST extends Node {
         /* allowImportInternal= */ false);
   }
 
-  public static BuildFileAST parse(ParserInput input, EventHandler eventHandler) {
+  public static StarlarkFile parse(ParserInput input, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
         /* preludeStatements= */ ImmutableList.<Statement>of(),
@@ -267,9 +262,9 @@ public class BuildFileAST extends Node {
    * during scanning or parsing will be reported to the event handler.
    */
   // TODO(adonovan): redundant; delete.
-  public static BuildFileAST parseWithoutImports(ParserInput input, EventHandler eventHandler) {
+  public static StarlarkFile parseWithoutImports(ParserInput input, EventHandler eventHandler) {
     ParseResult result = Parser.parseFile(input, eventHandler);
-    return new BuildFileAST(
+    return new StarlarkFile(
         ImmutableList.copyOf(result.statements),
         result.containsErrors,
         /* contentHashCode= */ null,
@@ -286,7 +281,7 @@ public class BuildFileAST extends Node {
   // TODO(adonovan): eliminate. Most callers need validation because they intend to execute the
   // file, and should be made to use higher-level operations in EvalUtils.
   // rest should skip this step. Called from EvaluationTestCase, ParserTest, ASTFileLookupFunction.
-  public BuildFileAST validate(
+  public StarlarkFile validate(
       StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
     try {
       ValidationEnvironment.validateFile(this, thread, isBuildFile);
@@ -299,7 +294,7 @@ public class BuildFileAST extends Node {
     if (containsErrors) {
       return this; // already marked as errant
     }
-    return new BuildFileAST(
+    return new StarlarkFile(
         statements,
         /*containsErrors=*/ true,
         contentHashCode,
@@ -338,7 +333,7 @@ public class BuildFileAST extends Node {
   @Nullable
   public static Object eval(ParserInput input, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    BuildFileAST ast = parseAndValidateSkylark(input, thread);
+    StarlarkFile ast = parseAndValidateSkylark(input, thread);
     return ast.eval(thread);
   }
 
@@ -347,9 +342,9 @@ public class BuildFileAST extends Node {
    * it throws an EvalException. Uses Starlark (not BUILD) validation semantics.
    */
   // TODO(adonovan): move to EvalUtils; see above.
-  public static BuildFileAST parseAndValidateSkylark(ParserInput input, StarlarkThread thread)
+  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread)
       throws EvalException {
-    BuildFileAST file = parse(input, thread.getEventHandler());
+    StarlarkFile file = parse(input, thread.getEventHandler());
     file.replayLexerEvents(thread, thread.getEventHandler());
     ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
     return file;

@@ -56,9 +56,9 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -548,7 +548,7 @@ public class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       PackageIdentifier packageId,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      BuildFileAST file,
+      StarlarkFile file,
       int workspaceChunk,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
@@ -1167,7 +1167,7 @@ public class PackageFunction implements SkyFunction {
         }
         input = ParserInput.create(buildFileBytes, inputFile.asFragment());
         StoredEventHandler astParsingEventHandler = new StoredEventHandler();
-        BuildFileAST ast =
+        StarlarkFile ast =
             PackageFactory.parseBuildFile(
                 packageId, input, preludeStatements, astParsingEventHandler);
         astParseResult = new AstParseResult(ast, astParsingEventHandler);

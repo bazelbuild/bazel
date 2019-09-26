@@ -251,7 +251,7 @@ public class SkylarkSignatureProcessor {
                   .setEventHandler(StarlarkThread.FAIL_FAST_HANDLER)
                   .build()
                   .update("unbound", Runtime.UNBOUND);
-          defaultValue = BuildFileAST.eval(ParserInput.fromLines(paramDefaultValue), thread);
+          defaultValue = StarlarkFile.eval(ParserInput.fromLines(paramDefaultValue), thread);
           defaultValueCache.put(paramDefaultValue, defaultValue);
           return defaultValue;
         }

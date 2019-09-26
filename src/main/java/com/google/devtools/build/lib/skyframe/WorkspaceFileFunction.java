@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -123,7 +123,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         }
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
-      BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
+      StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
               repoWorkspace,

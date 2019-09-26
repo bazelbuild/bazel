@@ -27,13 +27,13 @@ import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.FailFastException;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -150,13 +150,13 @@ public class EvaluationTestCase {
     return thread;
   }
 
-  protected final BuildFileAST parseBuildFileASTWithoutValidation(String... lines) {
+  protected final StarlarkFile parseStarlarkFileWithoutValidation(String... lines) {
     ParserInput input = ParserInput.fromLines(lines);
-    return BuildFileAST.parse(input, getEventHandler());
+    return StarlarkFile.parse(input, getEventHandler());
   }
 
-  private BuildFileAST parseBuildFileAST(String... lines) {
-    BuildFileAST ast = parseBuildFileASTWithoutValidation(lines);
+  private StarlarkFile parseStarlarkFile(String... lines) {
+    StarlarkFile ast = parseStarlarkFileWithoutValidation(lines);
     return ast.validate(thread, /*isBuildFile=*/ false, getEventHandler());
   }
 
@@ -165,12 +165,12 @@ public class EvaluationTestCase {
   // Separate all the tests clearly into tests of the scanner, parser, resolver,
   // and evaluation.
   protected List<Statement> parseFile(String... lines) {
-    return parseBuildFileAST(lines).getStatements();
+    return parseStarlarkFile(lines).getStatements();
   }
 
   /** Parses a statement, without validation. */
   protected final Statement parseStatement(String... lines) {
-    return parseBuildFileASTWithoutValidation(lines).getStatements().get(0);
+    return parseStarlarkFileWithoutValidation(lines).getStatements().get(0);
   }
 
   /** Parses an expression. */
@@ -191,9 +191,9 @@ public class EvaluationTestCase {
     ParserInput input = ParserInput.fromLines(lines);
     if (testMode == TestMode.SKYLARK) {
       // TODO(adonovan): inline this call and factor with 'else' case.
-      return BuildFileAST.eval(input, thread);
+      return StarlarkFile.eval(input, thread);
     } else {
-      BuildFileAST file = BuildFileAST.parse(input, thread.getEventHandler());
+      StarlarkFile file = StarlarkFile.parse(input, thread.getEventHandler());
       if (ValidationEnvironment.validateFile(
           file, thread, /*isBuildFile=*/ true, thread.getEventHandler())) {
         PackageFactory.checkBuildSyntax(file, thread.getEventHandler());

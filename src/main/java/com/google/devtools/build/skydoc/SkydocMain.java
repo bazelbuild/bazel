@@ -55,13 +55,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -389,7 +389,7 @@ public class SkydocMain {
     }
   }
 
-  private static String getModuleDoc(BuildFileAST buildFileAST) {
+  private static String getModuleDoc(StarlarkFile buildFileAST) {
     ImmutableList<Statement> fileStatements = buildFileAST.getStatements();
     if (!fileStatements.isEmpty()) {
       Statement moduleComment = fileStatements.get(0);
@@ -429,7 +429,7 @@ public class SkydocMain {
     pending.add(path);
 
     ParserInput parserInputSource = getInputSource(path.toString());
-    BuildFileAST file = BuildFileAST.parse(parserInputSource, eventHandler);
+    StarlarkFile file = StarlarkFile.parse(parserInputSource, eventHandler);
 
     moduleDocMap.put(label, getModuleDoc(file));
 
@@ -490,7 +490,7 @@ public class SkydocMain {
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
   private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
-      BuildFileAST buildFileAST,
+      StarlarkFile buildFileAST,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,

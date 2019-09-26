@@ -389,15 +389,13 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
 
   @Test
   public void buildFileAST() {
-    Node node = parseBuildFileASTWithoutValidation("print(x)\nprint(y)");
+    Node node = parseStarlarkFileWithoutValidation("print(x)\nprint(y)");
     assertIndentedPrettyMatches(
         node,
         join("  print(x)",
              "  print(y)",
              ""));
-    assertTostringMatches(
-        node,
-        "<BuildFileAST with 2 statements>");
+    assertTostringMatches(node, "<StarlarkFile with 2 statements>");
   }
 
   @Test

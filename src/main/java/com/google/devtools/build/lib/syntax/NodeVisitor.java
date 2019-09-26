@@ -53,7 +53,7 @@ public class NodeVisitor {
     }
   }
 
-  public void visit(BuildFileAST node) {
+  public void visit(StarlarkFile node) {
     visitBlock(node.getStatements());
     visitAll(node.getComments());
   }

@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -214,7 +214,7 @@ public class PackageCacheTest extends FoundationTestCase {
   public void testASTIsNotRetained() throws Exception {
     createPkg1();
     Package pkg1 = getPackage("pkg1");
-    MoreAsserts.assertInstanceOfNotReachable(pkg1, BuildFileAST.class);
+    MoreAsserts.assertInstanceOfNotReachable(pkg1, StarlarkFile.class);
   }
 
   @Test

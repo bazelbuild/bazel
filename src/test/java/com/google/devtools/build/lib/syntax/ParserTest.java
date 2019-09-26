@@ -58,9 +58,9 @@ public final class ParserTest {
   }
 
   // Joins the lines, parses, and returns a file.
-  private BuildFileAST parseFile(String... lines) {
+  private StarlarkFile parseFile(String... lines) {
     ParserInput input = ParserInput.fromLines(lines);
-    return BuildFileAST.parse(input, events.reporter());
+    return StarlarkFile.parse(input, events.reporter());
   }
 
   // Joins the lines, parses, and returns the sole statement.
@@ -991,7 +991,7 @@ public final class ParserTest {
 
   @Test
   public void testParseBuildFileWithComments() throws Exception {
-    BuildFileAST result =
+    StarlarkFile result =
         parseFile(
             "# Test BUILD file", //
             "# with multi-line comment",
@@ -1007,7 +1007,7 @@ public final class ParserTest {
 
   @Test
   public void testParseBuildFileWithManyComments() throws Exception {
-    BuildFileAST result =
+    StarlarkFile result =
         parseFile(
             "# 1", //
             "# 2",
@@ -1386,7 +1386,7 @@ public final class ParserTest {
 
   @Test
   public void testStringsAreDeduped() throws Exception {
-    BuildFileAST file = parseFile("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
+    StarlarkFile file = parseFile("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
     Set<String> uniqueStringInstances = Sets.newIdentityHashSet();
     NodeVisitor collectAllStringsInStringLiteralsVisitor =
         new NodeVisitor() {

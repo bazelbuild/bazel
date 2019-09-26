@@ -92,7 +92,7 @@ public abstract class Node {
    *
    * <p>Pretty printing can also be used as a proxy for comparing for equality between two ASTs.
    * This can be very useful in tests. However, it is still possible for two different trees to have
-   * the same pretty printing. In particular, {@link BuildFileAST} includes import metadata and
+   * the same pretty printing. In particular, {@link StarlarkFile} includes import metadata and
    * comment information that is not reflected in the string.
    */
   public abstract void prettyPrint(Appendable buffer, int indentLevel) throws IOException;

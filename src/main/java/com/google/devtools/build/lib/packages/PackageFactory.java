@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -69,6 +68,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
@@ -1373,12 +1373,8 @@ public final class PackageFactory {
     StoredEventHandler localReporterForParsing = new StoredEventHandler();
     // Run the lexer and parser with a local reporter, so that errors from other threads do not
     // show up below.
-    BuildFileAST buildFileAST =
-        parseBuildFile(
-            packageId,
-            input,
-            preludeStatements,
-            localReporterForParsing);
+    StarlarkFile buildFileAST =
+        parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
     AstParseResult astParseResult =
         new AstParseResult(buildFileAST, localReporterForParsing);
     return createPackageFromAst(
@@ -1394,15 +1390,15 @@ public final class PackageFactory {
         globber);
   }
 
-  public static BuildFileAST parseBuildFile(
+  public static StarlarkFile parseBuildFile(
       PackageIdentifier packageId,
       ParserInput input,
       List<Statement> preludeStatements,
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
-    BuildFileAST buildFileAST =
-        BuildFileAST.parseWithPrelude(input, preludeStatements, eventHandler);
+    StarlarkFile buildFileAST =
+        StarlarkFile.parseWithPrelude(input, preludeStatements, eventHandler);
     logger.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }
@@ -1722,7 +1718,7 @@ public final class PackageFactory {
   public Package.Builder evaluateBuildFile(
       String workspaceName,
       PackageIdentifier packageId,
-      BuildFileAST file,
+      StarlarkFile file,
       RootedPath buildFilePath,
       Globber globber,
       Iterable<Event> pastEvents,
@@ -1925,7 +1921,7 @@ public final class PackageFactory {
   // files.
   // TODO(adonovan): this is the ideal place to extract string literals from glob calls for
   // prefetching. Combine.
-  public static boolean checkBuildSyntax(BuildFileAST file, final EventHandler eventHandler) {
+  public static boolean checkBuildSyntax(StarlarkFile file, final EventHandler eventHandler) {
     final boolean[] success = {true};
     NodeVisitor checker =
         new NodeVisitor() {

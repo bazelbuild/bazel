@@ -44,11 +44,11 @@ import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
@@ -319,7 +319,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       // Skylark import files have to exist.
       throw new SkylarkImportFailedException(astLookupValue.getErrorMsg());
     }
-    BuildFileAST file = astLookupValue.getAST();
+    StarlarkFile file = astLookupValue.getAST();
     if (file.containsErrors()) {
       throw SkylarkImportFailedException.skylarkErrors(filePath);
     }
@@ -443,7 +443,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   @Nullable
   static Map<String, Label> getLoadMap(
       EventHandler handler,
-      BuildFileAST file,
+      StarlarkFile file,
       PackageIdentifier base,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     Preconditions.checkArgument(!base.getRepository().isDefault());
@@ -577,7 +577,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
   /** Creates the Extension to be imported. */
   private Extension createExtension(
-      BuildFileAST ast,
+      StarlarkFile ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
       StarlarkSemantics starlarkSemantics,
@@ -616,7 +616,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   public static void execAndExport(
-      BuildFileAST ast,
+      StarlarkFile ast,
       Label extensionLabel,
       EventHandler eventHandler,
       StarlarkThread extensionThread)

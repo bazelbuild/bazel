@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
@@ -134,7 +134,7 @@ public class WorkspaceFactory {
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
-    BuildFileAST buildFileAST = BuildFileAST.parse(source, localReporter);
+    StarlarkFile buildFileAST = StarlarkFile.parse(source, localReporter);
     if (buildFileAST.containsErrors()) {
       throw new BuildFileContainsErrorsException(
           LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
@@ -153,7 +153,7 @@ public class WorkspaceFactory {
    * the //external package.
    */
   public void execute(
-      BuildFileAST file,
+      StarlarkFile file,
       Map<String, Extension> importedExtensions,
       StarlarkSemantics starlarkSemantics,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
@@ -165,7 +165,7 @@ public class WorkspaceFactory {
   }
 
   private void execute(
-      BuildFileAST file,
+      StarlarkFile file,
       @Nullable Map<String, Extension> importedExtensions,
       StarlarkSemantics starlarkSemantics,
       StoredEventHandler localReporter,

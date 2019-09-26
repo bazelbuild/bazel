@@ -26,9 +26,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class NodeVisitorTest {
 
-  private BuildFileAST parse(String... lines) throws IOException {
+  private StarlarkFile parse(String... lines) throws IOException {
     ParserInput input = ParserInput.fromLines(lines);
-    return BuildFileAST.parse(input, StarlarkThread.FAIL_FAST_HANDLER);
+    return StarlarkFile.parse(input, StarlarkThread.FAIL_FAST_HANDLER);
   }
 
   @Test
@@ -48,7 +48,7 @@ public final class NodeVisitorTest {
       }
     }
 
-    BuildFileAST file =
+    StarlarkFile file =
         parse(
             "a = b", //
             "def c(p1, p2=4, **p3):",

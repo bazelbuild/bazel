@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -704,7 +704,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   protected void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    BuildFileAST file = BuildFileAST.parseAndValidateSkylark(input, ev.getStarlarkThread());
+    StarlarkFile file = StarlarkFile.parseAndValidateSkylark(input, ev.getStarlarkThread());
     SkylarkImportLookupFunction.execAndExport(
         file, FAKE_LABEL, ev.getEventHandler(), ev.getStarlarkThread());
   }

@@ -18,11 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ExpressionStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.skylark.common.LocationRange.Location;
@@ -50,7 +50,7 @@ public final class DocstringUtils {
    * @return a map from identifier names to their docstring; if there is a file-level docstring, its
    *     key is "".
    */
-  public static ImmutableMap<String, StringLiteral> collectDocstringLiterals(BuildFileAST ast) {
+  public static ImmutableMap<String, StringLiteral> collectDocstringLiterals(StarlarkFile ast) {
     ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
     Statement previousStatement = null;
     for (Statement currentStatement : ast.getStatements()) {
