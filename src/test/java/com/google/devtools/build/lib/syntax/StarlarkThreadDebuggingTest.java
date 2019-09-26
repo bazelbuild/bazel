@@ -21,42 +21,43 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
-import com.google.devtools.build.lib.syntax.Environment.ReadyToPause;
-import com.google.devtools.build.lib.syntax.Environment.Stepping;
+import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
+import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests of {@link Environment}s implementation of {@link Environment}. */
+/** Unit tests of {@link StarlarkThread}s implementation of {@link StarlarkThread}. */
 @RunWith(JUnit4.class)
-public class EnvironmentDebuggingTest {
+public class StarlarkThreadDebuggingTest {
 
-  private static Environment newEnvironment() {
+  private static StarlarkThread newStarlarkThread() {
     Mutability mutability = Mutability.create("test");
-    return Environment.builder(mutability).useDefaultSemantics().build();
+    return StarlarkThread.builder(mutability).useDefaultSemantics().build();
   }
 
   /** Enter a dummy function scope with the given name, and the current environment's globals. */
-  private static void enterFunctionScope(Environment env, String functionName, Location location) {
+  private static void enterFunctionScope(
+      StarlarkThread thread, String functionName, Location location) {
     FuncallExpression ast = new FuncallExpression(Identifier.of("test"), ImmutableList.of());
     ast.setLocation(location);
-    env.enterScope(
+    thread.enterScope(
         new BaseFunction(functionName) {},
-        LexicalFrame.create(env.mutability()),
+        LexicalFrame.create(thread.mutability()),
         ast,
-        env.getGlobals());
+        thread.getGlobals());
   }
 
   @Test
   public void testListFramesFromGlobalFrame() throws Exception {
-    Environment env = newEnvironment();
-    env.update("a", 1);
-    env.update("b", 2);
-    env.update("c", 3);
+    StarlarkThread thread = newStarlarkThread();
+    thread.update("a", 1);
+    thread.update("b", 2);
+    thread.update("c", 3);
 
-    ImmutableList<DebugFrame> frames = env.listFrames(Location.BUILTIN);
+    ImmutableList<DebugFrame> frames = thread.listFrames(Location.BUILTIN);
 
     assertThat(frames).hasSize(1);
     assertThat(frames.get(0))
@@ -70,19 +71,19 @@ public class EnvironmentDebuggingTest {
 
   @Test
   public void testListFramesFromChildFrame() throws Exception {
-    Environment env = newEnvironment();
-    env.update("a", 1);
-    env.update("b", 2);
-    env.update("c", 3);
+    StarlarkThread thread = newStarlarkThread();
+    thread.update("a", 1);
+    thread.update("b", 2);
+    thread.update("c", 3);
     Location funcallLocation =
         Location.fromPathAndStartColumn(
             PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
-    enterFunctionScope(env, "function", funcallLocation);
-    env.update("a", 4); // shadow parent frame var
-    env.update("y", 5);
-    env.update("z", 6);
+    enterFunctionScope(thread, "function", funcallLocation);
+    thread.update("a", 4); // shadow parent frame var
+    thread.update("y", 5);
+    thread.update("z", 6);
 
-    ImmutableList<DebugFrame> frames = env.listFrames(Location.BUILTIN);
+    ImmutableList<DebugFrame> frames = thread.listFrames(Location.BUILTIN);
 
     assertThat(frames).hasSize(2);
     assertThat(frames.get(0))
@@ -104,119 +105,119 @@ public class EnvironmentDebuggingTest {
 
   @Test
   public void testStepIntoFunction() {
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
-    ReadyToPause predicate = env.stepControl(Stepping.INTO);
-    enterFunctionScope(env, "function", Location.BUILTIN);
+    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
+    enterFunctionScope(thread, "function", Location.BUILTIN);
 
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepIntoFallsBackToStepOver() {
     // test that when stepping into, we'll fall back to stopping at the next statement in the
     // current frame
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
-    ReadyToPause predicate = env.stepControl(Stepping.INTO);
+    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
 
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepIntoFallsBackToStepOut() {
     // test that when stepping into, we'll fall back to stopping when exiting the current frame
-    Environment env = newEnvironment();
-    enterFunctionScope(env, "function", Location.BUILTIN);
+    StarlarkThread thread = newStarlarkThread();
+    enterFunctionScope(thread, "function", Location.BUILTIN);
 
-    ReadyToPause predicate = env.stepControl(Stepping.INTO);
-    env.exitScope();
+    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
+    thread.exitScope();
 
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepOverFunction() {
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
-    ReadyToPause predicate = env.stepControl(Stepping.OVER);
-    enterFunctionScope(env, "function", Location.BUILTIN);
+    ReadyToPause predicate = thread.stepControl(Stepping.OVER);
+    enterFunctionScope(thread, "function", Location.BUILTIN);
 
-    assertThat(predicate.test(env)).isFalse();
-    env.exitScope();
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isFalse();
+    thread.exitScope();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepOverFallsBackToStepOut() {
     // test that when stepping over, we'll fall back to stopping when exiting the current frame
-    Environment env = newEnvironment();
-    enterFunctionScope(env, "function", Location.BUILTIN);
+    StarlarkThread thread = newStarlarkThread();
+    enterFunctionScope(thread, "function", Location.BUILTIN);
 
-    ReadyToPause predicate = env.stepControl(Stepping.OVER);
-    env.exitScope();
+    ReadyToPause predicate = thread.stepControl(Stepping.OVER);
+    thread.exitScope();
 
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepOutOfInnerFrame() {
-    Environment env = newEnvironment();
-    enterFunctionScope(env, "function", Location.BUILTIN);
+    StarlarkThread thread = newStarlarkThread();
+    enterFunctionScope(thread, "function", Location.BUILTIN);
 
-    ReadyToPause predicate = env.stepControl(Stepping.OUT);
+    ReadyToPause predicate = thread.stepControl(Stepping.OUT);
 
-    assertThat(predicate.test(env)).isFalse();
-    env.exitScope();
-    assertThat(predicate.test(env)).isTrue();
+    assertThat(predicate.test(thread)).isFalse();
+    thread.exitScope();
+    assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
   public void testStepOutOfOutermostFrame() {
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
-    assertThat(env.stepControl(Stepping.OUT)).isNull();
+    assertThat(thread.stepControl(Stepping.OUT)).isNull();
   }
 
   @Test
   public void testStepControlWithNoSteppingReturnsNull() {
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
-    assertThat(env.stepControl(Stepping.NONE)).isNull();
+    assertThat(thread.stepControl(Stepping.NONE)).isNull();
   }
 
   @Test
   public void testEvaluateVariableInScope() throws Exception {
-    Environment env = newEnvironment();
-    env.update("a", 1);
+    StarlarkThread thread = newStarlarkThread();
+    thread.update("a", 1);
 
-    Object result = env.debugEval(ParserInput.create("a", null));
+    Object result = thread.debugEval(ParserInput.create("a", null));
 
     assertThat(result).isEqualTo(1);
   }
 
   @Test
   public void testEvaluateVariableNotInScopeFails() throws Exception {
-    Environment env = newEnvironment();
-    env.update("a", 1);
+    StarlarkThread thread = newStarlarkThread();
+    thread.update("a", 1);
 
     EvalException e =
-        assertThrows(EvalException.class, () -> env.debugEval(ParserInput.create("b", null)));
+        assertThrows(EvalException.class, () -> thread.debugEval(ParserInput.create("b", null)));
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
   @Test
   public void testEvaluateExpressionOnVariableInScope() throws Exception {
-    Environment env = newEnvironment();
-    env.update("a", "string");
+    StarlarkThread thread = newStarlarkThread();
+    thread.update("a", "string");
 
     Object result =
-        env.debugEval(ParserInput.create("a.startswith('str')", PathFragment.EMPTY_FRAGMENT));
+        thread.debugEval(ParserInput.create("a.startswith('str')", PathFragment.EMPTY_FRAGMENT));
     assertThat(result).isEqualTo(Boolean.TRUE);
 
-    env.debugExec(ParserInput.create("a = 1", PathFragment.EMPTY_FRAGMENT));
+    thread.debugExec(ParserInput.create("a = 1", PathFragment.EMPTY_FRAGMENT));
 
-    result = env.debugEval(ParserInput.create("a", PathFragment.EMPTY_FRAGMENT));
+    result = thread.debugEval(ParserInput.create("a", PathFragment.EMPTY_FRAGMENT));
     assertThat(result).isEqualTo(1);
   }
 }

@@ -123,8 +123,9 @@ public class BuildFileAST extends Node {
   }
 
   /** Returns true if there was no error event. */
-  public boolean replayLexerEvents(Environment env, EventHandler eventHandler) {
-    if (env.getSemantics().incompatibleRestrictStringEscapes() && !stringEscapeEvents.isEmpty()) {
+  public boolean replayLexerEvents(StarlarkThread thread, EventHandler eventHandler) {
+    if (thread.getSemantics().incompatibleRestrictStringEscapes()
+        && !stringEscapeEvents.isEmpty()) {
       Event.replayEventsOn(eventHandler, stringEscapeEvents);
       return false;
     }
@@ -132,7 +133,7 @@ public class BuildFileAST extends Node {
   }
 
   /**
-   * Executes this build file in a given Environment.
+   * Executes this build file in a given StarlarkThread.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
    * EvalException}. This exception is caught here and reported through reporter and execution
@@ -147,10 +148,11 @@ public class BuildFileAST extends Node {
    * @return true if no error occurred during execution.
    */
   // TODO(adonovan): move to EvalUtils.
-  public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
+  public boolean exec(StarlarkThread thread, EventHandler eventHandler)
+      throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : statements) {
-      if (!execTopLevelStatement(stmt, env, eventHandler)) {
+      if (!execTopLevelStatement(stmt, thread, eventHandler)) {
         ok = false;
       }
     }
@@ -158,7 +160,7 @@ public class BuildFileAST extends Node {
   }
 
   /**
-   * Executes top-level statement of this build file in a given Environment.
+   * Executes top-level statement of this build file in a given StarlarkThread.
    *
    * <p>If, for any reason, execution of a statement cannot be completed, exec throws an {@link
    * EvalException}. This exception is caught here and reported through reporter. In effect, there
@@ -172,10 +174,11 @@ public class BuildFileAST extends Node {
    *
    * @return true if no error occurred during execution.
    */
-  public boolean execTopLevelStatement(Statement stmt, Environment env, EventHandler eventHandler)
+  public boolean execTopLevelStatement(
+      Statement stmt, StarlarkThread thread, EventHandler eventHandler)
       throws InterruptedException {
     try {
-      Eval.execToplevelStatement(env, stmt);
+      Eval.execToplevelStatement(thread, stmt);
       return true;
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been
@@ -283,9 +286,10 @@ public class BuildFileAST extends Node {
   // TODO(adonovan): eliminate. Most callers need validation because they intend to execute the
   // file, and should be made to use higher-level operations in EvalUtils.
   // rest should skip this step. Called from EvaluationTestCase, ParserTest, ASTFileLookupFunction.
-  public BuildFileAST validate(Environment env, boolean isBuildFile, EventHandler eventHandler) {
+  public BuildFileAST validate(
+      StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
     try {
-      ValidationEnvironment.validateFile(this, env, isBuildFile);
+      ValidationEnvironment.validateFile(this, thread, isBuildFile);
       return this;
     } catch (EvalException e) {
       if (!e.isDueToIncompleteAST()) {
@@ -312,7 +316,7 @@ public class BuildFileAST extends Node {
   // (Abolish "statement" and "file+expr" as primary API concepts.)
   // Make callers decide whether they want to execute a file or evaluate an expression.
   @Nullable
-  public Object eval(Environment env) throws EvalException, InterruptedException {
+  public Object eval(StarlarkThread thread) throws EvalException, InterruptedException {
     List<Statement> stmts = statements;
     Expression expr = null;
     int n = statements.size();
@@ -320,22 +324,22 @@ public class BuildFileAST extends Node {
       stmts = statements.subList(0, n - 1);
       expr = ((ExpressionStatement) statements.get(n - 1)).getExpression();
     }
-    Eval.execStatements(env, stmts);
-    return expr == null ? null : Eval.eval(env, expr);
+    Eval.execStatements(thread, stmts);
+    return expr == null ? null : Eval.eval(thread, expr);
   }
 
   /**
    * Parses, resolves and evaluates the input and returns the value of the last statement if it's an
    * Expression or else null. In case of error (either during validation or evaluation), it throws
-   * an EvalException. The return value is as for eval(Environment).
+   * an EvalException. The return value is as for eval(StarlarkThread).
    */
   // Note: uses Starlark (not BUILD) validation semantics.
   // TODO(adonovan): move to EvalUtils; see other eval function.
   @Nullable
-  public static Object eval(ParserInput input, Environment env)
+  public static Object eval(ParserInput input, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    BuildFileAST ast = parseAndValidateSkylark(input, env);
-    return ast.eval(env);
+    BuildFileAST ast = parseAndValidateSkylark(input, thread);
+    return ast.eval(thread);
   }
 
   /**
@@ -343,11 +347,11 @@ public class BuildFileAST extends Node {
    * it throws an EvalException. Uses Starlark (not BUILD) validation semantics.
    */
   // TODO(adonovan): move to EvalUtils; see above.
-  public static BuildFileAST parseAndValidateSkylark(ParserInput input, Environment env)
+  public static BuildFileAST parseAndValidateSkylark(ParserInput input, StarlarkThread thread)
       throws EvalException {
-    BuildFileAST file = parse(input, env.getEventHandler());
-    file.replayLexerEvents(env, env.getEventHandler());
-    ValidationEnvironment.validateFile(file, env, /*isBuildFile=*/ false);
+    BuildFileAST file = parse(input, thread.getEventHandler());
+    file.replayLexerEvents(thread, thread.getEventHandler());
+    ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
     return file;
   }
 

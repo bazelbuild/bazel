@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,15 +45,15 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       List<String> inputs,
       List<String> outputs,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException {
-    StarlarkSemantics semantics = env.getSemantics();
+    StarlarkSemantics semantics = thread.getSemantics();
     validateBuildSettingKeys(
         inputs, Settings.INPUTS, location, semantics.experimentalStarlarkConfigTransitions());
     validateBuildSettingKeys(
         outputs, Settings.OUTPUTS, location, semantics.experimentalStarlarkConfigTransitions());
     return StarlarkDefinedConfigTransition.newRegularTransition(
-        implementation, inputs, outputs, semantics, env);
+        implementation, inputs, outputs, semantics, thread);
   }
 
   @Override

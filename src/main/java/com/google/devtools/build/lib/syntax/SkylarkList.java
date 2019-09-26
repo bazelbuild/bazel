@@ -197,8 +197,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    */
   // TODO(bazel-team): Eliminate this function in favor of a new MutableList factory method. With
   // such a method, we may no longer need to take null as a possible value for the Mutability or
-  // Environment. That in turn would allow us to overload MutableList#of to take either a Mutability
-  // or Environment.
+  // StarlarkThread. That in turn would allow us to overload MutableList#of to take either a
+  // Mutability or StarlarkThread.
   public static <E> SkylarkList<E> createImmutable(Iterable<? extends E> contents) {
     return MutableList.copyOf(Mutability.IMMUTABLE, contents);
   }
@@ -242,8 +242,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * performance reasons. May be used when the calling code will not modify the supplied list
      * after calling (honor system).
      */
-    static <T> MutableList<T> wrapUnsafe(@Nullable Environment env, ArrayList<T> rawContents) {
-      return wrapUnsafe(env == null ? null : env.mutability(), rawContents);
+    static <T> MutableList<T> wrapUnsafe(
+        @Nullable StarlarkThread thread, ArrayList<T> rawContents) {
+      return wrapUnsafe(thread == null ? null : thread.mutability(), rawContents);
     }
 
     /**
@@ -285,24 +286,22 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
 
     /**
      * Returns a {@code MutableList} whose items are given by an iterable and which has the {@link
-     * Mutability} belonging to the given {@link Environment}. If {@code env} is null, the list is
-     * immutable.
+     * Mutability} belonging to the given {@link StarlarkThread}. If {@code thread} is null, the
+     * list is immutable.
      */
     public static <T> MutableList<T> copyOf(
-        @Nullable Environment env, Iterable<? extends T> contents) {
-      return MutableList.copyOf(
-          env == null ? null : env.mutability(),
-          contents);
+        @Nullable StarlarkThread thread, Iterable<? extends T> contents) {
+      return MutableList.copyOf(thread == null ? null : thread.mutability(), contents);
     }
 
     /**
      * Returns a {@code MutableList} with the given items and the {@link Mutability} of the given
-     * {@link Environment}. If {@code env} is null, the list is immutable.
+     * {@link StarlarkThread}. If {@code thread} is null, the list is immutable.
      */
-    public static <T> MutableList<T> of(@Nullable Environment env, T... contents) {
+    public static <T> MutableList<T> of(@Nullable StarlarkThread thread, T... contents) {
       // Safe since we're taking a copy of the input.
       return MutableList.wrapUnsafe(
-          env == null ? null : env.mutability(), Lists.newArrayList(contents));
+          thread == null ? null : thread.mutability(), Lists.newArrayList(contents));
     }
 
     @Override
@@ -437,17 +436,14 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         doc =
             "Removes the first item from the list whose value is x. "
                 + "It is an error if there is no such item.",
-        parameters = {
-            @Param(name = "x", type = Object.class, doc = "The object to remove.")
-        },
+        parameters = {@Param(name = "x", type = Object.class, doc = "The object to remove.")},
         useLocation = true,
-        useEnvironment = true
-    )
-    public Runtime.NoneType removeObject(Object x, Location loc, Environment env)
+        useStarlarkThread = true)
+    public Runtime.NoneType removeObject(Object x, Location loc, StarlarkThread thread)
         throws EvalException {
       for (int i = 0; i < size(); i++) {
         if (get(i).equals(x)) {
-          remove(i, loc, env.mutability());
+          remove(i, loc, thread.mutability());
           return Runtime.NONE;
         }
       }
@@ -469,21 +465,20 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     @SkylarkCallable(
-      name = "append",
-      doc = "Adds an item to the end of the list.",
-      parameters = {
-          @Param(name = "item",
-            type = Object.class,
-            doc = "Item to add at the end.",
-            noneable = true)
-      },
-      useLocation = true,
-      useEnvironment = true
-    )
-    public Runtime.NoneType append(
-        E item, Location loc, Environment env)
+        name = "append",
+        doc = "Adds an item to the end of the list.",
+        parameters = {
+          @Param(
+              name = "item",
+              type = Object.class,
+              doc = "Item to add at the end.",
+              noneable = true)
+        },
+        useLocation = true,
+        useStarlarkThread = true)
+    public Runtime.NoneType append(E item, Location loc, StarlarkThread thread)
         throws EvalException {
-      add(item, loc, env.mutability());
+      add(item, loc, thread.mutability());
       return Runtime.NONE;
     }
 
@@ -491,27 +486,25 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         name = "clear",
         doc = "Removes all the elements of the list.",
         useLocation = true,
-        useEnvironment = true)
-    public Runtime.NoneType clearMethod(Location loc, Environment env) throws EvalException {
-      checkMutable(loc, env.mutability());
+        useStarlarkThread = true)
+    public Runtime.NoneType clearMethod(Location loc, StarlarkThread thread) throws EvalException {
+      checkMutable(loc, thread.mutability());
       contents.clear();
       return Runtime.NONE;
     }
 
     @SkylarkCallable(
-      name = "insert",
-      doc = "Inserts an item at a given position.",
-      parameters = {
+        name = "insert",
+        doc = "Inserts an item at a given position.",
+        parameters = {
           @Param(name = "index", type = Integer.class, doc = "The index of the given position."),
           @Param(name = "item", type = Object.class, doc = "The item.", noneable = true)
-      },
-      useLocation = true,
-      useEnvironment = true
-    )
-    public Runtime.NoneType insert(
-        Integer index, E item, Location loc, Environment env)
+        },
+        useLocation = true,
+        useStarlarkThread = true)
+    public Runtime.NoneType insert(Integer index, E item, Location loc, StarlarkThread thread)
         throws EvalException {
-      add(EvalUtils.clampRangeEndpoint(index, size()), item, loc, env.mutability());
+      add(EvalUtils.clampRangeEndpoint(index, size()), item, loc, thread.mutability());
       return Runtime.NONE;
     }
 
@@ -522,11 +515,13 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
           @Param(name = "items", type = Object.class, doc = "Items to add at the end.")
         },
         useLocation = true,
-        useEnvironment = true)
-    public Runtime.NoneType extend(Object items, Location loc, Environment env)
+        useStarlarkThread = true)
+    public Runtime.NoneType extend(Object items, Location loc, StarlarkThread thread)
         throws EvalException {
       addAll(
-          (Collection<? extends E>) EvalUtils.toCollection(items, loc, env), loc, env.mutability());
+          (Collection<? extends E>) EvalUtils.toCollection(items, loc, thread),
+          loc,
+          thread.mutability());
       return Runtime.NONE;
     }
 
@@ -571,36 +566,33 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     }
 
     @SkylarkCallable(
-      name = "pop",
-      doc =
-          "Removes the item at the given position in the list, and returns it. "
-              + "If no <code>index</code> is specified, "
-              + "it removes and returns the last item in the list.",
-      parameters = {
+        name = "pop",
+        doc =
+            "Removes the item at the given position in the list, and returns it. "
+                + "If no <code>index</code> is specified, "
+                + "it removes and returns the last item in the list.",
+        parameters = {
           @Param(
               name = "i",
               type = Integer.class,
               noneable = true,
               defaultValue = "None",
-              doc = "The index of the item."
-          )
-      },
-      useLocation = true,
-      useEnvironment = true
-    )
-    public Object pop(Object i, Location loc, Environment env)
-        throws EvalException {
+              doc = "The index of the item.")
+        },
+        useLocation = true,
+        useStarlarkThread = true)
+    public Object pop(Object i, Location loc, StarlarkThread thread) throws EvalException {
       int arg = i == Runtime.NONE ? -1 : (Integer) i;
       int index = EvalUtils.getSequenceIndex(arg, size(), loc);
       Object result = get(index);
-      remove(index, loc, env.mutability());
+      remove(index, loc, thread.mutability());
       return result;
     }
   }
 
   /**
    * A Skylark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
-   * (regardless of the {@link Environment} they are created in).
+   * (regardless of the {@link StarlarkThread} they are created in).
    */
   @SkylarkModule(
       name = "tuple",

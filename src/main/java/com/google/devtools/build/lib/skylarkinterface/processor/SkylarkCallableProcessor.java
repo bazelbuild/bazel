@@ -49,7 +49,7 @@ import javax.tools.Diagnostic;
  *       <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Environment))
  *       </pre>
  *       where Location, FuncallExpression, and Environment are supplied by the interpreter if and
- *       only if useLocation, useAst, and useEnvironment are specified, respectively.
+ *       only if useLocation, useAst, and useStarlarkThread are specified, respectively.
  *   <li>The number of method parameters must match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  *   <li>Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes', not
@@ -82,7 +82,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       "com.google.devtools.build.lib.syntax.SkylarkDict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
-  private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
+  private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.StarlarkThread";
   private static final String STARLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.StarlarkSemantics";
 
@@ -424,12 +424,12 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
       currentIndex++;
     }
-    if (annotation.useEnvironment()) {
+    if (annotation.useStarlarkThread()) {
       if (!ENVIRONMENT.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format(
-                "Expected parameter index %d to be the %s type, matching useEnvironment, "
+                "Expected parameter index %d to be the %s type, matching useStarlarkThread, "
                     + "but was %s",
                 currentIndex,
                 ENVIRONMENT,
@@ -458,7 +458,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.extraKeywords().name().isEmpty() ? 0 : 1;
     numExtraInterpreterParams += annotation.useLocation() ? 1 : 0;
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
-    numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;
+    numExtraInterpreterParams += annotation.useStarlarkThread() ? 1 : 0;
     numExtraInterpreterParams += annotation.useStarlarkSemantics() ? 1 : 0;
     return numExtraInterpreterParams;
   }

@@ -28,7 +28,8 @@ public interface SkylarkQueryable {
   // Variant used when called directly from a Starlark thread.
   // This is a temporary workaround to enable --incompatible_disallow_dict_lookup_unhashable_keys.
   // TODO(adonovan): remove when that flag is removed.
-  default boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
+  default boolean containsKey(Object key, Location loc, StarlarkThread thread)
+      throws EvalException {
     return this.containsKey(key, loc);
   }
 }

@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Test case for a SkylarkCallable method which has a "extraKeywords" parameter which has
@@ -39,13 +39,13 @@ public class ToggledKwargsParam {
           @Param(
               name = "kwargs",
               enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API),
-      useEnvironment = true)
+      useStarlarkThread = true)
   public String toggledKwargsMethod(
       String one,
       Integer two,
       SkylarkList<?> args,
       SkylarkDict<?, ?> kwargs,
-      Environment environment) {
+      StarlarkThread thread) {
     return "cat";
   }
 }

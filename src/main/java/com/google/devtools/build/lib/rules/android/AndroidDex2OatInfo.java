@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Supplies the pregenerate_oat_files_for_tests attribute of type boolean provided by android_device
@@ -45,7 +45,7 @@ public final class AndroidDex2OatInfo extends NativeInfo implements AndroidDex2O
       new NativeProvider<AndroidDex2OatInfo>(AndroidDex2OatInfo.class, NAME, SIGNATURE) {
         @Override
         protected AndroidDex2OatInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
+            Object[] args, StarlarkThread thread, Location loc) {
           return new AndroidDex2OatInfo(/*dex2OatEnabled=*/ (Boolean) args[0]);
         }
       };

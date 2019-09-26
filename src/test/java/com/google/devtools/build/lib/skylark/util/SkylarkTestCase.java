@@ -29,13 +29,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -54,7 +54,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     ev.initialize();
   }
 
-  private static final Environment.GlobalFrame getSkylarkGlobals() {
+  private static final StarlarkThread.GlobalFrame getSkylarkGlobals() {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
@@ -66,9 +66,9 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
     return new EvaluationTestCase() {
       @Override
-      public Environment newEnvironment() throws Exception {
-        Environment env =
-            Environment.builder(mutability)
+      public StarlarkThread newStarlarkThread() throws Exception {
+        StarlarkThread thread =
+            StarlarkThread.builder(mutability)
                 .setSemantics(semantics)
                 .setEventHandler(getEventHandler())
                 .setGlobals(
@@ -77,9 +77,9 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                 .build();
 
-        SkylarkUtils.setPhase(env, Phase.LOADING);
+        SkylarkUtils.setPhase(thread, Phase.LOADING);
 
-        // This Environment has no PackageContext, so attempts to create a rule will fail.
+        // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
         // Rule creation is tested by SkylarkIntegrationTest.
 
         new BazelStarlarkContext(
@@ -88,9 +88,9 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                 /*repoMapping=*/ ImmutableMap.of(),
                 new SymbolGenerator<>(new Object()),
                 /*analysisRuleLabel=*/ null)
-            .storeInThread(env);
+            .storeInThread(thread);
 
-        return env;
+        return thread;
       }
     };
   }

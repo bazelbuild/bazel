@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstra
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
@@ -872,15 +872,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable Environment ruleDefinitionEnvironment,
+      @Nullable StarlarkThread ruleDefinitionStarlarkThread,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
-    String ruleDefinitionEnvironmentHashCode =
-        ruleDefinitionEnvironment == null
+    String ruleDefinitionStarlarkThreadHashCode =
+        ruleDefinitionStarlarkThread == null
             ? null
-            : ruleDefinitionEnvironment.getTransitiveContentHashCode();
+            : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
         name,
@@ -905,10 +905,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionEnvironment == null
+        ruleDefinitionStarlarkThread == null
             ? null
-            : (Label) ruleDefinitionEnvironment.getGlobals().getLabel(),
-        ruleDefinitionEnvironmentHashCode,
+            : (Label) ruleDefinitionStarlarkThread.getGlobals().getLabel(),
+        ruleDefinitionStarlarkThreadHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)

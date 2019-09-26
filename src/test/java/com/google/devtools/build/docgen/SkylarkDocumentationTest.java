@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
@@ -71,17 +71,17 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   @Test
   public void testSkylarkRuleClassBuiltInItemsAreDocumented() throws Exception {
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getEnvironment());
+    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getStarlarkThread());
   }
 
   @Test
   public void testSkylarkRuleImplementationBuiltInItemsAreDocumented() throws Exception {
     // TODO(bazel-team): fix documentation for built in java objects coming from modules.
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getEnvironment());
+    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getStarlarkThread());
   }
 
   @SuppressWarnings("unchecked")
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) throws Exception {
+  private void checkSkylarkTopLevelEnvItemsAreDocumented(StarlarkThread thread) throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, SkylarkModuleDoc> modules =
         SkylarkDocumentationCollector.collectModules(
@@ -97,7 +97,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
     List<String> undocumentedItems = new ArrayList<>();
     // All built in variables are registered in the Skylark global environment.
-    for (String varname : env.getVariableNames()) {
+    for (String varname : thread.getVariableNames()) {
       if (docMap.containsKey(varname)) {
         if (docMap.get(varname).isEmpty()) {
           undocumentedItems.add(varname);
@@ -106,7 +106,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
         undocumentedItems.add(varname);
       }
     }
-    assertWithMessage("Undocumented Skylark Environment items: " + undocumentedItems)
+    assertWithMessage("Undocumented items: " + undocumentedItems)
         .that(undocumentedItems)
         .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
   }

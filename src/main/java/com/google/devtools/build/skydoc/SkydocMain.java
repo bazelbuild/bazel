@@ -56,9 +56,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
@@ -67,6 +64,9 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -159,7 +159,7 @@ public class SkydocMain {
 
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
-  private final Map<Path, Environment> loaded = new HashMap<>();
+  private final Map<Path, StarlarkThread> loaded = new HashMap<>();
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
@@ -293,7 +293,7 @@ public class SkydocMain {
    *     docstring, an empty string will be printed.
    * @throws InterruptedException if evaluation is interrupted
    */
-  public Environment eval(
+  public StarlarkThread eval(
       StarlarkSemantics semantics,
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
@@ -310,7 +310,7 @@ public class SkydocMain {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    Environment env =
+    StarlarkThread thread =
         recursiveEval(
             semantics, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
 
@@ -329,7 +329,8 @@ public class SkydocMain {
                 Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
-    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
+    TreeMap<String, Object> sortedBindings =
+        new TreeMap<>(thread.getGlobals().getExportedBindings());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
@@ -360,7 +361,7 @@ public class SkydocMain {
       }
     }
 
-    return env;
+    return thread;
   }
 
   /**
@@ -410,7 +411,7 @@ public class SkydocMain {
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
-  private Environment recursiveEval(
+  private StarlarkThread recursiveEval(
       StarlarkSemantics semantics,
       Label label,
       List<RuleInfoWrapper> ruleInfoList,
@@ -439,7 +440,7 @@ public class SkydocMain {
         String module = load.getImport().getValue();
         Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
         try {
-          Environment importEnv =
+          StarlarkThread importThread =
               recursiveEval(
                   semantics,
                   relativeLabel,
@@ -447,7 +448,7 @@ public class SkydocMain {
                   providerInfoList,
                   aspectInfoList,
                   moduleDocMap);
-          imports.put(module, new Extension(importEnv));
+          imports.put(module, new Extension(importThread));
         } catch (NoSuchFileException noSuchFileException) {
           throw new StarlarkEvaluationException(
               String.format(
@@ -457,13 +458,13 @@ public class SkydocMain {
       }
     }
 
-    Environment env =
+    StarlarkThread thread =
         evalSkylarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
-    env.mutability().freeze();
-    loaded.put(path, env);
-    return env;
+    thread.mutability().freeze();
+    loaded.put(path, thread);
+    return thread;
   }
 
   private Path pathOfLabel(Label label) {
@@ -487,7 +488,7 @@ public class SkydocMain {
   }
 
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
-  private Environment evalSkylarkBody(
+  private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
@@ -496,20 +497,20 @@ public class SkydocMain {
       List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
-    Environment env =
-        createEnvironment(
+    StarlarkThread thread =
+        createStarlarkThread(
             semantics,
             eventHandler,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
 
-    if (!buildFileAST.exec(env, eventHandler)) {
+    if (!buildFileAST.exec(thread, eventHandler)) {
       throw new StarlarkEvaluationException("Starlark evaluation error");
     }
 
-    env.mutability().freeze();
+    thread.mutability().freeze();
 
-    return env;
+    return thread;
   }
 
   /**
@@ -635,12 +636,12 @@ public class SkydocMain {
     }
   }
 
-  private static Environment createEnvironment(
+  private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
       EventHandler eventHandler,
       GlobalFrame globals,
       Map<String, Extension> imports) {
-    return Environment.builder(Mutability.create("Skydoc"))
+    return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)
         .setGlobals(globals)
         .setImportedExtensions(imports)

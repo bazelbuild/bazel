@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
+import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -133,9 +133,9 @@ public class BuiltinFunction extends BaseFunction {
 
   @Override
   @Nullable
-  public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+  public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(env);
+    Preconditions.checkNotNull(thread);
 
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
@@ -154,7 +154,7 @@ public class BuiltinFunction extends BaseFunction {
             break;
 
           case ENVIRONMENT:
-            args[i] = env;
+            args[i] = thread;
             break;
         }
         i++;
@@ -164,7 +164,8 @@ public class BuiltinFunction extends BaseFunction {
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, getName())) {
-      env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, env.getGlobals());
+      thread.enterScope(
+          this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, thread.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {
       Throwable e = x.getCause();
@@ -201,7 +202,7 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     } finally {
-      env.exitScope();
+      thread.exitScope();
     }
   }
 
@@ -360,7 +361,7 @@ public class BuiltinFunction extends BaseFunction {
     }
 
     @Override
-    public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+    public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
         throws EvalException {
       throw new EvalException(null, "tried to invoke a Factory for function " + this);
     }

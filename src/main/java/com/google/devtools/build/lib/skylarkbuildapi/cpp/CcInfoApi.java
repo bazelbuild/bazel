@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @SkylarkModule(
@@ -64,7 +64,7 @@ public interface CcInfoApi extends StructApi {
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
         useLocation = true,
-        useEnvironment = true,
+        useStarlarkThread = true,
         parameters = {
           @Param(
               name = "compilation_context",
@@ -92,10 +92,7 @@ public interface CcInfoApi extends StructApi {
         selfCall = true)
     @SkylarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
     CcInfoApi createInfo(
-        Object ccCompilationContext,
-        Object ccLinkingInfo,
-        Location location,
-        Environment environment)
+        Object ccCompilationContext, Object ccLinkingInfo, Location location, StarlarkThread thread)
         throws EvalException;
   }
 }

@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
@@ -262,8 +262,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public Object getSkylarkLibrariesToLink(Environment environment) {
-    if (environment.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
+  public Object getSkylarkLibrariesToLink(StarlarkThread thread) {
+    if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
       return SkylarkNestedSet.of(LibraryToLink.class, libraries);
     } else {
       return SkylarkList.createImmutable(libraries.toList());

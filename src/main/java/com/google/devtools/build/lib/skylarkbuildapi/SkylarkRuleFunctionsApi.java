@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Interface for a global Skylark library containing rule-related helper and registration functions.
@@ -341,7 +341,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "apply to its own configuration before analysis.")
       },
       useAst = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
@@ -361,7 +361,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -499,7 +499,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "will propagate through `alpha`, `beta`, and `charlie`. If False, then the "
                     + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useAst = true)
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
@@ -513,7 +513,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       String doc,
       Boolean applyToGeneratingRules,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -545,9 +545,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Label() call appears.")
       },
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
   public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+      String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
       throws EvalException;
 }

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -69,7 +69,7 @@ public abstract class StructImpl extends Info
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(
           Attribute.getSkylarkName(e.getKey()),
-          SkylarkType.convertToSkylark(e.getValue(), (Environment) null));
+          SkylarkType.convertToSkylark(e.getValue(), (StarlarkThread) null));
     }
     return builder.build();
   }

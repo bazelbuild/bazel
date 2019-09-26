@@ -314,7 +314,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a']).union(['b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a', 'b']).union(['c'])", "a", "b", "c");
@@ -323,7 +323,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithDepset() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
     assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "b", "c", "a");
     assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "c", "a", "b");
@@ -332,7 +332,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionDuplicates() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
 
@@ -350,7 +350,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset()",
@@ -365,7 +365,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionIncompatibleOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     checkEvalError(
         "Order mismatch: topological != postorder",
         "depset(['a', 'b'], order='postorder') + depset(['c', 'd'], order='topological')");
@@ -373,7 +373,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithNonsequence() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     checkEvalError("cannot union value of type 'int' to a depset", "depset([]).union(5)");
     checkEvalError("cannot union value of type 'string' to a depset", "depset(['a']).union('b')");
   }
@@ -389,7 +389,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset(['a'])",
@@ -401,7 +401,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionReturnsDepset() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -414,7 +414,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testPlusEqualsWithList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -426,7 +426,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testPlusEqualsNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset()",
@@ -440,7 +440,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testFuncParamNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func1(t):",
         "  t += ['b']",
@@ -455,7 +455,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testTransitiveOrdering() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  sa = depset(['a'], order='postorder')",
@@ -469,7 +469,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testLeftRightDirectOrdering() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -484,7 +484,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToString() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset() + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
@@ -493,7 +493,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToStringWithOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset(order = 'topological') + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
@@ -507,7 +507,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset() + [2, 4, 6] + [3, 4, 5]",
         "x = s.to_list()");

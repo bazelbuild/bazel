@@ -28,14 +28,14 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.FailFastException;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -52,27 +52,27 @@ public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
   private TestMode testMode = TestMode.SKYLARK;
-  protected Environment env;
+  protected StarlarkThread thread;
   protected Mutability mutability = Mutability.create("test");
 
   @Before
   public final void initialize() throws Exception {
-    env = newEnvironment();
+    thread = newStarlarkThread();
   }
 
   /**
-   * Creates a standard Environment for tests in the BUILD language.
-   * No PythonPreprocessing, mostly empty mutable Environment.
+   * Creates a standard StarlarkThread for tests in the BUILD language. No PythonPreprocessing,
+   * mostly empty mutable StarlarkThread.
    */
-  public Environment newBuildEnvironment() {
-    Environment env =
-        Environment.builder(mutability)
+  public StarlarkThread newBuildStarlarkThread() {
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
             .useDefaultSemantics()
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
             .build();
 
-    SkylarkUtils.setPhase(env, Phase.LOADING);
+    SkylarkUtils.setPhase(thread, Phase.LOADING);
 
     new BazelStarlarkContext(
             TestConstants.TOOLS_REPOSITORY,
@@ -80,65 +80,53 @@ public class EvaluationTestCase {
             /* repoMapping= */ ImmutableMap.of(),
             new SymbolGenerator<>(new Object()),
             /* analysisRuleLabel= */ null)
-        .storeInThread(env);
+        .storeInThread(thread);
 
-    return env;
+    return thread;
   }
 
   /**
-   * Creates an Environment for Skylark with a mostly empty initial environment.
-   * For internal initialization or tests.
-   */
-  public Environment newSkylarkEnvironment() {
-    return Environment.builder(mutability)
-        .useDefaultSemantics()
-        .setGlobals(BazelLibrary.GLOBALS)
-        .setEventHandler(getEventHandler())
-        .build();
-  }
-
-  /**
-   * Creates a new Environment suitable for the test case. Subclasses may override it to fit their
-   * purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment; or they may play with the
-   * testMode to run tests in either or both kinds of Environment. Note that all Environment-s may
-   * share the same Mutability, so don't close it.
+   * Creates a new StarlarkThread suitable for the test case. Subclasses may override it to fit
+   * their purpose and e.g. call newBuildStarlarkThread or newStarlarkThread; or they may play with
+   * the testMode to run tests in either or both kinds of StarlarkThread. Note that all
+   * StarlarkThread-s may share the same Mutability, so don't close it.
    *
-   * @return a fresh Environment.
+   * @return a fresh StarlarkThread.
    */
-  public Environment newEnvironment() throws Exception {
-    return newEnvironmentWithSkylarkOptions();
+  public StarlarkThread newStarlarkThread() throws Exception {
+    return newStarlarkThreadWithSkylarkOptions();
   }
 
-  protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
+  protected StarlarkThread newStarlarkThreadWithSkylarkOptions(String... skylarkOptions)
       throws Exception {
-    return newEnvironmentWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
+    return newStarlarkThreadWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
   }
 
-  protected Environment newEnvironmentWithBuiltinsAndSkylarkOptions(Map<String, Object> builtins,
-      String... skylarkOptions) throws Exception {
+  protected StarlarkThread newStarlarkThreadWithBuiltinsAndSkylarkOptions(
+      Map<String, Object> builtins, String... skylarkOptions) throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
-              + "Environment manually by overriding newEnvironment()");
+              + "StarlarkThread manually by overriding newStarlarkThread()");
     }
-    return testMode.createEnvironment(getEventHandler(), builtins, skylarkOptions);
+    return testMode.createStarlarkThread(getEventHandler(), builtins, skylarkOptions);
   }
 
   /**
-   * Sets the specified {@code TestMode} and tries to create the appropriate {@code Environment}
+   * Sets the specified {@code TestMode} and tries to create the appropriate {@code StarlarkThread}
    *
    * @param testMode
    * @throws Exception
    */
   protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironmentWithSkylarkOptions(skylarkOptions);
+    thread = newStarlarkThreadWithSkylarkOptions(skylarkOptions);
   }
 
   protected void setMode(TestMode testMode, Map<String, Object> builtins,
       String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironmentWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
+    thread = newStarlarkThreadWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
   }
 
   protected void enableSkylarkMode(Map<String, Object> builtins,
@@ -158,8 +146,8 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.reporter();
   }
 
-  public Environment getEnvironment() {
-    return env;
+  public StarlarkThread getStarlarkThread() {
+    return thread;
   }
 
   protected final BuildFileAST parseBuildFileASTWithoutValidation(String... lines) {
@@ -169,7 +157,7 @@ public class EvaluationTestCase {
 
   private BuildFileAST parseBuildFileAST(String... lines) {
     BuildFileAST ast = parseBuildFileASTWithoutValidation(lines);
-    return ast.validate(env, /*isBuildFile=*/ false, getEventHandler());
+    return ast.validate(thread, /*isBuildFile=*/ false, getEventHandler());
   }
 
   /** Parses and validates a file and returns its statements. */
@@ -191,26 +179,26 @@ public class EvaluationTestCase {
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    env.update(varname, value);
+    thread.update(varname, value);
     return this;
   }
 
   public Object lookup(String varname) throws Exception {
-    return env.moduleLookup(varname);
+    return thread.moduleLookup(varname);
   }
 
   public Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     if (testMode == TestMode.SKYLARK) {
       // TODO(adonovan): inline this call and factor with 'else' case.
-      return BuildFileAST.eval(input, env);
+      return BuildFileAST.eval(input, thread);
     } else {
-      BuildFileAST file = BuildFileAST.parse(input, env.getEventHandler());
+      BuildFileAST file = BuildFileAST.parse(input, thread.getEventHandler());
       if (ValidationEnvironment.validateFile(
-          file, env, /*isBuildFile=*/ true, env.getEventHandler())) {
-        PackageFactory.checkBuildSyntax(file, env.getEventHandler());
+          file, thread, /*isBuildFile=*/ true, thread.getEventHandler())) {
+        PackageFactory.checkBuildSyntax(file, thread.getEventHandler());
       }
-      return file.eval(env);
+      return file.eval(thread);
     }
   }
 

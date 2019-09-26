@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -525,7 +525,7 @@ public interface CcModuleApi<
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -596,14 +596,14 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       boolean alwayslink,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "libraries_to_link",
@@ -634,7 +634,7 @@ public interface CcModuleApi<
       Object userLinkFlagsObject,
       SkylarkList<FileT> nonCodeInputs,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -925,7 +925,7 @@ public interface CcModuleApi<
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1037,6 +1037,6 @@ public interface CcModuleApi<
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

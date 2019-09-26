@@ -36,8 +36,8 @@ public class BuildFileASTTest extends EvaluationTestCase {
   private Scratch scratch = new Scratch();
 
   @Override
-  public Environment newEnvironment() throws Exception {
-    return newBuildEnvironment();
+  public StarlarkThread newStarlarkThread() throws Exception {
+    return newBuildStarlarkThread();
   }
 
   /**
@@ -58,13 +58,13 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "",
         "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
 
-    assertThat(buildfile.exec(env, getEventHandler())).isTrue();
+    assertThat(buildfile.exec(thread, getEventHandler())).isTrue();
 
     // Test final environment is correctly modified:
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(env.moduleLookup("x"))
+    assertThat(thread.moduleLookup("x"))
         .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")));
   }
 
@@ -77,7 +77,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "",
         "z = x + y");
 
-    assertThat(buildfile.exec(env, getEventHandler())).isFalse();
+    assertThat(buildfile.exec(thread, getEventHandler())).isFalse();
     Event e = assertContainsError("unsupported operand type(s) for +: 'int' and 'list'");
     assertThat(e.getLocation().getStartLineAndColumn().getLine()).isEqualTo(4);
   }
@@ -138,7 +138,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "           includes = [ abi + opt_level + '/include' ])");
     assertThat(buildFile.containsErrors()).isTrue();
     assertContainsError("syntax error at '*': expected expression");
-    assertThat(buildFile.exec(env, getEventHandler())).isFalse();
+    assertThat(buildFile.exec(thread, getEventHandler())).isFalse();
     MoreAsserts.assertDoesNotContainEvent(getEventCollector(), "$error$");
     // This message should not be printed anymore.
     MoreAsserts.assertDoesNotContainEvent(getEventCollector(), "contains syntax error(s)");

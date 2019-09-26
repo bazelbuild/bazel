@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkInfo.Layout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -148,7 +148,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   }
 
   @Override
-  protected SkylarkInfo createInstanceFromSkylark(Object[] args, Environment env, Location loc) {
+  protected SkylarkInfo createInstanceFromSkylark(
+      Object[] args, StarlarkThread thread, Location loc) {
     if (layout == null) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];

@@ -15,10 +15,10 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -40,7 +40,7 @@ public final class FakeStarlarkCallable implements StarlarkCallable {
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression call,
-      Environment env) {
+      StarlarkThread thread) {
     return Runtime.NONE;
   }
 

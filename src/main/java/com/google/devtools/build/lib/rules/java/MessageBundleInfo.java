@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
@@ -50,7 +50,7 @@ public final class MessageBundleInfo extends NativeInfo {
         @Override
         @SuppressWarnings("unchecked")
         protected MessageBundleInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
+            Object[] args, StarlarkThread thread, Location loc) {
           return new MessageBundleInfo(ImmutableList.copyOf((SkylarkList<Artifact>) args[0]), loc);
         }
       };

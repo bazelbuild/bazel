@@ -29,14 +29,14 @@ import javax.annotation.Nullable;
 
 /** A syntax-tree-walking evaluator. */
 // TODO(adonovan): make this class the sole locus of tree-based evaluation logic.
-// Make all its methods static, and thread Environment (soon: StarlarkThread) explicitly.
-// The only actual state is the return value, which can be saved in the Environment's call frame.
+// Make all its methods static, and thread StarlarkThread (soon: StarlarkThread) explicitly.
+// The only actual state is the return value, which can be saved in the StarlarkThread's call frame.
 // Move remaining Expression.eval logic here, and simplify.
 final class Eval {
 
   private static final AtomicReference<Debugger> debugger = new AtomicReference<>();
 
-  private final Environment env;
+  private final StarlarkThread thread;
   private final Debugger dbg;
   private Object result = Runtime.NONE;
 
@@ -49,37 +49,37 @@ final class Eval {
     }
   }
 
-  static Object execStatements(Environment env, List<Statement> statements)
+  static Object execStatements(StarlarkThread thread, List<Statement> statements)
       throws EvalException, InterruptedException {
-    Eval eval = new Eval(env);
+    Eval eval = new Eval(thread);
     eval.execStatementsInternal(statements);
     return eval.result;
   }
 
-  static void execToplevelStatement(Environment env, Statement stmt)
+  static void execToplevelStatement(StarlarkThread thread, Statement stmt)
       throws EvalException, InterruptedException {
     // Ignore the returned BREAK/CONTINUE/RETURN/PASS token:
     // the first three don't exist at top-level, and the last is a no-op.
-    new Eval(env).exec(stmt);
+    new Eval(thread).exec(stmt);
   }
 
-  private Eval(Environment env) {
-    this.env = env;
+  private Eval(StarlarkThread thread) {
+    this.thread = thread;
     this.dbg = debugger.get(); // capture value and use for lifetime of one Eval
   }
 
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
-    Object rvalue = eval(env, node.getRHS());
-    assign(node.getLHS(), rvalue, env, node.getLocation());
+    Object rvalue = eval(thread, node.getRHS());
+    assign(node.getLHS(), rvalue, thread, node.getLocation());
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
-    Object o = eval(env, node.getCollection());
-    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), env);
+    Object o = eval(thread, node.getCollection());
+    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), thread);
     EvalUtils.lock(o, node.getLocation());
     try {
       for (Object it : col) {
-        assign(node.getLHS(), it, env, node.getLocation());
+        assign(node.getLHS(), it, thread, node.getLocation());
 
         switch (execStatementsInternal(node.getBlock())) {
           case PASS:
@@ -109,7 +109,7 @@ final class Eval {
     if (defaultExpressions != null) {
       defaultValues = new ArrayList<>(defaultExpressions.size());
       for (Expression expr : defaultExpressions) {
-        defaultValues.add(eval(env, expr));
+        defaultValues.add(eval(thread, expr));
       }
     }
 
@@ -119,18 +119,18 @@ final class Eval {
       throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
 
-    env.updateAndExport(
+    thread.updateAndExport(
         node.getIdentifier().getName(),
         new StarlarkFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
             FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/ null),
             node.getStatements(),
-            env.getGlobals()));
+            thread.getGlobals()));
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
-    boolean cond = EvalUtils.toBoolean(eval(env, node.getCondition()));
+    boolean cond = EvalUtils.toBoolean(eval(thread, node.getCondition()));
     if (cond) {
       return execStatementsInternal(node.getThenBlock());
     } else if (node.getElseBlock() != null) {
@@ -152,8 +152,8 @@ final class Eval {
         }
         // The key is the original name that was used to define the symbol
         // in the loaded bzl file.
-        env.importSymbol(node.getImport().getValue(), name, declared.getName());
-      } catch (Environment.LoadFailedException e) {
+        thread.importSymbol(node.getImport().getValue(), name, declared.getName());
+      } catch (StarlarkThread.LoadFailedException e) {
         throw new EvalException(node.getLocation(), e.getMessage());
       }
     }
@@ -162,14 +162,14 @@ final class Eval {
   private TokenKind execReturn(ReturnStatement node) throws EvalException, InterruptedException {
     Expression ret = node.getReturnExpression();
     if (ret != null) {
-      this.result = eval(env, ret);
+      this.result = eval(thread, ret);
     }
     return TokenKind.RETURN;
   }
 
   private TokenKind exec(Statement st) throws EvalException, InterruptedException {
     if (dbg != null) {
-      dbg.before(env, st.getLocation());
+      dbg.before(thread, st.getLocation());
     }
 
     try {
@@ -188,7 +188,7 @@ final class Eval {
         execAugmentedAssignment((AugmentedAssignmentStatement) st);
         return TokenKind.PASS;
       case EXPRESSION:
-        eval(env, ((ExpressionStatement) st).getExpression());
+        eval(thread, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
       case FLOW:
         return ((FlowStatement) st).getKind();
@@ -224,17 +224,17 @@ final class Eval {
    * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
    * to the given expression. The expression must be valid for an {@code LValue}.
    */
-  private static void assign(Expression expr, Object value, Environment env, Location loc)
+  private static void assign(Expression expr, Object value, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
-      assignIdentifier((Identifier) expr, value, env);
+      assignIdentifier((Identifier) expr, value, thread);
     } else if (expr instanceof IndexExpression) {
-      Object object = eval(env, ((IndexExpression) expr).getObject());
-      Object key = eval(env, ((IndexExpression) expr).getKey());
-      assignItem(object, key, value, env, loc);
+      Object object = eval(thread, ((IndexExpression) expr).getObject());
+      Object key = eval(thread, ((IndexExpression) expr).getKey());
+      assignItem(object, key, value, thread, loc);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
-      assignList(list, value, env, loc);
+      assignList(list, value, thread, loc);
     } else {
       // Not possible for validated ASTs.
       throw new EvalException(loc, "cannot assign to '" + expr + "'");
@@ -242,9 +242,9 @@ final class Eval {
   }
 
   /** Binds a variable to the given value in the environment. */
-  private static void assignIdentifier(Identifier ident, Object value, Environment env)
+  private static void assignIdentifier(Identifier ident, Object value, StarlarkThread thread)
       throws EvalException {
-    env.updateAndExport(ident.getName(), value);
+    thread.updateAndExport(ident.getName(), value);
   }
 
   /**
@@ -256,14 +256,15 @@ final class Eval {
    */
   @SuppressWarnings("unchecked")
   private static void assignItem(
-      Object object, Object key, Object value, Environment env, Location loc) throws EvalException {
+      Object object, Object key, Object value, StarlarkThread thread, Location loc)
+      throws EvalException {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
-      dict.put(key, value, loc, env);
+      dict.put(key, value, loc, thread);
     } else if (object instanceof SkylarkList.MutableList) {
       SkylarkList.MutableList<Object> list = (SkylarkList.MutableList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
-      list.set(index, value, loc, env.mutability());
+      list.set(index, value, loc, thread.mutability());
     } else {
       throw new EvalException(
           loc,
@@ -279,9 +280,10 @@ final class Eval {
    * @throws EvalException if the list literal has length 0, or if the value is not an iterable of
    *     matching length
    */
-  private static void assignList(ListExpression list, Object value, Environment env, Location loc)
+  private static void assignList(
+      ListExpression list, Object value, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
-    Collection<?> collection = EvalUtils.toCollection(value, loc, env);
+    Collection<?> collection = EvalUtils.toCollection(value, loc, thread);
     int len = list.getElements().size();
     if (len == 0) {
       throw new EvalException(
@@ -297,7 +299,7 @@ final class Eval {
     }
     int i = 0;
     for (Object item : collection) {
-      assign(list.getElements().get(i), item, env, loc);
+      assign(list.getElements().get(i), item, thread, loc);
       i++;
     }
   }
@@ -319,21 +321,21 @@ final class Eval {
     Location loc = stmt.getLocation();
 
     if (lhs instanceof Identifier) {
-      Object x = eval(env, lhs);
-      Object y = eval(env, rhs);
-      Object z = inplaceBinaryOp(op, x, y, env, loc);
-      assignIdentifier((Identifier) lhs, z, env);
+      Object x = eval(thread, lhs);
+      Object y = eval(thread, rhs);
+      Object z = inplaceBinaryOp(op, x, y, thread, loc);
+      assignIdentifier((Identifier) lhs, z, thread);
     } else if (lhs instanceof IndexExpression) {
       // object[index] op= y
       // The object and key should be evaluated only once, so we don't use lhs.eval().
       IndexExpression index = (IndexExpression) lhs;
-      Object object = eval(env, index.getObject());
-      Object key = eval(env, index.getKey());
-      Object x = EvalUtils.index(object, key, env, loc);
+      Object object = eval(thread, index.getObject());
+      Object key = eval(thread, index.getKey());
+      Object x = EvalUtils.index(object, key, thread, loc);
       // Evaluate rhs after lhs.
-      Object y = eval(env, rhs);
-      Object z = inplaceBinaryOp(op, x, y, env, loc);
-      assignItem(object, key, z, env, loc);
+      Object y = eval(thread, rhs);
+      Object z = inplaceBinaryOp(op, x, y, thread, loc);
+      assignItem(object, key, z, thread, loc);
     } else if (lhs instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
@@ -343,7 +345,7 @@ final class Eval {
   }
 
   private static Object inplaceBinaryOp(
-      TokenKind op, Object x, Object y, Environment env, Location location)
+      TokenKind op, Object x, Object y, StarlarkThread thread, Location location)
       throws EvalException, InterruptedException {
     // list += iterable  behaves like  list.extend(iterable)
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
@@ -351,10 +353,10 @@ final class Eval {
         && x instanceof SkylarkList.MutableList
         && y instanceof SkylarkList.MutableList) {
       SkylarkList.MutableList<?> list = (SkylarkList.MutableList) x;
-      list.extend(y, location, env);
+      list.extend(y, location, thread);
       return list;
     }
-    return EvalUtils.binaryOp(op, x, y, env, location);
+    return EvalUtils.binaryOp(op, x, y, thread, location);
   }
 
   // ---- expressions ----
@@ -378,17 +380,18 @@ final class Eval {
    * @throws EvalException if the expression could not be evaluated.
    * @throws InterruptedException may be thrown in a sub class.
    */
-  static Object eval(Environment env, Expression expr) throws EvalException, InterruptedException {
+  static Object eval(StarlarkThread thread, Expression expr)
+      throws EvalException, InterruptedException {
     // TODO(adonovan): don't push and pop all the time. We should only need the stack of function
     // call frames, and we should recycle them.
-    // TODO(adonovan): put the Environment (Starlark thread) into the Java thread-local store
+    // TODO(adonovan): put the StarlarkThread (Starlark thread) into the Java thread-local store
     // once only, in enterScope, and undo this in exitScope.
     try {
       if (Callstack.enabled) {
         Callstack.push(expr);
       }
       try {
-        return doEval(env, expr);
+        return doEval(thread, expr);
       } catch (EvalException ex) {
         throw maybeTransformException(expr, ex);
       }
@@ -399,45 +402,45 @@ final class Eval {
     }
   }
 
-  private static Object doEval(Environment env, Expression expr)
+  private static Object doEval(StarlarkThread thread, Expression expr)
       throws EvalException, InterruptedException {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         {
           BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-          Object x = eval(env, binop.getX());
+          Object x = eval(thread, binop.getX());
           // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              return EvalUtils.toBoolean(x) ? Eval.eval(env, binop.getY()) : x;
+              return EvalUtils.toBoolean(x) ? Eval.eval(thread, binop.getY()) : x;
             case OR:
-              return EvalUtils.toBoolean(x) ? x : Eval.eval(env, binop.getY());
+              return EvalUtils.toBoolean(x) ? x : Eval.eval(thread, binop.getY());
             default:
-              Object y = eval(env, binop.getY());
-              return EvalUtils.binaryOp(binop.getOperator(), x, y, env, binop.getLocation());
+              Object y = eval(thread, binop.getY());
+              return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
           }
         }
 
       case COMPREHENSION:
-        return evalComprehension(env, (Comprehension) expr);
+        return evalComprehension(thread, (Comprehension) expr);
 
       case CONDITIONAL:
         {
           ConditionalExpression cond = (ConditionalExpression) expr;
-          Object v = eval(env, cond.getCondition());
-          return eval(env, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
+          Object v = eval(thread, cond.getCondition());
+          return eval(thread, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
         }
 
       case DICT_EXPR:
         {
           DictExpression dictexpr = (DictExpression) expr;
-          SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
+          SkylarkDict<Object, Object> dict = SkylarkDict.of(thread);
           Location loc = dictexpr.getLocation();
           for (DictExpression.Entry entry : dictexpr.getEntries()) {
-            Object k = eval(env, entry.getKey());
-            Object v = eval(env, entry.getValue());
+            Object k = eval(thread, entry.getKey());
+            Object v = eval(thread, entry.getValue());
             int before = dict.size();
-            dict.put(k, v, loc, env);
+            dict.put(k, v, loc, thread);
             if (dict.size() == before) {
               throw new EvalException(
                   loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
@@ -449,10 +452,10 @@ final class Eval {
       case DOT:
         {
           DotExpression dot = (DotExpression) expr;
-          Object object = eval(env, dot.getObject());
+          Object object = eval(thread, dot.getObject());
           String name = dot.getField().getName();
-          Object result = EvalUtils.getAttr(env, dot.getLocation(), object, name);
-          return checkResult(object, result, name, dot.getLocation(), env.getSemantics());
+          Object result = EvalUtils.getAttr(thread, dot.getLocation(), object, name);
+          return checkResult(object, result, name, dot.getLocation(), thread.getSemantics());
         }
 
       case FUNCALL:
@@ -466,15 +469,15 @@ final class Eval {
           // a closure for x.f if f is a Java method.
           if (call.getFunction() instanceof DotExpression) {
             DotExpression dot = (DotExpression) call.getFunction();
-            Object object = Eval.eval(env, dot.getObject());
-            evalArguments(env, call, posargs, kwargs);
+            Object object = Eval.eval(thread, dot.getObject());
+            evalArguments(thread, call, posargs, kwargs);
             return CallUtils.callMethod(
-                env, call, object, posargs, kwargs, dot.getField().getName(), dot.getLocation());
+                thread, call, object, posargs, kwargs, dot.getField().getName(), dot.getLocation());
           }
 
-          Object fn = Eval.eval(env, call.getFunction());
-          evalArguments(env, call, posargs, kwargs);
-          return CallUtils.call(env, call, fn, posargs, kwargs);
+          Object fn = Eval.eval(thread, call.getFunction());
+          evalArguments(thread, call, posargs, kwargs);
+          return CallUtils.call(thread, call, fn, posargs, kwargs);
         }
 
       case IDENTIFIER:
@@ -483,9 +486,9 @@ final class Eval {
           String name = id.getName();
           if (id.getScope() == null) {
             // Legacy behavior, to be removed.
-            Object result = env.lookup(name);
+            Object result = thread.lookup(name);
             if (result == null) {
-              throw createInvalidIdentifierException(id, env.getVariableNames());
+              throw createInvalidIdentifierException(id, thread.getVariableNames());
             }
             return result;
           }
@@ -493,13 +496,13 @@ final class Eval {
           Object result;
           switch (id.getScope()) {
             case Local:
-              result = env.localLookup(name);
+              result = thread.localLookup(name);
               break;
             case Module:
-              result = env.moduleLookup(name);
+              result = thread.moduleLookup(name);
               break;
             case Universe:
-              result = env.universeLookup(name);
+              result = thread.universeLookup(name);
               break;
             default:
               throw new IllegalStateException(id.getScope().toString());
@@ -523,9 +526,9 @@ final class Eval {
       case INDEX:
         {
           IndexExpression index = (IndexExpression) expr;
-          Object object = eval(env, index.getObject());
-          Object key = eval(env, index.getKey());
-          return EvalUtils.index(object, key, env, index.getLocation());
+          Object object = eval(thread, index.getObject());
+          Object key = eval(thread, index.getKey());
+          return EvalUtils.index(object, key, thread, index.getLocation());
         }
 
       case INTEGER_LITERAL:
@@ -536,26 +539,26 @@ final class Eval {
           ListExpression list = (ListExpression) expr;
           ArrayList<Object> result = new ArrayList<>(list.getElements().size());
           for (Expression elem : list.getElements()) {
-            result.add(eval(env, elem));
+            result.add(eval(thread, elem));
           }
           return list.isTuple()
               ? SkylarkList.Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
-              : SkylarkList.MutableList.wrapUnsafe(env, result);
+              : SkylarkList.MutableList.wrapUnsafe(thread, result);
         }
 
       case SLICE:
         {
           SliceExpression slice = (SliceExpression) expr;
-          Object object = eval(env, slice.getObject());
-          Object start = slice.getStart() == null ? Runtime.NONE : eval(env, slice.getStart());
-          Object end = slice.getEnd() == null ? Runtime.NONE : eval(env, slice.getEnd());
-          Object step = slice.getStep() == null ? Runtime.NONE : eval(env, slice.getStep());
+          Object object = eval(thread, slice.getObject());
+          Object start = slice.getStart() == null ? Runtime.NONE : eval(thread, slice.getStart());
+          Object end = slice.getEnd() == null ? Runtime.NONE : eval(thread, slice.getEnd());
+          Object step = slice.getStep() == null ? Runtime.NONE : eval(thread, slice.getStep());
           Location loc = slice.getLocation();
 
           // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
 
           if (object instanceof SkylarkList) {
-            return ((SkylarkList<?>) object).getSlice(start, end, step, loc, env.mutability());
+            return ((SkylarkList<?>) object).getSlice(start, end, step, loc, thread.mutability());
           }
 
           if (object instanceof String) {
@@ -589,7 +592,7 @@ final class Eval {
       case UNARY_OPERATOR:
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
-          Object x = eval(env, unop.getX());
+          Object x = eval(thread, unop.getX());
           return EvalUtils.unaryOp(unop.getOperator(), x, unop.getLocation());
         }
     }
@@ -630,9 +633,9 @@ final class Eval {
         id.getLocation(), "name '" + id.getName() + "' is not defined" + suggestion);
   }
 
-  private static Object evalComprehension(Environment env, Comprehension comp)
+  private static Object evalComprehension(StarlarkThread thread, Comprehension comp)
       throws EvalException, InterruptedException {
-    final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(env) : null;
+    final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(thread) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
     // The Lambda class serves as a recursive lambda closure.
@@ -646,13 +649,13 @@ final class Eval {
           if (clause instanceof Comprehension.For) {
             Comprehension.For forClause = (Comprehension.For) clause;
 
-            Object iterable = eval(env, forClause.getIterable());
+            Object iterable = eval(thread, forClause.getIterable());
             Location loc = comp.getLocation();
-            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, env);
+            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, thread);
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
-                Eval.assign(forClause.getVars(), elem, env, loc);
+                Eval.assign(forClause.getVars(), elem, thread, loc);
                 execClauses(index + 1);
               }
             } finally {
@@ -661,7 +664,7 @@ final class Eval {
 
           } else {
             Comprehension.If ifClause = (Comprehension.If) clause;
-            if (EvalUtils.toBoolean(eval(env, ifClause.getCondition()))) {
+            if (EvalUtils.toBoolean(eval(thread, ifClause.getCondition()))) {
               execClauses(index + 1);
             }
           }
@@ -671,12 +674,12 @@ final class Eval {
         // base case: evaluate body and add to result.
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
-          Object k = eval(env, body.getKey());
-          EvalUtils.checkValidDictKey(k, env);
-          Object v = eval(env, body.getValue());
-          dict.put(k, v, comp.getLocation(), env);
+          Object k = eval(thread, body.getKey());
+          EvalUtils.checkValidDictKey(k, thread);
+          Object v = eval(thread, body.getValue());
+          dict.put(k, v, comp.getLocation(), thread);
         } else {
-          list.add(eval(env, ((Expression) comp.getBody())));
+          list.add(eval(thread, ((Expression) comp.getBody())));
         }
       }
     }
@@ -691,12 +694,12 @@ final class Eval {
       if (clause instanceof Comprehension.For) {
         for (Identifier ident :
             Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
-          env.removeLocalBinding(ident.getName());
+          thread.removeLocalBinding(ident.getName());
         }
       }
     }
 
-    return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(env, list);
+    return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(thread, list);
   }
 
   /** Returns an exception which should be thrown instead of the original one. */
@@ -775,11 +778,14 @@ final class Eval {
    * @param posargs a list to which all positional arguments will be added
    * @param kwargs a mutable map to which all keyword arguments will be added. A mutable map is used
    *     here instead of an immutable map builder to deal with duplicates without memory overhead
-   * @param env the current environment
+   * @param thread the Starlark thread for the call
    */
   @SuppressWarnings("unchecked")
   private static void evalArguments(
-      Environment env, FuncallExpression call, List<Object> posargs, Map<String, Object> kwargs)
+      StarlarkThread thread,
+      FuncallExpression call,
+      List<Object> posargs,
+      Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
 
     // Optimize allocations for the common case where they are no duplicates.
@@ -792,7 +798,7 @@ final class Eval {
     // (O(1) for ImmutableList) to avoid the iterator overhead.
     for (int i = 0; i < call.getArguments().size(); i++) {
       Argument.Passed arg = call.getArguments().get(i);
-      Object value = Eval.eval(env, arg.getValue());
+      Object value = Eval.eval(thread, arg.getValue());
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) { // expand the starArg

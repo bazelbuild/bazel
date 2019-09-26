@@ -110,11 +110,11 @@ public final class StringModule {
             doc = "The objects to join.")
       },
       useLocation = true,
-      useEnvironment = true)
-  public String join(String self, Object elements, Location loc, Environment env)
+      useStarlarkThread = true)
+  public String join(String self, Object elements, Location loc, StarlarkThread thread)
       throws EvalException {
-    Collection<?> items = EvalUtils.toCollection(elements, loc, env);
-    if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
+    Collection<?> items = EvalUtils.toCollection(elements, loc, thread);
+    if (thread.getSemantics().incompatibleStringJoinRequiresStrings()) {
       for (Object item : items) {
         if (!(item instanceof String)) {
           throw new EvalException(
@@ -337,10 +337,10 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
   public MutableList<String> split(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
+      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep.isEmpty()) {
       throw new EvalException(loc, "Empty separator");
@@ -360,7 +360,7 @@ public final class StringModule {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return MutableList.wrapUnsafe(env, res);
+    return MutableList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -386,10 +386,10 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
   public MutableList<String> rsplit(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
+      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep.isEmpty()) {
       throw new EvalException(loc, "Empty separator");
@@ -410,7 +410,7 @@ public final class StringModule {
       end = start;
     }
     Collections.reverse(res);
-    return MutableList.wrapUnsafe(env, res);
+    return MutableList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -429,9 +429,9 @@ public final class StringModule {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
-  public Tuple<String> partition(String self, Object sep, Location loc, Environment env)
+  public Tuple<String> partition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
         throw new EvalException(
@@ -464,9 +464,9 @@ public final class StringModule {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
-  public Tuple<String> rpartition(String self, Object sep, Location loc, Environment env)
+  public Tuple<String> rpartition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
         throw new EvalException(

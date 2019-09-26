@@ -28,7 +28,7 @@ public final class NodeVisitorTest {
 
   private BuildFileAST parse(String... lines) throws IOException {
     ParserInput input = ParserInput.fromLines(lines);
-    return BuildFileAST.parse(input, Environment.FAIL_FAST_HANDLER);
+    return BuildFileAST.parse(input, StarlarkThread.FAIL_FAST_HANDLER);
   }
 
   @Test

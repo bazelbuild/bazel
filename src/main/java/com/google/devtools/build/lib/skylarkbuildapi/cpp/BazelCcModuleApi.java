@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -62,7 +62,7 @@ public interface BazelCcModuleApi<
   @SkylarkCallable(
       name = "compile",
       doc = "Should be used for C++ compilation.",
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true,
       parameters = {
         @Param(
@@ -228,13 +228,13 @@ public interface BazelCcModuleApi<
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true,
       parameters = {
         @Param(
@@ -337,7 +337,7 @@ public interface BazelCcModuleApi<
       boolean linkDepsStatically,
       SkylarkList<FileT> additionalInputs,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(

@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Fake implementation of {@link CcInfoApi}. */
 public class FakeCcInfo implements CcInfoApi {
@@ -53,10 +53,7 @@ public class FakeCcInfo implements CcInfoApi {
 
     @Override
     public CcInfoApi createInfo(
-        Object ccCompilationContext,
-        Object ccLinkingInfo,
-        Location location,
-        Environment environment)
+        Object ccCompilationContext, Object ccLinkingInfo, Location location, StarlarkThread thread)
         throws EvalException {
       return new FakeCcInfo();
     }

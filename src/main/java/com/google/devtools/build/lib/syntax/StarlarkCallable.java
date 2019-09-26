@@ -29,23 +29,23 @@ public interface StarlarkCallable extends SkylarkValue {
   /**
    * Call this function with the given arguments.
    *
-   * Neither the callee nor the caller may modify the args List or kwargs Map.
+   * <p>Neither the callee nor the caller may modify the args List or kwargs Map.
    *
    * @param args the list of positional arguments
    * @param kwargs the mapping of named arguments
    * @param call the syntax tree of the function call
-   * @param env the Environment in which the function is called
+   * @param thread the StarlarkThread in which the function is called
    * @return the result of the call
    * @throws EvalException if there was an error invoking this function
    */
   // TODO(adonovan):
-  // - rename Environment to StarlarkThread and make it the first parameter.
-  // - eliminate the FuncallExpression parameter (which can be accessed through env).
+  // - rename StarlarkThread to StarlarkThread and make it the first parameter.
+  // - eliminate the FuncallExpression parameter (which can be accessed through thread).
   public Object call(
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression call,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   // TODO(adonovan): add a getName method that defines how this callable appears in a stack trace.

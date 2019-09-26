@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thr
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.DebugFrame;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -170,16 +170,16 @@ final class DebugEventHelper {
     return builder.build();
   }
 
-  static Environment.Stepping convertSteppingEnum(SkylarkDebuggingProtos.Stepping stepping) {
+  static StarlarkThread.Stepping convertSteppingEnum(SkylarkDebuggingProtos.Stepping stepping) {
     switch (stepping) {
       case INTO:
-        return Environment.Stepping.INTO;
+        return StarlarkThread.Stepping.INTO;
       case OUT:
-        return Environment.Stepping.OUT;
+        return StarlarkThread.Stepping.OUT;
       case OVER:
-        return Environment.Stepping.OVER;
+        return StarlarkThread.Stepping.OVER;
       case NONE:
-        return Environment.Stepping.NONE;
+        return StarlarkThread.Stepping.NONE;
       case UNRECOGNIZED:
         // fall through to exception
     }

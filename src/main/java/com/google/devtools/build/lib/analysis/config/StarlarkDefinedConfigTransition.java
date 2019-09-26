@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -109,8 +109,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       List<String> inputs,
       List<String> outputs,
       StarlarkSemantics semantics,
-      Environment env) {
-    return new RegularTransition(impl, inputs, outputs, semantics, BazelStarlarkContext.from(env));
+      StarlarkThread thread) {
+    return new RegularTransition(
+        impl, inputs, outputs, semantics, BazelStarlarkContext.from(thread));
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
@@ -273,13 +274,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     private Object evalFunction(BaseFunction function, ImmutableList<Object> args)
         throws InterruptedException, EvalException {
       try (Mutability mutability = Mutability.create("eval_transition_function")) {
-        Environment env =
-            Environment.builder(mutability)
+        StarlarkThread thread =
+            StarlarkThread.builder(mutability)
                 .setSemantics(semantics)
                 .setEventHandler(getEventHandler())
                 .build();
-        starlarkContext.storeInThread(env);
-        return function.call(args, ImmutableMap.of(), null, env);
+        starlarkContext.storeInThread(thread);
+        return function.call(args, ImmutableMap.of(), null, thread);
       }
     }
 

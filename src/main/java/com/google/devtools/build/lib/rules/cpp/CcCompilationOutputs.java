@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -104,11 +104,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
   @Override
   public SkylarkList<Artifact> getSkylarkObjectFiles(
-      boolean usePic, Location location, Environment environment) throws EvalException {
+      boolean usePic, Location location, StarlarkThread thread) throws EvalException {
     CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
+        thread.getSemantics(),
         location,
-        ((Label) environment.getGlobals().getLabel()).getPackageIdentifier().toString());
+        ((Label) thread.getGlobals().getLabel()).getPackageIdentifier().toString());
     return SkylarkList.createImmutable(getObjectFiles(usePic));
   }
 

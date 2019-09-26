@@ -2249,4 +2249,3 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 }
-

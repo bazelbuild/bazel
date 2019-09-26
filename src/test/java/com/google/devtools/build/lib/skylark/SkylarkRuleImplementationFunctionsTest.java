@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -68,6 +67,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -91,22 +91,20 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @SkylarkSignature(
-    name = "mock",
-    documented = false,
-    parameters = {
-      @Param(name = "mandatory", doc = ""),
-      @Param(name = "optional", doc = "", defaultValue = "None"),
-      @Param(name = "mandatory_key", doc = "", positional = false, named = true),
-      @Param(
-        name = "optional_key",
-        doc = "",
-        defaultValue = "'x'",
-        positional = false,
-        named = true
-      )
-    },
-    useEnvironment = true
-  )
+      name = "mock",
+      documented = false,
+      parameters = {
+        @Param(name = "mandatory", doc = ""),
+        @Param(name = "optional", doc = "", defaultValue = "None"),
+        @Param(name = "mandatory_key", doc = "", positional = false, named = true),
+        @Param(
+            name = "optional_key",
+            doc = "",
+            defaultValue = "'x'",
+            positional = false,
+            named = true)
+      },
+      useStarlarkThread = true)
   private BuiltinFunction mockFunc;
 
   /**
@@ -174,9 +172,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
               Object optional,
               Object mandatoryKey,
               Object optionalKey,
-              Environment env) {
+              StarlarkThread thread) {
             return EvalUtils.optionMap(
-                env,
+                thread,
                 "mandatory",
                 mandatory,
                 "optional",

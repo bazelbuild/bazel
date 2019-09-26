@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 
 /**
@@ -34,7 +34,7 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       List<String> inputs,
       List<String> outputs,
       Location location,
-      Environment env) {
+      StarlarkThread thread) {
     return new FakeConfigurationTransition();
   }
 

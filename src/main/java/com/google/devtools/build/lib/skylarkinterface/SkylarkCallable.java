@@ -46,11 +46,12 @@ import java.lang.annotation.Target;
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
- *       (Location)(FuncallExpression)(Envrionment)(StarlarkSemantics))</pre>
+ *       (Location)(FuncallExpression)(StarlarkThread)(StarlarkSemantics))</pre>
  *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
  *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
- *       Environment, and StarlarkSemantics are supplied by the interpreter if and only if
- *       useLocation, useAst, useEnvironment, and useStarlarkSemantics are specified, respectively.
+ *       StarlarkThread, and StarlarkSemantics are supplied by the interpreter if and only if
+ *       useLocation, useAst, useStarlarkThread, and useStarlarkSemantics are specified,
+ *       respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  * </ul>
@@ -154,13 +155,13 @@ public @interface SkylarkCallable {
   boolean useAst() default false;
 
   /**
-   * If true, the Starlark Environment will be passed as an argument of the annotated function.
-   * (Thus, the annotated method signature must contain Environment as a parameter. See the
-   * interface-level javadoc for details.)
+   * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the
+   * annotated method signature must contain StarlarkThread as a parameter. See the interface-level
+   * javadoc for details.)
    *
    * <p>This is incompatible with structField=true. If structField is true, this must be false.
    */
-  boolean useEnvironment() default false;
+  boolean useStarlarkThread() default false;
 
   /**
    * If true, the Starlark semantics will be passed as an argument of the annotated function. (Thus,

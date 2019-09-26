@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -160,7 +160,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
         Object skylarkCcCompilationContext,
         Object skylarkCcLinkingInfo,
         Location location,
-        Environment environment)
+        StarlarkThread thread)
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);

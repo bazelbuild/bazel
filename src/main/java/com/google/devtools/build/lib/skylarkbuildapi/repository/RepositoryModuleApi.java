@@ -18,11 +18,11 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * The Skylark module containing the definition of {@code repository_rule} function to define a
@@ -97,7 +97,7 @@ public interface RepositoryModuleApi {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public BaseFunction repositoryRule(
       BaseFunction implementation,
       Object attrs,
@@ -106,6 +106,6 @@ public interface RepositoryModuleApi {
       Boolean configure,
       String doc,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 }

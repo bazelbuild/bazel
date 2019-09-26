@@ -45,12 +45,13 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -591,8 +592,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // the transitive closure of the accessible AST nodes.
     PathFragment extensionFile = extensionLabel.toPathFragment();
     try (Mutability mutability = Mutability.create("importing %s", extensionFile)) {
-      com.google.devtools.build.lib.syntax.Environment extensionEnv =
-          ruleClassProvider.createSkylarkRuleClassEnvironment(
+      StarlarkThread extensionThread =
+          ruleClassProvider.createRuleClassStarlarkThread(
               extensionLabel,
               mutability,
               starlarkSemantics,
@@ -600,8 +601,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               ast.getContentHashCode(),
               importMap,
               repositoryMapping);
-      extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
-      execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
+      extensionThread.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
+      execAndExport(ast, extensionLabel, eventHandler, extensionThread);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       for (Postable post : eventHandler.getPosts()) {
@@ -610,24 +611,29 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       if (eventHandler.hasErrors()) {
         throw SkylarkImportFailedException.errors(extensionFile);
       }
-      return new Extension(extensionEnv);
+      return new Extension(extensionThread);
     }
   }
 
-  public static void execAndExport(BuildFileAST ast, Label extensionLabel,
+  public static void execAndExport(
+      BuildFileAST ast,
+      Label extensionLabel,
       EventHandler eventHandler,
-      com.google.devtools.build.lib.syntax.Environment extensionEnv) throws InterruptedException {
-    ast.replayLexerEvents(extensionEnv, eventHandler);
+      StarlarkThread extensionThread)
+      throws InterruptedException {
+    ast.replayLexerEvents(extensionThread, eventHandler);
     ImmutableList<Statement> statements = ast.getStatements();
     for (Statement statement : statements) {
-      ast.execTopLevelStatement(statement, extensionEnv, eventHandler);
-      possiblyExport(statement, extensionLabel, eventHandler, extensionEnv);
+      ast.execTopLevelStatement(statement, extensionThread, eventHandler);
+      possiblyExport(statement, extensionLabel, eventHandler, extensionThread);
     }
   }
 
-  private static void possiblyExport(Statement statement, Label extensionLabel,
+  private static void possiblyExport(
+      Statement statement,
+      Label extensionLabel,
       EventHandler eventHandler,
-      com.google.devtools.build.lib.syntax.Environment extensionEnv) {
+      StarlarkThread extensionThread) {
     if (!(statement instanceof AssignmentStatement)) {
       return;
     }
@@ -635,7 +641,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     ImmutableSet<Identifier> boundIdentifiers =
         Identifier.boundIdentifiers(assignmentStatement.getLHS());
     for (Identifier ident : boundIdentifiers) {
-      Object lookup = extensionEnv.moduleLookup(ident.getName());
+      Object lookup = extensionThread.moduleLookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;

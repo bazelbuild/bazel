@@ -52,7 +52,7 @@ public class LValueBoundNamesTest {
 
   private static void assertBoundNames(String assignment, String... expectedBoundNames) {
     ParserInput input = ParserInput.fromLines(assignment);
-    BuildFileAST file = BuildFileAST.parse(input, Environment.FAIL_FAST_HANDLER);
+    BuildFileAST file = BuildFileAST.parse(input, StarlarkThread.FAIL_FAST_HANDLER);
     Expression lhs = ((AssignmentStatement) file.getStatements().get(0)).getLHS();
     Set<String> boundNames =
         Identifier.boundIdentifiers(lhs).stream()

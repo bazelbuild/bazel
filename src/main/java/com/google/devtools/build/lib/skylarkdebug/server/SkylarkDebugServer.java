@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.syntax.Debugger;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
@@ -143,9 +143,9 @@ public final class SkylarkDebugServer implements Debugger {
    * @param location the location of the statement or expression currently being executed
    */
   @Override
-  public void before(Environment env, Location location) {
+  public void before(StarlarkThread thread, Location location) {
     if (!transport.isClosed()) {
-      threadHandler.pauseIfNecessary(env, location, transport);
+      threadHandler.pauseIfNecessary(thread, location, transport);
     }
   }
 

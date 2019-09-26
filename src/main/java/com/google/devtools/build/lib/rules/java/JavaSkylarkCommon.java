@@ -26,11 +26,11 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A module that contains Skylark utilities for Java support. */
 public class JavaSkylarkCommon
@@ -73,7 +73,7 @@ public class JavaSkylarkCommon
       SkylarkList<Artifact> resources,
       Boolean neverlink,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
@@ -98,7 +98,7 @@ public class JavaSkylarkCommon
             neverlink,
             javaSemantics,
             location,
-            environment);
+            thread);
   }
 
   @Override

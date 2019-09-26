@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /**
@@ -57,7 +57,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
       new NativeProvider<ToolchainInfo>(ToolchainInfo.class, SKYLARK_NAME, SIGNATURE) {
         @Override
         protected ToolchainInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) throws EvalException {
+            Object[] args, StarlarkThread thread, Location loc) throws EvalException {
           Map<String, Object> data =
               SkylarkDict.castSkylarkDictOrNoneToDict(args[0], String.class, Object.class, "data");
           return ToolchainInfo.create(data, loc);

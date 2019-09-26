@@ -192,7 +192,7 @@ public final class CallUtils {
                 }
               });
 
-  // *args, **kwargs, location, ast, environment, skylark semantics
+  // *args, **kwargs, location, ast, thread, skylark semantics
   private static final int EXTRA_ARGS_COUNT = 6;
 
   /**
@@ -373,7 +373,7 @@ public final class CallUtils {
    * Invokes the given structField=true method and returns the result.
    *
    * <p>The given method must <b>not</b> require extra-interpreter parameters, such as {@link
-   * Environment}. This method throws {@link IllegalArgumentException} for violations.
+   * StarlarkThread}. This method throws {@link IllegalArgumentException} for violations.
    *
    * @param methodDescriptor the descriptor of the method to invoke
    * @param fieldName the name of the struct field
@@ -387,7 +387,7 @@ public final class CallUtils {
     Preconditions.checkArgument(
         methodDescriptor.isStructField(), "Can only be invoked on structField callables");
     Preconditions.checkArgument(
-        !methodDescriptor.isUseEnvironment()
+        !methodDescriptor.isUseStarlarkThread()
             || !methodDescriptor.isUseStarlarkSemantics()
             || !methodDescriptor.isUseLocation(),
         "Cannot be invoked on structField callables with extra interpreter params");
@@ -403,14 +403,14 @@ public final class CallUtils {
    * @param args a list of positional Starlark arguments
    * @param kwargs a map of keyword Starlark arguments; keys are the used keyword, and values are
    *     their corresponding values in the method call
-   * @param environment the current Starlark environment
+   * @param thread the Starlark thread for the call
    * @return the array of arguments which may be passed to {@link MethodDescriptor#call}
    * @throws EvalException if the given set of arguments are invalid for the given method. For
    *     example, if any arguments are of unexpected type, or not all mandatory parameters are
    *     specified by the user
    */
   static Object[] convertStarlarkArgumentsToJavaMethodArguments(
-      Environment environment,
+      StarlarkThread thread,
       FuncallExpression call,
       MethodDescriptor method,
       Class<?> objClass,
@@ -523,18 +523,18 @@ public final class CallUtils {
         }
         extraKwargs = extraKwargsBuilder.build();
       } else {
-        throw unexpectedKeywordArgumentException(call, keys, method, objClass, environment);
+        throw unexpectedKeywordArgumentException(call, keys, method, objClass, thread);
       }
     }
 
-    // Then add any skylark-interpreter arguments (for example kwargs or the Environment).
+    // Then add any skylark-interpreter arguments (for example kwargs or the StarlarkThread).
     if (acceptsExtraArgs) {
       builder.add(Tuple.copyOf(extraArgs));
     }
     if (acceptsExtraKwargs) {
-      builder.add(SkylarkDict.copyOf(environment, extraKwargs));
+      builder.add(SkylarkDict.copyOf(thread, extraKwargs));
     }
-    appendExtraInterpreterArgs(builder, method, call, call.getLocation(), environment);
+    appendExtraInterpreterArgs(builder, method, call, call.getLocation(), thread);
 
     return builder.toArray();
   }
@@ -565,7 +565,7 @@ public final class CallUtils {
       Set<String> unexpectedKeywords,
       MethodDescriptor method,
       Class<?> objClass,
-      Environment env) {
+      StarlarkThread thread) {
     // Check if any of the unexpected keywords are for parameters which are disabled by the
     // current semantic flags. Throwing an error with information about the misconfigured
     // semantic flag is likely far more helpful.
@@ -573,7 +573,7 @@ public final class CallUtils {
       if (param.isDisabledInCurrentSemantics() && unexpectedKeywords.contains(param.getName())) {
         FlagIdentifier flagIdentifier = param.getFlagResponsibleForDisable();
         // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
-        if (env.getSemantics().flagValue(flagIdentifier)) {
+        if (thread.getSemantics().flagValue(flagIdentifier)) {
           return new EvalException(
               call.getLocation(),
               String.format(
@@ -640,25 +640,28 @@ public final class CallUtils {
    * the caller to validate this invariant.
    */
   static List<Object> extraInterpreterArgs(
-      MethodDescriptor method, @Nullable FuncallExpression ast, Location loc, Environment env) {
+      MethodDescriptor method,
+      @Nullable FuncallExpression ast,
+      Location loc,
+      StarlarkThread thread) {
     List<Object> builder = new ArrayList<>();
-    appendExtraInterpreterArgs(builder, method, ast, loc, env);
+    appendExtraInterpreterArgs(builder, method, ast, loc, thread);
     return ImmutableList.copyOf(builder);
   }
 
   /**
    * Same as {@link #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location,
-   * Environment)} but appends args to a passed {@code builder} to avoid unnecessary allocations of
-   * intermediate instances.
+   * StarlarkThread)} but appends args to a passed {@code builder} to avoid unnecessary allocations
+   * of intermediate instances.
    *
-   * @see #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location, Environment)
+   * @see #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location, StarlarkThread)
    */
   private static void appendExtraInterpreterArgs(
       List<Object> builder,
       MethodDescriptor method,
       @Nullable FuncallExpression ast,
       Location loc,
-      Environment env) {
+      StarlarkThread thread) {
     if (method.isUseLocation()) {
       builder.add(loc);
     }
@@ -668,11 +671,11 @@ public final class CallUtils {
       }
       builder.add(ast);
     }
-    if (method.isUseEnvironment()) {
-      builder.add(env);
+    if (method.isUseStarlarkThread()) {
+      builder.add(thread);
     }
     if (method.isUseStarlarkSemantics()) {
-      builder.add(env.getSemantics());
+      builder.add(thread.getSemantics());
     }
   }
 
@@ -710,7 +713,7 @@ public final class CallUtils {
 
   /** Invoke object.method() and return the result. */
   static Object callMethod(
-      Environment env,
+      StarlarkThread thread,
       FuncallExpression call,
       Object object,
       ArrayList<Object> posargs,
@@ -720,7 +723,7 @@ public final class CallUtils {
       throws EvalException, InterruptedException {
     // Case 1: Object is a String. String is an unusual special case.
     if (object instanceof String) {
-      return callStringMethod(env, call, (String) object, methodName, posargs, kwargs);
+      return callStringMethod(thread, call, (String) object, methodName, posargs, kwargs);
     }
 
     // Case 2: Object is a Java object with a matching @SkylarkCallable method.
@@ -728,12 +731,12 @@ public final class CallUtils {
     // java method 'bar()', this avoids evaluating 'foo.bar' in isolation (which would require
     // creating a throwaway function-like object).
     MethodDescriptor methodDescriptor =
-        CallUtils.getMethod(env.getSemantics(), object.getClass(), methodName);
+        CallUtils.getMethod(thread.getSemantics(), object.getClass(), methodName);
     if (methodDescriptor != null && !methodDescriptor.isStructField()) {
       Object[] javaArguments =
           convertStarlarkArgumentsToJavaMethodArguments(
-              env, call, methodDescriptor, object.getClass(), posargs, kwargs);
-      return methodDescriptor.call(object, javaArguments, call.getLocation(), env);
+              thread, call, methodDescriptor, object.getClass(), posargs, kwargs);
+      return methodDescriptor.call(object, javaArguments, call.getLocation(), thread);
     }
 
     // Case 3: Object is a function registered with the BuiltinRegistry.
@@ -743,16 +746,16 @@ public final class CallUtils {
         Runtime.getBuiltinRegistry().getFunction(object.getClass(), methodName);
     if (legacyRuntimeFunction != null) {
       return callLegacyBuiltinRegistryFunction(
-          call, legacyRuntimeFunction, object, posargs, kwargs, env);
+          call, legacyRuntimeFunction, object, posargs, kwargs, thread);
     }
 
     // Case 4: All other cases. Evaluate "foo.bar" as a dot expression, then try to invoke it
     // as a callable.
-    Object functionObject = EvalUtils.getAttr(env, dotLocation, object, methodName);
+    Object functionObject = EvalUtils.getAttr(thread, dotLocation, object, methodName);
     if (functionObject == null) {
       throw missingMethodException(call, object.getClass(), methodName);
     } else {
-      return call(env, call, functionObject, posargs, kwargs);
+      return call(thread, call, functionObject, posargs, kwargs);
     }
   }
 
@@ -762,16 +765,16 @@ public final class CallUtils {
       Object object,
       ArrayList<Object> posargs,
       Map<String, Object> kwargs,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (!isNamespace(object.getClass())) {
       posargs.add(0, object);
     }
-    return legacyRuntimeFunction.call(posargs, kwargs, call, env);
+    return legacyRuntimeFunction.call(posargs, kwargs, call, thread);
   }
 
   private static Object callStringMethod(
-      Environment env,
+      StarlarkThread thread,
       FuncallExpression call,
       String objValue,
       String methodName,
@@ -782,19 +785,19 @@ public final class CallUtils {
     // to StringModule, and thus need to include the actual string as a 'self' parameter.
     posargs.add(0, objValue);
 
-    MethodDescriptor method = getMethod(env.getSemantics(), StringModule.class, methodName);
+    MethodDescriptor method = getMethod(thread.getSemantics(), StringModule.class, methodName);
     if (method == null) {
       throw missingMethodException(call, StringModule.class, methodName);
     }
 
     Object[] javaArguments =
         convertStarlarkArgumentsToJavaMethodArguments(
-            env, call, method, StringModule.class, posargs, kwargs);
-    return method.call(StringModule.INSTANCE, javaArguments, call.getLocation(), env);
+            thread, call, method, StringModule.class, posargs, kwargs);
+    return method.call(StringModule.INSTANCE, javaArguments, call.getLocation(), thread);
   }
 
   static Object call(
-      Environment env,
+      StarlarkThread thread,
       FuncallExpression call,
       Object fn,
       ArrayList<Object> posargs,
@@ -803,13 +806,13 @@ public final class CallUtils {
 
     if (fn instanceof StarlarkCallable) {
       StarlarkCallable callable = (StarlarkCallable) fn;
-      return callable.call(posargs, ImmutableMap.copyOf(kwargs), call, env);
-    } else if (hasSelfCallMethod(env.getSemantics(), fn.getClass())) {
-      MethodDescriptor descriptor = getSelfCallMethodDescriptor(env.getSemantics(), fn);
+      return callable.call(posargs, ImmutableMap.copyOf(kwargs), call, thread);
+    } else if (hasSelfCallMethod(thread.getSemantics(), fn.getClass())) {
+      MethodDescriptor descriptor = getSelfCallMethodDescriptor(thread.getSemantics(), fn);
       Object[] javaArguments =
           convertStarlarkArgumentsToJavaMethodArguments(
-              env, call, descriptor, fn.getClass(), posargs, kwargs);
-      return descriptor.call(fn, javaArguments, call.getLocation(), env);
+              thread, call, descriptor, fn.getClass(), posargs, kwargs);
+      return descriptor.call(fn, javaArguments, call.getLocation(), thread);
     } else {
       throw new EvalException(
           call.getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");

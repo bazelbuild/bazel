@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object encapsulating all information by java rules. */
 @SkylarkModule(
@@ -160,85 +160,86 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
   public interface JavaInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
-      name = "JavaInfo",
-      doc = "The <code>JavaInfo</code> constructor.",
-      parameters = {
-        @Param(
-            name = "output_jar",
-            type = FileApi.class,
-            named = true,
-            doc =
-                "The jar that was created as a result of a compilation "
-                    + "(e.g. javac, scalac, etc)."),
-        @Param(
-            name = "compile_jar",
-            type = FileApi.class,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "A jar that is added as the compile-time dependency in lieu of "
-                    + "<code>output_jar</code>. Typically this is the ijar produced by "
-                    + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
-                    + "run_ijar</a></code>. "
-                    + "If you cannot use ijar, consider instead using the output of "
-                    + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
-                    + "stamp_ijar</a></code>. If you do not wish to use either, "
-                    + "you can simply pass <code>output_jar</code>."),
-        @Param(
-            name = "source_jar",
-            type = FileApi.class,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "The source jar that was used to create the output jar. "
-                    + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
-                    + "pack_sources</a></code> to produce this source jar."),
-        @Param(
-            name = "neverlink",
-            type = Boolean.class,
-            named = true,
-            defaultValue = "False",
-            doc = "If true only use this library for compilation and not at runtime."),
-        @Param(
-            name = "deps",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc = "Compile time dependencies that were used to create the output jar."),
-        @Param(
-            name = "runtime_deps",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc = "Runtime dependencies that are needed for this library."),
-        @Param(
-            name = "exports",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc =
-                "Libraries to make available for users of this library. See also "
-                    + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
-                    + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
-        @Param(
-            name = "jdeps",
-            type = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc = "jdeps information for the rule output (if available). This should be a "
-                + "binary proto encoded using the deps.proto protobuf included with Bazel.  "
-                + "If available this file is typically produced by a compiler. IDEs and other "
-                + "tools can use this information for more efficient processing."),
-      },
-      selfCall = true,
-      useLocation = true,
-      useEnvironment = true)
+        name = "JavaInfo",
+        doc = "The <code>JavaInfo</code> constructor.",
+        parameters = {
+          @Param(
+              name = "output_jar",
+              type = FileApi.class,
+              named = true,
+              doc =
+                  "The jar that was created as a result of a compilation "
+                      + "(e.g. javac, scalac, etc)."),
+          @Param(
+              name = "compile_jar",
+              type = FileApi.class,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
+              doc =
+                  "A jar that is added as the compile-time dependency in lieu of "
+                      + "<code>output_jar</code>. Typically this is the ijar produced by "
+                      + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
+                      + "run_ijar</a></code>. "
+                      + "If you cannot use ijar, consider instead using the output of "
+                      + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
+                      + "stamp_ijar</a></code>. If you do not wish to use either, "
+                      + "you can simply pass <code>output_jar</code>."),
+          @Param(
+              name = "source_jar",
+              type = FileApi.class,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
+              doc =
+                  "The source jar that was used to create the output jar. "
+                      + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
+                      + "pack_sources</a></code> to produce this source jar."),
+          @Param(
+              name = "neverlink",
+              type = Boolean.class,
+              named = true,
+              defaultValue = "False",
+              doc = "If true only use this library for compilation and not at runtime."),
+          @Param(
+              name = "deps",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc = "Compile time dependencies that were used to create the output jar."),
+          @Param(
+              name = "runtime_deps",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc = "Runtime dependencies that are needed for this library."),
+          @Param(
+              name = "exports",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc =
+                  "Libraries to make available for users of this library. See also "
+                      + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
+                      + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
+          @Param(
+              name = "jdeps",
+              type = FileApi.class,
+              named = true,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "jdeps information for the rule output (if available). This should be a binary"
+                      + " proto encoded using the deps.proto protobuf included with Bazel.  If"
+                      + " available this file is typically produced by a compiler. IDEs and other"
+                      + " tools can use this information for more efficient processing."),
+        },
+        selfCall = true,
+        useLocation = true,
+        useStarlarkThread = true)
     @SkylarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
     public JavaInfoApi<?> javaInfo(
         FileApi outputJarApi,
@@ -250,7 +251,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         SkylarkList<?> exports,
         Object jdepsApi,
         Location loc,
-        Environment env)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

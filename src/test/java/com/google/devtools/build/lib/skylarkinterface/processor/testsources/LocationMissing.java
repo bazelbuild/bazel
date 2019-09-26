@@ -16,26 +16,24 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * Test case for a SkylarkCallable method which does not have an appropriate Environment parameter
- * despite having useLocation set.
+ * Test case for a SkylarkCallable method which does not have an appropriate StarlarkThread
+ * parameter despite having useLocation set.
  */
 public class LocationMissing {
 
   @SkylarkCallable(
-    name = "three_arg_method_missing_location",
-    documented = false,
-    parameters = {
+      name = "three_arg_method_missing_location",
+      documented = false,
+      parameters = {
         @Param(name = "one", type = String.class, named = true),
         @Param(name = "two", type = Integer.class, named = true),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String threeArgMethod(String one, Integer two, String shouldBeLoc,
-      Environment environment) {
+      },
+      useLocation = true,
+      useStarlarkThread = true)
+  public String threeArgMethod(String one, Integer two, String shouldBeLoc, StarlarkThread thread) {
     return "bar";
   }
 }

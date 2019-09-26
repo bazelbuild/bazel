@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -59,6 +58,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
@@ -704,9 +704,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   protected void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    BuildFileAST file = BuildFileAST.parseAndValidateSkylark(input, ev.getEnvironment());
+    BuildFileAST file = BuildFileAST.parseAndValidateSkylark(input, ev.getStarlarkThread());
     SkylarkImportLookupFunction.execAndExport(
-        file, FAKE_LABEL, ev.getEventHandler(), ev.getEnvironment());
+        file, FAKE_LABEL, ev.getEventHandler(), ev.getStarlarkThread());
   }
 
   @Test
@@ -1288,20 +1288,20 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     return StructProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }
 
-  private static StructImpl makeBigStruct(Environment env) {
+  private static StructImpl makeBigStruct(StarlarkThread thread) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
     return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             "a",
                 MutableList.<Object>of(
-                    env,
+                    thread,
                     StructProvider.STRUCT.create(
                         ImmutableMap.<String, Object>of(
-                            "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
+                            "x", SkylarkDict.<Object, Object>of(thread, 1, 1)),
                         "no field '%s'"),
                     Tuple.of()),
             "b", Tuple.of(),
-            "c", SkylarkDict.<Object, Object>of(env, 2, 2)),
+            "c", SkylarkDict.<Object, Object>of(thread, 2, 2)),
         "no field '%s'");
   }
 
@@ -1310,8 +1310,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", 1))).isTrue();
   }
 
-  private static MutableList<Object> makeList(Environment env) {
-    return MutableList.<Object>of(env, 1, 2, 3);
+  private static MutableList<Object> makeList(StarlarkThread thread) {
+    return MutableList.<Object>of(thread, 1, 2, 3);
   }
 
   @Test
@@ -1320,9 +1320,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(null)))).isTrue();
     assertThat(EvalUtils.isImmutable(makeBigStruct(null))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(ev.getEnvironment())))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(ev.getEnvironment())))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeBigStruct(ev.getEnvironment()))).isFalse();
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(ev.getStarlarkThread())))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(ev.getStarlarkThread())))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeBigStruct(ev.getStarlarkThread()))).isFalse();
   }
 
   @Test

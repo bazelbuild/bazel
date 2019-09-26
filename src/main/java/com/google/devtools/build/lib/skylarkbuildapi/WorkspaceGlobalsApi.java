@@ -19,12 +19,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
 @SkylarkGlobalLibrary
@@ -80,12 +80,12 @@ public interface WorkspaceGlobalsApi {
                     + " them (or their parent directories) in the .bazelignore file."),
       },
       useAst = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   NoneType workspace(
       String name,
       SkylarkDict<String, Object> managedDirectories,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -99,9 +99,9 @@ public interface WorkspaceGlobalsApi {
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, Environment env)
+      SkylarkList<?> platformLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -117,8 +117,9 @@ public interface WorkspaceGlobalsApi {
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
       useLocation = true,
-      useEnvironment = true)
-  NoneType registerToolchains(SkylarkList<?> toolchainLabels, Location location, Environment env)
+      useStarlarkThread = true)
+  NoneType registerToolchains(
+      SkylarkList<?> toolchainLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -146,7 +147,7 @@ public interface WorkspaceGlobalsApi {
             doc = "The real label to be aliased")
       },
       useAst = true,
-      useEnvironment = true)
-  NoneType bind(String name, Object actual, FuncallExpression ast, Environment env)
+      useStarlarkThread = true)
+  NoneType bind(String name, Object actual, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

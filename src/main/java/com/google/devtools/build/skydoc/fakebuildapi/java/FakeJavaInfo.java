@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoPro
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Fake implementation of {@link JavaInfoApi}.
@@ -127,7 +127,7 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
         SkylarkList<?> exports,
         Object jdepsApi,
         Location loc,
-        Environment env)
+        StarlarkThread thread)
         throws EvalException {
       return new FakeJavaInfo();
     }

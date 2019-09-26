@@ -780,22 +780,18 @@ public abstract class SkylarkType {
     throw new IllegalStateException("Cannot infer type from method signature " + method);
   }
 
-  /**
-   * Converts an object retrieved from a Java method to a Skylark-compatible type.
-   */
-  static Object convertToSkylark(Object object, Method method, @Nullable Environment env) {
+  /** Converts an object retrieved from a Java method to a Skylark-compatible type. */
+  static Object convertToSkylark(Object object, Method method, @Nullable StarlarkThread thread) {
     if (object instanceof NestedSet<?>) {
       return SkylarkNestedSet.of(
           SkylarkType.of(getGenericTypeFromMethod(method)), (NestedSet<?>) object);
     }
-    return convertToSkylark(object, env);
+    return convertToSkylark(object, thread);
   }
 
-  /**
-   * Converts an object to a Skylark-compatible type if possible.
-   */
-  public static Object convertToSkylark(Object object, @Nullable Environment env) {
-    return convertToSkylark(object, env == null ? null : env.mutability());
+  /** Converts an object to a Skylark-compatible type if possible. */
+  public static Object convertToSkylark(Object object, @Nullable StarlarkThread thread) {
+    return convertToSkylark(object, thread == null ? null : thread.mutability());
   }
 
   /**

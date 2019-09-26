@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * A helper class for calling Starlark functions from Java, where the argument values are supplied
@@ -71,13 +71,13 @@ public class StarlarkCallbackHelper {
   public Object call(EventHandler eventHandler, ClassObject ctx, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
-      Environment env =
-          Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
               .build();
-      context.storeInThread(env);
-      return callback.call(buildArgumentList(ctx, arguments), null, ast, env);
+      context.storeInThread(thread);
+      return callback.call(buildArgumentList(ctx, arguments), null, ast, thread);
     } catch (ClassCastException | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }

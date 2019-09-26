@@ -179,9 +179,11 @@ public abstract class BaseFunction implements StarlarkCallable {
   /**
    * Process the caller-provided arguments into an array suitable for the callee (this function).
    */
-  public Object[] processArguments(List<Object> args,
+  public Object[] processArguments(
+      List<Object> args,
       @Nullable Map<String, Object> kwargs,
-      @Nullable Location loc, @Nullable Environment env)
+      @Nullable Location loc,
+      @Nullable StarlarkThread thread)
       throws EvalException {
 
     Object[] arguments = new Object[getArgArraySize()];
@@ -256,7 +258,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       // If there's a kwParam, it's empty.
       if (hasKwParam) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = SkylarkDict.of(env);
+        arguments[kwParamIndex] = SkylarkDict.of(thread);
       }
     } else if (hasKwParam && numNamedParams == 0) {
       // Easy case (2b): there are no named parameters, but there is a **kwParam.
@@ -265,10 +267,10 @@ public abstract class BaseFunction implements StarlarkCallable {
       // Also note that no named parameters means no mandatory parameters that weren't passed,
       // and no missing optional parameters for which to use a default. Thus, no loops.
       // NB: not 2a means kwarg isn't null
-      arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwargs);
+      arguments[kwParamIndex] = SkylarkDict.copyOf(thread, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(env) : SkylarkDict.empty();
+      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(thread) : SkylarkDict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
@@ -303,12 +305,12 @@ public abstract class BaseFunction implements StarlarkCallable {
             throw new EvalException(loc, String.format(
                 "%s got multiple values for keyword argument '%s'", this, keyword));
           }
-          kwArg.put(keyword, value, loc, env);
+          kwArg.put(keyword, value, loc, thread);
         }
       }
       if (hasKwParam) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwArg);
+        arguments[kwParamIndex] = SkylarkDict.copyOf(thread, kwArg);
       }
 
       // Check that all mandatory parameters were filled in general case 2c.
@@ -381,22 +383,23 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @param args a list of all positional arguments (as in *starArg)
    * @param kwargs a map for key arguments (as in **kwArgs)
    * @param ast the expression for this function's definition
-   * @param env the Environment in the function is called
+   * @param thread the StarlarkThread in the function is called
    * @return the value resulting from evaluating the function with the given arguments
    * @throws EvalException-s containing source information.
    */
-  public Object call(List<Object> args,
+  public Object call(
+      List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
 
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
 
-    Object[] arguments = processArguments(args, kwargs, loc, env);
-    return callWithArgArray(arguments, ast, env, location);
+    Object[] arguments = processArguments(args, kwargs, loc, thread);
+    return callWithArgArray(arguments, ast, thread, location);
   }
 
   /**
@@ -404,11 +407,11 @@ public abstract class BaseFunction implements StarlarkCallable {
    *
    * @param args an array of argument values sorted as per the signature.
    * @param ast the source code for the function if user-defined
-   * @param env the lexical environment of the function call
+   * @param thread the Starlark thread for the call
    * @throws InterruptedException may be thrown in the function implementations.
    */
   // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     throw new EvalException(
         (ast == null) ? Location.BUILTIN : ast.getLocation(),
@@ -420,12 +423,12 @@ public abstract class BaseFunction implements StarlarkCallable {
    * been resolved into positional ones.
    *
    * @param ast the expression for this function's definition
-   * @param env the Environment in the function is called
+   * @param thread the StarlarkThread in the function is called
    * @return the value resulting from evaluating the function with the given arguments
    * @throws EvalException-s containing source information.
    */
   public Object callWithArgArray(
-      Object[] arguments, @Nullable FuncallExpression ast, Environment env, Location loc)
+      Object[] arguments, @Nullable FuncallExpression ast, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
     Preconditions.checkState(isConfigured(), "Function %s was not configured", getName());
     canonicalizeArguments(arguments, loc);
@@ -434,7 +437,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       if (Callstack.enabled) {
         Callstack.push(this);
       }
-      return call(arguments, ast, env);
+      return call(arguments, ast, thread);
     } finally {
       if (Callstack.enabled) {
         Callstack.pop();

@@ -319,8 +319,8 @@ public final class Runtime {
    * All Skylark builtins.
    *
    * <p>Note that just because a symbol is registered here does not necessarily mean that it is
-   * accessible in a particular {@link Environment}. This registry should include any builtin that
-   * is available in any environment.
+   * accessible in a particular {@link StarlarkThread}. This registry should include any builtin
+   * that is available in any environment.
    *
    * <p>Thread safety: This object is unsynchronized. The register functions are typically called
    * from within static initializer blocks, which should be fine.

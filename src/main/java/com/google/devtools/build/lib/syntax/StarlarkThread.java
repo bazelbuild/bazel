@@ -48,30 +48,30 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * An Environment represents a Starlark thread.
+ * An StarlarkThread represents a Starlark thread.
  *
  * <p>It holds the stack of active Starlark and built-in function calls. In addition, it may hold
  * per-thread application state (see {@link #setThreadLocal}) that passes through Starlark functions
  * but does not directly affect them, such as information about the BUILD file being loaded.
  *
- * <p>Every {@code Environment} has a {@link Mutability} field, and must be used within a function
- * that creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
- * Mutability} is also used when initializing mutable objects within that {@code Environment}. When
- * the {@code Mutability} is closed at the end of the computation, it freezes the {@code
- * Environment} along with all of those objects. This pattern enforces the discipline that there
- * should be no dangling mutable {@code Environment}, or concurrency between interacting {@code
- * Environment}s. It is a Skylark-level error to attempt to mutate a frozen {@code Environment} or
- * its objects, but it is a Java-level error to attempt to mutate an unfrozen {@code Environment} or
- * its objects from within a different {@code Environment}.
+ * <p>Every {@code StarlarkThread} has a {@link Mutability} field, and must be used within a
+ * function that creates and closes this {@link Mutability} with the try-with-resource pattern. This
+ * {@link Mutability} is also used when initializing mutable objects within that {@code
+ * StarlarkThread}. When the {@code Mutability} is closed at the end of the computation, it freezes
+ * the {@code StarlarkThread} along with all of those objects. This pattern enforces the discipline
+ * that there should be no dangling mutable {@code StarlarkThread}, or concurrency between
+ * interacting {@code StarlarkThread}s. It is a Skylark-level error to attempt to mutate a frozen
+ * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
+ * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
  *
- * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
- * #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
+ * <p>One creates an StarlarkThread using the {@link #builder} function, then populates it with
+ * {@link #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
  * BuildFileAST#eval}, or with {@link BuildFileAST#exec} (where the AST was obtained by passing a
- * {@link ValidationEnvironment} constructed from the Environment to {@link BuildFileAST#parse}.
- * When the computation is over, the frozen Environment can still be queried with {@link #lookup}.
+ * {@link ValidationEnvironment} constructed from the StarlarkThread to {@link BuildFileAST#parse}.
+ * When the computation is over, the frozen StarlarkThread can still be queried with {@link
+ * #lookup}.
  */
-// TODO(adonovan): further steps for Environmental remediation:
-// This class should be renamed StarlarkThread, for that is what it is.
+// TODO(adonovan): further steps for StarlarkThread remediation:
 // Its API should expose the following concepts, and no more:
 // 1) "thread local variables": this holds per-thread application
 //    state such as the current Label, or BUILD package, for all the
@@ -94,7 +94,7 @@ import javax.annotation.Nullable;
 //    Advanced clients such as the debugger, and the generator_name rule attribute, also need:
 //    - the function value (Warning: careless clients can pin closures in memory)
 //    - Object getLocalValue(Identifier parameter).
-//    3) Debugging support (thread name, profiling counters, etc).
+// 3) Debugging support (thread name, profiling counters, etc).
 // And that is all. See go.starlark.net for the model.
 //
 // The Frame interface should be hidden from clients and then eliminated.
@@ -113,7 +113,7 @@ import javax.annotation.Nullable;
 // Once the API is small and sound, we can start to represent all
 // the lexical frames within a single function using just an array,
 // indexed by a small integer computed during the validation pass.
-public final class Environment implements Freezable {
+public final class StarlarkThread implements Freezable {
 
   /**
    * A mapping of bindings, either mutable or immutable according to an associated {@link
@@ -121,11 +121,11 @@ public final class Environment implements Freezable {
    * unspecified.
    *
    * <p>Any non-frozen {@link Frame} must have the same {@link Mutability} as the current {@link
-   * Environment}, to avoid interference from other evaluation contexts. For example, a {@link
-   * StarlarkFunction} will close over the global frame of the {@link Environment} in which it was
-   * defined. When the function is called from other {@link Environment}s (possibly simultaneously),
-   * that global frame must already be frozen; a new local {@link Frame} is created to represent the
-   * lexical scope of the function.
+   * StarlarkThread}, to avoid interference from other evaluation contexts. For example, a {@link
+   * StarlarkFunction} will close over the global frame of the {@link StarlarkThread} in which it
+   * was defined. When the function is called from other {@link StarlarkThread}s (possibly
+   * simultaneously), that global frame must already be frozen; a new local {@link Frame} is created
+   * to represent the lexical scope of the function.
    *
    * <p>A {@link Frame} can have an associated "parent" {@link Frame}, which is used in {@link #get}
    * and {@link #getTransitiveBindings()}
@@ -152,17 +152,17 @@ public final class Environment implements Freezable {
      * <p>If the binding has the same name as one in a transitive parent, the parent binding is
      * shadowed (i.e., the parent is unaffected).
      *
-     * @param env the {@link Environment} attempting the mutation
+     * @param thread the {@link StarlarkThread} attempting the mutation
      * @param varname the name of the variable to be bound
      * @param value the value to bind to the variable
      */
-    void put(Environment env, String varname, Object value) throws MutabilityException;
+    void put(StarlarkThread thread, String varname, Object value) throws MutabilityException;
 
     /**
      * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
      * public interface.
      */
-    void remove(Environment env, String varname) throws MutabilityException;
+    void remove(StarlarkThread thread, String varname) throws MutabilityException;
 
     /**
      * Returns a map containing all bindings of this {@link Frame} and of its transitive parents,
@@ -202,14 +202,15 @@ public final class Environment implements Freezable {
     }
 
     @Override
-    public void put(Environment env, String varname, Object value) throws MutabilityException {
-      Mutability.checkMutable(this, env.mutability());
+    public void put(StarlarkThread thread, String varname, Object value)
+        throws MutabilityException {
+      Mutability.checkMutable(this, thread.mutability());
       throw new IllegalStateException();
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, env.mutability());
+    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
+      Mutability.checkMutable(this, thread.mutability());
       throw new IllegalStateException();
     }
 
@@ -251,14 +252,15 @@ public final class Environment implements Freezable {
     }
 
     @Override
-    public void put(Environment env, String varname, Object value) throws MutabilityException {
-      Mutability.checkMutable(this, env.mutability());
+    public void put(StarlarkThread thread, String varname, Object value)
+        throws MutabilityException {
+      Mutability.checkMutable(this, thread.mutability());
       bindings.put(varname, value);
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, env.mutability());
+    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
+      Mutability.checkMutable(this, thread.mutability());
       bindings.remove(varname);
     }
 
@@ -530,16 +532,17 @@ public final class Environment implements Freezable {
     }
 
     @Override
-    public void put(Environment env, String varname, Object value) throws MutabilityException {
+    public void put(StarlarkThread thread, String varname, Object value)
+        throws MutabilityException {
       checkInitialized();
-      Mutability.checkMutable(this, env.mutability());
+      Mutability.checkMutable(this, thread.mutability());
       bindings.put(varname, value);
     }
 
     @Override
-    public void remove(Environment env, String varname) throws MutabilityException {
+    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
       checkInitialized();
-      Mutability.checkMutable(this, env.mutability());
+      Mutability.checkMutable(this, thread.mutability());
       bindings.remove(varname);
     }
 
@@ -553,7 +556,7 @@ public final class Environment implements Freezable {
     }
   }
 
-  // The mutability of the Environment comes from its initial global frame.
+  // The mutability of the StarlarkThread comes from its initial global frame.
   private final Mutability mutability;
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
@@ -633,18 +636,18 @@ public final class Environment implements Freezable {
     }
 
     /**
-     * Constructs using the bindings from the global definitions of the given {@link Environment},
-     * and that {@code Environment}'s transitive hash code.
+     * Constructs using the bindings from the global definitions of the given {@link
+     * StarlarkThread}, and that {@code StarlarkThread}'s transitive hash code.
      */
-    public Extension(Environment env) {
+    public Extension(StarlarkThread thread) {
       // Legacy behavior: all symbols from the global Frame are exported (including symbols
       // introduced by load).
       this(
           ImmutableMap.copyOf(
-              env.getSemantics().incompatibleNoTransitiveLoads()
-                  ? env.globalFrame.getExportedBindings()
-                  : env.globalFrame.getBindings()),
-          env.getTransitiveContentHashCode());
+              thread.getSemantics().incompatibleNoTransitiveLoads()
+                  ? thread.globalFrame.getExportedBindings()
+                  : thread.globalFrame.getBindings()),
+          thread.getTransitiveContentHashCode());
     }
 
     private String getTransitiveContentHashCode() {
@@ -777,8 +780,8 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Static Frame for lexical variables that are always looked up in the current Environment or for
-   * the definition Environment of the function currently being evaluated.
+   * Static Frame for lexical variables that are always looked up in the current StarlarkThread or
+   * for the definition StarlarkThread of the function currently being evaluated.
    */
   private Frame lexicalFrame;
 
@@ -816,7 +819,8 @@ public final class Environment implements Freezable {
    * @param function the function whose scope to enter
    * @param lexical the lexical frame to use
    * @param caller the source AST node for the caller
-   * @param globals the global Frame that this function closes over from its definition Environment
+   * @param globals the global Frame that this function closes over from its definition
+   *     StarlarkThread
    */
   void enterScope(
       BaseFunction function,
@@ -839,7 +843,7 @@ public final class Environment implements Freezable {
   private final String transitiveHashCode;
 
   /**
-   * Is this a global Environment?
+   * Is this a global StarlarkThread?
    *
    * @return true if the current code is being executed at the top-level, as opposed to inside the
    *     body of a function.
@@ -853,7 +857,7 @@ public final class Environment implements Freezable {
     return mutability;
   }
 
-  /** Returns the global variables for the Environment (not including dynamic bindings). */
+  /** Returns the global variables for the StarlarkThread (not including dynamic bindings). */
   public GlobalFrame getGlobals() {
     return globalFrame;
   }
@@ -905,14 +909,14 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Constructs an Environment. This is the main, most basic constructor.
+   * Constructs an StarlarkThread. This is the main, most basic constructor.
    *
-   * @param globalFrame a frame for the global Environment
+   * @param globalFrame a frame for the global StarlarkThread
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extension-s from which to import bindings with load()
    * @param fileContentHashCode a hash for the source file being evaluated, if any
    */
-  private Environment(
+  private StarlarkThread(
       GlobalFrame globalFrame,
       StarlarkSemantics semantics,
       EventHandler eventHandler,
@@ -930,7 +934,7 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * A Builder class for Environment.
+   * A Builder class for StarlarkThread.
    *
    * <p>The caller must explicitly set the semantics by calling either {@link #setSemantics} or
    * {@link #useDefaultSemantics}.
@@ -982,14 +986,14 @@ public final class Environment implements Freezable {
       return this;
     }
 
-    /** Declares content hash for the source file for this Environment. */
+    /** Declares content hash for the source file for this StarlarkThread. */
     public Builder setFileContentHashCode(String fileContentHashCode) {
       this.fileContentHashCode = fileContentHashCode;
       return this;
     }
 
-    /** Builds the Environment. */
-    public Environment build() {
+    /** Builds the StarlarkThread. */
+    public StarlarkThread build() {
       Preconditions.checkArgument(!mutability.isFrozen());
       if (semantics == null) {
         throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
@@ -1020,12 +1024,8 @@ public final class Environment implements Freezable {
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      return new Environment(
-          globalFrame,
-          semantics,
-          eventHandler,
-          importedExtensions,
-          fileContentHashCode);
+      return new StarlarkThread(
+          globalFrame, semantics, eventHandler, importedExtensions, fileContentHashCode);
     }
   }
 
@@ -1043,7 +1043,7 @@ public final class Environment implements Freezable {
   }
 
   /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
-  Environment updateAndExport(String varname, Object value) throws EvalException {
+  StarlarkThread updateAndExport(String varname, Object value) throws EvalException {
     update(varname, value);
     if (isGlobal()) {
       globalFrame.exportedBindings.add(varname);
@@ -1052,25 +1052,25 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Modifies a binding in the current Frame of this Environment, as would an {@link
+   * Modifies a binding in the current Frame of this StarlarkThread, as would an {@link
    * AssignmentStatement}. Does not try to modify an inherited binding. This will shadow any
    * inherited binding, which may be an error that you want to guard against before calling this
    * function.
    *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
-   * @return this Environment, in fluid style
+   * @return this StarlarkThread, in fluid style
    */
-  public Environment update(String varname, Object value) throws EvalException {
+  public StarlarkThread update(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
       lexicalFrame.put(this, varname, value);
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
-      // end users should never be able to mutate a frozen Environment, and a MutabilityException
+      // end users should never be able to mutate a frozen StarlarkThread, and a MutabilityException
       // is therefore a failed assertion for Bazel. However, it is possible to shadow a binding
-      // imported from a parent Environment by updating the current Environment, which will not
-      // trigger a MutabilityException.
+      // imported from a parent StarlarkThread by updating the current StarlarkThread, which will
+      // not trigger a MutabilityException.
       throw new AssertionError(
           Printer.format("Can't update %s to %r in frozen environment", varname, value), e);
     }
@@ -1078,14 +1078,14 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Initializes a binding in this Environment. It is an error if the variable is already bound.
+   * Initializes a binding in this StarlarkThread. It is an error if the variable is already bound.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
    *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
-   * @return this Environment, in fluid style
+   * @return this StarlarkThread, in fluid style
    */
-  public Environment setup(String varname, Object value) {
+  public StarlarkThread setup(String varname, Object value) {
     if (lookup(varname) != null) {
       throw new AssertionError(String.format("variable '%s' already bound", varname));
     }
@@ -1098,9 +1098,9 @@ public final class Environment implements Freezable {
    *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
-   * @return this Environment, in fluid style
+   * @return this StarlarkThread, in fluid style
    */
-  public Environment setupOverride(String varname, Object value) {
+  public StarlarkThread setupOverride(String varname, Object value) {
     try {
       return update(varname, value);
     } catch (EvalException ee) {
@@ -1167,8 +1167,8 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Returns a set of all names of variables that are accessible in this {@code Environment}, in a
-   * deterministic order.
+   * Returns a set of all names of variables that are accessible in this {@code StarlarkThread}, in
+   * a deterministic order.
    */
   // TODO(adonovan): eliminate sole external call from docgen.
   public Set<String> getVariableNames() {
@@ -1190,7 +1190,7 @@ public final class Environment implements Freezable {
     }
   }
 
-  /** Evaluates a Skylark statement in this environment. (Debugger API) */
+  /** Evaluates a Skylark statement in this thread. (Debugger API) */
   // TODO(adonovan): push this up into the debugger once the eval API is finalized.
   public Object debugEval(ParserInput input) throws EvalException, InterruptedException {
     EvalEventHandler handler = new EvalEventHandler();
@@ -1202,7 +1202,7 @@ public final class Environment implements Freezable {
     return Eval.eval(this, expr);
   }
 
-  /** Executes a Skylark file (sequence of statements) in this environment. (Debugger API) */
+  /** Executes a Skylark file (sequence of statements) in this thread. (Debugger API) */
   // TODO(adonovan): push this up into the debugger once the exec API is finalized.
   public void debugExec(ParserInput input) throws EvalException, InterruptedException {
     EvalEventHandler handler = new EvalEventHandler();
@@ -1278,18 +1278,18 @@ public final class Environment implements Freezable {
         return null;
       case INTO:
         // pause at the very next statement
-        return env -> true;
+        return thread -> true;
       case OVER:
-        return env -> isAt(env, pausedContinuation) || isOutside(env, pausedContinuation);
+        return thread -> isAt(thread, pausedContinuation) || isOutside(thread, pausedContinuation);
       case OUT:
         // if we're at the outer-most frame, same as NONE
-        return pausedContinuation == null ? null : env -> isOutside(env, pausedContinuation);
+        return pausedContinuation == null ? null : thread -> isOutside(thread, pausedContinuation);
     }
     throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
   }
 
   /** See stepControl (Debugger API) */
-  public interface ReadyToPause extends Predicate<Environment> {}
+  public interface ReadyToPause extends Predicate<StarlarkThread> {}
 
   /**
    * Describes the stepping behavior that should occur when execution of a thread is continued.
@@ -1316,14 +1316,15 @@ public final class Environment implements Freezable {
     OUT,
   }
 
-  /** Returns true if {@code env} is in a parent frame of {@code pausedContinuation}. */
-  private static boolean isOutside(Environment env, @Nullable Continuation pausedContinuation) {
-    return pausedContinuation != null && env.continuation == pausedContinuation.continuation;
+  /** Returns true if {@code thread} is in a parent frame of {@code pausedContinuation}. */
+  private static boolean isOutside(
+      StarlarkThread thread, @Nullable Continuation pausedContinuation) {
+    return pausedContinuation != null && thread.continuation == pausedContinuation.continuation;
   }
 
-  /** Returns true if {@code env} is at the same frame as {@code pausedContinuation. */
-  private static boolean isAt(Environment env, @Nullable Continuation pausedContinuation) {
-    return env.continuation == pausedContinuation;
+  /** Returns true if {@code thread} is at the same frame as {@code pausedContinuation. */
+  private static boolean isAt(StarlarkThread thread, @Nullable Continuation pausedContinuation) {
+    return thread.continuation == pausedContinuation;
   }
 
   @Override
@@ -1338,7 +1339,7 @@ public final class Environment implements Freezable {
 
   @Override
   public String toString() {
-    return String.format("<Environment%s>", mutability());
+    return String.format("<StarlarkThread%s>", mutability());
   }
 
   /**
@@ -1406,31 +1407,32 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Returns a hash code calculated from the hash code of this Environment and the transitive
-   * closure of other Environments it loads.
+   * Returns a hash code calculated from the hash code of this StarlarkThread and the transitive
+   * closure of other StarlarkThreads it loads.
    */
   public String getTransitiveContentHashCode() {
     return transitiveHashCode;
   }
 
-  /** A read-only {@link Environment.GlobalFrame} with False/True/None constants only. */
+  /** A read-only {@link StarlarkThread.GlobalFrame} with False/True/None constants only. */
   @AutoCodec static final GlobalFrame CONSTANTS_ONLY = createConstantsGlobals();
 
   /**
-   * A read-only {@link Environment.GlobalFrame} with initial globals as defined in MethodLibrary.
+   * A read-only {@link StarlarkThread.GlobalFrame} with initial globals as defined in
+   * MethodLibrary.
    */
   @AutoCodec public static final GlobalFrame DEFAULT_GLOBALS = createDefaultGlobals();
 
   /** To be removed when all call-sites are updated. */
   public static final GlobalFrame SKYLARK = DEFAULT_GLOBALS;
 
-  private static Environment.GlobalFrame createConstantsGlobals() {
+  private static StarlarkThread.GlobalFrame createConstantsGlobals() {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     Runtime.addConstantsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());
   }
 
-  private static Environment.GlobalFrame createDefaultGlobals() {
+  private static StarlarkThread.GlobalFrame createDefaultGlobals() {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     Runtime.addConstantsToBuilder(builder);
     MethodLibrary.addBindingsToBuilder(builder);

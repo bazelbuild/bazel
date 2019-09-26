@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -503,7 +503,7 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
-   * @param env the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
+   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -537,9 +537,9 @@ public final class Label
             type = String.class,
             doc = "The label that will be resolved relative to this one.")
       },
-      useEnvironment = true)
-  public Label getRelative(String relName, Environment env) throws LabelSyntaxException {
-    HasRepoMapping hrm = env.getThreadLocal(HasRepoMapping.class);
+      useStarlarkThread = true)
+  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
+    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
     return getRelativeWithRemapping(relName, hrm.getRepoMapping());
   }
 

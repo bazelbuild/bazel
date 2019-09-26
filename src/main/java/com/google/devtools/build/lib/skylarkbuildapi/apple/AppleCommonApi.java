@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @SkylarkModule(
@@ -296,10 +296,10 @@ public interface AppleCommonApi<
               type = SkylarkDict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
-      useEnvironment = true)
+      useStarlarkThread = true)
   // This method is registered statically for skylark, and never called directly.
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, Environment environment) throws EvalException;
+      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
     name = "new_dynamic_framework_provider",
@@ -388,13 +388,13 @@ public interface AppleCommonApi<
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
       },
-      useEnvironment = true)
+      useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
       SkylarkList<String> extraLinkopts,
       SkylarkList<? extends FileApi> extraLinkInputs,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

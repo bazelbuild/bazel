@@ -331,14 +331,13 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               + "of the given depset and <code>new_elements</code>. Use the "
               + "<code>transitive</code> constructor argument instead.",
       parameters = {
-          @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
+        @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
       },
       useLocation = true,
-      useEnvironment = true
-  )
-  public SkylarkNestedSet union(Object newElements, Location loc, Environment env)
+      useStarlarkThread = true)
+  public SkylarkNestedSet union(Object newElements, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (env.getSemantics().incompatibleDepsetUnion()) {
+    if (thread.getSemantics().incompatibleDepsetUnion()) {
       throw new EvalException(
           loc,
           "depset method `.union` has been removed. See "
@@ -361,11 +360,11 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               + "</code>-ordered depsets, and for elements of child depsets whose order differs "
               + "from that of the parent depset. The list is a copy; modifying it has no effect "
               + "on the depset and vice versa.",
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
-  public MutableList<Object> toList(Location location, Environment env) throws EvalException {
+  public MutableList<Object> toList(Location location, StarlarkThread thread) throws EvalException {
     try {
-      return MutableList.copyOf(env, this.toCollection());
+      return MutableList.copyOf(thread, this.toCollection());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           location,

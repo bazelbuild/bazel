@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
 @SkylarkModule(
@@ -36,14 +36,14 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
   @Deprecated
-  SkylarkList<FileT> getSkylarkObjectFiles(
-      boolean usePic, Location location, Environment environment) throws EvalException;
+  SkylarkList<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
+      throws EvalException;
 
   @SkylarkCallable(name = "objects", documented = false, useLocation = true, structField = true)
   SkylarkList<FileT> getSkylarkObjects(Location location) throws EvalException;

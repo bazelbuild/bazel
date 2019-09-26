@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Concatable;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -337,7 +337,7 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
       this.values = new Object[values.length];
       for (int i = 0; i < values.length; i++) {
         // TODO(b/74396075): Phase out this unnecessary conversion.
-        this.values[i] = SkylarkType.convertToSkylark(values[i], (Environment) null);
+        this.values[i] = SkylarkType.convertToSkylark(values[i], (StarlarkThread) null);
       }
     }
 

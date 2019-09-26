@@ -62,14 +62,19 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   private void createOuterFunction(final List<Object> params) throws Exception {
-    BaseFunction outerFunc = new BaseFunction("outer_func") {
-      @Override
-      public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-          Environment env) throws EvalException, InterruptedException {
-        params.addAll(args);
-        return Runtime.NONE;
-      }
-    };
+    BaseFunction outerFunc =
+        new BaseFunction("outer_func") {
+          @Override
+          public Object call(
+              List<Object> args,
+              Map<String, Object> kwargs,
+              FuncallExpression ast,
+              StarlarkThread thread)
+              throws EvalException, InterruptedException {
+            params.addAll(args);
+            return Runtime.NONE;
+          }
+        };
     update("outer_func", outerFunc);
   }
 

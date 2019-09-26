@@ -46,7 +46,9 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testLoadAfterStatement() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=true");
+    thread =
+        newStarlarkThreadWithSkylarkOptions(
+            "--incompatible_bzl_disallow_load_after_statement=true");
     checkError(
         "load() statements must be called before any other statement",
         "a = 5",
@@ -55,8 +57,9 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testAllowLoadAfterStatement() throws Exception {
-    env =
-        newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=false");
+    thread =
+        newStarlarkThreadWithSkylarkOptions(
+            "--incompatible_bzl_disallow_load_after_statement=false");
     parse("a = 5", "load(':b.bzl', 'c')");
   }
 
@@ -135,13 +138,13 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testGlobalDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions();
+    thread = newStarlarkThreadWithSkylarkOptions();
     parse("def bar(): return x", "x = 5\n");
   }
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions();
+    thread = newStarlarkThreadWithSkylarkOptions();
     parse(
         "def bar():",
         "    for i in range(5):",

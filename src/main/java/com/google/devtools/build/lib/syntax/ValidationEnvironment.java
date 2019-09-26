@@ -82,19 +82,19 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  private final Environment env;
+  private final StarlarkThread thread;
   private Block block;
   private int loopCount;
   /** In BUILD files, we have a slightly different behavior for legacy reasons. */
   private final boolean isBuildFile;
 
-  /** Create a ValidationEnvironment for a given global Environment (containing builtins). */
-  private ValidationEnvironment(Environment env, boolean isBuildFile) {
-    Preconditions.checkArgument(env.isGlobal());
-    this.env = env;
+  /** Create a ValidationEnvironment for a given global StarlarkThread (containing builtins). */
+  private ValidationEnvironment(StarlarkThread thread, boolean isBuildFile) {
+    Preconditions.checkArgument(thread.isGlobal());
+    this.thread = thread;
     this.isBuildFile = isBuildFile;
     block = new Block(Scope.Universe, null);
-    Set<String> builtinVariables = env.getVariableNames();
+    Set<String> builtinVariables = thread.getVariableNames();
     block.variables.addAll(builtinVariables);
   }
 
@@ -174,11 +174,11 @@ public final class ValidationEnvironment extends NodeVisitor {
     if (b == null) {
       // The identifier might not exist because it was restricted (hidden) by the current semantics.
       // If this is the case, output a more helpful error message than 'not found'.
-      FlagGuardedValue result = env.getRestrictedBindings().get(node.getName());
+      FlagGuardedValue result = thread.getRestrictedBindings().get(node.getName());
       if (result != null) {
         throw new ValidationException(
             result.getEvalExceptionFromAttemptingAccess(
-                node.getLocation(), env.getSemantics(), node.getName()));
+                node.getLocation(), thread.getSemantics(), node.getName()));
       }
       throw new ValidationException(Eval.createInvalidIdentifierException(node, getAllSymbols()));
     }
@@ -379,7 +379,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   private void validateToplevelStatements(List<Statement> statements) {
     // Check that load() statements are on top.
-    if (!isBuildFile && env.getSemantics().incompatibleBzlDisallowLoadAfterStatement()) {
+    if (!isBuildFile && thread.getSemantics().incompatibleBzlDisallowLoadAfterStatement()) {
       checkLoadAfterStatement(statements);
     }
 
@@ -396,10 +396,10 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   // Public entry point, throwing variant.
   // TODO(adonovan): combine with variant below.
-  public static void validateFile(BuildFileAST file, Environment env, boolean isBuildFile)
+  public static void validateFile(BuildFileAST file, StarlarkThread thread, boolean isBuildFile)
       throws EvalException {
     try {
-      ValidationEnvironment venv = new ValidationEnvironment(env, isBuildFile);
+      ValidationEnvironment venv = new ValidationEnvironment(thread, isBuildFile);
       venv.validateToplevelStatements(file.getStatements());
       // Check that no closeBlock was forgotten.
       Preconditions.checkState(venv.block.parent == null);
@@ -410,9 +410,9 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   // Public entry point, error handling variant.
   public static boolean validateFile(
-      BuildFileAST file, Environment env, boolean isBuildFile, EventHandler eventHandler) {
+      BuildFileAST file, StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
     try {
-      validateFile(file, env, isBuildFile);
+      validateFile(file, thread, isBuildFile);
       return true;
     } catch (EvalException e) {
       if (!e.isDueToIncompleteAST()) {

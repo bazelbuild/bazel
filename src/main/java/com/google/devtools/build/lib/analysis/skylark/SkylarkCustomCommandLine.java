@@ -38,13 +38,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -826,12 +826,12 @@ public class SkylarkCustomCommandLine extends CommandLine {
       throws CommandLineExpansionException {
     ImmutableList<Object> args = ImmutableList.of(arg);
     try (Mutability mutability = Mutability.create("map_fn")) {
-      Environment env =
-          Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      return mapFn.call(args, ImmutableMap.of(), null, env);
+      return mapFn.call(args, ImmutableMap.of(), null, thread);
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
     } catch (InterruptedException e) {
@@ -849,8 +849,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
     try (Mutability mutability = Mutability.create("map_each")) {
-      Environment env =
-          Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               // TODO(b/77140311): Error if we issue print statements
               .setEventHandler(NullEventHandler.INSTANCE)
@@ -859,7 +859,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       int count = originalValues.size();
       for (int i = 0; i < count; ++i) {
         args[0] = originalValues.get(i);
-        Object ret = mapFn.callWithArgArray(args, null, env, location);
+        Object ret = mapFn.callWithArgArray(args, null, thread, location);
         if (ret instanceof String) {
           consumer.accept((String) ret);
         } else if (ret instanceof SkylarkList) {

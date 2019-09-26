@@ -42,9 +42,9 @@ public final class BuiltinCallable implements StarlarkCallable {
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
-    MethodDescriptor methodDescriptor = getMethodDescriptor(env.getSemantics());
+    MethodDescriptor methodDescriptor = getMethodDescriptor(thread.getSemantics());
     Class<?> clazz;
     Object objValue;
 
@@ -62,8 +62,8 @@ public final class BuiltinCallable implements StarlarkCallable {
         Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, methodName)) {
       Object[] javaArguments =
           CallUtils.convertStarlarkArgumentsToJavaMethodArguments(
-              env, ast, methodDescriptor, clazz, args, kwargs);
-      return methodDescriptor.call(objValue, javaArguments, ast.getLocation(), env);
+              thread, ast, methodDescriptor, clazz, args, kwargs);
+      return methodDescriptor.call(objValue, javaArguments, ast.getLocation(), thread);
     }
   }
 

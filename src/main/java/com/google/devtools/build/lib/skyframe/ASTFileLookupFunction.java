@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -114,8 +115,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       long astFileSize = fileValue.getSize();
       try (Mutability mutability = Mutability.create("validate")) {
-        com.google.devtools.build.lib.syntax.Environment validationEnv =
-            ruleClassProvider.createSkylarkRuleClassEnvironment(
+        StarlarkThread thread =
+            ruleClassProvider.createRuleClassStarlarkThread(
                 fileLabel,
                 mutability,
                 starlarkSemantics,
@@ -127,7 +128,7 @@ public class ASTFileLookupFunction implements SkyFunction {
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
         ParserInput input = ParserInput.create(bytes, path.asFragment());
         file = BuildFileAST.parseWithDigest(input, path.getDigest(), env.getListener());
-        file = file.validate(validationEnv, /*isBuildFile=*/ false, env.getListener());
+        file = file.validate(thread, /*isBuildFile=*/ false, env.getListener());
       }
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),

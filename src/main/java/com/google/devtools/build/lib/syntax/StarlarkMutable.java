@@ -34,14 +34,14 @@ import javax.annotation.Nullable;
 public abstract class StarlarkMutable implements Freezable, SkylarkValue {
 
   /**
-   * Checks whether this object is currently mutable in the given {@link Environment}, and throws
+   * Checks whether this object is currently mutable in the given {@link StarlarkThread}, and throws
    * an exception if it is not.
    *
    * @deprecated prefer {@link #checkMutable(Location, Mutability)} instead
    */
   @Deprecated
-  protected void checkMutable(Location loc, Environment env) throws EvalException {
-    checkMutable(loc, env.mutability());
+  protected void checkMutable(Location loc, StarlarkThread thread) throws EvalException {
+    checkMutable(loc, thread.mutability());
   }
 
   /**

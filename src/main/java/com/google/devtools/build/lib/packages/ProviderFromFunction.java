@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
 /**
@@ -51,10 +51,10 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-    return createInstanceFromSkylark(args, env, loc);
+    return createInstanceFromSkylark(args, thread, loc);
   }
 
   /**
@@ -67,5 +67,5 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
    * @param args an array of argument values sorted as per the signature ({@see BaseFunction#call})
    */
   protected abstract InfoInterface createInstanceFromSkylark(
-      Object[] args, Environment env, Location loc) throws EvalException;
+      Object[] args, StarlarkThread thread, Location loc) throws EvalException;
 }

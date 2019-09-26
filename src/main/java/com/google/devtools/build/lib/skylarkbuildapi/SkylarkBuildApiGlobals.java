@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * A collection of global skylark build API functions that belong in the global namespace.
@@ -56,7 +56,7 @@ public interface SkylarkBuildApiGlobals {
             doc = "The name of the value to obtain from the configuration fragment."),
       },
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public LateBoundDefaultApi configurationField(
-      String fragment, String name, Location loc, Environment env) throws EvalException;
+      String fragment, String name, Location loc, StarlarkThread thread) throws EvalException;
 }

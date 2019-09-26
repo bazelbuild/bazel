@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Location;
 public interface Debugger {
 
   /** Notify the debugger that execution is at the point immediately before {@code loc}. */
-  void before(Environment env, Location loc);
+  void before(StarlarkThread thread, Location loc);
 
   /** Notify the debugger that it will no longer receive events from the interpreter. */
   void close();

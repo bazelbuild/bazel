@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -71,21 +72,21 @@ public class ResolvedFileFunction implements SkyFunction {
                   LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
                   "Failed to parse file resolved file " + key.getPath()));
         }
-        com.google.devtools.build.lib.syntax.Environment resolvedEnvironment;
+        StarlarkThread resolvedThread;
         try (Mutability mutability = Mutability.create("resolved file %s", key.getPath())) {
-          resolvedEnvironment =
-              com.google.devtools.build.lib.syntax.Environment.builder(mutability)
+          resolvedThread =
+              StarlarkThread.builder(mutability)
                   .setSemantics(starlarkSemantics)
                   .setGlobals(BazelLibrary.GLOBALS)
                   .build();
-          if (!ast.exec(resolvedEnvironment, env.getListener())) {
+          if (!ast.exec(resolvedThread, env.getListener())) {
             throw new ResolvedFileFunctionException(
                 new BuildFileContainsErrorsException(
                     LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
                     "Failed to evaluate resolved file " + key.getPath()));
           }
         }
-        Object resolved = resolvedEnvironment.moduleLookup("resolved");
+        Object resolved = resolvedThread.moduleLookup("resolved");
         if (resolved == null) {
           throw new ResolvedFileFunctionException(
               new BuildFileContainsErrorsException(

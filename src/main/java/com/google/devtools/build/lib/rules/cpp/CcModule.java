@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -373,7 +373,7 @@ public abstract class CcModule
       Object interfaceLibraryObject,
       boolean alwayslink,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkActionFactory skylarkActionFactory =
         nullIfNone(actionsObject, SkylarkActionFactory.class);
@@ -579,7 +579,7 @@ public abstract class CcModule
       Object userLinkFlagsObject,
       SkylarkList<Artifact> nonCodeInputs,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException {
     @SuppressWarnings("unchecked")
     SkylarkList<LibraryToLink> librariesToLink =
@@ -600,7 +600,7 @@ public abstract class CcModule
                 ImmutableList.of(
                     CcLinkingContext.LinkOptions.of(
                         userLinkFlags.getImmutableList(),
-                        BazelStarlarkContext.from(env).getSymbolGenerator()))));
+                        BazelStarlarkContext.from(thread).getSymbolGenerator()))));
       }
       ccLinkingContextBuilder.addNonCodeInputs(
           NestedSetBuilder.wrap(Order.LINK_ORDER, nonCodeInputs));
@@ -1399,7 +1399,7 @@ public abstract class CcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(location, language);
     SkylarkActionFactory actions = skylarkActionFactoryApi;
@@ -1432,7 +1432,7 @@ public abstract class CcModule
                     .getActionConstructionContext()
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
-                BazelStarlarkContext.from(env).getSymbolGenerator(),
+                BazelStarlarkContext.from(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -1529,7 +1529,7 @@ public abstract class CcModule
       Artifact grepIncludes,
       SkylarkList<Artifact> headersForClifDoNotUseThisParam,
       Location location,
-      @Nullable Environment environment)
+      @Nullable StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
@@ -1628,7 +1628,7 @@ public abstract class CcModule
       SkylarkList<Artifact> additionalInputs,
       Object grepIncludes,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(location, language);
     validateOutputType(location, outputType);
@@ -1673,7 +1673,7 @@ public abstract class CcModule
                 fdoContext,
                 actions.getActionConstructionContext().getConfiguration(),
                 cppConfiguration,
-                BazelStarlarkContext.from(env).getSymbolGenerator(),
+                BazelStarlarkContext.from(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))

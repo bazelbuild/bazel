@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -122,8 +123,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
 
     try (Mutability mutability = Mutability.create("Starlark repository")) {
-      com.google.devtools.build.lib.syntax.Environment buildEnv =
-          com.google.devtools.build.lib.syntax.Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(env.getListener())
               .build();
@@ -136,7 +137,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               rule.getPackage().getRepositoryMapping(),
               new SymbolGenerator<>(key),
               /* analysisRuleLabel= */ null)
-          .storeInThread(buildEnv);
+          .storeInThread(thread);
 
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
@@ -177,7 +178,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*args=*/ ImmutableList.of(skylarkRepositoryContext),
               /*kwargs=*/ ImmutableMap.of(),
               null,
-              buildEnv);
+              thread);
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);

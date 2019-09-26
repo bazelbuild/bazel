@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -99,8 +99,6 @@ public class WorkspaceFileValue implements SkyValue {
   private final int idx;
   private final RootedPath path;
   private final boolean hasNext;
-  // TODO(dmarting): The bindings bind to "Object" which we should ultimately replace by a super
-  // type in the Environment class (that would ease the serialization of this object).
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Extension> importMap;
   private final ImmutableMap<String, Integer> importToChunkMap;

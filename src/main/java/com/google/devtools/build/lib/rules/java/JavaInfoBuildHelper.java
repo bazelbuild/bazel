@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -291,7 +291,7 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       JavaSemantics javaSemantics,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
 
     if (sourceJars.isEmpty()

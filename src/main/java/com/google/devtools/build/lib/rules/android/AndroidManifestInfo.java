@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A provider of information about this target's manifest. */
 public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
@@ -47,7 +47,7 @@ public class AndroidManifestInfo extends NativeInfo implements AndroidManifestIn
       new NativeProvider<AndroidManifestInfo>(AndroidManifestInfo.class, NAME, SIGNATURE) {
         @Override
         public AndroidManifestInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
+            Object[] args, StarlarkThread thread, Location loc) {
           // Skylark support code puts positional inputs in the correct order and validates types.
           return of((Artifact) args[0], (String) args[1], (boolean) args[2]);
         }
