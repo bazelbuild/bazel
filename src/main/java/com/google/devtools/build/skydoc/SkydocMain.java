@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -503,6 +504,10 @@ public class SkydocMain {
             eventHandler,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
+
+    if (!ValidationEnvironment.validateFile(buildFileAST, thread, false, eventHandler)) {
+      throw new StarlarkEvaluationException("Starlark evaluation error");
+    }
 
     if (!buildFileAST.exec(thread, eventHandler)) {
       throw new StarlarkEvaluationException("Starlark evaluation error");
