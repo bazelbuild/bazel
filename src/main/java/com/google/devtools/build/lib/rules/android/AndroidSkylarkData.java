@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
@@ -579,20 +578,22 @@ public abstract class AndroidSkylarkData
               + binaryDataInfo.getResourcesInfo().getDirectAndroidResources());
     }
 
-    Optional<Artifact> maybeShrunkApk =
-        AndroidBinary.maybeShrinkResources(
-            ctx,
-            binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
-            ResourceDependencies.fromProviders(
-                getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-            proguardSpecs,
-            proguardOutputJar,
-            proguardMapping,
-            settings.aaptVersion,
-            settings.resourceFilterFactory,
-            settings.noCompressExtensions);
+    if (!proguardSpecs.isEmpty()) {
+      Artifact shrunkApk =
+          AndroidBinary.shrinkResources(
+              ctx,
+              binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
+              ResourceDependencies.fromProviders(
+                  getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
+              proguardOutputJar,
+              proguardMapping,
+              settings.aaptVersion,
+              settings.resourceFilterFactory,
+              settings.noCompressExtensions);
+      return binaryDataInfo.withShrunkApk(shrunkApk);
+    }
 
-    return maybeShrunkApk.map(binaryDataInfo::withShrunkApk).orElse(binaryDataInfo);
+    return binaryDataInfo;
   }
 
   public static SkylarkDict<Provider, NativeInfo> getNativeInfosFrom(

@@ -1011,9 +1011,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceNameObfuscation_flagEnabledAndCOpt_optimizedApkIsInputToApkBuilderAction()
+  public void resourceNameCollapse_flagAndProguardSpecsPresent_optimizedApkIsInputToApkBuilder()
       throws Exception {
-    useConfiguration("--experimental_android_resource_name_obfuscation", "-c", "opt");
+    useConfiguration("--experimental_android_resource_name_obfuscation");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -1047,7 +1047,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceNameObfuscation_flagEnabledAndCDefault_optimizeArtifactsAbsent()
+  public void resourceNameCollapse_flagPresentProguardSpecsAbsent_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("--experimental_android_resource_name_obfuscation");
     scratch.file(
@@ -1055,8 +1055,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               shrink_resources = 1,",
-        "               proguard_specs = ['proguard-spec.pro'],)");
+        "               shrink_resources = 1,)");
 
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
 
@@ -1073,9 +1072,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceNameObfuscation_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
+  public void resourceNameCollapse_flagAbsentProguardSpecsPresent_optimizeArtifactsAbsent()
       throws Exception {
-    useConfiguration("-c", "opt");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -4035,6 +4033,26 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(flagValue("--tool", packageArgs)).isEqualTo("AAPT2_PACKAGE");
     assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
+  }
+
+  @Test
+  public void testAapt2ResourceShrinking_proguardSpecsAbsent_noShrunkApk() throws Exception {
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               aapt_version='aapt2',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1,)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+    ConfiguredTarget binary = targetAndData.getConfiguredTarget();
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    assertThat(getFirstArtifactEndingWith(artifacts, "shrunk.ap_")).isNull();
   }
 
   @Test

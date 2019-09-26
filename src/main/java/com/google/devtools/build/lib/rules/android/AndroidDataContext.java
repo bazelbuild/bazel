@@ -220,7 +220,21 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return ruleContext.getFeatures().contains(OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES);
   }
 
-  boolean useResourceShrinking() {
+  /** Returns true if the context dictates that resource shrinking should be performed. */
+  boolean useResourceShrinking(boolean hasProguardSpecs) {
+    return isResourceShrinkingEnabled() && hasProguardSpecs;
+  }
+
+  /**
+   * Returns true if the context dictates that resource shrinking is enabled. This doesn't
+   * necessarily mean that shrinking should be performed - for that, use {@link
+   * #useResourceShrinking(boolean)}, which calls this.
+   */
+  boolean isResourceShrinkingEnabled() {
+    if (!ruleContext.attributes().has("shrink_resources")) {
+      return false;
+    }
+
     TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
     if (state == TriState.AUTO) {
       state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
@@ -239,15 +253,13 @@ public class AndroidDataContext implements AndroidDataContextApi {
         && compatibleForResourcePathShortening;
   }
 
-  boolean useResourceNameObfuscation() {
+  boolean useResourceNameObfuscation(boolean hasProguardSpecs) {
     // Use resource name obfuscation iff:
     //   1) --experimental_android_resource_name_obfuscation
-    //   2) -c opt
-    //   3) resource shrinking is on
-    //   4) Not on allowlist exempting from compatibleForResourceNameObfuscation
+    //   2) resource shrinking is on (implying proguard specs are present)
+    //   3) Not on allowlist exempting from compatibleForResourceNameObfuscation
     return getAndroidConfig().useAndroidResourceNameObfuscation()
-        && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
-        && useResourceShrinking()
+        && useResourceShrinking(hasProguardSpecs)
         && compatibleForResourceNameObfuscation;
   }
 }
