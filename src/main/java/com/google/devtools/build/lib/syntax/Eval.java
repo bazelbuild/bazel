@@ -121,12 +121,14 @@ final class Eval {
 
     thread.updateAndExport(
         node.getIdentifier().getName(),
+        Identifier.LOCAL_INDEX_UNDEFINED,
         new StarlarkFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
             FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/ null),
             node.getStatements(),
-            thread.getGlobals()));
+            thread.getGlobals(),
+            node.getLocalNameToIndex()));
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
@@ -244,7 +246,7 @@ final class Eval {
   /** Binds a variable to the given value in the environment. */
   private static void assignIdentifier(Identifier ident, Object value, StarlarkThread thread)
       throws EvalException {
-    thread.updateAndExport(ident.getName(), value);
+    thread.updateAndExport(ident.getName(), ident.getLocalScopeIndex(), value);
   }
 
   /**
@@ -496,7 +498,7 @@ final class Eval {
           Object result;
           switch (id.getScope()) {
             case Local:
-              result = thread.localLookup(name);
+              result = thread.localLookup(name, id.getLocalScopeIndex());
               break;
             case Module:
               result = thread.moduleLookup(name);
@@ -641,13 +643,14 @@ final class Eval {
     // Save values of all variables bound in a 'for' clause
     // so we can restore them later.
     // TODO(adonovan) throw all this away when we implement flat environments.
-    List<Object> saved = new ArrayList<>(); // alternating keys and values
+    List<Object> saved = new ArrayList<>(); // alternating names, name indices and values
     for (Comprehension.Clause clause : comp.getClauses()) {
       if (clause instanceof Comprehension.For) {
         for (Identifier ident : Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
           String name = ident.getName();
-          Object value = thread.localLookup(ident.getName());
+          Object value = thread.localLookup(ident.getName(), ident.getLocalScopeIndex());
           saved.add(name);
+          saved.add(ident.getLocalScopeIndex());
           saved.add(value);
         }
       }
@@ -704,8 +707,9 @@ final class Eval {
     // This loop implicitly undefines comprehension variables.
     for (int i = 0; i != saved.size(); ) {
       String name = (String) saved.get(i++);
+      int nameIndex = (int) saved.get(i++);
       Object value = saved.get(i++);
-      thread.updateInternal(name, value);
+      thread.updateInternal(name, nameIndex, value);
     }
 
     return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(thread, list);

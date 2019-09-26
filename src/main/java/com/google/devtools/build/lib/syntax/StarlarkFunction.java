@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -28,16 +29,22 @@ public class StarlarkFunction extends BaseFunction {
 
   // we close over the globals at the time of definition
   private final StarlarkThread.GlobalFrame definitionGlobals;
+  private final ImmutableMap<String, Integer> nameToIndex;
+  private final int[] parameterNameIndices;
 
   public StarlarkFunction(
       String name,
       Location location,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements,
-      StarlarkThread.GlobalFrame definitionGlobals) {
+      StarlarkThread.GlobalFrame definitionGlobals,
+      ImmutableMap<String, Integer> nameToIndex) {
     super(name, signature, location);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
+    this.nameToIndex = nameToIndex;
+    this.parameterNameIndices = signature.getSignature().getNames().stream()
+        .mapToInt(nameToIndex::get).toArray();
   }
 
   public ImmutableList<Statement> getStatements() {
@@ -63,7 +70,7 @@ public class StarlarkFunction extends BaseFunction {
     }
 
     ImmutableList<String> names = signature.getSignature().getNames();
-    LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
+    LexicalFrame lexicalFrame = LexicalFrame.createMutable(thread.mutability(), nameToIndex);
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
       thread.enterScope(this, lexicalFrame, ast, definitionGlobals);
@@ -71,7 +78,7 @@ public class StarlarkFunction extends BaseFunction {
       // Registering the functions's arguments as variables in the local StarlarkThread
       // foreach loop is not used to avoid iterator overhead
       for (int i = 0; i < names.size(); ++i) {
-        thread.update(names.get(i), arguments[i]);
+        thread.updateByIndex(names.get(i), parameterNameIndices[i], arguments[i]);
       }
 
       return Eval.execStatements(thread, statements);

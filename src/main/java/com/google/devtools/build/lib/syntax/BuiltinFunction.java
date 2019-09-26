@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -56,7 +57,7 @@ public class BuiltinFunction extends BaseFunction {
   // Builtins cannot create or modify variable bindings. So it's sufficient to use a shared
   // instance.
   private static final LexicalFrame SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS =
-      LexicalFrame.create(Mutability.IMMUTABLE);
+      LexicalFrame.create(Mutability.IMMUTABLE, ImmutableMap.of());
 
   // The underlying invoke() method.
   @Nullable private Method invokeMethod;

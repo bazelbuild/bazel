@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Syntax node for a 'def' statement, which defines a function. */
 public final class DefStatement extends Statement {
@@ -23,6 +26,10 @@ public final class DefStatement extends Statement {
   private final FunctionSignature.WithValues<Expression, Expression> signature;
   private final ImmutableList<Statement> statements;
   private final ImmutableList<Parameter<Expression, Expression>> parameters;
+
+  /** Initialized during verification */
+  @Nullable
+  private ImmutableMap<String, Integer> localNameToIndex;
 
   DefStatement(
       Identifier identifier,
@@ -33,6 +40,17 @@ public final class DefStatement extends Statement {
     this.parameters = ImmutableList.copyOf(parameters);
     this.signature = signature;
     this.statements = ImmutableList.copyOf(statements);
+  }
+
+  void setLocalNameToIndex(
+      ImmutableMap<String, Integer> localNameToIndex) {
+    Preconditions.checkState(this.localNameToIndex == null);
+    this.localNameToIndex = localNameToIndex;
+  }
+
+  ImmutableMap<String, Integer> getLocalNameToIndex() {
+    Preconditions.checkState(localNameToIndex != null);
+    return localNameToIndex;
   }
 
   @Override

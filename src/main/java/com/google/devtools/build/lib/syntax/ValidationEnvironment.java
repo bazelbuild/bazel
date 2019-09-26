@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -55,14 +57,62 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
+  /**
+   * Constructor of local name to index for function's lexical scope.
+   *
+   * <p>Note the index is shared with nested scopes, because
+   * the lexical scope object is shared with nested scopes.
+   */
+  private static class DefLocalNameToIndexBuilder {
+    private HashMap<String, Integer> localNameToIndex = new HashMap<>();
+    private boolean locked = false;
+
+    void registerVariable(String name) {
+      Preconditions.checkState(!locked);
+      localNameToIndex.putIfAbsent(name, localNameToIndex.size());
+    }
+
+    int variableIndex(String name) {
+      return localNameToIndex.get(name);
+    }
+
+    ImmutableMap<String, Integer> buildLocalNameToIndex() {
+      locked = true;
+      return ImmutableMap.copyOf(localNameToIndex);
+    }
+  }
+
   private static class Block {
     private final Set<String> variables = new HashSet<>();
     private final Scope scope;
     @Nullable private final Block parent;
+    @Nullable private final DefLocalNameToIndexBuilder defLocalNameToIndexBuilder;
 
-    Block(Scope scope, @Nullable Block parent) {
+    Block(Scope scope, @Nullable Block parent, boolean openDef) {
       this.scope = scope;
       this.parent = parent;
+      if (openDef) {
+        defLocalNameToIndexBuilder = new DefLocalNameToIndexBuilder();
+      } else if (scope == Scope.Local) {
+        defLocalNameToIndexBuilder = parent != null ? parent.defLocalNameToIndexBuilder : null;
+      } else {
+        defLocalNameToIndexBuilder = null;
+      }
+    }
+
+    void registerVariable(String name) {
+      variables.add(name);
+      if (defLocalNameToIndexBuilder != null) {
+        defLocalNameToIndexBuilder.registerVariable(name);
+      }
+    }
+
+    int variableIndex(String name) {
+      if (defLocalNameToIndexBuilder == null) {
+        return Identifier.LOCAL_INDEX_UNDEFINED;
+      } else {
+        return defLocalNameToIndexBuilder.variableIndex(name);
+      }
     }
   }
 
@@ -93,9 +143,10 @@ public final class ValidationEnvironment extends NodeVisitor {
     Preconditions.checkArgument(thread.isGlobal());
     this.thread = thread;
     this.isBuildFile = isBuildFile;
-    block = new Block(Scope.Universe, null);
-    Set<String> builtinVariables = thread.getVariableNames();
-    block.variables.addAll(builtinVariables);
+    block = new Block(Scope.Universe, null, false);
+    for (String builtinVariable : thread.getVariableNames()) {
+      block.registerVariable(builtinVariable);
+    }
   }
 
   /**
@@ -154,7 +205,8 @@ public final class ValidationEnvironment extends NodeVisitor {
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
       if (!isBuildFile) {
-        ((Identifier) lhs).setScope(block.scope);
+        Identifier identifier = (Identifier) lhs;
+        identifier.setScope(block.scope, block.variableIndex(identifier.getName()));
       }
       // no-op
     } else if (lhs instanceof IndexExpression) {
@@ -185,7 +237,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
     // because some AST nodes are shared across multipe ASTs (due to the prelude file).
     if (!isBuildFile) {
-      node.setScope(b.scope);
+      node.setScope(b.scope, b.variableIndex(node.getName()));
     }
   }
 
@@ -240,7 +292,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   @Override
   public void visit(Comprehension node) {
-    openBlock(Scope.Local);
+    openBlock(Scope.Local, false);
     for (Comprehension.Clause clause : node.getClauses()) {
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
@@ -274,7 +326,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         visit(param.getDefaultValue());
       }
     }
-    openBlock(Scope.Local);
+    openBlock(Scope.Local, true);
     for (Parameter<Expression, Expression> param : node.getParameters()) {
       if (param.hasName()) {
         declare(param.getName(), param.getLocation());
@@ -282,6 +334,10 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
     collectDefinitions(node.getStatements());
     visitAll(node.getStatements());
+
+    Preconditions.checkState(block.defLocalNameToIndexBuilder != null);
+    node.setLocalNameToIndex(block.defLocalNameToIndexBuilder.buildLocalNameToIndex());
+
     closeBlock();
   }
 
@@ -325,7 +381,7 @@ public final class ValidationEnvironment extends NodeVisitor {
               varname,
               "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html"));
     }
-    block.variables.add(varname);
+    block.registerVariable(varname);
   }
 
   /** Returns the nearest Block that defines a symbol. */
@@ -383,7 +439,7 @@ public final class ValidationEnvironment extends NodeVisitor {
       checkLoadAfterStatement(statements);
     }
 
-    openBlock(Scope.Module);
+    openBlock(Scope.Module, false);
 
     // Add each variable defined by statements, not including definitions that appear in
     // sub-scopes of the given statements (function bodies and comprehensions).
@@ -423,8 +479,8 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   /** Open a new lexical block that will contain the future declarations. */
-  private void openBlock(Scope scope) {
-    block = new Block(scope, block);
+  private void openBlock(Scope scope, boolean openDef) {
+    block = new Block(scope, block, openDef);
   }
 
   /** Close a lexical block (and lose all declarations it contained). */

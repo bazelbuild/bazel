@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -146,6 +147,11 @@ public final class StarlarkThread implements Freezable {
     @Nullable
     Object get(String varname);
 
+    @Nullable
+    default Object getByIndex(String varname, int varindex) {
+      return get(varname);
+    }
+
     /**
      * Assigns or reassigns a binding in the current {@code Frame}.
      *
@@ -158,11 +164,19 @@ public final class StarlarkThread implements Freezable {
      */
     void put(StarlarkThread thread, String varname, Object value) throws MutabilityException;
 
+    default void putByIndex(StarlarkThread thread, String varname, int varindex, Object value) throws MutabilityException {
+      put(thread, varname, value);
+    }
+
     /**
      * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
      * public interface.
      */
     void remove(StarlarkThread thread, String varname) throws MutabilityException;
+
+    default void removeByIndex(StarlarkThread thread, String varname, int varindex) throws MutabilityException {
+      remove(thread, varname);
+    }
 
     /**
      * Returns a map containing all bindings of this {@link Frame} and of its transitive parents,
@@ -175,15 +189,15 @@ public final class StarlarkThread implements Freezable {
   }
 
   interface LexicalFrame extends Frame {
-    static LexicalFrame create(Mutability mutability) {
+    static LexicalFrame create(Mutability mutability, ImmutableMap<String, Integer> localNameToIndex) {
       return mutability.isFrozen()
           ? ImmutableEmptyLexicalFrame.INSTANCE
-          : new MutableLexicalFrame(mutability);
+          : new MutableLexicalFrame(mutability, localNameToIndex);
     }
 
-    static LexicalFrame create(Mutability mutability, int numArgs) {
+    static LexicalFrame createMutable(Mutability mutability, ImmutableMap<String, Integer> localNameToIndex) {
       Preconditions.checkState(!mutability.isFrozen());
-      return new MutableLexicalFrame(mutability, /*initialCapacity=*/ numArgs);
+      return new MutableLexicalFrame(mutability, localNameToIndex);
     }
   }
 
@@ -227,17 +241,13 @@ public final class StarlarkThread implements Freezable {
 
   private static final class MutableLexicalFrame implements LexicalFrame {
     private final Mutability mutability;
-    /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings;
+    private final ImmutableMap<String, Integer> localNameToIndex;
+    private final Object[] bindings;
 
-    private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
+    private MutableLexicalFrame(Mutability mutability, ImmutableMap<String, Integer> localNameToIndex) {
       this.mutability = mutability;
-      this.bindings = Maps.newLinkedHashMapWithExpectedSize(initialCapacity);
-    }
-
-    private MutableLexicalFrame(Mutability mutability) {
-      this.mutability = mutability;
-      this.bindings = new LinkedHashMap<>();
+      this.localNameToIndex = localNameToIndex;
+      this.bindings = new Object[localNameToIndex.size()];
     }
 
     @Override
@@ -245,28 +255,58 @@ public final class StarlarkThread implements Freezable {
       return mutability;
     }
 
+    private int localNameToIndex(String varname) {
+      Integer index = localNameToIndex.get(varname);
+      Preconditions.checkArgument(index != null, "variable is not from this scope: %s", varname);
+      return index;
+    }
+
     @Nullable
     @Override
     public Object get(String varname) {
-      return bindings.get(varname);
+      Integer varindex = localNameToIndex.get(varname);
+      return varindex != null ? getByIndex(varname, varindex) : null;
+    }
+
+    public Object getByIndex(String varname, int varindex) {
+      return bindings[varindex];
     }
 
     @Override
     public void put(StarlarkThread thread, String varname, Object value)
         throws MutabilityException {
+      putByIndex(thread, varname, localNameToIndex(varname), value);
+    }
+
+    @Override
+    public void putByIndex(StarlarkThread thread, String varname, int varindex, Object value)
+        throws MutabilityException {
       Mutability.checkMutable(this, thread.mutability());
-      bindings.put(varname, value);
+      bindings[varindex] = value;
     }
 
     @Override
     public void remove(StarlarkThread thread, String varname) throws MutabilityException {
+      removeByIndex(thread, varname, localNameToIndex(varname));
+    }
+
+    @Override
+    public void removeByIndex(StarlarkThread thread, String varname, int varindex)
+        throws MutabilityException {
       Mutability.checkMutable(this, thread.mutability());
-      bindings.remove(varname);
+      bindings[varindex] = null;
     }
 
     @Override
     public Map<String, Object> getTransitiveBindings() {
-      return bindings;
+      ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
+      for (Entry<String, Integer> nameIndex : localNameToIndex.entrySet()) {
+        Object value = this.bindings[nameIndex.getValue()];
+        if (value != null) {
+          bindings.put(nameIndex.getKey(), value);
+        }
+      }
+      return bindings.build();
     }
 
     @Override
@@ -1043,8 +1083,8 @@ public final class StarlarkThread implements Freezable {
   }
 
   /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
-  StarlarkThread updateAndExport(String varname, Object value) throws EvalException {
-    update(varname, value);
+  StarlarkThread updateAndExport(String varname, int varindex, Object value) throws EvalException {
+    updateByIndex(varname, varindex, value);
     if (isGlobal()) {
       globalFrame.exportedBindings.add(varname);
     }
@@ -1062,9 +1102,18 @@ public final class StarlarkThread implements Freezable {
    * @return this StarlarkThread, in fluid style
    */
   public StarlarkThread update(String varname, Object value) throws EvalException {
+    updateByIndex(varname, Identifier.LOCAL_INDEX_UNDEFINED, value);
+    return this;
+  }
+
+  void updateByIndex(String varname, int varindex, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
-      lexicalFrame.put(this, varname, value);
+      if (varindex == Identifier.LOCAL_INDEX_UNDEFINED) {
+        lexicalFrame.put(this, varname, value);
+      } else {
+        lexicalFrame.putByIndex(this, varname, varindex, value);
+      }
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
       // end users should never be able to mutate a frozen StarlarkThread, and a MutabilityException
@@ -1074,16 +1123,15 @@ public final class StarlarkThread implements Freezable {
       throw new AssertionError(
           Printer.format("Can't update %s to %r in frozen environment", varname, value), e);
     }
-    return this;
   }
 
   // Used only for Eval.evalComprehension..
-  void updateInternal(String name, @Nullable Object value) {
+  void updateInternal(String name, int index, @Nullable Object value) {
     try {
       if (value != null) {
-        lexicalFrame.put(this, name, value);
+        lexicalFrame.putByIndex(this, name, index, value);
       } else {
-        lexicalFrame.remove(this, name);
+        lexicalFrame.removeByIndex(this, name, index);
       }
     } catch (MutabilityException ex) {
       throw new IllegalStateException(ex);
@@ -1125,8 +1173,8 @@ public final class StarlarkThread implements Freezable {
    * Returns the value of a variable defined in Local scope. Do not search in any parent scope. This
    * function should be used once the AST has been analysed and we know which variables are local.
    */
-  Object localLookup(String varname) {
-    return lexicalFrame.get(varname);
+  Object localLookup(String varname, int varindex) {
+    return lexicalFrame.getByIndex(varname, varindex);
   }
 
   /**

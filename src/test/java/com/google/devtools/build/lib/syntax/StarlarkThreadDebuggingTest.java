@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,14 +39,25 @@ public class StarlarkThreadDebuggingTest {
     return StarlarkThread.builder(mutability).useDefaultSemantics().build();
   }
 
-  /** Enter a dummy function scope with the given name, and the current environment's globals. */
   private static void enterFunctionScope(
       StarlarkThread thread, String functionName, Location location) {
+    enterFunctionScopeWithVars(thread, functionName, location, ImmutableList.of());
+  }
+
+  /** Enter a dummy function scope with the given name, and the current environment's globals. */
+  private static void enterFunctionScopeWithVars(
+      StarlarkThread thread, String functionName, Location location, ImmutableList<String> localNames) {
+    HashMap<String, Integer> localNameToIndex = new HashMap<>();
+    for (String localName : localNames) {
+      Integer prev = localNameToIndex.put(localName, localNameToIndex.size());
+      assertThat(prev).isNull();
+    }
+
     FuncallExpression ast = new FuncallExpression(Identifier.of("test"), ImmutableList.of());
     ast.setLocation(location);
     thread.enterScope(
         new BaseFunction(functionName) {},
-        LexicalFrame.create(thread.mutability()),
+        LexicalFrame.create(thread.mutability(), ImmutableMap.copyOf(localNameToIndex)),
         ast,
         thread.getGlobals());
   }
@@ -78,7 +90,7 @@ public class StarlarkThreadDebuggingTest {
     Location funcallLocation =
         Location.fromPathAndStartColumn(
             PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
-    enterFunctionScope(thread, "function", funcallLocation);
+    enterFunctionScopeWithVars(thread, "function", funcallLocation, ImmutableList.of("a", "y", "z"));
     thread.update("a", 4); // shadow parent frame var
     thread.update("y", 5);
     thread.update("z", 6);

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment.Scope;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -27,10 +28,14 @@ import javax.annotation.Nullable;
  */
 public final class Identifier extends Expression {
 
+  /** Unset of non-local scope */
+  static final int LOCAL_INDEX_UNDEFINED = -131719;
+
   private final String name;
   // The scope of the variable. The value is set when the AST has been analysed by
   // ValidationEnvironment.
   @Nullable private ValidationEnvironment.Scope scope;
+  private int localScopeIndex = LOCAL_INDEX_UNDEFINED;
 
   // TODO(adonovan): lock down, after removing last use in skyframe serialization.
   public Identifier(String name) {
@@ -52,14 +57,19 @@ public final class Identifier extends Expression {
     return scope;
   }
 
+  public int getLocalScopeIndex() {
+    return localScopeIndex;
+  }
+
   @Override
   public void prettyPrint(Appendable buffer) throws IOException {
     buffer.append(name);
   }
 
-  void setScope(ValidationEnvironment.Scope scope) {
+  void setScope(ValidationEnvironment.Scope scope, int varindex) {
     Preconditions.checkState(this.scope == null);
     this.scope = scope;
+    this.localScopeIndex = varindex;
   }
 
   @Override
