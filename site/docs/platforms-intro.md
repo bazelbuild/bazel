@@ -112,17 +112,32 @@ project’s official documentation.
 
 If you’re a project, language, or toolchain maintainer, you'll eventually want
 to support the new APIs. Whether you wait until the global migration is complete
-or opt in sooner depends on your specific cost vs. value needs:
+or opt in early depends on your specific value / cost needs:
 
 ### Value
-* Intrinsically more accurate than ad hoc flags like `--cpu` and
-  `-crosstool_top`. For example, how do you `select()` on GPU architecture or
-  OS?
-* Common API that all languages and projects understand: `--platforms=//:myplatform`
-* Automatic toolchain selection
+* You can `select()` or choose toolchains on the exact properties you care
+  about instead of hard-coded flags like `--cpu`. For example, multiple CPUs
+  can support the [same instruction set](https://en.wikipedia.org/wiki/SSE4).
+* More correct builds. If you `select()` with `--cpu` in the above example, then
+  add a new CPU that supports the same instruction set, the `select()`
+  fails to recognize the new CPU. But a `select()` on platforms remains accurate.
+* Simpler user experience. All projects understand:
+  `--platforms=//:myplatform`. No need for multiple language-specific
+  flags on the command line.
+* Simpler language design. All languages share a common API for defining
+  toolchains, using toolchains, and selecting the right toolchain for a platform.
 
 ### Costs
-* rule / toolchain maintainers have to understand this
+* Dependent projects that don't yet support platforms might not automatically work
+  with yours.
+* Making them work may require [additional temporary maintenance](#platform-mappings).
+* Co-existence of new and legacy APIs requires more careful user guidance to
+  avoid confusion.
+* Canonical definitions for [common properties](#common-platorm-properties) like
+  `OS` and `CPU` are still evolving and may require extra initial contributions.
+* Canonical definitions for language-specific toolchains are still evolving and
+  may require extra initial contributions.
+
 
 ## API review
 A [`platform`](be/platform.html#platform) is a collection of
@@ -437,5 +452,5 @@ contact
 * [Toolchains](toolchains.html)
 * [Bazel Platforms Cookbook](https://docs.google.com/document/d/1UZaVcL08wePB41ATZHcxQV4Pu1YfA1RvvWm8FbZHuW8/)
 * [`hlopko/bazel_platforms_examples`](https://github.com/hlopko/bazel_platforms_examples)
-
+* [Example C++ custom toolchain](https://github.com/gregestren/snippets/tree/master/custom_cc_toolchain_with_platforms)
 
