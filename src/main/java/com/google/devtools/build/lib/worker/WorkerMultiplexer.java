@@ -63,6 +63,8 @@ public class WorkerMultiplexer extends Thread {
   private RecordingInputStream recordingStream;
   /** If worker process returns null, return null to WorkerProxy and discard all the responses. */
   private boolean isNull;
+  /** A flag to stop multiplexer thread. */
+  private boolean isInterrupted;
 
   WorkerMultiplexer() {
     semWorkerProcessResponse = new Semaphore(1);
@@ -71,6 +73,7 @@ public class WorkerMultiplexer extends Thread {
     workerProcessResponse = new HashMap<>();
     isUnparseable = false;
     isNull = false;
+    isInterrupted = false;
 
     final WorkerMultiplexer self = this;
   }
@@ -100,6 +103,7 @@ public class WorkerMultiplexer extends Thread {
     if (this.process != null) {
       destroyProcess(this.process);
     }
+    isInterrupted = true;
   }
 
   private void destroyProcess(Subprocess process) {
@@ -193,7 +197,7 @@ public class WorkerMultiplexer extends Thread {
 
   /** A multiplexer thread that listens to the WorkResponse from worker process. */
   public void run() {
-    while (!this.interrupted()) {
+    while (!isInterrupted) {
       try {
         waitResponse();
       } catch (IOException e) {
