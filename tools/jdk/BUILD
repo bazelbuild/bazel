@@ -379,6 +379,8 @@ default_java_toolchain(
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
     jvm_opts = [],
+    source_version = "",
+    target_version = "",
 )
 
 RELEASES = (8, 9, 10, 11)
