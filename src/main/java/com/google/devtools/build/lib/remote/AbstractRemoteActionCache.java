@@ -382,11 +382,15 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
           tmpOutErr.clearErr();
         }
       } catch (IOException e) {
+        if (downloadException != null && e != downloadException) {
+          e.addSuppressed(downloadException);
+        }
+        if (interruptedException != null) {
+          e.addSuppressed(interruptedException);
+        }
+
         // If deleting of output files failed, we abort the build with a decent error message as
         // any subsequent local execution failure would likely be incomprehensible.
-
-        // We don't propagate the downloadException, as this is a recoverable error and the cause
-        // of the build failure is really that we couldn't delete output files.
         throw new EnvironmentalExecException(
             "Failed to delete output files after incomplete download", e);
       }
@@ -505,8 +509,9 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
             try {
               out.close();
             } catch (IOException e) {
-              // Intentionally left empty. The download already failed, so we can ignore
-              // the error on close().
+              if (t != e) {
+                t.addSuppressed(e);
+              }
             } finally {
               outerF.setException(t);
             }
