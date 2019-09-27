@@ -1373,6 +1373,67 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
+function test_platform_default_properties_invalidation() {
+  # Test that when changing values of --remote_default_platform_properties all actions are
+  # invalidated.
+mkdir -p test
+  cat > test/BUILD << 'EOF'
+genrule(
+    name = "test",
+    srcs = [],
+    outs = ["output.txt"],
+    cmd = "echo \"foo\" > \"$@\""
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=1234" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  expect_log "1 process: 1 remote"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
+  # caching and make it re-run the action.
+  expect_log "1 process: 1 remote"
+
+  bazel  build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
+  #  and make the action should not be re-run.
+  expect_log "0 processes"
+
+  bazel shutdown
+
+  bazel  build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames od-disk cache
+  #  and the action should not be re-run.
+  expect_log "0 processes"
+
+  bazel build\
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
+    //test:test >& $TEST_log && fail "Should fail" || true
+
+  # Build should fail with a proper error message if both
+  # --remote_default_platform_properties and --remote_default_exec_properties
+  # are provided via command line
+  expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

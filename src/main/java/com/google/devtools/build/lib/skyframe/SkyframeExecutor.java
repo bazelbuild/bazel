@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -148,6 +149,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSup
 import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -2657,6 +2659,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ? remoteOptions.remoteOutputsMode
             // If no value is specified then set it to some value so that it's not null.
             : RemoteOutputsMode.ALL);
+    try {
+      setRemoteDefaultPlatformProperties(
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableMap.of());
+    } catch (UserExecException e) {
+      throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR, e);
+    }
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
@@ -2695,6 +2705,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
+  }
+
+  private void setRemoteDefaultPlatformProperties(
+      Map<String, String> remoteDefaultPlatformProperties) {
+    PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(
+        injectable(), remoteDefaultPlatformProperties);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {

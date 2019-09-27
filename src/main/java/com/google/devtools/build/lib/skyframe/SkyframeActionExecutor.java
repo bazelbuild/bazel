@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -73,6 +74,7 @@ import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -636,9 +638,15 @@ public final class SkyframeActionExecutor {
       MetadataHandler metadataHandler,
       long actionStartTime,
       Iterable<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv)
+      throws ActionExecutionException {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      SortedMap<String, String> remoteDefaultProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableSortedMap.of();
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
@@ -647,7 +655,10 @@ public final class SkyframeActionExecutor {
               options.getOptions(BuildRequestOptions.class).explanationPath != null
                   ? reporter
                   : null,
-              metadataHandler);
+              metadataHandler,
+              remoteDefaultProperties);
+    } catch (UserExecException e) {
+      throw e.toActionExecutionException(action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -694,12 +705,25 @@ public final class SkyframeActionExecutor {
   }
 
   void updateActionCache(
-      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv) {
+      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv)
+      throws ActionExecutionException {
     if (!actionCacheChecker.enabled()) {
       return;
     }
+    final SortedMap<String, String> remoteDefaultProperties;
     try {
-      actionCacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      remoteDefaultProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableSortedMap.of();
+    } catch (UserExecException e) {
+      throw e.toActionExecutionException(action);
+    }
+
+    try {
+      actionCacheChecker.updateActionCache(
+          action, token, metadataHandler, clientEnv, remoteDefaultProperties);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
@@ -820,7 +844,7 @@ public final class SkyframeActionExecutor {
         Action action,
         ActionMetadataHandler metadataHandler,
         Map<String, String> clientEnv)
-        throws InterruptedException;
+        throws InterruptedException, ActionExecutionException;
   }
 
   private static ActionContinuationOrResult begin(
@@ -1150,6 +1174,8 @@ public final class SkyframeActionExecutor {
             return this;
           }
         } catch (InterruptedException e) {
+          return ActionStepOrResult.of(e);
+        } catch (ActionExecutionException e) {
           return ActionStepOrResult.of(e);
         }
         return ActionStepOrResult.of(value);
