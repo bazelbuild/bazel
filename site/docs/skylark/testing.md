@@ -112,8 +112,9 @@ provider_contents_test = analysistest.make(_provider_contents_test_impl)
 
 # Macro to setup the test.
 def test_provider_contents():
-  # Rule under test.
-  myrule(name = "provider_contents_subject")
+  # Rule under test. Be sure to tag 'manual', as this target should not be
+  # built using `:all` except as a dependency of the test.
+  myrule(name = "provider_contents_subject", tags = ["manual"])
   # Testing rule.
   provider_contents_test(name = "provider_contents",
                          target_under_test = ":provider_contents_subject")
@@ -178,7 +179,7 @@ BUILD package, so it's helpful to use a unique name for the test.
 It may be useful to verify that a rule fails given certain inputs or in
 certain state. This can be done using the analysis test framework:
 
-Firstly, the test rule created with `analysistest.make` should specify `expect_failure`:
+The test rule created with `analysistest.make` should specify `expect_failure`:
 
 ```python
 failure_testing_test = analysistest.make(
@@ -187,7 +188,7 @@ failure_testing_test = analysistest.make(
 )
 ```
 
-Secondly, the test rule implementation should make assertions on the nature
+The test rule implementation should make assertions on the nature
 of the failure that took place (specifically, the failure message):
 
 ```python
@@ -197,6 +198,20 @@ def _failure_testing_test_impl(ctx):
     asserts.expect_failure(env, "This rule should never work")
 
     return analysistest.end(env)
+```
+
+Also make sure that your target under test is specifically tagged 'manual'.
+Without this, building all targets in your package using `:all` will result
+in a build of the intentionally-failing target and will exhibit a build failure.
+With 'manual', your target under test will build only if explicitly specified,
+or as a dependency of a non-manual target (such as your test rule):
+
+```python
+def failure_testing_suite():
+    myrule(name = "this_should_fail", tags = ["manual"])
+
+    failure_testing_test(name = "failure_testing_test",
+                         target_under_test = ":this_should_fail")
 ```
 
 ### Verifying Registered Actions
