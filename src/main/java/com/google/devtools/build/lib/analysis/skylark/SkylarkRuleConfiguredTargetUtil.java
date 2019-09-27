@@ -414,7 +414,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
         StructImpl insStruct = cast("instrumented_files", oldStyleProviders, StructImpl.class, loc);
         addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
       } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(field))) {
-        builder.addNativeDeclaredProvider((InfoInterface) oldStyleProviders.getValue(field));
+        InfoInterface infoInterface = (InfoInterface) oldStyleProviders.getValue(field);
+        NativeProvider.WithLegacySkylarkName provider =
+            (NativeProvider.WithLegacySkylarkName) infoInterface.getProvider();
+        // Add the provider under its proper provider key as well as its legacy name.
+        builder.addNativeDeclaredProvider(infoInterface);
+        builder.addSkylarkTransitiveInfo(provider.getSkylarkName(), infoInterface);
       } else if (!field.equals("providers")) {
         // We handled providers already.
         builder.addSkylarkTransitiveInfo(field, oldStyleProviders.getValue(field), loc);

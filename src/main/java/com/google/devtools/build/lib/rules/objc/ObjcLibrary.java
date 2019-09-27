@@ -102,8 +102,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingContext ccLinkingContext =
         buildCcLinkingContext(common, ruleContext.getSymbolGenerator());
 
+    ObjcProvider objcProvider = common.getObjcProvider();
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addNativeDeclaredProvider(common.getObjcProvider())
+        .addNativeDeclaredProvider(objcProvider)
+        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(

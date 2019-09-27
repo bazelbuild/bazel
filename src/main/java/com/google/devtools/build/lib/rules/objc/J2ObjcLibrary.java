@@ -137,6 +137,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
+        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
         .build();
   }
 
