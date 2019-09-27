@@ -595,13 +595,11 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
   }
 
-  private void constructAndReportIds() {
-    reporter.handle(
-        Event.info(
-            String.format(
-                "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
-                    + " and invocation_id: '%s'",
-                besOptions.besBackend, buildRequestId, invocationId)));
+  private void logIds() {
+    googleLogger.atInfo().log(
+        "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
+            + " and invocation_id: '%s'",
+        besOptions.besBackend, buildRequestId, invocationId);
   }
 
   @Nullable
@@ -629,7 +627,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return null;
     }
 
-    constructAndReportIds();
+    logIds();
 
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     if (status.status != Status.OK) {
