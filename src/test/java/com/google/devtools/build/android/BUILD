@@ -170,6 +170,18 @@ java_test(
 )
 
 java_test(
+    name = "DataSourceTest",
+    size = "small",
+    srcs = ["DataSourceTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DensitySpecificManifestProcessorTest",
     size = "small",
     srcs = ["DensitySpecificManifestProcessorTest.java"],

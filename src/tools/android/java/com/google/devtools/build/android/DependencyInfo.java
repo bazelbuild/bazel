@@ -29,7 +29,10 @@ public abstract class DependencyInfo {
     return new AutoValue_DependencyInfo(label, dependencyType);
   }
 
-  /** The type of dependency relationship, in terms of its distance from the current target. */
+  /**
+   * The type of dependency relationship, in terms of its distance from the current target. If a
+   * resource is combined from multiple sources, we use the DependencyType of the closest source.
+   */
   public static enum DependencyType {
     /**
      * The current target. This corresponds to the "--primaryData" option of

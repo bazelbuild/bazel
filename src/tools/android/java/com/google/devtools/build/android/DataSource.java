@@ -25,6 +25,8 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 /** Represents where the DataValue was derived from. */
 public final class DataSource implements Comparable<DataSource> {
@@ -69,17 +71,20 @@ public final class DataSource implements Comparable<DataSource> {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    return Objects.equal(path, ((DataSource) o).path)
+    return Objects.equal(dependencyInfo, ((DataSource) o).dependencyInfo)
+        && Objects.equal(path, ((DataSource) o).path)
         && Objects.equal(overrides, ((DataSource) o).overrides);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(path, overrides);
+    return Objects.hashCode(dependencyInfo, path, overrides);
   }
 
   @Override
   public int compareTo(DataSource o) {
+    // NB: this is really only used for an ImmutableSet in 'overwrite' below, which really only
+    // cares about filenames.
     return path.compareTo(o.path);
   }
 
@@ -93,15 +98,42 @@ public final class DataSource implements Comparable<DataSource> {
   // values are ultimately written out to a merged values.xml. Sources from layout/menu, etc.
   // can come from "@+id" definitions.
   public DataSource combine(DataSource otherSource) {
-    boolean thisInValuesFolder = isInValuesFolder();
-    boolean otherInValuesFolder = otherSource.isInValuesFolder();
-    if (thisInValuesFolder && !otherInValuesFolder) {
-      return this;
-    }
-    if (!thisInValuesFolder && otherInValuesFolder) {
-      return otherSource;
-    }
-    return this;
+    Comparator<DataSource> compareIsInValuesFolder =
+        Comparator.comparingInt(dataSource -> dataSource.isInValuesFolder() ? 0 : 1);
+    Comparator<DataSource> compareDependencyType =
+        Comparator.comparingInt(
+            (DataSource dataSource) -> {
+              switch (dataSource.dependencyInfo.dependencyType()) {
+                case PRIMARY:
+                  return 0;
+                case DIRECT:
+                  return 1;
+                case TRANSITIVE:
+                  return 2;
+                case UNKNOWN:
+                  return 3;
+              }
+              return Integer.MAX_VALUE;
+            });
+
+    DataSource sourceWithValues =
+        Stream.of(this, otherSource)
+            .min(compareIsInValuesFolder.thenComparing(compareDependencyType))
+            .get();
+    DataSource closerDataSource =
+        Stream.of(this, otherSource)
+            .min(compareDependencyType.thenComparing(compareIsInValuesFolder))
+            .get();
+
+    // Prefer the closer dependency for DependencyInfo, which impacts whether we emit annotations in
+    // R classes.
+    //
+    // Since this resource is defined in multiple libraries, this can unfortunately lead to an
+    // inconsistency where 'dependencyInfo' doesn't match 'path'.  This doesn't matter in practice,
+    // because we never use both for any given processing action, and w.r.t. the above TODO merging
+    // XML files shouldn't need to know about source info.
+    return new DataSource(
+        closerDataSource.dependencyInfo, sourceWithValues.path, sourceWithValues.overrides);
   }
 
   public DataSource overwrite(DataSource... sources) {
