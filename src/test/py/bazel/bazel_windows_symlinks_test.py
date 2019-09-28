@@ -22,11 +22,7 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
     def createProjectFiles(self):
         self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
         self.ScratchFile('foo/BUILD', [
-               'py_binary(name="symlinker", srcs=[":symlinker.py"])',
-               'genrule(name="x",srcs=[":sample"],outs=["link"],cmd="$(location symlinker) $< $@",tools=[":symlinker"])'
-        ])
-        self.ScratchFile('foo/symlinker.py', [
-            'import os; import sys; os.symlink(os.path.join(os.getcwd(), sys.argv[1]), sys.argv[2])',
+               'genrule(name="x",srcs=[":sample"],outs=["link"],cmd="IN=$< OUT=$@ OUT2=$${OUT//\\//\\\\\\\\\\\\} IN2=$${IN//\\//\\\\\\\\\\\\} cmd.exe /C \\"mklink %OUT2% %cd%\\\\%IN2%\\"")'
         ])
         self.ScratchFile('foo/sample', [
             'sample',

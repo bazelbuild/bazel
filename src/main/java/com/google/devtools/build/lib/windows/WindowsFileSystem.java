@@ -92,11 +92,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    try {
-      return PathFragment.create(WindowsFileOperations.readSymlinkOrJunction(nioPath.toString()));
-    } catch (IOException e) {
-      throw e.getMessage().endsWith("path is not a link") ? new NotASymlinkException(path) : e;
+    WindowsFileOperations.ReadSymlinkOrJunctionResult result = WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
+    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
+      return PathFragment.create(result.getResult());
     }
+    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
+      throw new NotASymlinkException(path);
+    }
+    throw new IOException(result.getResult());
   }
 
   @Override
