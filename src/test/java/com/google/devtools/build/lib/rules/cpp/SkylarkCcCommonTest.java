@@ -1318,6 +1318,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
   }
 
+  static private String getSolibRelativePath(Artifact library, CcToolchainProvider toolchain) {
+    return library.getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString();
+  }
+
   @Test
   public void testSolibLinkDefault() throws Exception {
     setUpCcLinkingContextTest();
@@ -1341,13 +1345,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(
             librariesToLink.toCollection(LibraryToLink.class).stream()
                 .filter(x -> x.getDynamicLibrary() != null)
-                .map(x -> x.getDynamicLibrary().getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString())
+                .map(x -> getSolibRelativePath(x.getDynamicLibrary(), toolchain))
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.so");
     assertThat(
             librariesToLink.toCollection(LibraryToLink.class).stream()
                 .filter(x -> x.getInterfaceLibrary() != null)
-                .map(x -> x.getInterfaceLibrary().getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString())
+                .map(x -> getSolibRelativePath(x.getInterfaceLibrary(), toolchain))
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.ifso");
   }
