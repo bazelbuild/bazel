@@ -134,8 +134,24 @@ public final class ValidationEnvironment extends NodeVisitor {
         declare(fctName.getName(), fctName.getLocation());
         break;
       case LOAD:
-        for (LoadStatement.Binding binding : ((LoadStatement) stmt).getBindings()) {
-          declare(binding.getLocalName().getName(), binding.getLocalName().getLocation());
+        LoadStatement load = (LoadStatement) stmt;
+
+        // The global reassignment check is not yet enabled for BUILD files,
+        // but we apply it to load statements as a special case.
+        // Because (for now) its error message is better than the general
+        // message emitted by 'declare', we'll apply it to non-BUILD files too.
+        Set<String> names = new HashSet<>();
+        for (LoadStatement.Binding b : load.getBindings()) {
+          if (!names.add(b.getLocalName().getName())) {
+            throw new ValidationException(
+                b.getLocalName().getLocation(),
+                String.format(
+                    "load statement defines '%s' more than once", b.getLocalName().getName()));
+          }
+        }
+
+        for (LoadStatement.Binding b : load.getBindings()) {
+          declare(b.getLocalName().getName(), b.getLocalName().getLocation());
         }
         break;
       case EXPRESSION:
@@ -318,6 +334,10 @@ public final class ValidationEnvironment extends NodeVisitor {
     // TODO(laurentlb): Forbid reassignment in BUILD files.
     if (!isBuildFile && block.scope == Scope.Module && block.variables.contains(varname)) {
       // Symbols defined in the module scope cannot be reassigned.
+      //
+      // TODO(adonovan): make error message more precise: "x reassigned at top level"
+      // and emit a secondary error "x previously declared here". This requires an
+      // upcoming changes to report events not exceptions.
       throw new ValidationException(
           location,
           String.format(

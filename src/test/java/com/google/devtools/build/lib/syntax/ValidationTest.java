@@ -64,6 +64,14 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testLoadDuplicateSymbols() throws Exception {
+    checkError("load statement defines 'x' more than once", "load('module', 'x', 'x')");
+    checkError("load statement defines 'x' more than once", "load('module', 'x', x='y')");
+    checkError("load statement defines 'x' more than once", "x=1; load('module', 'x')");
+    checkError("load statement defines 'x' more than once", "load('module', 'x'); x=1");
+  }
+
+  @Test
   public void testForbiddenToplevelIfStatement() throws Exception {
     checkError("if statements are not allowed at the top level", "if True: a = 2");
   }
