@@ -458,15 +458,15 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   }
 
   private void writeServerStatusFiles(InetSocketAddress address) throws IOException {
-    writeServerFile(
-        PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
+    String addressString = InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort();
+    writeServerFile(PORT_FILE, addressString);
     writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
     writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
 
     ServerInfo info =
         ServerInfo.newBuilder()
             .setPid(Integer.parseInt(pidInFile))
-            .setAddress(address.getAddress() + ":" + server.getPort())
+            .setAddress(addressString)
             .setRequestCookie(requestCookie)
             .setResponseCookie(responseCookie)
             .build();
