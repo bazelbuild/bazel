@@ -425,12 +425,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "        cmd = ':',",
             "        outs = ['out.1'])",
             "list = ['bad']",
-            "PopulateList(list)", // undefined => error
+            "x = 1//0", // dynamic error
             "genrule(name = 'rule2',",
             "        cmd = ':',",
             "        outs = list)");
     Package pkg = packages.createPackage("error", RootedPath.toRootedPath(root, path));
-    events.assertContainsError("name 'PopulateList' is not defined");
+    events.assertContainsError("division by zero");
 
     assertThat(pkg.containsErrors()).isTrue();
 

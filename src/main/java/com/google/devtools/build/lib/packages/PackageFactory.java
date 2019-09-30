@@ -1808,8 +1808,10 @@ public final class PackageFactory {
       // as containing errors" is strewn all over this class.  Refactor to use an
       // event sensor--and see if we can simplify the calling code in
       // createPackage().
-      if (!file.exec(pkgThread, eventHandler)) {
-        pkgBuilder.setContainsErrors();
+      if (!pkgBuilder.containsErrors()) {
+        if (!file.exec(pkgThread, eventHandler)) {
+          pkgBuilder.setContainsErrors();
+        }
       }
     }
 

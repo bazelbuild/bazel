@@ -715,8 +715,8 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   /**
-   * Regression test: in keep_going mode, cycles in target graph aren't reported
-   * if package is in error.
+   * Regression test: in keep_going mode, cycles in target graph are reported even if the package is
+   * in error.
    */
   @Test
   public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
@@ -725,12 +725,13 @@ public class BuildViewTest extends BuildViewTestBase {
       return;
     }
     reporter.removeHandler(failFastHandler);
-    scratch.file("cycles/BUILD",
+    scratch.file(
+        "cycles/BUILD",
         "sh_library(name = 'a', deps = [':b'])",
         "sh_library(name = 'b', deps = [':a'])",
-        "notvalidbuildsyntax");
+        "x = 1//0"); // dynamic error
     update(defaultFlags().with(Flag.KEEP_GOING), "//cycles:a");
-    assertContainsEvent("'notvalidbuildsyntax'");
+    assertContainsEvent("division by zero");
     assertContainsEvent("cycle in dependency graph");
   }
 

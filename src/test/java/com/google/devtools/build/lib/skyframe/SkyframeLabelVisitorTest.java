@@ -393,8 +393,8 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
     scratch.file(
         "parent/BUILD",
         "sh_library(name = 'parent', deps = ['//child:child'])",
-        "invalidbuildsyntax");
-    scratch.file("child/BUILD", "sh_library(name = 'child')", "invalidbuildsyntax");
+        "x = 1//0"); // dynamic error
+    scratch.file("child/BUILD", "sh_library(name = 'child')", "x = 1//0"); // dynamic error
     assertLabelsVisited(
         ImmutableSet.of("//parent:parent", "//child:child"),
         ImmutableSet.of("//parent:parent"),
