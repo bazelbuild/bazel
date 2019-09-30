@@ -22,10 +22,13 @@ public interface AndroidResourceSymbolSink {
 
   void acceptSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name);
 
+  // "inlineable" below affects how resource IDs are assigned by
+  // PlaceholderIdFieldInitializerBuilder to attempt to match the final IDs assigned by aapt1.  This
+  // shouldn't matter, but legacy tests with ODR violations might be relying on this.
   void acceptStyleableResource(
       DependencyInfo dependencyInfo,
       FullyQualifiedName key,
-      Map<FullyQualifiedName, Boolean> attrs);
+      Map<FullyQualifiedName, /*inlineable=*/ Boolean> attrs);
 
   /**
    * Marks a resource as public.
