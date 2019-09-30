@@ -90,7 +90,8 @@ public abstract class AbstractJavacTurbineCompilationTest {
         new JavacTurbine(
             new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
             optionsBuilder.build())) {
-      assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+      assertThat(turbine.compile())
+          .isAnyOf(Result.OK_WITH_FULL_CLASSPATH, Result.OK_WITH_REDUCED_CLASSPATH);
     }
   }
 

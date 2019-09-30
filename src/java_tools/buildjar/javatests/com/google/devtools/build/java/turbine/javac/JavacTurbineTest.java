@@ -617,11 +617,13 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
         new JavacTurbine(
             new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
             optionsBuilder.build())) {
-      assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+      assertThat(turbine.compile())
+          .isAnyOf(Result.OK_WITH_FULL_CLASSPATH, Result.OK_WITH_REDUCED_CLASSPATH);
+
       Context context = turbine.context;
 
       JavacFileManager fm = (JavacFileManager) context.get(JavaFileManager.class);
-      assertThat(fm.getLocationAsPaths(StandardLocation.CLASS_PATH)).containsExactly(libA, libB);
+      assertThat(fm.getLocationAsPaths(StandardLocation.CLASS_PATH)).containsAtLeast(libA, libB);
 
       Deps.Dependencies depsProto = getDeps();
 
@@ -629,7 +631,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       assertThat(depsProto.getRequiresReducedClasspathFallback()).isFalse();
       assertThat(depsProto.getRuleLabel()).isEqualTo("//my:target");
       assertThat(getEntries(depsProto))
-          .containsExactly(
+          .containsAtLeast(
               libA.toString(),
               Deps.Dependency.Kind.EXPLICIT,
               libB.toString(),
@@ -1440,7 +1442,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     }
 
     assertThat(output.toString()).isEmpty();
-    assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+    assertThat(result).isAnyOf(Result.OK_WITH_FULL_CLASSPATH, Result.OK_WITH_REDUCED_CLASSPATH);
   }
 
   @Test
@@ -1463,7 +1465,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     }
 
     assertThat(output.toString()).isEmpty();
-    assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+    assertThat(result).isAnyOf(Result.OK_WITH_FULL_CLASSPATH, Result.OK_WITH_REDUCED_CLASSPATH);
   }
 
   @Test
