@@ -95,7 +95,8 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
       unlimit_coredumps(false),
-      incompatible_enable_execution_transition(false) {
+      incompatible_enable_execution_transition(false),
+      experimental_check_label_casing(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -142,6 +143,8 @@ StartupOptions::StartupOptions(const string &product_name,
                              &incompatible_enable_execution_transition);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlag("experimental_check_label_casing",
+                             &experimental_check_label_casing);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);

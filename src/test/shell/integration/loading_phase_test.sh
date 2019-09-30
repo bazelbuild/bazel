@@ -46,9 +46,15 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   declare -r is_windows=true
+  declare -r is_mac=false
+  ;;
+darwin*)
+  declare -r is_windows=false
+  declare -r is_mac=true
   ;;
 *)
   declare -r is_windows=false
+  declare -r is_mac=false
   ;;
 esac
 
@@ -470,6 +476,83 @@ function test_bazel_bin_is_not_a_package() {
   expect_log_once "//$pkg:$pkg"
   expect_log_once "//.*:$pkg"
   expect_not_log "//foo_prefix"
+}
+
+function test_case_sensitive_pkg_names() {
+  local -r pkg1="Pkg${RANDOM}"
+  local -r pkg2="MyPackage"
+  mkdir -p "$pkg1/$pkg2" || fail "Could not mkdir $pkg1/$pkg2"
+  echo "filegroup(name = 'MyTarget')" > "$pkg1/$pkg2/BUILD"
+
+  local -r pkg1_upper=$(echo "$pkg1" | tr '[:lower:]' '[:upper:]')
+  local -r pkg2_upper=$(echo "$pkg2" | tr '[:lower:]' '[:upper:]')
+
+  [[ "$pkg1_upper" != "$pkg1" ]] || fail "Expected strings ($pkg1) to differ"
+  [[ "$pkg2_upper" != "$pkg2" ]] || fail "Expected strings ($pkg2) to differ"
+
+  if $is_windows || $is_mac; then
+    [[ -e "$pkg1_upper/$pkg2_upper/BUILD" ]] \
+        || fail "Expected case-insensitive semantics"
+  else
+    if [[ -e "$pkg1_upper/$pkg2_upper/BUILD" ]]; then
+      fail "Expected case-sensitive semantics"
+    fi
+  fi
+
+  # The wrong casing should not work.
+  if bazel --experimental_check_label_casing query \
+      //$pkg1_upper/$pkg2_upper:all >&"$TEST_log"; then
+    fail "Expected failure"
+  fi
+  if $is_windows || $is_mac; then
+    expect_log "no such package.*$pkg1_upper/$pkg2_upper.*path casing is wrong"
+  else
+    expect_log "no such package.*$pkg1_upper/$pkg2_upper.*BUILD file not found"
+  fi
+
+  if bazel --experimental_check_label_casing query \
+      //$pkg1/$pkg2_upper:all >&"$TEST_log"; then
+    fail "Expected failure"
+  fi
+  if $is_windows || $is_mac; then
+    expect_log "no such package.*$pkg1/$pkg2_upper.*path casing is wrong"
+  else
+    expect_log "no such package.*$pkg1/$pkg2_upper.*BUILD file not found"
+  fi
+
+  if bazel --experimental_check_label_casing query \
+      //$pkg1_upper/$pkg2:all >&"$TEST_log"; then
+    fail "Expected failure"
+  fi
+  if $is_windows || $is_mac; then
+    expect_log "no such package.*$pkg1_upper/$pkg2.*path casing is wrong"
+  else
+    expect_log "no such package.*$pkg1_upper/$pkg2.*BUILD file not found"
+  fi
+
+  # The right casing should work.
+  bazel --experimental_check_label_casing query \
+      //$pkg1/$pkg2:all >&"$TEST_log" || fail "Expected success"
+  expect_not_log "no such package"
+  expect_log "//$pkg1/$pkg2:MyTarget"
+
+  # The wrong casing should still not work.
+  if bazel --experimental_check_label_casing query \
+      //$pkg1_upper/$pkg2_upper:all >&"$TEST_log"; then
+    fail "Expected failure"
+  fi
+  if $is_windows || $is_mac; then
+    expect_log "no such package.*$pkg1_upper/$pkg2_upper.*path casing is wrong"
+  else
+    expect_log "no such package.*$pkg1_upper/$pkg2_upper.*BUILD file not found"
+  fi
+
+  # The wrong casing should only work on Windows and macOS, and when case
+  # checking is disabled.
+  if $is_windows || $is_mac; then
+    bazel --noexperimental_check_label_casing query \
+        //$pkg1_upper/$pkg2_upper:all >&"$TEST_log" || fail "Expected success"
+  fi
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

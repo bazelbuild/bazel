@@ -116,6 +116,9 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>(Key.create("remote_execution_enabled"));
 
+  public static final Precomputed<Boolean> VALIDATE_PACKAGE_PATH_CASING =
+      new Precomputed<>(Key.create("validate_package_path_casing"));
+
   private final Object value;
 
   @AutoCodec.Instantiator

@@ -51,6 +51,10 @@ public abstract class PackageLookupValue implements SkyValue {
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
+  @AutoCodec
+  public static final BadPathCasingPackageLookupValue BAD_PATH_CASING =
+      new BadPathCasingPackageLookupValue();
+
   enum ErrorReason {
     /** There is no BUILD file. */
     NO_BUILD_FILE,
@@ -62,7 +66,10 @@ public abstract class PackageLookupValue implements SkyValue {
     DELETED_PACKAGE,
 
     /** The repository was not found. */
-    REPOSITORY_NOT_FOUND
+    REPOSITORY_NOT_FOUND,
+
+    /** The package exists according to the filesystem, but the path casing is incorrect. */
+    BAD_PATH_CASING
   }
 
   protected PackageLookupValue() {
@@ -383,6 +390,22 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String getErrorMsg() {
       return "Package is considered deleted due to --deleted_packages";
+    }
+  }
+
+  /** Marker value for a package with incorrect path casing. */
+  public static class BadPathCasingPackageLookupValue extends UnsuccessfulPackageLookupValue {
+    private BadPathCasingPackageLookupValue() {
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.BAD_PATH_CASING;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return "Package exists but the path casing is wrong";
     }
   }
 

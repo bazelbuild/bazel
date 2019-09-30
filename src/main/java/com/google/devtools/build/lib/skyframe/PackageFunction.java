@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AstParseResult;
+import com.google.devtools.build.lib.packages.BadPathCasingException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -391,6 +392,9 @@ public class PackageFunction implements SkyFunction {
         case INVALID_PACKAGE_NAME:
           throw new PackageFunctionException(new InvalidPackageNameException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
+        case BAD_PATH_CASING:
+          throw new PackageFunctionException(
+              new BadPathCasingException(packageId, packageLookupValue.getErrorMsg()));
         default:
           // We should never get here.
           throw new IllegalStateException();
@@ -1315,6 +1319,10 @@ public class PackageFunction implements SkyFunction {
   static class PackageFunctionException extends SkyFunctionException {
     public PackageFunctionException(NoSuchPackageException e, Transience transience) {
       super(e, transience);
+    }
+
+    public PackageFunctionException(BadPathCasingException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 

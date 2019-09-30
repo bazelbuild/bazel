@@ -612,6 +612,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
     map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
+    map.put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }

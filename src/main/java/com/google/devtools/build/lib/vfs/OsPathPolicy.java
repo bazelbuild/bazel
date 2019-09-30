@@ -90,8 +90,9 @@ public interface OsPathPolicy {
       case UNKNOWN:
         return UnixOsPathPolicy.INSTANCE;
       case DARWIN:
-        // NOTE: We *should* return a path policy that is case insensitive,
-        // but we currently don't handle this
+        // BUG: known bug, https://github.com/bazelbuild/bazel/issues/8799
+        // We *should* return a path policy that is case insensitive,
+        // but we currently don't handle this.
         return UnixOsPathPolicy.INSTANCE;
       case WINDOWS:
         return WindowsOsPathPolicy.INSTANCE;

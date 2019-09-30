@@ -34,7 +34,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @AutoCodec
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+public abstract class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
@@ -44,8 +44,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    // Note: We rely on these being interned to fast-path Label#equals.
-    return INTERNER.intern(new PackageIdentifier(repository, pkgName));
+    if (LabelConstants.CHECK_CASING) {
+      // Note: We rely on these being interned to fast-path Label#equals.
+      return INTERNER.intern(new CaseCheckingPackageIdentifier(repository, pkgName));
+    } else {
+      // Note: We rely on these being interned to fast-path Label#equals.
+      return INTERNER.intern(new CaseTrustingPackageIdentifier(repository, pkgName));
+    }
   }
 
   public static final PackageIdentifier EMPTY_PACKAGE_ID = createInMainRepo(
@@ -99,21 +104,14 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * The identifier for this repository. This is either "" or prefixed with an "@",
    * e.g., "@myrepo".
    */
-  private final RepositoryName repository;
+  protected final RepositoryName repository;
 
   /** The name of the package. */
-  private final PathFragment pkgName;
-
-  /**
-   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
-   * interning, x.equals(y) <=> x==y.
-   **/
-  private final int hashCode;
+  protected final PathFragment pkgName;
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
     this.pkgName = Preconditions.checkNotNull(pkgName);
-    this.hashCode = Objects.hash(repository, pkgName);
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -200,36 +198,129 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    *
    * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
    * package identifier. This isn't specific enough for packages in other repositories, so their
-   * stringified version is '@baz//foo/bar'.</p>
+   * stringified version is '@baz//foo/bar'.
    */
   @Override
-  public String toString() {
-    return (repository.isDefault() || repository.isMain() ? "" : repository + "//") + pkgName;
-  }
+  public abstract String toString();
 
   @Override
-  public boolean equals(Object object) {
-    if (this == object) {
-      return true;
+  public abstract boolean equals(Object object);
+
+  @Override
+  public abstract int hashCode();
+
+  @Override
+  public abstract int compareTo(PackageIdentifier that);
+
+  private static final class CaseTrustingPackageIdentifier extends PackageIdentifier {
+
+    /**
+     * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
+     * interning, x.equals(y) <=> x==y.
+     **/
+    private final int hashCode;
+
+    CaseTrustingPackageIdentifier(RepositoryName repository, PathFragment pkgName) {
+      super(repository, pkgName);
+      this.hashCode = Objects.hash(repository, pkgName);
     }
-    if (!(object instanceof PackageIdentifier)) {
-      return false;
+
+    /**
+     * Returns the name of this package.
+     *
+     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
+     * package identifier. This isn't specific enough for packages in other repositories, so their
+     * stringified version is '@baz//foo/bar'.
+     */
+    @Override
+    public String toString() {
+      return (repository.isDefault() || repository.isMain() ? "" : repository + "//") + pkgName;
     }
-    PackageIdentifier that = (PackageIdentifier) object;
-    return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
-        && repository.equals(that.repository);
+
+    @Override
+    public boolean equals(Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (!(object instanceof CaseTrustingPackageIdentifier)) {
+        return false;
+      }
+      CaseTrustingPackageIdentifier that = (CaseTrustingPackageIdentifier) object;
+      return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+          && repository.equals(that.repository);
+    }
+
+    @Override
+    public int hashCode() {
+      return this.hashCode;
+    }
+
+    @Override
+    public int compareTo(PackageIdentifier that) {
+      return ComparisonChain.start()
+          .compare(repository.toString(), that.repository.toString())
+          .compare(pkgName, that.pkgName)
+          .result();
+    }
   }
 
-  @Override
-  public int hashCode() {
-    return this.hashCode;
-  }
+  private static final class CaseCheckingPackageIdentifier extends PackageIdentifier {
 
-  @Override
-  public int compareTo(PackageIdentifier that) {
-    return ComparisonChain.start()
-        .compare(repository.toString(), that.repository.toString())
-        .compare(pkgName, that.pkgName)
-        .result();
+    private final String repoCasing;
+    private final String pkgCasing;
+
+    /**
+     * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
+     * interning, x.equals(y) <=> x==y.
+     **/
+    private final int hashCode;
+
+    CaseCheckingPackageIdentifier(RepositoryName repository, PathFragment pkgName) {
+      super(repository, pkgName);
+      this.repoCasing = repository.getName();
+      this.pkgCasing = pkgName.getPathString();
+      this.hashCode = Objects.hash(repository, pkgName, repoCasing, pkgCasing);
+    }
+
+    /**
+     * Returns the name of this package.
+     *
+     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
+     * package identifier. This isn't specific enough for packages in other repositories, so their
+     * stringified version is '@baz//foo/bar'.
+     */
+    @Override
+    public String toString() {
+      return (repository.isDefault() || repository.isMain() ? "" : repoCasing + "//") + pkgCasing;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (!(object instanceof CaseCheckingPackageIdentifier)) {
+        return false;
+      }
+      CaseCheckingPackageIdentifier that = (CaseCheckingPackageIdentifier) object;
+      return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+          && repository.equals(that.repository) && repoCasing.equals(that.repoCasing)
+          && pkgCasing.equals(that.pkgCasing);
+    }
+
+    @Override
+    public int hashCode() {
+      return this.hashCode;
+    }
+
+    @Override
+    public int compareTo(PackageIdentifier that) {
+      return ComparisonChain.start()
+          .compare(repository.toString(), that.repository.toString())
+          .compare(pkgName, that.pkgName)
+          .compare(repoCasing, that.repository.getName())
+          .compare(pkgCasing, that.pkgName.getPathString())
+          .result();
+    }
   }
 }
