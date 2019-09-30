@@ -139,6 +139,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.VALIDATE_PACKAGE_PATH_CASING.set(differencer, false);
   }
 
   private Artifact getSourceArtifact(String path) throws Exception {

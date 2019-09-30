@@ -28,6 +28,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
@@ -150,6 +151,25 @@ public class PackageCacheOptions extends OptionsBase {
             + "this flag to false to see the effect on incremental build times."
   )
   public boolean checkOutputFiles;
+
+  @Option(
+    name = "incompatible_validate_package_path_casing",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    metadataTags = {
+      OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+    },
+    help =
+        "If true, Bazel validates the path casing of package paths. This means Bazel will not only "
+            + "check that a BUILD file exists but also that the package's path is correctly "
+            + "spelled with regard to upper case and lower case letters. Enabling this feature is "
+            + "unnecessary on Linux because the filesystem is case-sensitive, but useful on "
+            + "Windows and macOS where the filesystem is case-ignoring and reports that "
+            + "my/package/build exists even if the correct casing would be My/Package/BUILD."
+  )
+  public boolean validatePackagePathCasing;
 
   /**
    * A converter from strings containing comma-separated names of packages to lists of strings.

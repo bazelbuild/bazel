@@ -155,6 +155,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -613,6 +614,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
     map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.getInstance());
+    map.put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -1385,6 +1387,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setSkylarkSemantics(getEffectiveStarlarkSemantics(starlarkSemanticsOptions));
     setPackageLocator(pkgLocator);
+    setValidatePackagePathCasing(packageCacheOptions.validatePackagePathCasing);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
@@ -2712,6 +2715,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map<String, String> remoteDefaultPlatformProperties) {
     PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.set(
         injectable(), remoteDefaultPlatformProperties);
+  }
+
+  private void setValidatePackagePathCasing(boolean validateCasing) {
+    PrecomputedValue.VALIDATE_PACKAGE_PATH_CASING.set(injectable(), validateCasing);
   }
 
   private void getActionEnvFromOptions(CoreOptions opt) {

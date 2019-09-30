@@ -286,6 +286,16 @@ public class PackageLookupFunction implements SkyFunction {
       return null;
     }
     if (fileValue.isFile()) {
+      if (PrecomputedValue.VALIDATE_PACKAGE_PATH_CASING.get(env).booleanValue()) {
+        PathCasingLookupValue casingValue =
+            (PathCasingLookupValue) env.getValue(PathCasingLookupValue.key(buildFileRootedPath));
+        if (casingValue == null) {
+          return null;
+        }
+        if (!casingValue.isCorrect()) {
+          return PackageLookupValue.BAD_PATH_CASING;
+        }
+      }
       return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
     }
 

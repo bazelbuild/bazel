@@ -104,6 +104,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   /** The name of the package. */
   private final PathFragment pkgName;
 
+  private final String repositoryCasing;
+  private final String pkgNameCasing;
+
   /**
    * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
    * interning, x.equals(y) <=> x==y.
@@ -113,7 +116,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
     this.pkgName = Preconditions.checkNotNull(pkgName);
-    this.hashCode = Objects.hash(repository, pkgName);
+    this.repositoryCasing = repository.getName();
+    this.pkgNameCasing = pkgName.getPathString();
+    this.hashCode = Objects.hash(repository, pkgName, repositoryCasing, pkgNameCasing);
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -204,7 +209,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    */
   @Override
   public String toString() {
-    return (repository.isDefault() || repository.isMain() ? "" : repository + "//") + pkgName;
+    return (repository.isDefault() || repository.isMain() ? "" : repositoryCasing + "//") + pkgNameCasing;
   }
 
   @Override
@@ -217,6 +222,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
     PackageIdentifier that = (PackageIdentifier) object;
     return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+        && repositoryCasing.equals(that.repositoryCasing)
+        && pkgNameCasing.equals(that.pkgNameCasing)
         && repository.equals(that.repository);
   }
 
@@ -227,9 +234,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @Override
   public int compareTo(PackageIdentifier that) {
+    // TODO(laszlocsomor): DON'T SUBMIT. It should be controlled by
+    // --incompatible_validate_package_path_casing whether equals / hashCode / compareTo consider
+    // 'pkgNameCasing' and 'repositoryCasing'.
     return ComparisonChain.start()
         .compare(repository.toString(), that.repository.toString())
         .compare(pkgName, that.pkgName)
+        .compare(pkgNameCasing, that.pkgNameCasing)
         .result();
   }
 }

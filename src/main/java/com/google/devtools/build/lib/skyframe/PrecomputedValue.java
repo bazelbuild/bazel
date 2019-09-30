@@ -113,6 +113,9 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<Map<String, String>> REMOTE_DEFAULT_PLATFORM_PROPERTIES =
       new Precomputed<>(Key.create("remote_default_platform_properties"));
 
+  public static final Precomputed<Boolean> VALIDATE_PACKAGE_PATH_CASING =
+      new Precomputed<>(Key.create("validate_package_path_casing"));
+
   private final Object value;
 
   @AutoCodec.Instantiator
