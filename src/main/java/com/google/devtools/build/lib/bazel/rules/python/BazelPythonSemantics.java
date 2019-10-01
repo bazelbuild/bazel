@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -279,20 +280,20 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void postInitExecutable(
-      RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common) {
-    if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
-      FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
-      Artifact executable = common.getExecutable();
-      if (!ruleContext.hasErrors()) {
-        createPythonZipAction(
-            ruleContext,
-            executable,
-            common.getPythonZipArtifact(executable),
-            getPythonIntermediateStubArtifact(ruleContext, executable),
-            zipper,
-            runfilesSupport);
-      }
+      RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common, RuleConfiguredTargetBuilder builder) {
+    FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
+    Artifact executable = common.getExecutable();
+    Artifact zipFile = common.getPythonZipArtifact(executable);
+    if (!ruleContext.hasErrors()) {
+      createPythonZipAction(
+          ruleContext,
+          executable,
+          zipFile,
+          getPythonIntermediateStubArtifact(ruleContext, executable),
+          zipper,
+          runfilesSupport);
     }
+    builder.addOutputGroup("python_zip_file", zipFile);
   }
 
   private static boolean isUnderWorkspace(PathFragment path) {

@@ -139,4 +139,16 @@ EOF
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
+function test_get_python_zip_file_via_output_group() {
+  touch foo.py
+  cat > BUILD <<'EOF'
+py_binary(
+  name = 'foo',
+  srcs = ['foo.py'],
+)
+EOF
+  bazel build :foo --output_groups=python_zip_file
+  [[ -f "bazel-bin/foo.zip" ]] || fail "failed to get python zip file via output group"
+}
+
 run_suite "Tests for the Python rules"
