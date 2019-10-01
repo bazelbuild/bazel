@@ -147,6 +147,20 @@ public class RepositoryOptions extends OptionsBase {
               + "otherwise Bazel still calls patch command line tool for applying patch files.")
   public boolean useNativePatch;
 
+  @Option(
+      name = "incompatible_case_sensitsive_repository_name",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "On Linux: no-op. On macOS and Windows: if enabled, Bazel's repository names are be "
+              + " case-sensitive, otherwise they are case-ignoring.")
+  public boolean caseSensitiveRepoNames;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

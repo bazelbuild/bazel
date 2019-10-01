@@ -270,6 +270,8 @@ public final class RepositoryName implements Serializable {
     return name;
   }
 
+  private static final boolean caseSensitive = true;
+
   @Override
   public boolean equals(Object object) {
     if (this == object) {
@@ -278,11 +280,19 @@ public final class RepositoryName implements Serializable {
     if (!(object instanceof RepositoryName)) {
       return false;
     }
-    return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
+    if (caseSensitive) {
+      return name.equals(((RepositoryName) object).name);
+    } else {
+      return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
+    }
   }
 
   @Override
   public int hashCode() {
-    return OsPathPolicy.getFilePathOs().hash(name);
+    if (caseSensitive) {
+      return name.hashCode();
+    } else {
+      return OsPathPolicy.getFilePathOs().hash(name);
+    }
   }
 }
