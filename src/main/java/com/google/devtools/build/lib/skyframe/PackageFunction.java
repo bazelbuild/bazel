@@ -414,28 +414,38 @@ public class PackageFunction implements SkyFunction {
     // Load the prelude from the same repository as the package being loaded.  Can't use
     // Label.resolveRepositoryRelative because preludeLabel is in the main repository, not the
     // default one, so it is resolved to itself.
-    Label pkgPreludeLabel =
-        Label.createUnvalidated(
-            PackageIdentifier.create(packageId.getRepository(), preludeLabel.getPackageFragment()),
-            preludeLabel.getName());
-    SkyKey astLookupKey = ASTFileLookupValue.key(pkgPreludeLabel);
-    ASTFileLookupValue astLookupValue = null;
-    try {
-      astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
-          ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
-    } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
-      throw new PackageFunctionException(
-          new NoSuchPackageException(
-              packageId, "Error encountered while reading the prelude file: " + e.getMessage()),
-          Transience.PERSISTENT);
+    List<Statement> preludeStatements = ImmutableList.of();
+    if (preludeLabel != null) {
+      Label pkgPreludeLabel =
+          Label.createUnvalidated(
+              PackageIdentifier.create(
+                  packageId.getRepository(), preludeLabel.getPackageFragment()),
+              preludeLabel.getName());
+      SkyKey astLookupKey = ASTFileLookupValue.key(pkgPreludeLabel);
+      ASTFileLookupValue astLookupValue = null;
+      try {
+        astLookupValue =
+            (ASTFileLookupValue)
+                env.getValueOrThrow(
+                    astLookupKey,
+                    ErrorReadingSkylarkExtensionException.class,
+                    InconsistentFilesystemException.class);
+      } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
+        throw new PackageFunctionException(
+            new NoSuchPackageException(
+                packageId, "Error encountered while reading the prelude file: " + e.getMessage()),
+            Transience.PERSISTENT);
+      }
+      if (astLookupValue == null) {
+        return null;
+      }
+
+      // The prelude file doesn't have to exist. If not, we substitute an empty statement list.
+      preludeStatements =
+          astLookupValue.lookupSuccessful()
+              ? astLookupValue.getAST().getStatements()
+              : ImmutableList.<Statement>of();
     }
-    if (astLookupValue == null) {
-      return null;
-    }
-    // The prelude file doesn't have to exist. If not, we substitute an empty statement list.
-    List<Statement> preludeStatements =
-        astLookupValue.lookupSuccessful()
-            ? astLookupValue.getAST().getStatements() : ImmutableList.<Statement>of();
     LoadedPackageCacheEntry packageCacheEntry = packageFunctionCache.getIfPresent(packageId);
     if (packageCacheEntry == null) {
       packageCacheEntry =
