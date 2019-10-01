@@ -1276,7 +1276,9 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
     Mockito.verify(mockExecutionImpl, Mockito.times(1))
-        .execute(Mockito.<ExecuteRequest>any(), ArgumentMatchers.<StreamObserver<Operation>>any());
+        .execute(
+            ArgumentMatchers.<ExecuteRequest>any(),
+            ArgumentMatchers.<StreamObserver<Operation>>any());
     Mockito.verify(mockExecutionImpl, Mockito.times(2))
         .waitExecution(
             Mockito.eq(waitExecutionRequest), ArgumentMatchers.<StreamObserver<Operation>>any());
