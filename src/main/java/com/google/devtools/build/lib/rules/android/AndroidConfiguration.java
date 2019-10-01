@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion.AndroidRobolectricTestDeprecationLevel;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
@@ -89,14 +88,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
     public AndroidAaptConverter() {
       super(AndroidAaptVersion.class, "android androidAaptVersion");
-    }
-  }
-
-  /** Converter for {@link AndroidRobolectricTestDeprecationLevel} */
-  public static final class AndroidRobolectricTestDeprecationLevelConverter
-      extends EnumConverter<AndroidRobolectricTestDeprecationLevel> {
-    public AndroidRobolectricTestDeprecationLevelConverter() {
-      super(AndroidRobolectricTestDeprecationLevel.class, "android robolectric deprecation level");
     }
   }
 
@@ -215,30 +206,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         }
       }
       return null;
-    }
-
-    /** android_robolectric_test deprecation levels */
-    public enum AndroidRobolectricTestDeprecationLevel {
-      OFF,
-      WARNING,
-      DEPRECATED;
-
-      public static List<String> getAttributeValues() {
-        return ImmutableList.of(
-            OFF.name().toLowerCase(),
-            WARNING.name().toLowerCase(),
-            DEPRECATED.name().toLowerCase());
-      }
-
-      public static AndroidRobolectricTestDeprecationLevel fromString(String value) {
-        for (AndroidRobolectricTestDeprecationLevel level :
-            AndroidRobolectricTestDeprecationLevel.values()) {
-          if (level.name().equals(value)) {
-            return level;
-          }
-        }
-        return null;
-      }
     }
 
     // TODO(corysmith): Move to an appropriate place when no longer needed as a public function.
@@ -851,17 +818,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean fixedResourceNeverlinking;
 
     @Option(
-        name = "android_robolectric_test_deprecation_level",
-        defaultValue = "off",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BUILD_FILE_SEMANTICS},
-        converter = AndroidRobolectricTestDeprecationLevelConverter.class,
-        help =
-            "Determine the deprecation level of android_robolectric_test. Can be 'off', "
-                + "'warning', or 'deprecated'.")
-    public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
-
-    @Option(
         name = "android_migration_tag_check",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1097,7 +1053,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
-  private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
@@ -1149,7 +1104,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
-    this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
     // use --incompatible_disable_native_android_rules, and also the old flag for backwards
     // compatibility
     this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
@@ -1384,10 +1338,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
-  }
-
-  public AndroidRobolectricTestDeprecationLevel getRobolectricTestDeprecationLevel() {
-    return robolectricTestDeprecationLevel;
   }
 
   @Override
