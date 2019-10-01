@@ -48,6 +48,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -159,29 +160,44 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    * Cancels and waits for a branch (a spawn execution) to terminate.
    *
    * <p>This is intended to be used as the body of the {@link StopConcurrentSpawns} lambda passed to
-   * the spawn runners.
+   * the spawn runners. Each strategy may call this at most once.
    *
    * @param branch the future running the spawn
-   * @param allow whether we are allowed to cancel the branch or not. This exists to prevent the
-   *     case where each parallel branch wants to cancel each other at the same time, in which case
-   *     we want to keep the result of one of them.
-   * @param done semaphore that is expected to receive a permit once the future terminates (after
-   *     {@link InterruptedException} bubbles up through its call stack)
+   * @param branchDone semaphore that is expected to receive a permit once the future terminates
+   *     (after {@link InterruptedException} bubbles up through its call stack)
+   * @param cancellingStrategy identifier of the strategy that is performing the cancellation. Used
+   *     to prevent cross-cancellations and to sanity-check that the same strategy doesn't issue the
+   *     cancellation twice.
+   * @param strategyThatCancelled name of the first strategy that executed this method, or a null
+   *     reference if this is the first time this method is called. If not null, we expect the value
+   *     referenced by this to be different than {@code cancellingStrategy}, or else we have a bug.
    * @throws InterruptedException if we get interrupted for any reason trying to cancel the future
+   *     or if we lost a race against another strategy trying to cancel us
    */
-  private static void stopBranch(Future<List<SpawnResult>> branch, Semaphore allow, Semaphore done)
+  private static void stopBranch(
+      Future<List<SpawnResult>> branch,
+      Semaphore branchDone,
+      String cancellingStrategy,
+      AtomicReference<String> strategyThatCancelled)
       throws InterruptedException {
-    // In theory, this should just be allow.acquire(), but doing so can lead to deadlocks. Note that
-    // cancelling a future sets its cancellation bit but does not necessarily set its interrupted
-    // bit, in which case an allow.acquire() will not throw InterruptedException. Similarly, if we
-    // have any subtle bug related to the propagation of the interrupt bit within the branch we are
-    // trying to stop, we'd hit this same condition.
-    if (!allow.tryAcquire()) {
-      throw new InterruptedException();
+    // This multi-step, unlocked access to "strategyThatCancelled" is valid because, for a given
+    // value of "cancellingStrategy", we do not expect concurrent calls to this method. (If there
+    // are, we are in big trouble.)
+    String current = strategyThatCancelled.get();
+    if (current != null && current.equals(cancellingStrategy)) {
+      throw new AssertionError("stopBranch called more than once by " + cancellingStrategy);
+    } else {
+      // Protect against the two branches from cancelling each other. The first branch to set the
+      // reference to its own identifier wins and is allowed to issue the cancellation; the other
+      // branch just has to give up execution.
+      if (strategyThatCancelled.compareAndSet(null, cancellingStrategy)) {
+        boolean cancelled = branch.cancel(true);
+        checkState(cancelled, "Failed to cancel other branch from %s", cancellingStrategy);
+        branchDone.acquire();
+      } else {
+        throw new InterruptedException("Execution stopped because other strategy finished first");
+      }
     }
-
-    branch.cancel(true);
-    done.acquire();
   }
 
   /**
@@ -259,8 +275,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     } else if (result1 != null) {
       return result1;
     } else {
-      throw new AssertionError(
-          "No branch completed, which probably means interrupts were not propagated correctly");
+      throw new AssertionError("No branch completed, which might mean they cancelled each other");
     }
   }
 
@@ -281,7 +296,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     Semaphore localDone = new Semaphore(0);
     Semaphore remoteDone = new Semaphore(0);
 
-    Semaphore allowCancel = new Semaphore(1);
+    AtomicReference<String> strategyThatCancelled = new AtomicReference<>(null);
     SettableFuture<List<SpawnResult>> remoteBranch = SettableFuture.create();
 
     ListenableFuture<List<SpawnResult>> localBranch =
@@ -294,19 +309,16 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
                   Thread.sleep(options.localExecutionDelay);
                 }
                 return runLocally(
-                    spawn, context, () -> stopBranch(remoteBranch, allowCancel, remoteDone));
+                    spawn,
+                    context,
+                    () -> stopBranch(remoteBranch, remoteDone, "local", strategyThatCancelled));
               }
             });
     localBranch.addListener(
         () -> {
           localDone.release();
-          try {
-            if (!localBranch.isCancelled()) {
-              remoteBranch.cancel(true);
-            }
-          } catch (Exception e) {
-            // Ignore. We should only get here on an interrupt, in which case the local branch
-            // should have been cancelled already.
+          if (!localBranch.isCancelled()) {
+            remoteBranch.cancel(true);
           }
         },
         MoreExecutors.directExecutor());
@@ -319,7 +331,9 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
                   throws InterruptedException, ExecException {
                 List<SpawnResult> spawnResults =
                     runRemotely(
-                        spawn, context, () -> stopBranch(localBranch, allowCancel, localDone));
+                        spawn,
+                        context,
+                        () -> stopBranch(localBranch, localDone, "remote", strategyThatCancelled));
                 delayLocalExecution.set(true);
                 return spawnResults;
               }
