@@ -101,20 +101,7 @@ public final class DataSource implements Comparable<DataSource> {
     Comparator<DataSource> compareIsInValuesFolder =
         Comparator.comparingInt(dataSource -> dataSource.isInValuesFolder() ? 0 : 1);
     Comparator<DataSource> compareDependencyType =
-        Comparator.comparingInt(
-            (DataSource dataSource) -> {
-              switch (dataSource.dependencyInfo.dependencyType()) {
-                case PRIMARY:
-                  return 0;
-                case DIRECT:
-                  return 1;
-                case TRANSITIVE:
-                  return 2;
-                case UNKNOWN:
-                  return 3;
-              }
-              return Integer.MAX_VALUE;
-            });
+        Comparator.comparing(DataSource::getDependencyInfo, DependencyInfo.DISTANCE_COMPARATOR);
 
     DataSource sourceWithValues =
         Stream.of(this, otherSource)

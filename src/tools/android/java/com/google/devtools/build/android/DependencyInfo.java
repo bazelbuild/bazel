@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import com.google.auto.value.AutoValue;
+import java.util.Comparator;
 
 /** Encapsulates information about a Bazel dependency with respect to the current target. */
 @AutoValue
@@ -49,4 +50,8 @@ public abstract class DependencyInfo {
     /** Unknown dependency. */
     UNKNOWN
   }
+
+  /** Compares two {@link DependencyInfo}s by their distance from the current target. */
+  public static final Comparator<DependencyInfo> DISTANCE_COMPARATOR =
+      Comparator.comparing(DependencyInfo::dependencyType);
 }
