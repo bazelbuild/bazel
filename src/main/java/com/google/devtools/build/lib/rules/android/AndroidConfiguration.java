@@ -784,18 +784,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean exportsManifestDefault;
 
     @Option(
-        name = "experimental_android_aapt2_robolectric",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "If true, robolectric resources will be packaged using aapt2 if available.")
-    public boolean useAapt2ForRobolectric;
-
-    @Option(
         name = "experimental_omit_resources_info_provider_from_android_binary",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1048,7 +1036,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final AndroidAaptVersion androidAaptVersion;
-  private final boolean useAapt2ForRobolectric;
   private final boolean useParallelDex2Oat;
   private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
@@ -1098,7 +1085,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
-    this.useAapt2ForRobolectric = options.useAapt2ForRobolectric;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.breakBuildOnParallelDex2OatFailure = options.breakBuildOnParallelDex2OatFailure;
     this.omitResourcesInfoProviderFromAndroidBinary =
@@ -1323,11 +1309,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean getExportsManifestDefault() {
     return exportsManifestDefault;
-  }
-
-  @Override
-  public boolean useAapt2ForRobolectric() {
-    return useAapt2ForRobolectric;
   }
 
   @Override

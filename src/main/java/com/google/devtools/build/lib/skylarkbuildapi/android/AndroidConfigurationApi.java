@@ -181,13 +181,6 @@ public interface AndroidConfigurationApi {
   boolean getExportsManifestDefault();
 
   @SkylarkCallable(
-      name = "use_aapt2_for_robolectric",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useAapt2ForRobolectric();
-
-  @SkylarkCallable(
       name = "omit_resources_info_provider_from_android_binary",
       structField = true,
       doc = "",
