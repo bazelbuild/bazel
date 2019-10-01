@@ -143,6 +143,47 @@ public class BazelPythonSemantics implements PythonSemantics {
     return version == PythonVersion.PY3 ? "\"3\"" : "\"2\"";
   }
 
+  private void createStubFile(RuleContext ruleContext, Artifact stubOutput, PyCommon common,
+      String pythonBinary, boolean isForZipFile) {
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    BazelPythonConfiguration bazelConfig = ruleContext.getFragment(BazelPythonConfiguration.class);
+
+    // Version information for host config diagnostic warning.
+    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
+    boolean attrVersionSpecifiedExplicitly = attrVersion != null;
+    if (!attrVersionSpecifiedExplicitly) {
+      attrVersion = config.getDefaultPythonVersion();
+    }
+
+    // Create the stub file.
+    ruleContext.registerAction(
+        new TemplateExpansionAction(
+            ruleContext.getActionOwner(),
+            stubOutput,
+            STUB_TEMPLATE,
+            ImmutableList.of(
+                Substitution.of(
+                    "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
+                Substitution.of("%python_binary%", pythonBinary),
+                Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
+                Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
+                Substitution.of("%is_zipfile%", boolToLiteral(isForZipFile)),
+                Substitution.of(
+                    "%import_all%", boolToLiteral(bazelConfig.getImportAllRepositories())),
+                Substitution.of(
+                    "%enable_host_version_warning%",
+                    boolToLiteral(common.shouldWarnAboutHostVersionUponFailure())),
+                Substitution.of(
+                    "%target%", ruleContext.getRule().getLabel().getDefaultCanonicalForm()),
+                Substitution.of(
+                    "%python_version_from_config%", versionToLiteral(common.getVersion())),
+                Substitution.of("%python_version_from_attr%", versionToLiteral(attrVersion)),
+                Substitution.of(
+                    "%python_version_specified_explicitly%",
+                    boolToLiteral(attrVersionSpecifiedExplicitly))),
+            true));
+  }
+
   @Override
   public void createExecutable(
       RuleContext ruleContext, PyCommon common, CcInfo ccInfo, Runfiles.Builder runfilesBuilder)
@@ -169,54 +210,26 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // The initial entry point, which is the launcher on Windows, or the stub or zip file on Unix.
     Artifact executable = common.getExecutable();
-    // The artifact holding the result of expanding the stub template.
-    Artifact stubOutput;
-    if (buildPythonZip) {
-      stubOutput = getPythonIntermediateStubArtifact(ruleContext, executable);
-    } else {
-      stubOutput =
-          OS.getCurrent() == OS.WINDOWS
-              ? common.getPythonStubArtifactForWindows(executable)
-              : executable;
-    }
+
     // The second-stage Python interpreter, which may be a system absolute path or a runfiles
     // workspace-relative path. On Windows this is also passed to the launcher to use for the
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
-    // Version information for host config diagnostic warning.
-    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
-    boolean attrVersionSpecifiedExplicitly = attrVersion != null;
-    if (!attrVersionSpecifiedExplicitly) {
-      attrVersion = config.getDefaultPythonVersion();
+    // Create the stub file that's needed by the python zip file. We generate this action no matter
+    // what the value of --build_python_zip is.
+    Artifact stubFileForZipFile = getPythonIntermediateStubArtifact(ruleContext, executable);
+    createStubFile(ruleContext, stubFileForZipFile, common, pythonBinary, /*isForZipFile =*/ true);
+
+    // The artifact holding the result of expanding the stub template.
+    // We only create it when --build_python_zip is turned off.
+    if (!buildPythonZip) {
+      Artifact stubOutput =
+          OS.getCurrent() == OS.WINDOWS
+              ? common.getPythonStubArtifactForWindows(executable)
+              : executable;
+      createStubFile(ruleContext, stubOutput, common, pythonBinary, /*isForZipFile =*/ false);
     }
-    // Create the stub file.
-    ruleContext.registerAction(
-        new TemplateExpansionAction(
-            ruleContext.getActionOwner(),
-            stubOutput,
-            STUB_TEMPLATE,
-            ImmutableList.of(
-                Substitution.of(
-                    "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
-                Substitution.of("%python_binary%", pythonBinary),
-                Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
-                Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                Substitution.of("%is_zipfile%", boolToLiteral(buildPythonZip)),
-                Substitution.of(
-                    "%import_all%", boolToLiteral(bazelConfig.getImportAllRepositories())),
-                Substitution.of(
-                    "%enable_host_version_warning%",
-                    boolToLiteral(common.shouldWarnAboutHostVersionUponFailure())),
-                Substitution.of(
-                    "%target%", ruleContext.getRule().getLabel().getDefaultCanonicalForm()),
-                Substitution.of(
-                    "%python_version_from_config%", versionToLiteral(common.getVersion())),
-                Substitution.of("%python_version_from_attr%", versionToLiteral(attrVersion)),
-                Substitution.of(
-                    "%python_version_specified_explicitly%",
-                    boolToLiteral(attrVersionSpecifiedExplicitly))),
-            true));
 
     // Create the zip file if requested. On unix, copy it from the intermediate artifact to the
     // final executable while prepending the shebang.
