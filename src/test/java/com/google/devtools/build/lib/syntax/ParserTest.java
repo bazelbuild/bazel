@@ -47,20 +47,31 @@ public final class ParserTest {
     events.setFailFast(failFast);
   }
 
-  private void clearEvents() {
-    events.clear();
+  // Joins the lines, parse, and returns an expression.
+  private static Expression parseExpression(String... lines) throws SyntaxError {
+    ParserInput input = ParserInput.fromLines(lines);
+    return Expression.parse(input);
   }
 
-  // Joins the lines, parse, and returns an expression.
-  private Expression parseExpression(String... lines) {
-    ParserInput input = ParserInput.fromLines(lines);
-    return Expression.parse(input, events.reporter());
+  // Parses the expression, asserts that parsing fails,
+  // and returns the first error message.
+  private static String parseExpressionError(String src) {
+    ParserInput input = ParserInput.fromLines(src);
+    try {
+      Expression.parse(input);
+      throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
+    } catch (SyntaxError ex) {
+      return ex.errors().get(0).getMessage();
+    }
   }
 
   // Joins the lines, parses, and returns a file.
+  // Errors are reported to this.events.
   private StarlarkFile parseFile(String... lines) {
     ParserInput input = ParserInput.fromLines(lines);
-    return StarlarkFile.parse(input, events.reporter());
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(events.reporter(), file.errors());
+    return file;
   }
 
   // Joins the lines, parses, and returns the sole statement.
@@ -152,23 +163,14 @@ public final class ParserTest {
 
   @Test
   public void testNonAssociativeOperators() throws Exception {
-    events.setFailFast(false);
-
-    parseExpression("0 < 2 < 4");
-    assertContainsError("Operator '<' is not associative with operator '<'");
-    clearEvents();
-
-    parseExpression("0 == 2 < 4");
-    assertContainsError("Operator '==' is not associative with operator '<'");
-    clearEvents();
-
-    parseExpression("1 in [1, 2] == True");
-    assertContainsError("Operator 'in' is not associative with operator '=='");
-    clearEvents();
-
-    parseExpression("1 >= 2 <= 3");
-    assertContainsError("Operator '>=' is not associative with operator '<='");
-    clearEvents();
+    assertThat(parseExpressionError("0 < 2 < 4"))
+        .contains("Operator '<' is not associative with operator '<'");
+    assertThat(parseExpressionError("0 == 2 < 4"))
+        .contains("Operator '==' is not associative with operator '<'");
+    assertThat(parseExpressionError("1 in [1, 2] == True"))
+        .contains("Operator 'in' is not associative with operator '=='");
+    assertThat(parseExpressionError("1 >= 2 <= 3"))
+        .contains("Operator '>=' is not associative with operator '<='");
   }
 
   @Test
@@ -340,7 +342,7 @@ public final class ParserTest {
     assertLocation(0, 14, slice.getLocation());
   }
 
-  private void evalSlice(String statement, Object... expectedArgs) {
+  private static void evalSlice(String statement, Object... expectedArgs) throws SyntaxError {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
@@ -357,8 +359,10 @@ public final class ParserTest {
   public void testErrorRecovery() throws Exception {
     setFailFast(false);
 
-    String expr = "f(1, [x for foo foo foo foo], 3)";
-    FuncallExpression e = (FuncallExpression) parseExpression(expr);
+    // We call parseFile, not parseExpression, as the latter is all-or-nothing.
+    String src = "f(1, [x for foo foo foo foo], 3)";
+    FuncallExpression e =
+        (FuncallExpression) ((ExpressionStatement) parseStatement(src)).getExpression();
 
     assertContainsError("syntax error at 'foo'");
 
@@ -378,7 +382,7 @@ public final class ParserTest {
     assertThat(arg1val.getName()).isEqualTo("$error$");
 
     assertLocation(5, 29, arg1val.getLocation());
-    assertThat(expr.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
+    assertThat(src.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
     assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(29);
 
     IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
@@ -387,23 +391,19 @@ public final class ParserTest {
 
   @Test
   public void testDoesntGetStuck() throws Exception {
-    setFailFast(false);
-
     // Make sure the parser does not get stuck when trying
     // to parse an expression containing a syntax error.
     // This usually results in OutOfMemoryError because the
     // parser keeps filling up the error log.
     // We need to make sure that we will always advance
     // in the token stream.
-    parseExpression("f(1, ], 3)");
-    parseExpression("f(1, ), 3)");
-    parseExpression("[ ) for v in 3)");
-
-    assertContainsError(""); // "" matches any, i.e., there were some events
+    parseExpressionError("f(1, ], 3)");
+    parseExpressionError("f(1, ), 3)");
+    parseExpressionError("[ ) for v in 3)");
   }
 
   @Test
-  public void testSecondaryLocation() {
+  public void testSecondaryLocation() throws SyntaxError {
     String expr = "f(1 % 2)";
     FuncallExpression call = (FuncallExpression) parseExpression(expr);
     Argument.Passed arg = call.getArguments().get(0);
@@ -411,7 +411,7 @@ public final class ParserTest {
   }
 
   @Test
-  public void testPrimaryLocation() {
+  public void testPrimaryLocation() throws SyntaxError {
     String expr = "f(1 + 2)";
     FuncallExpression call = (FuncallExpression) parseExpression(expr);
     Argument.Passed arg = call.getArguments().get(0);
@@ -427,32 +427,25 @@ public final class ParserTest {
 
   @Test
   public void testAssignKeyword() {
-    setFailFast(false);
-    parseExpression("with = 4");
-    assertContainsError("keyword 'with' not supported");
-    assertContainsError("syntax error at 'with': expected expression");
+    assertThat(parseExpressionError("with = 4")).contains("keyword 'with' not supported");
   }
 
   @Test
   public void testBreak() {
-    setFailFast(false);
-    parseExpression("break");
-    assertContainsError("syntax error at 'break': expected expression");
+    assertThat(parseExpressionError("break"))
+        .contains("syntax error at 'break': expected expression");
   }
 
   @Test
   public void testTry() {
-    setFailFast(false);
-    parseExpression("try: 1 + 1");
-    assertContainsError("'try' not supported, all exceptions are fatal");
-    assertContainsError("syntax error at 'try': expected expression");
+    assertThat(parseExpressionError("try: 1 + 1"))
+        .contains("'try' not supported, all exceptions are fatal");
   }
 
   @Test
   public void testDel() {
-    setFailFast(false);
-    parseExpression("del d['a']");
-    assertContainsError("'del' not supported, use '.pop()' to delete");
+    assertThat(parseExpressionError("del d['a']"))
+        .contains("'del' not supported, use '.pop()' to delete");
   }
 
   @Test
@@ -474,10 +467,7 @@ public final class ParserTest {
 
   @Test
   public void testInvalidAssign() {
-    setFailFast(false);
-    parseExpression("1 + (b = c)");
-    assertContainsError("syntax error");
-    clearEvents();
+    assertThat(parseExpressionError("1 + (b = c)")).contains("syntax error");
   }
 
   @Test
@@ -641,7 +631,7 @@ public final class ParserTest {
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
   }
 
-  private void assertExpressionLocationCorrect(String exprStr) {
+  private static void assertExpressionLocationCorrect(String exprStr) throws SyntaxError {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
@@ -714,16 +704,9 @@ public final class ParserTest {
 
   @Test
   public void testTupleWithTrailingComma() throws Exception {
-    setFailFast(false);
-
     // Unlike Python, we require parens here.
-    parseExpression("0, 1, 2, 3,");
-    assertContainsError("Trailing comma");
-    clearEvents();
-
-    parseExpression("1 + 2,");
-    assertContainsError("Trailing comma");
-    clearEvents();
+    assertThat(parseExpressionError("0, 1, 2, 3,")).contains("Trailing comma");
+    assertThat(parseExpressionError("1 + 2,")).contains("Trailing comma");
 
     ListExpression tuple = (ListExpression) parseExpression("(0, 1, 2, 3,)");
     assertThat(tuple.isTuple()).isTrue();
@@ -825,31 +808,12 @@ public final class ParserTest {
 
   @Test
   public void testListComprehensionSyntax() throws Exception {
-    setFailFast(false);
-
-    parseExpression("[x for");
-    assertContainsError("syntax error at 'newline'");
-    clearEvents();
-
-    parseExpression("[x for x");
-    assertContainsError("syntax error at 'newline'");
-    clearEvents();
-
-    parseExpression("[x for x in");
-    assertContainsError("syntax error at 'newline'");
-    clearEvents();
-
-    parseExpression("[x for x in []");
-    assertContainsError("syntax error at 'newline'");
-    clearEvents();
-
-    parseExpression("[x for x for y in ['a']]");
-    assertContainsError("syntax error at 'for'");
-    clearEvents();
-
-    parseExpression("[x for x for y in 1, 2]");
-    assertContainsError("syntax error at 'for'");
-    clearEvents();
+    assertThat(parseExpressionError("[x for")).contains("syntax error at 'newline'");
+    assertThat(parseExpressionError("[x for x")).contains("syntax error at 'newline'");
+    assertThat(parseExpressionError("[x for x in")).contains("syntax error at 'newline'");
+    assertThat(parseExpressionError("[x for x in []")).contains("syntax error at 'newline'");
+    assertThat(parseExpressionError("[x for x for y in ['a']]")).contains("syntax error at 'for'");
+    assertThat(parseExpressionError("[x for x for y in 1, 2]")).contains("syntax error at 'for'");
   }
 
   @Test
@@ -909,18 +873,6 @@ public final class ParserTest {
     assertContainsError("syntax error at 'ada': expected newline");
     assertContainsError("syntax error at '*': expected expression");
     assertThat(statements).hasSize(3);
-  }
-
-  @Test
-  public void testParserContainsErrorsIfSyntaxException() throws Exception {
-    setFailFast(false);
-    parseExpression("'foo' %%");
-    assertContainsError("syntax error at '%'");
-  }
-
-  @Test
-  public void testParserDoesNotContainErrorsIfSuccess() throws Exception {
-    parseExpression("'foo'");
   }
 
   @Test
@@ -1397,5 +1349,11 @@ public final class ParserTest {
         };
     collectAllStringsInStringLiteralsVisitor.visit(file);
     assertThat(uniqueStringInstances).containsExactly("cat", "dog", "fish");
+  }
+
+  @Test
+  public void testConditionalExpressions() throws Exception {
+    assertThat(parseExpressionError("1 if 2"))
+        .contains("missing else clause in conditional expression or semicolon before if");
   }
 }

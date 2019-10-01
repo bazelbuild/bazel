@@ -32,9 +32,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of evaluation behavior.  (Implicitly uses lexer + parser.)
- */
+/** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
+// TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
+// and BUILD and .bzl features.
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
 
@@ -107,11 +107,6 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("1 if True else 2", 1)
         .testStatement("1 if False else 2", 2)
         .testStatement("1 + 2 if 3 + 4 else 5 + 6", 3);
-
-    setFailFast(false);
-    parseExpression("1 if 2");
-    assertContainsError(
-        "missing else clause in conditional expression or semicolon before if");
   }
 
   @Test

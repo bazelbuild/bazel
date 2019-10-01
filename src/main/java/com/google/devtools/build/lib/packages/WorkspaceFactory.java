@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -134,13 +135,14 @@ public class WorkspaceFactory {
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
-    StarlarkFile buildFileAST = StarlarkFile.parse(source, localReporter);
-    if (buildFileAST.containsErrors()) {
+    StarlarkFile file = StarlarkFile.parse(source);
+    if (!file.ok()) {
+      Event.replayEventsOn(localReporter, file.errors());
       throw new BuildFileContainsErrorsException(
           LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
     }
     execute(
-        buildFileAST,
+        file,
         null,
         starlarkSemantics,
         localReporter,
@@ -207,11 +209,16 @@ public class WorkspaceFactory {
       }
     }
 
-    if (!ValidationEnvironment.validateFile(
-            file, workspaceThread, /*isBuildFile=*/ true, localReporter)
-        || !PackageFactory.checkBuildSyntax(file, localReporter)
-        || !file.exec(workspaceThread, localReporter)) {
-      localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
+    // Validate the file, apply BUILD dialect checks, then execute.
+    ValidationEnvironment.validateFile(file, workspaceThread, /*isBuildFile=*/ true);
+    if (!file.ok()) {
+      Event.replayEventsOn(localReporter, file.errors());
+    } else if (PackageFactory.checkBuildSyntax(file, localReporter)) {
+      try {
+        EvalUtils.exec(file, workspaceThread);
+      } catch (EvalException ex) {
+        localReporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
+      }
     }
 
     // Save the list of variable bindings for the next part of the workspace file. The list of

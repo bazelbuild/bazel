@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.FailFastException;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -152,12 +153,17 @@ public class EvaluationTestCase {
 
   protected final StarlarkFile parseStarlarkFileWithoutValidation(String... lines) {
     ParserInput input = ParserInput.fromLines(lines);
-    return StarlarkFile.parse(input, getEventHandler());
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(getEventHandler(), file.errors());
+    return file;
   }
 
   private StarlarkFile parseStarlarkFile(String... lines) {
-    StarlarkFile ast = parseStarlarkFileWithoutValidation(lines);
-    return ast.validate(thread, /*isBuildFile=*/ false, getEventHandler());
+    ParserInput input = ParserInput.fromLines(lines);
+    StarlarkFile file = StarlarkFile.parse(input);
+    ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
+    Event.replayEventsOn(getEventHandler(), file.errors());
+    return file;
   }
 
   /** Parses and validates a file and returns its statements. */
@@ -174,8 +180,8 @@ public class EvaluationTestCase {
   }
 
   /** Parses an expression. */
-  protected final Expression parseExpression(String... lines) {
-    return Expression.parse(ParserInput.fromLines(lines), getEventHandler());
+  protected final Expression parseExpression(String... lines) throws SyntaxError {
+    return Expression.parse(ParserInput.fromLines(lines));
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
@@ -187,26 +193,34 @@ public class EvaluationTestCase {
     return thread.moduleLookup(varname);
   }
 
+  // TODO(adonovan): this function does far too much:
+  // - two modes, BUILD vs Skylark
+  // - parse + validate + BUILD dialect checks + execute.
+  // Break the tests down into tests of just the scanner, parser, validator, build dialect checks,
+  // or execution, and assert that all passes except the one of interest succeed.
+  // All BUILD-dialect stuff belongs in bazel proper (lib.packages), not here.
   public Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    if (testMode == TestMode.SKYLARK) {
-      // TODO(adonovan): inline this call and factor with 'else' case.
-      return StarlarkFile.eval(input, thread);
-    } else {
-      StarlarkFile file = StarlarkFile.parse(input, thread.getEventHandler());
-      if (ValidationEnvironment.validateFile(
-          file, thread, /*isBuildFile=*/ true, thread.getEventHandler())) {
-        PackageFactory.checkBuildSyntax(file, thread.getEventHandler());
+    StarlarkFile file = StarlarkFile.parse(input);
+    ValidationEnvironment.validateFile(file, thread, testMode == TestMode.BUILD);
+    if (testMode == TestMode.SKYLARK) { // .bzl and other dialects
+      if (!file.ok()) {
+        throw new SyntaxError(file.errors());
       }
-      return file.eval(thread);
+    } else {
+      // For BUILD mode, validation events are reported but don't (yet)
+      // prevent execution. We also apply BUILD dialect syntax checks.
+      Event.replayEventsOn(getEventHandler(), file.errors());
+      PackageFactory.checkBuildSyntax(file, getEventHandler());
     }
+    return file.eval(thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
     try {
       eval(input);
       fail("Expected error '" + msg + "' but got no error");
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | FailFastException e) {
       assertThat(e).hasMessageThat().isEqualTo(msg);
     }
   }
@@ -215,7 +229,7 @@ public class EvaluationTestCase {
     try {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | FailFastException e) {
       assertThat(e).hasMessageThat().contains(msg);
     }
   }
@@ -223,7 +237,7 @@ public class EvaluationTestCase {
   public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
     try {
       eval(input);
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | FailFastException e) {
       assertThat(e).hasMessageThat().doesNotContain(msg);
     }
   }

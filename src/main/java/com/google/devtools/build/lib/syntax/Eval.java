@@ -17,13 +17,11 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -488,7 +486,10 @@ final class Eval {
             // Legacy behavior, to be removed.
             Object result = thread.lookup(name);
             if (result == null) {
-              throw createInvalidIdentifierException(id, thread.getVariableNames());
+              String error =
+                  ValidationEnvironment.createInvalidIdentifierException(
+                      id.getName(), thread.getVariableNames());
+              throw new EvalException(id.getLocation(), error);
             }
             return result;
           }
@@ -510,15 +511,15 @@ final class Eval {
           if (result == null) {
             // Since Scope was set, we know that the variable is defined in the scope.
             // However, the assignment was not yet executed.
-            EvalException e = getSpecialException(id);
-            throw e != null
-                ? e
-                : new EvalException(
-                    id.getLocation(),
-                    id.getScope().getQualifier()
-                        + " variable '"
-                        + name
-                        + "' is referenced before assignment.");
+            String error = ValidationEnvironment.getErrorForObsoleteThreadLocalVars(id.getName());
+            if (error == null) {
+              error =
+                  id.getScope().getQualifier()
+                      + " variable '"
+                      + name
+                      + "' is referenced before assignment.";
+            }
+            throw new EvalException(id.getLocation(), error);
           }
           return result;
         }
@@ -597,40 +598,6 @@ final class Eval {
         }
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
-  }
-
-  /** Exception to provide a better error message for using PACKAGE_NAME or REPOSITORY_NAME. */
-  private static EvalException getSpecialException(Identifier id) {
-    if (id.getName().equals("PACKAGE_NAME")) {
-      return new EvalException(
-          id.getLocation(),
-          "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
-              + "please use the latter ("
-              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). ");
-    }
-    if (id.getName().equals("REPOSITORY_NAME")) {
-      return new EvalException(
-          id.getLocation(),
-          "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', please"
-              + " use the latter ("
-              + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name).");
-    }
-    return null;
-  }
-
-  static EvalException createInvalidIdentifierException(Identifier id, Set<String> symbols) {
-    if (id.getName().equals("$error$")) {
-      return new EvalException(id.getLocation(), "contains syntax error(s)", true);
-    }
-
-    EvalException e = getSpecialException(id);
-    if (e != null) {
-      return e;
-    }
-
-    String suggestion = SpellChecker.didYouMean(id.getName(), symbols);
-    return new EvalException(
-        id.getLocation(), "name '" + id.getName() + "' is not defined" + suggestion);
   }
 
   private static Object evalComprehension(StarlarkThread thread, Comprehension comp)

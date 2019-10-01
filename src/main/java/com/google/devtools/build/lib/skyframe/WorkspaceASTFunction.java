@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -83,35 +84,26 @@ public class WorkspaceASTFunction implements SkyFunction {
           StarlarkFile.parse(
               ParserInput.create(
                   ruleClassProvider.getDefaultWorkspacePrefix(),
-                  PathFragment.create("/DEFAULT.WORKSPACE")),
-              env.getListener());
-      if (file.containsErrors()) {
-        throw new WorkspaceASTFunctionException(
-            new BuildFileContainsErrorsException(
-                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-                "Failed to parse default WORKSPACE file"),
-            Transience.PERSISTENT);
+                  PathFragment.create("/DEFAULT.WORKSPACE")));
+      if (!file.ok()) {
+        Event.replayEventsOn(env.getListener(), file.errors());
+        throw resolvedValueError("Failed to parse default WORKSPACE file");
       }
       if (newWorkspaceFileContents != null) {
         file =
             StarlarkFile.parseVirtualBuildFile(
                 ParserInput.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
-                file.getStatements(),
-                env.getListener());
+                file.getStatements());
       } else if (workspaceFileValue.exists()) {
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(bytes, repoWorkspace.asFragment()),
-                file.getStatements(),
-                env.getListener());
-        if (file.containsErrors()) {
-          throw new WorkspaceASTFunctionException(
-              new BuildFileContainsErrorsException(
-                  LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse WORKSPACE file"),
-              Transience.PERSISTENT);
+                ParserInput.create(bytes, repoWorkspace.asFragment()), file.getStatements());
+        if (!file.ok()) {
+          Event.replayEventsOn(env.getListener(), file.errors());
+          throw resolvedValueError("Failed to parse WORKSPACE file");
         }
       }
       file =
@@ -119,14 +111,10 @@ public class WorkspaceASTFunction implements SkyFunction {
               ParserInput.create(
                   resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
-              file.getStatements(),
-              env.getListener());
-      if (file.containsErrors()) {
-        throw new WorkspaceASTFunctionException(
-            new BuildFileContainsErrorsException(
-                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-                "Failed to parse default WORKSPACE file suffix"),
-            Transience.PERSISTENT);
+              file.getStatements());
+      if (!file.ok()) {
+        Event.replayEventsOn(env.getListener(), file.errors());
+        throw resolvedValueError("Failed to parse default WORKSPACE file suffix");
       }
       return new WorkspaceASTValue(splitAST(file));
     } catch (IOException ex) {

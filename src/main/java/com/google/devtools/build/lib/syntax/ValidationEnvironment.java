@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +32,14 @@ import javax.annotation.Nullable;
  * <p>When a variable is defined, it is visible in the entire block. For example, a global variable
  * is visible in the entire file; a variable in a function is visible in the entire function block
  * (even on the lines before its first assignment).
+ *
+ * <p>Validation is a mutation of the syntax tree, as it attaches scope information to Identifier
+ * nodes. (In the future, it will attach additional information to functions to support lexical
+ * scope, and even compilation of the trees to bytecode.) Validation errors are reported in the
+ * analogous manner to scan/parse errors: for a StarlarkFile, they are appended to {@code
+ * StarlarkFile.errors}; for an expression they will be [TODO(adonovan): implement] reported by an
+ * SyntaxError exception. It is legal to validate a file that already contains scan/parse errors,
+ * though it may lead to secondary validation errors.
  */
 // TODO(adonovan): make this class private. Call it through the EvalUtils facade.
 public final class ValidationEnvironment extends NodeVisitor {
@@ -66,36 +74,29 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  /**
-   * We use an unchecked exception around EvalException because the NodeVisitor doesn't let visit
-   * methods throw checked exceptions. We might change that later.
-   */
-  private static class ValidationException extends RuntimeException {
-    EvalException exception;
-
-    ValidationException(EvalException e) {
-      exception = e;
-    }
-
-    ValidationException(Location location, String message) {
-      exception = new EvalException(location, message);
-    }
-  }
-
+  private final List<Event> errors;
   private final StarlarkThread thread;
   private Block block;
   private int loopCount;
   /** In BUILD files, we have a slightly different behavior for legacy reasons. */
+  // TODO(adonovan): eliminate isBuildFile. It is necessary because the prelude is implemented
+  // by inserting shared Statements, which must not be mutated, into each StarlarkFile.
+  // Instead, we should implement the prelude by executing it like a .bzl module
+  // and putting its members in the initial environment of the StarlarkFile.
   private final boolean isBuildFile;
 
-  /** Create a ValidationEnvironment for a given global StarlarkThread (containing builtins). */
-  private ValidationEnvironment(StarlarkThread thread, boolean isBuildFile) {
+  private ValidationEnvironment(List<Event> errors, StarlarkThread thread, boolean isBuildFile) {
     Preconditions.checkArgument(thread.isGlobal());
+    this.errors = errors;
     this.thread = thread;
     this.isBuildFile = isBuildFile;
     block = new Block(Scope.Universe, null);
     Set<String> builtinVariables = thread.getVariableNames();
     block.variables.addAll(builtinVariables);
+  }
+
+  void addError(Location loc, String message) {
+    errors.add(Event.error(loc, message));
   }
 
   /**
@@ -143,7 +144,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         Set<String> names = new HashSet<>();
         for (LoadStatement.Binding b : load.getBindings()) {
           if (!names.add(b.getLocalName().getName())) {
-            throw new ValidationException(
+            addError(
                 b.getLocalName().getLocation(),
                 String.format(
                     "load statement defines '%s' more than once", b.getLocalName().getName()));
@@ -180,7 +181,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         assign(elem);
       }
     } else {
-      throw new ValidationException(lhs.getLocation(), "cannot assign to '" + lhs + "'");
+      addError(lhs.getLocation(), "cannot assign to '" + lhs + "'");
     }
   }
 
@@ -191,12 +192,12 @@ public final class ValidationEnvironment extends NodeVisitor {
       // The identifier might not exist because it was restricted (hidden) by the current semantics.
       // If this is the case, output a more helpful error message than 'not found'.
       FlagGuardedValue result = thread.getRestrictedBindings().get(node.getName());
-      if (result != null) {
-        throw new ValidationException(
-            result.getEvalExceptionFromAttemptingAccess(
-                node.getLocation(), thread.getSemantics(), node.getName()));
-      }
-      throw new ValidationException(Eval.createInvalidIdentifierException(node, getAllSymbols()));
+      addError(
+          node.getLocation(),
+          result != null
+              ? result.getErrorFromAttemptingAccess(thread.getSemantics(), node.getName())
+              : createInvalidIdentifierException(node.getName(), getAllSymbols()));
+      return;
     }
     // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
     // because some AST nodes are shared across multipe ASTs (due to the prelude file).
@@ -205,11 +206,39 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
+  // This is exposed to Eval until validation becomes a precondition for evaluation.
+  static String createInvalidIdentifierException(String name, Set<String> candidates) {
+    if (name.equals("$error$")) {
+      return "contains syntax error(s)";
+    }
+
+    String error = getErrorForObsoleteThreadLocalVars(name);
+    if (error != null) {
+      return error;
+    }
+
+    String suggestion = SpellChecker.didYouMean(name, candidates);
+    return "name '" + name + "' is not defined" + suggestion;
+  }
+
+  static String getErrorForObsoleteThreadLocalVars(String name) {
+    if (name.equals("PACKAGE_NAME")) {
+      return "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
+          + "please use the latter ("
+          + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). ";
+    }
+    if (name.equals("REPOSITORY_NAME")) {
+      return "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', please"
+          + " use the latter ("
+          + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name).";
+    }
+    return null;
+  }
+
   @Override
   public void visit(ReturnStatement node) {
     if (block.scope != Scope.Local) {
-      throw new ValidationException(
-          node.getLocation(), "return statements must be inside a function");
+      addError(node.getLocation(), "return statements must be inside a function");
     }
     super.visit(node);
   }
@@ -217,7 +246,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(ForStatement node) {
     if (block.scope != Scope.Local) {
-      throw new ValidationException(
+      addError(
           node.getLocation(),
           "for loops are not allowed at the top level. You may move it inside a function "
               + "or use a comprehension, [f(x) for x in sequence]");
@@ -233,7 +262,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(LoadStatement node) {
     if (block.scope == Scope.Local) {
-      throw new ValidationException(node.getLocation(), "load statement not at top level");
+      addError(node.getLocation(), "load statement not at top level");
     }
     super.visit(node);
   }
@@ -241,9 +270,8 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(FlowStatement node) {
     if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
-      throw new ValidationException(
-          node.getLocation(),
-          node.getKind().toString() + " statement must be inside a for loop");
+      addError(
+          node.getLocation(), node.getKind().toString() + " statement must be inside a for loop");
     }
     super.visit(node);
   }
@@ -281,7 +309,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(DefStatement node) {
     if (block.scope == Scope.Local) {
-      throw new ValidationException(
+      addError(
           node.getLocation(),
           "nested functions are not allowed. Move the function to the top level.");
     }
@@ -304,7 +332,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(IfStatement node) {
     if (block.scope != Scope.Local) {
-      throw new ValidationException(
+      addError(
           node.getLocation(),
           "if statements are not allowed at the top level. You may move it inside a function "
               + "or use an if expression (x if condition else y).");
@@ -321,7 +349,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(AugmentedAssignmentStatement node) {
     if (node.getLHS() instanceof ListExpression) {
-      throw new ValidationException(
+      addError(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }
     // Other bad cases are handled in assign.
@@ -338,7 +366,7 @@ public final class ValidationEnvironment extends NodeVisitor {
       // TODO(adonovan): make error message more precise: "x reassigned at top level"
       // and emit a secondary error "x previously declared here". This requires an
       // upcoming changes to report events not exceptions.
-      throw new ValidationException(
+      addError(
           location,
           String.format(
               "Variable %s is read only (read more at %s)",
@@ -367,8 +395,8 @@ public final class ValidationEnvironment extends NodeVisitor {
     return all;
   }
 
-  /** Throws ValidationException if a load() appears after another kind of statement. */
-  private static void checkLoadAfterStatement(List<Statement> statements) {
+  // Report an error if a load statement appears after another kind of statement.
+  private void checkLoadAfterStatement(List<Statement> statements) {
     Location firstStatement = null;
 
     for (Statement statement : statements) {
@@ -382,7 +410,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         if (firstStatement == null) {
           continue;
         }
-        throw new ValidationException(
+        addError(
             statement.getLocation(),
             "load() statements must be called before any other statement. "
                 + "First non-load() statement appears at "
@@ -414,32 +442,20 @@ public final class ValidationEnvironment extends NodeVisitor {
     closeBlock();
   }
 
-  // Public entry point, throwing variant.
-  // TODO(adonovan): combine with variant below.
-  public static void validateFile(StarlarkFile file, StarlarkThread thread, boolean isBuildFile)
-      throws EvalException {
-    try {
-      ValidationEnvironment venv = new ValidationEnvironment(thread, isBuildFile);
-      venv.validateToplevelStatements(file.getStatements());
-      // Check that no closeBlock was forgotten.
-      Preconditions.checkState(venv.block.parent == null);
-    } catch (ValidationException e) {
-      throw e.exception;
+  /**
+   * Performs static checks, including name resolution on {@code file}, which is mutated. The {@code
+   * StarlarkThread} provides the global names and the StarlarkSemantics. Errors are appended to
+   * {@link StarlarkFile#errors}.
+   */
+  // TODO(adonovan): replace thread by Set<String> and StarlarkSemantics.
+  public static void validateFile(StarlarkFile file, StarlarkThread thread, boolean isBuildFile) {
+    ValidationEnvironment venv = new ValidationEnvironment(file.errors, thread, isBuildFile);
+    if (thread.getSemantics().incompatibleRestrictStringEscapes()) {
+      file.addStringEscapeEvents();
     }
-  }
-
-  // Public entry point, error handling variant.
-  public static boolean validateFile(
-      StarlarkFile file, StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
-    try {
-      validateFile(file, thread, isBuildFile);
-      return true;
-    } catch (EvalException e) {
-      if (!e.isDueToIncompleteAST()) {
-        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
-      }
-      return false;
-    }
+    venv.validateToplevelStatements(file.getStatements());
+    // Check that no closeBlock was forgotten.
+    Preconditions.checkState(venv.block.parent == null);
   }
 
   /** Open a new lexical block that will contain the future declarations. */

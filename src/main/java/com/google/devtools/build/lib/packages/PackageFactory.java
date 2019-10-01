@@ -1397,10 +1397,10 @@ public final class PackageFactory {
       ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     logger.fine("Starting to parse " + packageId);
-    StarlarkFile buildFileAST =
-        StarlarkFile.parseWithPrelude(input, preludeStatements, eventHandler);
+    StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements);
+    Event.replayEventsOn(eventHandler, file.errors());
     logger.fine("Finished parsing of " + packageId);
-    return buildFileAST;
+    return file;
   }
 
   public Package.Builder createPackageFromAst(
@@ -1773,10 +1773,6 @@ public final class PackageFactory {
         pkgBuilder.setContainsErrors();
       }
 
-      if (file.containsErrors()) {
-        pkgBuilder.setContainsErrors();
-      }
-
       pkgBuilder.setThirdPartyLicenceExistencePolicy(
           ruleClassProvider.getThirdPartyLicenseExistencePolicy());
 
@@ -1799,19 +1795,36 @@ public final class PackageFactory {
         }
       }
 
-      if (!ValidationEnvironment.validateFile(file, pkgThread, /*isBuildFile=*/ true, eventHandler)
-          || !checkBuildSyntax(file, eventHandler)) {
-        pkgBuilder.setContainsErrors();
+      boolean ok = true;
+
+      // Reject forbidden BUILD syntax.
+      if (!checkBuildSyntax(file, eventHandler)) {
+        ok = false;
       }
 
-      // TODO(bazel-team): (2009) the invariant "if errors are reported, mark the package
-      // as containing errors" is strewn all over this class.  Refactor to use an
-      // event sensor--and see if we can simplify the calling code in
-      // createPackage().
-      if (!pkgBuilder.containsErrors()) {
-        if (!file.exec(pkgThread, eventHandler)) {
-          pkgBuilder.setContainsErrors();
+      // Attempt validation only if the file parsed clean.
+      if (file.ok()) {
+        ValidationEnvironment.validateFile(file, pkgThread, /*isBuildFile=*/ true);
+        if (!file.ok()) {
+          Event.replayEventsOn(eventHandler, file.errors());
+          ok = false;
         }
+
+        // Attempt execution only if the file parsed, validated, and checked clean.
+        if (ok) {
+          try {
+            EvalUtils.exec(file, pkgThread);
+          } catch (EvalException ex) {
+            eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+            ok = false;
+          }
+        }
+      } else {
+        ok = false;
+      }
+
+      if (!ok) {
+        pkgBuilder.setContainsErrors();
       }
     }
 

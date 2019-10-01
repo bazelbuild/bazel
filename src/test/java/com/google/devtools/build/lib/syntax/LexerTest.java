@@ -15,15 +15,12 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,6 +30,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class LexerTest {
+
+  // TODO(adonovan): make these these tests less unnecessarily stateful.
+
+  private final List<Event> errors = new ArrayList<>();
   private String lastError;
   private Location lastErrorLocation;
 
@@ -43,19 +44,10 @@ public class LexerTest {
   private Lexer createLexer(String input) {
     PathFragment somePath = PathFragment.create("/some/path.txt");
     ParserInput inputSource = ParserInput.create(input, somePath);
-    Reporter reporter = new Reporter(new EventBus());
-    reporter.addHandler(new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        if (EventKind.ERRORS.contains(event.getKind())) {
-          lastErrorLocation = event.getLocation();
-          lastError = lastErrorLocation.getPath() + ":"
-              + event.getLocation().getStartLineAndColumn().getLine() + ": " + event.getMessage();
-        }
-      }
-    });
-
-    return new Lexer(inputSource, reporter);
+    errors.clear();
+    lastErrorLocation = null;
+    lastError = null;
+    return new Lexer(inputSource, errors);
   }
 
   private ArrayList<Token> allTokens(Lexer lexer) {
@@ -65,6 +57,17 @@ public class LexerTest {
       tok = lexer.nextToken();
       result.add(tok.copy());
     } while (tok.kind != TokenKind.EOF);
+
+    for (Event error : errors) {
+      lastErrorLocation = error.getLocation();
+      lastError =
+          error.getLocation().getPath()
+              + ":"
+              + error.getLocation().getStartLineAndColumn().getLine()
+              + ": "
+              + error.getMessage();
+    }
+
     return result;
   }
 
@@ -482,16 +485,16 @@ public class LexerTest {
   public void testContainsErrors() throws Exception {
     Lexer lexerSuccess = createLexer("foo");
     allTokens(lexerSuccess); // ensure the file has been completely scanned
-    assertThat(lexerSuccess.containsErrors()).isFalse();
+    assertThat(errors).isEmpty();
 
     Lexer lexerFail = createLexer("f$o");
     allTokens(lexerFail);
-    assertThat(lexerFail.containsErrors()).isTrue();
+    assertThat(errors).isNotEmpty();
 
     String s = "'unterminated";
     lexerFail = createLexer(s);
     allTokens(lexerFail);
-    assertThat(lexerFail.containsErrors()).isTrue();
+    assertThat(errors).isNotEmpty();
     assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
     assertThat(lastErrorLocation.getEndOffset()).isEqualTo(s.length());
     assertThat(values(tokens(s))).isEqualTo("STRING(unterminated) NEWLINE EOF");

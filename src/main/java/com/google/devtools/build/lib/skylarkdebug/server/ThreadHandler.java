@@ -18,8 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.EventSensor;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
@@ -32,6 +30,7 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
@@ -280,7 +279,7 @@ final class ThreadHandler {
     try {
       Object result = doEvaluate(thread, statement);
       return DebuggerSerialization.getValueProto(objectMap, "Evaluation result", result);
-    } catch (EvalException | InterruptedException e) {
+    } catch (SyntaxError | EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
     }
   }
@@ -294,7 +293,7 @@ final class ThreadHandler {
    * running.
    */
   private Object doEvaluate(StarlarkThread thread, String content)
-      throws EvalException, InterruptedException {
+      throws SyntaxError, EvalException, InterruptedException {
     try {
       servicingEvalRequest.set(true);
 
@@ -309,12 +308,10 @@ final class ThreadHandler {
       ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
 
       // Try parsing as an expression.
-      EventSensor sensor = new EventSensor(EventKind.ERRORS);
-      Expression.parse(input, sensor); // discard result
-      if (!sensor.wasTriggered()) {
-        // It's a valid expression; evaluate (and parse again).
-        return thread.debugEval(input);
-      } else {
+      try {
+        Expression expr = Expression.parse(input);
+        return thread.debugEval(expr);
+      } catch (SyntaxError unused) {
         // Assume it is a file and execute it.
         thread.debugExec(input);
         return Runtime.NONE;
@@ -404,7 +401,7 @@ final class ThreadHandler {
     }
     try {
       return EvalUtils.toBoolean(doEvaluate(thread, condition));
-    } catch (EvalException | InterruptedException e) {
+    } catch (SyntaxError | EvalException | InterruptedException e) {
       throw new ConditionalBreakpointException(e.getMessage());
     }
   }

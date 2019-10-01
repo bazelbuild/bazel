@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
@@ -65,31 +64,26 @@ public class FlagGuardedValue {
   }
 
   /**
-   * Returns an {@link EvalException} with error appropriate to throw when one attempts to access
-   * this guard's protected object when it should be inaccessible in the given semantics.
+   * Returns an error describing an attempt to access this guard's protected object when it should
+   * be inaccessible in the given semantics.
    *
    * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true given the
    *     semantics
    */
-  public EvalException getEvalExceptionFromAttemptingAccess(
-      Location location, StarlarkSemantics semantics, String symbolDescription) {
+  String getErrorFromAttemptingAccess(StarlarkSemantics semantics, String name) {
     Preconditions.checkArgument(!isObjectAccessibleUsingSemantics(semantics),
         "getEvalExceptionFromAttemptingAccess should only be called if the underlying "
             + "object is inaccessible given the semantics");
-    if (flagType == FlagType.EXPERIMENTAL) {
-      return new EvalException(
-            location,
-            symbolDescription
-                + " is experimental and thus unavailable with the current flags. It may be "
-                + "enabled by setting --" + flagIdentifier.getFlagName());
-    } else {
-      return new EvalException(
-        location,
-        symbolDescription
-            + " is deprecated and will be removed soon. It may be temporarily re-enabled by "
-            + "setting --" + flagIdentifier.getFlagName() + "=false");
-
-    }
+    return flagType == FlagType.EXPERIMENTAL
+        ? name
+            + " is experimental and thus unavailable with the current flags. It may be enabled by"
+            + " setting --"
+            + flagIdentifier.getFlagName()
+        : name
+            + " is deprecated and will be removed soon. It may be temporarily re-enabled by"
+            + " setting --"
+            + flagIdentifier.getFlagName()
+            + "=false";
   }
 
   /**

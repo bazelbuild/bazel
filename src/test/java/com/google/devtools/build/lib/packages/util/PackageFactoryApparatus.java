@@ -138,7 +138,9 @@ public class PackageFactoryApparatus {
   public StarlarkFile ast(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
     ParserInput input = ParserInput.create(bytes, buildFile.asFragment());
-    return StarlarkFile.parse(input, eventHandler);
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(eventHandler, file.errors());
+    return file;
   }
 
   /** Evaluates the {@code buildFileAST} into a {@link Package}. */

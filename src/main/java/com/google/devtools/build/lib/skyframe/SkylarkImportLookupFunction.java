@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -320,7 +321,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throw new SkylarkImportFailedException(astLookupValue.getErrorMsg());
     }
     StarlarkFile file = astLookupValue.getAST();
-    if (file.containsErrors()) {
+    if (!file.ok()) {
       throw SkylarkImportFailedException.skylarkErrors(filePath);
     }
 
@@ -615,19 +616,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
   }
 
+  // Precondition: file is validated and error-free.
   public static void execAndExport(
-      StarlarkFile ast,
-      Label extensionLabel,
-      EventHandler eventHandler,
-      StarlarkThread extensionThread)
+      StarlarkFile file, Label extensionLabel, EventHandler handler, StarlarkThread thread)
       throws InterruptedException {
-    ast.replayLexerEvents(extensionThread, eventHandler);
-    ImmutableList<Statement> statements = ast.getStatements();
-    for (Statement statement : statements) {
-      if (!ast.execTopLevelStatement(statement, extensionThread, eventHandler)) {
+    for (Statement stmt : file.getStatements()) {
+      try {
+        EvalUtils.execToplevelStatement(stmt, thread);
+      } catch (EvalException ex) {
+        handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         break;
       }
-      possiblyExport(statement, extensionLabel, eventHandler, extensionThread);
+      possiblyExport(stmt, extensionLabel, handler, thread);
     }
   }
 

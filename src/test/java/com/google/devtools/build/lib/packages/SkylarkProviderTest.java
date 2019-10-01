@@ -134,11 +134,12 @@ public final class SkylarkProviderTest {
   /** Instantiates a {@link SkylarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
   private static SkylarkInfo instantiateWithA1B2C3(SkylarkProvider provider) throws Exception{
     // Code under test begins with the entry point in BaseFunction.
-    Object result = provider.call(
-        ImmutableList.of(),
-        ImmutableMap.of("a", 1, "b", 2, "c", 3),
-        /*ast=*/ null,
-        /*env=*/ null);
+    Object result =
+        provider.call(
+            ImmutableList.of(),
+            ImmutableMap.of("a", 1, "b", 2, "c", 3),
+            /*ast=*/ null,
+            /*thread=*/ null);
     assertThat(result).isInstanceOf(SkylarkInfo.class);
     return (SkylarkInfo) result;
   }

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -37,19 +36,12 @@ import javax.annotation.Nullable;
  * Recursive descent parser for LL(2) BUILD language. Loosely based on Python 2 grammar. See
  * https://docs.python.org/2/reference/grammar.html
  */
-// TODO(adonovan): break syntax->events dependency and simplify error handling in the API. The
-// result of parsing is a complete, partial, or even empty, file plus a list of errors. For
-// StarlarkFile.parse, we should materialize the error list within the StarlarkFile and remove all
-// mention of event handlers; let the client decide whether to throw or report errors. For
-// Expression.parse, throwing an exception is appropriate: expressions are typically so short that
-// only one error is wanted, so the result can be all-or-nothing.
+// TODO(adonovan): break syntax->event.Event dependency.
 @VisibleForTesting
 final class Parser {
 
-  /**
-   * Combines the parser result into a single value object.
-   */
-  public static final class ParseResult {
+  /** Combines the parser result into a single value object. */
+  static final class ParseResult {
     /** The statements (rules, basically) from the parsed file. */
     final List<Statement> statements;
 
@@ -59,23 +51,23 @@ final class Parser {
     /** Represents every statement in the file. */
     final Location location;
 
-    /** Whether the file contained any errors. */
-    final boolean containsErrors;
-
+    // Errors encountered during scanning or parsing.
+    // These lists are ultimately owned by StarlarkFile.
+    final List<Event> errors;
     final List<Event> stringEscapeEvents;
 
     ParseResult(
         List<Statement> statements,
         List<Comment> comments,
         Location location,
-        boolean containsErrors,
+        List<Event> errors,
         List<Event> stringEscapeEvents) {
       // No need to copy here; when the object is created, the parser instance is just about to go
       // out of scope and be garbage collected.
       this.statements = Preconditions.checkNotNull(statements);
       this.comments = Preconditions.checkNotNull(comments);
       this.location = location;
-      this.containsErrors = containsErrors;
+      this.errors = errors;
       this.stringEscapeEvents = stringEscapeEvents;
     }
   }
@@ -118,7 +110,7 @@ final class Parser {
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
-  private final EventHandler eventHandler;
+  private final List<Event> errors;
 
   // TODO(adonovan): opt: compute this by subtraction.
   private static final Map<TokenKind, TokenKind> augmentedAssignmentMethods =
@@ -167,9 +159,9 @@ final class Parser {
   // Intern string literals, as some files contain many literals for the same string.
   private final Map<String, String> stringInterner = new HashMap<>();
 
-  private Parser(Lexer lexer, EventHandler eventHandler) {
+  private Parser(Lexer lexer, List<Event> errors) {
     this.lexer = lexer;
-    this.eventHandler = eventHandler;
+    this.errors = errors;
     nextToken();
   }
 
@@ -189,46 +181,22 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler);
+  static ParseResult parseFile(ParserInput input) {
+    List<Event> errors = new ArrayList<>();
+    Lexer lexer = new Lexer(input, errors);
+    Parser parser = new Parser(lexer, errors);
     List<Statement> statements;
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.STARLARK_PARSER, input.getPath().getPathString())) {
       statements = parser.parseFileInput();
     }
-    boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
     return new ParseResult(
         statements,
         lexer.getComments(),
         locationFromStatements(lexer, statements),
         errors,
         lexer.getStringEscapeEvents());
-  }
-
-  /** Parses a sequence of statements, possibly followed by newline tokens. */
-  static List<Statement> parseStatements(ParserInput input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler);
-    List<Statement> result = new ArrayList<>();
-    parser.parseStatement(result);
-    while (parser.token.kind == TokenKind.NEWLINE) {
-      parser.nextToken();
-    }
-    parser.expect(TokenKind.EOF);
-    return result;
-  }
-
-  /**
-   * Convenience wrapper for {@link #parseStatements} where exactly one statement is expected.
-   *
-   * @throws IllegalArgumentException if the number of parsed statements was not exactly one
-   */
-  @VisibleForTesting
-  static Statement parseStatement(ParserInput input, EventHandler eventHandler) {
-    List<Statement> stmts = parseStatements(input, eventHandler);
-    return Iterables.getOnlyElement(stmts);
   }
 
   // stmt ::= simple_stmt
@@ -251,15 +219,18 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  @VisibleForTesting
-  static Expression parseExpression(ParserInput input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler);
+  static Expression parseExpression(ParserInput input) throws SyntaxError {
+    List<Event> errors = new ArrayList<>();
+    Lexer lexer = new Lexer(input, errors);
+    Parser parser = new Parser(lexer, errors);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
       parser.nextToken();
     }
     parser.expect(TokenKind.EOF);
+    if (!errors.isEmpty()) {
+      throw new SyntaxError(errors);
+    }
     return result;
   }
 
@@ -292,7 +263,7 @@ final class Parser {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
-      eventHandler.handle(Event.error(location, message));
+      errors.add(Event.error(location, message));
     }
   }
 

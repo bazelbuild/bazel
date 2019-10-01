@@ -63,7 +63,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testReference() throws Exception {
     setFailFast(false);
-    EvalException e = assertThrows(EvalException.class, () -> eval("foo"));
+    SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     update("foo", "bar");
     assertThat(eval("foo")).isEqualTo("bar");
@@ -72,8 +72,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
-    setFailFast(false);
-    EvalException e = assertThrows(EvalException.class, () -> eval("foo"));
+    SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     eval("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");

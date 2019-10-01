@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkdebug.server;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
@@ -763,11 +764,13 @@ public class SkylarkDebugServerTest {
     return StarlarkThread.builder(mutability).useDefaultSemantics().build();
   }
 
-  private StarlarkFile parseBuildFile(String path, String... lines) throws IOException {
-    Path file = scratch.file(path, lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInput inputSource = ParserInput.create(bytes, file.asFragment());
-    return StarlarkFile.parse(inputSource, events.reporter());
+  private StarlarkFile parseBuildFile(String filename, String... lines) throws IOException {
+    Path path = scratch.file(filename, lines);
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
+    ParserInput input = ParserInput.create(bytes, path.asFragment());
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(events.reporter(), file.errors());
+    return file;
   }
 
   private StarlarkFile parseSkylarkFile(String path, String... lines) throws IOException {

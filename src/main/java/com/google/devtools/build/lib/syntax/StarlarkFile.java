@@ -20,38 +20,37 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/** Syntax tree for a Starlark file, such as a Bazel BUILD or .bzl file. */
-public class StarlarkFile extends Node {
+/**
+ * Syntax tree for a Starlark file, such as a Bazel BUILD or .bzl file.
+ *
+ * <p>Call {@link #parse} to parse a file. Parser errors are recorded in the syntax tree (see {@link
+ * #errors}), which may be incomplete.
+ */
+public final class StarlarkFile extends Node {
 
   private final ImmutableList<Statement> statements;
-
   private final ImmutableList<Comment> comments;
-
-  /**
-   * Whether any errors were encountered during scanning or parsing.
-   */
-  private final boolean containsErrors;
-
+  final List<Event> errors; // appended to by ValidationEnvironment
   private final List<Event> stringEscapeEvents;
-
   @Nullable private final String contentHashCode;
 
   private StarlarkFile(
       ImmutableList<Statement> statements,
-      boolean containsErrors,
+      List<Event> errors,
       String contentHashCode,
       Location location,
       ImmutableList<Comment> comments,
       List<Event> stringEscapeEvents) {
     this.statements = statements;
-    this.containsErrors = containsErrors;
-    this.contentHashCode = contentHashCode;
     this.comments = comments;
-    this.setLocation(location);
+    this.errors = errors;
     this.stringEscapeEvents = stringEscapeEvents;
+    this.contentHashCode = contentHashCode;
+    this.setLocation(location);
   }
 
   private static StarlarkFile create(
@@ -76,7 +75,7 @@ public class StarlarkFile extends Node {
     ImmutableList<Statement> statements = statementsbuilder.build();
     return new StarlarkFile(
         statements,
-        result.containsErrors,
+        result.errors,
         contentHashCode,
         result.location,
         ImmutableList.copyOf(result.comments),
@@ -91,7 +90,7 @@ public class StarlarkFile extends Node {
     ImmutableList<Statement> statements = this.statements.subList(firstStatement, lastStatement);
     return new StarlarkFile(
         statements,
-        containsErrors,
+        errors,
         null,
         this.statements.get(firstStatement).getLocation(),
         ImmutableList.of(),
@@ -99,94 +98,38 @@ public class StarlarkFile extends Node {
   }
 
   /**
-   * Returns true if any errors were encountered during scanning or parsing. If
-   * set, clients should not rely on the correctness of the AST for builds or
-   * BUILD-file editing.
+   * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
+   * accumulated in this Starlark file.
    */
-  public boolean containsErrors() {
-    return containsErrors;
+  public List<Event> errors() {
+    return Collections.unmodifiableList(errors);
+  }
+
+  /** Returns errors().isEmpty(). */
+  public boolean ok() {
+    return errors.isEmpty();
   }
 
   /**
-   * Returns an (immutable, ordered) list of statements in this BUILD file.
+   * Appends string escaping errors to {@code errors}. The Lexer diverts such errors into a separate
+   * bucket as they should be selectively reported depending on a StarlarkSemantics, to which the
+   * lexer/parser does not have access. This function is called by ValidationEnvironment, which has
+   * access to a StarlarkSemantics and can thus decide whether to respect or ignore these events.
+   *
+   * <p>Naturally this function should be called at most once.
    */
+  void addStringEscapeEvents() {
+    errors.addAll(stringEscapeEvents);
+  }
+
+  /** Returns an (immutable, ordered) list of statements in this BUILD file. */
   public ImmutableList<Statement> getStatements() {
     return statements;
   }
 
-  /**
-   * Returns an (immutable, ordered) list of comments in this BUILD file.
-   */
+  /** Returns an (immutable, ordered) list of comments in this BUILD file. */
   public ImmutableList<Comment> getComments() {
     return comments;
-  }
-
-  /** Returns true if there was no error event. */
-  public boolean replayLexerEvents(StarlarkThread thread, EventHandler eventHandler) {
-    if (thread.getSemantics().incompatibleRestrictStringEscapes()
-        && !stringEscapeEvents.isEmpty()) {
-      Event.replayEventsOn(eventHandler, stringEscapeEvents);
-      return false;
-    }
-    return true;
-  }
-
-  /**
-   * Executes this Starlark file in the given StarlarkThread.
-   *
-   * <p>Execution stops at the first execution error, which is reported to the event handler. (Other
-   * kinds of errors, such as problems within calls to built-in functions like rule or attr, cause
-   * events to be reported but do not cause Starlark execution to fail.
-   *
-   * <p>This method does not affect the value of {@link #containsErrors()}, which refers only to
-   * lexer/parser errors.
-   *
-   * @return true if no error occurred during execution.
-   */
-  // TODO(adonovan): move to EvalUtils.
-  public boolean exec(StarlarkThread thread, EventHandler eventHandler)
-      throws InterruptedException {
-    for (Statement stmt : statements) {
-      if (!execTopLevelStatement(stmt, thread, eventHandler)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Executes a top-level statement of this Starlark file in the given StarlarkThread.
-   *
-   * <p>If there was an execution error, it is reported to the event handler, and the function
-   * returns false. (Other kinds of errors, such as problems within calls to built-in functions like
-   * rule or attr, cause events to be reported but do not cause Starlark execution to fail.
-   *
-   * <p>This method does not affect the value of {@link #containsErrors()}, which refers only to
-   * lexer/parser errors.
-   *
-   * @return true if no error occurred during execution.
-   */
-  public boolean execTopLevelStatement(
-      Statement stmt, StarlarkThread thread, EventHandler eventHandler)
-      throws InterruptedException {
-    try {
-      Eval.execToplevelStatement(thread, stmt);
-      return true;
-    } catch (EvalException e) {
-      // Do not report errors caused by a previous parsing error, as it has already been
-      // reported.
-      if (e.isDueToIncompleteAST()) {
-        return false;
-      }
-      // When the exception is raised from another file, report first the location in the
-      // BUILD file (as it is the most probable cause for the error).
-      Location exnLoc = e.getLocation();
-      Location nodeLoc = stmt.getLocation();
-      eventHandler.handle(Event.error(
-          (exnLoc == null || !nodeLoc.getPath().equals(exnLoc.getPath())) ? nodeLoc : exnLoc,
-          e.getMessage()));
-      return false;
-    }
   }
 
   @Override
@@ -209,31 +152,30 @@ public class StarlarkFile extends Node {
 
   /**
    * Parse the specified file, returning its syntax tree with the preludeStatements inserted at the
-   * front of its statement list. All errors during scanning or parsing will be reported to the
-   * event handler.
+   * front of its statement list.
    */
   public static StarlarkFile parseWithPrelude(
-      ParserInput input, List<Statement> preludeStatements, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+      ParserInput input, List<Statement> preludeStatements) {
+    Parser.ParseResult result = Parser.parseFile(input);
     return create(
         preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ false);
   }
 
   /**
    * Parse the specified build file, returning its AST. All load statements parsed that way will be
-   * exempt from visibility restrictions. All errors during scanning or parsing will be reported to
-   * the event handler.
+   * exempt from visibility restrictions.
    */
+  // TODO(adonovan): make LoadStatement.allowInternal publicly settable, and delete this.
   public static StarlarkFile parseVirtualBuildFile(
-      ParserInput input, List<Statement> preludeStatements, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+      ParserInput input, List<Statement> preludeStatements) {
+    Parser.ParseResult result = Parser.parseFile(input);
     return create(
         preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ true);
   }
 
-  public static StarlarkFile parseWithDigest(
-      ParserInput input, byte[] digest, EventHandler eventHandler) throws IOException {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+  // TODO(adonovan): make the digest publicly settable, and delete this.
+  public static StarlarkFile parseWithDigest(ParserInput input, byte[] digest) throws IOException {
+    Parser.ParseResult result = Parser.parseFile(input);
     return create(
         /* preludeStatements= */ ImmutableList.of(),
         result,
@@ -241,59 +183,46 @@ public class StarlarkFile extends Node {
         /* allowImportInternal= */ false);
   }
 
-  public static StarlarkFile parse(ParserInput input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+  /**
+   * Parse a Starlark file.
+   *
+   * <p>A syntax tree is always returned, even in case of error. Errors are recorded in the tree.
+   * Example usage:
+   *
+   * <pre>
+   * StarlarkFile file = StarlarkFile.parse(input);
+   * if (!file.ok()) {
+   *    Event.replayEventsOn(handler, file.errors());
+   *    ...
+   * }
+   * </pre>
+   */
+  public static StarlarkFile parse(ParserInput input) {
+    Parser.ParseResult result = Parser.parseFile(input);
     return create(
-        /* preludeStatements= */ ImmutableList.<Statement>of(),
+        /* preludeStatements= */ ImmutableList.of(),
         result,
         /* contentHashCode= */ null,
         /* allowImportInternal=*/ false);
   }
 
-  /**
-   * Parse the specified file but avoid the validation of the imports, returning its AST. All errors
-   * during scanning or parsing will be reported to the event handler.
-   */
-  // TODO(adonovan): redundant; delete.
-  public static StarlarkFile parseWithoutImports(ParserInput input, EventHandler eventHandler) {
-    ParseResult result = Parser.parseFile(input, eventHandler);
-    return new StarlarkFile(
-        ImmutableList.copyOf(result.statements),
-        result.containsErrors,
-        /* contentHashCode= */ null,
-        result.location,
-        ImmutableList.copyOf(result.comments),
-        result.stringEscapeEvents);
+  // TODO(adonovan): legacy function for copybara compatibility; delete ASAP.
+  public static StarlarkFile parseWithoutImports(ParserInput input, EventHandler handler) {
+    StarlarkFile file = parse(input);
+    Event.replayEventsOn(handler, file.errors());
+    return file;
   }
 
-  /**
-   * Run static checks on the syntax tree.
-   *
-   * @return a new syntax tree (or the same), with the containsErrors flag updated.
-   */
-  // TODO(adonovan): eliminate. Most callers need validation because they intend to execute the
-  // file, and should be made to use higher-level operations in EvalUtils.
-  // rest should skip this step. Called from EvaluationTestCase, ParserTest, ASTFileLookupFunction.
-  public StarlarkFile validate(
-      StarlarkThread thread, boolean isBuildFile, EventHandler eventHandler) {
+  // TODO(adonovan): legacy function for copybara compatibility; delete ASAP.
+  public boolean exec(StarlarkThread thread, EventHandler eventHandler)
+      throws InterruptedException {
     try {
-      ValidationEnvironment.validateFile(this, thread, isBuildFile);
-      return this;
-    } catch (EvalException e) {
-      if (!e.isDueToIncompleteAST()) {
-        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
-      }
+      EvalUtils.exec(this, thread);
+      return true;
+    } catch (EvalException ex) {
+      eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+      return false;
     }
-    if (containsErrors) {
-      return this; // already marked as errant
-    }
-    return new StarlarkFile(
-        statements,
-        /*containsErrors=*/ true,
-        contentHashCode,
-        getLocation(),
-        comments,
-        stringEscapeEvents);
   }
 
   /**
@@ -318,27 +247,31 @@ public class StarlarkFile extends Node {
 
   /**
    * Parses, resolves and evaluates the input and returns the value of the last statement if it's an
-   * Expression or else null. In case of error (either during validation or evaluation), it throws
-   * an EvalException. The return value is as for eval(StarlarkThread).
+   * Expression or else null. In case of scan/parse/resolver error, it throws a SyntaxError
+   * containing one or more specific errors. If evaluation fails, it throws an EvalException or
+   * InterruptedException. The return value is as for eval(StarlarkThread).
    */
   // Note: uses Starlark (not BUILD) validation semantics.
   // TODO(adonovan): move to EvalUtils; see other eval function.
   @Nullable
   public static Object eval(ParserInput input, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    StarlarkFile ast = parseAndValidateSkylark(input, thread);
-    return ast.eval(thread);
+      throws SyntaxError, EvalException, InterruptedException {
+    StarlarkFile file = parseAndValidateSkylark(input, thread);
+    if (!file.ok()) {
+      throw new SyntaxError(file.errors());
+    }
+    return file.eval(thread);
   }
 
   /**
-   * Parses and validates the input and returns the syntax tree. In case of error during validation,
-   * it throws an EvalException. Uses Starlark (not BUILD) validation semantics.
+   * Parses and validates the input and returns the syntax tree. It uses Starlark (not BUILD)
+   * validation semantics.
+   *
+   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
+   * the StarlarkFile. It is the caller's responsibility to inspect them.
    */
-  // TODO(adonovan): move to EvalUtils; see above.
-  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread)
-      throws EvalException {
-    StarlarkFile file = parse(input, thread.getEventHandler());
-    file.replayLexerEvents(thread, thread.getEventHandler());
+  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
+    StarlarkFile file = parse(input);
     ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
     return file;
   }

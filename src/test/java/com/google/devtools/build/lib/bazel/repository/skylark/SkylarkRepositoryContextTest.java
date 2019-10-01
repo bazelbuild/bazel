@@ -103,7 +103,7 @@ public class SkylarkRepositoryContextTest {
             "runfiles");
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     ParserInput input = ParserInput.fromLines("test()");
-    FuncallExpression ast = (FuncallExpression) Expression.parse(input, listener);
+    FuncallExpression ast = (FuncallExpression) Expression.parse(input);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder, buildRuleClass(attributes), null, kwargs, ast);

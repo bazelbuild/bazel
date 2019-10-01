@@ -36,7 +36,6 @@ public class EvalException extends Exception {
 
   @Nullable private Location location;
   private final String message;
-  private final boolean dueToIncompleteAST;
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
@@ -48,19 +47,6 @@ public class EvalException extends Exception {
   public EvalException(Location location, String message) {
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
-    this.dueToIncompleteAST = false;
-  }
-
-  /**
-   * @param location the location where evaluation/execution failed.
-   * @param message the error message.
-   * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
-   */
-  EvalException(Location location, String message, boolean dueToIncompleteAST) {
-    super(null, null, /*enableSuppression=*/ true, /*writableStackTrace=*/ true);
-    this.location = location;
-    this.message = Preconditions.checkNotNull(message);
-    this.dueToIncompleteAST = dueToIncompleteAST;
   }
 
   /**
@@ -83,7 +69,6 @@ public class EvalException extends Exception {
       LoggingUtil.logToRemote(Level.SEVERE, details, cause);
       throw new IllegalArgumentException(details);
     }
-    this.dueToIncompleteAST = false;
   }
 
   public EvalException(Location location, Throwable cause) {
@@ -94,9 +79,9 @@ public class EvalException extends Exception {
    * Returns the error message with location info if exists.
    */
   public String print() { // TODO(bazel-team): do we also need a toString() method?
-    return LINE_JOINER.join("\n", FIELD_JOINER.join(getLocation(), message),
-        (dueToIncompleteAST ? "due to incomplete AST" : ""),
-        getCauseMessage(message));
+    // TODO(adonovan): figure out what this means and simplify it.
+    return LINE_JOINER.join(
+        "\n", FIELD_JOINER.join(getLocation(), message), "", getCauseMessage(message));
   }
 
   /**
@@ -137,13 +122,6 @@ public class EvalException extends Exception {
   @Nullable
   public Location getLocation() {
     return location;
-  }
-
-  /**
-   * Returns a boolean that tells whether this exception was due to an incomplete AST
-   */
-  public boolean isDueToIncompleteAST() {
-    return dueToIncompleteAST;
   }
 
   /**

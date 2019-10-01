@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
@@ -705,6 +706,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   protected void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parseAndValidateSkylark(input, ev.getStarlarkThread());
+    if (!file.errors().isEmpty()) {
+      throw new SyntaxError(file.errors());
+    }
     SkylarkImportLookupFunction.execAndExport(
         file, FAKE_LABEL, ev.getEventHandler(), ev.getStarlarkThread());
   }
@@ -1252,14 +1256,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         "unhashable type: 'struct'",
         "{struct(a = []): 'foo'}");
-  }
-
-  @Test
-  public void testStructMembersAreImmutable() throws Exception {
-    checkErrorContains(
-        "cannot assign to 's.x'",
-        "s = struct(x = 'a')",
-        "s.x = 'b'\n");
   }
 
   @Test

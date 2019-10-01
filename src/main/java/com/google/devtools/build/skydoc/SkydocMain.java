@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
@@ -429,7 +430,8 @@ public class SkydocMain {
     pending.add(path);
 
     ParserInput parserInputSource = getInputSource(path.toString());
-    StarlarkFile file = StarlarkFile.parse(parserInputSource, eventHandler);
+    StarlarkFile file = StarlarkFile.parse(parserInputSource);
+    Event.replayEventsOn(eventHandler, file.errors());
 
     moduleDocMap.put(label, getModuleDoc(file));
 

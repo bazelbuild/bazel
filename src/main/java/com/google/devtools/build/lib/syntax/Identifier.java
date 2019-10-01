@@ -32,8 +32,7 @@ public final class Identifier extends Expression {
   // ValidationEnvironment.
   @Nullable private ValidationEnvironment.Scope scope;
 
-  // TODO(adonovan): lock down, after removing last use in skyframe serialization.
-  public Identifier(String name) {
+  Identifier(String name) {
     this.name = name;
   }
 

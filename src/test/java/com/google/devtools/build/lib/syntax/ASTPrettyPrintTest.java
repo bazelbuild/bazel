@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.io.IOException;
 import org.junit.Test;
@@ -66,8 +67,12 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
    * string.
    */
   private void assertExprPrettyMatches(String source, String expected) {
-    Expression node = parseExpression(source);
-    assertPrettyMatches(node, expected);
+    try {
+      Expression node = parseExpression(source);
+      assertPrettyMatches(node, expected);
+    } catch (SyntaxError ex) {
+      Event.replayEventsOn(getEventHandler(), ex.errors());
+    }
   }
 
   /**
@@ -75,8 +80,12 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
    * given string.
    */
   private void assertExprTostringMatches(String source, String expected) {
-    Expression node = parseExpression(source);
-    assertThat(node.toString()).isEqualTo(expected);
+    try {
+      Expression node = parseExpression(source);
+      assertThat(node.toString()).isEqualTo(expected);
+    } catch (SyntaxError ex) {
+      Event.replayEventsOn(getEventHandler(), ex.errors());
+    }
   }
 
   /**
