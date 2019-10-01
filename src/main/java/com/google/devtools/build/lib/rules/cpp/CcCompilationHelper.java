@@ -1398,12 +1398,16 @@ public final class CcCompilationHelper {
             /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
+    SpecialArtifact dotdTreeArtifact = null;
+    if (!featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      dotdTreeArtifact = CppHelper.getDotdOutputTreeArtifact(
+          actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
-            CppHelper.getDotdOutputTreeArtifact(
-                actionConstructionContext, label, sourceArtifact, outputName, usePic),
+            dotdTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,

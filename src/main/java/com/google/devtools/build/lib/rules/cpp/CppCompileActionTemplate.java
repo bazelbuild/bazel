@@ -127,9 +127,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         TreeFileArtifact outputTreeFileArtifact =
             ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
-        TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-                dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+        TreeFileArtifact dotdFileArtifact = null;
+        if (dotdTreeArtifact != null) {
+          dotdFileArtifact =
+              ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+                  dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+        }
         expandedActions.add(
             createAction(
                 inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
@@ -192,9 +195,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     buildVariables.overrideStringVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(),
         outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
-        dotdFileArtifact.getExecPathString());
+    if (dotdFileArtifact != null) {
+      buildVariables.overrideStringVariable(
+          CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
+          dotdFileArtifact.getExecPathString());
+    }
 
     builder.setVariables(buildVariables.build());
 
@@ -278,6 +283,9 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public ImmutableSet<Artifact> getOutputs() {
+    if (dotdTreeArtifact == null) {
+      return ImmutableSet.of(outputTreeArtifact);
+    }
     return ImmutableSet.of(outputTreeArtifact, dotdTreeArtifact);
   }
 

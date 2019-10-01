@@ -701,6 +701,66 @@ class BazelWindowsCppTest(test_base.TestBase):
         ['build', '--disk_cache=' + cache_dir, ':lib'], cwd=dir_b)
     self.AssertExitCode(exit_code, 0, stderr)
 
+  # Regression test for https://github.com/bazelbuild/bazel/issues/9321
+  def testCcCompileWithTreeArtifactAsSource(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'load(":genccs.bzl", "genccs")',
+      '',
+      'genccs(',
+      '    name = "gen_tree",',
+      ')',
+      '',
+      'cc_library(',
+      '    name = "main",',
+      '    srcs = [ "gen_tree" ]',
+      ')',
+      '',
+      'cc_binary(',
+      '    name = "genccs",',
+      '    srcs = [ "genccs.cpp" ],',
+      ')',
+    ])
+    self.ScratchFile('genccs.bzl', [
+      'def _impl(ctx):',
+      '  tree = ctx.actions.declare_directory(ctx.attr.name + ".cc")',
+      '  ctx.actions.run(',
+      '    inputs = [],',
+      '    outputs = [ tree ],',
+      '    arguments = [ tree.path ],',
+      '    progress_message = "Generating cc files into \'%s\'" % tree.path,',
+      '    executable = ctx.executable._tool,',
+      '  )',
+      '',
+      '  return [ DefaultInfo(files = depset([ tree ])) ]',
+      '',
+      'genccs = rule(',
+      '  implementation = _impl,',
+      '  attrs = {',
+      '    "_tool": attr.label(',
+      '      executable = True,',
+      '      cfg = "host",',
+      '      allow_files = True,',
+      '      default = Label("//:genccs"),',
+      '    )',
+      '  }',
+      ')',
+    ])
+    self.ScratchFile('genccs.cpp', [
+      '#include <fstream>',
+      '#include <Windows.h>',
+      'using namespace std;',
+      '',
+      'int main (int argc, char *argv[]) {',
+      '  CreateDirectory(argv[1], NULL);',
+      '  ofstream myfile;',
+      '  myfile.open(string(argv[1]) + string("/foo.cpp"));',
+      '  myfile << "int main() { return 42; }";',
+      '  return 0;',
+      '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(['build', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   unittest.main()
