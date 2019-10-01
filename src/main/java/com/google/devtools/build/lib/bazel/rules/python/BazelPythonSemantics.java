@@ -144,9 +144,14 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private void createStubFile(RuleContext ruleContext, Artifact stubOutput, PyCommon common,
-      String pythonBinary, boolean isForZipFile) {
+      boolean isForZipFile) {
     PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
     BazelPythonConfiguration bazelConfig = ruleContext.getFragment(BazelPythonConfiguration.class);
+
+    // The second-stage Python interpreter, which may be a system absolute path or a runfiles
+    // workspace-relative path. On Windows this is also passed to the launcher to use for the
+    // first-stage.
+    String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
     // Version information for host config diagnostic warning.
     PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
@@ -216,11 +221,6 @@ public class BazelPythonSemantics implements PythonSemantics {
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
-    // Create the stub file that's needed by the python zip file. We generate this action no matter
-    // what the value of --build_python_zip is.
-    Artifact stubFileForZipFile = getPythonIntermediateStubArtifact(ruleContext, executable);
-    createStubFile(ruleContext, stubFileForZipFile, common, pythonBinary, /*isForZipFile =*/ true);
-
     // The artifact holding the result of expanding the stub template.
     // We only create it when --build_python_zip is turned off.
     if (!buildPythonZip) {
@@ -228,7 +228,7 @@ public class BazelPythonSemantics implements PythonSemantics {
           OS.getCurrent() == OS.WINDOWS
               ? common.getPythonStubArtifactForWindows(executable)
               : executable;
-      createStubFile(ruleContext, stubOutput, common, pythonBinary, /*isForZipFile =*/ false);
+      createStubFile(ruleContext, stubOutput, common, /* isForZipFile= */ false);
     }
 
     // Create the zip file if requested. On unix, copy it from the intermediate artifact to the
@@ -297,12 +297,17 @@ public class BazelPythonSemantics implements PythonSemantics {
     FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
     Artifact executable = common.getExecutable();
     Artifact zipFile = common.getPythonZipArtifact(executable);
+
     if (!ruleContext.hasErrors()) {
+      // Create the stub file that's needed by the python zip file.
+      Artifact stubFileForZipFile = getPythonIntermediateStubArtifact(ruleContext, executable);
+      createStubFile(ruleContext, stubFileForZipFile, common, /* isForZipFile= */ true);
+
       createPythonZipAction(
           ruleContext,
           executable,
           zipFile,
-          getPythonIntermediateStubArtifact(ruleContext, executable),
+          stubFileForZipFile,
           zipper,
           runfilesSupport);
     }
