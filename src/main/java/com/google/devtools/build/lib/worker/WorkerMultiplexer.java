@@ -142,6 +142,14 @@ public class WorkerMultiplexer extends Thread {
     Semaphore waitForResponse = responseChecker.get(workerId);
     semResponseChecker.release();
 
+    if (waitForResponse == null) {
+      /**
+       * If multiplexer is interrupted when WorkerProxy is trying to send request,
+       * request is not sent so no need to wait for response.
+       */
+      return null;
+    }
+
     // The semaphore will throw InterruptedException when the multiplexer is terminated.
     waitForResponse.acquire();
 
