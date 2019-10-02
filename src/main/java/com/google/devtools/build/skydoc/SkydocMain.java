@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -492,7 +493,7 @@ public class SkydocMain {
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
   private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
-      StarlarkFile buildFileAST,
+      StarlarkFile file,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
@@ -506,7 +507,10 @@ public class SkydocMain {
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
 
-    if (!buildFileAST.exec(thread, eventHandler)) {
+    try {
+      EvalUtils.exec(file, thread);
+    } catch (EvalException | InterruptedException ex) {
+      // This exception class seems a bit unnecessary. Replace with EvalException?
       throw new StarlarkEvaluationException("Starlark evaluation error");
     }
 

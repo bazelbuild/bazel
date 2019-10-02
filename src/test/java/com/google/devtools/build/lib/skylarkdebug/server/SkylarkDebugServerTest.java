@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Sta
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -781,14 +782,14 @@ public class SkylarkDebugServerTest {
    * Creates and starts a worker thread executing the given {@link StarlarkFile} in the given
    * environment.
    */
-  private Thread execInWorkerThread(StarlarkFile ast, StarlarkThread thread) {
+  private static Thread execInWorkerThread(StarlarkFile file, StarlarkThread thread) {
     Thread javaThread =
         new Thread(
             () -> {
               try {
-                ast.exec(thread, events.collector());
-              } catch (Throwable e) {
-                throw new AssertionError(e);
+                EvalUtils.exec(file, thread);
+              } catch (EvalException | InterruptedException ex) {
+                throw new AssertionError(ex);
               }
             });
     javaThread.start();

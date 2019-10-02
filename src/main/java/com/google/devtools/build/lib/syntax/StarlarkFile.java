@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import java.io.IOException;
@@ -204,25 +203,6 @@ public final class StarlarkFile extends Node {
         result,
         /* contentHashCode= */ null,
         /* allowImportInternal=*/ false);
-  }
-
-  // TODO(adonovan): legacy function for copybara compatibility; delete ASAP.
-  public static StarlarkFile parseWithoutImports(ParserInput input, EventHandler handler) {
-    StarlarkFile file = parse(input);
-    Event.replayEventsOn(handler, file.errors());
-    return file;
-  }
-
-  // TODO(adonovan): legacy function for copybara compatibility; delete ASAP.
-  public boolean exec(StarlarkThread thread, EventHandler eventHandler)
-      throws InterruptedException {
-    try {
-      EvalUtils.exec(this, thread);
-      return true;
-    } catch (EvalException ex) {
-      eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
-      return false;
-    }
   }
 
   /**
