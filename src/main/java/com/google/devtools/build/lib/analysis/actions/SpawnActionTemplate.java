@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.Nullable;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -199,6 +201,12 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   @Override
   public NestedSet<Artifact> getInputs() {
     return allInputs;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getDiagnostics() {
+    return null;
   }
 
   @Override

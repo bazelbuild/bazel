@@ -1666,9 +1666,12 @@ public final class SkyframeActionExecutor {
     if (actionResult != null) {
       logs =
           actionResult.spawnResults().stream()
-              .filter(spawnResult -> spawnResult.getActionMetadataLog().isPresent())
-              .map(spawnResult -> spawnResult.getActionMetadataLog().get())
+              .flatMap(spawnResult -> spawnResult.getActionMetadataLog().stream())
               .collect(ImmutableList.toImmutableList());
+    } else {
+      if (action.getDiagnostics() != null) {
+        logs = ImmutableList.of(new MetadataLog("diagnostics", action.getDiagnostics().getPath()));
+      }
     }
     eventHandler.post(
         new ActionExecutedEvent(

@@ -328,7 +328,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Object execGroupUnchecked)
+      Object execGroupUnchecked,
+      Object diagnosticsFile)
       throws EvalException {
     context.checkMutable("actions.run");
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
@@ -363,6 +364,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
         execGroupUnchecked,
+        diagnosticsFile,
         builder);
   }
 
@@ -479,6 +481,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
         execGroupUnchecked,
+        /*diagnosticsFile=*/ Starlark.NONE,
         builder);
   }
 
@@ -525,6 +528,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
+      Object diagnosticsFile,
       StarlarkAction.Builder builder)
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
@@ -542,6 +546,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throw Starlark.errorf("param 'outputs' may not be empty");
     }
     builder.addOutputs(outputArtifacts);
+
+    if(diagnosticsFile != Starlark.NONE){
+      builder.addOutput((Artifact) diagnosticsFile);
+      builder.setDiagnosticFile((Artifact) diagnosticsFile);
+    }
 
     if (unusedInputsList != Starlark.NONE) {
       if (unusedInputsList instanceof Artifact) {

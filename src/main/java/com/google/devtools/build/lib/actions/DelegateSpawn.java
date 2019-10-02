@@ -74,6 +74,12 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  @Nullable
+  public ActionInput getDiagnosticsFile() {
+    return spawn.getDiagnosticsFile();
+  }
+
+  @Override
   public ActionExecutionMetadata getResourceOwner() {
     return spawn.getResourceOwner();
   }

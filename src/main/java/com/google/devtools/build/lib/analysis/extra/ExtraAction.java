@@ -86,6 +86,7 @@ public final class ExtraAction extends SpawnAction {
             extraActionInputs),
         outputs,
         Iterables.getFirst(outputs, null),
+        null,
         AbstractAction.DEFAULT_RESOURCE_SET,
         CommandLines.of(argv),
         CommandLineLimits.UNLIMITED,

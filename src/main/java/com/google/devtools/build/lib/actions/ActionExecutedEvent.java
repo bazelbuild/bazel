@@ -211,6 +211,13 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
                 .build());
       }
     }
+    if (action.getDiagnostics() != null) {
+      String uri = pathConverter.apply(action.getDiagnostics().getPath());
+      if (uri != null) {
+        actionBuilder.setDiagnosticOutput(
+                BuildEventStreamProtos.File.newBuilder().setName("diagnostic_output").setUri(uri).build());
+      }
+    }
     if (exception == null) {
       String uri = pathConverter.apply(primaryOutput);
       if (uri != null) {

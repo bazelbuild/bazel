@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
+import javax.annotation.Nullable;
+
 /**
  * FailAction is an Action that always fails to execute. (Used as scaffolding for rules we haven't
  * yet implemented. Also useful for testing.)
@@ -86,5 +88,11 @@ public final class FailAction extends AbstractAction {
   @Override
   public String getMnemonic() {
     return "Fail";
+  }
+
+  @Override
+  @Nullable
+  public Artifact getDiagnostics() {
+    return null;
   }
 }

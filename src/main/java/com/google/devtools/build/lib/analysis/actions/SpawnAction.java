@@ -116,6 +116,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier extraActionInfoSupplier;
+  private final @Nullable Artifact diagnosticFile;
   private final Artifact primaryOutput;
   private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
 
@@ -130,6 +131,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     modified.
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
+   * @param diagnosticFile optionally a file with structured diagnostics from this action.
    * @param resourceSet the resources consumed by executing this Action
    * @param env the action environment
    * @param commandLines the command lines to execute. This includes the main argv vector and any
@@ -146,6 +148,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
+      @Nullable Artifact diagnosticFile,
       ResourceSet resourceSet,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
@@ -159,6 +162,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         inputs,
         outputs,
         primaryOutput,
+        diagnosticFile,
         resourceSet,
         commandLines,
         commandLineLimits,
@@ -185,6 +189,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
+   * @param diagnosticFile optionally a file with structured diagnostics from this action.
    * @param resourceSet the resources consumed by executing this Action
    * @param env the action's environment
    * @param executionInfo out-of-band information for scheduling the spawn
@@ -203,6 +208,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> inputs,
       Iterable<? extends Artifact> outputs,
       Artifact primaryOutput,
+      @Nullable  Artifact diagnosticFile,
       ResourceSet resourceSet,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
@@ -216,6 +222,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ExtraActionInfoSupplier extraActionInfoSupplier,
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
+    this.diagnosticFile = diagnosticFile;
     this.primaryOutput = primaryOutput;
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
@@ -559,6 +566,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return executionInfo;
   }
 
+  @Override
+  @Nullable
+  public Artifact getDiagnostics() {
+    return diagnosticFile;
+  }
+
   /** A spawn instance that is tied to a specific SpawnAction. */
   private class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
@@ -613,6 +626,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
+
+    @Override
+    @Nullable
+    public ActionInput getDiagnosticsFile() {
+      return diagnosticFile;
+    }
   }
 
   /**
@@ -624,6 +643,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
     private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
+    private @Nullable Artifact diagnosticFile = null;
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ActionEnvironment actionEnvironment = null;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
@@ -655,6 +675,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
+      this.diagnosticFile = other.diagnosticFile;
       this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
       this.resourceSet = other.resourceSet;
       this.actionEnvironment = other.actionEnvironment;
@@ -761,6 +782,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           inputsAndTools,
           ImmutableList.copyOf(outputs),
           outputs.get(0),
+          diagnosticFile,
           resourceSet,
           commandLines,
           commandLineLimits,
@@ -782,6 +804,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
         Artifact primaryOutput,
+        @Nullable Artifact diagnosticFile,
         ResourceSet resourceSet,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
@@ -798,6 +821,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           inputsAndTools,
           outputs,
           primaryOutput,
+          diagnosticFile,
           resourceSet,
           commandLines,
           commandLineLimits,
@@ -1325,6 +1349,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
       this.resultConsumer = resultConsumer;
       return this;
+    }
+
+    public void setDiagnosticFile(Artifact diagnosticFile) {
+      this.diagnosticFile = diagnosticFile;
     }
   }
 

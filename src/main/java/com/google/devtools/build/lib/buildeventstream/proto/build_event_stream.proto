@@ -477,6 +477,8 @@ message ActionExecuted {
 
   // Only populated if success = false, and sometimes not even then.
   failure_details.FailureDetail failure_detail = 11;
+
+  File diagnostic_output = 12;
 }
 
 // Collection of all output files belonging to that output group.

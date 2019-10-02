@@ -118,6 +118,12 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
+  @Nullable
+  public ActionInput getDiagnosticsFile() {
+    return action.getDiagnostics();
+  }
+
+  @Override
   public ActionExecutionMetadata getResourceOwner() {
     return action;
   }

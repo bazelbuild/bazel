@@ -224,6 +224,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
             .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
+
+    if (spawn.getDiagnosticsFile() != null) {
+      builder.addActionMetadataLog(
+              new SpawnResult.MetadataLog(
+                      "diagnostics",
+                      context.getPathResolver().toPath(spawn.getDiagnosticsFile())
+              ));
+    }
+
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
