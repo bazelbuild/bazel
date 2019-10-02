@@ -1470,7 +1470,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
 
   @Test
   public void processJavacopts_useSourceByDefault() {
-    TurbineOptions options = TurbineOptions.builder().setOutput("/out").setTempDir("/tmp").build();
+    TurbineOptions options = TurbineOptions.builder().setOutput("/out").build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
     assertThat(javacopts).contains("-source");
     assertThat(javacopts).doesNotContain("--release");
@@ -1481,7 +1481,6 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     TurbineOptions options =
         TurbineOptions.builder()
             .setOutput("/out")
-            .setTempDir("/tmp")
             .addAllJavacOpts(ImmutableList.of("--release", "9"))
             .build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
@@ -1493,7 +1492,6 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     TurbineOptions options =
         TurbineOptions.builder()
             .setOutput("/out")
-            .setTempDir("/tmp")
             .addAllJavacOpts(ImmutableList.of("-source", "8", "-target", "8", "--release", "9"))
             .build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
@@ -1506,7 +1504,6 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     TurbineOptions options =
         TurbineOptions.builder()
             .setOutput("/out")
-            .setTempDir("/tmp")
             .addAllJavacOpts(ImmutableList.of("-Xmyopt", "-Xdoclint:reference"))
             .build();
     ImmutableList<String> javacopts = JavacTurbine.processJavacopts(options);
