@@ -62,7 +62,7 @@ public class StarlarkFunction extends BaseFunction {
               getName(), thread.getCurrentFunction().getName()));
     }
 
-    ImmutableList<String> names = signature.getSignature().getNames();
+    ImmutableList<String> names = signature.getSignature().getParameterNames();
     LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {

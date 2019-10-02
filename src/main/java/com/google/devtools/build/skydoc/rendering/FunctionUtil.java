@@ -113,8 +113,8 @@ public final class FunctionUtil {
         userDefinedFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
-    List<String> paramNames = signature.getSignature().getNames();
-    int numMandatoryParams = signature.getSignature().getShape().getMandatoryPositionals();
+    List<String> paramNames = signature.getSignature().getParameterNames();
+    int numMandatoryParams = signature.getSignature().numMandatoryPositionals();
 
     int paramIndex;
     // Mandatory parameters.
@@ -142,7 +142,7 @@ public final class FunctionUtil {
     }
 
     // *arg
-    if (signature.getSignature().getShape().hasStarArg()) {
+    if (signature.getSignature().hasVarargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {
@@ -155,7 +155,7 @@ public final class FunctionUtil {
     }
 
     // **kwargs
-    if (signature.getSignature().getShape().hasKwArg()) {
+    if (signature.getSignature().hasKwargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {

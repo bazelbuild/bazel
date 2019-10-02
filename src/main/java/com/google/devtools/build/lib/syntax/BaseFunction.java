@@ -164,7 +164,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * The size of the array required by the callee.
    */
   protected int getArgArraySize() {
-    return signature.getSignature().getShape().getArguments();
+    return signature.getSignature().numParameters();
   }
 
   /**
@@ -190,27 +190,26 @@ public abstract class BaseFunction implements StarlarkCallable {
 
     // extract function signature
     FunctionSignature sig = signature.getSignature();
-    FunctionSignature.Shape shape = sig.getShape();
-    ImmutableList<String> names = sig.getNames();
+    ImmutableList<String> names = sig.getParameterNames();
     List<Object> defaultValues = signature.getDefaultValues();
 
     // Note that this variable will be adjusted down if there are extra positionals,
     // after these extra positionals are dumped into starParam.
     int numPositionalArgs = args.size();
 
-    int numMandatoryPositionalParams = shape.getMandatoryPositionals();
-    int numOptionalPositionalParams = shape.getOptionalPositionals();
-    int numMandatoryNamedOnlyParams = shape.getMandatoryNamedOnly();
-    int numOptionalNamedOnlyParams = shape.getOptionalNamedOnly();
-    boolean hasStarParam = shape.hasStarArg();
-    boolean hasKwParam = shape.hasKwArg();
+    int numMandatoryPositionalParams = sig.numMandatoryPositionals();
+    int numOptionalPositionalParams = sig.numOptionalPositionals();
+    int numMandatoryNamedOnlyParams = sig.numMandatoryNamedOnly();
+    int numOptionalNamedOnlyParams = sig.numOptionalNamedOnly();
+    boolean hasVarargs = sig.hasVarargs();
+    boolean hasKwargs = sig.hasKwargs();
     int numPositionalParams = numMandatoryPositionalParams + numOptionalPositionalParams;
     int numNamedOnlyParams = numMandatoryNamedOnlyParams + numOptionalNamedOnlyParams;
     int numNamedParams = numPositionalParams + numNamedOnlyParams;
-    int kwParamIndex = names.size() - 1; // only valid if hasKwParam
+    int kwargIndex = names.size() - 1; // only valid if hasKwargs
 
     // (1) handle positional arguments
-    if (hasStarParam) {
+    if (hasVarargs) {
       // Nota Bene: we collect extra positional arguments in a (tuple,) rather than a [list],
       // and this is actually the same as in Python.
       int starParamIndex = numNamedParams;
@@ -255,22 +254,22 @@ public abstract class BaseFunction implements StarlarkCallable {
           arguments[i] = defaultValues.get(j++);
         }
       }
-      // If there's a kwParam, it's empty.
-      if (hasKwParam) {
+      // If there's a kwarg, it's empty.
+      if (hasKwargs) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = SkylarkDict.of(thread);
+        arguments[kwargIndex] = SkylarkDict.of(thread);
       }
-    } else if (hasKwParam && numNamedParams == 0) {
-      // Easy case (2b): there are no named parameters, but there is a **kwParam.
-      // Therefore all keyword arguments go directly to the kwParam.
-      // Note that *starParam and **kwParam themselves don't count as named.
+    } else if (hasKwargs && numNamedParams == 0) {
+      // Easy case (2b): there are no named parameters, but there is a **kwargs.
+      // Therefore all keyword arguments go directly to the kwarg.
+      // Note that *args and **kwargs themselves don't count as named.
       // Also note that no named parameters means no mandatory parameters that weren't passed,
       // and no missing optional parameters for which to use a default. Thus, no loops.
       // NB: not 2a means kwarg isn't null
-      arguments[kwParamIndex] = SkylarkDict.copyOf(thread, kwargs);
+      arguments[kwargIndex] = SkylarkDict.copyOf(thread, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(thread) : SkylarkDict.empty();
+      SkylarkDict<String, Object> kwArg = hasKwargs ? SkylarkDict.of(thread) : SkylarkDict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
@@ -295,7 +294,7 @@ public abstract class BaseFunction implements StarlarkCallable {
         if (0 <= pos && pos < numNamedParams) {
           arguments[pos] = value;
         } else {
-          if (!hasKwParam) {
+          if (!hasKwargs) {
             List<String> unexpected = Ordering.natural().sortedCopy(Sets.difference(
                 kwargs.keySet(), ImmutableSet.copyOf(names.subList(0, numNamedParams))));
             throw new EvalException(loc, String.format("unexpected keyword%s '%s' in call to %s",
@@ -308,9 +307,9 @@ public abstract class BaseFunction implements StarlarkCallable {
           kwArg.put(keyword, value, loc, thread);
         }
       }
-      if (hasKwParam) {
+      if (hasKwargs) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = SkylarkDict.copyOf(thread, kwArg);
+        arguments[kwargIndex] = SkylarkDict.copyOf(thread, kwArg);
       }
 
       // Check that all mandatory parameters were filled in general case 2c.
@@ -369,7 +368,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       Object value = arguments[i];
       SkylarkType type = types.get(i);
       if (value != null && type != null && !type.contains(value)) {
-        List<String> names = signature.getSignature().getNames();
+        List<String> names = signature.getSignature().getParameterNames();
         throw new EvalException(loc,
             String.format("expected %s for '%s' while calling %s but got %s instead: %s",
                 type, names.get(i), getName(), EvalUtils.getDataTypeName(value, true), value));
@@ -380,8 +379,8 @@ public abstract class BaseFunction implements StarlarkCallable {
   /**
    * The outer calling convention to a BaseFunction.
    *
-   * @param args a list of all positional arguments (as in *starArg)
-   * @param kwargs a map for key arguments (as in **kwArgs)
+   * @param args a list of all positional arguments (as in *args)
+   * @param kwargs a map for key arguments (as in **kwargs)
    * @param ast the expression for this function's definition
    * @param thread the StarlarkThread in the function is called
    * @return the value resulting from evaluating the function with the given arguments
@@ -486,7 +485,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       return false;
     }
     List<SkylarkType> types = signature.getTypes();
-    ImmutableList<String> names = signature.getSignature().getNames();
+    ImmutableList<String> names = signature.getSignature().getParameterNames();
 
     return (!types.isEmpty() && types.get(0).canBeCastTo(clazz))
         || (!names.isEmpty() && names.get(0).equals("self"));

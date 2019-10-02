@@ -1261,13 +1261,12 @@ public final class ParserTest {
     DefStatement stmt = (DefStatement) statements.get(0);
     FunctionSignature sig = stmt.getSignature().getSignature();
     // Note the reordering of optional named-only at the end.
-    assertThat(sig.getNames()).isEqualTo(ImmutableList.<String>of(
-        "a", "b1", "b2", "c1", "c2", "d"));
-    FunctionSignature.Shape shape = sig.getShape();
-    assertThat(shape.getMandatoryPositionals()).isEqualTo(1);
-    assertThat(shape.getOptionalPositionals()).isEqualTo(2);
-    assertThat(shape.getMandatoryNamedOnly()).isEqualTo(2);
-    assertThat(shape.getOptionalNamedOnly()).isEqualTo(1);
+    assertThat(sig.getParameterNames())
+        .isEqualTo(ImmutableList.<String>of("a", "b1", "b2", "c1", "c2", "d"));
+    assertThat(sig.numMandatoryPositionals()).isEqualTo(1);
+    assertThat(sig.numOptionalPositionals()).isEqualTo(2);
+    assertThat(sig.numMandatoryNamedOnly()).isEqualTo(2);
+    assertThat(sig.numOptionalNamedOnly()).isEqualTo(1);
   }
 
   @Test

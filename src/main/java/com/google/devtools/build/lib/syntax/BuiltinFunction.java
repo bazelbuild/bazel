@@ -186,7 +186,9 @@ public class BuiltinFunction extends BaseFunction {
       for (int i = 0; i < args.length; i++) {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
-              i < len ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
+              i < len
+                  ? signature.getSignature().getParameterNames().get(i)
+                  : extraArgs[i - len].name();
           throw new EvalException(
               loc,
               String.format(
@@ -247,7 +249,7 @@ public class BuiltinFunction extends BaseFunction {
   protected void configure() {
     invokeMethod = findMethod("invoke");
 
-    int arguments = signature.getSignature().getShape().getArguments();
+    int arguments = signature.getSignature().numParameters();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
     if (innerArgumentCount != parameterTypes.length) {
@@ -268,7 +270,7 @@ public class BuiltinFunction extends BaseFunction {
                   "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
                   getName(),
                   signature,
-                  signature.getSignature().getNames().get(i),
+                  signature.getSignature().getParameterNames().get(i),
                   enforcedType,
                   enforcedType.getType(),
                   parameterType);

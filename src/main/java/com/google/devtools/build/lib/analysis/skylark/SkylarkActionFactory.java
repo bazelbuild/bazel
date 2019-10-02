@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -947,12 +947,12 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (mapEach == null) {
         return;
       }
-      Shape shape = mapEach.getSignature().getSignature().getShape();
+      FunctionSignature sig = mapEach.getSignature().getSignature();
       boolean valid =
-          shape.getMandatoryPositionals() == 1
-              && shape.getOptionalPositionals() == 0
-              && shape.getMandatoryNamedOnly() == 0
-              && shape.getOptionalPositionals() == 0;
+          sig.numMandatoryPositionals() == 1
+              && sig.numOptionalPositionals() == 0
+              && sig.numMandatoryNamedOnly() == 0
+              && sig.numOptionalPositionals() == 0;
       if (!valid) {
         throw new EvalException(
             loc, "map_each must be a function that accepts a single positional argument");

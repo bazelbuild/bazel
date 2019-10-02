@@ -149,7 +149,7 @@ public class SkylarkSignatureProcessor {
       }
       FunctionSignature.WithValues<Object, SkylarkType> signature =
           FunctionSignature.WithValues.of(paramList);
-      for (String paramName : signature.getSignature().getNames()) {
+      for (String paramName : signature.getSignature().getParameterNames()) {
         if (enforcedTypesList != null) {
           enforcedTypesList.add(enforcedTypes.get(paramName));
         }

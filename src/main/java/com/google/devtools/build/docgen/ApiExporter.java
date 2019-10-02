@@ -163,10 +163,10 @@ public class ApiExporter {
     value.setName(funcName);
     Callable.Builder callable = Callable.newBuilder();
 
-    ImmutableList<String> paramNames = funcSignature.getSignature().getNames();
+    ImmutableList<String> paramNames = funcSignature.getSignature().getParameterNames();
     List<Object> defaultValues = funcSignature.getDefaultValues();
-    int positionals = funcSignature.getSignature().getShape().getMandatoryPositionals();
-    int optionals = funcSignature.getSignature().getShape().getOptionals();
+    int positionals = funcSignature.getSignature().numMandatoryPositionals();
+    int optionals = funcSignature.getSignature().numOptionals();
     int nameIndex = 0;
 
     for (int i = 0; i < positionals; i++) {
@@ -186,7 +186,7 @@ public class ApiExporter {
       nameIndex++;
     }
 
-    if (funcSignature.getSignature().getShape().hasStarArg()) {
+    if (funcSignature.getSignature().hasVarargs()) {
       Param.Builder param = Param.newBuilder();
       param.setName("*" + paramNames.get(nameIndex));
       param.setIsMandatory(false);
@@ -194,7 +194,7 @@ public class ApiExporter {
       nameIndex++;
       callable.addParam(param);
     }
-    if (funcSignature.getSignature().getShape().hasKwArg()) {
+    if (funcSignature.getSignature().hasKwargs()) {
       Param.Builder param = Param.newBuilder();
       param.setIsMandatory(false);
       param.setIsStarStarArg(true);

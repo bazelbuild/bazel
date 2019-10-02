@@ -33,13 +33,13 @@ import javax.annotation.Nullable;
 /**
  * Function Signatures for BUILD language (same as Python)
  *
- * <p>Skylark's function signatures are just like Python3's. A function may have 6 kinds of
- * arguments: positional mandatory, positional optional, positional rest (aka *star argument),
- * key-only mandatory, key-only optional, key rest (aka **star_star argument). A caller may specify
- * all arguments but the *star and **star_star arguments by name, and thus all mandatory and
- * optional arguments are named arguments.
+ * <p>Starlark's function signatures are just like Python3's. A function may have 6 kinds of
+ * parameters: positional mandatory, positional optional, positional rest (aka *args or variadic
+ * parameter), keyword-only mandatory, keyword-only optional, keyword rest (aka **kwargs parameter).
+ * A caller may specify all arguments but the *args and **kwargs arguments by name, and thus all
+ * mandatory and optional parameters are named parameters.
  *
- * <p>To enable various optimizations in the argument processing routine, we sort arguments
+ * <p>To enable various optimizations in the argument processing routine, we sort parameters
  * according the following constraints, enabling corresponding optimizations:
  *
  * <ol>
@@ -50,133 +50,119 @@ import javax.annotation.Nullable;
  *       parameters. key-only parameters are thus grouped together. positional mandatory and
  *       key-only mandatory parameters are separate, but there is no loop over a contiguous chunk of
  *       them, anyway.
- *   <li>The named are all grouped together, with star and star_star rest arguments coming last.
- *   <li>Mandatory arguments in each category (positional and named-only) come before the optional
- *       arguments, for the sake of slightly better clarity to human implementers. This eschews an
+ *   <li>The named are all grouped together, with star and star_star rest parameters coming last.
+ *   <li>Mandatory parameters in each category (positional and named-only) come before the optional
+ *       parameters, for the sake of slightly better clarity to human implementers. This eschews an
  *       optimization whereby grouping optionals together allows to iterate over them in one go
  *       instead of two; however, this relatively minor optimization only matters when keyword
  *       arguments are passed, at which point it is dwarfed by the slowness of keyword processing.
  * </ol>
  *
- * <p>Parameters are thus sorted in the following order: positional mandatory arguments (if any),
- * positional optional arguments (if any), key-only mandatory arguments (if any), key-only optional
- * arguments (if any), then star argument (if any), then star_star argument (if any).
+ * <p>Parameters are thus sorted in the following order: positional mandatory parameters (if any),
+ * positional optional parameters (if any), key-only mandatory parameters (if any), key-only
+ * optional parameters (if any), then star parameter (if any), then star_star parameter (if any).
  */
 @AutoCodec
 @AutoValue
 public abstract class FunctionSignature {
 
-  /** The shape of a FunctionSignature, without names */
-  @AutoValue
-  @AutoCodec
-  public abstract static class Shape {
-    private static final Interner<Shape> interner = BlazeInterners.newWeakInterner();
+  // These abstract getters specify the actual parameter count fields to be defined by AutoValue.
 
-    /** Create a function signature */
-    @AutoCodec.Instantiator
-    public static Shape create(
-        int mandatoryPositionals,
-        int optionalPositionals,
-        int mandatoryNamedOnly,
-        int optionalNamedOnly,
-        boolean hasStarArg,
-        boolean hasKwArg) {
-      Preconditions.checkArgument(
-          0 <= mandatoryPositionals && 0 <= optionalPositionals
-          && 0 <= mandatoryNamedOnly && 0 <= optionalNamedOnly);
-      return interner.intern(
-          new AutoValue_FunctionSignature_Shape(
-              mandatoryPositionals,
-              optionalPositionals,
-              mandatoryNamedOnly,
-              optionalNamedOnly,
-              hasStarArg,
-              hasKwArg));
-    }
+  /** Number of mandatory positional parameters */
+  public abstract int numMandatoryPositionals();
 
-    // These abstract getters specify the actual argument count fields to be defined by AutoValue.
-    /** number of mandatory positional arguments */
-    public abstract int getMandatoryPositionals();
+  /** Number of optional positional parameters */
+  public abstract int numOptionalPositionals();
 
-    /** number of optional positional arguments */
-    public abstract int getOptionalPositionals();
+  /** Number of mandatory named-only parameters. */
+  public abstract int numMandatoryNamedOnly();
 
-    /** number of mandatory named-only arguments. */
-    public abstract int getMandatoryNamedOnly();
+  /** Number of optional named-only parameters */
+  public abstract int numOptionalNamedOnly();
 
-    /** number of optional named-only arguments */
-    public abstract int getOptionalNamedOnly();
+  /** True if function has variadic parameter, {@code def f(*args)}. */
+  public abstract boolean hasVarargs();
 
-    /** indicator for presence of a star argument for extra positional arguments */
-    public abstract boolean hasStarArg();
+  /** True if function has residual keyword-argument parameter, {@code def f(**kwargs)}. */
+  public abstract boolean hasKwargs();
 
-    /** indicator for presence of a star-star argument for extra keyword arguments */
-    public abstract boolean hasKwArg();
+  /** Parameter names. */
+  public abstract ImmutableList<String> getParameterNames();
 
+  // computed parameter counts
 
-    // These are computed argument counts
-    /** number of optional and mandatory positional arguments. */
-    public int getPositionals() {
-      return getMandatoryPositionals() + getOptionalPositionals();
-    }
-
-    /** number of optional and mandatory named-only arguments. */
-    public int getNamedOnly() {
-      return getMandatoryNamedOnly() + getOptionalNamedOnly();
-    }
-
-    /** number of optional arguments. */
-    public int getOptionals() {
-      return getOptionalPositionals() + getOptionalNamedOnly();
-    }
-
-    /** number of all named parameters: mandatory and optional of positionals and named-only */
-    public int getAllNamed() {
-      return getPositionals() + getNamedOnly();
-    }
-
-    /** total number of arguments */
-    public int getArguments() {
-      return getAllNamed() + (hasStarArg() ? 1 : 0) + (hasKwArg() ? 1 : 0);
-    }
+  /** Number of optional and mandatory positional parameters. */
+  public int numPositionals() {
+    return numMandatoryPositionals() + numOptionalPositionals();
   }
 
-  /** Names of a FunctionSignature */
+  /** Number of optional and mandatory named-only parameters. */
+  public int numNamedOnly() {
+    return numMandatoryNamedOnly() + numOptionalNamedOnly();
+  }
+
+  /** number of optional parameters. */
+  public int numOptionals() {
+    return numOptionalPositionals() + numOptionalNamedOnly();
+  }
+
+  /** number of all named parameters: mandatory and optional of positionals and named-only */
+  public int numAllNamed() {
+    return numPositionals() + numNamedOnly();
+  }
+
+  /** total number of parameters */
+  public int numParameters() {
+    return numAllNamed() + (hasVarargs() ? 1 : 0) + (hasKwargs() ? 1 : 0);
+  }
+
   private static final Interner<ImmutableList<String>> namesInterner =
       BlazeInterners.newWeakInterner();
 
-  /** Intern a list of names */
-  public static ImmutableList<String> names(List<String> names) {
+  /** Intern a list of names. */
+  private static ImmutableList<String> names(List<String> names) {
     return namesInterner.intern(
         names.stream().map(StringCanonicalizer::intern).collect(toImmutableList()));
   }
 
-  // Interner
+  // Interner.
+  // Are there really a significant number of duplicates? Why??
   private static final Interner<FunctionSignature> signatureInterner =
       BlazeInterners.newWeakInterner();
 
-  /**
-   * Signatures proper.
-   *
-   * <p>A signature is a Shape and an ImmutableList of argument variable names NB: we assume these
-   * lists are short, so we may do linear scans.
-   */
+  // TODO(adonovan): not a user-friendly API. Provide external callers with this function:
+  //   FunctionSignature.parse("a, b=1, *, c, d=2, *args, **kwargs")
+  // implemented by invoking the Starlark parser. (Most uses are in tests.)
   @AutoCodec.Instantiator
-  public static FunctionSignature create(Shape shape, ImmutableList<String> names) {
-    Preconditions.checkArgument(names.size() == shape.getArguments());
-    return signatureInterner.intern(new AutoValue_FunctionSignature(shape, names(names)));
+  public static FunctionSignature create(
+      int numMandatoryPositionals,
+      int numOptionalPositionals,
+      int numMandatoryNamedOnly,
+      int numOptionalNamedOnly,
+      boolean hasVarargs,
+      boolean hasKwargs,
+      ImmutableList<String> parameterNames) {
+    Preconditions.checkArgument(
+        0 <= numMandatoryPositionals
+            && 0 <= numOptionalPositionals
+            && 0 <= numMandatoryNamedOnly
+            && 0 <= numOptionalNamedOnly);
+
+    FunctionSignature sig =
+        new AutoValue_FunctionSignature(
+            numMandatoryPositionals,
+            numOptionalPositionals,
+            numMandatoryNamedOnly,
+            numOptionalNamedOnly,
+            hasVarargs,
+            hasKwargs,
+            names(parameterNames));
+
+    Preconditions.checkArgument(parameterNames.size() == sig.numParameters());
+    return signatureInterner.intern(sig);
   }
 
-
-
-  // Field definition (details filled in by AutoValue)
-  /** The shape */
-  public abstract Shape getShape();
-
-  /** The names */
-  public abstract ImmutableList<String> getNames();
-
-  /** append a representation of this signature to a string buffer. */
+  /** Append a representation of this signature to a string buffer. */
   public StringBuilder toStringBuilder(StringBuilder sb) {
     return WithValues.<Object, SkylarkType>create(this).toStringBuilder(sb);
   }
@@ -204,8 +190,7 @@ public abstract class FunctionSignature {
   @AutoValue
   public abstract static class WithValues<V, T> {
 
-    // The fields
-    /** The underlying signature with parameter shape and names */
+    /** the underlying parameter signature */
     public abstract FunctionSignature getSignature();
 
     /**
@@ -220,21 +205,19 @@ public abstract class FunctionSignature {
      */
     @Nullable public abstract List<T> getTypes();
 
-
     /** Create a signature with (default and type) values. */
     public static <V, T> WithValues<V, T> create(FunctionSignature signature,
         @Nullable List<V> defaultValues, @Nullable List<T> types) {
-      Shape shape = signature.getShape();
       List<V> convertedDefaultValues = null;
       if (defaultValues != null) {
-        Preconditions.checkArgument(defaultValues.size() == shape.getOptionals());
+        Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
         List<V> copiedDefaultValues = new ArrayList<>();
         copiedDefaultValues.addAll(defaultValues);
         convertedDefaultValues = Collections.unmodifiableList(copiedDefaultValues);
       }
       List<T> convertedTypes = null;
       if (types != null) {
-        Preconditions.checkArgument(types.size() == shape.getArguments());
+        Preconditions.checkArgument(types.size() == signature.numParameters());
         List<T> copiedTypes = new ArrayList<>();
         copiedTypes.addAll(types);
         convertedTypes = Collections.unmodifiableList(copiedTypes);
@@ -344,10 +327,12 @@ public abstract class FunctionSignature {
       }
       return WithValues.create(
           FunctionSignature.create(
-              Shape.create(
-                  mandatoryPositionals, optionalPositionals,
-                  mandatoryNamedOnly, optionalNamedOnly,
-                  star != null, starStar != null),
+              mandatoryPositionals,
+              optionalPositionals,
+              mandatoryNamedOnly,
+              optionalNamedOnly,
+              star != null,
+              starStar != null,
               ImmutableList.copyOf(params)),
           FunctionSignature.valueListOrNull(defaults),
           FunctionSignature.valueListOrNull(types));
@@ -361,7 +346,7 @@ public abstract class FunctionSignature {
      * Appends a representation of this signature to a string buffer.
      *
      * @param sb Output StringBuffer
-     * @param showDefaults Determines whether the default values of arguments should be printed (if
+     * @param showDefaults Determines whether the default values of parameters should be printed (if
      *     present)
      * @param showTypes Determines whether parameter type information should be shown
      * @param skipFirstMandatory Determines whether the first mandatory parameter should be omitted.
@@ -371,25 +356,24 @@ public abstract class FunctionSignature {
         final boolean showDefaults,
         final boolean showTypes,
         final boolean skipFirstMandatory) {
-      FunctionSignature signature = getSignature();
-      Shape shape = signature.getShape();
+      FunctionSignature sig = getSignature();
       final BasePrinter printer = Printer.getPrinter(sb);
-      final ImmutableList<String> names = signature.getNames();
+      final ImmutableList<String> names = sig.getParameterNames();
       @Nullable final List<V> defaultValues = getDefaultValues();
       @Nullable final List<T> types = getTypes();
 
-      int mandatoryPositionals = shape.getMandatoryPositionals();
-      int optionalPositionals = shape.getOptionalPositionals();
-      int mandatoryNamedOnly = shape.getMandatoryNamedOnly();
-      int optionalNamedOnly = shape.getOptionalNamedOnly();
-      boolean starArg = shape.hasStarArg();
-      boolean kwArg = shape.hasKwArg();
+      int mandatoryPositionals = sig.numMandatoryPositionals();
+      int optionalPositionals = sig.numOptionalPositionals();
+      int mandatoryNamedOnly = sig.numMandatoryNamedOnly();
+      int optionalNamedOnly = sig.numOptionalNamedOnly();
+      boolean hasVarargs = sig.hasVarargs();
+      boolean hasKwargs = sig.hasKwargs();
       int positionals = mandatoryPositionals + optionalPositionals;
       int namedOnly = mandatoryNamedOnly + optionalNamedOnly;
       int named = positionals + namedOnly;
-      int args = named + (starArg ? 1 : 0) + (kwArg ? 1 : 0);
+      int args = named + (hasVarargs ? 1 : 0) + (hasKwargs ? 1 : 0);
       int endMandatoryNamedOnly = positionals + mandatoryNamedOnly;
-      boolean hasStar = starArg || (namedOnly > 0);
+      boolean hasStar = hasVarargs || (namedOnly > 0);
       int iStarArg = named;
       int iKwArg = args - 1;
 
@@ -444,7 +428,7 @@ public abstract class FunctionSignature {
       if (hasStar) {
         show.comma();
         printer.append("*");
-        if (starArg) {
+        if (hasVarargs) {
           printer.append(names.get(iStarArg));
         }
       }
@@ -454,7 +438,7 @@ public abstract class FunctionSignature {
       for (; i < named; i++) {
         show.optional(i);
       }
-      if (kwArg) {
+      if (hasKwargs) {
         show.comma();
         printer.append("**");
         printer.append(names.get(iKwArg));
@@ -485,27 +469,37 @@ public abstract class FunctionSignature {
   }
 
   /**
-   * Constructs a function signature (with names) from signature description and names.
-   * This method covers the general case.
-   * The number of optional named-only parameters is deduced from the other arguments.
+   * Constructs a function signature (with names) from signature description and names. This method
+   * covers the general case. The number of optional named-only parameters is deduced from the other
+   * arguments.
    *
    * @param numMandatoryPositionals an int for the number of mandatory positional parameters
    * @param numOptionalPositionals an int for the number of optional positional parameters
    * @param numMandatoryNamedOnly an int for the number of mandatory named-only parameters
-   * @param starArg a boolean for whether there is a starred parameter
-   * @param kwArg a boolean for whether there is a star-starred parameter
+   * @param hasVarargs whether function is variadic parameter
+   * @param hasKwargs whether function accepts arbitrary named arguments
    * @param names an Array of String for the parameter names
    * @return a FunctionSignature
    */
-  public static FunctionSignature of(int numMandatoryPositionals, int numOptionalPositionals,
-      int numMandatoryNamedOnly, boolean starArg, boolean kwArg, String... names) {
-    return create(Shape.create(
+  public static FunctionSignature of(
+      int numMandatoryPositionals,
+      int numOptionalPositionals,
+      int numMandatoryNamedOnly,
+      boolean hasVarargs,
+      boolean hasKwargs,
+      String... names) {
+    return create(
         numMandatoryPositionals,
         numOptionalPositionals,
         numMandatoryNamedOnly,
-        names.length - (kwArg ? 1 : 0) - (starArg ? 1 : 0)
-            - numMandatoryPositionals - numOptionalPositionals - numMandatoryNamedOnly,
-        starArg, kwArg),
+        names.length
+            - (hasKwargs ? 1 : 0)
+            - (hasVarargs ? 1 : 0)
+            - numMandatoryPositionals
+            - numOptionalPositionals
+            - numMandatoryNamedOnly,
+        hasVarargs,
+        hasKwargs,
         ImmutableList.copyOf(names));
   }
 
@@ -531,7 +525,7 @@ public abstract class FunctionSignature {
   }
 
   /**
-   * Constructs a function signature from mandatory named-only argument names.
+   * Constructs a function signature from mandatory named-only parameter names.
    *
    * @param names an Array of String for the mandatory named-only parameter names
    * @return a FunctionSignature
@@ -541,7 +535,7 @@ public abstract class FunctionSignature {
   }
 
   /**
-   * Constructs a function signature from named-only argument names.
+   * Constructs a function signature from named-only parameter names.
    *
    * @param numMandatory an int for the number of mandatory named-only parameters
    * @param names an Array of String for the named-only parameter names
@@ -567,11 +561,7 @@ public abstract class FunctionSignature {
     }
   }
 
-  /** A ready-made signature to allow only positional arguments and put them in a star parameter */
-  public static final FunctionSignature POSITIONALS =
-      FunctionSignature.of(0, 0, 0, true, false, "star");
-
-  /** A ready-made signature to allow only keyword arguments and put them in a kwarg parameter */
+  /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =
       FunctionSignature.of(0, 0, 0, false, true, "kwargs");
 }

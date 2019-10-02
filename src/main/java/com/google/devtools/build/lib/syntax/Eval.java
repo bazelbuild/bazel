@@ -113,7 +113,7 @@ final class Eval {
 
     // TODO(laurentlb): Could be moved to the Parser or the ValidationEnvironment?
     FunctionSignature sig = node.getSignature().getSignature();
-    if (sig.getShape().getMandatoryNamedOnly() > 0) {
+    if (sig.numMandatoryNamedOnly() > 0) {
       throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
 
