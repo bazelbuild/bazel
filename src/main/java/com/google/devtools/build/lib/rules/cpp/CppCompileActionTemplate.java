@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
     implements ActionTemplate<CppCompileAction> {
@@ -179,7 +181,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private CppCompileAction createAction(
       Artifact sourceTreeFileArtifact,
       Artifact outputTreeFileArtifact,
-      Artifact dotdFileArtifact,
+      @Nullable Artifact dotdFileArtifact,
       ImmutableList<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
