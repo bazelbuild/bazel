@@ -75,9 +75,6 @@ public class ObjcRuleClasses {
   /** Name of attribute used for implicit dependency on the apple SDKs. */
   public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
 
-  static final String CLANG = "clang";
-  static final String CLANG_PLUSPLUS = "clang++";
-  static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
