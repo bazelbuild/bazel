@@ -270,6 +270,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
         getOutput("source.jar"),
         getOutput("resources.apk"),
         includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
+        includeAapt2Outs ? getOutput("aapt2-validation.txt") : null,
         includeAapt2Outs ? getOutput("aapt2-source.jar") : null,
         includeAapt2Outs ? getOutput("aapt2-static-lib") : null);
   }

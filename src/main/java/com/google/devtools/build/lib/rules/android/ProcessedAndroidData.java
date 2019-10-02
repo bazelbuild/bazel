@@ -350,7 +350,7 @@ public class ProcessedAndroidData {
 
     // Combined resource processing does not produce aapt2 artifacts; they're nulled out
     ValidatedAndroidResources validated =
-        ValidatedAndroidResources.of(merged, rTxt, sourceJar, apk, null, null, null);
+        ValidatedAndroidResources.of(merged, rTxt, sourceJar, apk, null, null, null, null);
     return ResourceApk.of(validated, assets, resourceProguardConfig, mainDexProguardConfig);
   }
 

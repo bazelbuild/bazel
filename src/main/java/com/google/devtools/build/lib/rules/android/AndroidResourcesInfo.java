@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -57,6 +59,7 @@ public class AndroidResourcesInfo extends NativeInfo
   private final NestedSet<Artifact> transitiveResources;
   private final NestedSet<Artifact> transitiveManifests;
   private final NestedSet<Artifact> transitiveAapt2RTxt;
+  private final NestedSet<Artifact> transitiveAapt2ValidationArtifacts;
   private final NestedSet<Artifact> transitiveSymbolsBin;
   private final NestedSet<Artifact> transitiveCompiledSymbols;
   private final NestedSet<Artifact> transitiveStaticLib;
@@ -71,6 +74,7 @@ public class AndroidResourcesInfo extends NativeInfo
       NestedSet<Artifact> transitiveResources,
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
+      NestedSet<Artifact> transitiveAapt2ValidationArtifacts,
       NestedSet<Artifact> transitiveSymbolsBin,
       NestedSet<Artifact> transitiveCompiledSymbols,
       NestedSet<Artifact> transitiveStaticLib,
@@ -84,6 +88,7 @@ public class AndroidResourcesInfo extends NativeInfo
     this.transitiveResources = transitiveResources;
     this.transitiveManifests = transitiveManifests;
     this.transitiveAapt2RTxt = transitiveAapt2RTxt;
+    this.transitiveAapt2ValidationArtifacts = transitiveAapt2ValidationArtifacts;
     this.transitiveSymbolsBin = transitiveSymbolsBin;
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
     this.transitiveStaticLib = transitiveStaticLib;
@@ -131,6 +136,11 @@ public class AndroidResourcesInfo extends NativeInfo
   }
 
   @Override
+  public NestedSet<Artifact> getTransitiveAapt2ValidationArtifacts() {
+    return transitiveAapt2ValidationArtifacts;
+  }
+
+  @Override
   public NestedSet<Artifact> getTransitiveSymbolsBin() {
     return transitiveSymbolsBin;
   }
@@ -172,7 +182,8 @@ public class AndroidResourcesInfo extends NativeInfo
         SkylarkNestedSet transitiveSymbolsBin,
         SkylarkNestedSet transitiveCompiledSymbols,
         SkylarkNestedSet transitiveStaticLib,
-        SkylarkNestedSet transitiveRTxt)
+        SkylarkNestedSet transitiveRTxt,
+        Object transitiveAapt2ValidationArtifacts)
         throws EvalException {
       return new AndroidResourcesInfo(
           label,
@@ -183,13 +194,25 @@ public class AndroidResourcesInfo extends NativeInfo
           nestedSet(transitiveResources, Artifact.class),
           nestedSet(transitiveManifests, Artifact.class),
           nestedSet(transitiveAapt2RTxt, Artifact.class),
+          nestedSet(transitiveAapt2ValidationArtifacts, Artifact.class),
           nestedSet(transitiveSymbolsBin, Artifact.class),
           nestedSet(transitiveCompiledSymbols, Artifact.class),
           nestedSet(transitiveStaticLib, Artifact.class),
           nestedSet(transitiveRTxt, Artifact.class));
     }
 
-    private <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
+    private static <T> NestedSet<T> nestedSet(Object from, Class<T> with) {
+      Preconditions.checkArgument(
+          from instanceof SkylarkNestedSet
+              || from == com.google.devtools.build.lib.syntax.Runtime.UNBOUND);
+
+      if (from instanceof SkylarkNestedSet) {
+        return nestedSet((SkylarkNestedSet) from, with);
+      }
+      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    }
+
+    private static <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
       return NestedSetBuilder.<T>stableOrder().addTransitive(from.getSet(with)).build();
     }
   }

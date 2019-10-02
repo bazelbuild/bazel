@@ -41,6 +41,7 @@ public class AndroidResourceValidatorActionBuilder {
   private ResourceDependencies resourceDeps;
   private Artifact aapt2SourceJarOut;
   private Artifact aapt2RTxtOut;
+  private Artifact aapt2ValidationArtifactOut;
   private Artifact compiledSymbols;
   private Artifact apkOut;
 
@@ -91,6 +92,12 @@ public class AndroidResourceValidatorActionBuilder {
     return this;
   }
 
+  public AndroidResourceValidatorActionBuilder setAapt2ValidationArtifactOut(
+      Artifact aapt2ValidationArtifactOut) {
+    this.aapt2ValidationArtifactOut = aapt2ValidationArtifactOut;
+    return this;
+  }
+
   public AndroidResourceValidatorActionBuilder setAapt2SourceJarOut(Artifact aapt2SourceJarOut) {
     this.aapt2SourceJarOut = aapt2SourceJarOut;
     return this;
@@ -111,7 +118,14 @@ public class AndroidResourceValidatorActionBuilder {
     withPrimary(merged).build(dataContext);
 
     return ValidatedAndroidResources.of(
-        merged, rTxtOut, sourceJarOut, apkOut, aapt2RTxtOut, aapt2SourceJarOut, staticLibraryOut);
+        merged,
+        rTxtOut,
+        sourceJarOut,
+        apkOut,
+        aapt2RTxtOut,
+        aapt2ValidationArtifactOut,
+        aapt2SourceJarOut,
+        staticLibraryOut);
   }
 
   public AndroidResourceValidatorActionBuilder setCompiledSymbols(Artifact compiledSymbols) {
@@ -151,7 +165,7 @@ public class AndroidResourceValidatorActionBuilder {
 
     builder
         .addOutput("--sourceJarOut", aapt2SourceJarOut)
-        .addOutput("--rTxtOut", aapt2RTxtOut)
+        .addOutput("--rTxtOut", aapt2ValidationArtifactOut)
         .addOutput("--staticLibraryOut", staticLibraryOut)
         .buildAndRegister("Linking static android resource library", "AndroidResourceLink");
   }
