@@ -591,6 +591,15 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListComprehensionScope() throws Exception {
+    // Test list comprehension creates a scope, so outer variables kept unchanged
+    new BuildTest()
+        .setUp("x = 1", "l = [x * 3 for x in [2]]", "y = x")
+        .testEval("y", "1")
+        .testEval("l", "[6]");
+  }
+
+  @Test
   public void testInOperator() throws Exception {
     newTest()
         .testStatement("'b' in ['a', 'b']", Boolean.TRUE)

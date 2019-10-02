@@ -2210,19 +2210,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testListComprehensionsDoNotLeakVariables() throws Exception {
-    checkEvalErrorContains(
-        // TODO(laurentlb): This happens because the variable gets undefined after the list
-        // comprehension. We should do better.
-        "local variable 'a' is referenced before assignment.",
-        "def foo():",
-        "  a = 10",
-        "  b = [a for a in range(3)]",
-        "  return a",
-        "x = foo()");
-  }
-
-  @Test
   public void testListComprehensionsShadowGlobalVariable() throws Exception {
     eval("a = 18", "def foo():", "  b = [a for a in range(3)]", "  return a", "x = foo()");
     assertThat(lookup("x")).isEqualTo(18);
