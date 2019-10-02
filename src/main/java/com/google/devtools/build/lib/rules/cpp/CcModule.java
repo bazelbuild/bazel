@@ -1511,6 +1511,7 @@ public abstract class CcModule
       boolean disallowNopicOutputs,
       Artifact grepIncludes,
       SkylarkList<Artifact> headersForClifDoNotUseThisParam,
+      SkylarkList<Artifact> additionalInputs,
       Location location,
       @Nullable StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -1580,6 +1581,8 @@ public abstract class CcModule
             .addNonTransitiveDefines(localDefines)
             .setCopts(userCompileFlags)
             .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
+            .addAdditionalCompilationInputs(
+                additionalInputs.getContents(Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam);
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);

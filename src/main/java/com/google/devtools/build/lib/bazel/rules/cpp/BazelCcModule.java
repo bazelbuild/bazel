@@ -81,6 +81,7 @@ public class BazelCcModule extends CcModule
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<Artifact> additionalInputs,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -104,6 +105,8 @@ public class BazelCcModule extends CcModule
         disallowNopicOutputs,
         /* grepIncludes= */ null,
         SkylarkList.createImmutable(ImmutableList.of()),
+        SkylarkList.createImmutable(
+            additionalInputs.getContents(Artifact.class, "additional_inputs")),
         location,
         /* environment= */ null);
   }

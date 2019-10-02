@@ -207,7 +207,14 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "False",
-            type = Boolean.class)
+            type = Boolean.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "List of additional files needed for compilation of srcs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
       })
   Tuple<Object> compile(
       SkylarkActionFactoryT skylarkActionFactoryApi,
@@ -227,6 +234,7 @@ public interface BazelCcModuleApi<
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<FileT> additionalInputs,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

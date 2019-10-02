@@ -209,6 +209,7 @@ public class FakeCcModule
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<FileApi> additionalInputs,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {

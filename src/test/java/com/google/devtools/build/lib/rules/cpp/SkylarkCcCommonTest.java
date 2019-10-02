@@ -5323,12 +5323,24 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAdditionalInputs() throws Exception {
+  public void testAdditionalLinkingInputs() throws Exception {
     createFilesForTestingLinking(
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs()).hasSize(1);
+  }
+
+  @Test
+  public void testAdditionalCompilationInputs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_compiler_inputs");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(artifactsToStrings(action.getMandatoryInputs()))
+        .contains("src foo/extra_compiler_input");
   }
 
   @Test
@@ -5577,6 +5589,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      'private_hdrs': attr.label_list(allow_files=True),",
         "      '_additional_inputs': attr.label_list(allow_files=True,"
             + " default=['//foo:script.lds']),",
+        "      '_additional_compiler_inputs': attr.label_list(allow_files=True,"
+            + " default=['//foo:extra_compiler_input']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
         "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
         "      '_cc_toolchain': attr.label(default =",
