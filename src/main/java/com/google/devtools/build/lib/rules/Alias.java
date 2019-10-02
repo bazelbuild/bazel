@@ -93,11 +93,11 @@ public class Alias implements RuleConfiguredTargetFactory {
   The <code>alias</code> rule creates another name a rule can be referred to as.
 </p>
 
-<p>	
+<p>
   Aliasing only works for "regular" targets. In particular, <code>package_group</code>
   and <code>test_suite</code> rules cannot be aliased.	
 </p>
-  
+
 <p>
   The alias rule has its own visibility declaration. In all other respects, it behaves
   like the rule it references with some minor exceptions:
