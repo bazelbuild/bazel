@@ -67,7 +67,7 @@ public final class NestedSet<E> implements Iterable<E> {
    *
    * <p>This limit should be set by command line option processing in the Bazel server.
    */
-  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(100000);
+  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(3500);
 
   private static final byte[] LEAF_MEMO = {};
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
