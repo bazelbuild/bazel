@@ -77,12 +77,6 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testTwoFunctionsWithTheSameName() throws Exception {
-    checkError(
-        "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");
-  }
-
-  @Test
   public void testFunctionLocalVariable() throws Exception {
     checkError(
         "name 'a' is not defined",
@@ -125,8 +119,19 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSkylarkGlobalVariablesAreReadonly() throws Exception {
-    checkError("Variable a is read only", "a = 1", "a = 2");
+  public void testNoGlobalReassign() throws Exception {
+    setFailFast(false);
+    parseFile("a = 1", "a = 2");
+    assertContainsError(":2:1: cannot reassign global 'a'");
+    assertContainsError(":1:1: 'a' previously declared here");
+  }
+
+  @Test
+  public void testTwoFunctionsWithTheSameName() throws Exception {
+    setFailFast(false);
+    parseFile("def foo(): pass", "def foo(): pass");
+    assertContainsError(":2:5: cannot reassign global 'foo'");
+    assertContainsError(":1:5: 'foo' previously declared here");
   }
 
   @Test

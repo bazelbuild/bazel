@@ -18,8 +18,10 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -63,8 +65,10 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
+  private static final Identifier PREDECLARED = new Identifier("");
+
   private static class Block {
-    private final Set<String> variables = new HashSet<>();
+    private final Map<String, Identifier> variables = new HashMap<>();
     private final Scope scope;
     @Nullable private final Block parent;
 
@@ -91,8 +95,9 @@ public final class ValidationEnvironment extends NodeVisitor {
     this.thread = thread;
     this.isBuildFile = isBuildFile;
     block = new Block(Scope.Universe, null);
-    Set<String> builtinVariables = thread.getVariableNames();
-    block.variables.addAll(builtinVariables);
+    for (String name : thread.getVariableNames()) {
+      block.variables.put(name, PREDECLARED);
+    }
   }
 
   void addError(Location loc, String message) {
@@ -131,8 +136,8 @@ public final class ValidationEnvironment extends NodeVisitor {
         collectDefinitions(forStmt.getBlock());
         break;
       case FUNCTION_DEF:
-        Identifier fctName = ((DefStatement) stmt).getIdentifier();
-        declare(fctName.getName(), fctName.getLocation());
+        DefStatement def = (DefStatement) stmt;
+        declare(def.getIdentifier());
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
@@ -152,7 +157,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         }
 
         for (LoadStatement.Binding b : load.getBindings()) {
-          declare(b.getLocalName().getName(), b.getLocalName().getLocation());
+          declare(b.getLocalName());
         }
         break;
       case EXPRESSION:
@@ -164,7 +169,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   private void collectDefinitions(Expression lhs) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      declare(id.getName(), id.getLocation());
+      declare(id);
     }
   }
 
@@ -320,8 +325,8 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
     openBlock(Scope.Local);
     for (Parameter<Expression, Expression> param : node.getParameters()) {
-      if (param.hasName()) {
-        declare(param.getName(), param.getLocation());
+      if (param.getIdentifier() != null) {
+        declare(param.getIdentifier());
       }
     }
     collectDefinitions(node.getStatements());
@@ -358,28 +363,28 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   /** Declare a variable and add it to the environment. */
-  private void declare(String varname, Location location) {
-    // TODO(laurentlb): Forbid reassignment in BUILD files.
-    if (!isBuildFile && block.scope == Scope.Module && block.variables.contains(varname)) {
-      // Symbols defined in the module scope cannot be reassigned.
-      //
-      // TODO(adonovan): make error message more precise: "x reassigned at top level"
-      // and emit a secondary error "x previously declared here". This requires an
-      // upcoming changes to report events not exceptions.
+  private void declare(Identifier id) {
+    Identifier prev = block.variables.putIfAbsent(id.getName(), id);
+
+    // Symbols defined in the module scope cannot be reassigned.
+    // TODO(laurentlb): Forbid reassignment in BUILD files too.
+    if (prev != null && block.scope == Scope.Module && !isBuildFile) {
       addError(
-          location,
+          id.getLocation(),
           String.format(
-              "Variable %s is read only (read more at %s)",
-              varname,
-              "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html"));
+              "cannot reassign global '%s' (read more at"
+                  + " https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html)",
+              id.getName()));
+      if (prev != PREDECLARED) {
+        addError(prev.getLocation(), String.format("'%s' previously declared here", id.getName()));
+      }
     }
-    block.variables.add(varname);
   }
 
   /** Returns the nearest Block that defines a symbol. */
   private Block blockThatDefines(String varname) {
     for (Block b = block; b != null; b = b.parent) {
-      if (b.variables.contains(varname)) {
+      if (b.variables.containsKey(varname)) {
         return b;
       }
     }
@@ -390,7 +395,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   private Set<String> getAllSymbols() {
     Set<String> all = new HashSet<>();
     for (Block b = block; b != null; b = b.parent) {
-      all.addAll(b.variables);
+      all.addAll(b.variables.keySet());
     }
     return all;
   }
