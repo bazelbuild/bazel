@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
@@ -43,32 +42,10 @@ class Aapt2OptimizeAction {
             .build();
     optionsParser.parseAndExitUponError(args);
 
-    ImmutableList<String> rawOptimizeArgs =
-        optionsParser.getResidue().stream()
-            // TODO(b/141204955): Remove these mapping hacks once some dust has settled.
-            .map(
-                arg -> {
-                  switch (arg) {
-                    case "--shorten-resource-paths":
-                    case "--enable-resource-path-shortening":
-                      return "--shorten-resource-paths";
-
-                    case "--collapse-resource-names":
-                    case "--enable-resource-name-obfuscation":
-                      return "--collapse-resource-names";
-
-                    case "--resource-name-obfuscation-exemption-list":
-                      // TODO(bcsf): This case goes away soon.
-                      return "--whitelist-path";
-                    default:
-                      return arg;
-                  }
-                })
-            .collect(toImmutableList());
     return ImmutableList.<String>builder()
         .add(optionsParser.getOptions(Aapt2ConfigOptions.class).aapt2.toString())
         .add("optimize")
-        .addAll(rawOptimizeArgs)
+        .addAll(optionsParser.getResidue())
         .build();
   }
 
