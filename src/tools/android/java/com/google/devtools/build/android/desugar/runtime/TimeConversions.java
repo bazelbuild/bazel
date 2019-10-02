@@ -27,9 +27,23 @@ public final class TimeConversions {
     return builder.setReferenceTime(toZonedDateTime(arg));
   }
 
+  public static j$.time.MonthDay getStart(android.app.admin.FreezePeriod freezePeriod) {
+    return fromMonthDay(freezePeriod.getStart());
+  }
+
+  public static j$.time.MonthDay getEnd(android.app.admin.FreezePeriod freezePeriod) {
+    return fromMonthDay(freezePeriod.getEnd());
+  }
+
   public static j$.time.ZonedDateTime getReferenceTime(
       android.view.textclassifier.TextClassification.Request request) {
     return fromZonedDateTime(request.getReferenceTime());
+  }
+
+  private static j$.time.MonthDay fromMonthDay(java.time.MonthDay monthDay) {
+    return monthDay == null
+        ? null
+        : j$.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
   }
 
   private static j$.time.ZonedDateTime fromZonedDateTime(java.time.ZonedDateTime dateTime) {
