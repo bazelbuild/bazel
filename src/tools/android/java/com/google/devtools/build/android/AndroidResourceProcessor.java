@@ -126,17 +126,6 @@ public class AndroidResourceProcessor {
     public List<String> uncompressedExtensions;
 
     @Option(
-      name = "assetsToIgnore",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of assets extensions to ignore."
-    )
-    public List<String> assetsToIgnore;
-
-    @Option(
       name = "debug",
       defaultValue = "false",
       category = "config",
@@ -176,9 +165,6 @@ public class AndroidResourceProcessor {
 
     @Override
     public String getIgnoreAssets() {
-      if (!options.assetsToIgnore.isEmpty()) {
-        return Joiner.on(":").join(options.assetsToIgnore);
-      }
       return null;
     }
 

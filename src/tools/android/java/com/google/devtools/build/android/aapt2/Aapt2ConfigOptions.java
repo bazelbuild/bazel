@@ -93,16 +93,6 @@ public class Aapt2ConfigOptions extends OptionsBase {
   public List<String> uncompressedExtensions;
 
   @Option(
-      name = "assetsToIgnore",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of assets extensions to ignore.")
-  public List<String> assetsToIgnore;
-
-  @Option(
       name = "debug",
       defaultValue = "false",
       category = "config",

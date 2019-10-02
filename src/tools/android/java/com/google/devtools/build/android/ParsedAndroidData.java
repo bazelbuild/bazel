@@ -21,9 +21,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
@@ -606,73 +603,6 @@ public class ParsedAndroidData {
 
   Iterable<Map.Entry<DataKey, DataResource>> iterateOverwritableEntries() {
     return overwritingResources.entrySet();
-  }
-
-  ParsedAndroidData overwrite(ParsedAndroidData overwritableData, boolean createConflicts) {
-    Map<DataKey, DataResource> newEntries = new LinkedHashMap<>();
-    Set<MergeConflict> newConflicts =
-        createConflicts ? new LinkedHashSet<MergeConflict>() : conflicts;
-    overwrite(
-        overwritableData.overwritingResources,
-        overwritingResources,
-        new OverwritableConsumer<>(newEntries, newConflicts));
-
-    Map<DataKey, DataAsset> newAssets = new LinkedHashMap<>();
-    overwrite(overwritableData.assets, assets, new OverwritableConsumer<>(newAssets, newConflicts));
-
-    return ParsedAndroidData.of(
-        ImmutableSet.copyOf(newConflicts),
-        ImmutableMap.copyOf(newEntries),
-        combiningResources,
-        ImmutableMap.copyOf(newAssets));
-  }
-
-  private static <K extends DataKey, V extends DataValue> void overwrite(
-      Map<K, V> overwritee, Map<K, V> overwriter, OverwritableConsumer<K, V> consumer) {
-    SetView<K> overwritten = Sets.intersection(overwritee.keySet(), overwriter.keySet());
-
-    // Feed the consumer keys and values that will be overwritten, followed by the overwritting
-    // value. This ensures the proper book keeping is done inside the consumer.
-    for (K key : overwritten) {
-      consumer.accept(key, overwritee.get(key));
-    }
-    for (K key : overwriter.keySet()) {
-      consumer.accept(key, overwriter.get(key));
-    }
-  }
-
-  /** Combines all combinable resources. */
-  ParsedAndroidData combine(ParsedAndroidData other) {
-    Map<DataKey, DataResource> combinedResources = new LinkedHashMap<>();
-    CombiningConsumer consumer = new CombiningConsumer(combinedResources);
-    for (Map.Entry<DataKey, DataResource> entry :
-        Iterables.concat(combiningResources.entrySet(), other.combiningResources.entrySet())) {
-      consumer.accept(entry.getKey(), entry.getValue());
-    }
-    return of(conflicts, overwritingResources, ImmutableMap.copyOf(combinedResources), assets);
-  }
-
-  /** Removes conflicts, resources, and assets that are in the other. */
-  ParsedAndroidData difference(ParsedAndroidData other) {
-    return of(
-        ImmutableSet.copyOf(Sets.difference(conflicts, other.conflicts)),
-        ImmutableMap.copyOf(
-            Maps.difference(overwritingResources, other.overwritingResources).entriesOnlyOnLeft()),
-        ImmutableMap.copyOf(
-            Maps.difference(combiningResources, other.combiningResources).entriesOnlyOnLeft()),
-        ImmutableMap.copyOf(Maps.difference(assets, other.assets).entriesOnlyOnLeft()));
-  }
-
-  /** Creates a union of both sets. Duplicates are ignored. */
-  ParsedAndroidData union(ParsedAndroidData other) {
-    return of(
-        ImmutableSet.copyOf(Sets.union(conflicts, other.conflicts)),
-        ImmutableMap.copyOf(
-            Iterables.concat(
-                overwritingResources.entrySet(), other.overwritingResources.entrySet())),
-        ImmutableMap.copyOf(
-            Iterables.concat(combiningResources.entrySet(), other.combiningResources.entrySet())),
-        ImmutableMap.copyOf(Iterables.concat(assets.entrySet(), other.assets.entrySet())));
   }
 
   private Iterable<Map.Entry<DataKey, DataResource>> iterateDataResourceEntries() {
