@@ -1042,11 +1042,7 @@ static DurationMillis ExtractData(const string &self_path,
   }
 }
 
-// Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists.
-static bool AreStartupOptionsDifferent(
-    const vector<string> &running_server_args,
-    const vector<string> &requested_args) {
+static bool IsVolatileArg(const string& arg) {
   // TODO(ccalvarin) when --batch is gone and the startup_options field in the
   // gRPC message is always set, there is no reason for client options that are
   // not used at server startup to be part of the startup command line. The
@@ -1055,6 +1051,52 @@ static bool AreStartupOptionsDifferent(
       "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
       "--client_debug="};
 
+  // Split arg based on the first "=" if one exists in arg.
+  const string::size_type eq_pos = arg.find_first_of('=');
+  const string stripped_arg =
+      (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
+
+  return std::find(volatile_startup_options.begin(),
+                   volatile_startup_options.end(),
+                   stripped_arg) != volatile_startup_options.end();
+}
+
+static inline void IncreaseValueInMap(std::unordered_map<string, int>* map,
+                                      const string& key) {
+  // If 'key' was missing, operator[] adds it with value 0.
+  (*map)[key] += 1;
+}
+
+static bool DecreaseValueInMap(std::unordered_map<string, int>* map,
+                               const string& key) {
+  auto i = map->find(key);
+  if (i == map->end()) {
+    return false;
+  } else if (i->second == 1) {
+    map->erase(i);
+    return true;
+  } else {
+    i->second -= 1;
+    return true;
+  }
+}
+
+static void PrintArgsInMap(const char* message,
+                           const std::unordered_map<string, int>& map) {
+  if (!map.empty()) {
+    BAZEL_LOG(INFO) << message;
+    for (const auto& i : map) {
+      BAZEL_LOG(INFO) << "  " << i.first << " (" << i.second
+                      << " extra instance(s))";
+    }
+  }
+}
+
+// Returns true if the server needs to be restarted to accommodate changes
+// between the two argument lists.
+static bool AreStartupOptionsDifferent(
+    const vector<string> &running_server_args,
+    const vector<string> &requested_args) {
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
@@ -1067,62 +1109,35 @@ static bool AreStartupOptionsDifferent(
     options_different = true;
   }
 
-  // Args in running_server_args that are not in requested_args.
-  bool found_missing_args = false;
-  for (const string &arg : running_server_args) {
-    // Split arg based on the first "=" if one exists in arg.
-    const string::size_type eq_pos = arg.find_first_of('=');
-    const string stripped_arg =
-        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
-
-    // If arg is not volatile, then check whether or not it's in requested_args.
-    if (std::find(volatile_startup_options.begin(),
-                  volatile_startup_options.end(),
-                  stripped_arg) == volatile_startup_options.end()) {
-      if (std::find(requested_args.begin(), requested_args.end(), arg) ==
-          requested_args.end()) {
-        // If this is the first missing arg we've encountered, then print out
-        // the list header.
-        if (!found_missing_args) {
-          BAZEL_LOG(INFO) << "Args from the running server that are not "
-                             "included in the current request:";
-          found_missing_args = true;
-        }
-        BAZEL_LOG(INFO) << "  " << arg;
-        options_different = true;
-      }
+  // Facts and implications:
+  // (a) We already verified (with EnsureCorrectRunningVersion) that the old and
+  //     new server versions are the same. Therefore we know that
+  //     'running_server_args' and 'requested_args' follow the same ordering for
+  //     flags, the same logic of deduplicating vs. not deduplicating flags, the
+  //     same format of canonicalizing flags, etc.
+  // (b) Some startup flags may come from user bazelrc files.
+  // (c) Because of (b), the ordering of flags doesn't matter, because if the
+  //     user flips two "startup" lines in their bazelrc, that doesn't change
+  //     the effective set of startup flags.
+  // (d) Because of (b), some flags may have repeated values (e.g
+  //     --host_jvm_args="foo" twice) so we cannot simply use two sets and take
+  //     the set difference, but must consider the occurrences of each flag.
+  std::unordered_map<string, int> old_args, new_args;
+  for (const string& a : running_server_args) {
+    if (!IsVolatileArg(a)) {
+      IncreaseValueInMap(&old_args, a);
     }
   }
-
-  // Args in requested_args that are not in running_server_args.
-  bool found_new_args = false;
-  for (const string &arg : requested_args) {
-    // Split arg based on the first "=" if one exists in arg.
-    const string::size_type eq_pos = arg.find_first_of('=');
-    const string stripped_arg =
-        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
-
-    // If arg is not volatile, then check whether or not it's in
-    // running_server_args.
-    if (std::find(volatile_startup_options.begin(),
-                  volatile_startup_options.end(),
-                  stripped_arg) == volatile_startup_options.end()) {
-      if (std::find(running_server_args.begin(), running_server_args.end(),
-                    arg) == running_server_args.end()) {
-        // If this is the first new arg we've encountered, then print out the
-        // list header.
-        if (!found_new_args) {
-          BAZEL_LOG(INFO) << "Args from the current request that were not "
-                             "included when creating the server:";
-          found_new_args = true;
-        }
-        BAZEL_LOG(INFO) << "  " << arg;
-        options_different = true;
-      }
+  for (const string& a : requested_args) {
+    if (!IsVolatileArg(a) && !DecreaseValueInMap(&old_args, a)) {
+      IncreaseValueInMap(&new_args, a);
     }
   }
-
-  return options_different;
+  PrintArgsInMap("Args from the running server that are not "
+                 "included in the current request:", old_args);
+  PrintArgsInMap("Args from the current request that were not "
+                 "included when creating the server:", new_args);
+  return options_different || !old_args.empty() || !new_args.empty();
 }
 
 // Kills the running Blaze server, if any, if the startup options do not match.
