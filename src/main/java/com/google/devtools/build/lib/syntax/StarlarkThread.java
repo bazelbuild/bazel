@@ -23,7 +23,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -1431,32 +1430,4 @@ public final class StarlarkThread implements Freezable {
     MethodLibrary.addBindingsToBuilder(builder);
     return GlobalFrame.createForBuiltins(builder.build());
   }
-
-  /** An exception thrown by {@link #FAIL_FAST_HANDLER}. */
-  // TODO(bazel-team): Possibly extend RuntimeException instead of IllegalArgumentException.
-  // TODO(adonovan): move to EventCollectionApparatus.
-  public static class FailFastException extends IllegalArgumentException {
-    public FailFastException(String s) {
-      super(s);
-    }
-  }
-
-  /**
-   * A handler that immediately throws {@link FailFastException} whenever an error or warning
-   * occurs.
-   *
-   * <p>We do not reuse an existing unchecked exception type, because callers (e.g., test
-   * assertions) need to be able to distinguish between organically occurring exceptions and
-   * exceptions thrown by this handler.
-   */
-  // TODO(adonovan): move to EventCollectionApparatus.
-  public static final EventHandler FAIL_FAST_HANDLER =
-      new EventHandler() {
-        @Override
-        public void handle(Event event) {
-          if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
-            throw new FailFastException(event.toString());
-          }
-        }
-      };
 }

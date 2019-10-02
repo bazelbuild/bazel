@@ -248,7 +248,6 @@ public class SkylarkSignatureProcessor {
               StarlarkThread.builder(mutability)
                   .useDefaultSemantics()
                   .setGlobals(StarlarkThread.CONSTANTS_ONLY)
-                  .setEventHandler(StarlarkThread.FAIL_FAST_HANDLER)
                   .build()
                   .update("unbound", Runtime.UNBOUND);
           defaultValue = StarlarkFile.eval(ParserInput.fromLines(paramDefaultValue), thread);

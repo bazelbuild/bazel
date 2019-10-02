@@ -160,7 +160,6 @@ public class StarlarkThreadTest extends EvaluationTestCase {
           StarlarkThread.builder(mutability)
               .useDefaultSemantics()
               .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
-              .setEventHandler(StarlarkThread.FAIL_FAST_HANDLER)
               .build();
       thread.update("x", 1);
       assertThat(thread.moduleLookup("x")).isEqualTo(1);
