@@ -207,22 +207,23 @@ public class AppleSkylarkCommon
       Object dylibBinary,
       ObjcProvider depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles) {
+      Object dynamicFrameworkFiles)
+      throws EvalException {
     NestedSet<PathFragment> frameworkDirs;
     if (dynamicFrameworkDirs == Runtime.NONE) {
       frameworkDirs = NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER);
     } else {
+      SkylarkNestedSet frameworkDirsSet = (SkylarkNestedSet) dynamicFrameworkDirs;
       Iterable<String> pathStrings =
-          ((SkylarkNestedSet) dynamicFrameworkDirs).getSet(String.class);
+          frameworkDirsSet.getSetFromParam(String.class, "framework_dirs");
       frameworkDirs =
           NestedSetBuilder.<PathFragment>stableOrder()
               .addAll(Iterables.transform(pathStrings, PathFragment::create))
               .build();
     }
     NestedSet<Artifact> frameworkFiles =
-        dynamicFrameworkFiles != Runtime.NONE
-            ? ((SkylarkNestedSet) dynamicFrameworkFiles).getSet(Artifact.class)
-            : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+        SkylarkNestedSet.getSetFromNoneableParam(
+            dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Runtime.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(

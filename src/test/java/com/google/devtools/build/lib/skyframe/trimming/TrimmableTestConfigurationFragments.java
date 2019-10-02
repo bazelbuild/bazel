@@ -679,7 +679,7 @@ public final class TrimmableTestConfigurationFragments {
           try {
             filesToBuild.addTransitive(
                 ((SkylarkNestedSet) toolchainInfo.getValue("files")).getSet(Artifact.class));
-          } catch (EvalException ex) {
+          } catch (EvalException | SkylarkNestedSet.TypeException ex) {
             throw new AssertionError(ex);
           }
         }

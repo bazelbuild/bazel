@@ -75,6 +75,10 @@ public class EvalException extends Exception {
     this(location, null, cause);
   }
 
+  public EvalException(String message) {
+    this(null, message);
+  }
+
   /**
    * Returns the error message with location info if exists.
    */

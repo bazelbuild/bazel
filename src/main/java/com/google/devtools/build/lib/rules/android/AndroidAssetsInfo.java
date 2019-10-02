@@ -171,15 +171,18 @@ public final class AndroidAssetsInfo extends NativeInfo
       return new AndroidAssetsInfo(
           label,
           fromNoneable(validationResult, Artifact.class),
-          nestedSet(directParsedAssets, ParsedAndroidAssets.class),
-          nestedSet(transitiveParsedAssets, ParsedAndroidAssets.class),
-          nestedSet(transitiveAssets, Artifact.class),
-          nestedSet(transitiveSymbols, Artifact.class),
-          nestedSet(transitiveCompiledSymbols, Artifact.class));
+          nestedSet(directParsedAssets, ParsedAndroidAssets.class, "direct_parsed_assets"),
+          nestedSet(transitiveParsedAssets, ParsedAndroidAssets.class, "transitive_parsed_assets"),
+          nestedSet(transitiveAssets, Artifact.class, "transitive_assets"),
+          nestedSet(transitiveSymbols, Artifact.class, "transitive_symbols"),
+          nestedSet(transitiveCompiledSymbols, Artifact.class, "transitive_compiled_symbols"));
     }
 
-    private <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
-      return NestedSetBuilder.<T>naiveLinkOrder().addTransitive(from.getSet(with)).build();
+    private static <T> NestedSet<T> nestedSet(
+        SkylarkNestedSet from, Class<T> with, String fieldName) throws EvalException {
+      return NestedSetBuilder.<T>naiveLinkOrder()
+          .addTransitive(from.getSetFromParam(with, fieldName))
+          .build();
     }
   }
 }

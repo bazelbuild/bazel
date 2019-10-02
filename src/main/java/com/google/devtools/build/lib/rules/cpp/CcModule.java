@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -246,11 +245,15 @@ public abstract class CcModule
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
-        asStringNestedSet(includeDirs),
-        asStringNestedSet(quoteIncludeDirs),
-        asStringNestedSet(systemIncludeDirs),
-        asStringNestedSet(frameworkIncludeDirs),
-        asStringNestedSet(defines),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            includeDirs, String.class, "framework_include_directories"),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            quoteIncludeDirs, String.class, "quote_include_directories"),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            systemIncludeDirs, String.class, "system_include_directories"),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            frameworkIncludeDirs, String.class, "framework_include_directories"),
+        SkylarkNestedSet.getSetFromNoneableParam(defines, String.class, "preprocessor_defines"),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -293,9 +296,11 @@ public abstract class CcModule
         /* ltoOutputRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
         /* fdoContext= */ null,
-        asStringNestedSet(runtimeLibrarySearchDirectories),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            runtimeLibrarySearchDirectories, String.class, "runtime_library_search_directories"),
         /* librariesToLink= */ null,
-        asStringNestedSet(librarySearchDirectories),
+        SkylarkNestedSet.getSetFromNoneableParam(
+            librarySearchDirectories, String.class, "library_search_directories"),
         /* addIfsoRelatedVariables= */ false);
   }
 
@@ -317,7 +322,7 @@ public abstract class CcModule
   }
 
   /** Converts an object that can be ether SkylarkNestedSet or None into NestedSet. */
-  protected NestedSet<String> asStringNestedSet(Object o) {
+  protected NestedSet<String> asStringNestedSet(Object o) throws SkylarkNestedSet.TypeException {
     SkylarkNestedSet skylarkNestedSet = convertFromNoneable(o, /* defaultValue= */ null);
     if (skylarkNestedSet != null) {
       return skylarkNestedSet.getSet(String.class);
@@ -515,61 +520,46 @@ public abstract class CcModule
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    ccCompilationContext.addDeclaredIncludeSrcs(
-        toNestedSetOfArtifacts(headers, "headers").getSet(Artifact.class));
+    ccCompilationContext.addDeclaredIncludeSrcs(toNestedSetOfArtifacts(headers, "headers"));
     ccCompilationContext.addSystemIncludeDirs(
-        toNestedSetOfStrings(systemIncludes, "system_includes").getSet(String.class).toList()
-            .stream()
+        toNestedSetOfStrings(systemIncludes, "system_includes").toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addIncludeDirs(
-        toNestedSetOfStrings(includes, "includes").getSet(String.class).toList().stream()
+        toNestedSetOfStrings(includes, "includes").toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addQuoteIncludeDirs(
-        toNestedSetOfStrings(quoteIncludes, "quote_includes").getSet(String.class).toList().stream()
+        toNestedSetOfStrings(quoteIncludes, "quote_includes").toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addFrameworkIncludeDirs(
         toNestedSetOfStrings(frameworkIncludes, "framework_includes")
-            .getSet(String.class)
             .toList()
             .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
-    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").getSet(String.class));
+    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines"));
     ccCompilationContext.addNonTransitiveDefines(
-        toNestedSetOfArtifacts(localDefines, "local_defines").getSet(String.class));
+        toNestedSetOfStrings(localDefines, "local_defines"));
     return ccCompilationContext.build();
   }
 
-  private static SkylarkNestedSet toNestedSetOfArtifacts(Object obj, String fieldName)
+  private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Runtime.UNBOUND) {
-      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
-      return SkylarkType.cast(
-          obj,
-          SkylarkNestedSet.class,
-          Artifact.class,
-          Location.BUILTIN,
-          "'%s' argument must be a depset of artifacts",
-          fieldName);
+      return SkylarkNestedSet.getSetFromNoneableParam(obj, Artifact.class, fieldName);
     }
   }
 
-  private static SkylarkNestedSet toNestedSetOfStrings(Object obj, String fieldName)
+  private static NestedSet<String> toNestedSetOfStrings(Object obj, String fieldName)
       throws EvalException {
     if (obj == Runtime.UNBOUND) {
-      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
-      return SkylarkType.cast(
-          obj,
-          SkylarkNestedSet.class,
-          String.class,
-          Location.BUILTIN,
-          "'%s' argument must be a depset of strings",
-          fieldName);
+      return SkylarkNestedSet.getSetFromNoneableParam(obj, String.class, fieldName);
     }
   }
 
@@ -632,17 +622,10 @@ public abstract class CcModule
   }
 
   @SuppressWarnings("unchecked")
-  protected static <T> List<T> convertSkylarkListOrNestedSetToList(Object o, Class<T> type) {
+  private static <T> NestedSet<T> convertSkylarkListOrNestedSetToNestedSet(
+      Object o, Class<T> type, String fieldName) throws EvalException {
     return o instanceof SkylarkNestedSet
-        ? ((SkylarkNestedSet) o).getSet(type).toList()
-        : ((SkylarkList) o).getImmutableList();
-  }
-
-  @SuppressWarnings("unchecked")
-  protected static <T> NestedSet<T> convertSkylarkListOrNestedSetToNestedSet(
-      Object o, Class<T> type) {
-    return o instanceof SkylarkNestedSet
-        ? ((SkylarkNestedSet) o).getSet(type)
+        ? ((SkylarkNestedSet) o).getSetFromParam(type, fieldName)
         : NestedSetBuilder.wrap(Order.COMPILE_ORDER, (SkylarkList<T>) o);
   }
 
@@ -1701,11 +1684,11 @@ public abstract class CcModule
       Object objectsObject, Object picObjectsObject, Location location) throws EvalException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     NestedSet<Artifact> objects =
-        convertSkylarkListOrNestedSetToNestedSet(objectsObject, Artifact.class);
+        convertSkylarkListOrNestedSetToNestedSet(objectsObject, Artifact.class, "objects");
     validateExtensions(
         location, "objects", objects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
     NestedSet<Artifact> picObjects =
-        convertSkylarkListOrNestedSetToNestedSet(picObjectsObject, Artifact.class);
+        convertSkylarkListOrNestedSetToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
     validateExtensions(
         location, "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
     ccCompilationOutputsBuilder.addObjectFiles(objects);

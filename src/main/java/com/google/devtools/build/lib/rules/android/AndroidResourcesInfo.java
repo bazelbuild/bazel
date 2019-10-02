@@ -189,31 +189,39 @@ public class AndroidResourcesInfo extends NativeInfo
           label,
           manifest,
           rTxt,
-          nestedSet(transitiveAndroidResources, ValidatedAndroidResources.class),
-          nestedSet(directAndroidResources, ValidatedAndroidResources.class),
-          nestedSet(transitiveResources, Artifact.class),
-          nestedSet(transitiveManifests, Artifact.class),
-          nestedSet(transitiveAapt2RTxt, Artifact.class),
-          nestedSet(transitiveAapt2ValidationArtifacts, Artifact.class),
-          nestedSet(transitiveSymbolsBin, Artifact.class),
-          nestedSet(transitiveCompiledSymbols, Artifact.class),
-          nestedSet(transitiveStaticLib, Artifact.class),
-          nestedSet(transitiveRTxt, Artifact.class));
+          nestedSet(
+              transitiveAndroidResources,
+              ValidatedAndroidResources.class,
+              "transitive_android_resources"),
+          nestedSet(
+              directAndroidResources, ValidatedAndroidResources.class, "direct_android_resources"),
+          nestedSet(transitiveResources, Artifact.class, "transitive_resources"),
+          nestedSet(transitiveManifests, Artifact.class, "transitive_manifests"),
+          nestedSet(transitiveAapt2RTxt, Artifact.class, "transitive_aapt2_r_txt"),
+          nestedSet(transitiveAapt2ValidationArtifacts, Artifact.class, "validation_artifacts"),
+          nestedSet(transitiveSymbolsBin, Artifact.class, "transitive_symbols_bin"),
+          nestedSet(transitiveCompiledSymbols, Artifact.class, "transitive_compiled_symbols"),
+          nestedSet(transitiveStaticLib, Artifact.class, "transitive_static_lib"),
+          nestedSet(transitiveRTxt, Artifact.class, "transitive_r_txt"));
     }
 
-    private static <T> NestedSet<T> nestedSet(Object from, Class<T> with) {
+    private static <T> NestedSet<T> nestedSet(
+        SkylarkNestedSet from, Class<T> with, String fieldName) throws EvalException {
+      return NestedSetBuilder.<T>stableOrder()
+          .addTransitive(from.getSetFromParam(with, fieldName))
+          .build();
+    }
+
+    private static <T> NestedSet<T> nestedSet(Object from, Class<T> with, String fieldName)
+        throws EvalException {
       Preconditions.checkArgument(
           from instanceof SkylarkNestedSet
               || from == com.google.devtools.build.lib.syntax.Runtime.UNBOUND);
 
       if (from instanceof SkylarkNestedSet) {
-        return nestedSet((SkylarkNestedSet) from, with);
+        return nestedSet((SkylarkNestedSet) from, with, fieldName);
       }
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    }
-
-    private static <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
-      return NestedSetBuilder.<T>stableOrder().addTransitive(from.getSet(with)).build();
     }
   }
 }

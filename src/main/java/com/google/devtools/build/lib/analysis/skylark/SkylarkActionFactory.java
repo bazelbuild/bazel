@@ -205,11 +205,12 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   @Override
   public void doNothing(String mnemonic, Object inputs, Location location) throws EvalException {
     context.checkMutable("actions.do_nothing");
-    NestedSet<Artifact> inputSet = inputs instanceof SkylarkNestedSet
-        ? ((SkylarkNestedSet) inputs).getSet(Artifact.class)
-        : NestedSetBuilder.<Artifact>compileOrder()
-            .addAll(((SkylarkList) inputs).getContents(Artifact.class, "inputs"))
-            .build();
+    NestedSet<Artifact> inputSet =
+        inputs instanceof SkylarkNestedSet
+            ? ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs")
+            : NestedSetBuilder.<Artifact>compileOrder()
+                .addAll(((SkylarkList<?>) inputs).getContents(Artifact.class, "inputs"))
+                .build();
     Action action =
         new PseudoAction<>(
             UUID.nameUUIDFromBytes(
@@ -512,7 +513,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      NestedSet<Artifact> inputSet = ((SkylarkNestedSet) inputs).getSet(Artifact.class);
+      NestedSet<Artifact> inputSet =
+          ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs");
       builder.addTransitiveInputs(inputSet);
       inputArtifacts = inputSet;
     }
@@ -545,12 +547,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     if (toolsUnchecked != Runtime.UNBOUND) {
-      @SuppressWarnings("unchecked")
-      Iterable<Object> toolsIterable;
+      Iterable<?> toolsIterable;
       if (toolsUnchecked instanceof SkylarkList) {
-        toolsIterable = ((SkylarkList<Object>) toolsUnchecked).getContents(Object.class, "tools");
+        toolsIterable = ((SkylarkList<?>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Object.class);
+        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet();
       }
       for (Object toolUnchecked : toolsIterable) {
         if (toolUnchecked instanceof Artifact) {
@@ -707,7 +708,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     private final Mutability mutability;
     private final StarlarkSemantics starlarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
-    private List<NestedSet<Object>> potentialDirectoryArtifacts = new ArrayList<>();
+    private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
     private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
     private String flagFormatString;
@@ -889,7 +890,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof SkylarkNestedSet) {
         SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
-        NestedSet<Object> nestedSet = skylarkNestedSet.getSet(Object.class);
+        NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
@@ -1069,7 +1070,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     ImmutableSet<Artifact> getDirectoryArtifacts() {
-      for (Iterable<Object> collection : potentialDirectoryArtifacts) {
+      for (Iterable<?> collection : potentialDirectoryArtifacts) {
         scanForDirectories(collection);
       }
       potentialDirectoryArtifacts.clear();

@@ -81,10 +81,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
   @Test
@@ -92,10 +89,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(direct = ['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
   @Test
@@ -103,10 +97,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(items = ['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
 
@@ -116,10 +107,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test
@@ -128,10 +116,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test
@@ -140,10 +125,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test

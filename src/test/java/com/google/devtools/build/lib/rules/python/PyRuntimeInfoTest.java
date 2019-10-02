@@ -52,7 +52,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   }
 
   @Test
-  public void factoryMethod_InBuildRuntime() {
+  public void factoryMethod_InBuildRuntime() throws Exception {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
     PyRuntimeInfo inBuildRuntime =
         PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2);

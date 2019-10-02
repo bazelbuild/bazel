@@ -999,7 +999,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       builder.addArtifacts(files.getContents(Artifact.class, "files"));
     }
     if (transitiveFiles != Runtime.NONE) {
-      builder.addTransitiveArtifacts(((SkylarkNestedSet) transitiveFiles).getSet(Artifact.class));
+      builder.addTransitiveArtifacts(
+          ((SkylarkNestedSet) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Skylark code directly manipulates symlinks, activate more stringent validity checking.

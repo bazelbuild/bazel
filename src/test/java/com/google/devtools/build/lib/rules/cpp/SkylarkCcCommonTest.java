@@ -1199,7 +1199,25 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("'headers' argument must be a depset");
+    assertContainsEvent("expected a depset of 'File' but got '[]' for parameter 'headers'");
+  }
+
+  @Test
+  public void testCreateCompilationOutputs_invalidDepset() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name='x')");
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(",
+        "      objects = depset([1, 2]), pic_objects = depset([1, 2]))",
+        "my_rule = rule(",
+        "  _impl,",
+        ");");
+
+    assertThat(getConfiguredTarget("//test:x")).isNull();
+    assertContainsEvent(
+        "for parameter 'objects', got a depset of 'int', expected a depset of 'File'");
   }
 
   @Test
