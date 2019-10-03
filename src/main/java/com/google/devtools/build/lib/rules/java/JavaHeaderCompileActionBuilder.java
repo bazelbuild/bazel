@@ -91,7 +91,7 @@ public class JavaHeaderCompileActionBuilder {
   private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private ImmutableList<String> javacOpts;
+  private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -122,10 +122,15 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /** Sets Java compiler flags. */
-  public JavaHeaderCompileActionBuilder setJavacOpts(ImmutableList<String> javacOpts) {
-    checkNotNull(javacOpts, "javacOpts must not be null");
-    this.javacOpts = javacOpts;
+  /** Adds Java compiler flags. */
+  public JavaHeaderCompileActionBuilder addAllJavacOpts(Iterable<String> javacOpts) {
+    this.javacOptsBuilder.addAll(javacOpts);
+    return this;
+  }
+
+  /** Adds a Java compiler flag. */
+  public JavaHeaderCompileActionBuilder addJavacOpt(String javacOpt) {
+    this.javacOptsBuilder.add(javacOpt);
     return this;
   }
 
@@ -228,7 +233,8 @@ public class JavaHeaderCompileActionBuilder {
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
     checkNotNull(directJars, "directJars must not be null");
     checkNotNull(compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
-    checkNotNull(javacOpts, "javacOpts must not be null");
+
+    ImmutableList<String> javacOpts = javacOptsBuilder.build();
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
