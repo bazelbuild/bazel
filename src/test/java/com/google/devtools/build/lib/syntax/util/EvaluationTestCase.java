@@ -193,7 +193,8 @@ public class EvaluationTestCase {
   }
 
   // TODO(adonovan): this function does far too much:
-  // - two modes, BUILD vs Skylark
+  // - two forms, exec(file) or exec(file)+eval(expression).
+  // - two modes, BUILD vs Skylark.
   // - parse + validate + BUILD dialect checks + execute.
   // Break the tests down into tests of just the scanner, parser, validator, build dialect checks,
   // or execution, and assert that all passes except the one of interest succeed.
@@ -213,7 +214,7 @@ public class EvaluationTestCase {
       Event.replayEventsOn(getEventHandler(), file.errors());
       PackageFactory.checkBuildSyntax(file, getEventHandler());
     }
-    return file.eval(thread);
+    return EvalUtils.execOrEval(file, thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {

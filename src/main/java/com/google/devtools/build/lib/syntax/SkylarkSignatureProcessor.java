@@ -250,7 +250,7 @@ public class SkylarkSignatureProcessor {
                   .setGlobals(StarlarkThread.CONSTANTS_ONLY)
                   .build()
                   .update("unbound", Runtime.UNBOUND);
-          defaultValue = StarlarkFile.eval(ParserInput.fromLines(paramDefaultValue), thread);
+          defaultValue = EvalUtils.execOrEval(ParserInput.fromLines(paramDefaultValue), thread);
           defaultValueCache.put(paramDefaultValue, defaultValue);
           return defaultValue;
         }

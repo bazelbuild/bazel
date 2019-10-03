@@ -206,44 +206,6 @@ public final class StarlarkFile extends Node {
   }
 
   /**
-   * Evaluates the code and return the value of the last statement if it's an Expression or else
-   * null.
-   */
-  // TODO(adonovan): move to EvalUtils. Split into two APIs, eval(expr) and exec(file).
-  // (Abolish "statement" and "file+expr" as primary API concepts.)
-  // Make callers decide whether they want to execute a file or evaluate an expression.
-  @Nullable
-  public Object eval(StarlarkThread thread) throws EvalException, InterruptedException {
-    List<Statement> stmts = statements;
-    Expression expr = null;
-    int n = statements.size();
-    if (n > 0 && statements.get(n - 1) instanceof ExpressionStatement) {
-      stmts = statements.subList(0, n - 1);
-      expr = ((ExpressionStatement) statements.get(n - 1)).getExpression();
-    }
-    Eval.execStatements(thread, stmts);
-    return expr == null ? null : Eval.eval(thread, expr);
-  }
-
-  /**
-   * Parses, resolves and evaluates the input and returns the value of the last statement if it's an
-   * Expression or else null. In case of scan/parse/resolver error, it throws a SyntaxError
-   * containing one or more specific errors. If evaluation fails, it throws an EvalException or
-   * InterruptedException. The return value is as for eval(StarlarkThread).
-   */
-  // Note: uses Starlark (not BUILD) validation semantics.
-  // TODO(adonovan): move to EvalUtils; see other eval function.
-  @Nullable
-  public static Object eval(ParserInput input, StarlarkThread thread)
-      throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
-    if (!file.ok()) {
-      throw new SyntaxError(file.errors());
-    }
-    return file.eval(thread);
-  }
-
-  /**
    * Returns a hash code calculated from the string content of the source file of this AST.
    */
   @Nullable public String getContentHashCode() {

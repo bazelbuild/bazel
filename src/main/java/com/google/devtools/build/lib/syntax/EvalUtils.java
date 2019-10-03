@@ -1137,4 +1137,43 @@ public final class EvalUtils {
         file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
     return file;
   }
+
+  /**
+   * Executes the validated file and returns the value of the last statement if it's an Expression,
+   * null otherwise.
+   */
+  // TODO(adonovan): Split into two APIs, eval(expr) and exec(file).
+  // Abolish "statement" and "file+expr" as primary API concepts and
+  // make callers decide whether they want to execute a file or evaluate an expression.
+  @Nullable
+  public static Object execOrEval(StarlarkFile file, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    List<Statement> stmts = file.getStatements();
+    Expression expr = null;
+    int n = stmts.size();
+    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
+      expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
+      stmts = stmts.subList(0, n - 1);
+    }
+    Eval.execStatements(thread, stmts);
+    return expr == null ? null : Eval.eval(thread, expr);
+  }
+
+  /**
+   * Parses, resolves and evaluates the input as a file and returns the value of the last statement
+   * if it's an Expression, null otherwise. In case of scan/parse/resolver error, it throws a
+   * SyntaxError containing one or more specific errors. If evaluation fails, it throws an
+   * EvalException or InterruptedException. The return value is as for eval(StarlarkThread).
+   */
+  // Note: uses Starlark (not BUILD) validation semantics.
+  // TODO(adonovan): see comments at other execOrEval function.
+  @Nullable
+  public static Object execOrEval(ParserInput input, StarlarkThread thread)
+      throws SyntaxError, EvalException, InterruptedException {
+    StarlarkFile file = parseAndValidateSkylark(input, thread);
+    if (!file.ok()) {
+      throw new SyntaxError(file.errors());
+    }
+    return execOrEval(file, thread);
+  }
 }

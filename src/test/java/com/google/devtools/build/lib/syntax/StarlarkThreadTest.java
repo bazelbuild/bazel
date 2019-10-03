@@ -188,7 +188,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     StarlarkThread thread = newStarlarkThreadWithSkylarkOptions().setup("special_var", 42);
-    StarlarkFile.eval(ParserInput.fromLines("special_var = 41"), thread);
+    EvalUtils.execOrEval(ParserInput.fromLines("special_var = 41"), thread);
     assertThat(thread.moduleLookup("special_var")).isEqualTo(41);
   }
 
@@ -196,7 +196,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     StarlarkThread thread = newStarlarkThread().update("global_var", 666);
     try {
-      StarlarkFile.eval(
+      EvalUtils.execOrEval(
           ParserInput.fromLines("def foo(x): x += global_var; global_var = 36; return x", "foo(1)"),
           thread);
       throw new AssertionError("failed to fail");
