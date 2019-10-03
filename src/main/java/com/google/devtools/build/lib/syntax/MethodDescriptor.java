@@ -154,9 +154,9 @@ public final class MethodDescriptor {
         return Runtime.NONE;
       } else {
         throw new IllegalStateException(
-            "method invocation returned None "
+            "method invocation returned None: "
                 + getName()
-                + Printer.printAbbreviatedList(ImmutableList.copyOf(args), "(", ", ", ")", null));
+                + SkylarkList.Tuple.copyOf(Arrays.asList(args)));
       }
     }
     // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures

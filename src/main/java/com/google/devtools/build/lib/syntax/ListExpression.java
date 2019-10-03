@@ -54,11 +54,36 @@ public final class ListExpression extends Expression {
 
   @Override
   public String toString() {
-    return Printer.printAbbreviatedList(
-        elements,
-        isTuple(),
-        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
-        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
+    // Print [a, b, c, ...] up to a maximum of 4 elements or 32 chars.
+    StringBuilder buf = new StringBuilder();
+    buf.append(isTuple() ? '(' : '[');
+    appendNodes(buf, elements);
+    if (isTuple() && elements.size() == 1) {
+      buf.append(',');
+    }
+    buf.append(isTuple() ? ')' : ']');
+    return buf.toString();
+  }
+
+  // Appends elements to buf, comma-separated, abbreviating if they are numerous or long.
+  // (Also used by FuncallExpression.)
+  static void appendNodes(StringBuilder buf, List<? extends Node> elements) {
+    int n = elements.size();
+    for (int i = 0; i < n; i++) {
+      if (i > 0) {
+        buf.append(", ");
+      }
+      int mark = buf.length();
+      buf.append(elements.get(i));
+      // Abbreviate, dropping this element, if we exceed 32 chars,
+      // or 4 elements (with more elements following).
+      if (buf.length() >= 32 || (i == 4 && i + 1 < n)) {
+        buf.setLength(mark);
+        // TODO(adonovan): "+%d more" is shorter and better suits ListExpression.
+        buf.append(String.format("<%d more arguments>", n - i));
+        break;
+      }
+    }
   }
 
   @Override

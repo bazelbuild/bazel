@@ -84,12 +84,12 @@ public final class FuncallExpression extends Expression {
 
   @Override
   public String toString() {
-    Printer.LengthLimitedPrinter printer = new Printer.LengthLimitedPrinter();
-    printer.append(function.toString());
-    printer.printAbbreviatedList(arguments, "(", ", ", ")", null,
-        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
-        Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
-    return printer.toString();
+    StringBuilder buf = new StringBuilder();
+    buf.append(function);
+    buf.append('(');
+    ListExpression.appendNodes(buf, arguments);
+    buf.append(')');
+    return buf.toString();
   }
 
   /**
