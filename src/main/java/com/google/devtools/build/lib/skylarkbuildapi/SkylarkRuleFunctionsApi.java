@@ -404,7 +404,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "A dictionary declaring all the attributes of the aspect. It maps from an "
                     + "attribute name to an attribute object, like `attr.label` or `attr.string` "
                     + "(see <a href=\"attr.html\">attr</a> module). Aspect attributes are "
-                    + "available to implementation function as fields of <code>ctx<code> "
+                    + "available to implementation function as fields of <code>ctx</code> "
                     + "parameter. "
                     + ""
                     + "<p>Implicit attributes starting with <code>_</code> must have default "
@@ -434,7 +434,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
                     + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code>, this aspect can only "
-                    + "see <code>other_aspect</code> if and only if <code>other_aspect<code> "
+                    + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
                     + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
