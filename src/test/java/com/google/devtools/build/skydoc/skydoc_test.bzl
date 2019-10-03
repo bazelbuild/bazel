@@ -28,6 +28,7 @@ def skydoc_test(
         input_file,
         golden_file,
         deps = [],
+        format = "html_tables",
         **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
@@ -41,6 +42,9 @@ def skydoc_test(
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
       deps: A list of label strings of skylark file dependencies of the input_file.
+      format: The output format of stardoc to test.
+          Valid values: "custom", "html_tables", "markdown_tables", or "proto".
+          "html_tables" by default.
       **kwargs: Remaining arguments to passthrough to the underlying stardoc rule.
       """
 
@@ -69,6 +73,23 @@ def skydoc_test(
         deps = deps,
     )
 
+    # For rendering templates, use the templates under testdata/ instead of those of
+    # current Stardoc; these templates serve as 'staging' for changes to
+    # Stardoc's default templates.
+    if format == "html_tables":
+        kwargs["aspect_template"] = "test_templates/html_tables/aspect.vm"
+        kwargs["func_template"] = "test_templates/html_tables/func.vm"
+        kwargs["header_template"] = "test_templates/html_tables/header.vm"
+        kwargs["provider_template"] = "test_templates/html_tables/provider.vm"
+        kwargs["rule_template"] = "test_templates/html_tables/rule.vm"
+        format = "custom"
+    elif format == "markdown_tables":
+        kwargs["aspect_template"] = "test_templates/markdown_tables/aspect.vm"
+        kwargs["func_template"] = "test_templates/markdown_tables/func.vm"
+        kwargs["header_template"] = "test_templates/markdown_tables/header.vm"
+        kwargs["provider_template"] = "test_templates/markdown_tables/provider.vm"
+        kwargs["rule_template"] = "test_templates/markdown_tables/rule.vm"
+        format = "custom"
     stardoc(
         name = "regenerate_%s_golden" % name,
         out = actual_generated_doc,
@@ -76,5 +97,6 @@ def skydoc_test(
         deps = ["%s_lib" % name],
         renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
         stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
+        format = format,
         **kwargs
     )

@@ -6,7 +6,7 @@
 ${util.providerSummary($providerName, $providerInfo)}
 </pre>
 
-${util.htmlEscape($providerInfo.docString)}
+${providerInfo.docString}
 
 **FIELDS**
 
