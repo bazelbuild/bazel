@@ -35,6 +35,7 @@ public class AndroidResourceMergingActionBuilder {
   // Outputs
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
+  private Artifact aapt2RTxtOut;
   private Artifact manifestOut;
   private @Nullable Artifact dataBindingInfoZip;
 
@@ -66,6 +67,11 @@ public class AndroidResourceMergingActionBuilder {
 
   public AndroidResourceMergingActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
+    return this;
+  }
+
+  public AndroidResourceMergingActionBuilder setAapt2RTxtOut(Artifact aapt2RTxtOut) {
+    this.aapt2RTxtOut = aapt2RTxtOut;
     return this;
   }
 
@@ -206,6 +212,7 @@ public class AndroidResourceMergingActionBuilder {
         .maybeAddOutput("--manifestOutput", manifestOut);
 
     if (useCompiledMerge) {
+      compiledMergeBuilder.maybeAddOutput("--rTxtOut", aapt2RTxtOut);
       buildCompiledResourceMergingAction(compiledMergeBuilder);
     }
 
@@ -222,6 +229,7 @@ public class AndroidResourceMergingActionBuilder {
         parsed,
         mergedResourcesOut,
         classJarOut,
+        aapt2RTxtOut,
         dataBindingInfoZip,
         dependencies,
         parsed.getStampedManifest().withProcessedManifest(manifestOut));

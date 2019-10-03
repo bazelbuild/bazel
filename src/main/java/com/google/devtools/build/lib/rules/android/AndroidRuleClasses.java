@@ -102,6 +102,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_LIBRARY_APK =
       fromTemplates("%{name}_files/aapt2_library.apk");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_R_TXT =
+      fromTemplates("%{name}_symbols/R.aapt2.txt");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT =
       fromTemplates("%{name}_symbols/aapt2.validation.txt");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_SOURCE_JAR =

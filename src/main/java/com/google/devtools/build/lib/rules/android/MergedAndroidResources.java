@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 public class MergedAndroidResources extends ParsedAndroidResources {
   private final Artifact mergedResources;
   private final Artifact classJar;
+  @Nullable private final Artifact aapt2RTxt;
   @Nullable private final Artifact dataBindingInfoZip;
   private final ResourceDependencies resourceDependencies;
   /**
@@ -61,6 +62,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
     parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
 
+    if (dataContext.getAndroidConfig().useRTxtFromMergedResources()) {
+      builder.setAapt2RTxtOut(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT));
+    }
+
     return builder
         .setManifestOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
@@ -75,11 +81,18 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       ParsedAndroidResources parsed,
       Artifact mergedResources,
       Artifact classJar,
+      Artifact aapt2RTxt,
       @Nullable Artifact dataBindingInfoZip,
       ResourceDependencies resourceDependencies,
       ProcessedAndroidManifest manifest) {
     return new MergedAndroidResources(
-        parsed, mergedResources, classJar, dataBindingInfoZip, resourceDependencies, manifest);
+        parsed,
+        mergedResources,
+        classJar,
+        aapt2RTxt,
+        dataBindingInfoZip,
+        resourceDependencies,
+        manifest);
   }
 
   MergedAndroidResources(MergedAndroidResources other) {
@@ -87,6 +100,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         other,
         other.mergedResources,
         other.classJar,
+        other.aapt2RTxt,
         other.dataBindingInfoZip,
         other.resourceDependencies,
         other.manifest);
@@ -96,12 +110,14 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       ParsedAndroidResources other,
       Artifact mergedResources,
       Artifact classJar,
+      Artifact aapt2RTxt,
       @Nullable Artifact dataBindingInfoZip,
       ResourceDependencies resourceDependencies,
       ProcessedAndroidManifest manifest) {
     super(other, manifest);
     this.mergedResources = mergedResources;
     this.classJar = classJar;
+    this.aapt2RTxt = aapt2RTxt;
     this.dataBindingInfoZip = dataBindingInfoZip;
     this.resourceDependencies = resourceDependencies;
     this.manifest = manifest;
@@ -132,6 +148,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
   public Artifact getJavaClassJar() {
     return classJar;
+  }
+
+  @Nullable
+  Artifact getAapt2RTxt() {
+    return aapt2RTxt;
   }
 
   @Override
@@ -170,6 +191,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
                     parsed,
                     mergedResources,
                     classJar,
+                    aapt2RTxt,
                     dataBindingInfoZip,
                     resourceDependencies,
                     manifest));
@@ -184,6 +206,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     MergedAndroidResources other = (MergedAndroidResources) object;
     return mergedResources.equals(other.mergedResources)
         && classJar.equals(other.classJar)
+        && Objects.equals(aapt2RTxt, other.aapt2RTxt)
         && Objects.equals(dataBindingInfoZip, other.dataBindingInfoZip)
         && resourceDependencies.equals(other.resourceDependencies);
   }
@@ -191,6 +214,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   @Override
   public int hashCode() {
     return Objects.hash(
-        super.hashCode(), mergedResources, classJar, dataBindingInfoZip, resourceDependencies);
+        super.hashCode(),
+        mergedResources,
+        classJar,
+        aapt2RTxt,
+        dataBindingInfoZip,
+        resourceDependencies);
   }
 }

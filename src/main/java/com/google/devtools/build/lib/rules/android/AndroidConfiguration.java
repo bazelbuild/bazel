@@ -955,6 +955,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
             "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
     public boolean filterLibraryJarWithProgramJar;
 
+    @Option(
+        name = "experimental_use_rtxt_from_merged_resources",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help = "Use R.txt from the merging action, instead of from the validation action.")
+    public boolean useRTxtFromMergedResources;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1049,6 +1057,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
+  private final boolean useRTxtFromMergedResources;
 
   // Incompatible changes
   private final boolean incompatibleUseAapt2ByDefault;
@@ -1105,6 +1114,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.alwaysFilterDuplicateClassesFromAndroidTest =
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
+    this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
 
     // Make the value of --android_aapt aapt2 if --incompatible_use_aapt2_by_default is enabled
     // and --android_aapt = AUTO
@@ -1369,5 +1379,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean filterLibraryJarWithProgramJar() {
     return filterLibraryJarWithProgramJar;
+  }
+
+  boolean useRTxtFromMergedResources() {
+    return useRTxtFromMergedResources;
   }
 }

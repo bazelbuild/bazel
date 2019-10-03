@@ -2338,9 +2338,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testUseRClassGeneratorMultipleDeps() throws Exception {
-    // This test assumes using aapt.
-    useConfiguration("--android_aapt=aapt");
-
     scratch.file(
         "java/r/android/BUILD",
         "android_library(name = 'lib1',",
@@ -2374,15 +2371,92 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "--primaryRTxt",
             "--primaryManifest",
             "--library",
-            firstDep.getRTxt().getExecPathString()
+            firstDep.getAapt2RTxt().getExecPathString()
                 + ","
                 + firstDep.getManifest().getExecPathString(),
             "--library",
-            secondDep.getRTxt().getExecPathString()
+            secondDep.getAapt2RTxt().getExecPathString()
                 + ","
                 + secondDep.getManifest().getExecPathString(),
             "--classJarOutput")
         .inOrder();
+  }
+
+  @Test
+  public void useRTxtFromMergedResourcesForFinalRClasses() throws Exception {
+    useConfiguration("--experimental_use_rtxt_from_merged_resources");
+    scratch.file(
+        "java/pkg/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")",
+        "android_binary(",
+        "    name = 'bin',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ ':lib' ],",
+        ")");
+
+    ConfiguredTargetAndData bin = getConfiguredTargetAndData("//java/pkg:bin");
+    ConfiguredTarget lib = getDirectPrerequisite(bin.getConfiguredTarget(), "//java/pkg:lib");
+    ValidatedAndroidResources libResources =
+        lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
+    SpawnAction topLevelResourceClassAction = getGeneratingSpawnAction(getResourceClassJar(bin));
+
+    // verify that the R.txt from creating the library-level resources.jar is also used for creating
+    // the top-level resources.jar
+    assertThat(getGeneratingSpawnAction(libResources.getClassJar()).getOutputs())
+        .contains(libResources.getAapt2RTxt());
+    MoreAsserts.assertContainsSublist(
+        topLevelResourceClassAction.getArguments(),
+        "--library",
+        libResources.getAapt2RTxt().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
+
+    // the "validation artifact" shouldn't be used for creating the top-level resources.jar,
+    // but it's still fed as an pseudo-input to trigger validation.
+    MoreAsserts.assertDoesNotContainSublist(
+        topLevelResourceClassAction.getArguments(),
+        "--library",
+        libResources.getAapt2ValidationArtifact().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
+    assertThat(topLevelResourceClassAction.getInputs())
+        .contains(libResources.getAapt2ValidationArtifact());
+  }
+
+  // (test for undesired legacy behavior)
+  @Test
+  public void doNotUseRTxtFromMergedResourcesForFinalRClasses() throws Exception {
+    scratch.file(
+        "java/pkg/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")",
+        "android_binary(",
+        "    name = 'bin',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ ':lib' ],",
+        ")");
+
+    ConfiguredTargetAndData bin = getConfiguredTargetAndData("//java/pkg:bin");
+    ConfiguredTarget lib = getDirectPrerequisite(bin.getConfiguredTarget(), "//java/pkg:lib");
+    ValidatedAndroidResources libResources =
+        lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
+
+    // use the "validation artifact" for creating the top-level resources.jar
+    MoreAsserts.assertContainsSublist(
+        getGeneratingSpawnActionArgs(getResourceClassJar(bin)),
+        "--library",
+        libResources.getAapt2ValidationArtifact().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
   }
 
   @Test
