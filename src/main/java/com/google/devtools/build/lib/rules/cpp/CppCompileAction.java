@@ -498,6 +498,11 @@ public class CppCompileAction extends AbstractAction
     return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   private static IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
       SkyFunction.Environment env, Iterable<Artifact> inputs) throws InterruptedException {
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
@@ -505,13 +510,20 @@ public class CppCompileAction extends AbstractAction
     for (Artifact a : inputs) {
       IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
     }
-    IncludeScanningHeaderDataHelper.handleTreeArtifacts(
-        env, pathToLegalOutputArtifact, treeArtifacts);
+    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts)) {
+      return null;
+    }
     return new IncludeScanningHeaderData.Builder(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
         Collections.unmodifiableSet(CompactHashSet.create()));
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
       SkyFunction.Environment env,
       boolean usePic,
@@ -526,6 +538,10 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -549,14 +565,19 @@ public class CppCompileAction extends AbstractAction
       List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
+      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+          createIncludeScanningHeaderData(
+              actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+              usePic,
+              useHeaderModules,
+              headerInfo);
+      if (includeScanningHeaderData == null) {
+        return null;
+      }
       additionalInputs =
           findUsedHeaders(
               actionExecutionContext,
-              createIncludeScanningHeaderData(
-                      actionExecutionContext.getEnvironmentForDiscoveringInputs(),
-                      usePic,
-                      useHeaderModules,
-                      headerInfo)
+              includeScanningHeaderData
                   .setSystemIncludeDirs(systemIncludeDirs)
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
@@ -1503,20 +1524,29 @@ public class CppCompileAction extends AbstractAction
    * When compiling with modules, the C++ compile action only has the {@code .pcm} files on its
    * inputs, which is not enough for extra actions that parse header files. Thus, re-run include
    * scanning and add headers to the inputs of the extra action, too.
+   *
+   * <p>This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
    */
+  @Nullable
   @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
+      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+          createIncludeScanningHeaderData(
+              actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+              usePic,
+              useHeaderModules,
+              ccCompilationContext.getTransitiveHeaderInfos());
+      if (includeScanningHeaderData == null) {
+        return null;
+      }
       Iterable<Artifact> discoveredInputs =
           findUsedHeaders(
               actionExecutionContext,
-              createIncludeScanningHeaderData(
-                      actionExecutionContext.getEnvironmentForDiscoveringInputs(),
-                      usePic,
-                      useHeaderModules,
-                      ccCompilationContext.getTransitiveHeaderInfos())
+              includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
                   .build());

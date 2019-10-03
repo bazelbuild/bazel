@@ -306,14 +306,23 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       pathToLegalOutputArtifact.put(artifact.getExecPath(), artifact);
     }
 
-    public static void handleTreeArtifacts(
+    /**
+     * Enter the TreeArtifactValues in each TreeArtifact into pathToLegalOutputArtifact. Returns
+     * true on success.
+     *
+     * <p>If a TreeArtifact's value is missing, returns false, and leave pathToLegalOutputArtifact
+     * unmodified.
+     */
+    public static boolean handleTreeArtifacts(
         Environment env,
         Map<PathFragment, Artifact> pathToLegalOutputArtifact,
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
       if (!treeArtifacts.isEmpty()) {
         Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
-        Preconditions.checkState(!env.valuesMissing());
+        if (env.valuesMissing()) {
+          return false;
+        }
         for (SkyValue value : valueMap.values()) {
           Preconditions.checkState(value instanceof TreeArtifactValue);
           TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
@@ -322,9 +331,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           }
         }
       }
+      return true;
     }
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
       Environment env,
       boolean usePic,
@@ -354,8 +369,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
       }
     }
-    IncludeScanningHeaderDataHelper.handleTreeArtifacts(
-        env, pathToLegalOutputArtifact, treeArtifacts);
+    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts)) {
+      return null;
+    }
     removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     return new IncludeScanningHeaderData.Builder(

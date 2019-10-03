@@ -110,6 +110,10 @@ public final class ExtraAction extends SpawnAction {
     return shadowedAction.discoversInputs();
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -122,11 +126,13 @@ public final class ExtraAction extends SpawnAction {
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
     Iterable<Artifact> oldInputs = getInputs();
+    Iterable<Artifact> inputFilesForExtraAction =
+        shadowedAction.getInputFilesForExtraAction(actionExecutionContext);
+    if (inputFilesForExtraAction == null) {
+      return null;
+    }
     updateInputs(
-        createInputs(
-            shadowedAction.getInputs(),
-            shadowedAction.getInputFilesForExtraAction(actionExecutionContext),
-            extraActionInputs));
+        createInputs(shadowedAction.getInputs(), inputFilesForExtraAction, extraActionInputs));
     return Sets.<Artifact>difference(
         ImmutableSet.<Artifact>copyOf(getInputs()), ImmutableSet.<Artifact>copyOf(oldInputs));
   }
