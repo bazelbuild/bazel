@@ -384,8 +384,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
         }
       }
 
-      context.lockOutputFiles();
-
       if (response == null) {
         throw new UserExecException(
             ErrorMessage.builder()
@@ -397,6 +395,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
+        context.lockOutputFiles();
         worker.finishExecution(execRoot);
       } catch (IOException e) {
         throw new UserExecException(

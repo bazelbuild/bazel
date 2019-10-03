@@ -92,7 +92,7 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
   interface OutputFilesLocker {
-    void lock() throws InterruptedException;
+    void lock() throws InterruptedException, IOException;
   }
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = SettableFuture.create();
