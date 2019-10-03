@@ -65,6 +65,23 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
+  /**
+   * Module is a static abstraction of a Starlark module. It describes the set of variable names for
+   * use during name resolution.
+   */
+  public interface Module {
+    /** Returns the set of names defined by this module. The caller must not modify the set. */
+    Set<String> getNames();
+
+    /**
+     * Returns (optionally) a more specific error for an undeclared name than the generic message.
+     * This hook allows the module to implement "semantics-restricted" names without any knowledge
+     * in this file.
+     */
+    @Nullable
+    String getUndeclaredNameError(StarlarkSemantics semantics, String name);
+  }
+
   private static final Identifier PREDECLARED = new Identifier("");
 
   private static class Block {
@@ -79,23 +96,27 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   private final List<Event> errors;
-  private final StarlarkThread thread;
+  private final StarlarkSemantics semantics;
+  private final Module module;
   private Block block;
   private int loopCount;
-  /** In BUILD files, we have a slightly different behavior for legacy reasons. */
+
+  // In BUILD files, we have a slightly different behavior for legacy reasons.
   // TODO(adonovan): eliminate isBuildFile. It is necessary because the prelude is implemented
   // by inserting shared Statements, which must not be mutated, into each StarlarkFile.
   // Instead, we should implement the prelude by executing it like a .bzl module
   // and putting its members in the initial environment of the StarlarkFile.
+  // In the meantime, let's move this flag into Module (GlobalFrame).
   private final boolean isBuildFile;
 
-  private ValidationEnvironment(List<Event> errors, StarlarkThread thread, boolean isBuildFile) {
-    Preconditions.checkArgument(thread.isGlobal());
+  private ValidationEnvironment(
+      List<Event> errors, Module module, StarlarkSemantics semantics, boolean isBuildFile) {
     this.errors = errors;
-    this.thread = thread;
+    this.module = module;
+    this.semantics = semantics;
     this.isBuildFile = isBuildFile;
     block = new Block(Scope.Universe, null);
-    for (String name : thread.getVariableNames()) {
+    for (String name : module.getNames()) {
       block.variables.put(name, PREDECLARED);
     }
   }
@@ -192,16 +213,17 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   @Override
   public void visit(Identifier node) {
-    @Nullable Block b = blockThatDefines(node.getName());
+    String name = node.getName();
+    @Nullable Block b = blockThatDefines(name);
     if (b == null) {
       // The identifier might not exist because it was restricted (hidden) by the current semantics.
       // If this is the case, output a more helpful error message than 'not found'.
-      FlagGuardedValue result = thread.getRestrictedBindings().get(node.getName());
-      addError(
-          node.getLocation(),
-          result != null
-              ? result.getErrorFromAttemptingAccess(thread.getSemantics(), node.getName())
-              : createInvalidIdentifierException(node.getName(), getAllSymbols()));
+      String error = module.getUndeclaredNameError(semantics, name);
+      if (error == null) {
+        // generic error
+        error = createInvalidIdentifierException(node.getName(), getAllSymbols());
+      }
+      addError(node.getLocation(), error);
       return;
     }
     // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
@@ -432,7 +454,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   private void validateToplevelStatements(List<Statement> statements) {
     // Check that load() statements are on top.
-    if (!isBuildFile && thread.getSemantics().incompatibleBzlDisallowLoadAfterStatement()) {
+    if (!isBuildFile && semantics.incompatibleBzlDisallowLoadAfterStatement()) {
       checkLoadAfterStatement(statements);
     }
 
@@ -448,14 +470,16 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   /**
-   * Performs static checks, including name resolution on {@code file}, which is mutated. The {@code
-   * StarlarkThread} provides the global names and the StarlarkSemantics. Errors are appended to
-   * {@link StarlarkFile#errors}.
+   * Performs static checks, including resolution of identifiers in {@code file} in the environment
+   * defined by {@code module}. The StarlarkFile is mutated. Errors are appended to {@link
+   * StarlarkFile#errors}. {@code isBuildFile} enables Bazel's legacy mode for BUILD files in which
+   * reassignment at top-level is permitted.
    */
-  // TODO(adonovan): replace thread by Set<String> and StarlarkSemantics.
-  public static void validateFile(StarlarkFile file, StarlarkThread thread, boolean isBuildFile) {
-    ValidationEnvironment venv = new ValidationEnvironment(file.errors, thread, isBuildFile);
-    if (thread.getSemantics().incompatibleRestrictStringEscapes()) {
+  public static void validateFile(
+      StarlarkFile file, Module module, StarlarkSemantics semantics, boolean isBuildFile) {
+    ValidationEnvironment venv =
+        new ValidationEnvironment(file.errors, module, semantics, isBuildFile);
+    if (semantics.incompatibleRestrictStringEscapes()) {
       file.addStringEscapeEvents();
     }
     venv.validateToplevelStatements(file.getStatements());

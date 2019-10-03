@@ -236,24 +236,11 @@ public final class StarlarkFile extends Node {
   @Nullable
   public static Object eval(ParserInput input, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidateSkylark(input, thread);
+    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
     return file.eval(thread);
-  }
-
-  /**
-   * Parses and validates the input and returns the syntax tree. It uses Starlark (not BUILD)
-   * validation semantics.
-   *
-   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
-   * the StarlarkFile. It is the caller's responsibility to inspect them.
-   */
-  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
-    StarlarkFile file = parse(input);
-    ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
-    return file;
   }
 
   /**

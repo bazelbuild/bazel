@@ -705,7 +705,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   protected void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parseAndValidateSkylark(input, ev.getStarlarkThread());
+    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, ev.getStarlarkThread());
     if (!file.errors().isEmpty()) {
       throw new SyntaxError(file.errors());
     }

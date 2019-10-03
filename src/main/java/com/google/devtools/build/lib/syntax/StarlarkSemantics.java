@@ -40,6 +40,11 @@ public abstract class StarlarkSemantics {
    * Enum where each element represents a starlark semantics flag. The name of each value should be
    * the exact name of the flag transformed to upper case (for error representation).
    */
+  // TODO(adonovan): This class, being part of the core Starlark frontend, shouldn't refer to Bazel
+  // features. There's no need for an enumeration to represent a set of boolean features. Instead,
+  // have StarlarkSemantics hold a set of enabled features (strings), and have callers query
+  // features by name. The features can be named string constants, defined close to the code they
+  // affect, to avoid accidential misspellings.
   public enum FlagIdentifier {
     EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
         StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),

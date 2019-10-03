@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -159,8 +160,7 @@ public class EvaluationTestCase {
 
   private StarlarkFile parseStarlarkFile(String... lines) {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, thread, /*isBuildFile=*/ false);
+    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
     Event.replayEventsOn(getEventHandler(), file.errors());
     return file;
   }
@@ -201,7 +201,8 @@ public class EvaluationTestCase {
   public Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, thread, testMode == TestMode.BUILD);
+    ValidationEnvironment.validateFile(
+        file, thread.getGlobals(), thread.getSemantics(), testMode == TestMode.BUILD);
     if (testMode == TestMode.SKYLARK) { // .bzl and other dialects
       if (!file.ok()) {
         throw new SyntaxError(file.errors());

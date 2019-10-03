@@ -1109,7 +1109,7 @@ public final class EvalUtils {
     }
   }
 
-  /** Executes a Starlark file in a given StarlarkThread. */
+  /** Executes a parsed, validated Starlark file in a given StarlarkThread. */
   public static void exec(StarlarkFile file, StarlarkThread thread)
       throws EvalException, InterruptedException {
     for (Statement stmt : file.getStatements()) {
@@ -1121,5 +1121,20 @@ public final class EvalUtils {
   public static void execToplevelStatement(Statement stmt, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Eval.execToplevelStatement(thread, stmt);
+  }
+
+  /**
+   * Parses the input as a file, validates it in the {@code thread.getGlobals} environment using
+   * options defined by {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark
+   * (not BUILD) validation semantics.
+   *
+   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
+   * the StarlarkFile. It is the caller's responsibility to inspect them.
+   */
+  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
+    StarlarkFile file = StarlarkFile.parse(input);
+    ValidationEnvironment.validateFile(
+        file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
+    return file;
   }
 }

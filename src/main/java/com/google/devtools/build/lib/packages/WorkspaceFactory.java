@@ -210,7 +210,8 @@ public class WorkspaceFactory {
     }
 
     // Validate the file, apply BUILD dialect checks, then execute.
-    ValidationEnvironment.validateFile(file, workspaceThread, /*isBuildFile=*/ true);
+    ValidationEnvironment.validateFile(
+        file, workspaceThread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
     } else if (PackageFactory.checkBuildSyntax(file, localReporter)) {

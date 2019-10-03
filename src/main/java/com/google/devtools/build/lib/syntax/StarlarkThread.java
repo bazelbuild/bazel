@@ -284,7 +284,9 @@ public final class StarlarkThread implements Freezable {
    * #initialize}. It is illegal to use any other method in-between these two calls, or to call
    * {@link #initialize} on an already initialized {@link GlobalFrame}.
    */
-  public static final class GlobalFrame implements Frame {
+  // TODO(adonovan): move this to toplevel, call it "Module", and remove references to it from
+  // StarlarkThread.
+  public static final class GlobalFrame implements Frame, ValidationEnvironment.Module {
     /**
      * Final, except that it may be initialized after instantiation. Null mutability indicates that
      * this Frame is uninitialized.
@@ -294,7 +296,7 @@ public final class StarlarkThread implements Freezable {
     /** Final, except that it may be initialized after instantiation. */
     @Nullable private GlobalFrame universe;
 
-    // The label (an optional piece of metatata) associated with the file.
+    // The label (an optional piece of metadata) associated with the file.
     @Nullable private Object label;
 
     /** Bindings are maintained in order of creation. */
@@ -497,6 +499,17 @@ public final class StarlarkThread implements Freezable {
         }
       }
       return result.build();
+    }
+
+    @Override
+    public Set<String> getNames() {
+      return getTransitiveBindings().keySet();
+    }
+
+    @Override
+    public String getUndeclaredNameError(StarlarkSemantics semantics, String name) {
+      FlagGuardedValue v = restrictedBindings.get(name);
+      return v == null ? null : v.getErrorFromAttemptingAccess(semantics, name);
     }
 
     @Override
@@ -1159,16 +1172,6 @@ public final class StarlarkThread implements Freezable {
     return globalValue;
   }
 
-  /**
-   * Returns a map containing all bindings that are technically <i>present</i> but are
-   * <i>restricted</i> in the current frame with the current semantics. Such bindings should be
-   * treated unresolvable; this method should be invoked to prepare error messaging for evaluation
-   * environments where access of these restricted objects may have been attempted.
-   */
-  Map<String, FlagGuardedValue> getRestrictedBindings() {
-    return globalFrame.restrictedBindings;
-  }
-
   public StarlarkSemantics getSemantics() {
     return semantics;
   }
@@ -1200,7 +1203,7 @@ public final class StarlarkThread implements Freezable {
   // TODO(adonovan): push this up into the debugger once the exec API is finalized.
   public void debugExec(ParserInput input) throws SyntaxError, EvalException, InterruptedException {
     StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, this, /*isBuildFile=*/ false);
+    ValidationEnvironment.validateFile(file, getGlobals(), getSemantics(), /*isBuildFile=*/ false);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }

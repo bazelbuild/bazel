@@ -1804,7 +1804,8 @@ public final class PackageFactory {
 
       // Attempt validation only if the file parsed clean.
       if (file.ok()) {
-        ValidationEnvironment.validateFile(file, pkgThread, /*isBuildFile=*/ true);
+        ValidationEnvironment.validateFile(
+            file, pkgThread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
         if (!file.ok()) {
           Event.replayEventsOn(eventHandler, file.errors());
           ok = false;
