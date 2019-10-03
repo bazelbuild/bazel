@@ -61,7 +61,7 @@ public class AndroidResourceMergingAction {
       Logger.getLogger(AndroidResourceMergingAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  public static class Options extends OptionsBase {
 
     @Option(
       name = "primaryData",

@@ -20,8 +20,11 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
-import com.google.devtools.build.android.AndroidResourceMergingAction.Options;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
+import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
@@ -44,6 +47,20 @@ public class AndroidCompiledResourceMergingAction {
 
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledResourceMergingAction.class.getName());
+
+  /** Flag specifications for this action. */
+  public static class Options extends AndroidResourceMergingAction.Options {
+    @Option(
+        name = "rTxtOut",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Path to where an R.txt file declaring potentially-used resources should be written.")
+    public Path rTxtOut;
+  }
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
@@ -83,12 +100,16 @@ public class AndroidCompiledResourceMergingAction {
       resourceClassWriter.setIncludeJavaFile(false);
       resourceClassWriter.setAnnotateTransitiveFields(options.annotateTransitiveFields);
 
+      PlaceholderRTxtWriter rTxtWriter =
+          options.rTxtOut != null ? PlaceholderRTxtWriter.create(options.rTxtOut) : null;
+
       AndroidResourceMerger.mergeCompiledData(
           options.primaryData,
           options.primaryManifest,
           options.directData,
           options.transitiveData,
           resourceClassWriter,
+          rTxtWriter,
           options.throwOnResourceConflict,
           executorService);
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

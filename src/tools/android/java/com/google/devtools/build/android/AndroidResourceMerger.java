@@ -249,6 +249,7 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> direct,
       final List<? extends SerializedAndroidData> transitive,
       @Nullable final AndroidResourceClassWriter rclassWriter,
+      @Nullable PlaceholderRTxtWriter rTxtWriter,
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
@@ -271,6 +272,9 @@ public class AndroidResourceMerger {
               ContentComparingChecker.create());
       timer.reset().start();
       merged.writeResourceClass(rclassWriter);
+      if (rTxtWriter != null) {
+        merged.writeRTxt(rTxtWriter);
+      }
       logger.fine(
           String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
