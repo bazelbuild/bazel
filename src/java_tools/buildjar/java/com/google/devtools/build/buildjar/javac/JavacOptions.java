@@ -17,11 +17,13 @@ package com.google.devtools.build.buildjar.javac;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -229,13 +231,16 @@ public final class JavacOptions {
 
   /**
    * Normalizer for {@code -source}, {@code -target}, and {@code --release} options. If both {@code
-   * -source} and {@code --release} are specified, {@code --release} wins.
+   * -source} and {@code --release} are specified, {@code --release} wins. If {@code -parameters}
+   * option is passed, but target option is 7 or lower, filter out {@code -parameters} option, as
+   * it is not compatbile with Java language level 7.
    */
   public static class ReleaseOptionNormalizer implements JavacOptionNormalizer {
 
     private String source;
     private String target;
     private String release;
+    private boolean parameters;
 
     @Override
     public boolean processOption(String option, Iterator<String> remaining) {
@@ -259,6 +264,9 @@ public final class JavacOptions {
             target = null;
           }
           return true;
+        case "-parameters":
+          parameters = true;
+          return true;
         default: // fall out
       }
       if (option.startsWith("--release=")) {
@@ -272,9 +280,11 @@ public final class JavacOptions {
 
     @Override
     public void normalize(List<String> normalized) {
+      String releaseOrTarget = null;
       if (release != null) {
         normalized.add("--release");
         normalized.add(release);
+        releaseOrTarget = release;
       } else {
         if (source != null) {
           normalized.add("-source");
@@ -283,7 +293,12 @@ public final class JavacOptions {
         if (target != null) {
           normalized.add("-target");
           normalized.add(target);
+          releaseOrTarget = target;
         }
+      }
+      // Put -parameters option back if no target option was provided or at least target 8.
+      if (parameters && Optional.ofNullable(releaseOrTarget).map(Ints::tryParse).orElse(8) >= 8) {
+        normalized.add("-parameters");
       }
     }
   }
