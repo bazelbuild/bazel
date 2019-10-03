@@ -1221,6 +1221,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateCompilationOutputs_empty() throws Exception {
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name='x')");
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs()",
+        "my_rule = rule(",
+        "  _impl,",
+        ");");
+
+    assertThat(getConfiguredTarget("//test:x")).isNotNull();
+  }
+
+  @Test
   public void testCcLinkingContextOnWindows() throws Exception {
     AnalysisMock.get()
         .ccSupport()
