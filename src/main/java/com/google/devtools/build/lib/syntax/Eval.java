@@ -768,17 +768,18 @@ final class Eval {
     // Optimize allocations for the common case where they are no duplicates.
     ImmutableList.Builder<String> duplicatesBuilder = null;
     // Iterate over the arguments. We assume all positional arguments come before any keyword
-    // or star arguments, because the argument list was already validated by
-    // Argument#validateFuncallArguments, as called by the Parser,
+    // or star arguments, because the argument list was already validated by the Parser,
     // which should be the only place that build FuncallExpression-s.
     // Argument lists are typically short and functions are frequently called, so go by index
     // (O(1) for ImmutableList) to avoid the iterator overhead.
     for (int i = 0; i < call.getArguments().size(); i++) {
-      Argument.Passed arg = call.getArguments().get(i);
+      Argument arg = call.getArguments().get(i);
       Object value = Eval.eval(thread, arg.getValue());
-      if (arg.isPositional()) {
+      if (arg instanceof Argument.Positional) {
+        // f(expr)
         posargs.add(value);
-      } else if (arg.isStar()) { // expand the starArg
+      } else if (arg instanceof Argument.Star) {
+        // f(*args): expand args
         if (!(value instanceof Iterable)) {
           throw new EvalException(
               call.getLocation(),
@@ -787,7 +788,8 @@ final class Eval {
         for (Object starArgUnit : (Iterable<Object>) value) {
           posargs.add(starArgUnit);
         }
-      } else if (arg.isStarStar()) { // expand the kwargs
+      } else if (arg instanceof Argument.StarStar) {
+        // f(**kwargs): expand kwargs
         ImmutableList<String> duplicates =
             addKeywordArgsAndReturnDuplicates(kwargs, value, call.getLocation());
         if (duplicates != null) {
@@ -797,11 +799,13 @@ final class Eval {
           duplicatesBuilder.addAll(duplicates);
         }
       } else {
-        if (addKeywordArgAndCheckIfDuplicate(kwargs, arg.getName(), value)) {
+        // f(id=expr)
+        String name = arg.getName();
+        if (addKeywordArgAndCheckIfDuplicate(kwargs, name, value)) {
           if (duplicatesBuilder == null) {
             duplicatesBuilder = ImmutableList.builder();
           }
-          duplicatesBuilder.add(arg.getName());
+          duplicatesBuilder.add(name);
         }
       }
     }

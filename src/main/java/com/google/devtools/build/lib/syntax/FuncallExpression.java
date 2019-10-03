@@ -26,10 +26,10 @@ import javax.annotation.Nullable;
 public final class FuncallExpression extends Expression {
 
   private final Expression function;
-  private final ImmutableList<Argument.Passed> arguments;
+  private final ImmutableList<Argument> arguments;
   private final int numPositionalArgs;
 
-  FuncallExpression(Expression function, ImmutableList<Argument.Passed> arguments) {
+  FuncallExpression(Expression function, ImmutableList<Argument> arguments) {
     this.function = Preconditions.checkNotNull(function);
     this.arguments = Preconditions.checkNotNull(arguments);
     this.numPositionalArgs = countPositionalArguments();
@@ -45,8 +45,8 @@ public final class FuncallExpression extends Expression {
    */
   private int countPositionalArguments() {
     int num = 0;
-    for (Argument.Passed arg : arguments) {
-      if (arg.isPositional()) {
+    for (Argument arg : arguments) {
+      if (arg instanceof Argument.Positional) {
         num++;
       }
     }
@@ -54,11 +54,10 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Returns an (immutable, ordered) list of function arguments. The first n are
-   * positional and the remaining ones are keyword args, where n =
-   * getNumPositionalArguments().
+   * Returns an (immutable, ordered) list of function arguments. The first n are positional and the
+   * remaining ones are keyword args, where n = getNumPositionalArguments().
    */
-  public List<Argument.Passed> getArguments() {
+  public List<Argument> getArguments() {
     return Collections.unmodifiableList(arguments);
   }
 
@@ -75,7 +74,7 @@ public final class FuncallExpression extends Expression {
     function.prettyPrint(buffer);
     buffer.append('(');
     String sep = "";
-    for (Argument.Passed arg : arguments) {
+    for (Argument arg : arguments) {
       buffer.append(sep);
       arg.prettyPrint(buffer);
       sep = ", ";
@@ -100,13 +99,11 @@ public final class FuncallExpression extends Expression {
   // TODO(adonovan): move this into sole caller.
   @Nullable
   public String getNameArg() {
-    for (Argument.Passed arg : arguments) {
-      if (arg != null) {
-        String name = arg.getName();
-        if (name != null && name.equals("name")) {
-          Expression expr = arg.getValue();
-          return (expr instanceof StringLiteral) ? ((StringLiteral) expr).getValue() : null;
-        }
+    for (Argument arg : arguments) {
+      String name = arg.getName();
+      if (name != null && name.equals("name")) {
+        Expression expr = arg.getValue();
+        return (expr instanceof StringLiteral) ? ((StringLiteral) expr).getValue() : null;
       }
     }
     return null;

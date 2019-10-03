@@ -319,7 +319,7 @@ public final class ValidationEnvironment extends NodeVisitor {
           "nested functions are not allowed. Move the function to the top level.");
     }
     for (Parameter<Expression, Expression> param : node.getParameters()) {
-      if (param.isOptional()) {
+      if (param instanceof Parameter.Optional) {
         visit(param.getDefaultValue());
       }
     }

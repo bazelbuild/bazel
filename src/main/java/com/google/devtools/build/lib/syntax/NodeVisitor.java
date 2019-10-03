@@ -42,12 +42,16 @@ public class NodeVisitor {
     visitAll(statements);
   }
 
-  // node specific visit methods
-  public void visit(Argument.Passed node) {
+  // node-specific visit methods
+
+  // All four subclasses of Argument are handled together.
+  public void visit(Argument node) {
     visit(node.getValue());
   }
 
+  // All four subclasses of Parameter are handled together.
   public void visit(Parameter<Expression, Expression> node) {
+    visit(node.getIdentifier());
     if (node.getDefaultValue() != null) {
       visit(node.getDefaultValue());
     }

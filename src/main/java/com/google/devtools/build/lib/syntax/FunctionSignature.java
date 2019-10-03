@@ -275,11 +275,11 @@ public abstract class FunctionSignature {
           }
           paramNameSet.add(name);
         }
-        if (param.isStarStar()) {
+        if (param instanceof Parameter.StarStar) {
           hasStarStar = true;
           starStar = name;
           starStarType = type;
-        } else if (param.isStar()) {
+        } else if (param instanceof Parameter.Star) {
           if (hasStar) {
             throw new SignatureException(
                 "duplicate star parameter in function definition", param);
@@ -290,7 +290,7 @@ public abstract class FunctionSignature {
             star = name;
             starType = type;
           }
-        } else if (hasStar && param.isOptional()) {
+        } else if (hasStar && param instanceof Parameter.Optional) {
           optionalNamedOnly++;
           optionalNamedOnlyParams.add(name);
           optionalNamedOnlyTypes.add(type);
@@ -298,7 +298,7 @@ public abstract class FunctionSignature {
         } else {
           params.add(name);
           types.add(type);
-          if (param.isOptional()) {
+          if (param instanceof Parameter.Optional) {
             optionalPositionals++;
             defaults.add(param.getDefaultValue());
             defaultRequired = true;

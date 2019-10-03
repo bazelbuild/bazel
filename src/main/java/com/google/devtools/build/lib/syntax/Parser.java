@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -393,6 +392,7 @@ final class Parser {
 
   // create an error expression
   private Identifier makeErrorExpression(int start, int end) {
+    // TODO(adonovan): replace this with a dedicated BadExpression node.
     return setLocation(Identifier.of("$error$"), start, end);
   }
 
@@ -412,7 +412,7 @@ final class Parser {
   //       | expr
   //       | *args
   //       | **kwargs
-  private Argument.Passed parseFuncallArgument() {
+  private Argument parseArgument() {
     final int start = token.left;
     Expression expr;
     // parse **expr
@@ -474,18 +474,104 @@ final class Parser {
 
   // funcall_suffix ::= '(' arg_list? ')'
   private Expression parseFuncallSuffix(int start, Expression function) {
-    ImmutableList<Argument.Passed> args = ImmutableList.of();
+    ImmutableList<Argument> args = ImmutableList.of();
     expect(TokenKind.LPAREN);
     int end;
     if (token.kind == TokenKind.RPAREN) {
       end = token.right;
       nextToken(); // RPAREN
     } else {
-      args = parseFuncallArguments(); // (includes optional trailing comma)
+      args = parseArguments(); // (includes optional trailing comma)
       end = token.right;
       expect(TokenKind.RPAREN);
     }
     return setLocation(new FuncallExpression(function, args), start, end);
+  }
+
+  // Parse a list of call arguments.
+  //
+  // arg_list ::= ( (arg ',')* arg ','? )?
+  private ImmutableList<Argument> parseArguments() {
+    boolean hasArgs = false;
+    boolean hasStarStar = false;
+    ImmutableList.Builder<Argument> list = ImmutableList.builder();
+
+    while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
+      if (hasArgs) {
+        expect(TokenKind.COMMA);
+        // The list may end with a comma.
+        if (token.kind == TokenKind.RPAREN) {
+          break;
+        }
+      }
+      if (hasStarStar) {
+        // TODO(adonovan): move this to validation pass too.
+        reportError(
+            lexer.createLocation(token.left, token.right),
+            "unexpected tokens after **kwargs argument");
+        break;
+      }
+      Argument arg = parseArgument();
+      hasArgs = true;
+      if (arg instanceof Argument.StarStar) { // TODO(adonovan): not Star too? verify.
+        hasStarStar = true;
+      }
+      list.add(arg);
+    }
+    ImmutableList<Argument> args = list.build();
+    validateArguments(args); // TODO(adonovan): move to validation pass.
+    return args;
+  }
+
+  // TODO(adonovan): move all this to validator, since we have to check it again there.
+  private void validateArguments(List<Argument> arguments) {
+    int i = 0;
+    int len = arguments.size();
+
+    while (i < len && arguments.get(i) instanceof Argument.Positional) {
+      i++;
+    }
+
+    while (i < len && arguments.get(i) instanceof Argument.Keyword) {
+      i++;
+    }
+
+    if (i < len && arguments.get(i) instanceof Argument.Star) {
+      i++;
+    }
+
+    if (i < len && arguments.get(i) instanceof Argument.StarStar) {
+      i++;
+    }
+
+    // If there's no argument left, everything is correct.
+    if (i == len) {
+      return;
+    }
+
+    Argument arg = arguments.get(i);
+    Location loc = arg.getLocation();
+    if (arg instanceof Argument.Positional) {
+      reportError(loc, "positional argument is misplaced (positional arguments come first)");
+      return;
+    }
+
+    if (arg instanceof Argument.Keyword) {
+      reportError(
+          loc,
+          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
+      return;
+    }
+
+    if (i < len && arg instanceof Argument.Star) {
+      reportError(loc, "*arg argument is misplaced");
+      return;
+    }
+
+    if (i < len && arg instanceof Argument.StarStar) {
+      reportError(loc, "**kwarg argument is misplaced (there can be only one)");
+      return;
+    }
   }
 
   // selector_suffix ::= '.' IDENTIFIER
@@ -499,17 +585,6 @@ final class Parser {
       int end = syncTo(EXPR_TERMINATOR_SET);
       return makeErrorExpression(start, end);
     }
-  }
-
-  // arg_list ::= ( (arg ',')* arg ','? )?
-  private ImmutableList<Argument.Passed> parseFuncallArguments() {
-    ImmutableList<Argument.Passed> arguments = parseFunctionArguments(this::parseFuncallArgument);
-    try {
-      Argument.validateFuncallArguments(arguments);
-    } catch (Argument.ArgumentException e) {
-      reportError(e.getLocation(), e.getMessage());
-    }
-    return arguments;
   }
 
   // expr_list parses a comma-separated list of expression. It assumes that the
@@ -1175,8 +1250,7 @@ final class Parser {
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    List<Parameter<Expression, Expression>> params =
-        parseFunctionArguments(this::parseFunctionParameter);
+    List<Parameter<Expression, Expression>> params = parseParameters();
     FunctionSignature.WithValues<Expression, Expression> signature = functionSignature(params);
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
@@ -1197,44 +1271,38 @@ final class Parser {
     }
   }
 
-  /**
-   * Parse a list of Argument-s. The arguments can be of class Argument.Passed or Parameter,
-   * as returned by the Supplier parseArgument (that, taking no argument, must be closed over
-   * the mutable input data structures).
-   *
-   * <p>This parser does minimal validation: it ensures the proper python use of the comma (that
-   * can terminate before a star but not after) and the fact that a **kwarg must appear last.
-   * It does NOT validate further ordering constraints for a {@code List<Argument.Passed>}, such as
-   * all positional preceding keyword arguments in a call, nor does it check the more subtle
-   * constraints for Parameter-s. This validation must happen afterwards in an appropriate method.
-   */
-  private <V extends Argument> ImmutableList<V>
-      parseFunctionArguments(Supplier<V> parseArgument) {
-    boolean hasArg = false;
+  // Parse a list of function parameters.
+  //
+  // This parser does minimal validation: it ensures the proper python use of the comma (that can
+  // terminate before a star but not after) and the fact that **kwargs must appear last. It does
+  // not validate further ordering constraints. This validation happens in the validator pass.
+  private ImmutableList<Parameter<Expression, Expression>> parseParameters() {
+    boolean hasParam = false;
     boolean hasStarStar = false;
-    ImmutableList.Builder<V> argumentsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Parameter<Expression, Expression>> list = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
-      if (hasArg) {
+      if (hasParam) {
         expect(TokenKind.COMMA);
-      }
-      if (token.kind == TokenKind.RPAREN) {
-        // list can end with a COMMA
-        break;
+        // The list may end with a comma.
+        if (token.kind == TokenKind.RPAREN) {
+          break;
+        }
       }
       if (hasStarStar) {
-        reportError(lexer.createLocation(token.left, token.right),
-            "unexpected tokens after kwarg");
+        // TODO(adonovan): move this to validation pass too.
+        reportError(lexer.createLocation(token.left, token.right), "unexpected tokens after kwarg");
         break;
       }
-      V arg = parseArgument.get();
-      hasArg = true;
-      if (arg.isStarStar()) {
+
+      Parameter<Expression, Expression> param = parseFunctionParameter();
+      hasParam = true;
+      if (param instanceof Parameter.StarStar) { // TODO(adonovan): not Star too? verify.
         hasStarStar = true;
       }
-      argumentsBuilder.add(arg);
+      list.add(param);
     }
-    return argumentsBuilder.build();
+    return list.build();
   }
 
   // suite is typically what follows a colon (e.g. after def or for).

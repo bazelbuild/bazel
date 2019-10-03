@@ -22,6 +22,38 @@ import java.util.List;
 /** An Node is a node in a Starlark syntax tree. */
 public abstract class Node {
 
+  // Use these typical node distributions in Bazel files
+  // as a rough guide for optimization decisions.
+  // BUILD files are much more numerous than .bzl files,
+  // and typically larger.
+  //
+  // Large BUILD file:
+  //   49  % StringLiteral
+  //   17  % Identifier
+  //   12  % Argument.Keyword
+  //    9  % ListExpression
+  //    4  % CallExpression
+  //    3.5% ExpressionStatement
+  //    3.1% Comment
+  //    1.2% Argument.Positional
+  //    1.8% all others
+  //
+  // Large .bzl logic file:
+  //   42 % Identifier
+  //   12 % DotExpression
+  //   7.1% StringLiteral
+  //   6.7% Argument.Keyword
+  //   6.7% CallExpression
+  //   4.6% Argument.Positional
+  //   3.1% Comment
+  //   2.4% ListExpression
+  //   2.4% ExpressionStatement
+  //   2.2% AssignmentStatement
+  //   1.9% DictExpression.Entry
+  //   1.9% BinaryOperatorExpression
+  //   1.0% Comprehension
+  //   6  % all others
+
   private Location location;
 
   protected Node() {}

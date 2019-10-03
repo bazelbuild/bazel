@@ -213,7 +213,7 @@ public final class ParserTest {
     IntegerLiteral arg1 = (IntegerLiteral) e.getArguments().get(1).getValue();
     assertThat((int) arg1.getValue()).isEqualTo(2);
 
-    Argument.Passed arg2 = e.getArguments().get(2);
+    Argument arg2 = e.getArguments().get(2);
     assertThat(arg2.getName()).isEqualTo("bar");
     Identifier arg2val = (Identifier) arg2.getValue();
     assertThat(arg2val.getName()).isEqualTo("wiz");
@@ -236,7 +236,7 @@ public final class ParserTest {
     IntegerLiteral arg1 = (IntegerLiteral) e.getArguments().get(1).getValue();
     assertThat((int) arg1.getValue()).isEqualTo(2);
 
-    Argument.Passed arg2 = e.getArguments().get(2);
+    Argument arg2 = e.getArguments().get(2);
     assertThat(arg2.getName()).isEqualTo("bar");
     Identifier arg2val = (Identifier) arg2.getValue();
     assertThat(arg2val.getName()).isEqualTo("wiz");
@@ -377,7 +377,7 @@ public final class ParserTest {
     IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
     assertThat((int) arg0.getValue()).isEqualTo(1);
 
-    Argument.Passed arg1 = e.getArguments().get(1);
+    Argument arg1 = e.getArguments().get(1);
     Identifier arg1val = ((Identifier) arg1.getValue());
     assertThat(arg1val.getName()).isEqualTo("$error$");
 
@@ -406,7 +406,7 @@ public final class ParserTest {
   public void testSecondaryLocation() throws SyntaxError {
     String expr = "f(1 % 2)";
     FuncallExpression call = (FuncallExpression) parseExpression(expr);
-    Argument.Passed arg = call.getArguments().get(0);
+    Argument arg = call.getArguments().get(0);
     assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
 
@@ -414,7 +414,7 @@ public final class ParserTest {
   public void testPrimaryLocation() throws SyntaxError {
     String expr = "f(1 + 2)";
     FuncallExpression call = (FuncallExpression) parseExpression(expr);
-    Argument.Passed arg = call.getArguments().get(0);
+    Argument arg = call.getArguments().get(0);
     assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
 
@@ -1235,19 +1235,15 @@ public final class ParserTest {
   @Test
   public void testKwargBeforePositionalArg() throws Exception {
     setFailFast(false);
-    parseFile(
-        "def func(a, b): return a + b", //
-        "func(**{'b': 1}, 'a')");
-    assertContainsError("unexpected tokens after kwarg");
+    parseFile("f(**a, b)");
+    assertContainsError("unexpected tokens after **kwargs argument");
   }
 
   @Test
   public void testDuplicateKwarg() throws Exception {
     setFailFast(false);
-    parseFile(
-        "def func(a, b): return a + b", //
-        "func(**{'b': 1}, **{'a': 2})");
-    assertContainsError("unexpected tokens after kwarg");
+    parseFile("f(**a, **b)");
+    assertContainsError("unexpected tokens after **kwargs argument");
   }
 
   @Test

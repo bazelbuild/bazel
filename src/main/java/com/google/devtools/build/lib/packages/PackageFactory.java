@@ -1858,15 +1858,15 @@ public final class PackageFactory {
 
       boolean excludeDirectories = true; // excluded by default.
       List<String> globStrings = new ArrayList<>();
-      for (Argument.Passed arg : node.getArguments()) {
-        if (arg.getIdentifier() != null
-            && arg.getIdentifier().getName().equals("exclude_directories")) {
+      for (Argument arg : node.getArguments()) {
+        String name = arg.getName();
+        if (name != null && name.equals("exclude_directories")) {
           if (arg.getValue() instanceof IntegerLiteral) {
             excludeDirectories = ((IntegerLiteral) arg.getValue()).getValue() != 0;
           }
           continue;
         }
-        if (arg.getIdentifier() == null || arg.getIdentifier().getName().equals("include")) {
+        if (name == null || name.equals("include")) {
           if (arg.getValue() instanceof ListExpression) {
             ListExpression list = (ListExpression) arg.getValue();
             for (Expression elem : list.getElements()) {
@@ -1977,13 +1977,13 @@ public final class PackageFactory {
 
           @Override
           public void visit(FuncallExpression node) {
-            for (Argument.Passed arg : node.getArguments()) {
-              if (arg.isStarStar()) {
+            for (Argument arg : node.getArguments()) {
+              if (arg instanceof Argument.StarStar) {
                 error(
                     node,
                     "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
                         + "explicitly.");
-              } else if (arg.isStar()) {
+              } else if (arg instanceof Argument.Star) {
                 error(
                     node,
                     "*args arguments are not allowed in BUILD files. Pass the arguments in "
