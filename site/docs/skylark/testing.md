@@ -266,7 +266,7 @@ the test rule:
 myrule_c_opt_test = analysistest.make(
     _myrule_c_opt_test_impl,
     config_settings = {
-        "//command_line_option:c": "opt",
+        "//command_line_option:compilation_mode": "opt",
     },
 )
 ```
