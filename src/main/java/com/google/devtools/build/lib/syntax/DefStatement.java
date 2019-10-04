@@ -22,11 +22,11 @@ public final class DefStatement extends Statement {
   private final Identifier identifier;
   private final FunctionSignature.WithValues<Expression, Expression> signature;
   private final ImmutableList<Statement> statements;
-  private final ImmutableList<Parameter<Expression, Expression>> parameters;
+  private final ImmutableList<Parameter> parameters;
 
   DefStatement(
       Identifier identifier,
-      Iterable<Parameter<Expression, Expression>> parameters,
+      Iterable<Parameter> parameters,
       FunctionSignature.WithValues<Expression, Expression> signature,
       Iterable<Statement> statements) {
     this.identifier = identifier;
@@ -42,7 +42,7 @@ public final class DefStatement extends Statement {
     identifier.prettyPrint(buffer);
     buffer.append('(');
     String sep = "";
-    for (Parameter<?, ?> param : parameters) {
+    for (Parameter param : parameters) {
       buffer.append(sep);
       param.prettyPrint(buffer);
       sep = ", ";
@@ -64,10 +64,11 @@ public final class DefStatement extends Statement {
     return statements;
   }
 
-  public ImmutableList<Parameter<Expression, Expression>> getParameters() {
+  public ImmutableList<Parameter> getParameters() {
     return parameters;
   }
 
+  // TODO(adonovan): remove this, and sole external call from StatementCodecTest.
   public FunctionSignature.WithValues<Expression, Expression> getSignature() {
     return signature;
   }

@@ -50,7 +50,7 @@ public class NodeVisitor {
   }
 
   // All four subclasses of Parameter are handled together.
-  public void visit(Parameter<Expression, Expression> node) {
+  public void visit(Parameter node) {
     visit(node.getIdentifier());
     if (node.getDefaultValue() != null) {
       visit(node.getDefaultValue());
@@ -132,11 +132,7 @@ public class NodeVisitor {
 
   public void visit(DefStatement node) {
     visit(node.getIdentifier());
-    // Do not use visitAll for the parameters, because we would lose the type information.
-    // Inside the AST, we know that Parameters are using Expressions.
-    for (Parameter<Expression, Expression> param : node.getParameters()) {
-      visit(param);
-    }
+    visitAll(node.getParameters());
     visitBlock(node.getStatements());
   }
 

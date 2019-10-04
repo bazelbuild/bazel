@@ -444,30 +444,29 @@ final class Parser {
 
   // arg ::= IDENTIFIER '=' nontupleexpr
   //       | IDENTIFIER
-  private Parameter<Expression, Expression> parseFunctionParameter() {
-    // TODO(bazel-team): optionally support type annotations
+  private Parameter parseFunctionParameter() {
     int start = token.left;
     if (token.kind == TokenKind.STAR_STAR) { // kwarg
       nextToken();
       Identifier ident = parseIdent();
-      return setLocation(new Parameter.StarStar<>(ident), start, ident);
+      return setLocation(new Parameter.StarStar(ident), start, ident);
     } else if (token.kind == TokenKind.STAR) { // stararg
       int end = token.right;
       nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier ident = parseIdent();
-        return setLocation(new Parameter.Star<>(ident), start, ident);
+        return setLocation(new Parameter.Star(ident), start, ident);
       } else {
-        return setLocation(new Parameter.Star<>(null), start, end);
+        return setLocation(new Parameter.Star(null), start, end);
       }
     } else {
       Identifier ident = parseIdent();
       if (token.kind == TokenKind.EQUALS) { // there's a default value
         nextToken();
         Expression expr = parseNonTupleExpression();
-        return setLocation(new Parameter.Optional<>(ident, expr), start, expr);
+        return setLocation(new Parameter.Optional(ident, expr), start, expr);
       } else {
-        return setLocation(new Parameter.Mandatory<>(ident), start, ident);
+        return setLocation(new Parameter.Mandatory(ident), start, ident);
       }
     }
   }
@@ -1250,7 +1249,7 @@ final class Parser {
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    List<Parameter<Expression, Expression>> params = parseParameters();
+    List<Parameter> params = parseParameters();
     FunctionSignature.WithValues<Expression, Expression> signature = functionSignature(params);
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
@@ -1261,9 +1260,9 @@ final class Parser {
   }
 
   private FunctionSignature.WithValues<Expression, Expression> functionSignature(
-      List<Parameter<Expression, Expression>> parameters) {
+      List<Parameter> parameters) {
     try {
-      return FunctionSignature.WithValues.of(parameters);
+      return FunctionSignature.WithValues.fromParameters(parameters);
     } catch (FunctionSignature.SignatureException e) {
       reportError(e.getParameter().getLocation(), e.getMessage());
       // return bogus empty signature
@@ -1276,10 +1275,10 @@ final class Parser {
   // This parser does minimal validation: it ensures the proper python use of the comma (that can
   // terminate before a star but not after) and the fact that **kwargs must appear last. It does
   // not validate further ordering constraints. This validation happens in the validator pass.
-  private ImmutableList<Parameter<Expression, Expression>> parseParameters() {
+  private ImmutableList<Parameter> parseParameters() {
     boolean hasParam = false;
     boolean hasStarStar = false;
-    ImmutableList.Builder<Parameter<Expression, Expression>> list = ImmutableList.builder();
+    ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
       if (hasParam) {
@@ -1295,7 +1294,7 @@ final class Parser {
         break;
       }
 
-      Parameter<Expression, Expression> param = parseFunctionParameter();
+      Parameter param = parseFunctionParameter();
       hasParam = true;
       if (param instanceof Parameter.StarStar) { // TODO(adonovan): not Star too? verify.
         hasStarStar = true;

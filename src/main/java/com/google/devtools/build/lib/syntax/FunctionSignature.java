@@ -236,12 +236,9 @@ public abstract class FunctionSignature {
       return new AutoValue_FunctionSignature_WithValues<>(signature, defaultValues, types);
     }
 
-    /**
-     * Parse a list of Parameter into a FunctionSignature.
-     *
-     * <p>To be used both by the Parser and by the SkylarkSignature annotation processor.
-     */
-    public static <V, T> WithValues<V, T> of(Iterable<Parameter<V, T>> parameters)
+    /** Convert a list of Parameter into a FunctionSignature. */
+    // TODO(adonovan): inline into parser (or validator) and simplify.
+    static WithValues<Expression, Expression> fromParameters(Iterable<Parameter> parameters)
         throws SignatureException {
       int mandatoryPositionals = 0;
       int optionalPositionals = 0;
@@ -251,25 +248,20 @@ public abstract class FunctionSignature {
       boolean hasStar = false;
       @Nullable String star = null;
       @Nullable String starStar = null;
-      @Nullable T starType = null;
-      @Nullable T starStarType = null;
       ArrayList<String> params = new ArrayList<>();
-      ArrayList<V> defaults = new ArrayList<>();
-      ArrayList<T> types = new ArrayList<>();
+      ArrayList<Expression> defaults = new ArrayList<>();
       // optional named-only parameters are kept aside to be spliced after the mandatory ones.
       ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
-      ArrayList<T> optionalNamedOnlyTypes = new ArrayList<>();
-      ArrayList<V> optionalNamedOnlyDefaultValues = new ArrayList<>();
+      ArrayList<Expression> optionalNamedOnlyDefaultValues = new ArrayList<>();
       boolean defaultRequired = false; // true after mandatory positionals and before star.
       Set<String> paramNameSet = new HashSet<>(); // set of names, to avoid duplicates
 
-      for (Parameter<V, T> param : parameters) {
+      for (Parameter param : parameters) {
         if (hasStarStar) {
           throw new SignatureException("illegal parameter after star-star parameter", param);
         }
         @Nullable String name = param.getName();
-        @Nullable T type = param.getType();
-        if (param.hasName()) {
+        if (param.getName() != null) {
           if (paramNameSet.contains(name)) {
             throw new SignatureException("duplicate parameter name in function definition", param);
           }
@@ -278,7 +270,6 @@ public abstract class FunctionSignature {
         if (param instanceof Parameter.StarStar) {
           hasStarStar = true;
           starStar = name;
-          starStarType = type;
         } else if (param instanceof Parameter.Star) {
           if (hasStar) {
             throw new SignatureException(
@@ -286,18 +277,15 @@ public abstract class FunctionSignature {
           }
           hasStar = true;
           defaultRequired = false;
-          if (param.hasName()) {
+          if (param.getName() != null) {
             star = name;
-            starType = type;
           }
         } else if (hasStar && param instanceof Parameter.Optional) {
           optionalNamedOnly++;
           optionalNamedOnlyParams.add(name);
-          optionalNamedOnlyTypes.add(type);
           optionalNamedOnlyDefaultValues.add(param.getDefaultValue());
         } else {
           params.add(name);
-          types.add(type);
           if (param instanceof Parameter.Optional) {
             optionalPositionals++;
             defaults.add(param.getDefaultValue());
@@ -314,16 +302,13 @@ public abstract class FunctionSignature {
         }
       }
       params.addAll(optionalNamedOnlyParams);
-      types.addAll(optionalNamedOnlyTypes);
       defaults.addAll(optionalNamedOnlyDefaultValues);
 
       if (star != null) {
         params.add(star);
-        types.add(starType);
       }
       if (starStar != null) {
         params.add(starStar);
-        types.add(starStarType);
       }
       return WithValues.create(
           FunctionSignature.create(
@@ -335,7 +320,7 @@ public abstract class FunctionSignature {
               starStar != null,
               ImmutableList.copyOf(params)),
           FunctionSignature.valueListOrNull(defaults),
-          FunctionSignature.valueListOrNull(types));
+          null);
     }
 
     public StringBuilder toStringBuilder(final StringBuilder sb) {
@@ -547,16 +532,17 @@ public abstract class FunctionSignature {
 
   /** Invalid signature from Parser or from SkylarkSignature annotations */
   protected static class SignatureException extends Exception {
-    @Nullable private final Parameter<?, ?> parameter;
+    @Nullable private final Parameter parameter;
 
     /** SignatureException from a message and a Parameter */
-    public SignatureException(String message, @Nullable Parameter<?, ?> parameter) {
+    public SignatureException(String message, @Nullable Parameter parameter) {
       super(message);
       this.parameter = parameter;
     }
 
     /** what parameter caused the exception, if identified? */
-    @Nullable public Parameter<?, ?> getParameter() {
+    @Nullable
+    public Parameter getParameter() {
       return parameter;
     }
   }
