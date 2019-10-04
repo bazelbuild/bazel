@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
@@ -40,9 +39,7 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
    *     Location#BUILTIN} if it is a native provider.
    */
   protected ProviderFromFunction(
-      @Nullable String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature,
-      Location location) {
+      @Nullable String name, FunctionSignature.WithValues signature, Location location) {
     super(name, signature, location);
   }
 

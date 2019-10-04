@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
@@ -109,8 +108,7 @@ public final class FunctionUtil {
 
   private static List<FunctionParamInfo> parameterInfos(
       StarlarkFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
-    FunctionSignature.WithValues<Object, SkylarkType> signature =
-        userDefinedFunction.getSignature();
+    FunctionSignature.WithValues signature = userDefinedFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
     List<String> paramNames = signature.getSignature().getParameterNames();

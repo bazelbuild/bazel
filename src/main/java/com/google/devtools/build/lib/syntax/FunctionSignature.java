@@ -164,7 +164,7 @@ public abstract class FunctionSignature {
 
   /** Append a representation of this signature to a string buffer. */
   public StringBuilder toStringBuilder(StringBuilder sb) {
-    return WithValues.<Object, SkylarkType>create(this).toStringBuilder(sb);
+    return WithValues.create(this).toStringBuilder(sb);
   }
 
   @Override
@@ -181,14 +181,10 @@ public abstract class FunctionSignature {
    *
    * <p>Note that if some values can be null (for BuiltinFunction, not for StarlarkFunction), you
    * should use an ArrayList; otherwise, we recommend an ImmutableList.
-   *
-   * <p>V is the class of defaultValues and T is the class of types. When parsing a function
-   * definition at compile-time, they are &lt;Expression, Expression&gt;; when processing
-   * a @SkylarkSignature annotation at build-time, &lt;Object, SkylarkType&gt;.
    */
   @AutoCodec
   @AutoValue
-  public abstract static class WithValues<V, T> {
+  public abstract static class WithValues {
 
     /** the underlying parameter signature */
     public abstract FunctionSignature getSignature();
@@ -197,130 +193,65 @@ public abstract class FunctionSignature {
      * The default values (if any) as an unmodifiable List of one per optional parameter. May
      * contain nulls.
      */
-    @Nullable public abstract List<V> getDefaultValues();
+    @Nullable
+    public abstract List<Object> getDefaultValues();
 
     /**
      * The parameter types (if specified) as an unmodifiable List of one per parameter, including *
      * and **. May contain nulls.
      */
-    @Nullable public abstract List<T> getTypes();
+    @Nullable
+    public abstract List<SkylarkType> getTypes();
 
     /** Create a signature with (default and type) values. */
-    public static <V, T> WithValues<V, T> create(FunctionSignature signature,
-        @Nullable List<V> defaultValues, @Nullable List<T> types) {
-      List<V> convertedDefaultValues = null;
+    public static WithValues create(
+        FunctionSignature signature,
+        @Nullable List<Object> defaultValues,
+        @Nullable List<SkylarkType> types) {
+      // TODO(adonovan): it's tempting to use ImmutableLists here, like so:
+      //
+      // if (defaultValues != null) {
+      //   defaultValues = ImmutableList.copyOf(defaultValues);
+      //   Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
+      // }
+      // if (types != null) {
+      //   types = ImmutableList.copyOf(types);
+      //   Preconditions.checkArgument(types.size() == signature.numParameters());
+      // }
+      //
+      // But:
+      // - the defaultValues list apparently contains null elements. Investigate.
+      // - tests fail if we replace a null defaultValues list with an empty list. Investigate.
+      // Ideally the lists and the elements would be non-nullable.
+
+      List<Object> convertedDefaultValues = null;
       if (defaultValues != null) {
         Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
-        List<V> copiedDefaultValues = new ArrayList<>();
+        List<Object> copiedDefaultValues = new ArrayList<>();
         copiedDefaultValues.addAll(defaultValues);
         convertedDefaultValues = Collections.unmodifiableList(copiedDefaultValues);
       }
-      List<T> convertedTypes = null;
+      List<SkylarkType> convertedTypes = null;
       if (types != null) {
         Preconditions.checkArgument(types.size() == signature.numParameters());
-        List<T> copiedTypes = new ArrayList<>();
+        List<SkylarkType> copiedTypes = new ArrayList<>();
         copiedTypes.addAll(types);
         convertedTypes = Collections.unmodifiableList(copiedTypes);
       }
       return createInternal(signature, convertedDefaultValues, convertedTypes);
     }
 
-    public static <V, T> WithValues<V, T> create(FunctionSignature signature) {
+    public static WithValues create(FunctionSignature signature) {
       return create(signature, null, null);
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static <V, T> WithValues<V, T> createInternal(
-        FunctionSignature signature, @Nullable List<V> defaultValues, @Nullable List<T> types) {
-      return new AutoValue_FunctionSignature_WithValues<>(signature, defaultValues, types);
-    }
-
-    /** Convert a list of Parameter into a FunctionSignature. */
-    // TODO(adonovan): inline into parser (or validator) and simplify.
-    static WithValues<Expression, Expression> fromParameters(Iterable<Parameter> parameters)
-        throws SignatureException {
-      int mandatoryPositionals = 0;
-      int optionalPositionals = 0;
-      int mandatoryNamedOnly = 0;
-      int optionalNamedOnly = 0;
-      boolean hasStarStar = false;
-      boolean hasStar = false;
-      @Nullable String star = null;
-      @Nullable String starStar = null;
-      ArrayList<String> params = new ArrayList<>();
-      ArrayList<Expression> defaults = new ArrayList<>();
-      // optional named-only parameters are kept aside to be spliced after the mandatory ones.
-      ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
-      ArrayList<Expression> optionalNamedOnlyDefaultValues = new ArrayList<>();
-      boolean defaultRequired = false; // true after mandatory positionals and before star.
-      Set<String> paramNameSet = new HashSet<>(); // set of names, to avoid duplicates
-
-      for (Parameter param : parameters) {
-        if (hasStarStar) {
-          throw new SignatureException("illegal parameter after star-star parameter", param);
-        }
-        @Nullable String name = param.getName();
-        if (param.getName() != null) {
-          if (paramNameSet.contains(name)) {
-            throw new SignatureException("duplicate parameter name in function definition", param);
-          }
-          paramNameSet.add(name);
-        }
-        if (param instanceof Parameter.StarStar) {
-          hasStarStar = true;
-          starStar = name;
-        } else if (param instanceof Parameter.Star) {
-          if (hasStar) {
-            throw new SignatureException(
-                "duplicate star parameter in function definition", param);
-          }
-          hasStar = true;
-          defaultRequired = false;
-          if (param.getName() != null) {
-            star = name;
-          }
-        } else if (hasStar && param instanceof Parameter.Optional) {
-          optionalNamedOnly++;
-          optionalNamedOnlyParams.add(name);
-          optionalNamedOnlyDefaultValues.add(param.getDefaultValue());
-        } else {
-          params.add(name);
-          if (param instanceof Parameter.Optional) {
-            optionalPositionals++;
-            defaults.add(param.getDefaultValue());
-            defaultRequired = true;
-          } else if (hasStar) {
-            mandatoryNamedOnly++;
-          } else if (defaultRequired) {
-              throw new SignatureException(
-                  "a mandatory positional parameter must not follow an optional parameter",
-                  param);
-          } else {
-            mandatoryPositionals++;
-          }
-        }
-      }
-      params.addAll(optionalNamedOnlyParams);
-      defaults.addAll(optionalNamedOnlyDefaultValues);
-
-      if (star != null) {
-        params.add(star);
-      }
-      if (starStar != null) {
-        params.add(starStar);
-      }
-      return WithValues.create(
-          FunctionSignature.create(
-              mandatoryPositionals,
-              optionalPositionals,
-              mandatoryNamedOnly,
-              optionalNamedOnly,
-              star != null,
-              starStar != null,
-              ImmutableList.copyOf(params)),
-          FunctionSignature.valueListOrNull(defaults),
-          null);
+    static WithValues createInternal(
+        FunctionSignature signature,
+        @Nullable List<Object> defaultValues,
+        @Nullable List<SkylarkType> types) {
+      return new AutoValue_FunctionSignature_WithValues(signature, defaultValues, types);
     }
 
     public StringBuilder toStringBuilder(final StringBuilder sb) {
@@ -344,8 +275,8 @@ public abstract class FunctionSignature {
       FunctionSignature sig = getSignature();
       final BasePrinter printer = Printer.getPrinter(sb);
       final ImmutableList<String> names = sig.getParameterNames();
-      @Nullable final List<V> defaultValues = getDefaultValues();
-      @Nullable final List<T> types = getTypes();
+      @Nullable final List<Object> defaultValues = getDefaultValues();
+      @Nullable final List<SkylarkType> types = getTypes();
 
       int mandatoryPositionals = sig.numMandatoryPositionals();
       int optionalPositionals = sig.numOptionalPositionals();
@@ -438,6 +369,82 @@ public abstract class FunctionSignature {
       toStringBuilder(sb);
       return sb.toString();
     }
+  }
+
+  /** Convert a list of Parameter into a FunctionSignature. */
+  static FunctionSignature fromParameters(Iterable<Parameter> parameters)
+      throws SignatureException {
+    int mandatoryPositionals = 0;
+    int optionalPositionals = 0;
+    int mandatoryNamedOnly = 0;
+    int optionalNamedOnly = 0;
+    boolean hasStarStar = false;
+    boolean hasStar = false;
+    @Nullable String star = null;
+    @Nullable String starStar = null;
+    ArrayList<String> params = new ArrayList<>();
+    // optional named-only parameters are kept aside to be spliced after the mandatory ones.
+    ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
+    boolean defaultRequired = false; // true after mandatory positionals and before star.
+    Set<String> paramNameSet = new HashSet<>(); // set of names, to avoid duplicates
+
+    for (Parameter param : parameters) {
+      if (hasStarStar) {
+        throw new SignatureException("illegal parameter after star-star parameter", param);
+      }
+      @Nullable String name = param.getName();
+      if (param.getName() != null) {
+        if (paramNameSet.contains(name)) {
+          throw new SignatureException("duplicate parameter name in function definition", param);
+        }
+        paramNameSet.add(name);
+      }
+      if (param instanceof Parameter.StarStar) {
+        hasStarStar = true;
+        starStar = name;
+      } else if (param instanceof Parameter.Star) {
+        if (hasStar) {
+          throw new SignatureException("duplicate star parameter in function definition", param);
+        }
+        hasStar = true;
+        defaultRequired = false;
+        if (param.getName() != null) {
+          star = name;
+        }
+      } else if (hasStar && param instanceof Parameter.Optional) {
+        optionalNamedOnly++;
+        optionalNamedOnlyParams.add(name);
+      } else {
+        params.add(name);
+        if (param instanceof Parameter.Optional) {
+          optionalPositionals++;
+          defaultRequired = true;
+        } else if (hasStar) {
+          mandatoryNamedOnly++;
+        } else if (defaultRequired) {
+          throw new SignatureException(
+              "a mandatory positional parameter must not follow an optional parameter", param);
+        } else {
+          mandatoryPositionals++;
+        }
+      }
+    }
+    params.addAll(optionalNamedOnlyParams);
+
+    if (star != null) {
+      params.add(star);
+    }
+    if (starStar != null) {
+      params.add(starStar);
+    }
+    return FunctionSignature.create(
+        mandatoryPositionals,
+        optionalPositionals,
+        mandatoryNamedOnly,
+        optionalNamedOnly,
+        star != null,
+        starStar != null,
+        ImmutableList.copyOf(params));
   }
 
   /** The given List, or null if all the list elements are null. */

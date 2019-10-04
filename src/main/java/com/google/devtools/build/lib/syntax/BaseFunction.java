@@ -66,7 +66,7 @@ public abstract class BaseFunction implements StarlarkCallable {
 
   // A function signature, including defaults and types
   // never null after it is configured
-  @Nullable protected FunctionSignature.WithValues<Object, SkylarkType> signature;
+  @Nullable protected FunctionSignature.WithValues signature;
 
   // Location of the function definition, or null for builtin functions
   // TODO(bazel-team): Or make non-nullable, and use Location.BUILTIN for builtin functions?
@@ -93,7 +93,8 @@ public abstract class BaseFunction implements StarlarkCallable {
   }
 
   /** Returns the signature of this function. */
-  @Nullable public FunctionSignature.WithValues<Object, SkylarkType> getSignature() {
+  @Nullable
+  public FunctionSignature.WithValues getSignature() {
     return signature;
   }
 
@@ -113,7 +114,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * <p>The name must be null if called from a subclass constructor where the subclass overrides
    * {@link #getName}; otherwise it must be non-null.
    */
-  public BaseFunction(@Nullable String name) {
+  protected BaseFunction(@Nullable String name) {
     this.name = name;
   }
 
@@ -124,9 +125,9 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @param signature the signature with default values and types
    * @param location the location of function definition
    */
-  public BaseFunction(
+  protected BaseFunction(
       @Nullable String name,
-      @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature,
+      @Nullable FunctionSignature.WithValues signature,
       @Nullable Location location) {
     this(name);
     this.signature = signature;
@@ -139,9 +140,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @param name the function name; null iff this is a subclass overriding {@link #getName}
    * @param signature the signature, with default values and types
    */
-  public BaseFunction(
-      @Nullable String name,
-      @Nullable FunctionSignature.WithValues<Object, SkylarkType> signature) {
+  protected BaseFunction(@Nullable String name, @Nullable FunctionSignature.WithValues signature) {
     this(name, signature, null);
   }
 

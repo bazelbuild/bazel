@@ -75,32 +75,25 @@ public class BuiltinFunction extends BaseFunction {
   private boolean isRule;
 
   /** Create unconfigured (signature-less) function from its name */
-  public BuiltinFunction(String name) {
+  protected BuiltinFunction(String name) {
     super(name);
   }
 
   /** Creates a BuiltinFunction with the given name and signature */
-  public BuiltinFunction(String name, FunctionSignature signature) {
-    super(name, signature);
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name and signature with values */
-  public BuiltinFunction(String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature) {
+  protected BuiltinFunction(String name, FunctionSignature signature) {
     super(name, signature);
     configure();
   }
 
   /** Creates a BuiltinFunction with the given name and signature and extra arguments */
-  public BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
+  protected BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
     super(name, signature);
     this.extraArgs = extraArgs;
     configure();
   }
 
   /** Creates a BuiltinFunction with the given name, signature, extra arguments, and a rule flag */
-  public BuiltinFunction(
+  protected BuiltinFunction(
       String name, FunctionSignature signature, ExtraArgKind[] extraArgs, boolean isRule) {
     super(name, signature);
     this.extraArgs = extraArgs;
@@ -108,16 +101,8 @@ public class BuiltinFunction extends BaseFunction {
     configure();
   }
 
-  /** Creates a BuiltinFunction with the given name, signature with values, and extra arguments */
-  public BuiltinFunction(String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature, ExtraArgKind[] extraArgs) {
-    super(name, signature);
-    this.extraArgs = extraArgs;
-    configure();
-  }
-
   /** Creates a BuiltinFunction from the given name and a Factory */
-  public BuiltinFunction(String name, Factory factory) {
+  protected BuiltinFunction(String name, Factory factory) {
     super(name);
     configure(factory);
   }

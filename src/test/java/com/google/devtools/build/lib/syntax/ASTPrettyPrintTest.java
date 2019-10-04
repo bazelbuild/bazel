@@ -249,7 +249,7 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
   }
 
   @Test
-  public void functionDefStatement() {
+  public void defStatement() {
     assertStmtIndentedPrettyMatches(
         join("def f(x):",
              "  print(x)"),
@@ -268,9 +268,10 @@ public class ASTPrettyPrintTest extends EvaluationTestCase {
              "    print(x)",
              ""));
     assertStmtTostringMatches(
-        join("def f(a, b=B, *c, d=D, **e):",
-             "  print(x)"),
-        "def f(a, b = B, *c, d = D, **e): ...\n");
+        join(
+            "def f(a, b=B, *c, d=D, **e):", //
+            "  print(x)"),
+        "def f(a, b=B, *c, d=D, **e): ...\n");
 
     assertStmtIndentedPrettyMatches(
         join("def f():",

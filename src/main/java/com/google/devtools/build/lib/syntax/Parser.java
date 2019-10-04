@@ -1250,24 +1250,22 @@ final class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     List<Parameter> params = parseParameters();
-    FunctionSignature.WithValues<Expression, Expression> signature = functionSignature(params);
+
+    FunctionSignature signature;
+    try {
+      signature = FunctionSignature.fromParameters(params);
+    } catch (FunctionSignature.SignatureException e) {
+      reportError(e.getParameter().getLocation(), e.getMessage());
+      // bogus empty signature
+      signature = FunctionSignature.of();
+    }
+
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
     DefStatement stmt = new DefStatement(ident, params, signature, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
     return setLocation(stmt, start, end);
-  }
-
-  private FunctionSignature.WithValues<Expression, Expression> functionSignature(
-      List<Parameter> parameters) {
-    try {
-      return FunctionSignature.WithValues.fromParameters(parameters);
-    } catch (FunctionSignature.SignatureException e) {
-      reportError(e.getParameter().getLocation(), e.getMessage());
-      // return bogus empty signature
-      return FunctionSignature.WithValues.create(FunctionSignature.of());
-    }
   }
 
   // Parse a list of function parameters.

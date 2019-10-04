@@ -22,17 +22,19 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
-public class StarlarkFunction extends BaseFunction {
+public final class StarlarkFunction extends BaseFunction {
 
   private final ImmutableList<Statement> statements;
 
   // we close over the globals at the time of definition
   private final StarlarkThread.GlobalFrame definitionGlobals;
 
+  // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
+  // such things.
   public StarlarkFunction(
       String name,
       Location location,
-      FunctionSignature.WithValues<Object, SkylarkType> signature,
+      FunctionSignature.WithValues signature,
       ImmutableList<Statement> statements,
       StarlarkThread.GlobalFrame definitionGlobals) {
     super(name, signature, location);
@@ -49,7 +51,7 @@ public class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
+  protected Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
       throw new EvalException(getLocation(), "Trying to call in frozen environment");

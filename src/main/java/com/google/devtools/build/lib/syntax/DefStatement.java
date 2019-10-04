@@ -20,14 +20,14 @@ import java.io.IOException;
 public final class DefStatement extends Statement {
 
   private final Identifier identifier;
-  private final FunctionSignature.WithValues<Expression, Expression> signature;
+  private final FunctionSignature signature;
   private final ImmutableList<Statement> statements;
   private final ImmutableList<Parameter> parameters;
 
   DefStatement(
       Identifier identifier,
       Iterable<Parameter> parameters,
-      FunctionSignature.WithValues<Expression, Expression> signature,
+      FunctionSignature signature,
       Iterable<Statement> statements) {
     this.identifier = identifier;
     this.parameters = ImmutableList.copyOf(parameters);
@@ -38,22 +38,36 @@ public final class DefStatement extends Statement {
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
-    buffer.append("def ");
-    identifier.prettyPrint(buffer);
-    buffer.append('(');
-    String sep = "";
-    for (Parameter param : parameters) {
-      buffer.append(sep);
-      param.prettyPrint(buffer);
-      sep = ", ";
-    }
-    buffer.append("):\n");
+    appendSignatureTo(buffer);
+    buffer.append('\n');
     printSuite(buffer, statements, indentLevel);
   }
 
   @Override
   public String toString() {
-    return "def " + identifier + "(" + signature + "): ...\n";
+    // "def f(...): \n"
+    StringBuilder buf = new StringBuilder();
+    try {
+      appendSignatureTo(buf);
+    } catch (IOException ex) {
+      throw new IllegalStateException(ex); // can't fail (StringBuilder)
+    }
+    buf.append(" ...\n");
+    return buf.toString();
+  }
+
+  // Appends "def f(a, ..., z):" to the buffer.
+  private void appendSignatureTo(Appendable buf) throws IOException {
+    buf.append("def ");
+    identifier.prettyPrint(buf);
+    buf.append('(');
+    String sep = "";
+    for (Parameter param : parameters) {
+      buf.append(sep);
+      param.prettyPrint(buf);
+      sep = ", ";
+    }
+    buf.append("):");
   }
 
   public Identifier getIdentifier() {
@@ -68,8 +82,7 @@ public final class DefStatement extends Statement {
     return parameters;
   }
 
-  // TODO(adonovan): remove this, and sole external call from StatementCodecTest.
-  public FunctionSignature.WithValues<Expression, Expression> getSignature() {
+  public FunctionSignature getSignature() {
     return signature;
   }
 

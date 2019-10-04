@@ -42,15 +42,15 @@ public class SkylarkSignatureProcessor {
       new ConcurrentHashMap<>();
 
   /**
-   * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from a {@link
-   * SkylarkCallable}-annotated method.
+   * Extracts a {@code FunctionSignature.WithValues} from a {@link SkylarkCallable}-annotated
+   * method.
    *
    * @param name the name of the function
    * @param descriptor the method descriptor
    * @param paramDoc an optional list into which to store documentation strings
    * @param enforcedTypesList an optional list into which to store effective types to enforce
    */
-  public static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
+  public static FunctionSignature.WithValues getSignatureForCallable(
       String name,
       MethodDescriptor descriptor,
       @Nullable List<String> paramDoc,
@@ -77,8 +77,7 @@ public class SkylarkSignatureProcessor {
   }
 
   /**
-   * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from a {@link
-   * SkylarkSignature} annotation.
+   * Extracts a {@code FunctionSignature.WithValues} from a {@link SkylarkSignature} annotation.
    *
    * @param name the name of the function
    * @param annotation the annotation
@@ -88,7 +87,7 @@ public class SkylarkSignatureProcessor {
   // NB: the two arguments paramDoc and enforcedTypesList are used to "return" extra values via
   // side-effects, and that's ugly
   // TODO(bazel-team): use AutoValue to declare a value type to use as return value?
-  public static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
+  public static FunctionSignature.WithValues getSignatureForCallable(
       String name,
       SkylarkSignature annotation,
       @Nullable List<String> paramDoc,
@@ -121,7 +120,7 @@ public class SkylarkSignatureProcessor {
   // Then the only per-parameter information needed is a documentation string.
 
   // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
-  private static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallableImpl(
+  private static FunctionSignature.WithValues getSignatureForCallableImpl(
       final String name,
       final boolean documented,
       Param[] parameters,
@@ -218,7 +217,7 @@ public class SkylarkSignatureProcessor {
       types.add(starStarType);
     }
 
-    FunctionSignature.WithValues<Object, SkylarkType> signature =
+    FunctionSignature.WithValues signature =
         FunctionSignature.WithValues.create(
             FunctionSignature.create(
                 mandatoryPositionals,

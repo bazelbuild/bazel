@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
@@ -158,15 +157,15 @@ public class ApiExporter {
   }
 
   private static Value.Builder collectFunctionInfo(
-      String funcName, FunctionSignature.WithValues<Object, SkylarkType> funcSignature) {
+      String funcName, FunctionSignature.WithValues sig) {
     Value.Builder value = Value.newBuilder();
     value.setName(funcName);
     Callable.Builder callable = Callable.newBuilder();
 
-    ImmutableList<String> paramNames = funcSignature.getSignature().getParameterNames();
-    List<Object> defaultValues = funcSignature.getDefaultValues();
-    int positionals = funcSignature.getSignature().numMandatoryPositionals();
-    int optionals = funcSignature.getSignature().numOptionals();
+    ImmutableList<String> paramNames = sig.getSignature().getParameterNames();
+    List<?> defaultValues = sig.getDefaultValues();
+    int positionals = sig.getSignature().numMandatoryPositionals();
+    int optionals = sig.getSignature().numOptionals();
     int nameIndex = 0;
 
     for (int i = 0; i < positionals; i++) {
@@ -186,7 +185,7 @@ public class ApiExporter {
       nameIndex++;
     }
 
-    if (funcSignature.getSignature().hasVarargs()) {
+    if (sig.getSignature().hasVarargs()) {
       Param.Builder param = Param.newBuilder();
       param.setName("*" + paramNames.get(nameIndex));
       param.setIsMandatory(false);
@@ -194,7 +193,7 @@ public class ApiExporter {
       nameIndex++;
       callable.addParam(param);
     }
-    if (funcSignature.getSignature().hasKwargs()) {
+    if (sig.getSignature().hasKwargs()) {
       Param.Builder param = Param.newBuilder();
       param.setIsMandatory(false);
       param.setIsStarStarArg(true);
