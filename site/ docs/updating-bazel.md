@@ -53,3 +53,7 @@ Bazelisk can:
 *   Build the project with a Bazel version specified in the .bazelversion file. Check in that file into your version control to ensure reproducibility of your builds.
 *   Help migrate your project for incompatible changes (see above)
 *   Easily try release candidates
+
+echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+sudo apt-get install curl
+curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
