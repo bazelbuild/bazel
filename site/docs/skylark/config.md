@@ -5,7 +5,8 @@ title: Starlark Build Configurations
 
 # Starlark Build Configurations
 
-User-definable configuration is coming to Starlark!
+Starlark build configuration is Bazel's API for customizing how your project
+builds.
 
 This makes it possible to:
 
@@ -23,11 +24,8 @@ and more, all completely from .bzl files
 
 ## Current Status
 
-As of Q2'19, this effort is
-[partially rolled out](https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702)
-. Much functionality is guarded while we work out concerns about
-memory and performance
-at scale.
+As of Q4'19, everything documented here works but
+may have memory and performance consequences as we work on scaling concerns.
 
 Related issues:
 
