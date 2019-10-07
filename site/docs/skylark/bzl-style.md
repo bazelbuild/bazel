@@ -131,8 +131,10 @@ For macros that define non-leaf nodes, follow these best practices:
 
 *   A macro should take a `name` argument and define a target with that name.
     That target becomes that macro's _main target_.
-*   All other targets defined by a macro should have their names preceded with a
-    `_`, include the `name` attribute as a prefix, and have restricted
+*   All other targets defined by a macro should have their names preceded with
+    an underscore (`_`), followed by the name attribute. For instance, if the
+    macro is supplied with the name "resources", internal targets should have
+    names beginning with "_resources". They should also have restricted
     visibility.
 *   The `name` should only be used to derive names of targets defined by the
     macro, and not for anything else. For example, don't use the name to derive
