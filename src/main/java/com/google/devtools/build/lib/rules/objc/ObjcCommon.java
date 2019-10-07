@@ -368,7 +368,7 @@ public final class ObjcCommon {
           objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
           objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
         } else {
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY, provider);
+          objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATHS, provider);
           objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
         }
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
