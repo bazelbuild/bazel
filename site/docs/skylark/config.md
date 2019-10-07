@@ -144,8 +144,9 @@ flavor(
 )
 ```
 
-TODO(bazel-team): Implement common build settings rules and providers for simple
-cases where the implementation just fowards the value.
+A collection of the most common build setting rules can be found in
+ -->
+[skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
 ### Using Build Settings
 
