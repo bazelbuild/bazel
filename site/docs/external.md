@@ -257,6 +257,37 @@ ls $(bazel info output_base)/external
 Note that running `bazel clean` will not actually delete the external
 directory. To remove all external artifacts, use `bazel clean --expunge`.
 
+## Offline builds
+
+It is sometimes desirable or necessary to run a build in an offline fashion. For
+simple use cases, e.g., traveling on an airplane,
+[prefetching](#fetching-dependencies) the needed
+repositories with `bazel fetch` or `bazel sync` can be enough; moreover, the
+using the option `--nofetch`, fetching of further repositories can be disabled
+during the build.
+
+For true offline builds, where the providing of the needed files is to be done
+by an entity different from bazel, bazel supports the option
+`--distdir`. Whenever a repository rule asks bazel to fetch a file via
+[`ctx.download`](skylark/lib/repository_ctx.html#download) or
+[`ctx.download_and_extract`](skylark/lib/repository_ctx.html#download_and_extract)
+and provides a hash sum of the file
+needed, bazel will first look into the directories specified by that option for
+a file matching the basename of the first URL provided, and use that local copy
+if the hash matches.
+
+Bazel itself uses this technique to bootstrap offline from the [distribution
+artifact](https://bazel.build/designs/2016/10/11/distribution-artifact.html).
+It does so by [collecting all the needed external
+dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116)
+in an internal
+[`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
+
+However, bazel allows the exeuction of arbitrary commands in repository rules,
+without knowing if they call out to the network. Therefore, bazel has no option
+to enforce builds being fully offline. So testing if a build works correctly
+offline requires external blocking of the network, as bazel does in its
+bootstrap test.
 
 ## Best practices
 
