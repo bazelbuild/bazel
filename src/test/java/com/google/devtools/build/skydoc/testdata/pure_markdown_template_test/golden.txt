@@ -13,11 +13,11 @@ Small example of rule using a markdown template.
 **ATTRIBUTES**
 
 
-| Name  | Description | Type | Mandatory |
-| :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |
-| first |  This is the first attribute   | String | optional |
-| second |  -   | String | optional |
+| Name  | Description | Type | Mandatory | Default |
+| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
+| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
+| first |  This is the first attribute   | String | optional | "" |
+| second |  -   | String | optional | "2" |
 
 
 <a name="#ExampleProviderInfo"></a>
@@ -81,10 +81,10 @@ Small example of aspect using a markdown template.
 **ATTRIBUTES**
 
 
-| Name  | Description | Type | Mandatory |
-| :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |
-| first |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |
-| second |  This is the second attribute.   | String | optional |
+| Name  | Description | Type | Mandatory | Default |
+| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
+| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
+| first |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |   |
+| second |  This is the second attribute.   | String | optional |  "" |
 
 

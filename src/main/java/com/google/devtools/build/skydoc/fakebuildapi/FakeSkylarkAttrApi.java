@@ -43,7 +43,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of(), defaultInt);
   }
 
   @Override
@@ -55,7 +55,12 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.STRING,
+        doc,
+        mandatory,
+        ImmutableList.of(),
+        defaultString != null ? "\"" + defaultString + "\"" : null);
   }
 
   @Override
@@ -78,7 +83,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory, allNameGroups, defaultO);
   }
 
   @Override
@@ -91,7 +96,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultList);
   }
 
   @Override
@@ -104,7 +110,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.INT_LIST, doc, mandatory, ImmutableList.of(), defaultList);
   }
 
   @Override
@@ -127,7 +134,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory, allNameGroups, defaultList);
   }
 
   @Override
@@ -150,21 +157,27 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL_STRING_DICT, doc, mandatory, allNameGroups);
+    return new FakeDescriptor(
+        AttributeType.LABEL_STRING_DICT, doc, mandatory, allNameGroups, defaultList);
   }
 
   @Override
   public Descriptor boolAttribute(
       Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.BOOLEAN, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.BOOLEAN,
+        doc,
+        mandatory,
+        ImmutableList.of(),
+        Boolean.TRUE.equals(defaultO) ? "True" : "False");
   }
 
   @Override
   public Descriptor outputAttribute(
       Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
   @Override
@@ -177,7 +190,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of(), defaultList);
   }
 
   @Override
@@ -190,7 +204,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
   @Override
@@ -203,14 +218,16 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
   @Override
   public Descriptor licenseAttribute(
       Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of());
+    return new FakeDescriptor(
+        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
   @Override

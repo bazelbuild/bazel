@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(
-          AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of());
+          AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of(), "");
 
   private final List<RuleInfoWrapper> ruleInfoList;
 

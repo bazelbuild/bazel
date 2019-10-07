@@ -259,6 +259,13 @@ skydoc_test(
     input_file = "testdata/pure_markdown_template_test/input.bzl",
 )
 
+skydoc_test(
+    name = "attribute_defaults_test",
+    format = "markdown_tables",
+    golden_file = "testdata/attribute_defaults_test/golden.txt",
+    input_file = "testdata/attribute_defaults_test/input.bzl",
+)
+
 genrule(
     name = "generate_bzl_test_dep",
     srcs = ["testdata/generated_bzl_test/dep.bzl.tpl"],

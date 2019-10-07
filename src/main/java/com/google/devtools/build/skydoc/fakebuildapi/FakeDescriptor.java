@@ -29,16 +29,19 @@ public class FakeDescriptor implements Descriptor {
   private final String docString;
   private final boolean mandatory;
   private final List<List<String>> providerNameGroups;
+  private final String defaultRepresentation;
 
   public FakeDescriptor(
       AttributeType type,
       String docString,
       boolean mandatory,
-      List<List<String>> providerNameGroups) {
+      List<List<String>> providerNameGroups,
+      Object defaultObject) {
     this.type = type;
     this.docString = docString;
     this.mandatory = mandatory;
     this.providerNameGroups = providerNameGroups;
+    this.defaultRepresentation = defaultObject.toString();
   }
 
   @Override
@@ -50,7 +53,8 @@ public class FakeDescriptor implements Descriptor {
             .setName(attributeName)
             .setDocString(docString)
             .setType(type)
-            .setMandatory(mandatory);
+            .setMandatory(mandatory)
+            .setDefaultValue(mandatory ? "" : defaultRepresentation);
 
     if (!providerNameGroups.isEmpty()) {
       for (List<String> providerNameGroup : providerNameGroups) {
