@@ -8,7 +8,7 @@ attribute.](https://developer.android.com/studio/write/tool-attributes#toolstarg
 `build-system/manifest-merger/src/main/java/com/android/manifmerger/OtherOperationType.java`
 from commit 8fff824b40 in
 [studio-master-dev](https://android.googlesource.com/platform/tools/base/+/master/build-system/manifest-merger/src/main/java/com/android/manifmerger)
-with the following patch:
+with this patch:
 
 ```diff
 diff --git a/build-system/manifest-merger/src/main/java/com/android/manifmerger/OtherOperationType.java b/build-system/manifest-merger/src/main/java/com/android/manifmerger/OtherOperationType.java
