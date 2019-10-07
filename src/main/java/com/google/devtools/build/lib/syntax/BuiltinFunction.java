@@ -27,6 +27,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
@@ -44,12 +45,8 @@ public class BuiltinFunction extends BaseFunction {
     ENVIRONMENT;
   }
   // Predefined system add-ons to function signatures
-  public static final ExtraArgKind[] USE_LOC =
-      new ExtraArgKind[] {ExtraArgKind.LOCATION};
   public static final ExtraArgKind[] USE_LOC_ENV =
       new ExtraArgKind[] {ExtraArgKind.LOCATION, ExtraArgKind.ENVIRONMENT};
-  public static final ExtraArgKind[] USE_AST =
-      new ExtraArgKind[] {ExtraArgKind.SYNTAX_TREE};
   public static final ExtraArgKind[] USE_AST_ENV =
       new ExtraArgKind[] {ExtraArgKind.SYNTAX_TREE, ExtraArgKind.ENVIRONMENT};
 
@@ -108,11 +105,11 @@ public class BuiltinFunction extends BaseFunction {
   }
 
   @Override
-  protected int getArgArraySize () {
+  protected int getArgArraySize() {
     return innerArgumentCount;
   }
 
-  protected ExtraArgKind[] getExtraArgs () {
+  ExtraArgKind[] getExtraArgs() {
     return extraArgs;
   }
 
@@ -171,9 +168,7 @@ public class BuiltinFunction extends BaseFunction {
       for (int i = 0; i < args.length; i++) {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
-              i < len
-                  ? signature.getSignature().getParameterNames().get(i)
-                  : extraArgs[i - len].name();
+              i < len ? signature.getParameterNames().get(i) : extraArgs[i - len].name();
           throw new EvalException(
               loc,
               String.format(
@@ -215,7 +210,7 @@ public class BuiltinFunction extends BaseFunction {
             stacktraceToString(e.getStackTrace()),
             this,
             Arrays.asList(invokeMethod.getParameterTypes()),
-            signature.getTypes()),
+            enforcedArgumentTypes),
         e);
   }
 
@@ -234,7 +229,7 @@ public class BuiltinFunction extends BaseFunction {
   protected void configure() {
     invokeMethod = findMethod("invoke");
 
-    int arguments = signature.getSignature().numParameters();
+    int arguments = signature.numParameters();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
     if (innerArgumentCount != parameterTypes.length) {
@@ -255,7 +250,7 @@ public class BuiltinFunction extends BaseFunction {
                   "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
                   getName(),
                   signature,
-                  signature.getSignature().getParameterNames().get(i),
+                  signature.getParameterNames().get(i),
                   enforcedType,
                   enforcedType.getType(),
                   parameterType);
@@ -272,9 +267,9 @@ public class BuiltinFunction extends BaseFunction {
           }
         }
       }
+      // No need for the enforcedArgumentTypes List if all the types were Simple
+      enforcedArgumentTypes = valueListOrNull(enforcedArgumentTypes);
     }
-    // No need for the enforcedArgumentTypes List if all the types were Simple
-    enforcedArgumentTypes = FunctionSignature.valueListOrNull(enforcedArgumentTypes);
 
     if (returnType != null) {
       Class<?> type = returnType;
@@ -291,7 +286,7 @@ public class BuiltinFunction extends BaseFunction {
   /** Configure by copying another function's configuration */
   // Alternatively, we could have an extension BuiltinFunctionSignature of FunctionSignature,
   // and use *that* instead of a Factory.
-  public void configure(BuiltinFunction.Factory factory) {
+  private void configure(BuiltinFunction.Factory factory) {
     // this function must not be configured yet, but the factory must be
     Preconditions.checkState(!isConfigured());
     Preconditions.checkState(
@@ -299,13 +294,28 @@ public class BuiltinFunction extends BaseFunction {
 
     this.paramDoc = factory.getParamDoc();
     this.signature = factory.getSignature();
+    this.defaultValues = factory.getDefaultValues();
+    this.paramTypes = factory.getEnforcedArgumentTypes();
     this.extraArgs = factory.getExtraArgs();
     this.objectType = factory.getObjectType();
     configure();
   }
 
+  /** Returns list, or null if all its elements are null. */
+  @Nullable
+  private static <E> List<E> valueListOrNull(List<E> list) {
+    if (list != null) {
+      for (E value : list) {
+        if (value != null) {
+          return list;
+        }
+      }
+    }
+    return null;
+  }
+
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
-  protected Method findMethod(final String name) {
+  Method findMethod(final String name) {
     Method found = null;
     for (Method method : this.getClass().getDeclaredMethods()) {
       method.setAccessible(true);

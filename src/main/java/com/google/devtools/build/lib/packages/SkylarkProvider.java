@@ -46,9 +46,6 @@ import javax.annotation.Nullable;
  */
 public class SkylarkProvider extends ProviderFromFunction implements SkylarkExportable {
 
-  private static final FunctionSignature.WithValues SCHEMALESS_SIGNATURE =
-      FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
-
   /** Default value for {@link #errorMessageFormatForUnknownField}. */
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
 
@@ -137,12 +134,10 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
             : makeErrorMessageFormatForUnknownField(key.getExportedName());
   }
 
-  private static FunctionSignature.WithValues buildSignature(@Nullable Iterable<String> fields) {
-    if (fields == null) {
-      return SCHEMALESS_SIGNATURE;
-    }
-    return FunctionSignature.WithValues.create(
-        FunctionSignature.namedOnly(0, ImmutableList.copyOf(fields).toArray(new String[0])));
+  private static FunctionSignature buildSignature(@Nullable Iterable<String> fields) {
+    return fields == null
+        ? FunctionSignature.KWARGS // schemaless
+        : FunctionSignature.namedOnly(0, ImmutableList.copyOf(fields).toArray(new String[0]));
   }
 
   @Override

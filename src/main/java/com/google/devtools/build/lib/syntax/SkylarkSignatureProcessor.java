@@ -41,16 +41,31 @@ public class SkylarkSignatureProcessor {
   private static final ConcurrentHashMap<String, Object> defaultValueCache =
       new ConcurrentHashMap<>();
 
+  /** Holds signature information extracted from a method's annotation. */
+  public static final class SignatureInfo {
+    public final FunctionSignature signature;
+    @Nullable public final List<Object> defaultValues;
+    @Nullable final List<SkylarkType> types; // "official" types (may differ from "enforced")
+
+    SignatureInfo(
+        FunctionSignature signature,
+        @Nullable List<Object> defaultValues,
+        @Nullable List<SkylarkType> types) {
+      this.signature = signature;
+      this.defaultValues = defaultValues;
+      this.types = types;
+    }
+  }
+
   /**
-   * Extracts a {@code FunctionSignature.WithValues} from a {@link SkylarkCallable}-annotated
-   * method.
+   * Extracts signature information from a {@link SkylarkCallable}-annotated method.
    *
    * @param name the name of the function
    * @param descriptor the method descriptor
    * @param paramDoc an optional list into which to store documentation strings
    * @param enforcedTypesList an optional list into which to store effective types to enforce
    */
-  public static FunctionSignature.WithValues getSignatureForCallable(
+  public static SignatureInfo getSignatureForCallable(
       String name,
       MethodDescriptor descriptor,
       @Nullable List<String> paramDoc,
@@ -77,7 +92,7 @@ public class SkylarkSignatureProcessor {
   }
 
   /**
-   * Extracts a {@code FunctionSignature.WithValues} from a {@link SkylarkSignature} annotation.
+   * Extracts signature information from a {@link SkylarkSignature} annotation.
    *
    * @param name the name of the function
    * @param annotation the annotation
@@ -87,7 +102,7 @@ public class SkylarkSignatureProcessor {
   // NB: the two arguments paramDoc and enforcedTypesList are used to "return" extra values via
   // side-effects, and that's ugly
   // TODO(bazel-team): use AutoValue to declare a value type to use as return value?
-  public static FunctionSignature.WithValues getSignatureForCallable(
+  static SignatureInfo getSignatureForCallable(
       String name,
       SkylarkSignature annotation,
       @Nullable List<String> paramDoc,
@@ -120,7 +135,7 @@ public class SkylarkSignatureProcessor {
   // Then the only per-parameter information needed is a documentation string.
 
   // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
-  private static FunctionSignature.WithValues getSignatureForCallableImpl(
+  private static SignatureInfo getSignatureForCallableImpl(
       final String name,
       final boolean documented,
       Param[] parameters,
@@ -217,20 +232,17 @@ public class SkylarkSignatureProcessor {
       types.add(starStarType);
     }
 
-    FunctionSignature.WithValues signature =
-        FunctionSignature.WithValues.create(
-            FunctionSignature.create(
-                mandatoryPositionals,
-                optionalPositionals,
-                mandatoryNamedOnly,
-                optionalNamedOnly,
-                star != null,
-                starStar != null,
-                ImmutableList.copyOf(params)),
-            FunctionSignature.valueListOrNull(defaults),
-            FunctionSignature.valueListOrNull(types));
+    FunctionSignature signature =
+        FunctionSignature.create(
+            mandatoryPositionals,
+            optionalPositionals,
+            mandatoryNamedOnly,
+            optionalNamedOnly,
+            star != null,
+            starStar != null,
+            ImmutableList.copyOf(params));
 
-    for (String paramName : signature.getSignature().getParameterNames()) {
+    for (String paramName : signature.getParameterNames()) {
       if (enforcedTypesList != null) {
         enforcedTypesList.add(enforcedTypes.get(paramName));
       }
@@ -238,7 +250,7 @@ public class SkylarkSignatureProcessor {
         paramDoc.add(doc.get(paramName));
       }
     }
-    return signature;
+    return new SignatureInfo(signature, defaults, types);
   }
 
   // getParameterType returns the parameter's type from the @Param annotation,

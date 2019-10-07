@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -162,213 +160,112 @@ public abstract class FunctionSignature {
     return signatureInterner.intern(sig);
   }
 
-  /** Append a representation of this signature to a string buffer. */
-  public StringBuilder toStringBuilder(StringBuilder sb) {
-    return WithValues.create(this).toStringBuilder(sb);
-  }
-
   @Override
-  public String toString() {
+  public final String toString() {
     StringBuilder sb = new StringBuilder();
-    toStringBuilder(sb);
+    toStringBuilder(sb, null, null, false); // no default values, types, or self
     return sb.toString();
   }
 
+  // ElementPrinter returns the string form of the ith element of a sequence.
+  interface ElementPrinter {
+    String print(int i);
+  }
+
   /**
-   * FunctionSignature.WithValues: also specifies a List of default values and types.
+   * Appends a representation of this signature to a string buffer.
    *
-   * <p>The lists can be null, which is an optimized path for specifying all null values.
-   *
-   * <p>Note that if some values can be null (for BuiltinFunction, not for StarlarkFunction), you
-   * should use an ArrayList; otherwise, we recommend an ImmutableList.
+   * @param printer output StringBuilder
+   * @param defaultValuePrinter optional callback for formatting i'th default value (if any).
+   * @param typePrinter optional callback for formatting type of i'th parameter (if any).
+   * @param skipFirstMandatory whether to skip the first mandatory parameter.
    */
-  @AutoCodec
-  @AutoValue
-  public abstract static class WithValues {
+  StringBuilder toStringBuilder(
+      final StringBuilder printer,
+      @Nullable final ElementPrinter defaultValuePrinter,
+      @Nullable final ElementPrinter typePrinter,
+      final boolean skipFirstMandatory) {
+    final ImmutableList<String> names = getParameterNames();
 
-    /** the underlying parameter signature */
-    public abstract FunctionSignature getSignature();
+    int mandatoryPositionals = numMandatoryPositionals();
+    int optionalPositionals = numOptionalPositionals();
+    int mandatoryNamedOnly = numMandatoryNamedOnly();
+    int optionalNamedOnly = numOptionalNamedOnly();
+    boolean hasVarargs = hasVarargs();
+    boolean hasKwargs = hasKwargs();
+    int positionals = mandatoryPositionals + optionalPositionals;
+    int namedOnly = mandatoryNamedOnly + optionalNamedOnly;
+    int named = positionals + namedOnly;
+    int args = named + (hasVarargs ? 1 : 0) + (hasKwargs ? 1 : 0);
+    int endMandatoryNamedOnly = positionals + mandatoryNamedOnly;
+    boolean hasStar = hasVarargs || (namedOnly > 0);
+    int iStarArg = named;
+    int iKwArg = args - 1;
 
-    /**
-     * The default values (if any) as an unmodifiable List of one per optional parameter. May
-     * contain nulls.
-     */
-    @Nullable
-    public abstract List<Object> getDefaultValues();
+    class Show {
+      private boolean isMore = false;
+      private int j = 0;
 
-    /**
-     * The parameter types (if specified) as an unmodifiable List of one per parameter, including *
-     * and **. May contain nulls.
-     */
-    @Nullable
-    public abstract List<SkylarkType> getTypes();
-
-    /** Create a signature with (default and type) values. */
-    public static WithValues create(
-        FunctionSignature signature,
-        @Nullable List<Object> defaultValues,
-        @Nullable List<SkylarkType> types) {
-      // TODO(adonovan): it's tempting to use ImmutableLists here, like so:
-      //
-      // if (defaultValues != null) {
-      //   defaultValues = ImmutableList.copyOf(defaultValues);
-      //   Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
-      // }
-      // if (types != null) {
-      //   types = ImmutableList.copyOf(types);
-      //   Preconditions.checkArgument(types.size() == signature.numParameters());
-      // }
-      //
-      // But:
-      // - the defaultValues list apparently contains null elements. Investigate.
-      // - tests fail if we replace a null defaultValues list with an empty list. Investigate.
-      // Ideally the lists and the elements would be non-nullable.
-
-      List<Object> convertedDefaultValues = null;
-      if (defaultValues != null) {
-        Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
-        List<Object> copiedDefaultValues = new ArrayList<>();
-        copiedDefaultValues.addAll(defaultValues);
-        convertedDefaultValues = Collections.unmodifiableList(copiedDefaultValues);
+      public void comma() {
+        if (isMore) {
+          printer.append(", ");
+        }
+        isMore = true;
       }
-      List<SkylarkType> convertedTypes = null;
-      if (types != null) {
-        Preconditions.checkArgument(types.size() == signature.numParameters());
-        List<SkylarkType> copiedTypes = new ArrayList<>();
-        copiedTypes.addAll(types);
-        convertedTypes = Collections.unmodifiableList(copiedTypes);
-      }
-      return createInternal(signature, convertedDefaultValues, convertedTypes);
-    }
 
-    public static WithValues create(FunctionSignature signature) {
-      return create(signature, null, null);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static WithValues createInternal(
-        FunctionSignature signature,
-        @Nullable List<Object> defaultValues,
-        @Nullable List<SkylarkType> types) {
-      return new AutoValue_FunctionSignature_WithValues(signature, defaultValues, types);
-    }
-
-    public StringBuilder toStringBuilder(final StringBuilder sb) {
-      return toStringBuilder(sb, true, true, false);
-    }
-
-    /**
-     * Appends a representation of this signature to a string buffer.
-     *
-     * @param sb Output StringBuffer
-     * @param showDefaults Determines whether the default values of parameters should be printed (if
-     *     present)
-     * @param showTypes Determines whether parameter type information should be shown
-     * @param skipFirstMandatory Determines whether the first mandatory parameter should be omitted.
-     */
-    public StringBuilder toStringBuilder(
-        final StringBuilder sb,
-        final boolean showDefaults,
-        final boolean showTypes,
-        final boolean skipFirstMandatory) {
-      FunctionSignature sig = getSignature();
-      final BasePrinter printer = Printer.getPrinter(sb);
-      final ImmutableList<String> names = sig.getParameterNames();
-      @Nullable final List<Object> defaultValues = getDefaultValues();
-      @Nullable final List<SkylarkType> types = getTypes();
-
-      int mandatoryPositionals = sig.numMandatoryPositionals();
-      int optionalPositionals = sig.numOptionalPositionals();
-      int mandatoryNamedOnly = sig.numMandatoryNamedOnly();
-      int optionalNamedOnly = sig.numOptionalNamedOnly();
-      boolean hasVarargs = sig.hasVarargs();
-      boolean hasKwargs = sig.hasKwargs();
-      int positionals = mandatoryPositionals + optionalPositionals;
-      int namedOnly = mandatoryNamedOnly + optionalNamedOnly;
-      int named = positionals + namedOnly;
-      int args = named + (hasVarargs ? 1 : 0) + (hasKwargs ? 1 : 0);
-      int endMandatoryNamedOnly = positionals + mandatoryNamedOnly;
-      boolean hasStar = hasVarargs || (namedOnly > 0);
-      int iStarArg = named;
-      int iKwArg = args - 1;
-
-      class Show {
-        private boolean isMore = false;
-        private int j = 0;
-
-        public void comma() {
-          if (isMore) {
-            printer.append(", ");
-          }
-          isMore = true;
-        }
-        public void type(int i) {
-          // We have to assign an artificial type string when the type is null.
-          // This happens when either
-          // a) there is no type defined (such as in user-defined functions) or
-          // b) the type is java.lang.Object.
-          boolean typeDefined = types != null && types.get(i) != null;
-          if (typeDefined && showTypes) {
-            printer.append(": ");
-            printer.append(types.get(i).toString());
-          }
-        }
-        public void mandatory(int i) {
-          comma();
-          printer.append(names.get(i));
-          type(i);
-        }
-        public void optional(int i) {
-          mandatory(i);
-          if (showDefaults) {
-            printer.append(" = ");
-            if (defaultValues == null) {
-              printer.append("?");
-            } else {
-              printer.repr(defaultValues.get(j++));
-            }
+      public void type(int i) {
+        if (typePrinter != null) {
+          String str = typePrinter.print(i);
+          if (str != null) {
+            printer.append(": ").append(str);
           }
         }
       }
 
-      Show show = new Show();
+      public void mandatory(int i) {
+        comma();
+        printer.append(names.get(i));
+        type(i);
+      }
 
-      int i = skipFirstMandatory ? 1 : 0;
-      for (; i < mandatoryPositionals; i++) {
-        show.mandatory(i);
-      }
-      for (; i < positionals; i++) {
-        show.optional(i);
-      }
-      if (hasStar) {
-        show.comma();
-        printer.append("*");
-        if (hasVarargs) {
-          printer.append(names.get(iStarArg));
+      public void optional(int i) {
+        mandatory(i);
+        if (defaultValuePrinter != null) {
+          String str = defaultValuePrinter.print(j++);
+          printer.append(" = ").append(str != null ? str : "?");
         }
       }
-      for (; i < endMandatoryNamedOnly; i++) {
-        show.mandatory(i);
-      }
-      for (; i < named; i++) {
-        show.optional(i);
-      }
-      if (hasKwargs) {
-        show.comma();
-        printer.append("**");
-        printer.append(names.get(iKwArg));
-      }
-
-      return sb;
     }
 
-    @Override
-    public String toString() {
-      StringBuilder sb = new StringBuilder();
-      toStringBuilder(sb);
-      return sb.toString();
+    Show show = new Show();
+
+    int i = skipFirstMandatory ? 1 : 0;
+    for (; i < mandatoryPositionals; i++) {
+      show.mandatory(i);
     }
+    for (; i < positionals; i++) {
+      show.optional(i);
+    }
+    if (hasStar) {
+      show.comma();
+      printer.append("*");
+      if (hasVarargs) {
+        printer.append(names.get(iStarArg));
+      }
+    }
+    for (; i < endMandatoryNamedOnly; i++) {
+      show.mandatory(i);
+    }
+    for (; i < named; i++) {
+      show.optional(i);
+    }
+    if (hasKwargs) {
+      show.comma();
+      printer.append("**");
+      printer.append(names.get(iKwArg));
+    }
+
+    return printer;
   }
 
   /** Convert a list of Parameter into a FunctionSignature. */
@@ -447,19 +344,6 @@ public abstract class FunctionSignature {
         ImmutableList.copyOf(params));
   }
 
-  /** The given List, or null if all the list elements are null. */
-  @Nullable public static <E> List<E> valueListOrNull(List<E> list) {
-    if (list == null) {
-      return null;
-    }
-    for (E value : list) {
-      if (value != null) {
-        return list;
-      }
-    }
-    return null;
-  }
-
   /**
    * Constructs a function signature (with names) from signature description and names. This method
    * covers the general case. The number of optional named-only parameters is deduced from the other
@@ -471,9 +355,8 @@ public abstract class FunctionSignature {
    * @param hasVarargs whether function is variadic parameter
    * @param hasKwargs whether function accepts arbitrary named arguments
    * @param names an Array of String for the parameter names
-   * @return a FunctionSignature
    */
-  public static FunctionSignature of(
+  static FunctionSignature of(
       int numMandatoryPositionals,
       int numOptionalPositionals,
       int numMandatoryNamedOnly,
@@ -517,16 +400,6 @@ public abstract class FunctionSignature {
   }
 
   /**
-   * Constructs a function signature from mandatory named-only parameter names.
-   *
-   * @param names an Array of String for the mandatory named-only parameter names
-   * @return a FunctionSignature
-   */
-  public static FunctionSignature namedOnly(String... names) {
-    return of(0, 0, names.length, false, false, names);
-  }
-
-  /**
    * Constructs a function signature from named-only parameter names.
    *
    * @param numMandatory an int for the number of mandatory named-only parameters
@@ -538,18 +411,17 @@ public abstract class FunctionSignature {
   }
 
   /** Invalid signature from Parser or from SkylarkSignature annotations */
-  protected static class SignatureException extends Exception {
-    @Nullable private final Parameter parameter;
+  static class SignatureException extends Exception {
+    private final Parameter parameter;
 
     /** SignatureException from a message and a Parameter */
-    public SignatureException(String message, @Nullable Parameter parameter) {
+    SignatureException(String message, Parameter parameter) {
       super(message);
       this.parameter = parameter;
     }
 
-    /** what parameter caused the exception, if identified? */
-    @Nullable
-    public Parameter getParameter() {
+    /** Returns the parameter that caused the exception. */
+    Parameter getParameter() {
       return parameter;
     }
   }

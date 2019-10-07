@@ -65,16 +65,12 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
     String getSkylarkName();
   }
 
-  private static final FunctionSignature.WithValues SIGNATURE =
-      FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
-
   protected NativeProvider(Class<V> clazz, String name) {
-    this(clazz, name, SIGNATURE);
+    this(clazz, name, FunctionSignature.KWARGS);
   }
 
   @SuppressWarnings("unchecked")
-  protected NativeProvider(
-      Class<V> valueClass, String name, FunctionSignature.WithValues signature) {
+  private NativeProvider(Class<V> valueClass, String name, FunctionSignature signature) {
     super(name, signature, Location.BUILTIN);
     Class<? extends NativeProvider<?>> clazz = (Class<? extends NativeProvider<?>>) getClass();
     key = new NativeKey(name, clazz);

@@ -947,7 +947,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (mapEach == null) {
         return;
       }
-      FunctionSignature sig = mapEach.getSignature().getSignature();
+      FunctionSignature sig = mapEach.getSignature();
       boolean valid =
           sig.numMandatoryPositionals() == 1
               && sig.numOptionalPositionals() == 0

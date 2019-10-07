@@ -50,11 +50,12 @@ import javax.annotation.Nullable;
  * These default values can be null if there are no optional parameters or for builtin functions,
  * but not for user-defined functions that have optional parameters.
  */
-// TODO(bazel-team):
-// Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
-// (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
-// Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
 public abstract class BaseFunction implements StarlarkCallable {
+
+  // TODO(adonovan): this class has too many fields and relies too heavily on side effects and the
+  // class hierarchy (the configure methods are the worse offenders). Turn fields into abstract
+  // methods. Make processArguments a static function with multiple parameters, instead of a
+  // "mix-in" that accesses instance fields. And get rid of BuiltinFunction.Factory.
 
   /**
    * The name of the function.
@@ -64,9 +65,25 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   @Nullable private final String name;
 
-  // A function signature, including defaults and types
-  // never null after it is configured
-  @Nullable protected FunctionSignature.WithValues signature;
+  /** The function signature; non-null after configure(). */
+  @Nullable protected FunctionSignature signature;
+
+  /**
+   * The default values of optional parameters. Not defined until after configure(), at which point
+   * both the list and its elements may be null. A null list is equivalent to a list containing only
+   * null elements.
+   */
+  // TODO(adonovan): investigate why null elements are permitted. I would expect one one-null
+  // element per optional parameter, without exception. Also, try to eliminate separate configure
+  // step.
+  @Nullable protected List<Object> defaultValues;
+
+  /**
+   * The types of parameters, for annotation-based methods; null for others. May contain null
+   * elements. These "official" types are not necessarily the same as the "enforced" types used in
+   * the actual run-time checks.
+   */
+  @Nullable protected List<SkylarkType> paramTypes;
 
   // Location of the function definition, or null for builtin functions
   // TODO(bazel-team): Or make non-nullable, and use Location.BUILTIN for builtin functions?
@@ -94,8 +111,17 @@ public abstract class BaseFunction implements StarlarkCallable {
 
   /** Returns the signature of this function. */
   @Nullable
-  public FunctionSignature.WithValues getSignature() {
+  public FunctionSignature getSignature() {
     return signature;
+  }
+
+  /**
+   * Returns the tuple of parameter default values of this function value. May be null and may
+   * contain null elements.
+   */
+  @Nullable
+  public List<Object> getDefaultValues() {
+    return defaultValues;
   }
 
   /** This function may also be viewed by Skylark as being of a special ObjectType */
@@ -127,35 +153,34 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   protected BaseFunction(
       @Nullable String name,
-      @Nullable FunctionSignature.WithValues signature,
+      @Nullable FunctionSignature signature,
+      @Nullable List<Object> defaultValues,
       @Nullable Location location) {
     this(name);
     this.signature = signature;
+    this.defaultValues = defaultValues;
     this.location = location;
-  }
 
-  /**
-   * Constructs a BaseFunction with a given name, signature.
-   *
-   * @param name the function name; null iff this is a subclass overriding {@link #getName}
-   * @param signature the signature, with default values and types
-   */
-  protected BaseFunction(@Nullable String name, @Nullable FunctionSignature.WithValues signature) {
-    this(name, signature, null);
+    if (defaultValues != null) {
+      Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
+    }
+    if (paramTypes != null) {
+      Preconditions.checkArgument(paramTypes.size() == signature.numParameters());
+    }
   }
 
   /**
    * Constructs a BaseFunction with a given name and signature without default values or types.
    *
    * @param name the function name; null iff this is a subclass overriding {@link #getName}
-   * @param signature the signature, without default values or types
+   * @param signature the function signature
    */
-  public BaseFunction(@Nullable String name, FunctionSignature signature) {
-    this(name, FunctionSignature.WithValues.create(signature), null);
+  protected BaseFunction(@Nullable String name, FunctionSignature signature) {
+    this(name, signature, /*defaultValues=*/ null, /*location=*/ null);
   }
 
   /** Get parameter documentation as a list corresponding to each parameter */
-  public List<String> getParamDoc() {
+  List<String> getParamDoc() {
     return paramDoc;
   }
 
@@ -163,15 +188,15 @@ public abstract class BaseFunction implements StarlarkCallable {
    * The size of the array required by the callee.
    */
   protected int getArgArraySize() {
-    return signature.getSignature().numParameters();
+    return signature.numParameters();
   }
 
   /**
    * The types that will be actually enforced by Skylark itself, so we may skip those already
-   * enforced by the JVM during calls to BuiltinFunction, but also so we may lie to the user
-   * in the automatically-generated documentation
+   * enforced by the JVM during calls to BuiltinFunction, but also so we may lie to the user in the
+   * automatically-generated documentation
    */
-  public List<SkylarkType> getEnforcedArgumentTypes() {
+  List<SkylarkType> getEnforcedArgumentTypes() {
     return enforcedArgumentTypes;
   }
 
@@ -187,21 +212,18 @@ public abstract class BaseFunction implements StarlarkCallable {
 
     Object[] arguments = new Object[getArgArraySize()];
 
-    // extract function signature
-    FunctionSignature sig = signature.getSignature();
-    ImmutableList<String> names = sig.getParameterNames();
-    List<Object> defaultValues = signature.getDefaultValues();
+    ImmutableList<String> names = signature.getParameterNames();
 
     // Note that this variable will be adjusted down if there are extra positionals,
     // after these extra positionals are dumped into starParam.
     int numPositionalArgs = args.size();
 
-    int numMandatoryPositionalParams = sig.numMandatoryPositionals();
-    int numOptionalPositionalParams = sig.numOptionalPositionals();
-    int numMandatoryNamedOnlyParams = sig.numMandatoryNamedOnly();
-    int numOptionalNamedOnlyParams = sig.numOptionalNamedOnly();
-    boolean hasVarargs = sig.hasVarargs();
-    boolean hasKwargs = sig.hasKwargs();
+    int numMandatoryPositionalParams = signature.numMandatoryPositionals();
+    int numOptionalPositionalParams = signature.numOptionalPositionals();
+    int numMandatoryNamedOnlyParams = signature.numMandatoryNamedOnly();
+    int numOptionalNamedOnlyParams = signature.numOptionalNamedOnly();
+    boolean hasVarargs = signature.hasVarargs();
+    boolean hasKwargs = signature.hasKwargs();
     int numPositionalParams = numMandatoryPositionalParams + numOptionalPositionalParams;
     int numNamedOnlyParams = numMandatoryNamedOnlyParams + numOptionalNamedOnlyParams;
     int numNamedParams = numPositionalParams + numNamedOnlyParams;
@@ -367,7 +389,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       Object value = arguments[i];
       SkylarkType type = types.get(i);
       if (value != null && type != null && !type.contains(value)) {
-        List<String> names = signature.getSignature().getParameterNames();
+        List<String> names = signature.getParameterNames();
         throw new EvalException(loc,
             String.format("expected %s for '%s' while calling %s but got %s instead: %s",
                 type, names.get(i), getName(), EvalUtils.getDataTypeName(value, true), value));
@@ -450,32 +472,53 @@ public abstract class BaseFunction implements StarlarkCallable {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append(getName());
+    // If unconfigured, don't even output parentheses.
     if (signature != null) {
       sb.append('(');
-      signature.toStringBuilder(sb);
+      signature.toStringBuilder(sb, this::printDefaultValue, this::printType, false);
       sb.append(')');
-    } // if unconfigured, don't even output parentheses
+    }
     return sb.toString();
   }
 
+  private String printDefaultValue(int i) {
+    Object v = defaultValues != null ? defaultValues.get(i) : null;
+    return v != null ? Printer.repr(v) : null;
+  }
+
+  private String printType(int i) {
+    SkylarkType t = paramTypes != null ? paramTypes.get(i) : null;
+    return t != null ? t.toString() : null;
+  }
+
   /** Configure a BaseFunction from a @SkylarkSignature annotation */
+  // TODO(adonovan): this does not belong here. Move down into BuiltinFunction.
   public void configure(SkylarkSignature annotation) {
     Preconditions.checkState(!isConfigured()); // must not be configured yet
 
     this.paramDoc = new ArrayList<>();
-    this.signature =
+
+    // side effect: appends to getEnforcedArgumentTypes()
+    SkylarkSignatureProcessor.SignatureInfo info =
         SkylarkSignatureProcessor.getSignatureForCallable(
             getName(), annotation, paramDoc, getEnforcedArgumentTypes());
+    this.signature = info.signature;
+    this.paramTypes = info.types;
+    this.defaultValues = info.defaultValues;
+
     this.objectType = annotation.objectType().equals(Object.class)
         ? null : annotation.objectType();
     configure();
   }
 
   /** Configure a function based on its signature */
+  // This function is called after the signature is initialized.
   protected void configure() {
-    // this function is called after the signature was initialized
     Preconditions.checkState(signature != null);
-    enforcedArgumentTypes = signature.getTypes();
+
+    // TODO(adonovan): this looks fishy. It clobbers this.enforcedArgumentTypes, populated as a
+    // side-effect of the getSignatureForCallable call in configure.
+    this.enforcedArgumentTypes = this.paramTypes;
   }
 
   protected boolean hasSelfArgument() {
@@ -483,8 +526,9 @@ public abstract class BaseFunction implements StarlarkCallable {
     if (clazz == null) {
       return false;
     }
-    List<SkylarkType> types = signature.getTypes();
-    ImmutableList<String> names = signature.getSignature().getParameterNames();
+    // TODO(adonovan): paramTypes can be null. How does this work?
+    List<SkylarkType> types = paramTypes;
+    ImmutableList<String> names = signature.getParameterNames();
 
     return (!types.isEmpty() && types.get(0).canBeCastTo(clazz))
         || (!names.isEmpty() && names.get(0).equals("self"));
@@ -513,7 +557,8 @@ public abstract class BaseFunction implements StarlarkCallable {
     boolean hasSelf = hasSelfArgument();
 
     builder.append(getFullName()).append("(");
-    signature.toStringBuilder(builder, false, false, hasSelf);
+    signature.toStringBuilder(
+        builder, /*defaultValuePrinter=*/ null, /*typePrinter=*/ null, hasSelf);
     builder.append(")");
 
     return builder.toString();

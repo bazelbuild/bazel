@@ -63,7 +63,7 @@ public class StarlarkCallbackHelper {
   }
 
   public ImmutableList<String> getParameterNames() {
-    return callback.getSignature().getSignature().getParameterNames();
+    return callback.getSignature().getParameterNames();
   }
 
   // TODO(adonovan): opt: all current callers are forced to construct a temporary ClassObject.

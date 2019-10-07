@@ -35,8 +35,7 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
   private static int idCounter = 0;
 
   public FakeProviderApi() {
-    super("ProviderIdentifier" + idCounter++,
-        FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
+    super("ProviderIdentifier" + idCounter++, FunctionSignature.KWARGS);
   }
 
   @Override

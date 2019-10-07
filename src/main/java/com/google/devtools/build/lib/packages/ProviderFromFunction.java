@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
  * Implementation of {@link Provider} that is represented by a {@link BaseFunction}, and thus
  * callable from Skylark.
  */
+// TODO(adonovan): eliminate by inlining into its two subclasses.
 @Immutable
 abstract class ProviderFromFunction extends BaseFunction implements Provider {
 
@@ -39,16 +40,16 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
    *     Location#BUILTIN} if it is a native provider.
    */
   protected ProviderFromFunction(
-      @Nullable String name, FunctionSignature.WithValues signature, Location location) {
-    super(name, signature, location);
+      @Nullable String name, FunctionSignature signature, Location location) {
+    super(name, signature, /*defaultValues=*/ null, location);
   }
 
-  public SkylarkProviderIdentifier id() {
+  public final SkylarkProviderIdentifier id() {
     return SkylarkProviderIdentifier.forKey(getKey());
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
+  protected final Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
     return createInstanceFromSkylark(args, thread, loc);

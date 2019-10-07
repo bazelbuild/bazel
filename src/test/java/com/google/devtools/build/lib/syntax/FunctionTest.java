@@ -37,7 +37,7 @@ public class FunctionTest extends EvaluationTestCase {
     StarlarkFunction stmt = (StarlarkFunction) lookup("func");
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getSignature().getSignature().numMandatoryPositionals()).isEqualTo(3);
+    assertThat(stmt.getSignature().numMandatoryPositionals()).isEqualTo(3);
     assertThat(stmt.getStatements()).hasSize(2);
   }
 

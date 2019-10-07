@@ -34,10 +34,11 @@ public final class StarlarkFunction extends BaseFunction {
   public StarlarkFunction(
       String name,
       Location location,
-      FunctionSignature.WithValues signature,
+      FunctionSignature signature,
+      ImmutableList<Object> defaultValues,
       ImmutableList<Statement> statements,
       StarlarkThread.GlobalFrame definitionGlobals) {
-    super(name, signature, location);
+    super(name, signature, defaultValues, location);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
   }
@@ -64,7 +65,7 @@ public final class StarlarkFunction extends BaseFunction {
               getName(), thread.getCurrentFunction().getName()));
     }
 
-    ImmutableList<String> names = signature.getSignature().getParameterNames();
+    ImmutableList<String> names = signature.getParameterNames();
     LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {

@@ -111,7 +111,7 @@ final class Eval {
       }
     }
 
-    // TODO(laurentlb): Could be moved to the Parser or the ValidationEnvironment?
+    // TODO(laurentlb): move to Parser or ValidationEnvironment.
     FunctionSignature sig = node.getSignature();
     if (sig.numMandatoryNamedOnly() > 0) {
       throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
@@ -122,7 +122,8 @@ final class Eval {
         new StarlarkFunction(
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
-            FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/ null),
+            sig,
+            defaultValues != null ? ImmutableList.copyOf(defaultValues) : null,
             node.getStatements(),
             thread.getGlobals()));
   }

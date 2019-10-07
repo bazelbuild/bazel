@@ -108,11 +108,11 @@ public final class FunctionUtil {
 
   private static List<FunctionParamInfo> parameterInfos(
       StarlarkFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
-    FunctionSignature.WithValues signature = userDefinedFunction.getSignature();
+    FunctionSignature signature = userDefinedFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
-    List<String> paramNames = signature.getSignature().getParameterNames();
-    int numMandatoryParams = signature.getSignature().numMandatoryPositionals();
+    List<String> paramNames = signature.getParameterNames();
+    int numMandatoryParams = signature.numMandatoryPositionals();
 
     int paramIndex;
     // Mandatory parameters.
@@ -126,8 +126,9 @@ public final class FunctionUtil {
     }
 
     // Parameters with defaults.
-    if (signature.getDefaultValues() != null) {
-      for (Object element : signature.getDefaultValues()) {
+    List<Object> defaultValues = userDefinedFunction.getDefaultValues();
+    if (defaultValues != null) {
+      for (Object element : defaultValues) {
         String paramName = paramNames.get(paramIndex);
         String paramDoc = "";
         Object defaultParamValue = element;
@@ -140,7 +141,7 @@ public final class FunctionUtil {
     }
 
     // *arg
-    if (signature.getSignature().hasVarargs()) {
+    if (signature.hasVarargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {
@@ -153,7 +154,7 @@ public final class FunctionUtil {
     }
 
     // **kwargs
-    if (signature.getSignature().hasKwargs()) {
+    if (signature.hasKwargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {
