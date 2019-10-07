@@ -466,11 +466,24 @@ $ bazel fetch //...
 
 <h4><code class='flag'>--distinct_host_configuration=false</code></h4>
 <p>
+  We do not recommend this option.
+</p>
+<ul>
+  <li>Building google3 Java code is only supported with distinct host
+    configurations.
+  </li>
+  <li>If you frequently make changes to your request configuration, such
+    as alternating between <code>-c opt</code> and <code>-c dbg</code>
+    builds, or between simple- and cross-compilation, you will typically
+    rebuild the majority of your codebase each time you switch.
+  </li>
+</ul>
+<p>
   When this option is false, the host and
   request configurations are identical: all tools required during the
   build will be built in exactly the same way as target programs.
   This setting means that no libraries need to be built twice during a
-  single build, so it keeps builds short.
+  single build.
   However, it does mean that any change to your request configuration
   also affects your host configuration, causing all the tools to be
   rebuilt, and then anything that depends on the tool output to be
@@ -479,13 +492,6 @@ $ bazel fetch //...
   actions using them reexecuted, and so on, resulting in a very large rebuild.
   Also, please note: if your host architecture is not capable of
   running your target binaries, your build will not work.
-</p>
-<p>
-  If you frequently make changes to your request configuration, such
-  as alternating between <code>-c opt</code> and <code>-c dbg</code>
-  builds, or between simple- and cross-compilation, we do not
-  recommend this option, as you will typically rebuild the majority of
-  your codebase each time you switch.
 </p>
 
 <h4><code class='flag'>--distinct_host_configuration=true</code> <i>(default)</i></h4>
