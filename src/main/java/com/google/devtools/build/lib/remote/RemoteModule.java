@@ -200,6 +200,7 @@ public final class RemoteModule extends BlazeModule {
             new ReferenceCountedChannel(
                 GoogleAuthUtils.newChannel(
                     remoteOptions.remoteExecutor,
+                    remoteOptions.remoteProxy,
                     authAndTlsOptions,
                     interceptors.toArray(new ClientInterceptor[0])));
       }
@@ -218,6 +219,7 @@ public final class RemoteModule extends BlazeModule {
               new ReferenceCountedChannel(
                   GoogleAuthUtils.newChannel(
                       remoteOptions.remoteCache,
+                      remoteOptions.remoteProxy,
                       authAndTlsOptions,
                       interceptors.toArray(new ClientInterceptor[0])));
         } else {  // Assume --remote_cache is equal to --remote_executor by default.
