@@ -555,9 +555,6 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      // TODO(elenairina): Remove this and its usage in lcov_merger. Note it requires syncing
-      // between the blaze release and the lcov_merger release.
-      env.put("NEW_JAVA_COVERAGE_IMPL", "released");
     }
   }
 
