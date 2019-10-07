@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -110,12 +107,6 @@ public class SkylarkRepositoryContextTest {
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(environment.getListener()).thenReturn(listener);
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            new ServerDirectories(outputDirectory, outputDirectory, outputDirectory),
-            root.asPath(),
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
     PathPackageLocator packageLocator =
         new PathPackageLocator(
             outputDirectory,
@@ -130,6 +121,7 @@ public class SkylarkRepositoryContextTest {
             environment,
             ImmutableMap.of("FOO", "BAR"),
             downloader,
+            null,
             1.0,
             new HashMap<>(),
             true);
@@ -271,6 +263,7 @@ public class SkylarkRepositoryContextTest {
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
     try {
       context.patch(patchFile, 0, null);
+      fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
           .hasCauseThat()
@@ -293,6 +286,7 @@ public class SkylarkRepositoryContextTest {
         null);
     try {
       context.patch(patchFile, 0, null);
+      fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
           .hasCauseThat()
@@ -313,6 +307,7 @@ public class SkylarkRepositoryContextTest {
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
     try {
       context.patch(patchFile, 0, null);
+      fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
           .hasCauseThat()

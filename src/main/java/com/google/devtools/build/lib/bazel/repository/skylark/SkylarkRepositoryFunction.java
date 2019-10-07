@@ -148,6 +148,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               env,
               clientEnvironment,
               httpDownloader,
+              directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
               markerData,
               useNativePatch);
