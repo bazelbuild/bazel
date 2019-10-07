@@ -68,9 +68,6 @@ public class BuiltinFunction extends BaseFunction {
   // The returnType of the method.
   private Class<?> returnType;
 
-  // True if the function is a rule class
-  private boolean isRule;
-
   /** Create unconfigured (signature-less) function from its name */
   protected BuiltinFunction(String name) {
     super(name);
@@ -86,15 +83,6 @@ public class BuiltinFunction extends BaseFunction {
   protected BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
     super(name, signature);
     this.extraArgs = extraArgs;
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name, signature, extra arguments, and a rule flag */
-  protected BuiltinFunction(
-      String name, FunctionSignature signature, ExtraArgKind[] extraArgs, boolean isRule) {
-    super(name, signature);
-    this.extraArgs = extraArgs;
-    this.isRule = isRule;
     configure();
   }
 
@@ -380,10 +368,6 @@ public class BuiltinFunction extends BaseFunction {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    if (isRule) {
-      printer.append("<built-in rule " + getName() + ">");
-    } else {
-      printer.append("<built-in function " + getName() + ">");
-    }
+    printer.append("<built-in function " + getName() + ">");
   }
 }

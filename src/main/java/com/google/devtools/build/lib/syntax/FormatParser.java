@@ -23,10 +23,10 @@ import java.util.Map;
 /**
  * A helper class that offers a subset of the functionality of Python's string#format.
  *
- * <p> Currently, both manual and automatic positional as well as named replacement
- * fields are supported. However, nested replacement fields are not allowed.
+ * <p>Currently, both manual and automatic positional as well as named replacement fields are
+ * supported. However, nested replacement fields are not allowed.
  */
-public final class FormatParser {
+final class FormatParser {
 
   /**
    * Matches strings likely to be a number, faster alternative to relying solely on Integer.parseInt
@@ -40,7 +40,7 @@ public final class FormatParser {
 
   private final Location location;
 
-  public FormatParser(Location location) {
+  FormatParser(Location location) {
     this.location = location;
   }
 
@@ -54,8 +54,7 @@ public final class FormatParser {
    * @param kwargs Named arguments
    * @return The formatted string
    */
-  public String format(String input, List<Object> args, Map<String, Object> kwargs)
-      throws EvalException {
+  String format(String input, List<Object> args, Map<String, Object> kwargs) throws EvalException {
     char[] chars = input.toCharArray();
     StringBuilder output = new StringBuilder();
     History history = new History();
@@ -79,19 +78,19 @@ public final class FormatParser {
   }
 
   /**
-   * Processes the expression after an opening brace (possibly a replacement field) and emits
-   * the result to the output StringBuilder
+   * Processes the expression after an opening brace (possibly a replacement field) and emits the
+   * result to the output StringBuilder
    *
    * @param chars The entire string
    * @param pos The position of the opening brace
    * @param args List of positional arguments
    * @param kwargs Map of named arguments
    * @param history Helper object that tracks information about previously seen positional
-   *    replacement fields
+   *     replacement fields
    * @param output StringBuilder that consumes the result
    * @return Number of characters that have been consumed by this method
    */
-  protected int processOpeningBrace(
+  private int processOpeningBrace(
       char[] chars,
       int pos,
       List<Object> args,
@@ -173,7 +172,7 @@ public final class FormatParser {
    * @param needle Character to be searched for
    * @return True if string has the specified character at the given location
    */
-  protected boolean has(char[] data, int pos, char needle) {
+  private static boolean has(char[] data, int pos, char needle) {
     return pos < data.length && data[pos] == needle;
   }
 
@@ -184,7 +183,7 @@ public final class FormatParser {
    * @param openingBrace Position of the opening brace of the replacement field
    * @return Name or index of the current replacement field
    */
-  protected String getFieldName(char[] chars, int openingBrace) throws EvalException {
+  private String getFieldName(char[] chars, int openingBrace) throws EvalException {
     StringBuilder result = new StringBuilder();
     boolean foundClosingBrace = false;
 
@@ -242,9 +241,10 @@ public final class FormatParser {
 
   /**
    * Throws an exception with the specified error message
+   *
    * @param msg The message to be thrown
    */
-  protected void fail(String msg) throws EvalException {
+  private void fail(String msg) throws EvalException {
     throw new EvalException(location, msg);
   }
 
@@ -252,7 +252,7 @@ public final class FormatParser {
    * Exception for invalid combinations of replacement field types
    */
   private static final class MixedTypeException extends Exception {
-    public MixedTypeException() {
+    MixedTypeException() {
       super("Cannot mix manual and automatic numbering of positional fields");
     }
   }
@@ -261,49 +261,43 @@ public final class FormatParser {
    * A wrapper to keep track of information about previous replacement fields
    */
   private static final class History {
-    /**
-     * Different types of positional replacement fields
-     */
-    private enum Positional {
+    /** Different types of positional replacement fields */
+    enum Positional {
       NONE,
       MANUAL, // {0}, {1} etc.
       AUTOMATIC // {}
     }
 
-    private Positional type = Positional.NONE;
-    private int position = -1;
+    Positional type = Positional.NONE;
+    int position = -1;
 
     /**
      * Returns the next available index for an automatic positional replacement field
+     *
      * @return Next index
      */
-    public int getNextPosition() {
+    int getNextPosition() {
       ++position;
       return position;
     }
 
-    /**
-     * Registers a manual positional replacement field
-     */
-    public void setManualPositional() throws MixedTypeException {
+    /** Registers a manual positional replacement field */
+    void setManualPositional() throws MixedTypeException {
       setPositional(Positional.MANUAL);
     }
 
-    /**
-     * Registers an automatic positional replacement field
-     */
-    public void setAutomaticPositional() throws MixedTypeException {
+    /** Registers an automatic positional replacement field */
+    void setAutomaticPositional() throws MixedTypeException {
       setPositional(Positional.AUTOMATIC);
     }
 
     /**
-     * Indicates that a positional replacement field of the specified type is being
-     * processed and checks whether this conflicts with any previously seen
-     * replacement fields
+     * Indicates that a positional replacement field of the specified type is being processed and
+     * checks whether this conflicts with any previously seen replacement fields
      *
      * @param current Type of current replacement field
      */
-    protected void setPositional(Positional current) throws MixedTypeException {
+    void setPositional(Positional current) throws MixedTypeException {
       if (type == Positional.NONE) {
         type = current;
       } else if (type != current) {

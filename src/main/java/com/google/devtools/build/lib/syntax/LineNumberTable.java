@@ -31,7 +31,7 @@ import java.util.Objects;
  */
 @AutoCodec
 @Immutable
-class LineNumberTable {
+final class LineNumberTable {
   private static final Interner<LineNumberTable> LINE_NUMBER_TABLE_INTERNER =
       BlazeInterners.newWeakInterner();
 
