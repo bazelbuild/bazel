@@ -677,8 +677,7 @@ x intersect (y union z)</pre>
 
 <table style='margin: auto'><tr>
 <td style='text-align: center'>
-<div class='graphviz dot'><!--
-digraph somepath1 {
+<!-- digraph somepath1 {
   graph [size="4,4"]
   node [label="",shape=circle];
   n1;
@@ -703,13 +702,12 @@ digraph somepath1 {
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-}
---></div>
+} -->
+<img src="images/somepath1.svg" alt="somepath1.svg" style="margin-left=10;" />
 <p><code>somepath(S1 + S2, E)</code>,<br/>one possible result.</p>
 </td>
 <td style='padding: 40px; text-align: center'>
-<div class='graphviz dot'><!--
-digraph somepath2 {
+<!-- digraph somepath2 {
   graph [size="4,4"]
   node [label="",shape=circle];
 
@@ -733,13 +731,12 @@ digraph somepath2 {
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-}
---></div>
+} -->
+<img src="images/somepath2.svg" alt="somepath2.svg" style="margin-left=10;" />
 <p><code>somepath(S1 + S2, E)</code>,<br/>another possible result.</p>
 </td>
 <td style='text-align: center'>
-<div class='graphviz dot'><!--
-digraph allpaths {
+<!-- digraph allpaths {
   graph [size="4,4"]
   node [label="",shape=circle];
   n1;
@@ -765,8 +762,8 @@ digraph allpaths {
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-}
---></div>
+} -->
+<img src="images/allpaths.svg" alt="allpaths.svg" style="margin-left=10;" />
 <p><code>allpaths(S1 + S2, E)</code>.</p>
 </td>
 </tr></table>
@@ -1269,16 +1266,15 @@ genrule(
 </p>
 
 <table style='margin: auto'><tr><td>
-<div class='graphviz dot'><!--
-digraph mygraph {
+<!-- digraph mygraph {
   node [shape=box];
 "//a:a" -> "//a:a.cc"
 "//b:b" -> "//a:a"
 "//b:b" -> "//b:b.cc"
 "//c:c" -> "//b:b"
 "//c:c" -> "//a:a"
-}
---></div>
+} -->
+<img src="images/out-ranked.svg" alt="out-ranked.svg" style="margin-left=10;" />
 </td><td>
 <pre>
 minrank

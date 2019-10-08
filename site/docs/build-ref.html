@@ -651,8 +651,8 @@ a <code>.bzl</code> file visible.
 
 <p>
   A target <code>X</code> is <i>actually dependent</i> on target
-  <code>Y</code> iff <code>Y</code> must be present, built and
-  up-to-date in order for <code>X</code> to be built correctly.
+  <code>Y</code> if and only if <code>Y</code> must be present, built
+  and up-to-date in order for <code>X</code> to be built correctly.
   "Built" could mean generated, processed, compiled, linked,
   archived, compressed, executed, or any of the other kinds of tasks
   that routinely occur during a build.
@@ -660,8 +660,8 @@ a <code>.bzl</code> file visible.
 
 <p>
   A target <code>X</code> has a <i>declared dependency</i> on target
-  <code>Y</code> iff there is a dependency edge from <code>X</code> to
-  <code>Y</code> in the package of <code>X</code>.
+  <code>Y</code> if and only if there is a dependency edge from <code>X</code>
+  to <code>Y</code> in the package of <code>X</code>.
 </p>
 
 <p>
@@ -753,11 +753,28 @@ function foo() {
 }</b>
 </pre>
 </div>
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b --&gt; c
-
-Actual dependency graph:    a --&gt; b --&gt; c
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 The declared dependencies overapproximate the actual dependencies.
 All is well.
 </div>
@@ -778,12 +795,29 @@ b.foo();
 </pre>
 </div>
 
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b --&gt; c
-
-Actual dependency graph:    a --&gt; b --&gt;_c
-                             \_________/|
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+  a -> c [constraint=false];
+} -->
+<img src="images/a_b_c_ac.svg" alt="a_b_c_ac.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 The declared dependencies no longer overapproximate the actual
 dependencies.  This may build ok, because the transitive closures of
 the two graphs are equal, but masks a problem: <code>a</code> has an
@@ -814,12 +848,31 @@ function foo() {
 }
 </pre>
 </div>
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b     c
-
-Actual dependency graph:    a --&gt; b    _c
-                             \_________/|
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b;
+  b -> c [style=invis];
+} -->
+<img src="images/ab_c.svg" alt="ab_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b;
+  b -> c [style=invis];
+  a -> c [constraint=false];
+} -->
+<img src="images/a_b_a_c.svg" alt="a_b_a_c.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 <p>
   The declared dependency graph is now an underapproximation of the
   actual dependencies, even when transitively closed; the build is
