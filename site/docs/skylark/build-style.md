@@ -150,7 +150,8 @@ is more error-prone and less obvious than an empty list.
 
 ### Recursive
 
-Do not use recursive globs (for example, `glob(["**/*.java"])`).
+Do not use recursive globs to match source files (for example,
+`glob(["**/*.java"])`).
 
 Recursive globs make BUILD files difficult to reason about because they skip
 subdirectories containing BUILD files.
