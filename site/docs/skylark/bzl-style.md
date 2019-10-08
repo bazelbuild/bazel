@@ -78,10 +78,7 @@ When possible, try to use at most 79 characters per line.
 
 ### Keyword arguments
 
-In keyword arguments, spaces around the equal sign are optional, but be
-consistent within any given call. In general, we follow the BUILD file
-convention when calling macros and native rules, and the Python convention for
-other functions, e.g.
+In keyword arguments, spaces around the equal sign are preferred:
 
 ```python
 def fct(name, srcs):
