@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,10 +44,14 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefDuplicateArguments() throws Exception {
-    setFailFast(false);
-    parseFile("def func(a,b,a):",
-        "  a = 1\n");
-    assertContainsError("duplicate parameter name in function definition");
+    // TODO(adonovan): move to ParserTest.
+    ParserInput input =
+        ParserInput.fromLines(
+            "def func(a,b,a):", //
+            "  a = 1\n");
+    StarlarkFile file = StarlarkFile.parse(input);
+    MoreAsserts.assertContainsEvent(
+        file.errors(), "duplicate parameter name in function definition");
   }
 
   @Test

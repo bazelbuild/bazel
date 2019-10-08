@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -150,33 +149,9 @@ public class EvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     return thread;
   }
-
-  protected final StarlarkFile parseStarlarkFileWithoutValidation(String... lines) {
-    ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
-    Event.replayEventsOn(getEventHandler(), file.errors());
-    return file;
-  }
-
-  private StarlarkFile parseStarlarkFile(String... lines) {
-    ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
-    Event.replayEventsOn(getEventHandler(), file.errors());
-    return file;
-  }
-
-  /** Parses and validates a file and returns its statements. */
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
   // Separate all the tests clearly into tests of the scanner, parser, resolver,
   // and evaluation.
-  protected List<Statement> parseFile(String... lines) {
-    return parseStarlarkFile(lines).getStatements();
-  }
-
-  /** Parses a statement, without validation. */
-  protected final Statement parseStatement(String... lines) {
-    return parseStarlarkFileWithoutValidation(lines).getStatements().get(0);
-  }
 
   /** Parses an expression. */
   protected final Expression parseExpression(String... lines) throws SyntaxError {
