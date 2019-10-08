@@ -79,48 +79,66 @@ title: Query Language
         <b>Words</b>, such as <code>foo/...</code> or
         <code>".*test rule"</code> or <code>//bar/baz:all</code>. If a
         character sequence is "quoted" (begins and ends with a single-quote
-        <code>'</code>, or begins and ends with a double-quote
+        <code>'</code> or begins and ends with a double-quote
         <code>&quot;</code>), it is a word. If a character sequence is not
         quoted, it may still be parsed as a word. Unquoted words are sequences
         of characters drawn from the alphabet characters <code>A-Za-z</code>,
-        the numerals <code>0-9</code>, and the punctuation <code>_/.-@*$~</code>
-        (underscore, slash, period, hyphen, at sign, star, dollar sign, tilde).
-        Unquoted words may not start with a hyphen or period, even though
-        relative <a href="build-ref.html#name">target names</a> may start with
-        those characters. Unquoted words also may not include the characters
-        plus sign <code>+</code> or equals sign <code>=</code>, even though those
-        characters are permitted in target names. Thus, when writing code that
-        generates query expressions, target names should be quoted.
+        the numerals <code>0-9</code>, and the special characters <code>*/@.-_:$~</code>
+        (asterisk, forward slash, at, period, hyphen, underscore, colon, dollar sign, tilde).
+        However, unquoted words may not start with a hyphen <code>-</code> or asterisk
+        <code>*</code> even though relative <a href="build-ref.html#name">target names</a> may
+        start with those characters.
+      </p>
+      <p>
+        Unquoted words also may not include the characters plus sign <code>+</code> or equals sign
+        <code>=</code>, even though those characters are permitted in target names. Thus, when
+        writing code that generates query expressions, target names should be quoted.
+      </p>
+      <p>
+        Quoting <em>is</em> necessary when writing scripts that
+        construct Bazel query expressions from user-supplied values.
+      </p>
+      <pre>
+        //foo:bar+wiz    # WRONG: scanned as //foo:bar + wiz.
+        //foo:bar=wiz    # WRONG: scanned as //foo:bar = wiz.
+        "//foo:bar+wiz"  # OK.
+        "//foo:bar=wiz"  # OK.
+      </pre>
+      <p>
+        Note that this quoting is in addition to any quoting that may
+        be required by your shell. e.g.
+      </p>
+      <pre>bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
+
+      <p>
+        Keywords, when quoted, are treated as ordinary words, thus
+        <code>some</code> is a keyword but <code>"some"</code> is a word.
+        Both <code>foo</code> and <code>"foo"</code> are words.
       </p>
 
-    <p>We chose this syntax so that quote marks aren't needed in most cases.
-      The (unusual) <code>".*test rule"</code> example needs quotes: it
-      starts with a period and contains a space.
-      Quoting <code>"cc_library"</code> is unnecessary but harmless.
-    </p>
+      <p>
+        However, be careful when using single or double quotes in target names. When quoting one or
+        more target names, use only one type of quotes (either all single or all double quotes).
 
-    <p>
-      Quoting <em>is</em> necessary when writing scripts that
-      construct Bazel query expressions from user-supplied values.
+      </p>
+      <pre>
+        The following are examples of what the Java query string will be:
 
-    </p>
-    <pre>
-      //foo:bar+wiz    # WRONG: scanned as //foo:bar + wiz.
-      //foo:bar=wiz    # WRONG: scanned as //foo:bar = wiz.
-      "//foo:bar+wiz"  # ok.
-      "//foo:bar=wiz"  # ok.
-    </pre>
-    <p>
-      Note that this quoting is in addition to any quoting that may
-      be required by your shell. e.g.
-    </p>
-    <pre>bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
+        'a"'a'         # WRONG: Error message: unclosed quotation.
+        "a'"a"         # WRONG: Error message: unclosed quotation.
+        '"a" + 'a''    # WRONG: Error message: unexpected token 'a' after query expression '"a" + '
+        "'a' + "a""    # WRONG: Error message: unexpected token 'a' after query expression ''a' + '
+        "a'a"          # OK.
+        'a"a'          # OK.
+        '"a" + "a"'    # OK
+        "'a' + 'a'"    # OK
+      </pre>
 
-    <p>
-      Keywords, when quoted, are treated as ordinary words, thus
-      <code>some</code> is a keyword but <code>"some"</code> is a word.
-      Both <code>foo</code> and <code>"foo"</code> are words.
-    </p>
+      <p>We chose this syntax so that quote marks aren't needed in most cases.
+        The (unusual) <code>".*test rule"</code> example needs quotes: it
+        starts with a period and contains a space.
+        Quoting <code>"cc_library"</code> is unnecessary but harmless.
+      </p>
 
     <li><b>Punctuation</b>, such as parens <code>()</code>, period
     <code>.</code> and comma <code>,</code>, etc.  Words containing
