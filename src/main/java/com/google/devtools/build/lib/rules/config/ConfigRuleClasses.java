@@ -371,7 +371,7 @@ public class ConfigRuleClasses {
       <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
       Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
       support and is not recommended. See
-      <a href="${link common-definitions#configurable-attributes}"> for more discussion.
+      <a href="${link common-definitions#configurable-attributes}">here</a> for more discussion.
     </li>
 
     <li>Avoid repeating identical <code>config_setting</code> definitions in different packages.
