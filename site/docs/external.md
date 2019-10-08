@@ -135,6 +135,8 @@ you would like to prefetch the dependencies needed for a specific set of targets
 [`bazel fetch`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
 To unconditionally fetch all external dependencies, use
 [`bazel sync`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+As fetched repositories are [stored in the output base](#layout), fetching
+happens per workspace.
 
 <a name="shadowing-dependencies"></a>
 ## Shadowing dependencies
@@ -251,8 +253,11 @@ To force a re-download, use `bazel sync`.
 <a name="layout"></a>
 ## Layout
 
-External dependencies are all downloaded and symlinked under a directory named
-`external`. You can see this directory by running:
+External dependencies are all downloaded to a directory under the subdirectory
+`external` in the [output base](output_directories.html). In case of a
+[local repository](be/workspace.html#local_repository), a symlink is created
+there instead of creating a new directory.
+You can see the `external` directory by running:
 
 ```
 ls $(bazel info output_base)/external
