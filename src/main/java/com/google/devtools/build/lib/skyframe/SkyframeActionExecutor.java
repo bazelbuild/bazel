@@ -1491,8 +1491,7 @@ public final class SkyframeActionExecutor {
       // output into memory; as the output of regular actions (as opposed to test runs) usually is
       // short, so this should not be a problem. If it does turn out to be a problem, we have to
       // pass the outErrbuffer instead.
-      reporter.handle(
-          prefixEvent.withStdoutStderr(outErrBuffer.outAsLatin1(), outErrBuffer.errAsLatin1()));
+      reporter.handle(prefixEvent.withStdoutStderr(outErrBuffer));
     } else {
       reporter.handle(prefixEvent);
     }
