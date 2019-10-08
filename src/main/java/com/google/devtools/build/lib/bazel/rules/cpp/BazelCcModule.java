@@ -108,7 +108,7 @@ public class BazelCcModule extends CcModule
         SkylarkList.createImmutable(
             additionalInputs.getContents(Artifact.class, "additional_inputs")),
         location,
-        /* environment= */ null);
+        /* thread= */ null);
   }
 
   @Override

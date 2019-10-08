@@ -65,7 +65,7 @@ public class WorkspaceFactoryHelper {
             attributeValues,
             eventHandler,
             ast.getLocation(),
-            /*env=*/ null,
+            /* thread= */ null,
             new AttributeContainer(ruleClass));
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
@@ -179,7 +179,7 @@ public class WorkspaceFactoryHelper {
             attributeValues,
             handler,
             location,
-            /*env=*/ null,
+            /* thread= */ null,
             attributeContainer);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
