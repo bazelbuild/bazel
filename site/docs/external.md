@@ -241,8 +241,12 @@ include `C` at version 1.0 and another include `C` at 2.0.
 <a name="caching"></a>
 ## Caching of external dependencies
 
-Bazel caches external dependencies and re-downloads or updates them when
-the `WORKSPACE` file changes.
+By default, Bazel will only re-download external dependencies if their
+definition changes. Changes to files referenced in the definition (e.g., patches
+or `BUILD` files) are also taken into account by bazel.
+
+To force a re-download, use `bazel sync`.
+
 
 <a name="layout"></a>
 ## Layout
