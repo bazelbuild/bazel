@@ -107,6 +107,13 @@ public class ToolchainTypeLookupUtil {
       }
       ToolchainTypeInfo toolchainTypeInfo = PlatformProviderUtils.toolchainType(configuredTarget);
       if (toolchainTypeInfo == null) {
+        if (PlatformProviderUtils.declaredToolchainInfo(configuredTarget) != null) {
+          throw new InvalidToolchainTypeException(
+              configuredTarget.getLabel(),
+              "is a toolchain instance. Is the rule definition for the target you're building "
+                  + "setting \"toolchains =\" to a toolchain() instead of the expected "
+                  + "toolchain_type()?");
+        }
         throw new InvalidToolchainTypeException(configuredTarget.getLabel());
       }
 
