@@ -166,7 +166,9 @@ public class LocalSpawnRunner implements SpawnRunner {
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
         context.report(ProgressStatus.EXECUTING, getName());
-        context.lockOutputFiles();
+        if (!localExecutionOptions.localLockfreeOutput) {
+          context.lockOutputFiles();
+        }
         return new SubprocessHandler(spawn, context).run();
       }
     }
