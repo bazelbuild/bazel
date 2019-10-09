@@ -357,14 +357,14 @@ public class WindowsFileSystemTest {
       testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink();
       fail("expected exception");
     } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
     }
 
     try {
       dirPath.readSymbolicLink();
       fail("expected exception");
     } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*path is not a link");
+      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
     }
 
     assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
