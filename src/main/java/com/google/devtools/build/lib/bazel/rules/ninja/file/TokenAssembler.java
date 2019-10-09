@@ -32,7 +32,6 @@ public class TokenAssembler implements TokenAndFragmentsConsumer {
   private final Map<Integer, ArrayViewCharSequence> fragments;
   private final TokenConsumer tokenConsumer;
   private final SeparatorPredicate separatorPredicate;
-  private final List<Throwable> throwables;
 
   /**
    * @param tokenConsumer delegate token consumer for actual processing / parsing
@@ -46,7 +45,6 @@ public class TokenAssembler implements TokenAndFragmentsConsumer {
     this.tokenConsumer = tokenConsumer;
     this.separatorPredicate = separatorPredicate;
     fragments = Collections.synchronizedNavigableMap(Maps.newTreeMap());
-    throwables = Lists.newCopyOnWriteArrayList();
   }
 
   @Override
@@ -59,19 +57,11 @@ public class TokenAssembler implements TokenAndFragmentsConsumer {
     fragments.put(offset + sequence.getStartIncl(), sequence);
   }
 
-  @Override
-  public void error(Throwable throwable) {
-    throwables.add(throwable);
-  }
-
   /**
    * Should be called after all work for processing of individual buffer fragments is complete.
    * @throws GenericParsingException thrown by delegate {@link #tokenConsumer}
    */
   public void wrapUp() throws GenericParsingException {
-    if (!throwables.isEmpty()) {
-      throw new RuntimeException(Iterables.getFirst(throwables, null));
-    }
     List<ArrayViewCharSequence> list = Lists.newArrayList();
     int previous = -1;
     for (Map.Entry<Integer, ArrayViewCharSequence> entry : fragments.entrySet()) {

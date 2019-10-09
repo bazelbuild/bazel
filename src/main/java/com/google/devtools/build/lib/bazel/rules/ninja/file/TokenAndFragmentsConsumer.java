@@ -28,9 +28,4 @@ public interface TokenAndFragmentsConsumer extends TokenConsumer {
    * of the sequence in the underlying buffer
    */
   void fragment(int offset, ArrayViewCharSequence sequence);
-
-  /**
-   * Accepts any exception that happened in parallel tokenizing
-   */
-  void error(Throwable throwable);
 }

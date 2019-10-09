@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+import java.util.concurrent.Callable;
+
 /**
  * Task for tokenizing the contents of the char[] buffer.
  * Intended to be called in parallel for the fragments of the char[] buffer for lexing the
@@ -22,7 +24,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
  *
  * {@link ParallelFileProcessing}
  */
-public class BufferTokenizer implements Runnable {
+public class BufferTokenizer implements Callable<Void> {
   private final char[] buffer;
   private final TokenAndFragmentsConsumer consumer;
   private final SeparatorPredicate separatorPredicate;
@@ -53,32 +55,28 @@ public class BufferTokenizer implements Runnable {
   }
 
   @Override
-  public void run() {
-    try {
-      int start = startIncl;
-      CharacterArrayIterator iterator = new CharacterArrayIterator(buffer, startIncl, endExcl);
-      while (iterator.hasNext()) {
-        // isSeparator() returns true/false or null - in the case when only the start of the
-        // separator is present in the end of the buffer fragment.
-        Boolean isSeparator = separatorPredicate.isSeparator(iterator);
-        if (Boolean.FALSE.equals(isSeparator)) {
-          continue;
-        }
-        ArrayViewCharSequence fragment =
-            new ArrayViewCharSequence(buffer, start, startIncl + iterator.nextIndex());
-        if (Boolean.TRUE.equals(isSeparator) && start > startIncl) {
-          consumer.token(fragment);
-        } else {
-          consumer.fragment(offset, fragment);
-        }
-        start = startIncl + iterator.nextIndex();
+  public Void call() throws Exception {
+    int start = startIncl;
+    CharacterArrayIterator iterator = new CharacterArrayIterator(buffer, startIncl, endExcl);
+    while (iterator.hasNext()) {
+      // isSeparator() returns true/false or null - in the case when only the start of the
+      // separator is present in the end of the buffer fragment.
+      Boolean isSeparator = separatorPredicate.isSeparator(iterator);
+      if (Boolean.FALSE.equals(isSeparator)) {
+        continue;
       }
-      if (start < endExcl) {
-        consumer.fragment(offset, new ArrayViewCharSequence(buffer, start, endExcl));
+      ArrayViewCharSequence fragment =
+          new ArrayViewCharSequence(buffer, start, startIncl + iterator.nextIndex());
+      if (Boolean.TRUE.equals(isSeparator) && start > startIncl) {
+        consumer.token(fragment);
+      } else {
+        consumer.fragment(offset, fragment);
       }
-    } catch (Throwable e){
-      consumer.error(e);
+      start = startIncl + iterator.nextIndex();
     }
+    if (start < endExcl) {
+      consumer.fragment(offset, new ArrayViewCharSequence(buffer, start, endExcl));
+    }
+    return null;
   }
-
 }

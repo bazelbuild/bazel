@@ -34,26 +34,26 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BufferTokenizerTest {
   @Test
-  public void testTokenizeSimple() {
+  public void testTokenizeSimple() throws Exception {
     List<String> list = ImmutableList.of("one", "two", "three");
     char[] chars = String.join("\n", list).toCharArray();
     WholeTokensAndFragmentsConsumer consumer = new WholeTokensAndFragmentsConsumer();
     BufferTokenizer tokenizer = new BufferTokenizer(
         chars, consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
-    tokenizer.run();
+    tokenizer.call();
     assertThat(consumer.getResult()).isEqualTo(list);
     assertThat(consumer.getFragments()).isEqualTo(ImmutableList.of("one\n", "three"));
   }
 
   @Test
-  public void testTokenizeWithDetails() {
+  public void testTokenizeWithDetails() throws Exception {
     List<String> list = ImmutableList.of("one", " one-detail", "two", "\ttwo-detail",
         "three", " three-detail");
     char[] chars = String.join("\n", list).toCharArray();
     WholeTokensAndFragmentsConsumer consumer = new WholeTokensAndFragmentsConsumer();
     BufferTokenizer tokenizer = new BufferTokenizer(
         chars, consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
-    tokenizer.run();
+    tokenizer.call();
     assertThat(consumer.getResult()).isEqualTo(ImmutableList.of(
         "one\n one-detail", "two\n\ttwo-detail", "three\n three-detail"
     ));
@@ -75,11 +75,6 @@ public class BufferTokenizerTest {
     public void fragment(int offset, ArrayViewCharSequence sequence) {
       fragments.add(sequence.toString());
       result.add(sequence.toString().trim());
-    }
-
-    @Override
-    public void error(Throwable throwable) {
-      throw new RuntimeException(throwable);
     }
 
     public List<String> getResult() {

@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+import java.util.concurrent.Callable;
+
 /**
  * Factor interface for creating the buffer tokenizing task.
  *
@@ -31,5 +33,5 @@ public interface BufferTokenizerFactory {
    * @param endExcl end index of the buffer fragment, exclusive, or the size of the buffer,
    * if last symbol is included
    */
-  Runnable create(char[] buffer, int offset, int startIncl, int endExcl);
+  Callable<Void> create(char[] buffer, int offset, int startIncl, int endExcl);
 }

@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -158,7 +159,8 @@ public class ParallelFileProcessingTest {
     return file;
   }
 
-  private void doTestNumbers(int limit, int blockSize) throws IOException, GenericParsingException {
+  private void doTestNumbers(int limit, int blockSize)
+      throws IOException, GenericParsingException, ExecutionException, InterruptedException {
     File file = writeTestFile(limit);
     try {
       List<String> lines = Collections.synchronizedList(Lists.newArrayListWithCapacity(limit));

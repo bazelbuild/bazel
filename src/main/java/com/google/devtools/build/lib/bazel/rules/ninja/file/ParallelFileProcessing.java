@@ -16,6 +16,11 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import java.io.IOException;
@@ -25,8 +30,11 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.ExecutorService;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.function.BiConsumer;
 
 /**
  * Parallel file processing implementation.
@@ -65,7 +73,7 @@ public class ParallelFileProcessing {
    * only then specific objects.
    *
    * Please see a comment about performance test results:
-   * {@link com.google.devtools.common.options.ParamsFilePreProcessorTest}.
+   * {@link com.google.devtools.build.lib.bazel.rules.ninja.ParallelFileProcessingTest}.
    *
    * @param path path to file to process
    * @param tokenConsumer token consumer for further processing / parsing
@@ -79,7 +87,8 @@ public class ParallelFileProcessing {
       TokenConsumer tokenConsumer,
       SeparatorPredicate predicate,
       int blockSize,
-      int numThreads) throws GenericParsingException, IOException {
+      int numThreads)
+      throws GenericParsingException, IOException, ExecutionException, InterruptedException {
     TokenAssembler assembler = new TokenAssembler(tokenConsumer, predicate);
     BufferTokenizerFactory factory = (buffer, offset, start, end) ->
         new BufferTokenizer(buffer, assembler, predicate, offset, start, end);
@@ -92,7 +101,7 @@ public class ParallelFileProcessing {
   private static void readAndTokenize(Path path,
       BufferTokenizerFactory tokenizerFactory,
       int blockSize,
-      int numThreads) throws IOException {
+      int numThreads) throws IOException, ExecutionException, InterruptedException {
     if (blockSize < 0) {
       blockSize = BLOCK_SIZE;
     }
@@ -100,8 +109,10 @@ public class ParallelFileProcessing {
       numThreads = NUM_THREADS;
     }
 
-    ExecutorService executorService = Executors.newFixedThreadPool(numThreads,
-        new ThreadFactoryBuilder().setNameFormat("file-indexer-thread-%d").build());
+    ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(numThreads,
+            new ThreadFactoryBuilder().setNameFormat("file-indexer-thread-%d").build()));
+    List<ListenableFuture<?>> futures = Lists.newArrayList();
     try (SeekableByteChannel ch = Files.newByteChannel(path)) {
       int numRead = 1;
       int offset = 0;
@@ -113,22 +124,28 @@ public class ParallelFileProcessing {
           bb.position(0);
           CharBuffer charBuffer = StandardCharsets.ISO_8859_1.decode(bb);
           Preconditions.checkArgument(charBuffer.hasArray());
-          tokenize(offset, charBuffer.array(), executorService, tokenizerFactory, numThreads);
+
+          char[] array = charBuffer.array();
+          int finalOffset = offset;
+          splitBuffer(array.length, numThreads, (from, to) -> {
+            Callable<Void> tokenizer = tokenizerFactory.create(array, finalOffset, from, to);
+            futures.add(executorService.submit(tokenizer));
+          });
           offset += charBuffer.length();
         }
       }
+      Futures.allAsList(futures).get();
     } finally {
       ExecutorUtil.interruptibleShutdown(executorService);
     }
   }
 
-  private static void tokenize(int offset, char[] buffer, ExecutorService service,
-      BufferTokenizerFactory factory, int numThreads) {
-    int size = buffer.length / numThreads;
-    for (int index = 0; index < numThreads; index++) {
+  private static void splitBuffer(int len, int numPieces, BiConsumer<Integer, Integer> callback) {
+    int size = len / numPieces;
+    for (int index = 0; index < numPieces; index++) {
       int from = index * size;
-      int to = (index == numThreads - 1) ? buffer.length : (from + size);
-      service.submit(factory.create(buffer, offset, from, to));
+      int to = (index == numPieces - 1) ? len : (from + size);
+      callback.accept(from, to);
     }
   }
 }
