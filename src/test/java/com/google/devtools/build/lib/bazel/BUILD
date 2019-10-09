@@ -54,7 +54,10 @@ java_test(
     name = "bazel-rules-tests",
     srcs = glob(
         ["rules/**/*.java"],
-        exclude = ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"],
+        exclude = [
+            "rules/genrule/GenRuleWindowsConfiguredTargetTest.java",
+            "rules/ninja/**/*.java",
+        ],
     ) + select({
         "//src:windows": ["rules/genrule/GenRuleWindowsConfiguredTargetTest.java"],
         "//conditions:default": [],
