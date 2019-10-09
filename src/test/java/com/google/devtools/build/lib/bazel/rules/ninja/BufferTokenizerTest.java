@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ArrayViewCharSequenc
 import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferTokenizer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenAndFragmentsConsumer;
-import com.google.monitoring.runtime.instrumentation.common.com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
