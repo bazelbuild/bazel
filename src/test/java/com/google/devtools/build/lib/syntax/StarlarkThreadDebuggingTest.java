@@ -191,9 +191,8 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newStarlarkThread();
     thread.update("a", 1);
 
-    Object result = thread.debugEval(Expression.parse(ParserInput.create("a", null)));
-
-    assertThat(result).isEqualTo(1);
+    Object a = thread.debugEval(Expression.parse(ParserInput.fromLines("a")));
+    assertThat(a).isEqualTo(1);
   }
 
   @Test
@@ -204,7 +203,7 @@ public class StarlarkThreadDebuggingTest {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () -> thread.debugEval(Expression.parse(ParserInput.create("b", null))));
+            () -> thread.debugEval(Expression.parse(ParserInput.fromLines("b"))));
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
@@ -215,7 +214,8 @@ public class StarlarkThreadDebuggingTest {
 
     assertThat(thread.debugEval(Expression.parse(ParserInput.fromLines("a.startswith('str')"))))
         .isEqualTo(true);
-    thread.debugExec(ParserInput.fromLines("a = 1"));
+    EvalUtils.exec(
+        EvalUtils.parseAndValidateSkylark(ParserInput.fromLines("a = 1"), thread), thread);
     assertThat(thread.debugEval(Expression.parse(ParserInput.fromLines("a")))).isEqualTo(1);
   }
 }

@@ -110,8 +110,7 @@ public final class Identifier extends Expression {
    *   <li><{@code x[5] = ..} does not bind any names.
    * </ul>
    */
-  // TODO(adonovan): make this private after weaning Skyframe off it.
-  public static ImmutableSet<Identifier> boundIdentifiers(Expression expr) {
+  static ImmutableSet<Identifier> boundIdentifiers(Expression expr) {
     if (expr instanceof Identifier) {
       // Common case/fast path - skip the builder.
       return ImmutableSet.of((Identifier) expr);

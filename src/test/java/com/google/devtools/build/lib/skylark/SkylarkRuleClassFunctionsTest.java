@@ -70,11 +70,9 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for SkylarkRuleClassFunctions.
- */
+/** Tests for SkylarkRuleClassFunctions. */
 @RunWith(JUnit4.class)
-public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
+public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
@@ -703,10 +701,10 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
-  protected void evalAndExport(String... lines) throws Exception {
+  private void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, ev.getStarlarkThread());
-    if (!file.errors().isEmpty()) {
+    if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
     SkylarkImportLookupFunction.execAndExport(

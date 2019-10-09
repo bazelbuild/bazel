@@ -47,6 +47,13 @@ final class Eval {
     }
   }
 
+  static void execFile(StarlarkThread thread, StarlarkFile file)
+      throws EvalException, InterruptedException {
+    for (Statement stmt : file.getStatements()) {
+      execToplevelStatement(thread, stmt);
+    }
+  }
+
   static Object execStatements(StarlarkThread thread, List<Statement> statements)
       throws EvalException, InterruptedException {
     Eval eval = new Eval(thread);
@@ -59,6 +66,18 @@ final class Eval {
     // Ignore the returned BREAK/CONTINUE/RETURN/PASS token:
     // the first three don't exist at top-level, and the last is a no-op.
     new Eval(thread).exec(stmt);
+
+    // Hack for SkylarkImportLookupFunction's "export" semantics.
+    if (thread.postAssignHook != null) {
+      if (stmt instanceof AssignmentStatement) {
+        AssignmentStatement assign = (AssignmentStatement) stmt;
+        for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
+          String name = id.getName();
+          Object value = thread.moduleLookup(name);
+          thread.postAssignHook.assign(name, value);
+        }
+      }
+    }
   }
 
   private Eval(StarlarkThread thread) {
@@ -411,9 +430,9 @@ final class Eval {
           // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              return EvalUtils.toBoolean(x) ? Eval.eval(thread, binop.getY()) : x;
+              return EvalUtils.toBoolean(x) ? eval(thread, binop.getY()) : x;
             case OR:
-              return EvalUtils.toBoolean(x) ? x : Eval.eval(thread, binop.getY());
+              return EvalUtils.toBoolean(x) ? x : eval(thread, binop.getY());
             default:
               Object y = eval(thread, binop.getY());
               return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
@@ -468,13 +487,13 @@ final class Eval {
           // a closure for x.f if f is a Java method.
           if (call.getFunction() instanceof DotExpression) {
             DotExpression dot = (DotExpression) call.getFunction();
-            Object object = Eval.eval(thread, dot.getObject());
+            Object object = eval(thread, dot.getObject());
             evalArguments(thread, call, posargs, kwargs);
             return CallUtils.callMethod(
                 thread, call, object, posargs, kwargs, dot.getField().getName(), dot.getLocation());
           }
 
-          Object fn = Eval.eval(thread, call.getFunction());
+          Object fn = eval(thread, call.getFunction());
           evalArguments(thread, call, posargs, kwargs);
           return CallUtils.call(thread, call, fn, posargs, kwargs);
         }
@@ -639,7 +658,7 @@ final class Eval {
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
-                Eval.assign(forClause.getVars(), elem, thread, loc);
+                assign(forClause.getVars(), elem, thread, loc);
                 execClauses(index + 1);
               }
             } finally {
@@ -775,7 +794,7 @@ final class Eval {
     // (O(1) for ImmutableList) to avoid the iterator overhead.
     for (int i = 0; i < call.getArguments().size(); i++) {
       Argument arg = call.getArguments().get(i);
-      Object value = Eval.eval(thread, arg.getValue());
+      Object value = eval(thread, arg.getValue());
       if (arg instanceof Argument.Positional) {
         // f(expr)
         posargs.add(value);

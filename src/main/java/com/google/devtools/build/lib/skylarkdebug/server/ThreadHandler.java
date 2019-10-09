@@ -27,9 +27,12 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -313,12 +316,27 @@ final class ThreadHandler {
         return thread.debugEval(expr);
       } catch (SyntaxError unused) {
         // Assume it is a file and execute it.
-        thread.debugExec(input);
+        exec(input, thread);
         return Runtime.NONE;
       }
     } finally {
       servicingEvalRequest.set(false);
     }
+  }
+
+  /** Parses, validates, and executes a Skylark file (sequence of statements) in this thread. */
+  private static void exec(ParserInput input, StarlarkThread thread)
+      throws SyntaxError, EvalException, InterruptedException {
+    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
+    if (!file.ok()) {
+      throw new SyntaxError(file.errors());
+    }
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        throw new EvalException(stmt.getLocation(), "cannot execute load statements in debugger");
+      }
+    }
+    EvalUtils.exec(file, thread);
   }
 
   /**

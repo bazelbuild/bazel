@@ -22,7 +22,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
@@ -43,10 +42,8 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
-import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -620,40 +617,28 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   public static void execAndExport(
       StarlarkFile file, Label extensionLabel, EventHandler handler, StarlarkThread thread)
       throws InterruptedException {
-    for (Statement stmt : file.getStatements()) {
-      try {
-        EvalUtils.execToplevelStatement(stmt, thread);
-      } catch (EvalException ex) {
-        handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
-        break;
-      }
-      possiblyExport(stmt, extensionLabel, handler, thread);
-    }
-  }
 
-  private static void possiblyExport(
-      Statement statement,
-      Label extensionLabel,
-      EventHandler eventHandler,
-      StarlarkThread extensionThread) {
-    if (!(statement instanceof AssignmentStatement)) {
-      return;
-    }
-    AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
-    ImmutableSet<Identifier> boundIdentifiers =
-        Identifier.boundIdentifiers(assignmentStatement.getLHS());
-    for (Identifier ident : boundIdentifiers) {
-      Object lookup = extensionThread.moduleLookup(ident.getName());
-      if (lookup instanceof SkylarkExportable) {
-        try {
-          SkylarkExportable exportable = (SkylarkExportable) lookup;
-          if (!exportable.isExported()) {
-            exportable.export(extensionLabel, ident.getName());
+    // Intercept execution after every assignment at top level
+    // and "export" any newly assigned exportable globals.
+    // TODO(adonovan): change the semantics; see b/65374671.
+    thread.setPostAssignHook(
+        (name, value) -> {
+          if (value instanceof SkylarkExportable) {
+            SkylarkExportable exp = (SkylarkExportable) value;
+            if (!exp.isExported()) {
+              try {
+                exp.export(extensionLabel, name);
+              } catch (EvalException ex) {
+                handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+              }
+            }
           }
-        } catch (EvalException e) {
-          eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
-        }
-      }
+        });
+
+    try {
+      EvalUtils.exec(file, thread);
+    } catch (EvalException ex) {
+      handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
     }
   }
 

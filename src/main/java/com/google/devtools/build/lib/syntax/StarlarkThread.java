@@ -824,6 +824,9 @@ public final class StarlarkThread implements Freezable {
    */
   @Nullable private Continuation continuation;
 
+  /** A hook for notifications of assignments at top level. */
+  PostAssignHook postAssignHook;
+
   /**
    * Enters a scope by saving state to a new Continuation
    *
@@ -1063,6 +1066,23 @@ public final class StarlarkThread implements Freezable {
   }
 
   /**
+   * Specifies a hook function to be run after each assignment at top level.
+   *
+   * <p>This is a short-term hack to allow us to consolidate all StarlarkFile execution in one place
+   * even while SkylarkImportLookupFunction implements the old "export" behavior, in which rules,
+   * aspects and providers are "exported" as soon as they are assigned, not at the end of file
+   * execution.
+   */
+  public void setPostAssignHook(PostAssignHook postAssignHook) {
+    this.postAssignHook = postAssignHook;
+  }
+
+  /** A hook for notifications of assignments at top level. */
+  public interface PostAssignHook {
+    void assign(String name, Object value);
+  }
+
+  /**
    * Modifies a binding in the current Frame of this StarlarkThread, as would an {@link
    * AssignmentStatement}. Does not try to modify an inherited binding. This will shadow any
    * inherited binding, which may be an error that you want to guard against before calling this
@@ -1197,22 +1217,6 @@ public final class StarlarkThread implements Freezable {
   // TODO(adonovan): push this up into the debugger once the eval API is finalized.
   public Object debugEval(Expression expr) throws EvalException, InterruptedException {
     return Eval.eval(this, expr);
-  }
-
-  /** Executes a Skylark file (sequence of statements) in this thread. (Debugger API) */
-  // TODO(adonovan): push this up into the debugger once the exec API is finalized.
-  public void debugExec(ParserInput input) throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, getGlobals(), getSemantics(), /*isBuildFile=*/ false);
-    if (!file.ok()) {
-      throw new SyntaxError(file.errors());
-    }
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        throw new EvalException(stmt.getLocation(), "cannot execute load statements in debugger");
-      }
-    }
-    Eval.execStatements(this, file.getStatements());
   }
 
   /**
