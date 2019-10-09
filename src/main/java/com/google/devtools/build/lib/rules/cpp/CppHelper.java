@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -884,6 +885,26 @@ public class CppHelper {
             .build(ruleContext));
     return defFile;
   }
+
+  /**
+   * Create action for generating trivial DEF file without any exports, should only be used when
+   * targeting Windows.
+   *
+   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
+   *     at runtime
+   * @return The DEF file artifact.
+   */
+  public static Artifact createTrivialDefFileAction(RuleContext ruleContext, String dllName) {
+    Artifact trivialDefFile =
+        ruleContext.getBinArtifact(
+            ruleContext.getLabel().getName()
+                + ".gen.trivial"
+                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile,
+        "LIBRARY " + dllName + "\n", false));
+    return trivialDefFile;
+  }
+
 
   /**
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib

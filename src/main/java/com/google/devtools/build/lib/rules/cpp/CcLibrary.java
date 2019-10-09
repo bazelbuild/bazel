@@ -312,37 +312,40 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         // If user specifies a custom DEF file, then we use it.
-        Artifact defFile = common.getWinDefFile();
-
-        Artifact defParser = common.getDefParser();
+        Artifact customDefFile = common.getWinDefFile();
         Artifact generatedDefFile = null;
-        if (defParser != null) {
-          try {
+        Artifact trivialDefFile = null;
+        Artifact defParser = common.getDefParser();
+        try {
+          String dllName = ccToolchain
+              .getFeatures()
+              .getArtifactNameForCategory(
+                  ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName());
+
+          if (defParser != null) {
             generatedDefFile =
                 CppHelper.createDefFileActions(
                     ruleContext,
                     defParser,
                     ccCompilationOutputs.getObjectFiles(false),
-                    ccToolchain
-                        .getFeatures()
-                        .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
+                    dllName);
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
-          } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e.getMessage());
           }
+          trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext, dllName);
+        } catch (EvalException e) {
+          throw ruleContext.throwWithRuleError(e.getMessage());
         }
 
-        // If no DEF file is specified and the windows_export_all_symbols feature is enabled, parse
-        // object files to generate DEF file and use it to export symbols - if we have a parser.
-        // Otherwise, use no DEF file.
-        if (defFile == null
-            && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-          defFile = generatedDefFile;
-        }
-
-        if (defFile != null) {
-          linkingHelper.setDefFile(defFile);
+        // 1. If a custom DEF file is specified in win_def_file attribute, use it.
+        // 2. If the windows_export_all_symbols feature is enabled, parse object files to
+        //    generate DEF file and use it to export symbols - if we have a parser.
+        // 3. Otherwise, we use a trivial DEF file to ensure the import library will be generated.
+        if (customDefFile != null) {
+          linkingHelper.setDefFile(customDefFile);
+        } else if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+          linkingHelper.setDefFile(generatedDefFile);
+        } else {
+          linkingHelper.setDefFile(trivialDefFile);
         }
       }
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
