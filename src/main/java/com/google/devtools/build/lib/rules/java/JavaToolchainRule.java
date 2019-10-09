@@ -201,6 +201,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("header_compiler_builtin_processors", STRING_LIST)
                 .undocumented("internal")
                 .value(ImmutableList.<String>of()))
+        .add(
+            attr("reduced_classpath_incompatible_processors", STRING_LIST)
+                .undocumented("internal")
+                .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -252,7 +252,7 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    return builder.build(ruleContext, semantics);
+    return builder.build(ruleContext, javaToolchain, semantics);
   }
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {

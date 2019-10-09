@@ -72,6 +72,11 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     ImmutableSet<String> headerCompilerBuiltinProcessors =
         ImmutableSet.copyOf(
             ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
+    ImmutableSet<String> reducedClasspathIncompatibleProcessors =
+        ImmutableSet.copyOf(
+            ruleContext
+                .attributes()
+                .get("reduced_classpath_incompatible_processors", Type.STRING_LIST));
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", Mode.HOST);
@@ -129,6 +134,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompiler,
             headerCompilerDirect,
             headerCompilerBuiltinProcessors,
+            reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
             singleJar,
             oneVersion,

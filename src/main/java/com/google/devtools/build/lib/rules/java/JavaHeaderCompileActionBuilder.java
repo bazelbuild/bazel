@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -253,11 +254,17 @@ public class JavaHeaderCompileActionBuilder {
     // Use the optimized 'direct' implementation if it is available, and either there are no
     // annotation processors or they are built in to the tool and listed in
     // java_toolchain.header_compiler_direct_processors.
+    ImmutableSet<String> processorClasses = plugins.processorClasses().toSet();
     boolean useHeaderCompilerDirect =
         javaToolchain.getHeaderCompilerDirect() != null
-            && javaToolchain
-                .getHeaderCompilerBuiltinProcessors()
-                .containsAll(plugins.processorClasses().toSet());
+            && javaToolchain.getHeaderCompilerBuiltinProcessors().containsAll(processorClasses);
+    JavaConfiguration javaConfiguration =
+        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
+    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
+    if (!Collections.disjoint(
+        processorClasses, javaToolchain.getReducedClasspathIncompatibleProcessors())) {
+      classpathMode = JavaClasspathMode.OFF;
+    }
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
@@ -336,12 +343,9 @@ public class JavaHeaderCompileActionBuilder {
       }
     }
 
-    JavaConfiguration javaConfiguration =
-        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
     ImmutableMap<String, String> executionInfo =
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
     Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
-    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (classpathMode == JavaClasspathMode.BAZEL) {
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
