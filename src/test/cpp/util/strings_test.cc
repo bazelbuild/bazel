@@ -24,7 +24,6 @@
 namespace blaze_util {
 
 using std::string;
-using std::unique_ptr;
 using std::vector;
 
 TEST(BlazeUtil, JoinStrings) {
