@@ -112,11 +112,6 @@ public class ParallelFileProcessingTest {
     doPerformanceTest(2000);
   }
 
-  @Test
-  public void testPerformanceVeryLarge() throws Exception {
-    doPerformanceTest(4000);
-  }
-
   private String printTimes(long[] times) {
     List<String> values = Lists.newArrayList();
     double avg = 0;
