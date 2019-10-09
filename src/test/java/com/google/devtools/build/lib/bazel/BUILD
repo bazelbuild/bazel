@@ -35,6 +35,22 @@ test_suite(
 )
 
 java_test(
+    name = "bazel-ninja-tests",
+    srcs = glob(["rules/ninja/**/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-ninja",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/allocation_instrumenter",
+    ],
+)
+
+java_test(
     name = "bazel-rules-tests",
     srcs = glob(
         ["rules/**/*.java"],
