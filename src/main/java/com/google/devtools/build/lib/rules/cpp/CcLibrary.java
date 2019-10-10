@@ -331,7 +331,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     dllName);
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           }
-          trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext, dllName);
+          trivialDefFile = CppHelper.createTrivialDLLDefFileAction(ruleContext, dllName);
         } catch (EvalException e) {
           throw ruleContext.throwWithRuleError(e.getMessage());
         }

@@ -459,7 +459,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   ruleContext, defParser, objectFiles.build(), binary.getFilename());
         }
         customDefFile = common.getWinDefFile();
-        trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext, binary.getFilename());
+        trivialDefFile = CppHelper.createTrivialDLLDefFileAction(ruleContext, binary.getFilename());
       }
     }
 

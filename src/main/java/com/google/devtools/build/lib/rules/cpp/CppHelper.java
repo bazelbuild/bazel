@@ -894,7 +894,7 @@ public class CppHelper {
    *     at runtime
    * @return The DEF file artifact.
    */
-  public static Artifact createTrivialDefFileAction(RuleContext ruleContext, String dllName) {
+  public static Artifact createTrivialDLLDefFileAction(RuleContext ruleContext, String dllName) {
     Artifact trivialDefFile =
         ruleContext.getBinArtifact(
             ruleContext.getLabel().getName()
