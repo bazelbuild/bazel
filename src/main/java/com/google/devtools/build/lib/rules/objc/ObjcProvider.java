@@ -248,15 +248,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
 
-  /**
-   * Exec paths of {@code .framework} directories corresponding to dynamic frameworks to link. These
-   * cause -F arguments (framework search paths) to be added to each compile action, and
-   * -framework (link framework) arguments to be added to each link action. These differ from
-   * static frameworks in that they are not statically linked into the binary.
-   */
-  public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
-      new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
-
   /** The dynamic library files of user-specified dynamic frameworks. */
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
@@ -358,7 +349,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
           DEFINE,
-          DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           EXPORTED_DEBUG_ARTIFACTS,
           FRAMEWORK_SEARCH_PATHS,
@@ -406,11 +396,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   @Override
   public NestedSet<String> define() {
     return get(DEFINE);
-  }
-
-  @Override
-  public SkylarkNestedSet dynamicFrameworkDir() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(DYNAMIC_FRAMEWORK_DIR));
   }
 
   @Override
@@ -592,7 +577,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   private static final ImmutableSet<Key<?>> NON_SUBTRACTABLE_KEYS =
       ImmutableSet.<Key<?>>of(
           DEFINE,
-          DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
           MERGE_ZIP,
@@ -906,24 +890,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
     }
     addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
-  }
-
-  /**
-   * Returns all unique static framework directories (directories ending in '.framework') for all
-   * static framework files in this provider.
-   */
-  public Iterable<PathFragment> getStaticFrameworkDirs() {
-    return ObjcCommon.uniqueContainers(get(STATIC_FRAMEWORK_FILE),
-        ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
-  }
-
-  /**
-   * Returns all unique static framework directories (directories ending in '.framework') for all
-   * static framework files in this provider.
-   */
-  @Override
-  public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(getStaticFrameworkDirs());
   }
 
   /**

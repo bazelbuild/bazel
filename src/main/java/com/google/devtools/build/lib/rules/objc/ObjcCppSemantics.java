@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProcessingType.HEADER_THINNING;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProcessingType.INCLUDE_SCANNING;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProcessingType.NO_PROCESSING;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.IncludeProcessingType;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -51,7 +48,6 @@ public class ObjcCppSemantics implements CppSemantics {
   private final ObjcConfiguration config;
   private final IntermediateArtifacts intermediateArtifacts;
   private final BuildConfiguration buildConfiguration;
-  private final StarlarkSemantics starlarkSemantics;
 
   /**
    * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
@@ -85,8 +81,7 @@ public class ObjcCppSemantics implements CppSemantics {
       Iterable<Artifact> extraIncludeScanningInputs,
       ObjcConfiguration config,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfiguration buildConfiguration,
-      StarlarkSemantics starlarkSemantics) {
+      BuildConfiguration buildConfiguration) {
     this.objcProvider = objcProvider;
     this.includeProcessingType = includeProcessingType;
     this.includeProcessing = includeProcessing;
@@ -94,7 +89,6 @@ public class ObjcCppSemantics implements CppSemantics {
     this.config = config;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
-    this.starlarkSemantics = starlarkSemantics;
   }
 
   @Override
@@ -109,12 +103,6 @@ public class ObjcCppSemantics implements CppSemantics {
         // TODO(waltl): do better with include scanning.
         .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFilesMiddleman())
         .setShouldScanIncludes(includeProcessingType == INCLUDE_SCANNING);
-
-    if (!starlarkSemantics.incompatibleObjcFrameworkCleanup()) {
-      actionBuilder
-          .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-          .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
-    }
 
     if (includeProcessingType == HEADER_THINNING) {
       Artifact sourceFile = actionBuilder.getSourceFile();
