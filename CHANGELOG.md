@@ -1,50 +1,142 @@
-## Release 0.29.1 (2019-09-10)
+## Release 1.0.0 (2019-10-10)
 
 ```
-Baseline: 6c5ef5369a3ffceb8a65cc159a2fff1401242810
+Baseline: 97a82646dadd93bf52d47828bda42e3383b657c6
 
 Cherry picks:
 
-   + 338829f2633e91ae0492ee4169446465e10b5994:
-     Fix retrying of SocketTimeoutExceptions in HttpConnector
-   + 14651cd86b6fc1d48f56a208a9b5278b3e2dcf75:
-     Fallback to next urls if download fails in HttpDownloader
-   + b7d300c6be3e130dec0e62a4f19493105f595d57:
-     Fix incorrect stdout/stderr in remote action cache. Fixes #9072
-   + 960217631abdcab0a7ed95e2ab10acd55f636639:
-     Automated rollback of commit
-     0f0a0d58725603cf2f1c175963360b525718a195.
-   + da557f96c697102ad787e57bbf7db2460f6a60a8:
-     Windows: fix "bazel run" argument quoting
-   + ef8b6f68cc8ffd2e6523a894034ae383e87ec74c:
-     Return JavaInfo from java proto aspects.
-   + 209175ff8ffeb05628ed8a187dd414a3d2935c55:
-     Revert back to the old behavior of not creating a proto source
-     root for generated .proto files.
-   + 644060b7a4bc98384b66e3d2343b950b875b5e35:
-     Fix PatchUtil for parsing special patch format
-   + 067040d7bcb3b24a88432e210a96adacee3f37b4:
-     Put the removal of the legacy repository-relative proto path
-     behind the --incompatible_generated_protos_in_virtual_imports
-     flag.
-   + 76ed014e77d7b862f6eb2894600ae525ea570f11:
-     repository mapping lookup: convert to canonical name first
-   + f791df0aada91c38018ad98b3b40a528ff226204:
-     Release 0.29.0 (2019-08-28)
-   + 2c046486f5febb9e475a5589b59abae77f14245e:
-     Fix git_repository rule to support fetching a commit on a tag
-   + 9e1d65a1fcebff7169a63acad95c7b44302b89c4:
-     Fix a serious regression in remote execution. Fixes #9284
-   + 8b0bfaf6716327ca6b60692704e3d57766f7ab1f:
-     Include cc configure headers in the cache key
-   + 5c02b92c45b5422971b3164685d9edb771367a1b:
-     Make --workspace_status_command work with "Builds without the
-     Bytes".
    + a0e3bb207fe2044120a2555a37162ee1f2b17500:
      Remove support for authentication and .netrc
+   + ada2c55dcc106cd55bafbbe5d9a966e21e4770e0:
+     Add explicit --sdk argument to xcrun calls
+   + 847df729528f6e5919ec8374247eadf792cba544:
+     toolchain_vanilla: Unset source and target language level
+     versions
+   + 5cfa0303d6ac3b5bd031ff60272ce80a704af8c2:
+     Update java_tools version to javac11-v5.1.
 ```
 
-This release contains contributions from many people at Google, as well as Artem Zinnatullin.
+Incompatible changes:
+
+  - Python, Windows: the
+    --[no]incompatible_windows_escape_python_args is no longer
+    supported. (It was flipped to true in Bazel 0.27.0)
+  - --incompatible_use_native_patch is enabled by default
+  - Windows: --incompatible_windows_bashless_run_command is now true
+    by default, meaning "bazel run //foo:bin" will run the binary as
+    a subprocess of the Bazel client. (When the flag is false, the
+    binary is executed as a subprocess of Bash.)
+  - Windows: --incompatible_windows_native_test_wrapper is enabled by
+    default
+
+New features:
+
+  - Genrule now supports `cmd_bash`, `cmd_ps`, `cmd_bat` attributes.
+    More details at
+    https://docs.bazel.build/versions/master/be/general.html#genrule.c
+    md
+  - config_setting can now check multiple values on "--foo=firstVal
+    --foo=secondVal ..."-style flags
+  - tags: use `--experimental_allow_tags_propagation` flag to
+    propagate tags to the action's execution requirements from
+    targets. Such tags should start with: `no-`, `requires-`,
+    `supports-`, `block-`, `disable-`, `cpu:`. See #8830 for details.
+  - Users can now get generated def file from cc_library via
+    "def_file" output group on Windows.
+  - Platform-specific bazelrc: with --enable_platform_specific_config
+    you can
+    enable flags in bazelrc according to your host platform.
+  - tags: use `--experimental_allow_tags_propagation` flag to
+    propagate tags to the action's execution requirements from
+    cc_library or cc_binary targets. Such tags should start with:
+    `no-`, `requires-`, `supports-`, `block-`, `disable-`, `cpu:`.
+    See #8830 for details.
+  - tags: use --experimental_allow_tags_propagation flag to propagate
+    tags to the action's execution requirements from java targets.
+    Such tags should start with: no-, requires-, supports-, block-,
+    disable-, cpu:. See #8830 for details.
+
+Important changes:
+
+  - Bazel Android builds now use aapt2 by default. To revert to aapt,
+    set `--android_aapt=aapt`.
+  - Make either --subcommands or --verbose_failures imply
+    --materialize_param_files
+  - Bazel Android builds now use aapt2 by default. To revert to aapt,
+    set `--an...
+    RELNOTES: None
+  - by default all remote connections considered to be via `gRPC`
+    with TLS enabled, unless other specified. To disable TLS use
+    `grpc://` prefix for you endpoints. All remote connections via
+    `gRPC` affected - `--remote_cache`, `--remote_executor` or
+    `--bes_backend`. http cache/executor is not affected. See #8061
+    for details.
+  - cc_* rules support non-transitive defines through a
+    'local_defines' attribute.
+  - Enable
+    incompatible_disallow_rule_execution_platform_constraints_allowed
+    by default (https://github.com/bazelbuild/bazel/issues/8136).
+  - incompatible_disallow_split_empty_separator is enabled by default
+  - Fixed Android build issues with aapt2 on Windows. See the [GitHub
+    issue](https://github.com/bazelbuild/bazel/issues/9102) for more
+    information.
+  - --incompatible_disable_static_cc_toolchains has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/8546.
+  - --remote_default_platform_properties has been deprecated in favor
+    of --remote_default_exec_properties.
+  - The --incompatible_make_thinlto_command_lines_standalone flag has
+    been flipped, see https://github.com/bazelbuild/bazel/issues/6791
+    for more information.
+  - The --incompatible_use_specific_tool_files flag has been flipped.
+    See https://github.com/bazelbuild/bazel/pull/9126 for more
+    information.
+  - Clarify default visibility.
+  - Enables incompatible_auto_configure_host_platform
+  - New incompatible flag --incompatible_disable_depset_items
+    disables the "items" parameter in the Starlark depset
+    constructor. Use "direct" and "transitive" parameters instead.
+  - --incompatible_assignment_identifiers_have_local_scope is enabled
+  - incompatible_disable_partition_default_parameter is enabled by
+    default ()
+  - incompatible_restrict_attribute_names is enabled
+    (https://github.com/bazelbuild/bazel/issues/6437)
+  - The --incompatible_disable_nocopts flag has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/8546 for more
+    information.
+  - Deprecated Java-Starlark API java_common.create_provider is
+    removed. JavaInfo() legacy args (actions, sources, source_jars,
+    use_ijar, java_toolchain, host_javabase) are removed.
+  - The flag incompatible_disallow_hashing_frozen_mutables is enabled
+    (https://github.com/bazelbuild/bazel/issues/7800)
+  - `maven_jar` and `maven_server` now disallow using plain HTTP URLs
+    without a specified checksum. If you are still using `maven_jar`,
+    consider migrating to
+    [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_ext
+    ernal) for transitive dependency management. See
+    [#8607](https://github.com/bazelbuild/bazel/issues/8607) for more
+    information.
+  - Added `sha256` and `sha256_src` attributes to `maven_jar`. Please
+    consider migrating to SHA-256 as SHA-1 has been deemed
+    cryptographically insecure ([https://shattered.io]()). Or, use
+    [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_ext
+    ernal) to manage your transitive Maven dependencies with artifact
+    pinning and SHA-256 verification support.
+  - introducing per-target exec_properties
+  - Bazel now supports ThinLTO builds on Linux for Clang versions >=
+    6.0. ThinLTO can be enabled through --features=thin_lto
+  - The Target.output_group field in Starlark is removed. Use
+    OutputGroupInfo instead. See
+    https://github.com/bazelbuild/bazel/issues/7949 for details.
+  - Make a number of parameters of Starlark builtin functions
+    positional-only (as opposed to specifiable by keyword). See
+    https://github.com/bazelbuild/bazel/issues/8147 for details.
+  - incompatible_skip_genfiles_symlink is enabled by default (#8651)
+  - Change Pruned events will fire immediately after being checked.
+  - --incompatible_remove_legacy_whole_archive has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/7362 for more
+    information
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Arshabh Kumar Agarwal, Artem Pelenitsyn, Artem Zinnatullin, Benjamin Peterson, David Ostrovsky, Emmanuel Goh, Farhim Ferdous, George Gensure, iirina, Keith Smiley, Kiril Videlov, Laurent Le Brun, Mantas Sakalauskas, Marwan Tammam, Matt Mukerjee, panzhongxian, Shachar Anchelovich, Stepan Koltsov, Stephan Wolski, Travis Clarke, Yannic Bonenberger, Yuta Saito.
 
 ## Release 0.29.0 (2019-08-28)
 
