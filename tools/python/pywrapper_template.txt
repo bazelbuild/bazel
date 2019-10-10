@@ -44,6 +44,11 @@ die() {
 #     https://github.com/bazelbuild/bazel/issues/8414
 #     https://github.com/bazelbuild/bazel/issues/8415
 
+# Check if `which` is present first
+if ! which --help >/dev/null 2>&1; then
+  die "which utility not found."
+fi
+
 # Try the "python%VERSION%" command name first, then fall back on "python".
 PYTHON_BIN="$(PATH="$PATH" which python%VERSION% 2> /dev/null)"
 USED_FALLBACK="0"
