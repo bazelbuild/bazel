@@ -3297,7 +3297,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDeclareFileInvalidDirectory() throws Exception {
+  public void testDeclareFileInvalidDirectory_withSibling() throws Exception {
     scratch.file("test/dep/test_file.txt", "Test file");
 
     scratch.file("test/dep/BUILD", "exports_files(['test_file.txt'])");
@@ -3319,6 +3319,84 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test/skylark:target");
     assertContainsEvent(
         "the output artifact 'test/dep/exe' is not under package directory "
+            + "'test/skylark' for target '//test/skylark:target'");
+  }
+
+  @Test
+  public void testDeclareFileInvalidDirectory_noSibling() throws Exception {
+    scratch.file("test/dep/test_file.txt", "Test file");
+
+    scratch.file("test/dep/BUILD", "exports_files(['test_file.txt'])");
+
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('/foo/exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl,",
+        "    attrs = {'dep': attr.label(allow_single_file = True)})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target', dep = '//test/dep:test_file.txt')");
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test/skylark:target")).isNull();
+    assertContainsEvent(
+        "the output artifact '/foo/exe' is not under package directory "
+            + "'test/skylark' for target '//test/skylark:target'");
+  }
+
+  @Test
+  public void testDeclareDirectoryInvalidParent_withSibling() throws Exception {
+    scratch.file("test/dep/test_file.txt", "Test file");
+
+    scratch.file("test/dep/BUILD", "exports_files(['test_file.txt'])");
+
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_directory('/foo/exe', sibling = ctx.file.dep)",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl,",
+        "    attrs = {'dep': attr.label(allow_single_file = True)})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target', dep = '//test/dep:test_file.txt')");
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test/skylark:target")).isNull();
+    assertContainsEvent(
+        "the output directory '/foo/exe' is not under package directory "
+            + "'test/skylark' for target '//test/skylark:target'");
+  }
+
+  @Test
+  public void testDeclareDirectoryInvalidParent_noSibling() throws Exception {
+    scratch.file("test/dep/test_file.txt", "Test file");
+
+    scratch.file("test/dep/BUILD", "exports_files(['test_file.txt'])");
+
+    scratch.file(
+        "test/skylark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_directory('/foo/exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command=['touch', 'exe'])",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl,",
+        "    attrs = {'dep': attr.label(allow_single_file = True)})");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target', dep = '//test/dep:test_file.txt')");
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test/skylark:target")).isNull();
+    assertContainsEvent(
+        "the output directory '/foo/exe' is not under package directory "
             + "'test/skylark' for target '//test/skylark:target'");
   }
 

@@ -131,34 +131,45 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   @Override
   public Artifact declareFile(String filename, Object sibling, Location loc) throws EvalException {
     context.checkMutable("actions.declare_file");
+
+    PathFragment fragment;
     if (Runtime.NONE.equals(sibling)) {
-      return ruleContext.getPackageRelativeArtifact(filename, newFileRoot());
+      fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
-      PathFragment fragment = original.replaceName(filename);
-      if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "the output artifact '%s' is not under package directory '%s' for target '%s'",
-                fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
-      }
-      return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+      fragment = original.replaceName(filename);
     }
+
+    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+      throw new EvalException(
+          loc,
+          String.format(
+              "the output artifact '%s' is not under package directory '%s' for target '%s'",
+              fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+    }
+    return ruleContext.getDerivedArtifact(fragment, newFileRoot());
   }
 
   @Override
   public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_directory");
-    Artifact result;
+    PathFragment fragment;
+
     if (Runtime.NONE.equals(sibling)) {
-      result =
-          ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(filename), newFileRoot());
+      fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
-      PathFragment fragment = original.replaceName(filename);
-      result = ruleContext.getTreeArtifact(fragment, newFileRoot());
+      fragment = original.replaceName(filename);
     }
+
+    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+      throw new EvalException(
+          String.format(
+              "the output directory '%s' is not under package directory '%s' for target '%s'",
+              fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+    }
+
+    Artifact result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     if (!result.isTreeArtifact()) {
       throw new EvalException(
           null,
