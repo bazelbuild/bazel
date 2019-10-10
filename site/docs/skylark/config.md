@@ -443,6 +443,44 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
+### Accessing Attributes with Transitions
+When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
+(regardless of whether the transition is a 1:1 or 1:2+ transition) access to
+values of that attribute in the rule implementation changes. Access through
+`ctx.attr` is forced to be a list if it isn't already. The order of elements in
+this list is unspecified.
+
+```python
+# example/transitions/rules.bzl
+def _transition_impl(settings, attr):
+    return {"//example:favorite_flavor" : "LATTE"},
+
+coffee_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//example:favorite_flavor"]
+)
+
+def _rule_impl(ctx):
+    # Note: List access even though "dep" is not declared as list
+    transitioned_dep = ctx.attr.dep[0]
+
+    # Note: Access doesn't change, other_deps was already a list
+    for other dep in ctx.attr.other_deps:
+      # ...
+
+
+coffee_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "dep": attr.label(cfg = coffee_transition)
+        "other_deps": attr.label_list(cfg = coffee_transition)
+    })
+```
+
+Access to the value of a single branch of a 1:2+
+[has not been implemented yet](https://github.com/bazelbuild/bazel/issues/8633).
+
 ## Integration with Platforms and Toolchains
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
