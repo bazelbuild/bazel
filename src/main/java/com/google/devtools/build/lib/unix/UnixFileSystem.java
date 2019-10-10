@@ -408,9 +408,6 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (getDigestFunction() == DigestHashFunction.MD5) {
-        return NativePosixFiles.md5sum(name).asBytes();
-      }
       return super.getDigest(path);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);

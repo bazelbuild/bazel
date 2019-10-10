@@ -110,7 +110,8 @@ public class DigestUtilsTest {
   public void testCalculationConcurrency() throws Exception {
     final int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
     final int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
-    for (DigestHashFunction hf : Arrays.asList(DigestHashFunction.MD5, DigestHashFunction.SHA1)) {
+    for (DigestHashFunction hf :
+        Arrays.asList(DigestHashFunction.SHA256, DigestHashFunction.SHA1)) {
       assertDigestCalculationConcurrency(true, true, small, small, hf);
       assertDigestCalculationConcurrency(true, true, large, large, hf);
       assertDigestCalculationConcurrency(true, false, small, small, hf);

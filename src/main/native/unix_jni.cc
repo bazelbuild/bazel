@@ -33,7 +33,6 @@
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/native/latin1_jni_path.h"
 #include "src/main/native/macros.h"
@@ -43,8 +42,6 @@
 #else
 #define PORTABLE_O_DIRECTORY 0
 #endif
-
-using blaze_util::Md5Digest;
 
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
@@ -1074,59 +1071,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
     }
   }
   free(buf);
-}
-
-// Computes MD5 digest of "file", writes result in "result", which
-// must be of length Md5Digest::kDigestLength.  Returns zero on success, or
-// -1 (and sets errno) otherwise.
-static int md5sumAsBytes(const char *file,
-                         jbyte result[Md5Digest::kDigestLength]) {
-  Md5Digest digest;
-  // OPT: Using a 32k buffer would give marginally better performance,
-  // but what is the stack size here?
-  jbyte buf[8192];
-  int fd;
-  while ((fd = open(file, O_RDONLY)) == -1 && errno == EINTR) { }
-  if (fd == -1) {
-    return -1;
-  }
-  for (ssize_t len = read(fd, buf, arraysize(buf));
-       len != 0;
-       len = read(fd, buf, arraysize(buf))) {
-    if (len == -1) {
-      if (errno == EINTR) {
-        continue;
-      } else {
-        int read_errno = errno;
-        close(fd);  // prefer read() errors over close().
-        errno = read_errno;
-        return -1;
-      }
-    }
-    digest.Update(buf, len);
-  }
-  if (close(fd) < 0 && errno != EINTR) {
-    return -1;
-  }
-  digest.Finish(reinterpret_cast<unsigned char*>(result));
-  return 0;
-}
-
-
-extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_md5sumAsBytes(
-    JNIEnv *env, jclass clazz, jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  jbyte value[Md5Digest::kDigestLength];
-  jbyteArray result = NULL;
-  if (md5sumAsBytes(path_chars, value) == 0) {
-    result = env->NewByteArray(Md5Digest::kDigestLength);
-    env->SetByteArrayRegion(result, 0, Md5Digest::kDigestLength, value);
-  } else {
-    ::PostFileException(env, errno, path_chars);
-  }
-  ReleaseStringLatin1Chars(path_chars);
-  return result;
 }
 
 extern "C" JNIEXPORT jlong JNICALL

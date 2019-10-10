@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.UnixJniLoader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -346,26 +345,6 @@ public final class NativePosixFiles {
    */
   public static native byte[] lgetxattr(String path, String name)
       throws IOException;
-
-  /**
-   * Returns the MD5 digest of the specified file, following symbolic links.
-   *
-   * @param path the file whose MD5 digest is required.
-   * @return the MD5 digest, as a 16-byte array.
-   * @throws IOException if the call failed for any reason.
-   */
-  static native byte[] md5sumAsBytes(String path) throws IOException;
-
-  /**
-   * Returns the MD5 digest of the specified file, following symbolic links.
-   *
-   * @param path the file whose MD5 digest is required.
-   * @return the MD5 digest, as a {@link HashCode}
-   * @throws IOException if the call failed for any reason.
-   */
-  public static HashCode md5sum(String path) throws IOException {
-    return HashCode.fromBytes(md5sumAsBytes(path));
-  }
 
   /**
    * Deletes all directory trees recursively beneath the given path, which is expected to be a
