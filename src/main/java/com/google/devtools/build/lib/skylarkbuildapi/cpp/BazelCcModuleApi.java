@@ -61,7 +61,9 @@ public interface BazelCcModuleApi<
 
   @SkylarkCallable(
       name = "compile",
-      doc = "Should be used for C++ compilation.",
+      doc =
+          "Should be used for C++ compilation. Returns tuple of "
+              + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
       useStarlarkThread = true,
       useLocation = true,
       parameters = {

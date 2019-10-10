@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @SkylarkModule(
     name = "CcCompilationOutputs",
     category = SkylarkModuleCategory.BUILTIN,
-    documented = false,
+    documented = true,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcCompilationOutputsApi<FileT extends FileApi> {
 
