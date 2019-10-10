@@ -17,11 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -30,9 +31,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,48 +38,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark documentation.
- */
+/** Tests for Skylark documentation. */
 @RunWith(JUnit4.class)
-public class SkylarkDocumentationTest extends SkylarkTestCase {
+public class SkylarkDocumentationTest {
 
   private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
       ImmutableList.of("Actions");
 
-  @Before
-  public final void createBuildFile() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(name = 'foo',",
-        "  cmd = 'dummy_cmd',",
-        "  srcs = ['a.txt', 'b.img'],",
-        "  tools = ['t.exe'],",
-        "  outs = ['c.txt'])");
-  }
-
-  @Override
-  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
-    return new EvaluationTestCase();
-  }
-
   @Test
   public void testSkylarkRuleClassBuiltInItemsAreDocumented() throws Exception {
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getStarlarkThread());
-  }
-
-  @Test
-  public void testSkylarkRuleImplementationBuiltInItemsAreDocumented() throws Exception {
-    // TODO(bazel-team): fix documentation for built in java objects coming from modules.
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getStarlarkThread());
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    SkylarkModules.addSkylarkGlobalsToBuilder(env);
+    checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
   @SuppressWarnings("unchecked")
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(StarlarkThread thread) throws Exception {
+  private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
+      throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, SkylarkModuleDoc> modules =
         SkylarkDocumentationCollector.collectModules(
@@ -97,7 +74,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
     List<String> undocumentedItems = new ArrayList<>();
     // All built in variables are registered in the Skylark global environment.
-    for (String varname : thread.getVariableNames()) {
+    for (String varname : globals.keySet()) {
       if (docMap.containsKey(varname)) {
         if (docMap.get(varname).isEmpty()) {
           undocumentedItems.add(varname);
@@ -236,7 +213,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** MockClassWithContainerReturnValues */
-  @SkylarkModule(name = "MockClassWithContainerReturnValues",
+  @SkylarkModule(
+      name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
   private static class MockClassWithContainerReturnValues {
 
