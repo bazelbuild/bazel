@@ -517,7 +517,7 @@ class BazelWindowsCppTest(test_base.TestBase):
   def testBuildSharedLibraryWithoutAnySymbolExported(self):
     self.createProjectFiles()
     self.ScratchFile(
-      'lib/BUILD',
+      'BUILD',
       [
         'cc_binary(',
         '  name = "A.dll",',
@@ -528,12 +528,12 @@ class BazelWindowsCppTest(test_base.TestBase):
       ])
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//lib:A.dll'])
+    exit_code, _, stderr = self.RunBazel(['build', '//:A.dll'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     # Although windows_export_all_symbols is not specified for this target,
     # we should still be able to build a DLL without any symbol exported.
-    trivial_def_file = os.path.join(bazel_bin, 'lib/A.dll.gen.trivial.def')
+    trivial_def_file = os.path.join(bazel_bin, 'A.dll.gen.trivial.def')
     self.assertTrue(os.path.exists(trivial_def_file))
     self.AssertFileContentNotContains(trivial_def_file, 'hello_A')
 
