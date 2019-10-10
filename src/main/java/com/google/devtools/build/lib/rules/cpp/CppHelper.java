@@ -890,18 +890,15 @@ public class CppHelper {
    * Create action for generating trivial DEF file without any exports, should only be used when
    * targeting Windows.
    *
-   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
-   *     at runtime
-   * @return The DEF file artifact.
+   * @return The artifact of an empty DEF file.
    */
-  public static Artifact createTrivialDLLDefFileAction(RuleContext ruleContext, String dllName) {
+  public static Artifact createTrivialDefFileAction(RuleContext ruleContext) {
     Artifact trivialDefFile =
         ruleContext.getBinArtifact(
             ruleContext.getLabel().getName()
                 + ".gen.trivial"
                 + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
-    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile,
-        "LIBRARY " + dllName + "\n", false));
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
     return trivialDefFile;
   }
 

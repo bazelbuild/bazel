@@ -314,26 +314,24 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         // If user specifies a custom DEF file, then we use it.
         Artifact customDefFile = common.getWinDefFile();
         Artifact generatedDefFile = null;
-        Artifact trivialDefFile = null;
+        Artifact trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext);
         Artifact defParser = common.getDefParser();
-        try {
-          String dllName = ccToolchain
-              .getFeatures()
-              .getArtifactNameForCategory(
-                  ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName());
 
-          if (defParser != null) {
+        if (defParser != null) {
+          try {
             generatedDefFile =
                 CppHelper.createDefFileActions(
                     ruleContext,
                     defParser,
                     ccCompilationOutputs.getObjectFiles(false),
-                    dllName);
+                    ccToolchain
+                        .getFeatures()
+                        .getArtifactNameForCategory(
+                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
+          } catch (EvalException e) {
+            throw ruleContext.throwWithRuleError(e.getMessage());
           }
-          trivialDefFile = CppHelper.createTrivialDLLDefFileAction(ruleContext, dllName);
-        } catch (EvalException e) {
-          throw ruleContext.throwWithRuleError(e.getMessage());
         }
 
         // 1. If a custom DEF file is specified in win_def_file attribute, use it.
@@ -342,7 +340,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         // 3. Otherwise, we use a trivial DEF file to ensure the import library will be generated.
         if (customDefFile != null) {
           linkingHelper.setDefFile(customDefFile);
-        } else if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+        } else if (generatedDefFile != null && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
           linkingHelper.setDefFile(generatedDefFile);
         } else {
           linkingHelper.setDefFile(trivialDefFile);

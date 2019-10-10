@@ -459,7 +459,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   ruleContext, defParser, objectFiles.build(), binary.getFilename());
         }
         customDefFile = common.getWinDefFile();
-        trivialDefFile = CppHelper.createTrivialDLLDefFileAction(ruleContext, binary.getFilename());
+        trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext);
       }
     }
 
@@ -833,7 +833,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // 3. Otherwise, we use a trivial DEF file to ensure the import library will be generated.
     if (customDefFile != null) {
       ccLinkingHelper.setDefFile(customDefFile);
-    } else if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+    } else if (generatedDefFile != null && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
       ccLinkingHelper.setDefFile(generatedDefFile);
     } else {
       ccLinkingHelper.setDefFile(trivialDefFile);
