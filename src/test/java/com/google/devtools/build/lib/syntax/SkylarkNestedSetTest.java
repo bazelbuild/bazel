@@ -606,6 +606,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
   }
 
+  @Test
+  public void testListComprehensionsWithNestedSet() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .testEval("[x + x for x in depset([1, 2, 3])]", "[2, 4, 6]");
+  }
+
   private interface MergeStrategy {
     SkylarkNestedSet merge(SkylarkNestedSet[] sets) throws Exception;
   }

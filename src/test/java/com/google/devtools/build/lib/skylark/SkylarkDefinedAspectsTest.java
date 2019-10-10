@@ -1945,7 +1945,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList result = (SkylarkList) target.get("result");
+    SkylarkList<?> result = (SkylarkList) target.get("result");
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2009,7 +2009,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "rcollect(name = 'rcollect', deps = [':r1', ':r2'])");
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList result = (SkylarkList) target.get("result");
+    SkylarkList<?> result = (SkylarkList) target.get("result");
     assertThat(result)
         .containsExactly(
             "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2059,7 +2059,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList result = (SkylarkList) target.get("result");
+    SkylarkList<?> result = (SkylarkList) target.get("result");
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
