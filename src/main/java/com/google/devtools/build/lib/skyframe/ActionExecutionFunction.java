@@ -52,7 +52,10 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -214,15 +217,21 @@ public class ActionExecutionFunction implements SkyFunction {
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
     CheckInputResults checkedInputs = null;
-    Iterable<Artifact> allInputs = state.allInputs.getAllInputs();
     @Nullable
     ImmutableSet<Artifact> mandatoryInputs =
         action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null;
-    Iterable<? extends SkyKey> inputDepKeys = Artifact.keys(allInputs);
-    // Declare deps on known inputs to action. We do this unconditionally to maintain our
-    // invariant of asking for the same deps each build.
+
+    int nestedSetSizeThreshold = skyframeActionExecutor.getNestedSetAsSkyKeyThreshold();
+    Iterable<Artifact> allInputs =
+        state.allInputs.getAllInputs(/* maybeAsNestedSet= */ nestedSetSizeThreshold > 0);
+
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
-        env.getValuesOrThrow(inputDepKeys, IOException.class, ActionExecutionException.class);
+        getInputDeps(env, nestedSetSizeThreshold, allInputs);
+    // If there's a missing value.
+    if (inputDeps == null) {
+      return null;
+    }
+
     try {
       if (previousExecution == null && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
@@ -309,6 +318,43 @@ public class ActionExecutionFunction implements SkyFunction {
       topDownActionCache.put(sketch, result);
     }
     return result;
+  }
+
+  /**
+   * Evaluate the supplied input deps. Declare deps on known inputs to action. We do this
+   * unconditionally to maintain our invariant of asking for the same deps each build.
+   *
+   * <p>TODO(b/142300168): Address potential dependency inconsistency if the threshold is changed
+   * between runs.
+   */
+  private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
+      Environment env, int nestedSetSizeThreshold, Iterable<Artifact> allInputs)
+      throws InterruptedException {
+    if (evalInputsAsNestedSet(nestedSetSizeThreshold, allInputs)) {
+      SkyValue artifactNestedSetValue =
+          env.getValue(
+              new ArtifactNestedSetKey(
+                  NestedSetView.getRawChildren((NestedSet<Artifact>) allInputs)));
+      if (env.valuesMissing()) {
+        return null;
+      }
+      return ((ArtifactNestedSetValue) artifactNestedSetValue).getArtifactToSkyValueMap();
+    }
+
+    return env.getValuesOrThrow(
+        Artifact.keys(allInputs), IOException.class, ActionExecutionException.class);
+  }
+
+  /**
+   * Do one traversal of the set to get the size. The traversal costs CPU time so only do it when
+   * necessary. The default case (without --experimental_nestedset_as_skykey_threshold) will ignore
+   * this path.
+   */
+  private static boolean evalInputsAsNestedSet(
+      int nestedSetSizeThreshold, Iterable<Artifact> inputs) {
+    return inputs instanceof NestedSet
+        && nestedSetSizeThreshold > 0
+        && (((NestedSet<Artifact>) inputs).memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
   }
 
   private Environment getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(
@@ -510,10 +556,27 @@ public class ActionExecutionFunction implements SkyFunction {
       this.keysRequested = keysRequested;
     }
 
-    Iterable<Artifact> getAllInputs() {
+    Iterable<Artifact> getAllInputs(boolean maybeAsNestedSet) {
+      if (maybeAsNestedSet && defaultInputs instanceof NestedSet) {
+        return getAllInputsAsNestedSet();
+      }
       return actionCacheInputs == null
           ? defaultInputs
           : Iterables.concat(defaultInputs, actionCacheInputs);
+    }
+
+    private NestedSet<Artifact> getAllInputsAsNestedSet() {
+      Preconditions.checkState(defaultInputs instanceof NestedSet);
+      if (actionCacheInputs == null) {
+        return (NestedSet<Artifact>) defaultInputs;
+      }
+
+      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      // actionCacheInputs is never a NestedSet.
+      builder.addAll(actionCacheInputs);
+      builder.addTransitive((NestedSet<Artifact>) defaultInputs);
+
+      return builder.build();
     }
   }
 

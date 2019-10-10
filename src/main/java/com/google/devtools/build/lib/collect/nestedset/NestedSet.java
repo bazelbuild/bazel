@@ -321,6 +321,19 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
+   * Important: This does a full traversal of the nested set if it's not been previously traversed.
+   *
+   * @return the size of the nested set.
+   */
+  public int memoizedFlattenAndGetSize() {
+    if (orderAndSize >> 2 == 0) {
+      // toList() implicitly updates orderAndSize.
+      return toList().size();
+    }
+    return orderAndSize >> 2;
+  }
+
+  /**
    * Returns true if this set is equal to {@code other} based on the top-level elements and object
    * identity (==) of direct subsets. As such, this function can fail to equate {@code this} with
    * another {@code NestedSet} that holds the same elements. It will never fail to detect that two

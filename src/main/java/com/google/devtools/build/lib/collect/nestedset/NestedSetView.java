@@ -36,13 +36,17 @@ import java.util.Set;
 public class NestedSetView<E> {
   private final Object set;
 
-  private NestedSetView(Object set) {
+  public NestedSetView(Object set) {
     this.set = set;
   }
 
   /** Construct a view of a given NestedSet. */
   public NestedSetView(NestedSet<E> set) {
     this(set.getChildren());
+  }
+
+  public static <E> Object getRawChildren(NestedSet<E> set) {
+    return set.getChildren();
   }
 
   /**

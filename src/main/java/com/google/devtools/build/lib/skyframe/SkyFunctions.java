@@ -105,6 +105,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
+  public static final SkyFunctionName ARTIFACT_NESTED_SET =
+      SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
 
   @VisibleForTesting
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
