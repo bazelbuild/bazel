@@ -16,6 +16,7 @@ version: "0.29.1"
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
   - master
+  - 1.0.0
   - 0.29.1
   - 0.29.0
   - 0.28.0
