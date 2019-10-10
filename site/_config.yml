@@ -11,7 +11,7 @@ sass:
 gems: [jekyll-paginate]
 
 # Update this to the newest release for the default docs.bazel.build version.
-version: "0.29.1"
+version: "1.0.0"
 
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
