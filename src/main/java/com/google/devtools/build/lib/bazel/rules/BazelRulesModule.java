@@ -428,7 +428,7 @@ public class BazelRulesModule extends BlazeModule {
 
   @Override
   public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
-    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+    return BuildOptions.getDefaultBuildOptionsForFragments(
         blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 

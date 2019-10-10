@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -375,7 +374,7 @@ public final class CommandInterruptionTest {
                 new BlazeModule() {
                   @Override
                   public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                    return BuildOptions.getDefaultBuildOptionsForFragments(
                         runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })

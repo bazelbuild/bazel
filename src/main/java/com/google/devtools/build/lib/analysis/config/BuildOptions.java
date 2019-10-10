@@ -87,6 +87,17 @@ public final class BuildOptions implements Cloneable, Serializable {
             Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
   }
 
+  public static BuildOptions getDefaultBuildOptionsForFragments(
+      List<Class<? extends FragmentOptions>> fragmentClasses) {
+    ArrayList<String> collector = new ArrayList<>();
+    try {
+      String[] stringCollector = new String[collector.size()];
+      return BuildOptions.of(fragmentClasses, collector.toArray(stringCollector));
+    } catch (OptionsParsingException e) {
+      throw new IllegalArgumentException("Failed to parse default options", e);
+    }
+  }
+
   /** Creates a new BuildOptions instance for host. */
   public BuildOptions createHostOptions() {
     Builder builder = builder();
