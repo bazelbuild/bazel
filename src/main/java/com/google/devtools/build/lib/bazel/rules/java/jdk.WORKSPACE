@@ -252,7 +252,7 @@ maybe(
     name = "remote_java_tools_darwin",
     sha256 = "5a9f320c33424262e505151dd5c6903e36678a0f0bbdaae67bcf07f41d8c7cf3",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v6.0-rc1/java_tools_javac11_darwin-v6.0-rc1-rc1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/release_candidates/javac11/v6.0/java_tools_javac11_darwin-v6.0-rc1.zip",
         # "https://github.com/bazelbuild/java_tools/release_candidates/download/javac11-v6.0-rc1/java_tools_javac11_darwin-v6.0-rc1.zip",
     ],
 )
