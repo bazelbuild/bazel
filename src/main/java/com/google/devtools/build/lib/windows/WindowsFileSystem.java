@@ -57,9 +57,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       return WindowsFileOperations.deletePath(path.getPathString());
     } catch (java.nio.file.DirectoryNotEmptyException e) {
-      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
@@ -81,9 +81,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         Files.copy(target, link);
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS);
+      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED);
+      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
     }
