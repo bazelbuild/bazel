@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -59,6 +61,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   public abstract ImmutableList<Artifact> getObjectFiles();
 
   @Nullable
+  @Override
+  public SkylarkList<Artifact> getObjectFilesForStarlark() {
+    if (getObjectFiles() == null) {
+      return MutableList.empty();
+    }
+    return SkylarkList.createImmutable(getObjectFiles());
+  }
+
+  @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
 
   @Nullable
@@ -70,6 +81,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   public abstract ImmutableList<Artifact> getPicObjectFiles();
+
+  @Nullable
+  @Override
+  public SkylarkList<Artifact> getPicObjectFilesForStarlark() {
+    if (getPicObjectFiles() == null) {
+      return MutableList.empty();
+    }
+    return SkylarkList.createImmutable(getPicObjectFiles());
+  }
 
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();

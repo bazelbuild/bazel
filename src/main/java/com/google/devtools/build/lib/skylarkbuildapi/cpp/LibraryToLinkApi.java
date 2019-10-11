@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /**
  * A library the user can link to. This is different from a simple linker input in that it also has
@@ -28,6 +29,20 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A library the user can link against.")
 public interface LibraryToLinkApi<FileT extends FileApi> {
+  @SkylarkCallable(
+      name = "objects",
+      allowReturnNones = true,
+      doc = "<code>List</code> of object files in the library.",
+      structField = true)
+  SkylarkList<FileT> getObjectFilesForStarlark();
+
+  @SkylarkCallable(
+      name = "pic_objects",
+      allowReturnNones = true,
+      doc = "<code>List</code> of pic object files in the library.",
+      structField = true)
+  SkylarkList<FileT> getPicObjectFilesForStarlark();
+
   @SkylarkCallable(
       name = "static_library",
       allowReturnNones = true,
