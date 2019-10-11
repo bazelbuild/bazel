@@ -149,7 +149,7 @@ public class FullyQualifiedName implements DataKey {
       String qualifiedReference, Optional<String> packageName) {
     final Matcher matcher = QUALIFIED_REFERENCE.matcher(qualifiedReference);
     Preconditions.checkArgument(
-        matcher.find(),
+        matcher.matches(),
         "%s is not a reference. Expected %s",
         qualifiedReference,
         QUALIFIED_REFERENCE.pattern());
