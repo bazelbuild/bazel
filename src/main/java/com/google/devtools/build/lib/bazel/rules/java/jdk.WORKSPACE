@@ -230,30 +230,30 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_linux",
-    sha256 = "ea2ee2f9eab37e04eae5aa8a266373132fe57676c25ea033504bc5438d6bc1ba",
+    sha256 = "37acb8380b1dd6c31fd27a19bf3da821c9b02ee93c6163fce36f070a806516b5",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_linux-v5.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_linux-v5.1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_linux-v6.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_linux-v6.0.zip",
     ],
 )
 
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
-    sha256 = "b2cfebc049c349268a7ca0e5ff37160899f87f6fe6a80a789de3df90db4ce4ef",
+    sha256 = "384e138ca58842ea563fb7efbe0cb9c5c381bd4de1f6a31f0256823325f81ccc",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_windows-v5.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_windows-v5.1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_windows-v6.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_windows-v6.0.zip",
     ],
 )
 
 maybe(
     http_archive,
     name = "remote_java_tools_darwin",
-    sha256 = "2fa01b4cb69e33f85a96ba0620a2e6261f789eefdbeaeb1d2879140b50108db7",
+    sha256 = "5a9f320c33424262e505151dd5c6903e36678a0f0bbdaae67bcf07f41d8c7cf3",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_darwin-v5.1.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_darwin-v5.1.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v5.1/java_tools_javac11_darwin-v6.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v5.1/java_tools_javac11_darwin-v6.0.zip",
     ],
 )
 
