@@ -305,11 +305,7 @@ message Rule {
   // successors in the dependency graph.
   repeated string rule_output = 6;
 
-  // The set of all default settings affecting this rule. The name of a default
-  // setting is "<setting type>_<setting name>". There currently defined setting
-  // types are:
-  //
-  // - 'blaze': settings implemented in Blaze itself
+  // The set of all "features" inherited from the rule's package declaration.
   repeated string default_setting = 7;
 
   // The rule's class's public by default value.
