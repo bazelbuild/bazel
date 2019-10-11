@@ -5,6 +5,15 @@ title: Starlark Build Configurations
 
 # Starlark Build Configurations
 
+- [Overview](#overview)
+- [Current Status](#current-status)
+- [User-defined Build Settings](#user-defined-build-settings)
+- [Build Settings and Select](#build-settings-and-select)
+- [User-defined Transitions](#user-defined-transitions)
+- [Integration With Platforms and Toolchains](#integration-with-platforms-and-toolchains)
+- [Also See](#also-see)
+
+## Overview
 Starlark build configuration is Bazel's API for customizing how your project
 builds.
 
@@ -487,7 +496,7 @@ toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
 [target platform](platforms.html)
 
-## Also see:
+## Also See:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
