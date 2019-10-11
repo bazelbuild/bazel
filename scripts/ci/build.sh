@@ -126,7 +126,7 @@ The binaries and source-code of the bundled OpenJDK can be
 [downloaded from our mirror server](https://mirror.bazel.build/openjdk/index.html).
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+[public key](https://bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
 '
 }
 
