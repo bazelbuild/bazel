@@ -229,7 +229,7 @@ _bazel__expand_rules_in_package() {
 
   index=$(echo $result | wc -w)
   if [ -n "$result" ]; then
-      echo "$result" | tr " " "\n" | sed 's|$| |'
+      echo "$result" | tr " " "\n" | awk -v cur="$package_name" '{print cur":"$0;}' | sed 's|$| |'
   fi
   # Include ":all" wildcard if there was no unique match.  (The zero
   # case is tricky: we need to include "all" in that case since
