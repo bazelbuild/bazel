@@ -35,7 +35,7 @@ public interface ProtoModuleApi {
   @Deprecated
   @SkylarkCallable(
       name = "has_protoc_do_not_use_or_we_will_break_you_without_mercy",
-      doc = "Do not use this field, its only puprose is to help with migration of "
+      doc = "Do not use this field, its only purpose is to help with migration of "
                 + "Protobuf rules to Starlark.",
       structField = true)
   default void configurationFieldProtocExists() {}

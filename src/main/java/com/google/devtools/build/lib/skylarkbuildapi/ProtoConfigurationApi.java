@@ -60,7 +60,7 @@ public interface ProtoConfigurationApi {
       // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
       name = "protocopt_do_not_use_or_we_will_break_you_without_mercy",
       doc = "Exposes the value of `--protocopt`."
-                + "<p><b>Do not use this field directly</b>, its only puprose is to help with "
+                + "<p><b>Do not use this field directly</b>, its only purpose is to help with "
                 + "migration of Protobuf rules to Starlark.</p>"
                 + "<p>Instead, you can access the value through proto_toolchain</p>"
                 + "<p>pre class=\"language-python\">\n"
@@ -76,7 +76,7 @@ public interface ProtoConfigurationApi {
       // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
       name = "strict_deps_do_not_use_or_we_will_break_you_without_mercy",
       doc = "Exposes the value of `--strict_proto_deps`."
-                + "<p><b>Do not use this field directly</b>, its only puprose is to help with "
+                + "<p><b>Do not use this field directly</b>, its only purpose is to help with "
                 + "migration of Protobuf rules to Starlark.</p>"
                 + "<p>Instead, you can access the value through proto_toolchain</p>"
                 + "<p>pre class=\"language-python\">\n"
