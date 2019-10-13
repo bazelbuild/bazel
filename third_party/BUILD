@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
@@ -35,6 +37,7 @@ filegroup(
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
+        "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
         "//third_party/def_parser:srcs",
@@ -224,8 +227,8 @@ java_import(
 java_import(
     name = "auth",
     jars = [
-        "auth/google-auth-library-oauth2-http-0.15.0.jar",
-        "auth/google-auth-library-credentials-0.15.0.jar",
+        "auth/google-auth-library-oauth2-http-0.17.1.jar",
+        "auth/google-auth-library-credentials-0.17.1.jar",
     ],
     runtime_deps = [
         ":api_client",
@@ -360,16 +363,16 @@ java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_type_annotations-2.3.3.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.3.3.jar",
+        "error_prone/error_prone_check_api-2.3.3.jar",
+        "error_prone/error_prone_core-2.3.3.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -525,6 +528,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     # The .so file is an x86 one, so we can just remove it if the CPU is not x86
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
+    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
     # Play it safe -- better have a big binary than a slow binary
     # zip -d does require an argument. Supply something bogus.
     "//conditions:default": "*.bogusextension",

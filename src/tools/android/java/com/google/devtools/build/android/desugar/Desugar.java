@@ -54,8 +54,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -377,7 +377,7 @@ class Desugar {
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store = new GeneratedClassStore();
-  private final Set<String> visitedExceptionTypes = new HashSet<>();
+  private final Set<String> visitedExceptionTypes = new LinkedHashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
   /** The counter to record the times of UnsignedLongs desugaring is invoked. */

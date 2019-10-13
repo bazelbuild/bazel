@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.shell.Command;
@@ -86,27 +85,20 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates symlink tree using appropriate method. At this time tree always created using
-   * build-runfiles helper application.
+   * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
    *
-   * @param owner action instance that requested symlink tree creation
-   * @param actionExecutionContext Services that are in the scope of the action.
-   * @param enableRunfiles
-   * @return a list of SpawnResults created during symlink creation, if any
+   * @param enableRunfiles If {@code false} only the output manifest is created.
    */
   public void createSymlinks(
-      ActionExecutionContext actionExecutionContext,
+      Path execRoot,
+      OutErr outErr,
       BinTools binTools,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException {
     if (enableRunfiles) {
       try {
-        createSymlinksUsingCommand(
-            actionExecutionContext.getExecRoot(),
-            binTools,
-            shellEnvironment,
-            actionExecutionContext.getFileOutErr());
+        createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
       } catch (CommandException e) {
         throw new UserExecException(CommandUtils.describeCommandFailure(true, e), e);
       }

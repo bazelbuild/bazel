@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import java.util.Map;
 
 /** Info object representing data about a specific platform. */
 @SkylarkModule(
@@ -59,4 +60,11 @@ public interface PlatformInfoApi<
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   String remoteExecutionProperties();
+
+  @SkylarkCallable(
+      name = "exec_properties",
+      doc = "Properties to configure a remote execution platform.",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+  Map<String, String> execProperties();
 }

@@ -298,20 +298,20 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testKeepGoingPartiallyBadPackage() throws Exception {
-    scratch.file("x/y/BUILD",
+    scratch.file(
+        "x/y/BUILD",
         "filegroup(name = 'a')",
-        "BROKEN",
+        "x = 1 // 0", // dynamic error
         "filegroup(name = 'b')");
 
     reporter.removeHandler(failFastHandler);
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//x/...");
 
-    assertContainsEvent("name 'BROKEN' is not defined");
-    assertThat(result.first)
-        .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x/y:a", ImmutableMap.of()),
-                Label.parseAbsolute("//x/y:b", ImmutableMap.of())));
+    assertContainsEvent("division by zero");
+    // Execution stops at the first error,
+    // Subsequent rule statements are not executed,
+    // But thanks to --keep_going, we learn about the ones before the error.
+    assertThat(result.first).containsExactly(Label.parseAbsolute("//x/y:a", ImmutableMap.of()));
     assertThat(result.second).isFalse();
   }
 
@@ -343,7 +343,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("foo/...");
     assertThat(result.first).containsExactlyElementsIn(rulesBeneathFoo);
     assertContainsEvent("syntax error at 'build'");
-    assertContainsEvent("package contains errors");
+
     reporter.addHandler(failFastHandler);
 
     // Even though there was a loading error in the package, parsing the target pattern was
@@ -392,11 +392,12 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testLoadingErrorsAreNotParsingErrors() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("loading/BUILD",
+    scratch.file(
+        "loading/BUILD",
         "cc_library(name='y', deps=['a'])",
         "cc_library(name='a', deps=['b'])",
         "cc_library(name='b', deps=['c'])",
-        "genrule(name='c', outs=['c.out'])");
+        "genrule(name='c', cmd='')");
 
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//loading:y");
     assertThat(result.first).containsExactly(Label.parseAbsolute("//loading:y", ImmutableMap.of()));

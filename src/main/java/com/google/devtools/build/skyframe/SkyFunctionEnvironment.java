@@ -220,17 +220,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
                 ? request.excludedKeys
                 : depKeys.getAllElementsAsIterable());
     if (batchMap.size() != depKeys.numElements()) {
-      NodeEntry inFlightEntry = null;
-      try {
-        inFlightEntry = evaluatorContext.getGraph().get(null, Reason.OTHER, requestor);
-      } catch (InterruptedException e) {
-        logger.atWarning().withCause(e).log(
-            "Interrupted while getting parent entry for %s for crash", requestor);
-        // We're crashing, don't mask it.
-        Thread.currentThread().interrupt();
-      }
       Set<SkyKey> difference = Sets.difference(depKeys.toSet(), batchMap.keySet());
-      logger.atSevere().log("Missing keys for %s: %s\n\n%s", requestor, difference, inFlightEntry);
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(

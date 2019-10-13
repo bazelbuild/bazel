@@ -46,12 +46,13 @@ assert_eq(foo, ['a', 'b', 'c', 'd'])
 foo = ['a', 'b']
 foo.extend(['c', 'd'])
 foo.extend(('e', 'f'))
-assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f'])
+foo.extend({'g': None})
+assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
 
 ---
 (1, 2).extend([3, 4]) ### type 'tuple' has no method extend()
 ---
-[1, 2].extend(3) ### expected value of type 'sequence' for parameter 'items'
+[1, 2].extend(3) ### type 'int' is not a collection
 
 # remove
 

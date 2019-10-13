@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.RcChunkOfArgs;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -112,7 +113,7 @@ public class BlazeOptionHandlerTest {
     public void editOptions(OptionsParser optionsParser) {}
   }
 
-  private ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithOnlyResidue() {
+  private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithOnlyResidue() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     // first add all lines of rc1, then rc2, to simulate a simple, import free, 2 rc file setup.
     structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("a")));
@@ -124,7 +125,7 @@ public class BlazeOptionHandlerTest {
     return structuredArgs;
   }
 
-  private ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithFlags() {
+  private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithFlags() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     structuredArgs.put(
         "c0", new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=foo")));
@@ -140,7 +141,8 @@ public class BlazeOptionHandlerTest {
     return structuredArgs;
   }
 
-  private ListMultimap<String, RcChunkOfArgs> structuredArgsFromImportedRcsWithOnlyResidue() {
+  private static ListMultimap<String, RcChunkOfArgs>
+      structuredArgsFromImportedRcsWithOnlyResidue() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     // first add all lines of rc1, then rc2, but then jump back to 1 as if rc2 was loaded in an
     // import statement halfway through rc1.
@@ -152,6 +154,18 @@ public class BlazeOptionHandlerTest {
     structuredArgs.put("c1:other", new RcChunkOfArgs("rc2", ImmutableList.of("f", "g")));
 
     structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("h")));
+    return structuredArgs;
+  }
+
+  private static ListMultimap<String, RcChunkOfArgs> structuredArgsForDifferentPlatforms() {
+    ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
+    structuredArgs.put("c0:linux", new RcChunkOfArgs("rc1", ImmutableList.of("command_linux")));
+    structuredArgs.put("c0:windows", new RcChunkOfArgs("rc1", ImmutableList.of("command_windows")));
+    structuredArgs.put("c0:macos", new RcChunkOfArgs("rc1", ImmutableList.of("command_macos")));
+    structuredArgs.put("c0:freebsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_freebsd")));
+    structuredArgs.put(
+        "c0:platform_config",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
     return structuredArgs;
   }
 
@@ -295,6 +309,62 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).containsExactly("b");
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly("Found applicable config definition c0:config in file rc1: b");
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabled() throws Exception {
+    parser.parse("--enable_platform_specific_config");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    switch (OS.getCurrent()) {
+      case LINUX:
+        assertThat(parser.getResidue()).containsExactly("command_linux");
+        break;
+      case DARWIN:
+        assertThat(parser.getResidue()).containsExactly("command_macos");
+        break;
+      case WINDOWS:
+        assertThat(parser.getResidue()).containsExactly("command_windows");
+        break;
+      case FREEBSD:
+        assertThat(parser.getResidue()).containsExactly("command_freebsd");
+        break;
+      default:
+        assertThat(parser.getResidue()).isEmpty();
+    }
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabledInConfig() throws Exception {
+    // --enable_platform_specific_config itself will affect the selecting of config sections.
+    // Because Bazel expands config sections recursively, we want to make sure it's fine to enable
+    // --enable_platform_specific_config via another config section.
+    parser.parse("--config=platform_config");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    switch (OS.getCurrent()) {
+      case LINUX:
+        assertThat(parser.getResidue()).containsExactly("command_linux");
+        break;
+      case DARWIN:
+        assertThat(parser.getResidue()).containsExactly("command_macos");
+        break;
+      case WINDOWS:
+        assertThat(parser.getResidue()).containsExactly("command_windows");
+        break;
+      case FREEBSD:
+        assertThat(parser.getResidue()).containsExactly("command_freebsd");
+        break;
+      default:
+        assertThat(parser.getResidue()).isEmpty();
+    }
+  }
+
+  @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigEnabledWhenNothingSpecified()
+      throws Exception {
+    parser.parse("--enable_platform_specific_config");
+    optionHandler.parseRcOptions(eventHandler, ArrayListMultimap.create());
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
   }
 
   @Test

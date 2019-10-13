@@ -1,0 +1,29 @@
+<a name="#${funcInfo.functionName}"></a>
+
+#[[##]]# ${funcInfo.functionName}
+
+<pre>
+${util.funcSummary($funcInfo)}
+</pre>
+
+${funcInfo.docString}
+
+<b>input_template_test BOLD PARAMETERS</b>
+
+#if (!$funcInfo.getParameterList().isEmpty())
+#[[###]]# Parameters
+
+#foreach ($param in $funcInfo.getParameterList())
+<b>
+      <code>${param.name}</code>
+        ${util.mandatoryString($param)}.#if(!$param.getDefaultValue().isEmpty()) default is
+        <code>$param.getDefaultValue()</code>
+        </b>
+        #end
+#if (!$param.docString.isEmpty())
+        <p>
+          ${param.docString.trim()}
+        </p>
+#end
+#end
+#end

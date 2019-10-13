@@ -47,13 +47,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.InfoInterface;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -376,14 +375,6 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(
-      InfoInterface value) {
-    if (value.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
-      addSkylarkTransitiveInfo(
-          ((NativeProvider.WithLegacySkylarkName) value.getProvider()).getSkylarkName(), value);
-    }
-  }
-
   /**
    * Add a Skylark transitive info. The provider value must be safe (i.e. a String, a Boolean,
    * an Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed
@@ -446,8 +437,23 @@ public final class RuleConfiguredTargetBuilder {
     Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);
-    maybeAddSkylarkLegacyProvider(provider);
     return this;
+  }
+
+  /**
+   * Returns true if a provider matching the given provider key has already been added to the
+   * configured target builder.
+   */
+  public boolean containsProviderKey(Provider.Key providerKey) {
+    return providersBuilder.contains(providerKey);
+  }
+
+  /**
+   * Returns true if a provider matching the given legacy key has already been added to the
+   * configured target builder.
+   */
+  public boolean containsLegacyKey(String legacyId) {
+    return providersBuilder.contains(legacyId);
   }
 
   /**

@@ -397,6 +397,36 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
   }
 
+  /**
+   * Tests that for a multi-value dictionary, <code>values = { 'key': 'value' }</code> always refers
+   * to a single map entry. Fancy syntax like <code>values = { 'key': 'value=1,key2=value2' }</code>
+   * doesn't get around that.
+   *
+   * <p>This just verifies existing behavior, not explicitly desired behavior. We could enhance
+   * options parsing to support multi-value settings if anyone ever wanted that.
+   */
+  @Test
+  public void multiValueDictSettingAlwaysSingleEntry() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo=bar,baz=bat',",
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar", "--define", "baz=bat");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--define", "foo=bar,baz=bat");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--define", "makethis=a_superset", "--define", "foo=bar,baz=bat");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
   @Test
   public void definesCrossAttributes() throws Exception {
     scratch.file("test/BUILD",
@@ -420,10 +450,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests matching on multi-value attributes with primitive values.
+   * Tests matching on multi-value attributes against single expected values: the actual list must
+   * contain the expected value.
    */
   @Test
-  public void multiValueList() throws Exception {
+  public void multiValueListSingleExpectedValue() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
@@ -441,6 +472,78 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
     useConfiguration("--copt", "-Dbar", "--copt", "-Dfoo");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Tests matching on multi-value flags against multiple expected values: the actual list must
+   * contain all expected values (and possibly more).
+   *
+   * <p>This only works for flags that can parse multiple values in the same entry. Not all flags do
+   * this: this varies according to each flag's definition. For example "--copt=a,b" produces a
+   * single entry ["a,b"], while "--extra_platforms=a,b" produces ["a", "b"].
+   */
+  @Test
+  public void multiValueListMultipleExpectedValues() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'extra_toolchains': 'one,two',", // This produces ["one", "two"]
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--extra_toolchains", "one", "--extra_toolchains", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "two", "--extra_toolchains", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "one,two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--extra_toolchains", "two,one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration(
+        "--extra_toolchains",
+        "ten",
+        "--extra_toolchains",
+        "two",
+        "--extra_toolchains",
+        "three",
+        "--extra_toolchains",
+        "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  /**
+   * Tests multi-value flags that don't support multiple values <b></b>in the same instance<b>. See
+   * comments on {@link #multiValueListMultipleExpectedValues()} for details.
+   */
+  @Test
+  public void multiValueListSingleValueThatLooksLikeMultiple() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': 'one,two',", // This produces ["one,two"]
+        "    })");
+
+    useConfiguration("");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one", "--copt", "two");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    useConfiguration("--copt", "one,two", "--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration("--copt", "two,one", "--copt", "one");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
   @Test

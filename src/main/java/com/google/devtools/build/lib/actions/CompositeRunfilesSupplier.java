@@ -105,4 +105,24 @@ public class CompositeRunfilesSupplier implements RunfilesSupplier {
     }
     return result.build();
   }
+
+  @Override
+  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
+    for (RunfilesSupplier supplier : suppliers) {
+      if (supplier.isBuildRunfileLinks(runfilesDir)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
+  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
+    for (RunfilesSupplier supplier : suppliers) {
+      if (supplier.isRunfileLinksEnabled(runfilesDir)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

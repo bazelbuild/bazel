@@ -39,7 +39,6 @@ public final class PhaseText extends TextPrinter {
   private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
   private final Optional<CriticalPathStatistics> criticalPathStatistics;
   private final int vfsStatsLimit;
-  private final int missingActionsCount;
 
   /**
    * @param vfsStatsLimit maximum number of VFS statistics to print, or -1 for no limit.
@@ -49,13 +48,11 @@ public final class PhaseText extends TextPrinter {
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
       Optional<CriticalPathStatistics> critPathStats,
-      int missingActionsCount,
       int vfsStatsLimit) {
     super(out);
     this.phaseSummaryStats = phaseSummaryStats;
     this.phaseStatistics = phaseStatistics;
     this.criticalPathStatistics = critPathStats;
-    this.missingActionsCount = missingActionsCount;
     this.vfsStatsLimit = vfsStatsLimit;
   }
 
@@ -155,15 +152,6 @@ public final class PhaseText extends TextPrinter {
 
     if (criticalPathStatistics.isPresent()) {
       criticalPaths.printCriticalPaths();
-      printLn();
-    }
-
-    if (missingActionsCount > 0) {
-      lnPrint(missingActionsCount);
-      print(
-          " action(s) are present in the"
-              + " action graph but missing instrumentation data. Most likely the profile file"
-              + " has been created during a failed or aborted build.");
       printLn();
     }
 

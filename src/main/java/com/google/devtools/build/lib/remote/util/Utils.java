@@ -43,6 +43,9 @@ public class Utils {
     try {
       return f.get();
     } catch (ExecutionException e) {
+      if (e.getCause() instanceof InterruptedException) {
+        throw (InterruptedException) e.getCause();
+      }
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }
@@ -98,12 +101,12 @@ public class Utils {
   }
 
   /** Returns {@code true} if outputs contains one or more top level outputs. */
-  public static boolean hasTopLevelOutputs(
-      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> topLevelOutputs) {
-    if (topLevelOutputs.isEmpty()) {
+  public static boolean hasFilesToDownload(
+      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> filesToDownload) {
+    if (filesToDownload.isEmpty()) {
       return false;
     }
-    return !Collections.disjoint(outputs, topLevelOutputs);
+    return !Collections.disjoint(outputs, filesToDownload);
   }
 
   public static String grpcAwareErrorMessage(IOException e) {

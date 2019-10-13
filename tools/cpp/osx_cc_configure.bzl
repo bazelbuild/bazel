@@ -19,6 +19,7 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
     "resolve_labels",
+    "write_builtin_include_directory_paths",
 )
 load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
@@ -58,7 +59,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/objc:xcrunwrapper.sh",
         "@bazel_tools//tools/osx/crosstool:BUILD.tpl",
         "@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl",
-        "@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl",
         "@bazel_tools//tools/osx/crosstool:wrapped_clang.cc",
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
@@ -76,7 +76,14 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         fail("BAZEL_USE_XCODE_TOOLCHAIN is set to 1 but Bazel couldn't find Xcode installed on the " +
              "system. Verify that 'xcode-select -p' is correct.")
     if xcode_toolchains:
-        cc = find_cc(repository_ctx, overriden_tools = {})
+        # For Xcode toolchains, there's no reason to use anything other than
+        # wrapped_clang, so that we still get the Bazel Xcode placeholder
+        # substitution and other behavior for actions that invoke this
+        # cc_wrapper.sh script. The wrapped_clang binary is already hardcoded
+        # into the Objective-C crosstool actions, anyway, so this ensures that
+        # the C++ actions behave consistently.
+        cc = repository_ctx.path("wrapped_clang")
+
         repository_ctx.template(
             "cc_wrapper.sh",
             paths["@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"],
@@ -98,10 +105,6 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             "make_hashed_objlist.py",
         )
         repository_ctx.symlink(
-            paths["@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl"],
-            "wrapped_ar",
-        )
-        repository_ctx.symlink(
             paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl"],
             "cc_toolchain_config.bzl",
         )
@@ -112,7 +115,10 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             "env",
             "-i",
             "xcrun",
+            "--sdk",
+            "macosx",
             "clang",
+            "-mmacosx-version-min=10.9",
             "-std=c++11",
             "-lc++",
             "-o",
@@ -134,6 +140,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
                  error_msg)
 
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
+        write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
             escaped_cxx_include_directories.append(("        \"%s\"," % path))

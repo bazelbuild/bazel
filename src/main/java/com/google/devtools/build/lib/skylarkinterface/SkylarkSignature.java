@@ -21,21 +21,16 @@ import java.lang.annotation.Target;
 /**
  * An annotation to mark built-in keyword argument methods accessible from Skylark.
  *
- * <p>Use this annotation around a {@link com.google.devtools.build.lib.syntax.BuiltinFunction} or
- * a {@link com.google.devtools.build.lib.syntax.BuiltinFunction.Factory}. The annotated function
- * should expect the arguments described by {@link #parameters()}, {@link #extraPositionals()},
- * and {@link #extraKeywords()}. It should also expect the following extraneous arguments:
+ * <p>Use this annotation around a {@link com.google.devtools.build.lib.syntax.BuiltinFunction} or a
+ * {@link com.google.devtools.build.lib.syntax.BuiltinFunction.Factory}. The annotated function
+ * should expect the arguments described by {@link #parameters()}, {@link #extraPositionals()}, and
+ * {@link #extraKeywords()}. It should also expect the following extraneous arguments:
  *
  * <ul>
- *   <li>
- *     {@link com.google.devtools.build.lib.events.Location} if {@link #useLocation()} is
- *     true.
- *   </li>
- *   <li>{@link com.google.devtools.build.lib.syntax.ASTNode} if {@link #useAst()} is true.</li>
- *   <li>
- *     {@link com.google.devtools.build.lib.syntax.Environment} if {@link #useEnvironment()} )}
- *     is true.
- *   </li>
+ *   <li>{@link com.google.devtools.build.lib.events.Location} if {@link #useLocation()} is true.
+ *   <li>{@link com.google.devtools.build.lib.syntax.Node} if {@link #useAst()} is true.
+ *   <li>{@link com.google.devtools.build.lib.syntax.StarlarkThread} if {@link #useStarlarkThread()}
+ *       )} is true.
  * </ul>
  */
 @Target({ElementType.FIELD})
@@ -118,9 +113,8 @@ public @interface SkylarkSignature {
   boolean useAst() default false;
 
   /**
-   * If true the AST of the Skylark Environment
-   * ({@link com.google.devtools.build.lib.syntax.Environment}) will be passed as an argument of the
-   * annotated function.
+   * If true the ({@link com.google.devtools.build.lib.syntax.StarlarkThread}) will be passed as an
+   * argument of the annotated function.
    */
-  boolean useEnvironment() default false;
+  boolean useStarlarkThread() default false;
 }

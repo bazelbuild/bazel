@@ -615,11 +615,11 @@ class InterfaceDesugaring extends ClassVisitor {
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) {
-      // Intentionally without super call: Prodction code should depend on the parameter annotation
+      // Intentionally without super call: Production code should depend on the parameter annotation
       // attributes of the desugared class instead of the companion class instead, and therefore
       // dropping the parameter annotations. Note in the companion class, the corresponding method
       // contains one more parameter than the method in the desugared class, a direct propagation
-      // would cause position mistach. see b/129719629.
+      // would cause position mismatch. see b/129719629.
       return annotationOnlyDest.visitParameterAnnotation(parameter, desc, visible);
     }
   }

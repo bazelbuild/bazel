@@ -42,9 +42,7 @@ public final class Spawns {
 
   /** Returns {@code true} if {@code spawn} may be executed remotely. */
   public static boolean mayBeExecutedRemotely(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
+    return ExecutionRequirements.maybeExecutedRemotely(spawn.getExecutionInfo().keySet());
   }
 
   /** Returns whether a Spawn can be executed in a sandbox environment. */

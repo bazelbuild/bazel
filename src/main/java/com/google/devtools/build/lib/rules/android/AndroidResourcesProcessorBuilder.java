@@ -60,12 +60,9 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
   private boolean crunchPng = true;
-  private Artifact featureOf;
-  private Artifact featureAfter;
   private AndroidAaptVersion aaptVersion;
   private boolean throwOnResourceConflict;
   private String packageUnderTest;
-  private boolean useCompiledResourcesForMerge;
   private boolean isTestWithResources = false;
 
   /**
@@ -159,16 +156,6 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureOf(Artifact featureOf) {
-    this.featureOf = featureOf;
-    return this;
-  }
-
-  public AndroidResourcesProcessorBuilder setFeatureAfter(Artifact featureAfter) {
-    this.featureAfter = featureAfter;
     return this;
   }
 
@@ -296,12 +283,6 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setUseCompiledResourcesForMerge(
-      boolean useCompiledResourcesForMerge) {
-    this.useCompiledResourcesForMerge = useCompiledResourcesForMerge;
-    return this;
-  }
-
   public AndroidResourcesProcessorBuilder setIsTestWithResources(boolean isTestWithResources) {
     this.isTestWithResources = isTestWithResources;
     return this;
@@ -320,23 +301,15 @@ public class AndroidResourcesProcessorBuilder {
           .addTransitiveFlag(
               "--data",
               resourceDependencies.getTransitiveResourceContainers(),
-              useCompiledResourcesForMerge
-                  ? AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE
-                  : AndroidDataConverter.AAPT2_RESOURCES_AND_MANIFEST_CONVERTER)
+              AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE)
           .addTransitiveFlag(
               "--directData",
               resourceDependencies.getDirectResourceContainers(),
-              useCompiledResourcesForMerge
-                  ? AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE
-                  : AndroidDataConverter.AAPT2_RESOURCES_AND_MANIFEST_CONVERTER)
+              AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE)
           .addTransitiveInputValues(resourceDependencies.getTransitiveResources())
           .addTransitiveInputValues(resourceDependencies.getTransitiveManifests())
           .addTransitiveInputValues(resourceDependencies.getTransitiveAapt2RTxt())
           .addTransitiveInputValues(resourceDependencies.getTransitiveCompiledSymbols());
-
-      if (!useCompiledResourcesForMerge) {
-        builder.addTransitiveInputValues(resourceDependencies.getTransitiveSymbolsBin());
-      }
     }
 
     if (assetDependencies != null && !assetDependencies.getTransitiveAssets().isEmpty()) {
@@ -344,25 +317,16 @@ public class AndroidResourcesProcessorBuilder {
           .addTransitiveFlag(
               "--directAssets",
               assetDependencies.getDirectParsedAssets(),
-              useCompiledResourcesForMerge
-                  ? AndroidDataConverter.COMPILED_ASSET_CONVERTER
-                  : AndroidDataConverter.PARSED_ASSET_CONVERTER)
+              AndroidDataConverter.COMPILED_ASSET_CONVERTER)
           .addTransitiveFlag(
               "--assets",
               assetDependencies.getTransitiveParsedAssets(),
-              useCompiledResourcesForMerge
-                  ? AndroidDataConverter.COMPILED_ASSET_CONVERTER
-                  : AndroidDataConverter.PARSED_ASSET_CONVERTER)
+              AndroidDataConverter.COMPILED_ASSET_CONVERTER)
           .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
-          .addTransitiveInputValues(
-              useCompiledResourcesForMerge
-                  ? assetDependencies.getTransitiveCompiledSymbols()
-                  : assetDependencies.getTransitiveSymbols());
+          .addTransitiveInputValues(assetDependencies.getTransitiveCompiledSymbols());
     }
 
-    builder
-        .maybeAddFlag("--useCompiledResourcesForMerge", useCompiledResourcesForMerge)
-        .maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
+    builder.maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
 
     configureCommonFlags(dataContext, primaryResources, primaryAssets, primaryManifest, builder)
         .buildAndRegister("Processing Android resources", "AndroidAapt2");
@@ -460,8 +424,6 @@ public class AndroidResourcesProcessorBuilder {
         .maybeAddFlag("--applicationId", applicationId)
         .maybeAddOutput("--dataBindingInfoOut", dataBindingInfoZip)
         .maybeAddFlag("--packageForR", customJavaPackage)
-        .maybeAddInput("--featureOf", featureOf)
-        .maybeAddInput("--featureAfter", featureAfter)
         .maybeAddFlag("--throwOnResourceConflict", throwOnResourceConflict)
         .maybeAddFlag("--packageUnderTest", packageUnderTest)
         .maybeAddFlag("--isTestWithResources", isTestWithResources);

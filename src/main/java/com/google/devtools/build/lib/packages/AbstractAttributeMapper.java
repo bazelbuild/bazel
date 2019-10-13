@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -169,6 +167,15 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public Collection<DepEdge> visitLabels() {
+    return visitLabels(ruleClass.getAttributes());
+  }
+
+  @Override
+  public Collection<DepEdge> visitLabels(Attribute attribute) {
+    return visitLabels(ImmutableList.of(attribute));
+  }
+
+  private Collection<DepEdge> visitLabels(Iterable<Attribute> attributes) {
     List<DepEdge> edges = new ArrayList<>();
     Type.LabelVisitor<Attribute> visitor =
         (label, attribute) -> {
@@ -177,7 +184,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
             edges.add(AttributeMap.DepEdge.create(absoluteLabel, attribute));
           }
         };
-    for (Attribute attribute : ruleClass.getAttributes()) {
+    for (Attribute attribute : attributes) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
       // special-case these types.
@@ -287,10 +294,5 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Override
   public <T> boolean has(String attrName, Type<T> type) {
     return getAttributeType(attrName) == type;
-  }
-
-  @Override
-  public Location getAttributeLocation(String attrName) {
-    return attributes.getAttributeLocation(attrName);
   }
 }

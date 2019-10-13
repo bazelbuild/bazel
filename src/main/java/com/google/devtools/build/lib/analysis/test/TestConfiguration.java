@@ -225,12 +225,11 @@ public class TestConfiguration extends Fragment {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
                 + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
     public boolean windowsNativeTestWrapper;
-
 
     @Override
     public FragmentOptions getHost() {

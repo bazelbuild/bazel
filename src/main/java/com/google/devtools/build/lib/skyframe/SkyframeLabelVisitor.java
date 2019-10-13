@@ -51,13 +51,7 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       boolean keepGoing,
       int parallelThreads)
       throws InterruptedException {
-    return sync(
-        eventHandler,
-        labelsToVisit,
-        keepGoing,
-        parallelThreads,
-        true,
-        /* useForkJoinPool= */ false);
+    return sync(eventHandler, labelsToVisit, keepGoing, parallelThreads, /* errorOnCycles= */ true);
   }
 
   // The only remaining non-test caller of this code is BlazeQueryEnvironment.
@@ -66,12 +60,11 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       Set<Label> labelsToVisit,
       boolean keepGoing,
       int parallelThreads,
-      boolean errorOnCycles,
-      boolean useForkJoinPool)
+      boolean errorOnCycles)
       throws InterruptedException {
     EvaluationResult<TransitiveTargetValue> result =
         transitivePackageLoader.loadTransitiveTargets(
-            eventHandler, labelsToVisit, keepGoing, parallelThreads, useForkJoinPool);
+            eventHandler, labelsToVisit, keepGoing, parallelThreads);
 
     if (!hasErrors(result)) {
       return true;

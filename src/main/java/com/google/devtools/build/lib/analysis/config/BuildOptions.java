@@ -66,6 +66,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -84,6 +85,17 @@ public final class BuildOptions implements Cloneable, Serializable {
     return starlarkOptions.entrySet().stream()
         .collect(
             Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
+  }
+
+  public static BuildOptions getDefaultBuildOptionsForFragments(
+      List<Class<? extends FragmentOptions>> fragmentClasses) {
+    ArrayList<String> collector = new ArrayList<>();
+    try {
+      String[] stringCollector = new String[collector.size()];
+      return BuildOptions.of(fragmentClasses, collector.toArray(stringCollector));
+    } catch (OptionsParsingException e) {
+      throw new IllegalArgumentException("Failed to parse default options", e);
+    }
   }
 
   /** Creates a new BuildOptions instance for host. */
@@ -1154,12 +1166,14 @@ public final class BuildOptions implements Cloneable, Serializable {
           int optionsDiffSize = byteStringOut.size();
           bytes = byteStringOut.toByteString();
           cache.putBytesFromOptionsDiff(diff, bytes);
-          logger.info(
-              "Serialized OptionsDiffForReconstruction "
-                  + diff.toString()
-                  + ". Diff took "
-                  + optionsDiffSize
-                  + " bytes.");
+          if (logger.isLoggable(Level.FINE)) {
+            logger.fine(
+                "Serialized OptionsDiffForReconstruction "
+                    + diff
+                    + ". Diff took "
+                    + optionsDiffSize
+                    + " bytes.");
+          }
         }
         codedOut.writeBytesNoTag(bytes);
       }

@@ -182,6 +182,13 @@ public final class BinTools {
     }
 
     @Override
+    public boolean isSymlink() {
+      // There are no unresolved symlinks embedded in the binary. We don't need them (embedded
+      // binaries are just a few simple tools) and zip doesn't support them anyway.
+      return false;
+    }
+
+    @Override
     public ByteString getBytes() throws IOException {
       ByteString.Output out = ByteString.newOutput();
       writeTo(out);

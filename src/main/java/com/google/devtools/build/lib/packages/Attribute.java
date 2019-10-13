@@ -37,16 +37,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -1384,7 +1382,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public static final class SkylarkComputedDefaultTemplate {
     private final Type<?> type;
-    private final SkylarkCallbackFunction callback;
+    private final StarlarkCallbackHelper callback;
     private final Location location;
     private final ImmutableList<String> dependencies;
 
@@ -1401,7 +1399,7 @@ public final class Attribute implements Comparable<Attribute> {
     public SkylarkComputedDefaultTemplate(
         Type<?> type,
         ImmutableList<String> dependencies,
-        SkylarkCallbackFunction callback,
+        StarlarkCallbackHelper callback,
         Location location) {
       this.type = Preconditions.checkNotNull(type);
       // Order is important for #createDependencyAssignmentTuple.

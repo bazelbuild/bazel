@@ -85,6 +85,7 @@ public final class OptionsParser {
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
+  private final List<String> builtinProcessorNames = new ArrayList<>();
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
@@ -99,7 +100,7 @@ public final class OptionsParser {
   private String targetLabel;
   private String injectingRuleKind;
 
-  private @Nullable String profile;
+  @Nullable private String profile;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
@@ -184,6 +185,9 @@ public final class OptionsParser {
           break;
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
+          break;
+        case "--builtin_processors":
+          collectProcessorArguments(builtinProcessorNames, argQueue, "-");
           break;
         case "--extclasspath":
         case "--extdir":
@@ -435,6 +439,10 @@ public final class OptionsParser {
 
   public List<String> getProcessorNames() {
     return processorNames;
+  }
+
+  public List<String> getBuiltinProcessorNames() {
+    return builtinProcessorNames;
   }
 
   public String getOutputJar() {

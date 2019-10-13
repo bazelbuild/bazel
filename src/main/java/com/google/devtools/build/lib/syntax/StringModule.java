@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,8 +72,8 @@ public final class StringModule {
 
   // Emulate Python substring function
   // It converts out of range indices, and never fails
-  private static String pythonSubstring(String str, int start, Object end, String msg)
-      throws ConversionException {
+  private static String pythonSubstring(String str, int start, Object end, String what)
+      throws EvalException {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
@@ -81,8 +81,11 @@ public final class StringModule {
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
+    } else if (end instanceof Integer) {
+      stop = EvalUtils.clampRangeEndpoint((Integer) end, str.length());
     } else {
-      stop = EvalUtils.clampRangeEndpoint(Type.INTEGER.convert(end, msg), str.length());
+      throw new EvalException(
+          null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
     }
     if (start >= stop) {
       return "";
@@ -103,15 +106,16 @@ public final class StringModule {
             name = "elements",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
-            type = SkylarkList.class,
+            type = Object.class,
             doc = "The objects to join.")
       },
       useLocation = true,
-      useEnvironment = true)
-  public String join(String self, SkylarkList<?> elements, Location loc, Environment env)
-      throws ConversionException, EvalException {
-    if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
-      for (Object item : elements) {
+      useStarlarkThread = true)
+  public String join(String self, Object elements, Location loc, StarlarkThread thread)
+      throws EvalException {
+    Collection<?> items = EvalUtils.toCollection(elements, loc, thread);
+    if (thread.getSemantics().incompatibleStringJoinRequiresStrings()) {
+      for (Object item : items) {
         if (!(item instanceof String)) {
           throw new EvalException(
               loc,
@@ -122,7 +126,7 @@ public final class StringModule {
         }
       }
     }
-    return Joiner.on(self).join(elements);
+    return Joiner.on(self).join(items);
   }
 
   @SkylarkCallable(
@@ -281,24 +285,33 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             doc = "The maximum number of replacements.")
-      },
-      useLocation = true)
-  public String replace(
-      String self, String oldString, String newString, Object maxSplitO, Location loc)
+      })
+  public String replace(String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
-    StringBuffer sb = new StringBuffer();
-    Integer maxSplit =
-        Type.INTEGER.convertOptional(
-            maxSplitO, "'maxsplit' argument of 'replace'", /*label*/ null, Integer.MAX_VALUE);
-    try {
-      Matcher m = Pattern.compile(oldString, Pattern.LITERAL).matcher(self);
-      for (int i = 0; i < maxSplit && m.find(); i++) {
-        m.appendReplacement(sb, Matcher.quoteReplacement(newString));
-      }
-      m.appendTail(sb);
-    } catch (IllegalStateException e) {
-      throw new EvalException(loc, e.getMessage() + " in call to replace");
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = Math.max(0, (Integer) maxSplitO);
     }
+    StringBuilder sb = new StringBuilder();
+    int start = 0;
+    for (int i = 0; i < maxSplit; i++) {
+      if (oldString.isEmpty()) {
+        sb.append(newString);
+        if (start < self.length()) {
+          sb.append(self.charAt(start++));
+        } else {
+          break;
+        }
+      } else {
+        int end = self.indexOf(oldString, start);
+        if (end < 0) {
+          break;
+        }
+        sb.append(self, start, end).append(newString);
+        start = end + oldString.length();
+      }
+    }
+    sb.append(self, start, self.length());
     return sb.toString();
   }
 
@@ -324,20 +337,30 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
   public MutableList<String> split(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
+      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (env.getSemantics().incompatibleDisallowSplitEmptySeparator() && sep.isEmpty()) {
+    if (sep.isEmpty()) {
       throw new EvalException(loc, "Empty separator");
     }
-    int maxSplit =
-        Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", /*label*/ null, -2);
-    // + 1 because the last result is the remainder. The default is -2 so that after +1,
-    // it becomes -1.
-    String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(self, maxSplit + 1);
-    return MutableList.of(env, ss);
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = (Integer) maxSplitO;
+    }
+    ArrayList<String> res = new ArrayList<>();
+    int start = 0;
+    while (true) {
+      int end = self.indexOf(sep, start);
+      if (end < 0 || maxSplit-- == 0) {
+        res.add(self.substring(start));
+        break;
+      }
+      res.add(self.substring(start, end));
+      start = end + sep.length();
+    }
+    return MutableList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -363,63 +386,31 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
   public MutableList<String> rsplit(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
+      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
-    int maxSplit = Type.INTEGER.convertOptional(maxSplitO, "'split' argument of 'split'", null, -1);
-    try {
-      return stringRSplit(self, sep, maxSplit, env);
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(loc, ex);
+    if (sep.isEmpty()) {
+      throw new EvalException(loc, "Empty separator");
     }
-  }
-
-  /**
-   * Splits the given string into a list of words, using {@code separator} as a delimiter.
-   *
-   * <p>At most {@code maxSplits} will be performed, going from right to left.
-   *
-   * @param input The input string.
-   * @param separator The separator string.
-   * @param maxSplits The maximum number of splits. Negative values mean unlimited splits.
-   * @return A list of words
-   * @throws IllegalArgumentException
-   */
-  private static MutableList<String> stringRSplit(
-      String input, String separator, int maxSplits, Environment env) {
-    if (separator.isEmpty()) {
-      throw new IllegalArgumentException("Empty separator");
+    int maxSplit = Integer.MAX_VALUE;
+    if (maxSplitO != Runtime.NONE) {
+      maxSplit = (Integer) maxSplitO;
     }
-
-    if (maxSplits <= 0) {
-      maxSplits = Integer.MAX_VALUE;
+    ArrayList<String> res = new ArrayList<>();
+    int end = self.length();
+    while (true) {
+      int start = self.lastIndexOf(sep, end - 1);
+      if (start < 0 || maxSplit-- == 0) {
+        res.add(self.substring(0, end));
+        break;
+      }
+      res.add(self.substring(start + sep.length(), end));
+      end = start;
     }
-
-    ArrayDeque<String> result = new ArrayDeque<>();
-    String[] parts = input.split(Pattern.quote(separator), -1);
-    int sepLen = separator.length();
-    int remainingLength = input.length();
-    int splitsSoFar = 0;
-
-    // Copies parts from the array into the final list, starting at the end (because
-    // it's rsplit), as long as fewer than maxSplits splits are performed. The
-    // last spot in the list is reserved for the remaining string, whose length
-    // has to be tracked throughout the loop.
-    for (int pos = parts.length - 1; (pos >= 0) && (splitsSoFar < maxSplits); --pos) {
-      String current = parts[pos];
-      result.addFirst(current);
-
-      ++splitsSoFar;
-      remainingLength -= sepLen + current.length();
-    }
-
-    if (splitsSoFar == maxSplits && remainingLength >= 0)   {
-      result.addFirst(input.substring(0, remainingLength));
-    }
-
-    return MutableList.copyOf(env, result);
+    Collections.reverse(res);
+    return MutableList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -436,24 +427,17 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "unbound",
-            doc =
-                "The string to split on, has a default value, space (\" \"), "
-                    + "if the flag --incompatible_disable_partition_default_parameter is disabled. "
-                    + "Otherwise, a value must be provided.")
+            doc = "The string to split on.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
-  public Tuple<String> partition(String self, Object sep, Location loc, Environment env)
+  public Tuple<String> partition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
-      if (env.getSemantics().incompatibleDisablePartitionDefaultParameter()) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
                 + "for call to method partition(sep) of 'string'");
-      } else {
-        sep = " ";
-      }
     } else if (!(sep instanceof String)) {
       throw new EvalException(
           loc,
@@ -478,24 +462,17 @@ public final class StringModule {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true,
             defaultValue = "unbound",
-            doc =
-                "The string to split on, has a default value, space (\" \"), "
-                    + "if the flag --incompatible_disable_partition_default_parameter is disabled. "
-                    + "Otherwise, a value must be provided.")
+            doc = "The string to split on.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true)
-  public Tuple<String> rpartition(String self, Object sep, Location loc, Environment env)
+  public Tuple<String> rpartition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep == Runtime.UNBOUND) {
-      if (env.getSemantics().incompatibleDisablePartitionDefaultParameter()) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
                 + "for call to method partition(sep) of 'string'");
-      } else {
-        sep = " ";
-      }
     } else if (!(sep instanceof String)) {
       throw new EvalException(
           loc,
@@ -611,11 +588,12 @@ public final class StringModule {
 
   /**
    * Common implementation for find, rfind, index, rindex.
+   *
    * @param forward true if we want to return the last matching index.
    */
-  private static int stringFind(boolean forward,
-      String self, String sub, int start, Object end, String msg)
-      throws ConversionException {
+  private static int stringFind(
+      boolean forward, String self, String sub, int start, Object end, String msg)
+      throws EvalException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
     start = EvalUtils.clampRangeEndpoint(start, self.length());
@@ -655,8 +633,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rfind(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer rfind(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(false, self, sub, start, end, "'end' argument to rfind");
   }
 
@@ -690,8 +667,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer invoke(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer invoke(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end, "'end' argument to find");
   }
 
@@ -968,17 +944,16 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer count(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer count(String self, String sub, Integer start, Object end) throws EvalException {
     String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
     if (sub.isEmpty()) {
       return str.length() + 1;
     }
     int count = 0;
-    int index = -1;
-    while ((index = str.indexOf(sub)) >= 0) {
+    int index = 0;
+    while ((index = str.indexOf(sub, index)) >= 0) {
       count++;
-      str = str.substring(index + sub.length());
+      index += sub.length();
     }
     return count;
   }
@@ -990,7 +965,7 @@ public final class StringModule {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", type = String.class, doc = "This string.")})
-  public SkylarkList<String> elems(String self) throws ConversionException {
+  public SkylarkList<String> elems(String self) throws EvalException {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : self.toCharArray()) {
       builder.add(String.valueOf(c));

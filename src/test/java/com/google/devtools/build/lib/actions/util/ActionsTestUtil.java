@@ -346,6 +346,7 @@ public final class ActionsTestUtil {
           "dummy-configuration",
           null,
           null,
+          ImmutableMap.<String, String>of(),
           null);
 
   @AutoCodec
@@ -604,6 +605,21 @@ public final class ActionsTestUtil {
       }
     }
     return null;
+  }
+
+  /**
+   * Returns a list of the Artifacts in <code>artifacts</code> whose paths end with the given
+   * suffix.
+   */
+  public static List<Artifact> getArtifactsEndingWith(
+      Iterable<? extends Artifact> artifacts, String suffix) {
+    List<Artifact> result = new ArrayList<>();
+    for (Artifact a : artifacts) {
+      if (a.getExecPath().getPathString().endsWith(suffix)) {
+        result.add(a);
+      }
+    }
+    return result;
   }
 
   /**

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -235,6 +234,24 @@ public final class TargetUtils {
   }
 
   /**
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
+   *
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   */
+  public static ImmutableMap<String, String> getExecutionInfo(
+      Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation) {
+      return ImmutableMap.copyOf(getExecutionInfo(rule));
+    } else {
+      return ImmutableMap.of();
+    }
+  }
+
+  /**
    * Returns the execution info, obtained from the rule's tags and the execution requirements
    * provided. Only supported tags are included into the execution info, see {@link
    * #legalExecInfoKeys}.
@@ -243,12 +260,12 @@ public final class TargetUtils {
    *     {@code SkylarkDict<String, String>} type, null or {@link
    *     com.google.devtools.build.lib.syntax.Runtime#NONE}
    * @param rule a rule instance to get tags from
-   * @param incompatibleAllowTagsPropagation if set to true, tags will be propagated from a target
-   *     to the actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#incompatibleAllowTagsPropagation}
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
-      Object executionRequirementsUnchecked, Rule rule, boolean incompatibleAllowTagsPropagation)
+      Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
@@ -262,7 +279,7 @@ public final class TargetUtils {
     // adding filtered execution requirements to the execution info map
     executionInfoBuilder.putAll(checkedExecutionRequirements);
 
-    if (incompatibleAllowTagsPropagation) {
+    if (allowTagsPropagation) {
       Map<String, String> checkedTags = getExecutionInfo(rule);
       // merging filtered tags to the execution info map avoiding duplicates
       checkedTags.forEach(executionInfoBuilder::putIfAbsent);

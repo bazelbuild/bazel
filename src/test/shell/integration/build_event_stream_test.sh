@@ -779,7 +779,7 @@ function test_srcfiles() {
     bazel build --build_event_text_file=$TEST_log \
           pkg:somesourcefile || fail "build failed"
   expect_log 'SUCCESS'
-  expect_log_once '^configuration'
+  expect_log_n '^configuration' 2
   expect_not_log 'aborted'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'

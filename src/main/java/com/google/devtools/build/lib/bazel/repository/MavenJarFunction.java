@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -21,13 +22,13 @@ import com.google.devtools.build.lib.bazel.repository.MavenDownloader.JarPaths;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -107,6 +108,9 @@ public class MavenJarFunction extends RepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
 
+    validateShaAttributes(rule, "sha1", "sha256");
+    validateShaAttributes(rule, "sha1_src", "sha256_src");
+
     // Deprecation in favor of the Starlark rule
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -129,8 +133,50 @@ public class MavenJarFunction extends RepositoryFunction {
       return null;
     }
 
+    validateServerUrl(
+        rule,
+        serverValue.getUrl(),
+        starlarkSemantics.incompatibleDisallowUnverifiedHttpDownloads());
+
     Path outputDir = getExternalRepositoryDirectory(directories).getRelative(rule.getName());
     return createOutputTree(rule, outputDir, serverValue, env.getListener());
+  }
+
+  @VisibleForTesting
+  void validateServerUrl(Rule rule, String serverUrl, boolean disallowUnverifiedHttpDownloads)
+      throws RepositoryFunctionException {
+
+    boolean hasChecksum =
+        WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha1")
+            || WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("sha256");
+
+    if (disallowUnverifiedHttpDownloads && !hasChecksum && serverUrl.startsWith("http://")) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              "Plain HTTP URLs are not allowed without checksums in the maven_jar rule. Please "
+                  + "use HTTPS for the maven_server rule for "
+                  + serverUrl
+                  + " or add a sha1 checksum to the maven_jar rule. To disable this check, pass "
+                  + "--incompatible_disallow_unverified_http_downloads=false to your build"),
+          Transience.PERSISTENT);
+    }
+  }
+
+  private static void validateShaAttributes(Rule rule, String sha1, String sha256)
+      throws RepositoryFunctionException {
+    if (WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha1)
+        && WorkspaceAttributeMapper.of(rule).isAttributeValueExplicitlySpecified(sha256)) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Attributes '%s' and '%s' cannot be specified at the same time. Please remove "
+                      + "the '%s' attribute in favor of '%s' as SHA-1 is cryptographically "
+                      + "insecure. See https://shattered.io for more information.",
+                  sha1, sha256, sha1, sha256)),
+          Transience.PERSISTENT);
+    }
   }
 
   private void createDirectory(Path path) throws RepositoryFunctionException {
@@ -155,7 +201,12 @@ public class MavenJarFunction extends RepositoryFunction {
     try {
       repositoryJars =
           mavenDownloader.download(
-              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue, eventHandler);
+              name,
+              rule.getLocation(),
+              WorkspaceAttributeMapper.of(rule),
+              outputDirectory,
+              serverValue,
+              eventHandler);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     } catch (EvalException e) {

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 
 /** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
@@ -22,17 +21,17 @@ public final class UnaryOperatorExpression extends Expression {
   private final TokenKind op; // NOT, TILDE, MINUS or PLUS
   private final Expression x;
 
-  public UnaryOperatorExpression(TokenKind op, Expression x) {
+  UnaryOperatorExpression(TokenKind op, Expression x) {
     this.op = op;
     this.x = x;
   }
 
-  /** getOperator returns the operator. */
+  /** Returns the operator. */
   public TokenKind getOperator() {
     return op;
   }
 
-  /** getX returns the operand. */
+  /** Returns the operand. */
   public Expression getX() {
     return x;
   }
@@ -56,50 +55,8 @@ public final class UnaryOperatorExpression extends Expression {
     return (op == TokenKind.NOT ? "not " : op.toString()) + x;
   }
 
-  private static Object evaluate(TokenKind op, Object value, Location loc)
-      throws EvalException, InterruptedException {
-    switch (op) {
-      case NOT:
-        return !EvalUtils.toBoolean(value);
-
-      case MINUS:
-        if (value instanceof Integer) {
-          try {
-            return Math.negateExact((Integer) value);
-          } catch (ArithmeticException e) {
-            // Fails for -MIN_INT.
-            throw new EvalException(loc, e.getMessage());
-          }
-        }
-        break;
-
-      case PLUS:
-        if (value instanceof Integer) {
-          return value;
-        }
-        break;
-
-      case TILDE:
-        if (value instanceof Integer) {
-          return ~((Integer) value);
-        }
-        break;
-
-        // ignore any other operator and proceed to report an error
-      default:
-    }
-    throw new EvalException(
-        loc,
-        String.format("unsupported unary operation: %s%s", op, EvalUtils.getDataTypeName(value)));
-  }
-
   @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(op, x.eval(env), getLocation());
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

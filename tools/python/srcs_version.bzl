@@ -281,7 +281,7 @@ find_requirements = aspect(
 The aspect definition. Can be invoked on the command line as
 
     bazel build //pkg:my_py_binary_target \
-        --aspects=@bazel_tools//tools/python:srcs_version.bzl%find_requirements \
+        --aspects=@rules_python//python:defs.bzl%find_requirements \
         --output_groups=pyversioninfo
 """,
 )

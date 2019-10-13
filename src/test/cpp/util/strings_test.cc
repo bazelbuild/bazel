@@ -24,7 +24,6 @@
 namespace blaze_util {
 
 using std::string;
-using std::unique_ptr;
 using std::vector;
 
 TEST(BlazeUtil, JoinStrings) {
@@ -301,16 +300,6 @@ TEST(BlazeUtil, StringPrintf) {
   string out;
   StringPrintf(&out, "%s %s", "a", "b");
   EXPECT_EQ("a b", out);
-}
-
-TEST(BlazeUtil, CstringToWstringTest) {
-  unique_ptr<wchar_t[]> actual = CstringToWstring("hello world");
-  EXPECT_EQ(0, wcscmp(actual.get(), L"hello world"));
-}
-
-TEST(BlazeUtil, WstringToCstringTest) {
-  unique_ptr<char[]> actual = WstringToCstring(L"hello world");
-  EXPECT_EQ(0, strcmp(actual.get(), "hello world"));
 }
 
 TEST(BlazeUtil, EndsWithTest) {

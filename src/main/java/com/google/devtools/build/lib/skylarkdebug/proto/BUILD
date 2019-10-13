@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_proto_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")

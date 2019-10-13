@@ -53,7 +53,7 @@ pkg_tar(
     srcs = glob(["*.txt"]),
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG ... \
+  bazel build --all_incompatible_changes $HOST_PY_FLAG ... &> $TEST_log \
     || fail "Expect success, even with all upcoming Skylark changes"
   grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/data.tar \
     || fail "Output not generated correctly"
@@ -78,7 +78,8 @@ pkg_tar(
   symlinks = {"link_with_colons" : "some:dangling:link"},
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG :fancy || fail "Expected success"
+  bazel build --all_incompatible_changes $HOST_PY_FLAG :fancy &> $TEST_log \
+      || fail "Expected success"
   mkdir ../out
   tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/fancy.tar
 
@@ -128,7 +129,8 @@ create_banana_directory = rule(
     implementation = _create_banana_directory_impl,
 )
 EOF
-  bazel build --all_incompatible_changes $HOST_PY_FLAG :banana_tarball || fail "Expected success"
+  bazel build --all_incompatible_changes $HOST_PY_FLAG :banana_tarball &> $TEST_log \
+      || fail "Expected success"
   mkdir ../out
   tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/banana_tarball.tar
 
@@ -167,7 +169,7 @@ genrule(
   executable = True,
 )
 EOF
-  bazel build --all_incompatible_changes :foo \
+  bazel build --all_incompatible_changes :foo &> $TEST_log \
     || fail "Expected to build even with incompatible changes"
   bazel run :foo | grep -q dragons || fail "wrong output"
 }
@@ -209,7 +211,7 @@ genrule(
   executable = True,
 )
 EOF
-  bazel build --all_incompatible_changes :foo \
+  bazel build --all_incompatible_changes :foo &> $TEST_log \
     || fail "Expected to build even with incompatible changes"
   bazel run :foo | grep -q dragons || fail "wrong output"
 }

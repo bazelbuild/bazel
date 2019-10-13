@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [

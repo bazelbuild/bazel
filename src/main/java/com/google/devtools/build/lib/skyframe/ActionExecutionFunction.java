@@ -45,14 +45,17 @@ import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -77,6 +80,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,6 +104,7 @@ import javax.annotation.Nullable;
  * </ol>
  */
 public class ActionExecutionFunction implements SkyFunction {
+
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
@@ -136,6 +141,7 @@ public class ActionExecutionFunction implements SkyFunction {
       // the value of the flag changes. We are doing this conditionally only in Bazel if remote
       // execution is available in order to not introduce additional skyframe edges in Blaze.
       PrecomputedValue.REMOTE_OUTPUTS_MODE.get(env);
+      PrecomputedValue.REMOTE_DEFAULT_PLATFORM_PROPERTIES.get(env);
     }
 
     // Look up the parts of the environment that influence the action.
@@ -146,11 +152,24 @@ public class ActionExecutionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> clientEnv = CompactHashMap.create();
+    Map<String, String> clientEnv = new HashMap<>();
     for (Map.Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
       ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
       if (envValue.getValue() != null) {
         clientEnv.put((String) entry.getKey().argument(), envValue.getValue());
+      }
+    }
+
+    ActionSketch sketch = null;
+    TopDownActionCache topDownActionCache = skyframeActionExecutor.getTopDownActionCache();
+    if (topDownActionCache != null) {
+      sketch = (ActionSketch) env.getValue(ActionSketchFunction.key(actionLookupData));
+      if (sketch == null) {
+        return null;
+      }
+      ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch);
+      if (actionExecutionValue != null) {
+        return actionExecutionValue.transformForSharedAction(action.getOutputs());
       }
     }
 
@@ -198,15 +217,21 @@ public class ActionExecutionFunction implements SkyFunction {
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
     CheckInputResults checkedInputs = null;
-    Iterable<Artifact> allInputs = state.allInputs.getAllInputs();
     @Nullable
     ImmutableSet<Artifact> mandatoryInputs =
         action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null;
-    Iterable<? extends SkyKey> inputDepKeys = Artifact.keys(allInputs);
-    // Declare deps on known inputs to action. We do this unconditionally to maintain our
-    // invariant of asking for the same deps each build.
+
+    int nestedSetSizeThreshold = skyframeActionExecutor.getNestedSetAsSkyKeyThreshold();
+    Iterable<Artifact> allInputs =
+        state.allInputs.getAllInputs(/* maybeAsNestedSet= */ nestedSetSizeThreshold > 0);
+
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
-        env.getValuesOrThrow(inputDepKeys, IOException.class, ActionExecutionException.class);
+        getInputDeps(env, nestedSetSizeThreshold, allInputs);
+    // If there's a missing value.
+    if (inputDeps == null) {
+      return null;
+    }
+
     try {
       if (previousExecution == null && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
@@ -289,7 +314,47 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
+    if (sketch != null && result.dataIsShareable()) {
+      topDownActionCache.put(sketch, result);
+    }
     return result;
+  }
+
+  /**
+   * Evaluate the supplied input deps. Declare deps on known inputs to action. We do this
+   * unconditionally to maintain our invariant of asking for the same deps each build.
+   *
+   * <p>TODO(b/142300168): Address potential dependency inconsistency if the threshold is changed
+   * between runs.
+   */
+  private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
+      Environment env, int nestedSetSizeThreshold, Iterable<Artifact> allInputs)
+      throws InterruptedException {
+    if (evalInputsAsNestedSet(nestedSetSizeThreshold, allInputs)) {
+      SkyValue artifactNestedSetValue =
+          env.getValue(
+              new ArtifactNestedSetKey(
+                  NestedSetView.getRawChildren((NestedSet<Artifact>) allInputs)));
+      if (env.valuesMissing()) {
+        return null;
+      }
+      return ((ArtifactNestedSetValue) artifactNestedSetValue).getArtifactToSkyValueMap();
+    }
+
+    return env.getValuesOrThrow(
+        Artifact.keys(allInputs), IOException.class, ActionExecutionException.class);
+  }
+
+  /**
+   * Do one traversal of the set to get the size. The traversal costs CPU time so only do it when
+   * necessary. The default case (without --experimental_nestedset_as_skykey_threshold) will ignore
+   * this path.
+   */
+  private static boolean evalInputsAsNestedSet(
+      int nestedSetSizeThreshold, Iterable<Artifact> inputs) {
+    return inputs instanceof NestedSet
+        && nestedSetSizeThreshold > 0
+        && (((NestedSet<Artifact>) inputs).memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
   }
 
   private Environment getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(
@@ -491,10 +556,27 @@ public class ActionExecutionFunction implements SkyFunction {
       this.keysRequested = keysRequested;
     }
 
-    Iterable<Artifact> getAllInputs() {
+    Iterable<Artifact> getAllInputs(boolean maybeAsNestedSet) {
+      if (maybeAsNestedSet && defaultInputs instanceof NestedSet) {
+        return getAllInputsAsNestedSet();
+      }
       return actionCacheInputs == null
           ? defaultInputs
           : Iterables.concat(defaultInputs, actionCacheInputs);
+    }
+
+    private NestedSet<Artifact> getAllInputsAsNestedSet() {
+      Preconditions.checkState(defaultInputs instanceof NestedSet);
+      if (actionCacheInputs == null) {
+        return (NestedSet<Artifact>) defaultInputs;
+      }
+
+      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      // actionCacheInputs is never a NestedSet.
+      builder.addAll(actionCacheInputs);
+      builder.addTransitive((NestedSet<Artifact>) defaultInputs);
+
+      return builder.build();
     }
   }
 
@@ -519,7 +601,7 @@ public class ActionExecutionFunction implements SkyFunction {
           keysRequested,
           execPaths);
       // Create SkyKeys list based on execPaths.
-      Map<PathFragment, SkyKey> depKeys = CompactHashMap.create();
+      Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
         PathFragment parent =
             Preconditions.checkNotNull(
@@ -545,7 +627,7 @@ public class ActionExecutionFunction implements SkyFunction {
         return null;
       }
 
-      Map<PathFragment, Root> result = CompactHashMap.create();
+      Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
         if (!depKeys.containsKey(path)) {
           continue;
@@ -649,16 +731,24 @@ public class ActionExecutionFunction implements SkyFunction {
                 action,
                 /*catastrophe=*/ false);
           }
-          state.discoveredInputs =
-              skyframeActionExecutor.discoverInputs(
-                  action,
-                  metadataHandler,
-                  metadataHandler,
-                  skyframeActionExecutor.probeCompletedAndReset(action)
-                      ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
-                      : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
-                  env,
-                  state.actionFileSystem);
+          try {
+            state.discoveredInputs =
+                skyframeActionExecutor.discoverInputs(
+                    action,
+                    metadataHandler,
+                    metadataHandler,
+                    skyframeActionExecutor.probeCompletedAndReset(action)
+                        ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
+                        : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
+                    env,
+                    state.actionFileSystem);
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "Failed during input discovery: " + e.getMessage(),
+                e,
+                action,
+                /*catastrophe=*/ false);
+          }
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
               "discoverInputs() must return null iff requesting more dependencies.");
@@ -695,7 +785,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // Make sure this is a regular HashMap rather than ImmutableMapBuilder so that we are safe
     // in case of collisions.
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = CompactHashMap.create();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = new HashMap<>();
     for (Artifact actionInput : action.getInputs()) {
       if (!actionInput.isFileset()) {
         continue;
@@ -779,7 +869,7 @@ public class ActionExecutionFunction implements SkyFunction {
         Action action,
         ActionMetadataHandler metadataHandler,
         Map<String, String> clientEnv)
-        throws InterruptedException {
+        throws InterruptedException, ActionExecutionException {
       if (action.discoversInputs()) {
         Iterable<Artifact> newInputs =
             filterKnownInputs(action.getInputs(), state.inputArtifactData);
@@ -980,8 +1070,8 @@ public class ActionExecutionFunction implements SkyFunction {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     S inputArtifactData = actionInputMapSinkFactory.apply(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
-        CompactHashMap.createWithExpectedSize(populateInputData ? 128 : 0);
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = CompactHashMap.create();
+        new HashMap<>(populateInputData ? 128 : 0);
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
     for (Artifact input : allInputs) {

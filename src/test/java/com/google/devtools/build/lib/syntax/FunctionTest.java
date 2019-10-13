@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,20 +35,23 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func(a,b,c):",
         "  a = 1",
         "  b = a\n");
-    UserDefinedFunction stmt = (UserDefinedFunction) lookup("func");
+    StarlarkFunction stmt = (StarlarkFunction) lookup("func");
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getSignature().getSignature().getShape().getMandatoryPositionals())
-        .isEqualTo(3);
+    assertThat(stmt.getSignature().numMandatoryPositionals()).isEqualTo(3);
     assertThat(stmt.getStatements()).hasSize(2);
   }
 
   @Test
   public void testFunctionDefDuplicateArguments() throws Exception {
-    setFailFast(false);
-    parseFile("def func(a,b,a):",
-        "  a = 1\n");
-    assertContainsError("duplicate parameter name in function definition");
+    // TODO(adonovan): move to ParserTest.
+    ParserInput input =
+        ParserInput.fromLines(
+            "def func(a,b,a):", //
+            "  a = 1\n");
+    StarlarkFile file = StarlarkFile.parse(input);
+    MoreAsserts.assertContainsEvent(
+        file.errors(), "duplicate parameter name in function definition");
   }
 
   @Test
@@ -62,14 +66,19 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   private void createOuterFunction(final List<Object> params) throws Exception {
-    BaseFunction outerFunc = new BaseFunction("outer_func") {
-      @Override
-      public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-          Environment env) throws EvalException, InterruptedException {
-        params.addAll(args);
-        return Runtime.NONE;
-      }
-    };
+    BaseFunction outerFunc =
+        new BaseFunction("outer_func") {
+          @Override
+          public Object call(
+              List<Object> args,
+              Map<String, Object> kwargs,
+              FuncallExpression ast,
+              StarlarkThread thread)
+              throws EvalException, InterruptedException {
+            params.addAll(args);
+            return Runtime.NONE;
+          }
+        };
     update("outer_func", outerFunc);
   }
 

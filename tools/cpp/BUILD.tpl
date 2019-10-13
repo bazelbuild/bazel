@@ -38,7 +38,7 @@ filegroup(
 
 filegroup(
     name = "compiler_deps",
-    srcs = glob(["extra_tools/**"], allow_empty = True) + ["%{cc_compiler_deps}"],
+    srcs = glob(["extra_tools/**"], allow_empty = True) + [%{cc_compiler_deps}],
 )
 
 # This is the entry point for --crosstool_top.  Toolchains are found

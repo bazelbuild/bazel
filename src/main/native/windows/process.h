@@ -67,6 +67,13 @@ class WaitableProcess {
   DWORD pid_, exit_code_;
 };
 
+// Escape a command line argument using Windows escaping syntax.
+//
+// This escaping lets us safely pass arguments to subprocesses created with
+// CreateProcessW. (The escaping rules are a bit complex, look at the function
+// implementation.)
+std::wstring WindowsEscapeArg(const std::wstring& arg);
+
 }  // namespace windows
 }  // namespace bazel
 

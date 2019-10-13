@@ -22,6 +22,7 @@ import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
+import com.google.devtools.build.android.DependencyInfo;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -30,7 +31,7 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlT
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -102,8 +103,9 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(dependencyInfo, key.type(), key.name());
   }
 
   @Override
@@ -138,7 +140,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(Value proto) {
     Plural plural = proto.getCompoundValue().getPlural();
 
-    Map<String, String> items = new HashMap<>();
+    Map<String, String> items = new LinkedHashMap<>();
 
     for (Plural.Entry entry : plural.getEntryList()) {
       String name = entry.getArity().toString().toLowerCase();

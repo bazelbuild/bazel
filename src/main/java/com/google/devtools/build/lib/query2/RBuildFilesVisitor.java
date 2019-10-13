@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
@@ -32,7 +33,7 @@ import java.util.Collection;
 import java.util.Set;
 
 /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
-public class RBuildFilesVisitor extends ParallelVisitor<SkyKey, PackageIdentifier, Target> {
+public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIdentifier, Target> {
 
   // Each target in the full output of 'rbuildfiles' corresponds to BUILD file InputFile of a
   // unique package. So the processResultsBatchSize we choose to pass to the ParallelVisitor ctor

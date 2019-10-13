@@ -90,7 +90,7 @@ public abstract class Root implements Comparable<Root>, Serializable {
       this.fingerprint =
           new BigInteger(
               1,
-              DigestHashFunction.MD5
+              DigestHashFunction.SHA256
                   .cloneOrCreateMessageDigest()
                   .digest(path.getPathString().getBytes(StandardCharsets.UTF_8)));
     }

@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -27,15 +28,14 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.FakeLoadTarget;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
-import com.google.devtools.build.lib.syntax.Type;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -60,8 +60,9 @@ import org.w3c.dom.Element;
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
-  // AbstractUnorderedFormatter also has an options field it's of type CommonQueryOptions, a
-  // superclass of QueryOptions. Store this here to ensure correct type is passed to this class.
+  private AspectResolver aspectResolver;
+  private DependencyFilter dependencyFilter;
+  private boolean relativeLocations;
   private QueryOptions queryOptions;
 
   @Override
@@ -79,6 +80,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
+    this.aspectResolver = aspectResolver;
+    this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.relativeLocations = options.relativeLocations;
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
@@ -151,8 +155,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
-        if (values.source == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
+        PossibleAttributeValues values = PossibleAttributeValues.forRuleAndAttribute(rule, attr);
+        if (values.getSource() == AttributeValueSource.RULE || queryOptions.xmlShowDefaultValues) {
           Element attrElem = createValueElement(doc, attr.getType(), values);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
@@ -234,7 +238,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", target.getLabel().toString());
-    String location = getLocation(target, options.relativeLocations);
+    String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {

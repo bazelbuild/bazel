@@ -92,8 +92,7 @@ public class ObjcProviderSkylarkConverters {
 
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
-      validateTypes(skylarkValue, javaKey.getType(), javaKey.getSkylarkKeyName());
-      return ((SkylarkNestedSet) skylarkValue).getSet(javaKey.getType());
+      return nestedSetWithType(skylarkValue, javaKey.getType(), javaKey.getSkylarkKeyName());
     }
   }
 
@@ -111,9 +110,10 @@ public class ObjcProviderSkylarkConverters {
     @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
-      validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
+      NestedSet<String> nestedSet =
+          nestedSetWithType(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
-      for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
+      for (String path : nestedSet.toList()) {
         result.add(PathFragment.create(path));
       }
       return result.build();
@@ -138,9 +138,10 @@ public class ObjcProviderSkylarkConverters {
     @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
-      validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
+      NestedSet<String> nestedSet =
+          nestedSetWithType(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
-      for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
+      for (String path : nestedSet.toList()) {
         result.add(new SdkFramework(path));
       }
       return result.build();
@@ -148,20 +149,26 @@ public class ObjcProviderSkylarkConverters {
   }
 
   /** Throws an error if the given object is not a nested set of the given type. */
-  private static void validateTypes(Object toCheck, Class<?> expectedSetType, String keyName)
-      throws EvalException {
-    if (!(toCheck instanceof SkylarkNestedSet)) {
+  private static <T> NestedSet<T> nestedSetWithType(
+      Object toCheck, Class<T> expectedSetType, String keyName) throws EvalException {
+    if (toCheck instanceof SkylarkNestedSet) {
+      SkylarkNestedSet sns = (SkylarkNestedSet) toCheck;
+      try {
+        return sns.getSet(expectedSetType);
+      } catch (SkylarkNestedSet.TypeException exception) {
+        throw new EvalException(
+            null,
+            String.format(
+                BAD_SET_TYPE_ERROR,
+                keyName,
+                EvalUtils.getDataTypeNameFromClass(expectedSetType),
+                EvalUtils.getDataTypeNameFromClass(
+                    ((SkylarkNestedSet) toCheck).getContentType().getType())),
+            exception);
+      }
+    } else {
       throw new EvalException(
           null, String.format(NOT_SET_ERROR, keyName, EvalUtils.getDataTypeName(toCheck)));
-    } else if (!((SkylarkNestedSet) toCheck).getContentType().canBeCastTo(expectedSetType)) {
-      throw new EvalException(
-          null,
-          String.format(
-              BAD_SET_TYPE_ERROR,
-              keyName,
-              EvalUtils.getDataTypeNameFromClass(expectedSetType),
-              EvalUtils.getDataTypeNameFromClass(
-                  ((SkylarkNestedSet) toCheck).getContentType().getType())));
     }
   }
 }

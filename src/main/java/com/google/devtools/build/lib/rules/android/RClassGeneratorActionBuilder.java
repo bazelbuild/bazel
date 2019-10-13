@@ -89,6 +89,10 @@ public class RClassGeneratorActionBuilder {
                   ? dependencies.getTransitiveAapt2RTxt()
                   : dependencies.getTransitiveRTxt())
           .addTransitiveInputValues(dependencies.getTransitiveManifests());
+
+      if (version == AndroidAaptVersion.AAPT2) {
+        builder.addTransitiveInputValues(dependencies.getTransitiveAapt2ValidationArtifacts());
+      }
     }
 
     builder

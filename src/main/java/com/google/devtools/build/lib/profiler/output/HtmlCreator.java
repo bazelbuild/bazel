@@ -152,7 +152,6 @@ public final class HtmlCreator extends HtmlPrinter {
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> statistics,
       CriticalPathStatistics criticalPathStats,
-      int missingActionsCount,
       boolean detailed,
       int htmlPixelsPerSecond,
       int vfsStatsLimit,
@@ -166,7 +165,6 @@ public final class HtmlCreator extends HtmlPrinter {
               phaseSummaryStats,
               statistics,
               Optional.of(criticalPathStats),
-              Optional.of(missingActionsCount),
               vfsStatsLimit);
       Optional<SkylarkHtml> skylarkStats = Optional.absent();
       Optional<Chart> chart = Optional.absent();
@@ -181,7 +179,11 @@ public final class HtmlCreator extends HtmlPrinter {
         } else {
           chartCreator = new AggregatingChartCreator(info);
         }
-        chart = Optional.of(chartCreator.create());
+        // Bar widths are in nanoseconds. Therefore, because of integer division, the following
+        // expression is the minimum nanosecond width that would correspond to a non-zero
+        // number of pixels.
+        long minBarWidth = 1000000000L / htmlPixelsPerSecond;
+        chart = Optional.of(chartCreator.create(minBarWidth));
       }
       new HtmlCreator(
               out,

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -42,14 +41,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * An instance of a build rule in the build language.  A rule has a name, a
- * package to which it belongs, a class such as <code>cc_library</code>, and
- * set of typed attributes.  The set of attribute names and types is a property
- * of the rule's class.  The use of the term "class" here has nothing to do
- * with Java classes.  All rules are implemented by the same Java classes, Rule
- * and RuleClass.
+ * An instance of a build rule in the build language. A rule has a name, a package to which it
+ * belongs, a class such as <code>cc_library</code>, and set of typed attributes. The set of
+ * attribute names and types is a property of the rule's class. The use of the term "class" here has
+ * nothing to do with Java classes. All rules are implemented by the same Java classes, Rule and
+ * RuleClass.
  *
  * <p>Here is a typical rule as it appears in a BUILD file:
+ *
  * <pre>
  * cc_library(name = 'foo',
  *            defines = ['-Dkey=value'],
@@ -57,7 +56,8 @@ import java.util.Set;
  *            deps = ['bar'])
  * </pre>
  */
-public final class Rule implements Target, DependencyFilter.AttributeInfoProvider {
+// Non-final only for mocking in tests. Do not subclass!
+public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
@@ -129,10 +129,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   void setAttributeValueByName(String attrName, Object value) {
     attributes.setAttributeValueByName(attrName, value);
-  }
-
-  void setAttributeLocation(int attrIndex, Location location) {
-    attributes.setAttributeLocation(attrIndex, location);
   }
 
   void setContainsErrors() {
@@ -341,50 +337,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
     return attributes.isAttributeValueExplicitlySpecified(attrName);
-  }
-
-  /**
-   * Returns the location of the attribute definition for this rule, if known;
-   * or the location of the whole rule otherwise. "attrName" need not be a
-   * valid attribute name for this rule.
-   *
-   * <p>This method ignores whether the present rule was created by a macro or not.
-   */
-  public Location getAttributeLocationWithoutMacro(String attrName) {
-    return getAttributeLocation(attrName, /* useBuildLocation= */ false);
-  }
-
-  /**
-   * Returns the location of the attribute definition for this rule, if known;
-   * or the location of the whole rule otherwise. "attrName" need not be a
-   * valid attribute name for this rule.
-   *
-   * <p>If this rule was created by a macro, this method returns the
-   * location of the macro invocation in the BUILD file instead.
-   */
-  public Location getAttributeLocation(String attrName) {
-    return getAttributeLocation(attrName, /* useBuildLocation= */ true);
-  }
-
-  private Location getAttributeLocation(String attrName, boolean useBuildLocation) {
-    /*
-     * If the rule was created by a macro, we have to deal with two locations: one in the BUILD
-     * file where the macro is invoked and one in the bzl file where the rule is created.
-     * For error reporting, we are usually more interested in the former one.
-     * Different methods in this class refer to different locations, though:
-     * - getLocation() points to the location of the macro invocation in the BUILD file (thanks to
-     *   RuleFactory).
-     * - attributes.getAttributeLocation() points to the location in the bzl file.
-     */
-    if (wasCreatedByMacro() && useBuildLocation) {
-      return getLocation();
-    }
-
-    Location attrLocation = null;
-    if (!attrName.equals("name")) {
-      attrLocation = attributes.getAttributeLocation(attrName);
-    }
-    return attrLocation != null ? attrLocation : getLocation();
   }
 
   /**

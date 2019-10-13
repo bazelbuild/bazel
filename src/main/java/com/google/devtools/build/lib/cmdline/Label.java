@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -31,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -504,6 +503,7 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
+   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -537,10 +537,20 @@ public final class Label
             type = String.class,
             doc = "The label that will be resolved relative to this one.")
       },
-      useContext = true)
-  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
-    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
+      useStarlarkThread = true)
+  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
+    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
+    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
+  }
+
+  /**
+   * An interface for retrieving a repository mapping.
+   *
+   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
+   * that type here because logically it belongs in Bazel, above this package.
+   */
+  public interface HasRepoMapping {
+    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
   }
 
   /**

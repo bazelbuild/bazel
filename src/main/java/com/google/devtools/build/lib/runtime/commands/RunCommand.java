@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -55,6 +57,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -65,7 +68,6 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -135,7 +137,7 @@ public class RunCommand implements BlazeCommand  {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "On Windows: if true, the \"run\" command runs the binary directly instead of running "
                 + "through Bash; when false, then the binary is ran through Bash. On other "
@@ -145,11 +147,6 @@ public class RunCommand implements BlazeCommand  {
 
   // Thrown when a method needs Bash but ShToolchain.getPath yields none.
   private static final class NoShellFoundException extends Exception {}
-
-  @VisibleForTesting
-  public static final String SINGLE_TARGET_MESSAGE =
-      "Only a single target can be run. "
-          + "Do not use wildcards that match more than one target";
 
   @VisibleForTesting
   public static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -172,9 +169,13 @@ public class RunCommand implements BlazeCommand  {
 
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   protected BuildResult processRequest(final CommandEnvironment env, BuildRequest request) {
-    return new BuildTool(env).processRequest(request,
-        (Collection<Target> targets, boolean keepGoing) ->
-            RunCommand.this.validateTargets(env.getReporter(), targets, keepGoing));
+    List<String> targetPatternStrings = request.getTargets();
+    return new BuildTool(env)
+        .processRequest(
+            request,
+            (Collection<Target> targets, boolean keepGoing) ->
+                RunCommand.this.validateTargets(
+                    env.getReporter(), targetPatternStrings, targets, keepGoing));
   }
 
   @Override
@@ -317,7 +318,12 @@ public class RunCommand implements BlazeCommand  {
     if (targetsBuilt != null) {
       int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
       if (targetsBuilt.size() > maxTargets) {
-        env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
+        env.getReporter()
+            .handle(
+                Event.error(
+                    makeErrorMessageForNotHavingASingleTarget(
+                        targetString,
+                        Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString()))));
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
       for (ConfiguredTarget target : targetsBuilt) {
@@ -335,7 +341,12 @@ public class RunCommand implements BlazeCommand  {
         } else if (targetToRun == null) {
           targetToRun = target;
         } else {
-          env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
+          env.getReporter()
+              .handle(
+                  Event.error(
+                      makeErrorMessageForNotHavingASingleTarget(
+                          targetString,
+                          Iterables.transform(targetsBuilt, ct -> ct.getLabel().toString()))));
           return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
         }
       }
@@ -519,9 +530,16 @@ public class RunCommand implements BlazeCommand  {
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
 
+      String shellEscaped = ShellEscaper.escapeJoinAll(cmdLine);
+      if (OS.getCurrent() == OS.WINDOWS) {
+        // On Windows, we run Bash as a subprocess of the client (via CreateProcessW).
+        // Bash uses its own (Bash-style) flag parsing logic, not the default logic for which
+        // ShellUtils.windowsEscapeArg escapes, so we escape the flags once again Bash-style.
+        shellEscaped = "\"" + shellEscaped.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+      }
+
       ImmutableList<String> shellCmdLine =
-          ImmutableList.<String>of(
-              shExecutable.getPathString(), "-c", ShellEscaper.escapeJoinAll(cmdLine));
+          ImmutableList.<String>of(shExecutable.getPathString(), "-c", shellEscaped);
 
       for (String arg : shellCmdLine) {
         execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
@@ -610,7 +628,11 @@ public class RunCommand implements BlazeCommand  {
 
   // Make sure we are building exactly 1 binary target.
   // If keepGoing, we'll build all the targets even if they are non-binary.
-  private void validateTargets(Reporter reporter, Collection<Target> targets, boolean keepGoing)
+  private void validateTargets(
+      Reporter reporter,
+      List<String> targetPatternStrings,
+      Collection<Target> targets,
+      boolean keepGoing)
       throws LoadingFailedException {
     Target targetToRun = null;
     Target runUnderTarget = null;
@@ -618,7 +640,12 @@ public class RunCommand implements BlazeCommand  {
     boolean singleTargetWarningWasOutput = false;
     int maxTargets = currentRunUnder != null && currentRunUnder.getLabel() != null ? 2 : 1;
     if (targets.size() > maxTargets) {
-      warningOrException(reporter, SINGLE_TARGET_MESSAGE, keepGoing);
+      warningOrException(
+          reporter,
+          makeErrorMessageForNotHavingASingleTarget(
+              targetPatternStrings.get(0),
+              Iterables.transform(targets, t -> t.getLabel().toString())),
+          keepGoing);
       singleTargetWarningWasOutput = true;
     }
     for (Target target : targets) {
@@ -635,7 +662,12 @@ public class RunCommand implements BlazeCommand  {
         targetToRun = target;
       } else {
         if (!singleTargetWarningWasOutput) {
-          warningOrException(reporter, SINGLE_TARGET_MESSAGE, keepGoing);
+          warningOrException(
+              reporter,
+              makeErrorMessageForNotHavingASingleTarget(
+                  targetPatternStrings.get(0),
+                  Iterables.transform(targets, t -> t.getLabel().toString())),
+              keepGoing);
         }
         return;
       }
@@ -756,5 +788,20 @@ public class RunCommand implements BlazeCommand  {
 
     Rule rule = (Rule) target;
     return rule.getRuleClass().equals("alias") || rule.getRuleClass().equals("bind");
+  }
+
+  private String makeErrorMessageForNotHavingASingleTarget(
+      String targetPatternString, Iterable<String> expandedTargetNames) {
+    final int maxNumExpandedTargetsToIncludeInErrorMessage = 5;
+    boolean truncateTargetNameList = Iterables.size(expandedTargetNames) > 5;
+    Iterable<String> targetNamesToIncludeInErrorMessage =
+        truncateTargetNameList
+            ? Iterables.limit(expandedTargetNames, maxNumExpandedTargetsToIncludeInErrorMessage)
+            : expandedTargetNames;
+    return String.format(
+        "Only a single target can be run. Your target pattern %s expanded to the targets %s%s",
+        targetPatternString,
+        Joiner.on(", ").join(ImmutableSortedSet.copyOf(targetNamesToIncludeInErrorMessage)),
+        truncateTargetNameList ? "[TRUNCATED]" : "");
   }
 }

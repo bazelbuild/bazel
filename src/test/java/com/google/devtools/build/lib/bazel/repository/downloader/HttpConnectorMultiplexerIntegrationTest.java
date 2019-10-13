@@ -73,7 +73,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
   private final Sleeper sleeper = mock(Sleeper.class);
   private final Locale locale = Locale.US;
   private final HttpConnector connector =
-      new HttpConnector(locale, eventHandler, proxyHelper, sleeper);
+      new HttpConnector(locale, eventHandler, proxyHelper, sleeper, 0.1f);
   private final ProgressInputStream.Factory progressInputStreamFactory =
       new ProgressInputStream.Factory(locale, clock, eventHandler);
   private final HttpStream.Factory httpStreamFactory =
@@ -102,7 +102,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       for (final ServerSocket server : asList(server1, server2)) {
-        @SuppressWarnings("unused") 
+        @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError =
             executor.submit(
                 new Callable<Object>() {
@@ -239,6 +239,54 @@ public class HttpConnectorMultiplexerIntegrationTest {
               new URL(String.format("http://localhost:%d", server2.getLocalPort())),
               new URL(String.format("http://localhost:%d", server3.getLocalPort()))),
           HELLO_SHA256);
+    }
+  }
+
+  @Test
+  public void firstUrlSocketTimeout_secondOk() throws Exception {
+    final Phaser phaser = new Phaser(3);
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                phaser.arriveAndAwaitAdvance();
+                try (Socket socket = server1.accept()) {
+                  // Do nothing to cause SocketTimeoutException on client side.
+                }
+                return null;
+              });
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                phaser.arriveAndAwaitAdvance();
+                try (Socket socket = server2.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      phaser.arriveAndAwaitAdvance();
+      phaser.arriveAndDeregister();
+      try (HttpStream stream =
+          multiplexer.connect(
+              ImmutableList.of(
+                  new URL(String.format("http://localhost:%d", server1.getLocalPort())),
+                  new URL(String.format("http://localhost:%d", server2.getLocalPort()))),
+              HELLO_SHA256)) {
+        assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
+      }
     }
   }
 }

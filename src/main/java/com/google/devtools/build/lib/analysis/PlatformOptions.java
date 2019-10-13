@@ -169,7 +169,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_auto_configure_host_platform",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

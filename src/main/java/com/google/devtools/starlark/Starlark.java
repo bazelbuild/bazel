@@ -16,11 +16,12 @@ package com.google.devtools.starlark;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -54,10 +55,10 @@ class Starlark {
   private final BufferedReader reader =
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final Mutability mutability = Mutability.create("interpreter");
-  private final Environment env =
-      Environment.builder(mutability)
+  private final StarlarkThread thread =
+      StarlarkThread.builder(mutability)
           .useDefaultSemantics()
-          .setGlobals(Environment.DEFAULT_GLOBALS)
+          .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();
 
@@ -85,11 +86,12 @@ class Starlark {
   }
 
   /** Provide a REPL evaluating Starlark code. */
+  @SuppressWarnings("CatchAndPrintStackTrace")
   public void readEvalPrintLoop() {
-    String input;
-    while ((input = prompt()) != null) {
+    String line;
+    while ((line = prompt()) != null) {
       try {
-        Object result = BuildFileAST.eval(env, input);
+        Object result = EvalUtils.execOrEval(ParserInput.fromLines(line), thread);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }
@@ -114,7 +116,8 @@ class Starlark {
   /** Execute a Starlark command. */
   public int execute(String content) {
     try {
-      BuildFileAST.eval(env, content);
+      ParserInput input = ParserInput.create(content, null);
+      EvalUtils.execOrEval(input, thread);
       return 0;
     } catch (EvalException e) {
       System.err.println(e.print());

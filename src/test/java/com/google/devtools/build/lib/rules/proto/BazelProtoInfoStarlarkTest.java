@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoModuleApi;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +43,9 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
     scratch.file("myinfo/BUILD");
     MockProtoSupport.setup(mockToolsConfig);
+
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
@@ -49,28 +53,6 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         new SkylarkProvider.SkylarkKey(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testLegacyProviderCanBeDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:test");
-    assertContainsEvent("doesn't have provider 'proto'");
   }
 
   @Test
@@ -88,55 +70,6 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
     Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
     assertThat(protoCommon).isInstanceOf(ProtoModuleApi.class);
   }
-
-  @Test
-  public void testProviderIsAvailableWhenLegacyIsDisabled() throws Exception {
-    useConfiguration("--incompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep[ProtoInfo]", // NB: This is the modern provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources =
-        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
-    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
-  }
-
-  @Test
-  public void testLegacyProvider() throws Exception {
-    useConfiguration("--noincompatible_disable_legacy_proto_provider");
-    scratch.file(
-        "foo/test.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr.dep.proto", // NB: This is the legacy provider
-        "  return MyInfo(direct_sources=provider.direct_sources)",
-        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':test.bzl', 'test')",
-        "test(name='test', dep=':proto')",
-        "proto_library(name='proto', srcs=['p.proto'])");
-
-    ConfiguredTarget test = getConfiguredTarget("//foo:test");
-    @SuppressWarnings("unchecked")
-    Iterable<Artifact> directSources =
-        (Iterable<Artifact>) getMyInfoFromTarget(test).getValue("direct_sources");
-    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
-  }
-
   @Test
   public void testProvider() throws Exception {
     scratch.file(
@@ -149,6 +82,7 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     scratch.file(
         "foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -162,14 +96,13 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
   @Test
   public void testProtoSourceRootExportedInStarlark() throws Exception {
-
     scratch.file(
-        "foo/myTestRule.bzl",
+        "third_party/foo/myTestRule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def _my_test_rule_impl(ctx):",
         "    return MyInfo(",
-        "        fetched_proto_source_root = ctx.attr.protodep.proto.proto_source_root",
+        "        fetched_proto_source_root = ctx.attr.protodep[ProtoInfo].proto_source_root",
         "    )",
         "",
         "my_test_rule = rule(",
@@ -178,8 +111,9 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         ")");
 
     scratch.file(
-        "foo/BUILD",
-        "",
+        "third_party/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "licenses(['unencumbered'])",
         "load(':myTestRule.bzl', 'my_test_rule')",
         "my_test_rule(",
         "  name = 'myRule',",
@@ -188,13 +122,13 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
         "proto_library(",
         "  name = 'myProto',",
         "  srcs = ['myProto.proto'],",
-        "  proto_source_root = 'foo',",
+        "  strip_import_prefix = '/third_party/foo',",
         ")");
 
-    ConfiguredTarget ct = getConfiguredTarget("//foo:myRule");
+    ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:myRule");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
 
-    assertThat(protoSourceRoot).isEqualTo(genfiles + "/foo/_virtual_imports/myProto");
+    assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/myProto");
   }
 }

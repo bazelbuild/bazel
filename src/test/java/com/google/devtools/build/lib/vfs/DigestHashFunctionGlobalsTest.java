@@ -36,11 +36,8 @@ public class DigestHashFunctionGlobalsTest {
   @Before
   public void resetStaticDefault() throws IllegalAccessException, NoSuchFieldException {
     // The default is effectively a Singleton, and it does not allow itself to be set multiple
-    // times. In order to test this reasonably, though, we reset the sentinel boolean to false and
-    // the value to null, which are the values before setDefault is called.
-    Field defaultHasBeenSet = DigestHashFunction.class.getDeclaredField("defaultHasBeenSet");
-    defaultHasBeenSet.setAccessible(true);
-    defaultHasBeenSet.set(null, false);
+    // times. In order to test this reasonably, though, we reset the value to null,
+    // as it is before setDefault is called.
 
     Field defaultValue = DigestHashFunction.class.getDeclaredField("defaultHash");
     defaultValue.setAccessible(true);
@@ -58,9 +55,6 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("sha-1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("SHA1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("sha1")).isSameInstanceAs(DigestHashFunction.SHA1);
-
-    assertThat(converter.convert("MD5")).isSameInstanceAs(DigestHashFunction.MD5);
-    assertThat(converter.convert("md5")).isSameInstanceAs(DigestHashFunction.MD5);
   }
 
   @Test
@@ -100,7 +94,7 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void cannotSetDefaultMultipleTimes() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.MD5);
+    DigestHashFunction.setDefault(DigestHashFunction.SHA256);
     assertThrows(
         DigestHashFunction.DefaultAlreadySetException.class,
         () -> DigestHashFunction.setDefault(DigestHashFunction.SHA1));

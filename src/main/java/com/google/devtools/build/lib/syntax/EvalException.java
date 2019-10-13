@@ -36,7 +36,6 @@ public class EvalException extends Exception {
 
   @Nullable private Location location;
   private final String message;
-  private final boolean dueToIncompleteAST;
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
@@ -48,47 +47,6 @@ public class EvalException extends Exception {
   public EvalException(Location location, String message) {
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
-    this.dueToIncompleteAST = false;
-  }
-
-  public EvalException(Location location, String message, String url) {
-    this.location = location;
-    this.dueToIncompleteAST = false;
-    this.message =
-        Preconditions.checkNotNull(message)
-            + "\n"
-            + "Need help? See "
-            + Preconditions.checkNotNull(url);
-  }
-
-  /**
-   * @param location the location where evaluation/execution failed.
-   * @param message the error message.
-   * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
-   */
-  public EvalException(Location location, String message, boolean dueToIncompleteAST) {
-    this(location, message, dueToIncompleteAST, true);
-  }
-
-  /**
-   * Create an EvalException with the option to not fill in the java stack trace. An optimization
-   * for ReturnException, and potentially others, which aren't exceptional enough to include a
-   * stack trace.
-   *
-   * @param location the location where evaluation/execution failed.
-   * @param message the error message.
-   * @param dueToIncompleteAST if the error is caused by a previous error, such as parsing.
-   * @param fillInJavaStackTrace whether or not to fill in the java stack trace for this exception
-   */
-  EvalException(
-      Location location,
-      String message,
-      boolean dueToIncompleteAST,
-      boolean fillInJavaStackTrace) {
-    super(null, null, /*enableSuppression=*/ true, fillInJavaStackTrace);
-    this.location = location;
-    this.message = Preconditions.checkNotNull(message);
-    this.dueToIncompleteAST = dueToIncompleteAST;
   }
 
   /**
@@ -111,20 +69,23 @@ public class EvalException extends Exception {
       LoggingUtil.logToRemote(Level.SEVERE, details, cause);
       throw new IllegalArgumentException(details);
     }
-    this.dueToIncompleteAST = false;
   }
 
   public EvalException(Location location, Throwable cause) {
     this(location, null, cause);
   }
 
+  public EvalException(String message) {
+    this(null, message);
+  }
+
   /**
    * Returns the error message with location info if exists.
    */
   public String print() { // TODO(bazel-team): do we also need a toString() method?
-    return LINE_JOINER.join("\n", FIELD_JOINER.join(getLocation(), message),
-        (dueToIncompleteAST ? "due to incomplete AST" : ""),
-        getCauseMessage(message));
+    // TODO(adonovan): figure out what this means and simplify it.
+    return LINE_JOINER.join(
+        "\n", FIELD_JOINER.join(getLocation(), message), "", getCauseMessage(message));
   }
 
   /**
@@ -168,13 +129,6 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Returns a boolean that tells whether this exception was due to an incomplete AST
-   */
-  public boolean isDueToIncompleteAST() {
-    return dueToIncompleteAST;
-  }
-
-  /**
    * Ensures that this EvalException has proper location information.
    * Does nothing if the exception already had a location, or if no location is provided.
    * @return this EvalException, in fluent style.
@@ -192,29 +146,5 @@ public class EvalException extends Exception {
    */
   public boolean canBeAddedToStackTrace() {
     return true;
-  }
-
-  /**
-   * A class to support a special case of EvalException when the cause of the error is an
-   * Exception during a direct Java call. Allow the throwing code to provide context in a message.
-   */
-  public static final class EvalExceptionWithJavaCause extends EvalException {
-
-    /**
-     * @param location the location where evaluation/execution failed.
-     * @param message the error message.
-     * @param cause a Throwable that caused this exception.
-     */
-    public EvalExceptionWithJavaCause(Location location, String message, Throwable cause) {
-      super(location, message, cause);
-    }
-
-    /**
-     * @param location the location where evaluation/execution failed.
-     * @param cause a Throwable that caused this exception.
-     */
-    public EvalExceptionWithJavaCause(Location location, Throwable cause) {
-      this(location, null, cause);
-    }
   }
 }

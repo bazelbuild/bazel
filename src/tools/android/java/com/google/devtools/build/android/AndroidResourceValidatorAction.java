@@ -17,7 +17,6 @@ import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -156,7 +155,6 @@ public class AndroidResourceValidatorAction {
           options.packageForR,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          ImmutableList.<String>of(),
           AndroidManifest.parseFrom(options.manifest)
               .writeDummyManifestForAapt(dummyManifestDirectory, options.packageForR),
           resources,

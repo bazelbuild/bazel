@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.AutoCodecProcessingFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
@@ -88,11 +89,13 @@ class Marshallers {
 
     if (type instanceof PrimitiveType) {
       PrimitiveType primitiveType = (PrimitiveType) type;
-      return primitiveGenerators
-          .stream()
+      return primitiveGenerators.stream()
           .filter(generator -> generator.matches((PrimitiveType) type))
           .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException("No generator for: " + primitiveType));
+          .orElseThrow(
+              () ->
+                  new AutoCodecProcessingFailedException(
+                      null, "No generator for: %s", primitiveType));
     }
 
     // We're dealing with a generic.

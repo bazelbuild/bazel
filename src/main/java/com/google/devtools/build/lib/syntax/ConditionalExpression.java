@@ -28,11 +28,8 @@ public final class ConditionalExpression extends Expression {
   public Expression getCondition() { return condition; }
   public Expression getElseCase() { return elseCase; }
 
-  /**
-   * Constructor for a conditional expression
-   */
-  public ConditionalExpression(
-      Expression thenCase, Expression condition, Expression elseCase) {
+  /** Constructor for a conditional expression */
+  ConditionalExpression(Expression thenCase, Expression condition, Expression elseCase) {
     this.thenCase = thenCase;
     this.condition = condition;
     this.elseCase = elseCase;
@@ -51,16 +48,7 @@ public final class ConditionalExpression extends Expression {
   }
 
   @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    if (EvalUtils.toBoolean(condition.eval(env))) {
-      return thenCase.eval(env);
-    } else {
-      return elseCase.eval(env);
-    }
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

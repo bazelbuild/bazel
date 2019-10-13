@@ -31,6 +31,11 @@ public final class StringActionInput implements VirtualActionInput {
   }
 
   @Override
+  public boolean isSymlink() {
+    return false;
+  }
+
+  @Override
   public void writeTo(OutputStream out) throws IOException {
     out.write(contents.getBytes(StandardCharsets.UTF_8));
   }

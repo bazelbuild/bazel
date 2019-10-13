@@ -62,9 +62,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
   @Test
   public void testMissingRequiredAttribute() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(name = 'foo',", // missing cmd attribute
-        "        outs = ['foo.txt'])");
+    scratch.file(
+        "foo/BUILD",
+        "genrule(name = 'foo',", // missing "out" attribute
+        "        cmd = '')");
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
@@ -91,7 +92,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 causeLabel,
-                "no such package 'bar': BUILD file not found in any of the following directories.\n"
+                "no such package 'bar': BUILD file not found in any of the following "
+                    + "directories. Add a BUILD file to a directory to mark it as a package.\n"
                     + " - /workspace/bar"));
   }
 

@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
+import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Options related to dynamic spawn execution.
@@ -42,42 +46,60 @@ public class DynamicExecutionOptions extends OptionsBase {
   public Void experimentalSpawnScheduler;
 
   @Option(
-    name = "internal_spawn_scheduler",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "false",
-    help =
-        "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
-            + "enabled."
-  )
+      name = "internal_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
+              + "enabled.")
   public boolean internalSpawnScheduler;
 
   @Option(
-    name = "dynamic_local_strategy",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "sandboxed",
-    help = "Strategy to use when the dynamic spawn scheduler decides to run an action locally."
-  )
-  public String dynamicLocalStrategy;
+      name = "legacy_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "true",
+      help =
+          "Enables the old but tested implementation of the spawn scheduler. This differs from the "
+              + "new version in that this version cannot stop a local spawn once it has started "
+              + "running. You should never have to enable the legacy scheduler except to "
+              + "workaround bugs in the new version.")
+  public boolean legacySpawnScheduler;
+
+  @Option(
+      name = "dynamic_local_strategy",
+      converter = AssignmentToListOfValuesConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "null",
+      allowMultiple = true,
+      help =
+          "The local strategies, in order, to use for the given mnemonic. Passing"
+              + " 'remote' as the mnemonic sets the default for unspecified mnemonics. Takes"
+              + " [mnemonic=]local_strategy[,local_strategy,...]")
+  public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
       name = "dynamic_remote_strategy",
+      converter = AssignmentToListOfValuesConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "remote",
-      help = "Strategy to use when the dynamic spawn scheduler decides to run an action remotely."
-  )
-  public String dynamicRemoteStrategy;
+      defaultValue = "",
+      allowMultiple = true,
+      help =
+          "The remote strategies to use for the given mnemonic. Passing 'remote'"
+              + " as the mnemonic sets the default for unspecified mnemonics. Takes"
+              + " [mnemonic=]remote_strategy[,remote_strategy,...]")
+  public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
       name = "dynamic_worker_strategy",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "worker",
-      help = "Strategy to use when the dynamic spawn scheduler decides to run an action in a"
-          + " worker."
-  )
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      defaultValue = "",
+      help = "Deprecated. Please use --dynamic_local_strategy=worker_strategy,local_strategy.")
   public String dynamicWorkerStrategy;
 
   @Option(

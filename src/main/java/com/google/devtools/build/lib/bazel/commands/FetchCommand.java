@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -102,8 +102,7 @@ public final class FetchCommand implements BlazeCommand {
             Lists.<String>newArrayList(),
             threadsOption.threads,
             EnumSet.noneOf(Setting.class),
-            // TODO(ulfjack): flip both these flags for improved performance.
-            /* useForkJoinPool= */ false,
+            // TODO(ulfjack): flip this flag for improved performance.
             /* useGraphlessQuery= */ false);
 
     // 1. Parse query:

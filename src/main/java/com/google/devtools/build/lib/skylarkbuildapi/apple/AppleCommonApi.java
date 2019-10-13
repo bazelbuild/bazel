@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @SkylarkModule(
@@ -296,64 +296,60 @@ public interface AppleCommonApi<
               type = SkylarkDict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
-      useEnvironment = true)
+      useStarlarkThread = true)
   // This method is registered statically for skylark, and never called directly.
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, Environment environment) throws EvalException;
+      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
-    name = "new_dynamic_framework_provider",
-    doc = "Creates a new AppleDynamicFramework provider instance.",
-    parameters = {
-      @Param(
-        name = "binary",
-        type = FileApi.class,
-        named = true,
-        noneable = true,
-        positional = false,
-        defaultValue = "None",
-        doc = "The dylib binary artifact of the dynamic framework."
-      ),
-      @Param(
-        name = "objc",
-        type = ObjcProviderApi.class,
-        named = true,
-        positional = false,
-        doc =
-            "An ObjcProvider which contains information about the transitive "
-                + "dependencies linked into the binary."
-      ),
-      @Param(
-        name = "framework_dirs",
-        type = SkylarkNestedSet.class,
-        generic1 = String.class,
-        named = true,
-        noneable = true,
-        positional = false,
-        defaultValue = "None",
-        doc =
-            "The framework path names used as link inputs in order to link against the dynamic "
-                + "framework."
-      ),
-      @Param(
-        name = "framework_files",
-        type = SkylarkNestedSet.class,
-        generic1 = FileApi.class,
-        named = true,
-        noneable = true,
-        positional = false,
-        defaultValue = "None",
-        doc =
-            "The full set of artifacts that should be included as inputs to link against the "
-                + "dynamic framework"
-      )
-    }
-  )
+      name = "new_dynamic_framework_provider",
+      doc = "Creates a new AppleDynamicFramework provider instance.",
+      parameters = {
+        @Param(
+            name = "binary",
+            type = FileApi.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "The dylib binary artifact of the dynamic framework."),
+        @Param(
+            name = "objc",
+            type = ObjcProviderApi.class,
+            named = true,
+            positional = false,
+            doc =
+                "An ObjcProvider which contains information about the transitive "
+                    + "dependencies linked into the binary."),
+        @Param(
+            name = "framework_dirs",
+            type = SkylarkNestedSet.class,
+            generic1 = String.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "The framework path names used as link inputs in order to link against the dynamic "
+                    + "framework."),
+        @Param(
+            name = "framework_files",
+            type = SkylarkNestedSet.class,
+            generic1 = FileApi.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "The full set of artifacts that should be included as inputs to link against the "
+                    + "dynamic framework")
+      })
   public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(
       Object dylibBinary,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles);
+      Object dynamicFrameworkFiles)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "link_multi_arch_binary",
@@ -388,13 +384,13 @@ public interface AppleCommonApi<
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
       },
-      useEnvironment = true)
+      useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
       SkylarkList<String> extraLinkopts,
       SkylarkList<? extends FileApi> extraLinkInputs,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

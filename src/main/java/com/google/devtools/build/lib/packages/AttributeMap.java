@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -110,14 +108,14 @@ public interface AttributeMap {
    */
   boolean isAttributeValueExplicitlySpecified(String attributeName);
 
-  /** Returns the {@link Location} at which the attribute was defined. */
-  Location getAttributeLocation(String attrName);
-
   /**
    * Returns a {@link Collection} with a {@link DepEdge} for every attribute that contains labels in
    * its value (either by *being* a label or being a collection that includes labels).
    */
   Collection<DepEdge> visitLabels() throws InterruptedException;
+
+  /** Same as {@link #visitLabels()} but for a single attribute. */
+  Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException;
 
   /**
    * {@code (Label, Attribute)} pair describing a dependency edge.

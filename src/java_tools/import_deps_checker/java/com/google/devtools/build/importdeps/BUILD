@@ -1,6 +1,8 @@
 # Description:
 #   A checker to check the completeness of the deps of java_import or aar_import targets.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )

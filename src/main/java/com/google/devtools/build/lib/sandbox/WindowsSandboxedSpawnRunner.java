@@ -14,20 +14,19 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
 
 /** Spawn runner that uses BuildXL Sandbox APIs to execute a local subprocess. */
 final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -54,8 +53,8 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException {
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
     commandTmpDir.createDirectory();
@@ -64,7 +63,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             localEnvProvider.rewriteLocalEnv(
                 spawn.getEnvironment(), binTools, commandTmpDir.getPathString()));
 
-    Map<PathFragment, Path> readablePaths =
+    SandboxInputs readablePaths =
         SandboxHelpers.processInputFiles(
             spawn,
             context,
@@ -79,10 +78,17 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Duration timeout = context.getTimeout();
 
+    if (!readablePaths.getSymlinks().isEmpty()) {
+      throw new IOException(
+          "Windows sandbox does not support unresolved symlinks yet ("
+              + Joiner.on(", ").join(readablePaths.getSymlinks().keySet())
+              + ")");
+    }
+
     WindowsSandboxUtil.CommandLineBuilder commandLineBuilder =
         WindowsSandboxUtil.commandLineBuilder(windowsSandbox, spawn.getArguments())
             .setWritableFilesAndDirectories(writablePaths.build())
-            .setReadableFilesAndDirectories(readablePaths)
+            .setReadableFilesAndDirectories(readablePaths.getFiles())
             .setInaccessiblePaths(getInaccessiblePaths())
             .setUseDebugMode(getSandboxOptions().sandboxDebug)
             .setKillDelay(timeoutKillDelay);
@@ -91,12 +97,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setTimeout(timeout);
     }
 
-    Path statisticsPath = null;
-
-    SandboxedSpawn sandbox =
-        new WindowsSandboxedSpawn(execRoot, environment, commandLineBuilder.build());
-
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
+    return new WindowsSandboxedSpawn(execRoot, environment, commandLineBuilder.build());
   }
 
   private static Path createActionTemp(Path execRoot) throws IOException {

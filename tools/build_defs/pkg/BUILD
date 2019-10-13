@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 load("//tools/config:common_settings.bzl", "bool_flag")
+load("//tools/python:private/defs.bzl", "py_library", "py_binary", "py_test")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -317,5 +318,11 @@ test_suite(
 test_suite(
     name = "all_windows_tests",
     tests = [":windows_tests"],
+    visibility = ["//tools/build_defs:__pkg__"],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
     visibility = ["//tools/build_defs:__pkg__"],
 )

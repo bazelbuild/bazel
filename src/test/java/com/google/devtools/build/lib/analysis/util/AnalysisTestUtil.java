@@ -137,7 +137,12 @@ public final class AnalysisTestUtil {
 
     @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
+      return original.getTreeArtifact(rootRelativePath, root);
+    }
+
+    @Override
+    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return original.getSymlinkArtifact(rootRelativePath, root);
     }
 
     @Override
@@ -331,6 +336,11 @@ public final class AnalysisTestUtil {
 
     @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return null;
+    }
+
+    @Override
+    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
 

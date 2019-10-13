@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -152,9 +151,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
-  private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
-      configuredTargetCache;
-
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
@@ -163,9 +159,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       BuildOptions defaultBuildOptions,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      Supplier<BigInteger> nonceVersion,
-      TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
-          configuredTargetCache) {
+      Supplier<BigInteger> nonceVersion) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -175,7 +169,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.defaultBuildOptions = defaultBuildOptions;
     this.configuredTargetProgress = configuredTargetProgress;
     this.nonceVersion = nonceVersion;
-    this.configuredTargetCache = configuredTargetCache;
   }
 
   private void acquireWithLogging(SkyKey key) throws InterruptedException {
@@ -342,6 +335,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         String targetDescription = target.toString();
         toolchainContext =
             ResolvedToolchainContext.load(
+                target.getPackage().getRepositoryMapping(),
                 unloadedToolchainContext,
                 targetDescription,
                 depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
@@ -684,15 +678,30 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
-    Map<SkyKey, ConfiguredTargetAndData> configValues =
-        resolveConfiguredTargetDependencies(
-            env,
-            ctgValue,
-            configConditionDeps,
-            transitivePackagesForPackageRootResolution,
-            transitiveRootCauses);
-    if (configValues == null) {
-      return null;
+    Map<SkyKey, ConfiguredTargetAndData> configValues;
+    try {
+      configValues =
+          resolveConfiguredTargetDependencies(
+              env,
+              ctgValue,
+              configConditionDeps,
+              transitivePackagesForPackageRootResolution,
+              transitiveRootCauses);
+      if (configValues == null) {
+        return null;
+      }
+    } catch (DependencyEvaluationException e) {
+      // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
+      // there's not enough information to know which configurable attribute has the problem.
+      env.getListener()
+          .handle(
+              Event.error(
+                  String.format(
+                      "While resolving configuration keys for %s: %s",
+                      target.getLabel(), e.getCause().getMessage())));
+
+      // Re-throw the exception so it is handled by compute().
+      throw e;
     }
 
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
@@ -804,12 +813,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   depValue.getConfiguredTarget().getConfigurationKey();
               // Retroactive trimming may change the configuration associated with the dependency.
               // If it does, we need to get that instance.
-              // TODO(mstaib): doing these individually instead of doing them all at once may end up
-              // being wasteful use of Skyframe. Although these configurations are guaranteed to be
-              // in the Skyframe cache (because the dependency would have had to retrieve them to be
-              // created in the first place), looking them up repeatedly may be slower than just
-              // keeping a local cache and assigning the same configuration to all the CTs which
-              // need it. Profile this and see if there's a better way.
+              // TODO(b/140632978): doing these individually instead of doing them all at once may
+              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
+              // to be in the Skyframe cache (because the dependency would have had to retrieve them
+              // to be created in the first place), looking them up repeatedly may be slower than
+              // just keeping a local cache and assigning the same configuration to all the CTs
+              // which need it. Profile this and see if there's a better way.
               if (depKey != null && !depKey.equals(BuildConfigurationValue.key(depConfiguration))) {
                 if (!depConfiguration.trimConfigurationsRetroactively()) {
                   throw new AssertionError(
@@ -896,6 +905,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               depValueMap,
               configConditions,
               toolchainContext);
+    } catch (MissingDepException e) {
+      Preconditions.checkState(env.valuesMissing(), e.getMessage());
+      return null;
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
     }

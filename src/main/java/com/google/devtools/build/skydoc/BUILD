@@ -6,6 +6,8 @@
 # Usage:
 # skydoc <target_file> <output_file>
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -56,9 +58,7 @@ java_library(
     visibility = ["//src/test:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib:starlark_context",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
@@ -67,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
@@ -88,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/skylark/java/com/google/devtools/skylark/common",
         "//third_party:guava",
     ],
 )

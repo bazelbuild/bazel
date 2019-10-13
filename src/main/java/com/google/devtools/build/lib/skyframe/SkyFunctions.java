@@ -27,6 +27,7 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("PRECOMPUTED");
   public static final SkyFunctionName CLIENT_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createNonHermetic("CLIENT_ENVIRONMENT_VARIABLE");
+  static final SkyFunctionName ACTION_SKETCH = SkyFunctionName.createHermetic("ACTION_SKETCH");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createHermetic("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
@@ -104,6 +105,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
+  public static final SkyFunctionName ARTIFACT_NESTED_SET =
+      SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
 
   @VisibleForTesting
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =

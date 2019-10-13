@@ -883,6 +883,57 @@ EOF
       || fail "Expected unrelated action to not be rerun"
 }
 
+function test_repo_env_invalidation() {
+    # regression test for https://github.com/bazelbuild/bazel/issues/8869
+    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+    cd "${WRKDIR}"
+    cat > WORKSPACE <<'EOF'
+load("//:my_repository_rule.bzl", "my_repository_rule")
+
+my_repository_rule(
+    name = "my_repository_rule",
+)
+EOF
+    cat > my_repository_rule.bzl <<'EOF'
+def _my_repository_rule_impl(rctx):
+    foo = rctx.os.environ.get("foo", default = "")
+
+    print('foo = ' + foo)
+
+    rctx.file("BUILD.bazel",
+              "exports_files(['update_time'], visibility=['//visibility:public'])")
+    rctx.execute(["bash", "-c", "date +%s > update_time"])
+
+my_repository_rule = repository_rule(
+    environ = ["foo"],
+    implementation = _my_repository_rule_impl,
+)
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "repotime",
+  outs = ["repotime.txt"],
+  srcs = ["@my_repository_rule//:update_time"],
+  cmd = "cp $< $@",
+)
+EOF
+
+    bazel build //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time1.txt
+
+    sleep 2;
+    bazel build --repo_env=foo=bar //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time2.txt
+    diff time1.txt time2.txt && fail "Expected repo to be refetched" || :
+
+    bazel shutdown
+    sleep 2;
+
+    bazel build --repo_env=foo=bar //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time3.txt
+    diff time2.txt time3.txt || fail "Expected repo to not be refetched"
+}
+
 function test_skylark_repository_executable_flag() {
   setup_skylark_repository
 

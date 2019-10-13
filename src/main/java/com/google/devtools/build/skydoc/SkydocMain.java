@@ -20,10 +20,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
@@ -56,19 +56,21 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
-import com.google.devtools.build.skydoc.SkydocOptions.OutputFormat;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
+import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -80,6 +82,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
@@ -112,20 +115,17 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.FunctionUtil;
-import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.skylark.common.DocstringUtils;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -161,20 +161,10 @@ public class SkydocMain {
 
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
-  private final Map<Path, Environment> loaded = new HashMap<>();
+  private final Map<Path, StarlarkThread> loaded = new HashMap<>();
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
-  private static final String HEADER_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/header.vm";
-  private static final String RULE_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
-  private static final String PROVIDER_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
-  private static final String FUNCTION_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
-  private static final String ASPECT_TEMPLATE_PATH =
-      "com/google/devtools/build/skydoc/rendering/templates/aspect.vm";
 
   public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
@@ -221,8 +211,9 @@ public class SkydocMain {
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
-    ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
+    ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctions = ImmutableMap.builder();
     ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     try {
       new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
@@ -232,7 +223,8 @@ public class SkydocMain {
               ruleInfoMap,
               providerInfoMap,
               userDefinedFunctions,
-              aspectInfoMap);
+              aspectInfoMap,
+              moduleDocMap);
     } catch (StarlarkEvaluationException exception) {
       System.err.println("Stardoc documentation generation failed: " + exception.getMessage());
       System.exit(1);
@@ -246,7 +238,7 @@ public class SkydocMain {
         providerInfoMap.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, UserDefinedFunction> filteredUserDefinedFunctions =
+    Map<String, StarlarkFunction> filteredStarlarkFunctions =
         userDefinedFunctions.build().entrySet().stream()
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
@@ -255,30 +247,15 @@ public class SkydocMain {
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
-    if (skydocOptions.outputFormat == OutputFormat.PROTO) {
       try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
-        new ProtoRenderer()
-            .appendRuleInfos(filteredRuleInfos.values())
-            .appendProviderInfos(filteredProviderInfos.values())
-            .appendUserDefinedFunctionInfos(filteredUserDefinedFunctions)
-            .appendAspectInfos(filteredAspectInfos.values())
-            .writeModuleInfo(out);
+      new ProtoRenderer()
+          .appendRuleInfos(filteredRuleInfos.values())
+          .appendProviderInfos(filteredProviderInfos.values())
+          .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
+          .appendAspectInfos(filteredAspectInfos.values())
+          .setModuleDocstring(moduleDocMap.build().get(targetFileLabel))
+          .writeModuleInfo(out);
       }
-    } else if (skydocOptions.outputFormat == OutputFormat.MARKDOWN) {
-      MarkdownRenderer renderer =
-          new MarkdownRenderer(
-              HEADER_TEMPLATE_PATH,
-              RULE_TEMPLATE_PATH,
-              PROVIDER_TEMPLATE_PATH,
-              FUNCTION_TEMPLATE_PATH,
-              ASPECT_TEMPLATE_PATH);
-      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-        printWriter.println(renderer.renderMarkdownHeader());
-        printRuleInfos(printWriter, renderer, filteredRuleInfos);
-        printProviderInfos(printWriter, renderer, filteredProviderInfos);
-        printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
-      }
-    }
   }
 
   private static boolean validSymbolName(ImmutableSet<String> symbolNames, String symbolName) {
@@ -292,65 +269,6 @@ public class SkydocMain {
       return symbolNames.contains(symbolName.substring(0, symbolName.indexOf('.')));
     }
     return false;
-  }
-
-  private static void printRuleInfos(
-      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, RuleInfo> ruleInfos)
-      throws IOException {
-    for (Entry<String, RuleInfo> ruleInfoEntry : ruleInfos.entrySet()) {
-      printRuleInfo(printWriter, renderer, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
-      printWriter.println();
-    }
-  }
-
-  private static void printProviderInfos(
-      PrintWriter printWriter, MarkdownRenderer renderer, Map<String, ProviderInfo> providerInfos)
-      throws IOException {
-    for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
-      ProviderInfo providerInfo = entry.getValue();
-      printProviderInfo(printWriter, renderer, entry.getKey(), providerInfo);
-      printWriter.println();
-    }
-  }
-
-  private static void printUserDefinedFunctions(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      Map<String, UserDefinedFunction> userDefinedFunctions)
-      throws IOException {
-
-    for (Entry<String, UserDefinedFunction> entry : userDefinedFunctions.entrySet()) {
-      try {
-        UserDefinedFunctionInfo functionInfo =
-            FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
-        printUserDefinedFunctionInfo(printWriter, renderer, functionInfo);
-        printWriter.println();
-      } catch (DocstringParseException exception) {
-        System.err.println(exception.getMessage());
-        System.err.println();
-      }
-    }
-  }
-
-  private static void printRuleInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer, String exportedName, RuleInfo ruleInfo)
-      throws IOException {
-    printWriter.println(renderer.render(exportedName, ruleInfo));
-  }
-
-  private static void printProviderInfo(
-      PrintWriter printWriter,
-      MarkdownRenderer renderer,
-      String exportedName,
-      ProviderInfo providerInfo)
-      throws IOException {
-    printWriter.println(renderer.render(exportedName, providerInfo));
-  }
-
-  private static void printUserDefinedFunctionInfo(
-      PrintWriter printWriter, MarkdownRenderer renderer, UserDefinedFunctionInfo functionInfo)
-      throws IOException {
-    printWriter.println(renderer.render(functionInfo));
   }
 
   /**
@@ -367,20 +285,24 @@ public class SkydocMain {
    *     ProviderInfo} descriptions. For example, 'my_provider = provider(...)' has key
    *     'my_provider'
    * @param userDefinedFunctionMap a map builder to be populated with user-defined functions. Keys
-   *     are exported names of functions, and values are the {@link UserDefinedFunction} objects.
-   *     For example, 'def my_function(foo):' is a function with key 'my_function'.
+   *     are exported names of functions, and values are the {@link StarlarkFunction} objects. For
+   *     example, 'def my_function(foo):' is a function with key 'my_function'.
    * @param aspectInfoMap a map builder to be populated with aspect definition information for named
    *     aspects. Keys are exported names of aspects, and values are the {@link AspectInfo} asepct
    *     descriptions. For example, 'my_aspect = aspect(...)' has key 'my_aspect'
+   * @param moduleDocMap a map builder to be populated with module docstrings for skylark file. Keys
+   *     are labels of skylark files and values are their module docstrings. If the module has no
+   *     docstring, an empty string will be printed.
    * @throws InterruptedException if evaluation is interrupted
    */
-  public Environment eval(
+  public StarlarkThread eval(
       StarlarkSemantics semantics,
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
-      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap,
-      ImmutableMap.Builder<String, AspectInfo> aspectInfoMap)
+      ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
+      ImmutableMap.Builder<String, AspectInfo> aspectInfoMap,
+      ImmutableMap.Builder<Label, String> moduleDocMap)
       throws InterruptedException, IOException, LabelSyntaxException, EvalException,
           StarlarkEvaluationException {
 
@@ -390,8 +312,9 @@ public class SkydocMain {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    Environment env =
-        recursiveEval(semantics, label, ruleInfoList, providerInfoList, aspectInfoList);
+    StarlarkThread thread =
+        recursiveEval(
+            semantics, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
 
     Map<BaseFunction, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
@@ -408,7 +331,8 @@ public class SkydocMain {
                 Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
-    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
+    TreeMap<String, Object> sortedBindings =
+        new TreeMap<>(thread.getGlobals().getExportedBindings());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
@@ -422,8 +346,8 @@ public class SkydocMain {
         ProviderInfo providerInfo = providerInfoBuild.setProviderName(envEntry.getKey()).build();
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
-      if (envEntry.getValue() instanceof UserDefinedFunction) {
-        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) envEntry.getValue();
+      if (envEntry.getValue() instanceof StarlarkFunction) {
+        StarlarkFunction userDefinedFunction = (StarlarkFunction) envEntry.getValue();
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
       if (envEntry.getValue() instanceof FakeStructApi) {
@@ -439,7 +363,7 @@ public class SkydocMain {
       }
     }
 
-    return env;
+    return thread;
   }
 
   /**
@@ -453,18 +377,30 @@ public class SkydocMain {
   private static void putStructFields(
       String namespaceName,
       FakeStructApi namespace,
-      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
+      ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap)
       throws EvalException {
     for (String field : namespace.getFieldNames()) {
       String qualifiedFieldName = namespaceName + "." + field;
-      if (namespace.getValue(field) instanceof UserDefinedFunction) {
-        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) namespace.getValue(field);
+      if (namespace.getValue(field) instanceof StarlarkFunction) {
+        StarlarkFunction userDefinedFunction = (StarlarkFunction) namespace.getValue(field);
         userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
       } else if (namespace.getValue(field) instanceof FakeStructApi) {
         FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
         putStructFields(qualifiedFieldName, innerNamespace, userDefinedFunctionMap);
       }
     }
+  }
+
+  private static String getModuleDoc(StarlarkFile buildFileAST) {
+    ImmutableList<Statement> fileStatements = buildFileAST.getStatements();
+    if (!fileStatements.isEmpty()) {
+      Statement moduleComment = fileStatements.get(0);
+      StringLiteral moduleDocLiteral = DocstringUtils.getStringLiteral(moduleComment);
+      if (moduleDocLiteral != null) {
+        return moduleDocLiteral.getValue();
+      }
+    }
+    return "";
   }
 
   /**
@@ -477,12 +413,13 @@ public class SkydocMain {
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
-  private Environment recursiveEval(
+  private StarlarkThread recursiveEval(
       StarlarkSemantics semantics,
       Label label,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
-      List<AspectInfoWrapper> aspectInfoList)
+      List<AspectInfoWrapper> aspectInfoList,
+      ImmutableMap.Builder<Label, String> moduleDocMap)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
     Path path = pathOfLabel(label);
 
@@ -493,36 +430,44 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInputSource parserInputSource = getInputSource(path.toString());
-    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
+    ParserInput parserInputSource = getInputSource(path.toString());
+    StarlarkFile file = StarlarkFile.parse(parserInputSource);
+    Event.replayEventsOn(eventHandler, file.errors());
+
+    moduleDocMap.put(label, getModuleDoc(file));
 
     Map<String, Extension> imports = new HashMap<>();
-    for (SkylarkImport anImport : buildFileAST.getImports()) {
-      BazelStarlarkContext context =
-          new BazelStarlarkContext(
-              "", ImmutableMap.of(), ImmutableMap.of(), new SymbolGenerator<>(label));
-      Label relativeLabel = label.getRelative(anImport.getImportString(), context);
-
-      try {
-        Environment importEnv =
-            recursiveEval(semantics, relativeLabel, ruleInfoList, providerInfoList, aspectInfoList);
-        imports.put(anImport.getImportString(), new Extension(importEnv));
-      } catch (NoSuchFileException noSuchFileException) {
-        throw new StarlarkEvaluationException(
-            String.format(
-                "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots));
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        LoadStatement load = (LoadStatement) stmt;
+        String module = load.getImport().getValue();
+        Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
+        try {
+          StarlarkThread importThread =
+              recursiveEval(
+                  semantics,
+                  relativeLabel,
+                  ruleInfoList,
+                  providerInfoList,
+                  aspectInfoList,
+                  moduleDocMap);
+          imports.put(module, new Extension(importThread));
+        } catch (NoSuchFileException noSuchFileException) {
+          throw new StarlarkEvaluationException(
+              String.format(
+                  "File %s imported '%s', yet %s was not found, even at roots %s.",
+                  path, module, pathOfLabel(relativeLabel), depRoots));
+        }
       }
     }
 
-    Environment env =
-        evalSkylarkBody(
-            semantics, buildFileAST, imports, ruleInfoList, providerInfoList, aspectInfoList);
+    StarlarkThread thread =
+        evalSkylarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
-    env.mutability().freeze();
-    loaded.put(path, env);
-    return env;
+    thread.mutability().freeze();
+    loaded.put(path, thread);
+    return thread;
   }
 
   private Path pathOfLabel(Label label) {
@@ -534,7 +479,7 @@ public class SkydocMain {
     return Paths.get(workspacePrefix + label.toPathFragment());
   }
 
-  private ParserInputSource getInputSource(String bzlWorkspacePath) throws IOException {
+  private ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
     for (String rootPath : depRoots) {
       if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
         return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);
@@ -546,29 +491,32 @@ public class SkydocMain {
   }
 
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
-  private Environment evalSkylarkBody(
+  private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
-      BuildFileAST buildFileAST,
+      StarlarkFile file,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
-    Environment env =
-        createEnvironment(
+    StarlarkThread thread =
+        createStarlarkThread(
             semantics,
             eventHandler,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
 
-    if (!buildFileAST.exec(env, eventHandler)) {
+    try {
+      EvalUtils.exec(file, thread);
+    } catch (EvalException | InterruptedException ex) {
+      // This exception class seems a bit unnecessary. Replace with EvalException?
       throw new StarlarkEvaluationException("Starlark evaluation error");
     }
 
-    env.mutability().freeze();
+    thread.mutability().freeze();
 
-    return env;
+    return thread;
   }
 
   /**
@@ -601,7 +549,8 @@ public class SkydocMain {
             new FakeAndroidInstrumentationInfoProvider(),
             new FakeAndroidDeviceBrokerInfoProvider(),
             new FakeAndroidResourcesInfoProvider(),
-            new FakeAndroidNativeLibsInfoProvider());
+            new FakeAndroidNativeLibsInfoProvider(),
+            new FakeAndroidApplicationResourceInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
@@ -678,6 +627,8 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
+    JsModuleInfoApi.NAME,
+    "PintoModuleProvider"
   };
 
   /**
@@ -691,12 +642,12 @@ public class SkydocMain {
     }
   }
 
-  private static Environment createEnvironment(
+  private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
       EventHandler eventHandler,
       GlobalFrame globals,
       Map<String, Extension> imports) {
-    return Environment.builder(Mutability.create("Skydoc"))
+    return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)
         .setGlobals(globals)
         .setImportedExtensions(imports)

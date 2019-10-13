@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.syntax;
 
 import java.io.IOException;
 
-/**
- * Syntax node for comments.
- */
-public final class Comment extends ASTNode {
+/** Syntax node for comments. */
+public final class Comment extends Node {
 
   protected final String value;
 
@@ -31,14 +29,14 @@ public final class Comment extends ASTNode {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     // We can't really print comments in the right place anyway, due to how their relative order
-    // is lost in the representation of BuildFileAST. So don't bother word-wrapping and just print
+    // is lost in the representation of StarlarkFile. So don't bother word-wrapping and just print
     // it on a single line.
     printIndent(buffer, indentLevel);
     buffer.append("# ");

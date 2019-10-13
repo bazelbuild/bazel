@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
@@ -77,7 +79,8 @@ public class GenRuleAction extends SpawnAction {
   }
 
   @Override
-  protected void afterExecute(ActionExecutionContext actionExecutionContext) {
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
     checkOutputsForDirectories(actionExecutionContext);
   }
 }

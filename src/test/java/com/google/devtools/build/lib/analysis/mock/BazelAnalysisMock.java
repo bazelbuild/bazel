@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -68,6 +69,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public List<String> getWorkspaceContents(MockToolsConfig config) {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
     String bazelPlatformsWorkspace = config.getPath("/platforms").getPathString();
+    String rulesJavaWorkspace = config.getPath("/rules_java_workspace").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("/local_config_platform_workspace").getPathString();
 
@@ -77,6 +79,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
+            "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
+            "register_toolchains('@rules_java//java/toolchains/runtime:all')",
+            "register_toolchains('@rules_java//java/toolchains/javac:all')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
@@ -134,6 +139,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
         "  header_compiler = ['turbine_deploy.jar'],",
+        "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
         "  singlejar = ['SingleJar_deploy.jar'],",
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
@@ -147,6 +153,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  javac = [':langtools'],",
         "  javabuilder = ['JavaBuilder_deploy.jar'],",
         "  header_compiler = ['turbine_deploy.jar'],",
+        "  header_compiler_direct = ['TurbineDirect_deploy.jar'],",
         "  singlejar = ['SingleJar_deploy.jar'],",
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
@@ -189,7 +196,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='JacocoCoverage', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
-        "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])",
+        "               'turbine_deploy.jar', 'TurbineDirect_deploy.jar',"
+            + " 'ExperimentalTestRunner_deploy.jar'])",
         "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])",
         "toolchain_type(name = 'toolchain_type')",
         "toolchain_type(name = 'runtime_toolchain_type')",
@@ -283,6 +291,41 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/bazel_tools_workspace/objcproto/empty.cc");
     config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
 
+    config.create("/rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
+    config.create("/rules_java_workspace/java/BUILD");
+    config.create(
+        "/rules_java_workspace/java/defs.bzl",
+        "def java_binary(**attrs):",
+        "    native.java_binary(**attrs)",
+        "def java_library(**attrs):",
+        "    native.java_library(**attrs)",
+        "def java_import(**attrs):",
+        "    native.java_import(**attrs)");
+    config.create(
+        "/rules_java_workspace/java/repositories.bzl",
+        "def rules_java_dependencies():",
+        "    pass",
+        "def rules_java_toolchains():",
+        "    pass");
+
+    config.create(
+        "/rules_java_workspace/java/toolchains/runtime/BUILD",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'local_jdk',",
+        "    toolchain = '@bazel_tools//tools/jdk:jdk',",
+        "    toolchain_type = '@rules_java//java/toolchains/runtime:toolchain_type',",
+        "    )");
+    config.create(
+        "/rules_java_workspace/java/toolchains/javac/BUILD",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'javac_toolchain',",
+        "    toolchain = '@bazel_tools//tools/jdk:toolchain',",
+        "    toolchain_type = '@rules_java//java/toolchains/javac:toolchain_type',",
+        "    )");
+
+    MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
   }
@@ -305,6 +348,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = ':static_aapt_tool',",
+        "    aapt2 = ':static_aapt2_tool',",
         "    adb = ':static_adb_tool',",
         "    aidl = ':static_aidl_tool',",
         "    android_jar = ':android_runtime_jar',",

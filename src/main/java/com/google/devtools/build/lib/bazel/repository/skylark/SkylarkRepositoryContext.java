@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -58,6 +59,8 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -83,6 +86,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
@@ -91,6 +95,7 @@ public class SkylarkRepositoryContext
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
+  private final Path embeddedBinariesRoot;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
@@ -112,6 +117,7 @@ public class SkylarkRepositoryContext
       Environment environment,
       Map<String, String> env,
       HttpDownloader httpDownloader,
+      Path embeddedBinariesRoot,
       double timeoutScaling,
       Map<String, String> markerData,
       boolean useNativePatch)
@@ -119,6 +125,7 @@ public class SkylarkRepositoryContext
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
+    this.embeddedBinariesRoot = embeddedBinariesRoot;
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
@@ -136,8 +143,7 @@ public class SkylarkRepositoryContext
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val,
-                    (com.google.devtools.build.lib.syntax.Environment) null));
+                : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
       }
     }
     attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
@@ -385,16 +391,31 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     createDirectory(outputDirectory);
 
+    long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
+    List<Object> args = arguments;
+    if (OS.getCurrent() != OS.WINDOWS && embeddedBinariesRoot != null) {
+      Path processWrapper = ProcessWrapperUtil.getProcessWrapper(embeddedBinariesRoot);
+      if (processWrapper.exists()) {
+        List<String> newArgs =
+            ProcessWrapperUtil.commandLineBuilder(
+                    processWrapper.getPathString(),
+                    arguments.stream().map(Object::toString).collect(Collectors.toList()))
+                .setTimeout(Duration.ofMillis(timeoutMillis))
+                .build();
+        args = newArgs.stream().map(s -> (Object) s).collect(Collectors.toList());
+      }
+    }
+
     Path workingDirectoryPath = outputDirectory;
     if (workingDirectory != null && !workingDirectory.isEmpty()) {
       workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
     }
     createDirectory(workingDirectoryPath);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
-        .addArguments(arguments)
+        .addArguments(args)
         .setDirectory(workingDirectoryPath.getPathFile())
         .addEnvironmentVariables(environment)
-        .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
+        .setTimeout(timeoutMillis)
         .setQuiet(quiet)
         .execute();
   }

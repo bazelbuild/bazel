@@ -58,7 +58,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
     @Override
     public AndroidNativeLibsInfo createInfo(SkylarkNestedSet nativeLibs)
         throws EvalException {
-      return new AndroidNativeLibsInfo(nativeLibs.getSet(Artifact.class));
+      return new AndroidNativeLibsInfo(nativeLibs.getSetFromParam(Artifact.class, "native_libs"));
     }
   }
 }

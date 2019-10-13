@@ -73,7 +73,7 @@ public class SpawnActionContextMapsTest {
   public void duplicateMnemonics_bothGetStored() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.strategyByMnemonicMap().put("Spawn1", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest", true);
+    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac1, ac2);
@@ -83,7 +83,7 @@ public class SpawnActionContextMapsTest {
   public void emptyStrategyFallsBackToEmptyMnemonicNotToDefault() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "");
     builder.strategyByMnemonicMap().put("", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest", false);
+    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac2);
@@ -93,7 +93,7 @@ public class SpawnActionContextMapsTest {
   public void multipleRegexps_firstMatchWins() throws Exception {
     builder.addStrategyByRegexp(converter.convert("foo"), ImmutableList.of("ac1"));
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest", false);
+    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
 
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn(null, "Doing something with foo/bar/baz"), reporter);
@@ -105,7 +105,7 @@ public class SpawnActionContextMapsTest {
   public void regexpAndMnemonic_regexpWins() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest", false);
+    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
 
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(

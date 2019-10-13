@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
@@ -90,6 +91,17 @@ public abstract class BlazeModule {
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws AbruptExitException, DefaultHashFunctionNotSetException {
+    return null;
+  }
+
+  /**
+   * Returns the {@link TopDownActionCache} used by Bazel. It is an error if more than one module
+   * returns a top-down action cache. If all modules return null, there will be no top-down caching.
+   *
+   * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
+   * and {@link #blazeStartup}).
+   */
+  public TopDownActionCache getTopDownActionCache() {
     return null;
   }
 
@@ -312,6 +324,19 @@ public abstract class BlazeModule {
    * rarely need to implement this.
    */
   public void blazeShutdownOnCrash() {}
+
+  /**
+   * Returns true if the module will arrange for a {@code BuildMetricsEvent} to be posted after the
+   * build completes.
+   *
+   * <p>The Blaze runtime ensures that it has exactly one module for which this method returns true,
+   * substituting its own module if none is supplied explicitly.
+   *
+   * <p>It is an error if multiple modules return true.
+   */
+  public boolean postsBuildMetricsEvent() {
+    return false;
+  }
 
   /**
    * Returns a {@link QueryRuntimeHelper.Factory} that will be used by the query, cquery, and aquery

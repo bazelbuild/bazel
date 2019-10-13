@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
@@ -37,7 +38,8 @@ import java.util.stream.Collectors;
  */
 public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(AttributeType.NAME, "A unique name for this repository.", true);
+      new FakeDescriptor(
+          AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of(), "");
 
   private final List<RuleInfoWrapper> ruleInfoList;
 
@@ -54,7 +56,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Boolean configure,
       String doc,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();

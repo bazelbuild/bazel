@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -87,6 +89,7 @@ public final class CommandEnvironment {
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
+  private TopDownActionCache topDownActionCache;
   private Path workingDirectory;
   private String workspaceName;
   private boolean haveSetupPackageCache = false;
@@ -175,7 +178,7 @@ public final class CommandEnvironment {
         Preconditions.checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
-    this.clientEnv = computeClientEnv(clientOptions.clientEnv);
+    this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
     this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
     this.crashData = new String[] { commandId + " (build id)" };
@@ -314,12 +317,13 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  private Map<String, String> computeClientEnv(List<Map.Entry<String, String>> clientEnvList) {
-    Map<String, String> clientEnv = new TreeMap<>();
-    for (Map.Entry<String, String> entry : clientEnvList) {
-      clientEnv.put(entry.getKey(), entry.getValue());
+  private static Map<String, String> makeMapFromMapEntries(
+      List<Map.Entry<String, String>> mapEntryList) {
+    Map<String, String> result = new TreeMap<>();
+    for (Map.Entry<String, String> entry : mapEntryList) {
+      result.put(entry.getKey(), entry.getValue());
     }
-    return Collections.unmodifiableMap(clientEnv);
+    return Collections.unmodifiableMap(result);
   }
 
   private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
@@ -457,11 +461,11 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the directory where actions' outputs and errors will be written. Is below the directory
+   * Returns the directory where actions' temporary files will be written. Is below the directory
    * returned by {@link #getExecRoot}.
    */
-  public Path getActionConsoleOutputDirectory() {
-    return getDirectories().getActionConsoleOutputDirectory(getExecRoot());
+  public Path getActionTempsDirectory() {
+    return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
   /**
@@ -488,6 +492,15 @@ public final class CommandEnvironment {
 
   public ActionCache getPersistentActionCache() throws IOException {
     return workspace.getPersistentActionCache(reporter);
+  }
+
+  /** Returns the top-down action cache to use, or null. */
+  public TopDownActionCache getTopDownActionCache() {
+    return topDownActionCache;
+  }
+
+  public ResourceManager getLocalResourceManager() {
+    return ResourceManager.instance();
   }
 
   /**
@@ -626,13 +639,15 @@ public final class CommandEnvironment {
       throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     commandStartTime -= commonOptions.startupTime;
-
+    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();
 
     outputService = null;
     BlazeModule outputModule = null;
+    topDownActionCache = null;
+    BlazeModule topDownCachingModule = null;
     if (command.builds()) {
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
@@ -645,6 +660,18 @@ public final class CommandEnvironment {
           }
           outputService = moduleService;
           outputModule = module;
+        }
+
+        TopDownActionCache moduleCache = module.getTopDownActionCache();
+        if (moduleCache != null) {
+          if (topDownActionCache != null) {
+            throw new IllegalStateException(
+                String.format(
+                    "More than one module (%s and %s) returns a top down action cache",
+                    module.getClass(), topDownCachingModule.getClass()));
+          }
+          topDownActionCache = moduleCache;
+          topDownCachingModule = module;
         }
       }
     }
@@ -681,9 +708,15 @@ public final class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
 
-    eventBus.post(new CommandStartEvent(
-        command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
-        waitTimeInMs + commonOptions.waitTime));
+    eventBus.post(
+        new CommandStartEvent(
+            command.name(),
+            getCommandId(),
+            getBuildRequestId(),
+            getClientEnv(),
+            workingDirectory,
+            getDirectories(),
+            waitTimeInMs + commonOptions.waitTime));
 
     // Modules that are subscribed to CommandStartEvents may create pending exceptions.
     throwPendingException();

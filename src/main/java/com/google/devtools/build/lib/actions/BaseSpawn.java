@@ -51,25 +51,6 @@ public class BaseSpawn implements Spawn {
     this.localResources = localResources;
   }
 
-  public BaseSpawn(
-      List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      ActionExecutionMetadata action,
-      ResourceSet localResources) {
-    this(
-        arguments,
-        environment,
-        executionInfo,
-        EmptyRunfilesSupplier.INSTANCE,
-        action,
-        localResources);
-  }
-
-  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
-    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
-  }
-
   @Override
   public final ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
@@ -148,6 +129,11 @@ public class BaseSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return action.getMnemonic();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getCombinedExecProperties() {
+    return action.getOwner().getExecProperties();
   }
 
   @Override

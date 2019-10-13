@@ -1,0 +1,32 @@
+<a name="#${aspectName}"></a>
+
+#[[##]]# ${aspectName}
+
+<pre>
+${util.aspectSummary($aspectName, $aspectInfo)}
+</pre>
+
+$aspectInfo.getDocString()
+
+**ASPECT ATTRIBUTES**
+
+#if (!$aspectInfo.getAspectAttributeList().isEmpty())
+
+| Name | Type |
+| :-------------: | :-------------: |
+#foreach ($aspectAttribute in $aspectInfo.getAspectAttributeList())
+| $aspectAttribute| String |
+#end
+#end
+
+
+**ATTRIBUTES**
+
+#if (!$aspectInfo.getAttributeList().isEmpty())
+
+| Name  | Description | Type | Mandatory | Default |
+| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
+#foreach ($attribute in $aspectInfo.getAttributeList())
+| $attribute.name | #if(!$attribute.docString.isEmpty()) ${util.markdownCellFormat($attribute.docString)} #else - #end  | ${util.attributeTypeString($attribute)} | ${util.mandatoryString($attribute)} |  $attribute.defaultValue |
+#end
+#end

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -41,15 +42,14 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
@@ -70,8 +70,10 @@ public abstract class AndroidSkylarkData
 
   @Override
   public AndroidAssetsInfo assetsFromDeps(
-      SkylarkList<AndroidAssetsInfo> deps, boolean neverlink, Environment env) {
-    return AssetDependencies.fromProviders(deps, neverlink).toInfo(env.getCallerLabel());
+      SkylarkList<AndroidAssetsInfo> deps, boolean neverlink, StarlarkThread thread) {
+    // We assume this is an analysis-phase thread.
+    Label label = BazelStarlarkContext.from(thread).getAnalysisRuleLabel();
+    return AssetDependencies.fromProviders(deps, neverlink).toInfo(label);
   }
 
   @Override
@@ -82,7 +84,7 @@ public abstract class AndroidSkylarkData
       boolean neverlink,
       String customPackage,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
@@ -104,7 +106,7 @@ public abstract class AndroidSkylarkData
       Object customPackage,
       boolean exported,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
@@ -129,7 +131,7 @@ public abstract class AndroidSkylarkData
       SkylarkList<AndroidAssetsInfo> deps,
       boolean neverlink,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
@@ -157,7 +159,7 @@ public abstract class AndroidSkylarkData
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
@@ -184,14 +186,14 @@ public abstract class AndroidSkylarkData
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     ValidatedAndroidResources validated =
-        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding, location, env);
+        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding, location, thread);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
     return SkylarkDict.of(
-        /* env = */ null,
+        /* thread = */ null,
         AndroidResourcesInfo.PROVIDER,
         validated.toProvider(),
         JavaInfo.PROVIDER,
@@ -312,7 +314,7 @@ public abstract class AndroidSkylarkData
       SkylarkList<ConfiguredTarget> deps,
       SkylarkList<String> noCompressExtensions,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
@@ -358,7 +360,7 @@ public abstract class AndroidSkylarkData
               resourceApk.toResourceInfo(ctx.getLabel()),
               resourceApk.toAssetsInfo(ctx.getLabel()),
               resourceApk.toManifestInfo().get()));
-      return SkylarkDict.copyOf(/* env = */ null, builder.build());
+      return SkylarkDict.copyOf(/* thread = */ null, builder.build());
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -382,7 +384,7 @@ public abstract class AndroidSkylarkData
       SkylarkList<String> noCompressExtensions,
       String aaptVersionString,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException {
 
     SkylarkErrorReporter errorReporter =
@@ -414,7 +416,7 @@ public abstract class AndroidSkylarkData
    * com.google.devtools.build.lib.rules.android.AndroidSkylarkData.BinaryDataSettings}.
    */
   private BinaryDataSettings defaultBinaryDataSettings(
-      AndroidDataContext ctx, Location location, Environment env) throws EvalException {
+      AndroidDataContext ctx, Location location, StarlarkThread thread) throws EvalException {
     return makeBinarySettings(
         ctx,
         Runtime.NONE,
@@ -423,7 +425,7 @@ public abstract class AndroidSkylarkData
         SkylarkList.createImmutable(ImmutableList.of()),
         "auto",
         location,
-        env);
+        thread);
   }
 
   private static class BinaryDataSettings implements AndroidBinaryDataSettingsApi {
@@ -459,7 +461,7 @@ public abstract class AndroidSkylarkData
       boolean crunchPng,
       boolean dataBindingEnabled,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
@@ -469,7 +471,7 @@ public abstract class AndroidSkylarkData
           fromNoneableOrDefault(
               maybeSettings,
               BinaryDataSettings.class,
-              defaultBinaryDataSettings(ctx, location, env));
+              defaultBinaryDataSettings(ctx, location, thread));
 
       AndroidManifest rawManifest =
           AndroidManifest.from(
@@ -516,8 +518,6 @@ public abstract class AndroidSkylarkData
                   settings.resourceFilterFactory,
                   settings.noCompressExtensions,
                   crunchPng,
-                  /* featureOf = */ null,
-                  /* featureAfter = */ null,
                   DataBinding.contextFrom(
                       dataBindingEnabled,
                       ctx.getActionConstructionContext(),
@@ -547,11 +547,13 @@ public abstract class AndroidSkylarkData
       SkylarkList<ConfiguredTarget> localProguardSpecs,
       SkylarkList<ConfiguredTarget> extraProguardSpecs,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     BinaryDataSettings settings =
         fromNoneableOrDefault(
-            maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx, location, env));
+            maybeSettings,
+            BinaryDataSettings.class,
+            defaultBinaryDataSettings(ctx, location, thread));
 
     if (!settings.shrinkResources) {
       return binaryDataInfo;
@@ -576,20 +578,22 @@ public abstract class AndroidSkylarkData
               + binaryDataInfo.getResourcesInfo().getDirectAndroidResources());
     }
 
-    Optional<Artifact> maybeShrunkApk =
-        AndroidBinary.maybeShrinkResources(
-            ctx,
-            binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
-            ResourceDependencies.fromProviders(
-                getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-            proguardSpecs,
-            proguardOutputJar,
-            proguardMapping,
-            settings.aaptVersion,
-            settings.resourceFilterFactory,
-            settings.noCompressExtensions);
+    if (!proguardSpecs.isEmpty()) {
+      Artifact shrunkApk =
+          AndroidBinary.shrinkResources(
+              ctx,
+              binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
+              ResourceDependencies.fromProviders(
+                  getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
+              proguardOutputJar,
+              proguardMapping,
+              settings.aaptVersion,
+              settings.resourceFilterFactory,
+              settings.noCompressExtensions);
+      return binaryDataInfo.withShrunkApk(shrunkApk);
+    }
 
-    return maybeShrunkApk.map(binaryDataInfo::withShrunkApk).orElse(binaryDataInfo);
+    return binaryDataInfo;
   }
 
   public static SkylarkDict<Provider, NativeInfo> getNativeInfosFrom(
@@ -607,7 +611,7 @@ public abstract class AndroidSkylarkData
         getJavaInfoForRClassJar(
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
-    return SkylarkDict.copyOf(/* env = */ null, builder.build());
+    return SkylarkDict.copyOf(/* thread = */ null, builder.build());
   }
 
   /**

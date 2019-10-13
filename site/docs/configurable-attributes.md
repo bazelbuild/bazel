@@ -507,7 +507,7 @@ macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
 module supports `OR`ing conditions directly inside a `select`:
 
 ```python
-load("@bazel_skylib//:lib.bzl", "selects")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 ```
 
 ```python
@@ -531,7 +531,7 @@ macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
 module supports `OR`ing multiple `config_setting`s:
 
 ```python
-load("@bazel_skylib//:lib.bzl", "selects")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 ```
 
 
@@ -572,7 +572,7 @@ If you need a `select` path to match when multiple conditions match, use the
 [config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
 
 ```python
-load("@bazel_skylib//:lib.bzl", "selects")
+load("@bazel_skylib//lib:selects.bzl", "selects")
 ```
 
 ```python

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;

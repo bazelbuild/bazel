@@ -48,3 +48,9 @@ assert_eq('ogooglo'.rsplit('o', 5), ['', 'g', '', 'gl', ''])
 assert_eq('google'.rsplit('google'), ['', ''])
 assert_eq('google'.rsplit('google', 1), ['', ''])
 assert_eq('google'.rsplit('google', 2), ['', ''])
+
+# zero/negative split
+assert_eq('a-b-c'.split('-', 0), ['a-b-c'])
+assert_eq('a-b-c'.rsplit('-', 0), ['a-b-c'])
+assert_eq('a-b-c'.split('-', -1), ['a', 'b', 'c'])
+assert_eq('a-b-c'.rsplit('-', -2), ['a', 'b', 'c'])

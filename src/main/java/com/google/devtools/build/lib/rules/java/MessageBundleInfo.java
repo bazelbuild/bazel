@@ -19,14 +19,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
@@ -36,24 +39,31 @@ public final class MessageBundleInfo extends NativeInfo {
 
   public static final String SKYLARK_NAME = "MessageBundleInfo";
 
-  private static final SkylarkType LIST_OF_ARTIFACTS =
-      SkylarkType.Combination.of(SkylarkType.SEQUENCE, SkylarkType.of(Artifact.class));
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<MessageBundleInfo> PROVIDER = new Provider();
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.namedOnly("messages"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.of(LIST_OF_ARTIFACTS));
+  /** Provider class for {@link MessageBundleInfo} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  public static class Provider extends BuiltinProvider<MessageBundleInfo> implements ProviderApi {
+    private Provider() {
+      super(SKYLARK_NAME, MessageBundleInfo.class);
+    }
 
-  public static final NativeProvider<MessageBundleInfo> PROVIDER =
-      new NativeProvider<MessageBundleInfo>(MessageBundleInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        @SuppressWarnings("unchecked")
-        protected MessageBundleInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          return new MessageBundleInfo(ImmutableList.copyOf((SkylarkList<Artifact>) args[0]), loc);
-        }
-      };
+    @SkylarkCallable(
+        name = "MessageBundleInfo",
+        doc = "The <code>MessageBundleInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(name = "messages", positional = false, named = true, type = SkylarkList.class),
+        },
+        selfCall = true,
+        useLocation = true)
+    public MessageBundleInfo messageBundleInfo(SkylarkList<?> messages, Location loc)
+        throws EvalException {
+      List<Artifact> messagesList = SkylarkList.castList(messages, Artifact.class, "messages");
+      return new MessageBundleInfo(ImmutableList.copyOf(messagesList), loc);
+    }
+  }
 
   private final ImmutableList<Artifact> messages;
 

@@ -158,6 +158,16 @@ new_local_repository(
     path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD))",
     build_file = "$(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD)",
 )
+
+# TODO(#9029): May require some adjustment if/when we depend on the real
+# @rules_python in the real source tree, since this third_party/ package won't
+# be available.
+new_local_repository(
+    name = "rules_python",
+    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
+    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
+    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
+)
 EOF
   fi
   local pkg="${FUNCNAME[0]}"

@@ -21,6 +21,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,7 +62,8 @@ public final class EnvironmentBackedRecursivePackageProvider
 
   /**
    * Whether any of the calls to {@link #getPackage}, {@link #getTarget}, {@link #bulkGetPackages},
-   * or {@link #getPackagesUnderDirectory} encountered a package in error.
+   * or {@link RecursivePackageProvider#streamPackagesUnderDirectory} encountered a package in
+   * error.
    *
    * <p>The client of {@link EnvironmentBackedRecursivePackageProvider} may want to check this. See
    * comments in {@link #getPackage} for details.
@@ -122,8 +124,11 @@ public final class EnvironmentBackedRecursivePackageProvider
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     try {
       PackageLookupValue packageLookupValue =
-          (PackageLookupValue) env.getValueOrThrow(packageLookupKey, NoSuchPackageException.class,
-              InconsistentFilesystemException.class);
+          (PackageLookupValue)
+              env.getValueOrThrow(
+                  packageLookupKey,
+                  NoSuchPackageException.class,
+                  InconsistentFilesystemException.class);
       if (packageLookupValue == null) {
         throw new MissingDepException();
       }
@@ -136,7 +141,8 @@ public final class EnvironmentBackedRecursivePackageProvider
   }
 
   @Override
-  public Iterable<PathFragment> getPackagesUnderDirectory(
+  public void streamPackagesUnderDirectory(
+      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -160,13 +166,13 @@ public final class EnvironmentBackedRecursivePackageProvider
 
       if (!repositoryValue.repositoryExists()) {
         eventHandler.handle(Event.error(String.format("No such repository '%s'", repository)));
-        return ImmutableList.of();
+        return;
       }
       roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
     if (blacklistedSubdirectories.contains(directory)) {
-      return ImmutableList.of();
+      return;
     }
     ImmutableSet<PathFragment> filteredBlacklistedSubdirectories =
         ImmutableSet.copyOf(
@@ -174,7 +180,6 @@ public final class EnvironmentBackedRecursivePackageProvider
                 blacklistedSubdirectories,
                 path -> !path.equals(directory) && path.startsWith(directory)));
 
-    LinkedHashSet<PathFragment> packageNames = new LinkedHashSet<>();
     for (Root root : roots) {
       RecursivePkgValue lookup =
           (RecursivePkgValue)
@@ -201,14 +206,11 @@ public final class EnvironmentBackedRecursivePackageProvider
         // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
         // is unnecessary.
         PathFragment packageNamePathFragment = PathFragment.create(packageName);
-        if (!Iterables.any(
-            excludedSubdirectories,
-            excludedSubdirectory -> packageNamePathFragment.startsWith(excludedSubdirectory))) {
-          packageNames.add(packageNamePathFragment);
+        if (!Iterables.any(excludedSubdirectories, packageNamePathFragment::startsWith)) {
+          results.process(
+              ImmutableList.of(PackageIdentifier.create(repository, packageNamePathFragment)));
         }
       }
     }
-
-    return packageNames;
   }
 }

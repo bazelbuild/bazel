@@ -54,8 +54,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = true, named = false, type = Integer.class),
         },
-        useEnvironment = true)
-    public String positionalsOnlyMethod(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String positionalsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "positionals_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -73,8 +73,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = false, named = true, type = Integer.class),
         },
-        useEnvironment = true)
-    public String keywordsOnlyMethod(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String keywordsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "keywords_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -99,8 +99,9 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "3"),
           @Param(name = "d", positional = false, named = true, type = Boolean.class),
         },
-        useEnvironment = true)
-    public String mixedParamsMethod(Integer a, boolean b, Integer c, boolean d, Environment env) {
+        useStarlarkThread = true)
+    public String mixedParamsMethod(
+        Integer a, boolean b, Integer c, boolean d, StarlarkThread thread) {
       return "mixed_params_method(" + a + ", " + b + ", " + c + ", " + d + ")";
     }
 
@@ -124,8 +125,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "3"),
         },
-        useEnvironment = true)
-    public String keywordsMultipleFlags(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String keywordsMultipleFlags(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "keywords_multiple_flags(" + a + ", " + b + ", " + c + ")";
     }
   }

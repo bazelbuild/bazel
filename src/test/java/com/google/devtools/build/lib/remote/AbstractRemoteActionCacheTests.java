@@ -24,9 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -38,6 +36,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,9 +54,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -76,7 +75,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -623,6 +621,7 @@ public class AbstractRemoteActionCacheTests {
         assertThrows(
             IOException.class,
             () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+    assertThat(expected.getSuppressed()).isEmpty();
     assertThat(expected).hasMessageThat().contains("dir/link");
     assertThat(expected).hasMessageThat().contains("/foo");
     assertThat(expected).hasMessageThat().contains("absolute path");
@@ -679,11 +678,100 @@ public class AbstractRemoteActionCacheTests {
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+    assertThat(e.getSuppressed()).isEmpty();
     assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(2);
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(cache.getDownloadQueueSize()).isEqualTo(3);
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("download failed");
     verify(outputFilesLocker, never()).lock();
+  }
+
+  @Test
+  public void downloadWithMultipleErrorsAddsThemAsSuppressed() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    Digest digest2 = cache.addException("file2", new IOException("file2 failed"));
+    Digest digest3 = cache.addException("file3", new IOException("file3 failed"));
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).hasLength(1);
+    assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
+    assertThat(e.getSuppressed()[0]).hasMessageThat().isEqualTo("file3 failed");
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("file2 failed");
+  }
+
+  @Test
+  public void downloadWithDuplicateIOErrorsDoesNotSuppress() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    IOException reusedException = new IOException("reused io exception");
+    Digest digest2 = cache.addException("file2", reusedException);
+    Digest digest3 = cache.addException("file3", reusedException);
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).isEmpty();
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused io exception");
+  }
+
+  @Test
+  public void downloadWithDuplicateInterruptionsDoesNotSuppress() throws Exception {
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    DefaultRemoteActionCache cache = newTestCache();
+    Digest digest1 = cache.addContents("file1");
+    InterruptedException reusedInterruption = new InterruptedException("reused interruption");
+    Digest digest2 = cache.addException("file2", reusedInterruption);
+    Digest digest3 = cache.addException("file3", reusedInterruption);
+
+    ActionResult result =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("file1").setDigest(digest1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
+            .build();
+    InterruptedException e =
+        assertThrows(
+            InterruptedException.class,
+            () ->
+                cache.download(
+                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+
+    assertThat(e.getSuppressed()).isEmpty();
+    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused interruption");
   }
 
   @Test
@@ -1118,20 +1206,27 @@ public class AbstractRemoteActionCacheTests {
 
     @Nullable
     @Override
-    ActionResult getCachedActionResult(ActionKey actionKey)
-        throws IOException, InterruptedException {
+    ActionResult getCachedActionResult(ActionKey actionKey) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    void upload(
-        ActionKey actionKey,
-        Action action,
-        Command command,
-        Path execRoot,
-        Collection<Path> files,
-        FileOutErr outErr)
-        throws ExecException, IOException, InterruptedException {
+    protected void setCachedActionResult(ActionKey actionKey, ActionResult action) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
       throw new UnsupportedOperationException();
     }
 

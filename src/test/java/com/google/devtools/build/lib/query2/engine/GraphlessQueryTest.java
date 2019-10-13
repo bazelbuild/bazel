@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.GraphlessBlazeQueryEnvironment;
@@ -113,7 +113,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
               boolean blockUniverseEvaluationErrors,
-              boolean useForkJoinPool,
               boolean useGraphlessQuery) {
             return new GraphlessBlazeQueryEnvironment(
                 transitivePackageLoader,
@@ -127,8 +126,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 labelFilter,
                 eventHandler,
                 settings,
-                extraFunctions,
-                useForkJoinPool);
+                extraFunctions);
           }
         };
       }

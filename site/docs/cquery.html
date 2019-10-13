@@ -225,17 +225,17 @@ cc_library(
   the BUILD file and instead set elsewhere by Bazel.
 </p>
 
-<h4><code>--host_deps</code> (boolean, default=True)</h4>
+<h4><code>--tool_deps</code> (boolean, default=True)</h4>
 
 <p>
   Setting this flag to false filters out all configured targets for which the
   path from the queried target to them crosses a transition between the target
   configuration and the
-  <a href="skylark/rules.html#configurations">host configuration</a>.
-  If the queried target is in a non-host configuration, setting <code>--nohost_deps</code> will
-  only return targets that also are in non-host configurations. If the queried
-  target is in a host configuration, setting <code>--nohost_deps</code> will only return
-  targets also in the host configuration.
+  <a href="skylark/rules.html#configurations">non-target configurations</a>.
+  If the queried target is in the target configuration, setting <code>--notool_deps</code> will
+  only return targets that also are in the target configuration. If the queried
+  target is in a non-target configuration, setting <code>--notool_deps</code> will only return
+  targets also in non-target configurations.
 </p>
 
 <h2 id='output-formats'>Output Formats</h2>

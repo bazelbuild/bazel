@@ -182,7 +182,8 @@ public final class JavaLibraryHelper {
       JavaRuntimeInfo hostJavabase,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
-      @Nullable Artifact outputSourceJar) {
+      @Nullable Artifact outputSourceJar)
+      throws InterruptedException {
     return build(
         semantics,
         javaToolchainProvider,
@@ -204,7 +205,8 @@ public final class JavaLibraryHelper {
       @Nullable Artifact outputSourceJar,
       @Nullable JavaInfo.Builder javaInfoBuilder,
       Iterable<JavaGenJarsProvider> transitiveJavaGenJars,
-      ImmutableList<Artifact> additionalJavaBaseInputs) {
+      ImmutableList<Artifact> additionalJavaBaseInputs)
+      throws InterruptedException {
 
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(

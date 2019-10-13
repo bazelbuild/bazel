@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_plugin")
+
 # Description:
 #   A preprocessor for the annotations used in the options parser.
 package(default_visibility = ["//src:__subpackages__"])

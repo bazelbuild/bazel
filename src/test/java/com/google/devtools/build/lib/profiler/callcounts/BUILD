@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_testonly = 1,
     default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],

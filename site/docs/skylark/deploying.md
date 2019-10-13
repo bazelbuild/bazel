@@ -49,6 +49,9 @@ For example, suppose we are writing new rules for the (make-believe)
   mockascript/
     constraints/
       BUILD
+    runfiles/
+      BUILD
+      runfiles.mocs
     BUILD
     defs.bzl
   tests/
@@ -149,6 +152,13 @@ use them to perform platform specific logic in their BUILD files (for example,
 using [selects](https://docs.bazel.build/versions/master/be/functions.html#select)).
 With custom constraints, you define a language that the whole Bazel ecosystem
 will speak.
+
+### Runfiles library
+
+If your rule provides a standard library for accessing runfiles, it should be
+in the form of a library target located at `//<LANG>/runfiles` (an abbreviation
+of `//<LANG>/runfiles:runfiles`). User targets that need to access their data
+dependencies will typically add this target to their `deps` attribute.
 
 ### Repository Rules
 

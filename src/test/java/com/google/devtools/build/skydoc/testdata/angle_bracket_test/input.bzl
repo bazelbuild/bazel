@@ -6,7 +6,7 @@ def bracket_function(name):
     This rule runs checks on <angle brackets>.
 
     Args:
-        name: an arg with <brackets> in the docstring.
+        name: an arg with <b>formatted</b> docstring.
 
     Returns:
         some <angled> brackets
@@ -17,9 +17,9 @@ def bracket_function(name):
 bracketuse = provider(
     doc = "Information with <brackets>",
     fields = {
-        "foo": "A string <representing foo>",
-        "bar": "A string <representing bar>",
-        "baz": "A string <representing baz>",
+        "foo": "A string representing foo",
+        "bar": "A string representing bar",
+        "baz": "A string representing baz",
     },
 )
 
@@ -31,8 +31,8 @@ my_anglebrac = rule(
     doc = "Rule with <brackets>",
     attrs = {
         "useless": attr.string(
-            doc = "Args with <brackets>",
-            default = "Find <brackets>",
+            doc = "Args with some <b>formatting</b>",
+            default = "Find brackets",
         ),
     },
 )

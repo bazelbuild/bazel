@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -189,7 +191,8 @@ public final class JavaCompilationHelper {
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
-      @Nullable Artifact nativeHeaderOutput) {
+      @Nullable Artifact nativeHeaderOutput)
+      throws InterruptedException {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -240,6 +243,7 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(classJar, label));
     builder.setClassDirectory(classDir(classJar, label));
     builder.setPlugins(attributes.plugins().plugins());
+    builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
@@ -248,16 +252,22 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    return builder.build(ruleContext, semantics);
+    return builder.build(ruleContext, javaToolchain, semantics);
   }
 
-  private ImmutableMap<String, String> getExecutionInfo() {
-    return getConfiguration()
-        .modifiedExecutionInfo(
-            javaToolchain.getJavacSupportsWorkers()
-                ? ExecutionRequirements.WORKER_MODE_ENABLED
-                : ImmutableMap.of(),
-            JavaCompileActionBuilder.MNEMONIC);
+  private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    executionInfo.putAll(
+        getConfiguration()
+            .modifiedExecutionInfo(
+                javaToolchain.getJavacSupportsWorkers()
+                    ? ExecutionRequirements.WORKER_MODE_ENABLED
+                    : ImmutableMap.of(),
+                JavaCompileActionBuilder.MNEMONIC));
+    executionInfo.putAll(
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+
+    return executionInfo.build();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
@@ -351,7 +361,8 @@ public final class JavaCompilationHelper {
    *     for new artifacts.
    */
   private Artifact createHeaderCompilationAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder) {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder)
+      throws InterruptedException {
 
     Artifact headerJar =
         getAnalysisEnvironment()
@@ -367,23 +378,27 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
     JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
     builder.setSourceFiles(attributes.getSourceFiles());
-    builder.addSourceJars(attributes.getSourceJars());
+    builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(
         ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
 
     // only run API-generating annotation processors during header compilation
-    builder.setPlugins(attributes.plugins().apiGeneratingPlugins());
+    JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
+    builder.setPlugins(plugins);
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
-    builder.setJavacOpts(getJavacOpts());
+    builder.addAllJavacOpts(getJavacOpts());
+    if (Iterables.contains(
+        plugins.processorClasses(), "dagger.internal.codegen.ComponentProcessor")) {
+      // see b/31371210
+      builder.addJavacOpt("-Aexperimental_turbine_hjar");
+    }
     builder.setTempDirectory(tempDir(headerJar, ruleContext.getLabel()));
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setReduceClasspath(
-        getJavaConfiguration().getReduceJavaClasspath() != JavaClasspathMode.OFF);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
@@ -629,7 +644,7 @@ public final class JavaCompilationHelper {
    * @return the header jar (if requested), or ijar (if requested), or else the class jar
    */
   public Artifact createCompileTimeJarAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) throws InterruptedException {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {

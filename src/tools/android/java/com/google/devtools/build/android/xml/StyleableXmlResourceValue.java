@@ -25,6 +25,7 @@ import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
+import com.google.devtools.build.android.DependencyInfo;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -33,7 +34,6 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlT
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -139,8 +139,9 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptStyleableResource(key, attrs);
+  public void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptStyleableResource(dependencyInfo, key, attrs);
   }
 
   @Override
@@ -164,7 +165,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue from(Value proto, ReferenceResolver packageResolver) {
-    Map<FullyQualifiedName, Boolean> attributes = new HashMap<>();
+    Map<FullyQualifiedName, Boolean> attributes = new LinkedHashMap<>();
 
     Styleable styleable = proto.getCompoundValue().getStyleable();
     for (Styleable.Entry entry : styleable.getEntryList()) {

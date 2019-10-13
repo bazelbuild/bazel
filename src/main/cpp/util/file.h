@@ -63,6 +63,9 @@ bool ReadFrom(file_handle_type handle, void *data, size_t size);
 bool WriteFile(const std::string &content, const std::string &filename,
                unsigned int perm = 0644);
 
+bool WriteFile(const std::string &content, const Path &path,
+               unsigned int perm = 0644);
+
 // Lists all files in `path` and all of its subdirectories.
 //
 // Does not follow symlinks / junctions.

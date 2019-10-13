@@ -419,24 +419,7 @@ public class ProfilerTest {
 
     ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
-    info.analyzeRelationships();
     assertThat(info.allTasksById).hasSize(4 + 10000 + 10000); // total number of tasks
-    assertThat(info.tasksByThread).hasSize(3); // total number of threads
-    // while main thread had 3 tasks, 2 of them were nested, so tasksByThread
-    // would contain only one "main task" task
-    assertThat(info.tasksByThread.get(id)).hasLength(2);
-    ProfileInfo.Task mainTask = info.tasksByThread.get(id)[0];
-    assertThat(mainTask.getDescription()).isEqualTo("main task");
-    assertThat(mainTask.subtasks).hasLength(2);
-    // other threads had 10000 independent recorded tasks each
-    assertThat(info.tasksByThread.get(id1)).hasLength(10000);
-    assertThat(info.tasksByThread.get(id2)).hasLength(10000);
-    int startId = mainTask.subtasks[0].id; // id of "starting threads"
-    int endId = mainTask.subtasks[1].id; // id of "joining"
-    assertThat(startId).isLessThan(info.tasksByThread.get(id1)[0].id);
-    assertThat(startId).isLessThan(info.tasksByThread.get(id2)[0].id);
-    assertThat(endId).isGreaterThan(info.tasksByThread.get(id1)[9999].id);
-    assertThat(endId).isGreaterThan(info.tasksByThread.get(id2)[9999].id);
   }
 
   @Test
@@ -482,11 +465,9 @@ public class ProfilerTest {
 
     ProfileInfo info = ProfileInfo.loadProfile(new ByteArrayInputStream(buffer.toByteArray()));
     info.calculateStats();
-    info.analyzeRelationships();
     // number of tasks: INIT(1) + LOAD(1) + Thread1.TEST(100) + ANALYZE(1)
     // + Thread2a.TEST(100) + TEST(1) + EXECUTE(1) + Thread2b.TEST(100) + TEST(1) + INFO(1)
     assertThat(info.allTasksById).hasSize(1 + 1 + 100 + 1 + 100 + 1 + 1 + 100 + 1 + 1);
-    assertThat(info.tasksByThread).hasSize(3); // total number of threads
     // Phase0 contains only itself
     ProfileInfo.Task p0 = info.getPhaseTask(ProfilePhase.INIT);
     assertThat(info.getTasksForPhase(p0)).hasSize(1);

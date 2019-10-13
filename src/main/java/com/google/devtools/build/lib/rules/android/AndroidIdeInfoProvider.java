@@ -339,7 +339,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Map.Entry<String, SkylarkNestedSet> entry : nativeLibsMap.entrySet()) {
-        builder.put(entry.getKey(), entry.getValue().getSet(Artifact.class));
+        builder.put(
+            entry.getKey(), entry.getValue().getSetFromParam(Artifact.class, "native_libs"));
       }
       return new AndroidIdeInfoProvider(
           fromNoneable(javaPackage, String.class),

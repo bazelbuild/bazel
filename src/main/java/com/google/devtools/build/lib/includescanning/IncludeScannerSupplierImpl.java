@@ -39,31 +39,34 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
   private static class IncludeScannerParams {
     final List<PathFragment> quoteIncludePaths;
     final List<PathFragment> includePaths;
+    final List<PathFragment> frameworkIncludePaths;
 
-    IncludeScannerParams(List<PathFragment> quoteIncludePaths, List<PathFragment> includePaths) {
+    IncludeScannerParams(
+        List<PathFragment> quoteIncludePaths,
+        List<PathFragment> includePaths,
+        List<PathFragment> frameworkIncludePaths) {
       this.quoteIncludePaths = quoteIncludePaths;
       this.includePaths = includePaths;
+      this.frameworkIncludePaths = frameworkIncludePaths;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(quoteIncludePaths, includePaths);
+      return Objects.hash(quoteIncludePaths, includePaths, frameworkIncludePaths);
     }
 
     @Override
     public boolean equals(Object other) {
-      if (other == null) {
-        return false;
-      }
       if (this == other) {
         return true;
       }
-      if (getClass() != other.getClass()) {
+      if (!(other instanceof IncludeScannerParams)) {
         return false;
       }
       IncludeScannerParams that = (IncludeScannerParams) other;
       return this.quoteIncludePaths.equals(that.quoteIncludePaths)
-          && this.includePaths.equals(that.includePaths);
+          && this.includePaths.equals(that.includePaths)
+          && this.frameworkIncludePaths.equals(that.frameworkIncludePaths);
     }
   }
 
@@ -101,6 +104,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
                       pathCache,
                       key.quoteIncludePaths,
                       key.includePaths,
+                      key.frameworkIncludePaths,
                       directories.getOutputPath(execRoot.getBaseName()),
                       execRoot,
                       artifactFactory,
@@ -127,9 +131,12 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
 
   @Override
   public IncludeScanner scannerFor(
-      List<PathFragment> quoteIncludePaths, List<PathFragment> includePaths) {
+      List<PathFragment> quoteIncludePaths,
+      List<PathFragment> includePaths,
+      List<PathFragment> frameworkPaths) {
     Preconditions.checkNotNull(includeParser);
-    return scanners.getUnchecked(new IncludeScannerParams(quoteIncludePaths, includePaths));
+    return scanners.getUnchecked(
+        new IncludeScannerParams(quoteIncludePaths, includePaths, frameworkPaths));
   }
 
   public void init(IncludeParser includeParser) {

@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 
 /** The result of parsing a BUILD file. */
 public class AstParseResult {
-  public final BuildFileAST ast;
+  public final StarlarkFile ast;
   public final Iterable<Event> allEvents;
   public final Iterable<Postable> allPosts;
 
-  public AstParseResult(BuildFileAST ast, StoredEventHandler astParsingEventHandler) {
+  public AstParseResult(StarlarkFile ast, StoredEventHandler astParsingEventHandler) {
     this.ast = ast;
     this.allPosts = astParsingEventHandler.getPosts();
     this.allEvents = astParsingEventHandler.getEvents();

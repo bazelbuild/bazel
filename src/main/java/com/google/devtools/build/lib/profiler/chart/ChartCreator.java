@@ -14,15 +14,12 @@
 
 package com.google.devtools.build.lib.profiler.chart;
 
-import com.google.devtools.build.lib.profiler.chart.Chart;
-
 /**
- * Interface for classes that are capable of creating {@link Chart}s.
+ * Interface for classes that are capable of creating {@link
+ * com.google.devtools.build.lib.profiler.chart.Chart}s.
  */
 public interface ChartCreator {
 
-  /**
-   * Creates a {@link Chart}.
-   */
-  Chart create();
+  /** Creates a {@link com.google.devtools.build.lib.profiler.chart.Chart}. */
+  Chart create(long minBarWidth);
 }

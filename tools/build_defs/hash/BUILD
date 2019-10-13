@@ -1,3 +1,5 @@
+load("//tools/python:private/defs.bzl", "py_binary")
+
 licenses(["notice"])  # Apache 2.0
 
 filegroup(

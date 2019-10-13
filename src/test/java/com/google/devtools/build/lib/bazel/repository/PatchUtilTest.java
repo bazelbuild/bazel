@@ -66,6 +66,24 @@ public class PatchUtilTest {
   }
 
   @Test
+  public void testAddOneLineFile() throws IOException, PatchFailedException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/newfile b/newfile",
+            "new file mode 100644",
+            "index 0000000..f742c88",
+            "--- /dev/null",
+            "+++ b/newfile",
+            "@@ -0,0 +1 @@", // diff will produce such chunk header for one line file.
+            "+hello, world");
+    PatchUtil.apply(patchFile, 1, root);
+    Path newFile = root.getRelative("newfile");
+    ImmutableList<String> newFileContent = ImmutableList.of("hello, world");
+    assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newFileContent);
+  }
+
+  @Test
   public void testDeleteFile() throws IOException, PatchFailedException {
     Path oldFile = scratch.file("/root/oldfile", "I'm an old file", "bye, world");
     Path patchFile =
@@ -75,6 +93,20 @@ public class PatchUtilTest {
             "+++ /dev/null",
             "@@ -1,2 +0,0 @@",
             "-I'm an old file",
+            "-bye, world");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(oldFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteOneLineFile() throws IOException, PatchFailedException {
+    Path oldFile = scratch.file("/root/oldfile", "bye, world");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/oldfile",
+            "+++ /dev/null",
+            "@@ -1 +0,0 @@", // diff will produce such chunk header for one line file.
             "-bye, world");
     PatchUtil.apply(patchFile, 1, root);
     assertThat(oldFile.exists()).isFalse();

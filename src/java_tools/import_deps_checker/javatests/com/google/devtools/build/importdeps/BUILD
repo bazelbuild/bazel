@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+
 # Description:
 #   Tests for the checker to check the completeness of the deps of java_import or aar_import targets.
 package(

@@ -76,7 +76,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
           ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
 
       for (ProtoInfo protoInfo : protoInfos) {
-        aspectObjcProtoProvider.addProtoGroup(protoInfo.getTransitiveProtoSources());
+        aspectObjcProtoProvider.addProtoFiles(protoInfo.getTransitiveProtoSources());
       }
 
       NestedSet<Artifact> portableProtoFilters =

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = ["//src:__subpackages__"],
 )
@@ -27,7 +29,10 @@ java_library(
 
 filegroup(
     name = "template_files",
-    srcs = glob([
-        "templates/*.vm",
-    ]),
+    srcs = glob(
+        [
+            "templates/*.vm",
+        ],
+        allow_empty = True,
+    ),
 )

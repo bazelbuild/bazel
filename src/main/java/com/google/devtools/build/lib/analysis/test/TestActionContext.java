@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -102,12 +103,12 @@ public interface TestActionContext extends ActionContext {
 
       @Override
       public ListenableFuture<?> getFuture() {
-        throw new IllegalStateException();
+        return Futures.immediateFuture(null);
       }
 
       @Override
       public TestAttemptContinuation execute() {
-        throw new IllegalStateException();
+        return this;
       }
 
       @Override

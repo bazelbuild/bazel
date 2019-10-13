@@ -91,7 +91,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    */
   @VisibleForTesting
   public InMemoryFileSystem(Clock clock) {
-    this(clock, DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    this(clock, DigestHashFunction.getDefaultUnchecked());
   }
 
   private static InMemoryDirectoryInfo newRootInode(Clock clock) {

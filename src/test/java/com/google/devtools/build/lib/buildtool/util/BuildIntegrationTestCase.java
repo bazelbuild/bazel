@@ -104,6 +104,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -320,7 +321,12 @@ public abstract class BuildIntegrationTestCase {
     return TestRuleModule.getModule();
   }
 
-  private BlazeModule getNoResolvedFileModule() {
+  /** Gets a module to set up the strategies. */
+  protected BlazeModule getStrategyModule() {
+    return TestStrategyModule.getModule();
+  }
+
+  private static BlazeModule getNoResolvedFileModule() {
     return new BlazeModule() {
       @Override
       public ImmutableList<Injected> getPrecomputedValues() {
@@ -357,7 +363,8 @@ public abstract class BuildIntegrationTestCase {
         .addBlazeModule(getSpawnModule())
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(getBuildInfoModule())
-        .addBlazeModule(getRulesModule());
+        .addBlazeModule(getRulesModule())
+        .addBlazeModule(getStrategyModule());
   }
 
   protected List<String> getStartupOptions() {
@@ -384,6 +391,10 @@ public abstract class BuildIntegrationTestCase {
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    // TODO(rosica): Remove this once g3 is migrated.
+    runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
+    // TODO(rosica): Remove this once g3 is migrated.
+    runtimeWrapper.addOptions("--noincompatible_make_thinlto_command_lines_standalone");
   }
 
   protected void resetOptions() {
@@ -640,9 +651,14 @@ public abstract class BuildIntegrationTestCase {
     return path;
   }
 
-  /** Equivalent to {@code ln -s <target> <relativeLinkPath>}. */
+  /**
+   * Creates folders on the path to {@code relativeLinkPath} and a symlink to {@code target} at
+   * {@code relativeLinkPath} (equivalent to {@code ln -s <target> <relativeLinkPath>}).
+   */
   protected void createSymlink(String target, String relativeLinkPath) throws IOException {
-    getWorkspace().getRelative(relativeLinkPath).createSymbolicLink(PathFragment.create(target));
+    Path path = getWorkspace().getRelative(relativeLinkPath);
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create(target));
   }
 
   /**
@@ -660,7 +676,7 @@ public abstract class BuildIntegrationTestCase {
    * Fork/exec/wait the specified command.  A utility method for subclasses.
    */
   protected String exec(String... argv) throws CommandException {
-    return new String(new Command(argv).execute().getStdout());
+    return new String(new Command(argv).execute().getStdout(), StandardCharsets.UTF_8);
   }
 
   /**

@@ -142,6 +142,22 @@ message PingResponse {
   string cookie = 1;
 }
 
+// Describes metadata necessary for connecting to and managing the server.
+message ServerInfo {
+  // The server process's pid.
+  int32 pid = 1;
+
+  // Address the CommandServer is listening on. Can be passed directly to grpc
+  // to create a connection.
+  string address = 2;
+
+  // Client request cookie.
+  string request_cookie = 3;
+
+  // Server response cookie.
+  string response_cookie = 4;
+}
+
 service CommandServer {
   // Run a Bazel command. See documentation of argument/return messages for
   // details.

@@ -74,7 +74,7 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean delete(Path path) throws IOException {
     RemoteFileArtifactValue m = getRemoteInputMetadata(path);
-    if (m != null) {
+    if (m == null) {
       return super.delete(path);
     }
     return true;

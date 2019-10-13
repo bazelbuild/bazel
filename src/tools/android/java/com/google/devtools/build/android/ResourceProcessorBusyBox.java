@@ -78,12 +78,6 @@ public class ResourceProcessorBusyBox {
         RClassGeneratorAction.main(args);
       }
     },
-    GENERATE_ROBOLECTRIC_R() {
-      @Override
-      void call(String[] args) throws Exception {
-        GenerateRobolectricResourceSymbolsAction.main(args);
-      }
-    },
     PARSE() {
       @Override
       void call(String[] args) throws Exception {
@@ -142,6 +136,12 @@ public class ResourceProcessorBusyBox {
       @Override
       void call(String[] args) throws Exception {
         Aapt2ResourceShrinkingAction.main(args);
+      }
+    },
+    AAPT2_OPTIMIZE() {
+      @Override
+      void call(String[] args) throws Exception {
+        Aapt2OptimizeAction.main(args);
       }
     },
     MERGE_ASSETS() {

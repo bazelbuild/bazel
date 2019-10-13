@@ -53,32 +53,16 @@ public class BazelStrategyModule extends BlazeModule {
 
     List<String> spawnStrategies = new ArrayList<>(options.spawnStrategy);
 
-    if (options.incompatibleListBasedExecutionStrategySelection) {
-      if (spawnStrategies.isEmpty()) {
-        if (RemoteModule.shouldEnableRemoteExecution(remoteOptions)) {
-          spawnStrategies.add("remote");
-        }
-        spawnStrategies.add("worker");
-        // Sandboxing is not yet available on Windows.
-        if (OS.getCurrent() != OS.WINDOWS) {
-          spawnStrategies.add("sandboxed");
-        }
-        spawnStrategies.add("local");
+    if (spawnStrategies.isEmpty()) {
+      if (RemoteModule.shouldEnableRemoteExecution(remoteOptions)) {
+        spawnStrategies.add("remote");
       }
-    } else {
-      // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-      builder.addStrategyByMnemonic("Javac", ImmutableList.of("worker"));
-      builder.addStrategyByMnemonic("Closure", ImmutableList.of("worker"));
-      builder.addStrategyByMnemonic("DexBuilder", ImmutableList.of("worker"));
-      builder.addStrategyByMnemonic("Desugar", ImmutableList.of("worker"));
-
-      // The --spawn_strategy= flag is a bit special: If it's set to the empty string, we actually
-      // have to pass a literal empty string to the builder to trigger the "use the strategy that
-      // was registered last" behavior. Otherwise we would have no default strategy at all and Bazel
-      // would crash.
-      if (spawnStrategies.isEmpty()) {
-        spawnStrategies = ImmutableList.of("");
+      spawnStrategies.add("worker");
+      // Sandboxing is not yet available on Windows.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        spawnStrategies.add("sandboxed");
       }
+      spawnStrategies.add("local");
     }
 
     // Allow genrule_strategy to also be overridden by --strategy= flags.

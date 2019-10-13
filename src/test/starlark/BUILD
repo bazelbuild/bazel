@@ -3,6 +3,7 @@ load(
     "rule_test",
     "file_test",
 )
+load("//tools/python:private/defs.bzl", "py_test")
 
 package(default_visibility = ["//src:__subpackages__"])
 

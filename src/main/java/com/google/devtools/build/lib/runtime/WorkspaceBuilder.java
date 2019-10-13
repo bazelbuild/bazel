@@ -78,7 +78,6 @@ public final class WorkspaceBuilder {
             directories,
             runtime.getActionKeyContext(),
             workspaceStatusActionFactory,
-            ruleClassProvider.getBuildInfoFactories(),
             diffAwarenessFactories.build(),
             skyFunctions.build(),
             customDirtinessCheckers.build(),

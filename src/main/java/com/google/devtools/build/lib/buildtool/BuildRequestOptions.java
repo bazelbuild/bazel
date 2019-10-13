@@ -333,7 +333,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -344,6 +344,17 @@ public class BuildRequestOptions extends OptionsBase {
           "If set to true, the genfiles symlink will not be created. For more information, see "
               + "https://github.com/bazelbuild/bazel/issues/8651")
   public boolean incompatibleSkipGenfilesSymlink;
+
+  @Option(
+      name = "experimental_nested_set_as_skykey_threshold",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
+              + " will be evaluated as a unit on Skyframe.")
+  public int nestedSetAsSkyKeyThreshold;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

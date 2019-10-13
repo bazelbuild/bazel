@@ -44,6 +44,7 @@ public final class SpawnBuilder {
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
   private final Map<String, String> executionInfo = new HashMap<>();
+  private ImmutableMap<String, String> execProperties = ImmutableMap.of();
   private final List<ActionInput> inputs = new ArrayList<>();
   private final List<ActionInput> outputs = new ArrayList<>();
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
@@ -56,7 +57,8 @@ public final class SpawnBuilder {
   }
 
   public Spawn build() {
-    ActionExecutionMetadata owner = new FakeOwner(mnemonic, progressMessage, ownerLabel, platform);
+    ActionExecutionMetadata owner =
+        new FakeOwner(mnemonic, progressMessage, ownerLabel, platform, execProperties);
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -97,6 +99,11 @@ public final class SpawnBuilder {
 
   public SpawnBuilder withExecutionInfo(String key, String value) {
     this.executionInfo.put(key, value);
+    return this;
+  }
+
+  public SpawnBuilder withExecProperties(ImmutableMap<String, String> execProperties) {
+    this.execProperties = execProperties;
     return this;
   }
 

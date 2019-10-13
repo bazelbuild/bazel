@@ -48,8 +48,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
-  String preludeLabelRelativePath;
-
   @Before
   public final void preparePackageLoading() throws Exception {
     Path alternativeRoot = scratch.dir("/root_2");
@@ -69,8 +67,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    this.preludeLabelRelativePath =
-        getRuleClassProvider().getPreludeLabel().toPathFragment().toString();
   }
 
   @Test
@@ -105,7 +101,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
-    scratch.deleteFile(preludeLabelRelativePath);
     scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
@@ -235,7 +230,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
-    scratch.deleteFile(preludeLabelRelativePath);
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",
@@ -279,23 +273,23 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/b.bzl", "b = 42");
+    checkStrayLabel(
+        "//a:a.bzl",
+        "Label '//a:b/b.bzl' is invalid because 'a/b' is a subpackage; perhaps you meant to"
+            + " put the colon here: '//a/b:b.bzl'?");
+  }
 
-    SkyKey skylarkImportLookupKey = key("//a:a.bzl");
-    EvaluationResult<SkylarkImportLookupValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(
-            "Label '//a:b/b.bzl' crosses boundary of subpackage 'a/b' (perhaps you meant to put "
-                + "the colon here: '//a/b:b.bzl'?)");
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg_Relative()
+      throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('b/b.bzl', 'b')");
+    scratch.file("a/b/BUILD", "");
+    scratch.file("a/b/b.bzl", "b = 42");
+    checkStrayLabel(
+        "//a:a.bzl",
+        "Label '//a:b/b.bzl' is invalid because 'a/b' is a subpackage; perhaps you meant to"
+            + " put the colon here: '//a/b:b.bzl'?");
   }
 
   @Test
@@ -306,23 +300,10 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/c/BUILD", "");
     scratch.file("a/b/c/c.bzl", "c = 42");
-
-    SkyKey skylarkImportLookupKey = key("//a:a.bzl");
-    EvaluationResult<SkylarkImportLookupValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(
-            "Label '//a/b:c/c.bzl' crosses boundary of subpackage 'a/b/c' (perhaps you meant to "
-                + "put the colon here: '//a/b/c:c.bzl'?)");
+    checkStrayLabel(
+        "//a:a.bzl",
+        "Label '//a/b:c/c.bzl' is invalid because 'a/b/c' is a subpackage; perhaps you meant"
+            + " to put the colon here: '//a/b/c:c.bzl'?");
   }
 
   @Test
@@ -332,8 +313,16 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
     scratch.file("a/BUILD");
     scratch.file("a/c/c/c.bzl", "c = 42");
+    checkStrayLabel(
+        "//a/b:b.bzl",
+        "Label '//a/c:c/c.bzl' is invalid because 'a/c' is not a package; perhaps you meant to "
+            + "put the colon here: '//a:c/c/c.bzl'?");
+  }
 
-    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
+  // checkStrayLabel checks that execution of target fails because
+  // the label of its load statement strays into a subpackage.
+  private void checkStrayLabel(String target, String expectedMessage) throws InterruptedException {
+    SkyKey skylarkImportLookupKey = key(target);
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -346,9 +335,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .hasErrorEntryForKeyThat(skylarkImportLookupKey)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains(
-            "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
-                + "colon here: '//a:c/c/c.bzl'?)");
+        .contains(expectedMessage);
   }
 
   @Test
@@ -376,7 +363,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
-    scratch.deleteFile(preludeLabelRelativePath);
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",

@@ -40,7 +40,7 @@ public final class CommandUsingProcessWrapperTest {
 
   @Before
   public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    testFS = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
   }
 
   private String getProcessWrapperPath() {

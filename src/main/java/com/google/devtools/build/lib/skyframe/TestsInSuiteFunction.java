@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
@@ -148,20 +148,19 @@ final class TestsInSuiteFunction implements SkyFunction {
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
-    Map<SkyKey, ValueOrException<BuildFileNotFoundException>> packages = env.getValuesOrThrow(
-        PackageValue.keys(pkgIdentifiers), BuildFileNotFoundException.class);
+    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
+        env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);
     if (env.valuesMissing()) {
       return false;
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<BuildFileNotFoundException>> entry :
-        packages.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry : packages.entrySet()) {
       try {
         packageMap.put(
             (PackageIdentifier) entry.getKey().argument(),
             ((PackageValue) entry.getValue().get()).getPackage());
-      } catch (BuildFileNotFoundException e) {
+      } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;
       }

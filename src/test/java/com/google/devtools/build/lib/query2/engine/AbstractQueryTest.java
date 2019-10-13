@@ -763,10 +763,10 @@ public abstract class AbstractQueryTest<T> {
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,
-        Setting.NO_HOST_DEPS);
+        Setting.ONLY_TARGET_DEPS);
     assertEqualsFiltered(targetDepsExpr, "deps(//x)", Setting.NO_IMPLICIT_DEPS);
     assertEqualsFiltered(
-        targetDepsExpr, "deps(//x)", Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS);
+        targetDepsExpr, "deps(//x)", Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
   }
 
   protected void assertEqualsFiltered(String expected, String actual, Setting... settings)
@@ -1002,7 +1002,7 @@ public abstract class AbstractQueryTest<T> {
         "kiwi/BUILD", "package(default_visibility=['//mango:mango'])", "sh_library(name='kiwi')");
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
-    helper.setQuerySettings(Setting.NO_HOST_DEPS);
+    helper.setQuerySettings(Setting.ONLY_TARGET_DEPS);
 
     Set<T> result = eval("deps(//kiwi:kiwi)" + getDependencyCorrection());
     assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi"));
@@ -1158,7 +1158,7 @@ public abstract class AbstractQueryTest<T> {
         "        entries=[FilesetEntry(files=['a'])],",
         "        out='y')");
     assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)");
-    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.NO_HOST_DEPS);
+    assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
     assertEqualsFiltered("//x:x + //x:a", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
   }
 
@@ -1789,6 +1789,22 @@ public abstract class AbstractQueryTest<T> {
         "package_group(name = 'pg', includes = ['//bar:bar'])");
     writeFile("bar/BUILD", "sh_library(name = 'bar')");
     assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
+  }
+
+  // Regression test for default visibility of output file targets being traversed even with
+  // --noimplicit_deps is set.
+  @Test
+  public void testDefaultVisibilityOfOutputTarget_NoImplicitDeps() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "package(default_visibility = [':pg'])",
+        "genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')",
+        "package_group(name = 'pg', includes = [':other-pg'])",
+        "package_group(name = 'other-pg')");
+    assertEqualsFiltered(
+        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
+        "deps(//foo:out)",
+        Setting.NO_IMPLICIT_DEPS);
   }
 
   /**

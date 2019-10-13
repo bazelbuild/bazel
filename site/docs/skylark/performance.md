@@ -92,11 +92,6 @@ accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
 
-**Note**: Today it is possible to flatten depsets implicitly by iterating over
-the depset the way you would a list, tuple, or dictionary, or by taking the
-depset's size via `len()`. This functionality is [deprecated](../skylark/backward-compatibility.html#depset-is-no-longer-iterable).
-and will be removed.
-
 ### Avoid calling `len(depset)`
 
 It is O(N) to get the number of items in a depset. It is however
@@ -110,16 +105,47 @@ def _impl(ctx):
 
   # Bad, has to iterate over entire depset to get length
   if len(files) != 0:
-    args.add("--files")
-    args.add_all(files)
+    args.add_all("--files", files)
 
   # Good, O(1)
   if files:
-    args.add("--files")
-    args.add_all(files)
+    args.add_all("--files", files)
+
+  # Also good, O(1); works because add_all()'s `omit_if_empty` defaults to true
+  args.add_all("--files", files)
 ```
 
 As mentioned above, support for `len(<depset>)` is deprecated.
+
+### Reduce the number of calls to `depset`
+
+Calling `depset` inside a loop is often a mistake. It can lead to depsets with
+very deep nesting, which perform poorly. For example:
+
+```python
+x = depset()
+for i in inputs:
+    # Do not do that.
+    x = depset(transitive = [x, i.deps])
+```
+
+This code can be replaced easily. First, collect the transitive depsets and
+merge them all at once:
+
+```python
+transitive = []
+
+for i in inputs:
+    transitive.append(i.deps)
+
+x = depset(transitive = transitive])
+```
+
+This can sometimes be reduced using a list comprehension:
+
+```python
+x = depset(transitive = [i.deps for i in inputs])
+```
 
 ## Use `ctx.actions.args()` for command lines
 
@@ -163,9 +189,10 @@ def _impl(ctx):
   # Bad, constructs a full string "--foo=<file path>" for each rule instance
   args.add("--foo=" + file.path)
 
-  # Good, shares "-foo" among all rule instances, and defers file.path to later
-  args.add("--foo")
-  args.add(file)
+  # Good, shares "--foo" among all rule instances, and defers file.path to later
+  # It will however pass ["--foo", <file path>] to the action command line,
+  # instead of ["--foo=<file_path>"]
+  args.add("--foo", file)
 
   # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
   args.add(format="--foo=%s", value=file)

@@ -54,7 +54,7 @@ public abstract class AbstractUnfilteredTTVDTCVisitor<T> extends AbstractSkyKeyP
 
   @Override
   protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> visitationKeys) {
-    // ParallelVisitorCallback passes in TTV keys.
+    // ParallelTargetVisitorCallback passes in TTV keys.
     Preconditions.checkState(
         Iterables.all(visitationKeys, SkyQueryEnvironment.IS_TTV), visitationKeys);
     return visitationKeys;

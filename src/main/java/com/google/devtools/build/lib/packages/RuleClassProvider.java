@@ -15,21 +15,23 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * The collection of the supported build rules. Provides an Environment for Skylark rule creation.
+ * The collection of the supported build rules. Provides an StarlarkThread for Skylark rule
+ * creation.
  */
-public interface RuleClassProvider {
+public interface RuleClassProvider extends RuleDefinitionContext {
 
   /**
    * Label referencing the prelude file.
@@ -47,7 +49,7 @@ public interface RuleClassProvider {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a new Skylark Environment instance for rule creation. Implementations need to be thread
+   * Returns a new StarlarkThread instance for rule creation. Implementations need to be thread
    * safe. Be sure to close() the mutability before you return the results of said evaluation.
    *
    * @param label the location of the rule.
@@ -57,9 +59,9 @@ public interface RuleClassProvider {
    * @param astFileContentHashCode the hash code identifying this environment.
    * @param importMap map from import string to Extension
    * @param repoMapping map of RepositoryNames to be remapped
-   * @return an Environment, in which to evaluate load time skylark forms.
+   * @return an StarlarkThread, in which to evaluate load time skylark forms.
    */
-  Environment createSkylarkRuleClassEnvironment(
+  StarlarkThread createRuleClassStarlarkThread(
       Label label,
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
@@ -88,11 +90,6 @@ public interface RuleClassProvider {
    * <p>Used to load skylark repository in the bazel_tools repository.
    */
   String getDefaultWorkspaceSuffix();
-
-  /**
-   * Returns the path to the tools repository
-   */
-  String getToolsRepository();
 
   /**
    * Retrieves an aspect from the aspect factory map using the key provided

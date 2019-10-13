@@ -82,7 +82,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
             "    name = 'z',",
             "    path = 'a/b/c',",
             ")");
-    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+    assertThat(
+            TestingRepositoryFunction.getTargetPath(
+                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
         .isEqualTo(rootDirectory.getRelative("a/b/c").asFragment());
   }
 
@@ -92,7 +94,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         "    name = 'w',",
         "    path = '/a/b/c',",
         ")");
-    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+    assertThat(
+            TestingRepositoryFunction.getTargetPath(
+                TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
         .isEqualTo(PathFragment.create("/a/b/c"));
   }
 

@@ -28,11 +28,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
@@ -93,16 +92,12 @@ public class ApiExporter {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
       if (obj instanceof BaseFunction) {
-        value = collectFunctionInfo((BaseFunction) obj);
+        value = valueFromFunction((BaseFunction) obj);
       } else if (obj instanceof BuiltinCallable) {
         BuiltinCallable builtinCallable = (BuiltinCallable) obj;
         MethodDescriptor descriptor =
             builtinCallable.getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS);
-        value =
-            collectFunctionInfo(
-                descriptor.getName(),
-                SkylarkSignatureProcessor.getSignatureForCallable(
-                    descriptor.getName(), descriptor, null, null));
+        value = valueFromMethodDescriptor(descriptor);
       } else {
         value.setName(entry.getKey());
       }
@@ -118,20 +113,14 @@ public class ApiExporter {
       Value.Builder value = Value.newBuilder();
 
       if (obj instanceof BaseFunction) {
-        value = collectFunctionInfo((BaseFunction) obj);
+        value = valueFromFunction((BaseFunction) obj);
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          if (FuncallExpression.hasSelfCallMethod(
-              StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
+          if (CallUtils.hasSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
             MethodDescriptor descriptor =
-                FuncallExpression.getSelfCallMethodDescriptor(
-                    StarlarkSemantics.DEFAULT_SEMANTICS, obj);
-
-            value = collectFunctionInfo(
-                descriptor.getName(),
-                SkylarkSignatureProcessor.getSignatureForCallable(
-                    descriptor.getName(), descriptor, null, null));
+                CallUtils.getSelfCallMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS, obj);
+            value = valueFromMethodDescriptor(descriptor);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());
@@ -155,20 +144,26 @@ public class ApiExporter {
     }
   }
 
-  private static Value.Builder collectFunctionInfo(BaseFunction func) {
-    return collectFunctionInfo(func.getName(), func.getSignature());
+  private static Value.Builder valueFromFunction(BaseFunction func) {
+    return collectFunctionInfo(func.getName(), func.getSignature(), func.getDefaultValues());
+  }
+
+  private static Value.Builder valueFromMethodDescriptor(MethodDescriptor descriptor) {
+    SkylarkSignatureProcessor.SignatureInfo info =
+        SkylarkSignatureProcessor.getSignatureForCallable(
+            descriptor.getName(), descriptor, null, null);
+    return collectFunctionInfo(descriptor.getName(), info.signature, info.defaultValues);
   }
 
   private static Value.Builder collectFunctionInfo(
-      String funcName, FunctionSignature.WithValues<Object, SkylarkType> funcSignature) {
+      String funcName, FunctionSignature sig, List<Object> defaultValues) {
     Value.Builder value = Value.newBuilder();
     value.setName(funcName);
     Callable.Builder callable = Callable.newBuilder();
 
-    ImmutableList<String> paramNames = funcSignature.getSignature().getNames();
-    List<Object> defaultValues = funcSignature.getDefaultValues();
-    int positionals = funcSignature.getSignature().getShape().getMandatoryPositionals();
-    int optionals = funcSignature.getSignature().getShape().getOptionals();
+    ImmutableList<String> paramNames = sig.getParameterNames();
+    int positionals = sig.numMandatoryPositionals();
+    int optionals = sig.numOptionals();
     int nameIndex = 0;
 
     for (int i = 0; i < positionals; i++) {
@@ -188,7 +183,7 @@ public class ApiExporter {
       nameIndex++;
     }
 
-    if (funcSignature.getSignature().getShape().hasStarArg()) {
+    if (sig.hasVarargs()) {
       Param.Builder param = Param.newBuilder();
       param.setName("*" + paramNames.get(nameIndex));
       param.setIsMandatory(false);
@@ -196,7 +191,7 @@ public class ApiExporter {
       nameIndex++;
       callable.addParam(param);
     }
-    if (funcSignature.getSignature().getShape().hasKwArg()) {
+    if (sig.hasKwargs()) {
       Param.Builder param = Param.newBuilder();
       param.setIsMandatory(false);
       param.setIsStarStarArg(true);

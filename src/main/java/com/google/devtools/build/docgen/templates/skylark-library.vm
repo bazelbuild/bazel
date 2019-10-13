@@ -2,6 +2,11 @@
 layout: documentation
 title: ${module.title}
 ---
+
+<a href="../concepts.html">Extensions</a> &gt;
+<a href="skylark-overview.html">API reference</a> &gt;
+${module.title}
+
 <h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}

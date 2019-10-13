@@ -31,9 +31,19 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface CcCompilationContextApi {
   @SkylarkCallable(
       name = "defines",
-      doc = "Returns the set of defines needed to compile this target. Each define is a string.",
+      doc =
+          "Returns the set of defines needed to compile this target. Each define is a string."
+              + " These values are propagated to the target's transitive dependencies.",
       structField = true)
   SkylarkNestedSet getSkylarkDefines();
+
+  @SkylarkCallable(
+      name = "local_defines",
+      doc =
+          "Returns the set of defines needed to compile this target. Each define is a string."
+              + " These values are not propagated to the target's transitive dependencies.",
+      structField = true)
+  SkylarkNestedSet getSkylarkNonTransitiveDefines();
 
   @SkylarkCallable(
       name = "headers",

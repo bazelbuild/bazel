@@ -461,7 +461,6 @@ public class IncrementalLoadingTest {
               .setFileSystem(fs)
               .setDirectories(directories)
               .setActionKeyContext(actionKeyContext)
-              .setBuildInfoFactories(loadingMock.createRuleClassProvider().getBuildInfoFactories())
               .setDefaultBuildOptions(
                   DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))

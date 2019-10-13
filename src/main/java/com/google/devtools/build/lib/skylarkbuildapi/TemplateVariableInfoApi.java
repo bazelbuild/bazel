@@ -15,18 +15,21 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(
     name = "TemplateVariableInfo",
     category = SkylarkModuleCategory.PROVIDER,
     doc =
-        "<b>WARNING</b>: The constructor of this provider is experimental and may go away at any "
-            + "time.<p>Encapsulates template variables, that is, variables that can be referenced"
-            + " by strings like <code>$(VARIABLE)</code> in BUILD files and expanded by"
+        "Encapsulates template variables, that is, variables that can be referenced by strings"
+            + " like <code>$(VARIABLE)</code> in BUILD files and expanded by"
             + " <code>ctx.expand_make_variables</code> and implicitly in certain attributes of"
             + " built-in rules.</p><p><code>TemplateVariableInfo</code> can be created by calling"
             + " its eponymous constructor with a string-to-string dict as an argument that"
@@ -34,11 +37,31 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + " <code>platform_common.TemplateVariableInfo({'FOO': 'bar'})</code></p>")
 public interface TemplateVariableInfoApi extends StructApi {
 
+  /** The global provider name. */
+  String NAME = "TemplateVariableInfo";
+
   @SkylarkCallable(
-    name = "variables",
-    doc = "Returns the make variables defined by this target as a dictionary with string keys "
-        + "and string values",
-    structField = true
-  )
-  public ImmutableMap<String, String> getVariables();
+      name = "variables",
+      doc =
+          "Returns the make variables defined by this target as a dictionary with string keys "
+              + "and string values",
+      structField = true)
+  ImmutableMap<String, String> getVariables();
+
+  /** Provider for {@link TemplateVariableInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "TemplateVariableInfo",
+        doc = "The <code>TemplateVariableInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(name = "vars", positional = true, named = true, type = SkylarkDict.class),
+        },
+        selfCall = true,
+        useLocation = true)
+    TemplateVariableInfoApi templateVariableInfo(SkylarkDict<?, ?> vars, Location loc)
+        throws EvalException;
+  }
 }

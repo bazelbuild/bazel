@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A {@link PathFragment} relative to a {@link Root}. Typically the root will be a package path
@@ -94,6 +95,15 @@ public class RootedPath implements Serializable {
   /** Returns the path fragment relative to {@code #getRoot}. */
   public PathFragment getRootRelativePath() {
     return rootRelativePath;
+  }
+
+  @Nullable
+  public RootedPath getParentDirectory() {
+    PathFragment rootRelativeParentDirectory = getRootRelativePath().getParentDirectory();
+    if (rootRelativeParentDirectory == null) {
+      return null;
+    }
+    return new RootedPath(root, rootRelativeParentDirectory);
   }
 
   @Override

@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-
-/**
- * Base class for all statements nodes in the AST.
- */
-public abstract class Statement extends ASTNode {
+/** Base class for all statements nodes in the AST. */
+public abstract class Statement extends Node {
 
   /**
    * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
@@ -26,14 +23,12 @@ public abstract class Statement extends ASTNode {
   public enum Kind {
     ASSIGNMENT,
     AUGMENTED_ASSIGNMENT,
-    CONDITIONAL,
     EXPRESSION,
     FLOW,
     FOR,
     FUNCTION_DEF,
     IF,
     LOAD,
-    PASS,
     RETURN,
   }
 

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -40,13 +39,6 @@ public class JavaOptions extends FragmentOptions {
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
       super(JavaClasspathMode.class, "Java classpath reduction strategy");
-    }
-  }
-
-  /** Converter for the --java_optimization_mode option. */
-  public static class JavaOptimizationModeConverter extends EnumConverter<JavaOptimizationMode> {
-    public JavaOptimizationModeConverter() {
-      super(JavaOptimizationMode.class, "Java optimization strategy");
     }
   }
 
@@ -458,12 +450,11 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_optimization_mode",
-      defaultValue = "legacy",
-      converter = JavaOptimizationModeConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Applies desired link-time optimizations to Java binaries and tests.")
-  public JavaOptimizationMode javaOptimizationMode;
+      help = "Do not use.")
+  public String javaOptimizationMode;
 
   @Option(
       name = "legacy_bazel_java_test",
@@ -494,17 +485,6 @@ public class JavaOptions extends FragmentOptions {
           "If set, any java_proto_library or java_mutable_proto_library which sets the "
               + "strict_deps attribute explicitly will fail to build.")
   public boolean isDisallowStrictDepsForJpl;
-
-  @Option(
-      name = "experimental_java_header_compilation_disable_javac_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If --java_header_compilation is set, report diagnostics from turbine instead of "
-              + "falling back to javac. Diagnostics will be produced more quickly, but may be "
-              + "less helpful.")
-  public boolean headerCompilationDisableJavacFallback;
 
   @Option(
       name = "experimental_one_version_enforcement",
@@ -598,7 +578,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -636,6 +616,14 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, direct usage of the native Java rules is disabled. Please use "
               + "the Starlark rules instead https://github.com/bazelbuild/rules_java")
   public boolean loadJavaRulesFromBzl;
+
+  @Option(
+      name = "experimental_java_header_input_pruning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, header compilation actions support --java_classpath=bazel")
+  public boolean experimentalJavaHeaderInputPruning;
 
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);

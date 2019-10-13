@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
 # Description:
 #   Tests of the testing tools for the devtools-common options parser.
 package(

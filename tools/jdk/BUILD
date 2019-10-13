@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "JDK8_JVM_OPTS",
@@ -19,6 +20,7 @@ load(
     "remote_java_tools_java_import",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -259,7 +261,7 @@ alias(
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remote_java_tools_linux//tools/jdk:proguard",
+        "//conditions:default": "@remote_java_tools_linux//:proguard",
     }),
 )
 
@@ -377,6 +379,8 @@ default_java_toolchain(
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
     jvm_opts = [],
+    source_version = "",
+    target_version = "",
 )
 
 RELEASES = (8, 9, 10, 11)
@@ -401,10 +405,16 @@ filegroup(
         "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
-        "proguard_whitelister_test_input.cfg",
+        "proguard_whitelister_test_input.pgcfg",
         "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
     ],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
@@ -425,7 +435,7 @@ py_binary(
 py_test(
     name = "proguard_whitelister_test",
     srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.cfg"],
+    data = ["proguard_whitelister_test_input.pgcfg"],
     deps = [
         ":proguard_whitelister",
     ],

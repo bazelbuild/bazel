@@ -37,6 +37,9 @@ public class Chart {
   /** The lines on the chart. */
   private final List<ChartLine> lines = new ArrayList<>();
 
+  /** The minimal nanosecond width of a bar for it to be visible when rendered. */
+  private final long minBarWidth;
+
   /** The types of the bars in the chart. */
   private final Map<String, ChartBarType> types = new HashMap<>();
 
@@ -45,6 +48,10 @@ public class Chart {
 
   /** The maximum stop value of any bar in the chart. */
   private long maxStop;
+
+  public Chart(long minBarWidth) {
+    this.minBarWidth = minBarWidth;
+  }
 
   /**
    * Adds a bar to a row of the chart. If a row with the given id already
@@ -60,9 +67,11 @@ public class Chart {
    */
   public void addBar(long id, long start, long stop, ChartBarType type, boolean highlight,
       String label) {
-    ChartRow slot = addSlotIfAbsent(id);
-    ChartBar bar = new ChartBar(slot, start, stop, type, highlight, label);
-    slot.addBar(bar);
+    if (stop - start >= minBarWidth) {
+      ChartRow slot = addSlotIfAbsent(id);
+      ChartBar bar = new ChartBar(slot, start, stop, type, highlight, label);
+      slot.addBar(bar);
+    }
     maxStop = Math.max(maxStop, stop);
   }
 

@@ -26,6 +26,7 @@ import com.google.common.io.Flushables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
@@ -54,7 +55,6 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -74,6 +74,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       ImmutableSet.of("--help", "-help", "-h");
 
   private final BlazeRuntime runtime;
+  private final BugReporter bugReporter;
   private final Object commandLock;
   private String currentClientDescription = null;
   private String shutdownReason = null;
@@ -91,6 +92,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             }
           });
 
+  @VisibleForTesting
+  BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter, BlazeCommand... commands) {
+    this(runtime, bugReporter);
+    runtime.overrideCommands(ImmutableList.copyOf(commands));
+  }
+
   /**
    * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance, but overrides
    * the command map with the given commands (plus any commands from modules).
@@ -98,7 +105,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime, BlazeCommand... commands) {
     this(runtime);
-    runtime.overrideCommands(Arrays.asList(commands));
+    runtime.overrideCommands(ImmutableList.copyOf(commands));
   }
 
   /**
@@ -106,7 +113,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
    */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
+    this(runtime, BugReporter.defaultInstance());
+  }
+
+  private BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
     this.runtime = runtime;
+    this.bugReporter = bugReporter;
     this.commandLock = new Object();
   }
 
@@ -273,7 +285,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
     // If an option is specified explicitly, we give that preference.
-    if (commonOptions.enableProfileByDefault
+    boolean commandSupportsProfile =
+        (commandAnnotation.builds() || "query".equals(commandName)) && !"clean".equals(commandName);
+    if (commandSupportsProfile
+        && commonOptions.enableProfileByDefault
         && (!options.containsExplicitOption("experimental_generate_json_trace_profile")
             || commonOptions.enableTracer)) {
       commonOptions.enableTracer = true;
@@ -282,6 +297,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
+      }
+      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
+        commonOptions.enableActionCountProfile = true;
       }
       if (!options.containsExplicitOption("experimental_json_trace_compression")) {
         commonOptions.enableTracerCompression = true;
@@ -530,9 +548,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
-      BugReport.sendBugReport(e, args, env.getCrashData());
+      bugReporter.sendBugReport(e, args, env.getCrashData());
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
-      return BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
+      result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
+      return result;
     } finally {
       if (!afterCommandCalled) {
         runtime.afterCommand(env, result);

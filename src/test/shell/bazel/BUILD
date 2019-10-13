@@ -64,6 +64,17 @@ filegroup(
 )
 
 sh_test(
+    name = "bazel_unresolved_symlink_test",
+    size = "medium",
+    srcs = ["bazel_unresolved_symlink_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
@@ -376,9 +387,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_experimental_ui_test",
+    name = "bazel_ui_test",
     size = "medium",
-    srcs = ["bazel_experimental_ui_test.sh"],
+    srcs = ["bazel_ui_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -546,6 +557,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_thinlto_test",
+    srcs = ["bazel_thinlto_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_localtest_test",
     srcs = ["bazel_localtest_test.sh"],
     data = [":test-deps"],
@@ -610,6 +630,15 @@ sh_test(
     size = "large",
     srcs = ["bazel_docgen_test.sh"],
     data = ["//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "external_skylark_execute_test",
+    size = "large",
+    srcs = ["external_skylark_execute_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
     tags = ["no_windows"],
 )
 
@@ -743,6 +772,14 @@ sh_test(
     name = "tags_propagation_skylark_test",
     size = "large",
     srcs = ["tags_propagation_skylark_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "tags_propagation_native_test",
+    size = "large",
+    srcs = ["tags_propagation_native_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -1170,4 +1207,14 @@ sh_test(
     srcs = ["platform_mapping_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "resource_compiler_toolchain_test",
+    srcs = ["resource_compiler_toolchain_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/res:srcs_for_testing",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

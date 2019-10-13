@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoPro
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Fake implementation of {@link JavaInfoApi}.
@@ -117,11 +117,18 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   public static class FakeJavaInfoProvider implements JavaInfoProviderApi {
 
     @Override
-    public JavaInfoApi<?> javaInfo(FileApi outputJarApi, Object compileJarApi, Object sourceJarApi,
-        Boolean neverlink, SkylarkList<?> deps, SkylarkList<?> runtimeDeps, SkylarkList<?> exports,
-        Object actionsApi, Object sourcesApi, Object sourceJarsApi, Object useIjarApi,
-        Object javaToolchainApi, Object hostJavabaseApi, Object jdepsApi, Location loc,
-        Environment env) throws EvalException {
+    public JavaInfoApi<?> javaInfo(
+        FileApi outputJarApi,
+        Object compileJarApi,
+        Object sourceJarApi,
+        Boolean neverlink,
+        SkylarkList<?> deps,
+        SkylarkList<?> runtimeDeps,
+        SkylarkList<?> exports,
+        Object jdepsApi,
+        Location loc,
+        StarlarkThread thread)
+        throws EvalException {
       return new FakeJavaInfo();
     }
 

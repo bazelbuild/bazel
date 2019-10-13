@@ -39,7 +39,9 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestAttempt;
+import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.Collection;
@@ -66,8 +68,9 @@ public class AggregatingTestListener {
   private final Multimap<ConfiguredTargetKey, Artifact> remainingRuns;
   private final Object summaryLock = new Object();
 
-  public AggregatingTestListener(TestResultAnalyzer analyzer, EventBus eventBus) {
-    this.analyzer = analyzer;
+  public AggregatingTestListener(
+      TestSummaryOptions summaryOptions, ExecutionOptions executionOptions, EventBus eventBus) {
+    this.analyzer = new TestResultAnalyzer(summaryOptions, executionOptions, eventBus);
     this.eventBus = eventBus;
 
     this.summaries = Maps.newHashMap();
@@ -259,10 +262,19 @@ public class AggregatingTestListener {
   }
 
   /**
-   * Returns the {@link TestResultAnalyzer} associated with this listener.
+   * Prints out the results of the given tests, and returns true if they all passed. Posts any
+   * targets which weren't already completed by the listener to the EventBus. Reports all targets on
+   * the console via the given notifier. Run at the end of the build, run only once.
+   *
+   * @param testTargets The list of targets being run
+   * @param notifier A console notifier to echo results to.
+   * @return true if all the tests passed, else false
    */
-  public TestResultAnalyzer getAnalyzer() {
-    return analyzer;
+  public boolean differentialAnalyzeAndReport(
+      Collection<ConfiguredTarget> testTargets,
+      Collection<ConfiguredTarget> skippedTargets,
+      TestResultNotifier notifier) {
+    return analyzer.differentialAnalyzeAndReport(testTargets, skippedTargets, this, notifier);
   }
 
   private ConfiguredTargetKey asKey(ConfiguredTarget target) {

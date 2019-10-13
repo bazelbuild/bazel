@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -72,6 +73,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -211,7 +213,12 @@ public final class ConfiguredTargetFactory {
       RuleConfiguredTarget rule =
           (RuleConfiguredTarget)
               targetContext.findDirectPrerequisite(
-                  outputFile.getGeneratingRule().getLabel(), config);
+                  outputFile.getGeneratingRule().getLabel(),
+                  // Don't pass a specific configuration, as we don't care what configuration the
+                  // generating rule is in. There can only be one actual dependency here, which is
+                  // the target that generated the output file.
+                  Optional.empty());
+      Verify.verifyNotNull(rule);
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {

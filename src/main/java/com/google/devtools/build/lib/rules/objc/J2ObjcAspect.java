@@ -153,6 +153,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             ProtoConfiguration.class)
         .addRequiredToolchains(ccToolchainType)
         .add(
+            attr("$grep_includes", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:grep-includes")))
+        .add(
             attr("$j2objc", LABEL)
                 .cfg(HostTransition.createFactory())
                 .exec()

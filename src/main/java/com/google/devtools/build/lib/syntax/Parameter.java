@@ -13,48 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * Syntax node for a Parameter in a function (or lambda) definition; it's a subclass of Argument,
- * and contrasts with the class Argument.Passed of arguments in a function call.
+ * Syntax node for a parameter in a function definition.
  *
- * <p>There are four concrete subclasses of Parameter: Mandatory, Optional, Star, StarStar.
+ * <p>Parameters may be of four forms, as in {@code def f(a, b=c, *args, **kwargs)}. They are
+ * represented by the subclasses Mandatory, Optional, Star, and StarStar.
  *
- * <p>See FunctionSignature for how a valid list of Parameter's is organized as a signature, e.g.
- * def foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
+ * <p>See FunctionSignature for how a valid list of Parameters is organized as a signature, e.g. def
+ * foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
  *
- * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime),
- * T is the class of a type (Expression at compile-time, SkylarkType at runtime).
+ * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime), T is the
+ * class of a type (Expression at compile-time, SkylarkType at runtime).
  */
-public abstract class Parameter<V, T> extends Argument {
+public abstract class Parameter extends Node {
 
-  @Nullable protected final Identifier identifier;
-  @Nullable protected final T type;
+  @Nullable private final Identifier identifier;
 
-  private Parameter(@Nullable Identifier identifier, @Nullable T type) {
+  private Parameter(@Nullable Identifier identifier) {
     this.identifier = identifier;
-    this.type = type;
-  }
-
-  public boolean isMandatory() {
-    return false;
-  }
-
-  public boolean isOptional() {
-    return false;
-  }
-
-  @Override
-  public boolean isStar() {
-    return false;
-  }
-
-  @Override
-  public boolean isStarStar() {
-    return false;
   }
 
   @Nullable
@@ -67,36 +46,27 @@ public abstract class Parameter<V, T> extends Argument {
     return identifier;
   }
 
-  public boolean hasName() {
-    return true;
-  }
-
   @Nullable
-  public T getType() {
-    return type;
-  }
-
-  @Nullable
-  public V getDefaultValue() {
+  public Expression getDefaultValue() {
     return null;
   }
 
-  /** mandatory parameter (positional or key-only depending on position): Ident */
-  @AutoCodec
-  public static final class Mandatory<V, T> extends Parameter<V, T> {
+  @Override
+  public final void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    prettyPrint(buffer);
+  }
 
-    public Mandatory(Identifier identifier) {
-      this(identifier, null);
-    }
+  @Override
+  public abstract void prettyPrint(Appendable buffer) throws IOException;
 
-    @AutoCodec.Instantiator
-    public Mandatory(Identifier identifier, @Nullable T type) {
-      super(identifier, type);
-    }
+  /**
+   * Syntax node for a mandatory parameter, {@code f(id)}. It may be positional or keyword-only
+   * depending on its position.
+   */
+  public static final class Mandatory extends Parameter {
 
-    @Override
-    public boolean isMandatory() {
-      return true;
+    Mandatory(Identifier identifier) {
+      super(identifier);
     }
 
     @Override
@@ -105,71 +75,43 @@ public abstract class Parameter<V, T> extends Argument {
     }
   }
 
-  /** optional parameter (positional or key-only depending on position): Ident = Value */
-  @AutoCodec
-  public static final class Optional<V, T> extends Parameter<V, T> {
+  /**
+   * Syntax node for an optional parameter, {@code f(id=expr).}. It may be positional or
+   * keyword-only depending on its position.
+   */
+  public static final class Optional extends Parameter {
 
-    public final V defaultValue;
+    public final Expression defaultValue;
 
-    public Optional(Identifier identifier, @Nullable V defaultValue) {
-      this(identifier, null, defaultValue);
-    }
-
-    @AutoCodec.Instantiator
-    public Optional(Identifier identifier, @Nullable T type, @Nullable V defaultValue) {
-      super(identifier, type);
+    Optional(Identifier identifier, @Nullable Expression defaultValue) {
+      super(identifier);
       this.defaultValue = defaultValue;
     }
 
     @Override
     @Nullable
-    public V getDefaultValue() {
+    public Expression getDefaultValue() {
       return defaultValue;
-    }
-
-    @Override
-    public boolean isOptional() {
-      return true;
     }
 
     @Override
     public void prettyPrint(Appendable buffer) throws IOException {
       buffer.append(getName());
       buffer.append('=');
-      // This should only ever be used on a parameter representing static information, i.e. with V
-      // and T instantiated as Expression.
-      ((Expression) defaultValue).prettyPrint(buffer);
+      defaultValue.prettyPrint(buffer);
     }
 
-    // Keep this as a separate method so that it can be used regardless of what V and T are
-    // parameterized with.
     @Override
     public String toString() {
       return getName() + "=" + defaultValue;
     }
   }
 
-  /** extra positionals parameter (star): *identifier */
-  @AutoCodec
-  public static final class Star<V, T> extends Parameter<V, T> {
+  /** Syntax node for a star parameter, {@code f(*identifier)} or or {@code f(..., *, ...)}. */
+  public static final class Star extends Parameter {
 
-    @AutoCodec.Instantiator
-    public Star(@Nullable Identifier identifier, @Nullable T type) {
-      super(identifier, type);
-    }
-
-    public Star(@Nullable Identifier identifier) {
-      this(identifier, null);
-    }
-
-    @Override
-    public boolean hasName() {
-      return getName() != null;
-    }
-
-    @Override
-    public boolean isStar() {
-      return true;
+    Star(@Nullable Identifier identifier) {
+      super(identifier);
     }
 
     @Override
@@ -181,22 +123,11 @@ public abstract class Parameter<V, T> extends Argument {
     }
   }
 
-  /** extra keywords parameter (star_star): **identifier */
-  @AutoCodec
-  public static final class StarStar<V, T> extends Parameter<V, T> {
+  /** Syntax node for a parameter of the form {@code f(**identifier)}. */
+  public static final class StarStar extends Parameter {
 
-    @AutoCodec.Instantiator
-    public StarStar(Identifier identifier, @Nullable T type) {
-      super(identifier, type);
-    }
-
-    public StarStar(Identifier identifier) {
-      this(identifier, null);
-    }
-
-    @Override
-    public boolean isStarStar() {
-      return true;
+    StarStar(Identifier identifier) {
+      super(identifier);
     }
 
     @Override
@@ -207,8 +138,7 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public void accept(SyntaxTreeVisitor visitor) {
-    visitor.visit((Parameter<Expression, Expression>) this);
+  public void accept(NodeVisitor visitor) {
+    visitor.visit(this);
   }
 }

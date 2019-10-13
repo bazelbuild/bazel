@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -105,7 +105,6 @@ public class PackageCacheTest extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(defaultBuildOptions)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
@@ -215,7 +214,7 @@ public class PackageCacheTest extends FoundationTestCase {
   public void testASTIsNotRetained() throws Exception {
     createPkg1();
     Package pkg1 = getPackage("pkg1");
-    MoreAsserts.assertInstanceOfNotReachable(pkg1, BuildFileAST.class);
+    MoreAsserts.assertInstanceOfNotReachable(pkg1, StarlarkFile.class);
   }
 
   @Test
@@ -483,9 +482,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
     // now:
     assertPackageLoadingFails(
-        "pkg",
-        "Label '//pkg:x/y.cc' crosses boundary of subpackage 'pkg/x' "
-            + "(perhaps you meant to put the colon here: '//pkg/x:y.cc'?)");
+        "pkg", "Label '//pkg:x/y.cc' is invalid because 'pkg/x' is a subpackage");
   }
 
   @Test
@@ -508,8 +505,8 @@ public class PackageCacheTest extends FoundationTestCase {
     assertLabelValidity(false, "//c:d/x");
     assertPackageLoadingFails(
         "c",
-        "Label '//c:d/x' crosses boundary of subpackage 'c/d' (have you deleted c/d/BUILD? "
-            + "If so, use the --deleted_packages=c/d option)");
+        "Label '//c:d/x' is invalid because 'c/d' is a subpackage; have you deleted c/d/BUILD? "
+            + "If so, use the --deleted_packages=c/d option");
 
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
         .isTrue();

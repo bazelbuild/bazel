@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 
+#include <memory>
+
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/test/cpp/test_util.h"
@@ -35,6 +37,9 @@ class FakeStartupOptions : public StartupOptions {
     return blaze_exit_code::SUCCESS;
   }
   void MaybeLogStartupOptionWarnings() const override {}
+
+ protected:
+  std::string GetRcFileBaseName() const override { return ".bazelrc"; }
 };
 
 class StartupOptionsTest : public ::testing::Test {

@@ -16,7 +16,7 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@bazel_tools//tools/cpp:cc_toolchain_config.bzl", "cc_toolchain_config")
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_toolchain", "cc_library")
 
 cc_library(
@@ -57,7 +57,6 @@ cc_toolchain(
 cc_toolchain_config(
     name = "local_freebsd",
     cpu = "freebsd",
-    compiler = "compiler",
 )
 
 toolchain(
@@ -92,7 +91,6 @@ cc_toolchain(
 cc_toolchain_config(
     name = "stub_armeabi-v7a",
     cpu = "armeabi-v7a",
-    compiler = "compiler",
 )
 
 toolchain(

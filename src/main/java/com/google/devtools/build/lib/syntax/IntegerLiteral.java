@@ -19,16 +19,11 @@ import java.io.IOException;
 public final class IntegerLiteral extends Expression {
   private final int value;
 
-  public IntegerLiteral(int value) {
+  IntegerLiteral(int value) {
     this.value = value;
   }
 
   public int getValue() {
-    return value;
-  }
-
-  @Override
-  Object doEval(Environment env) {
     return value;
   }
 
@@ -38,7 +33,7 @@ public final class IntegerLiteral extends Expression {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

@@ -40,11 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Prints results to the terminal, showing the results of each test target.
- */
+/** Prints results to the terminal, showing the results of each test target. */
 @ThreadCompatible
-public class TestResultAnalyzer {
+public final class TestResultAnalyzer {
   private final TestSummaryOptions summaryOptions;
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
@@ -58,9 +56,8 @@ public class TestResultAnalyzer {
    * @param executionOptions Parsed build/test execution options.
    * @param eventBus For reporting failed to build and cached tests.
    */
-  public TestResultAnalyzer(TestSummaryOptions summaryOptions,
-                            ExecutionOptions executionOptions,
-                            EventBus eventBus) {
+  TestResultAnalyzer(
+      TestSummaryOptions summaryOptions, ExecutionOptions executionOptions, EventBus eventBus) {
     this.summaryOptions = summaryOptions;
     this.executionOptions = executionOptions;
     this.eventBus = eventBus;
@@ -260,6 +257,8 @@ public class TestResultAnalyzer {
 
     summaryBuilder
         .addTestTimes(result.getData().getTestTimesList())
+        .mergeTiming(
+            result.getData().getStartTimeMillisEpoch(), result.getData().getRunDurationMillis())
         .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
         .countTotalTestCases(result.getData().getTestCase())

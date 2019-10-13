@@ -54,10 +54,18 @@ class TestWrapperTest(test_base.TestBase):
         '        "@echo USER=%USER%",',
         '    ]',
         ')',
-        'py_test(',
+        'bat_test(',
         '    name = "runfiles_test",',
-        '    srcs = ["runfiles_test.py"],',
+        '    content = [',
+        '        "@echo off",',
+        '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
+        '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
+        '        "echo DIR=%RUNFILES_DIR%",',
+        '        "echo data_path=%1",',
+        '        "if exist %1 (echo data_exists=1) else (echo data_exists=0)",',
+        '    ],',
         '    data = ["dummy.dat"],',
+        '    args = ["$(location dummy.dat)"],',
         ')',
         'bat_test(',
         '    name = "sharded_test",',
@@ -139,16 +147,6 @@ class TestWrapperTest(test_base.TestBase):
     self.CopyFile(
         src_path=self.Rlocation('io_bazel/src/test/py/bazel/native_test.bzl'),
         dst_path='foo/native_test.bzl')
-
-    self.ScratchFile(
-        'foo/runfiles_test.py', [
-            'from __future__ import print_function',
-            'import os',
-            'print("MF=%s" % os.environ.get("RUNFILES_MANIFEST_FILE"))',
-            'print("ONLY=%s" % os.environ.get("RUNFILES_MANIFEST_ONLY"))',
-            'print("DIR=%s" % os.environ.get("RUNFILES_DIR"))',
-        ],
-        executable=True)
 
     self.ScratchFile(
         'foo/undecl_test.py', [
@@ -275,7 +273,7 @@ class TestWrapperTest(test_base.TestBase):
         '--enable_runfiles=no',
     ] + flags)
     self.AssertExitCode(exit_code, 0, stderr)
-    mf = mf_only = rf_dir = None
+    mf = mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('MF='):
         mf = line[len('MF='):]
@@ -283,6 +281,10 @@ class TestWrapperTest(test_base.TestBase):
         mf_only = line[len('ONLY='):]
       elif line.startswith('DIR='):
         rf_dir = line[len('DIR='):]
+      elif line.startswith('data_path='):
+        path = line[len('data_path='):]
+      elif line.startswith('data_exists='):
+        exists = line[len('data_exists='):]
 
     if mf_only != '1':
       self._FailWithOutput(stderr + stdout)
@@ -297,6 +299,49 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_contents)
 
     if not os.path.isdir(rf_dir):
+      self._FailWithOutput(stderr + stdout)
+
+    if not path:
+      # Expect the $(location) expansion in 'args' worked
+      self._FailWithOutput(stderr + stdout)
+
+    if exists != '0':
+      # Runfiles are disabled, expect the runfile symlink to be missing.
+      self._FailWithOutput(stderr + stdout)
+
+  def _AssertRunfilesSymlinks(self, flags):
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:runfiles_test',
+        '-t-',
+        '--test_output=all',
+        # Ensure Bazel creates a runfiles tree.
+        '--enable_runfiles=yes',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+    mf_only = rf_dir = path = exists = None
+    for line in stderr + stdout:
+      if line.startswith('ONLY='):
+        mf_only = line[len('ONLY='):]
+      elif line.startswith('DIR='):
+        rf_dir = line[len('DIR='):]
+      elif line.startswith('data_path='):
+        path = line[len('data_path='):]
+      elif line.startswith('data_exists='):
+        exists = line[len('data_exists='):]
+
+    if mf_only == '1':
+      self._FailWithOutput(stderr + stdout)
+
+    if not rf_dir or not os.path.isdir(rf_dir):
+      self._FailWithOutput(stderr + stdout)
+
+    if not path:
+      # Expect the $(location) expansion in 'args' worked
+      self._FailWithOutput(stderr + stdout)
+
+    if exists != '1':
+      # Runfiles are enabled, expect the runfile symlink to exist.
       self._FailWithOutput(stderr + stdout)
 
   def _AssertShardedTest(self, flags):
@@ -566,13 +611,14 @@ class TestWrapperTest(test_base.TestBase):
             exit_code, 0,
             ['flag=%s' % flag, 'target=%s' % target] + stderr)
 
-  def testTestExecutionWithTestSetupSh(self):
+  def _RunTests(self, flags):
     self._CreateMockWorkspace()
     flags = ['--noincompatible_windows_native_test_wrapper']
     self._AssertPassingTest(flags)
     self._AssertFailingTest(flags)
     self._AssertPrintingTest(flags)
     self._AssertRunfiles(flags)
+    self._AssertRunfilesSymlinks(flags)
     self._AssertShardedTest(flags)
     self._AssertUnexportsEnvvars(flags)
     self._AssertTestArgs(flags)
@@ -583,24 +629,12 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
 
+  def testTestExecutionWithTestSetupSh(self):
+    self._RunTests(['--noincompatible_windows_native_test_wrapper'])
+
   def testTestExecutionWithTestWrapperExe(self):
-    self._CreateMockWorkspace()
-    flags = [
-        '--incompatible_windows_native_test_wrapper', '--shell_executable='
-    ]
-    self._AssertPassingTest(flags)
-    self._AssertFailingTest(flags)
-    self._AssertPrintingTest(flags)
-    self._AssertRunfiles(flags)
-    self._AssertShardedTest(flags)
-    self._AssertUnexportsEnvvars(flags)
-    self._AssertTestArgs(flags)
-    self._AssertUndeclaredOutputs(flags)
-    self._AssertUndeclaredOutputsAnnotations(flags)
-    self._AssertXmlGeneration(flags, split_xml=False)
-    self._AssertXmlGeneration(flags, split_xml=True)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
+    self._RunTests(
+        ['--incompatible_windows_native_test_wrapper', '--shell_executable='])
 
 
 if __name__ == '__main__':

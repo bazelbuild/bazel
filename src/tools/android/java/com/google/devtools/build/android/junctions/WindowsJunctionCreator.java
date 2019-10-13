@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -49,7 +49,7 @@ public final class WindowsJunctionCreator implements JunctionCreator {
     }
 
     if (paths == null) {
-      paths = new HashMap<>();
+      paths = new LinkedHashMap<>();
     }
     path = path.toAbsolutePath();
     if (path.toFile().isDirectory()) {

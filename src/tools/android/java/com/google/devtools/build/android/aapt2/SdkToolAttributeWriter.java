@@ -42,7 +42,7 @@ import javax.xml.namespace.QName;
  */
 class SdkToolAttributeWriter implements AndroidDataWritingVisitor {
 
-  private static final Splitter COMMA_SPLITTER = Splitter.on(',');
+  private static final Splitter COMMA_SPLITTER = Splitter.on(',').trimResults();
 
   private static final Function<String, Iterable<String>> DEFAULT_ATTRIBUTE_PROCESSOR =
       ImmutableList::of;

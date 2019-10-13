@@ -246,11 +246,6 @@ class CcImportTest(test_base.TestBase):
                   ' following files included by \'main/b.cc\':',
                   ''.join(stderr))
 
-  def AssertFileContentContains(self, file_path, entry):
-    with open(file_path, 'r') as f:
-      if entry not in f.read():
-        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
-
 
 if __name__ == '__main__':
   unittest.main()

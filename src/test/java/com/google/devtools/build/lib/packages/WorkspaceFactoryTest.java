@@ -40,15 +40,6 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testLoadError() throws Exception {
-    // WS with a syntax error: '//a' should end with .bzl.
-    helper.parse("load('//a', 'a')");
-    helper.assertLexingExceptionThrown();
-    assertThat(helper.getLexerError())
-        .contains("The label must reference a file with extension '.bzl'");
-  }
-
-  @Test
   public void testWorkspaceName() throws Exception {
     helper.parse("workspace(name = 'my_ws')");
     assertThat(helper.getPackage().getWorkspaceName()).isEqualTo("my_ws");

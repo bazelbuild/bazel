@@ -158,6 +158,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/dummy/test/proto/test.proto");
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(",
         "    name = 'test_proto',",
@@ -242,6 +243,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/dummy/test/proto/test.proto");
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(",
         "    name = 'test_proto',",
@@ -274,6 +276,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJavaProtoLibraryWithProtoLibrary() throws Exception {
     scratch.file(
         "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(",
         "    name = 'test_proto',",
         "    srcs = ['test.proto'],",
@@ -308,6 +311,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     // Create the rule '@bla//foo:test_proto'.
     scratch.file(
         "/bla/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(",
         "    name = 'test_proto',",
@@ -1028,6 +1032,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     scratch.overwriteFile(
         "tools/j2objc/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['j2objc_deploy.jar'])",
         "filegroup(",
@@ -1067,6 +1073,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("java/com/google/dummy/test/proto/test.proto");
     scratch.file(
         "java/com/google/dummy/test/proto/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "proto_library(",
         "    name = 'test_proto',",

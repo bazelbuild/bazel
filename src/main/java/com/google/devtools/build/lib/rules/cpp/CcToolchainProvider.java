@@ -84,7 +84,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* sysroot= */ null,
           /* targetSysroot= */ null,
           /* fdoContext= */ null,
-          /* isHostConfiguration= */ false,
+          /* isToolConfiguration= */ false,
           /* licensesProvider= */ null,
           /* toolPaths= */ ImmutableMap.of(),
           /* toolchainIdentifier= */ "",
@@ -135,7 +135,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
   private final PathFragment targetSysroot;
-  private final boolean isHostConfiguration;
+  private final boolean isToolConfiguration;
   private final ImmutableMap<String, PathFragment> toolPaths;
   private final CcToolchainFeatures toolchainFeatures;
   private final String toolchainIdentifier;
@@ -200,7 +200,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       @Nullable PathFragment sysroot,
       @Nullable PathFragment targetSysroot,
       FdoContext fdoContext,
-      boolean isHostConfiguration,
+      boolean isToolConfiguration,
       LicensesProvider licensesProvider,
       ImmutableMap<String, PathFragment> toolPaths,
       String toolchainIdentifier,
@@ -257,7 +257,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.defaultSysroot = defaultSysroot;
     this.runtimeSysroot = runtimeSysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
-    this.isHostConfiguration = isHostConfiguration;
+    this.isToolConfiguration = isToolConfiguration;
     this.licensesProvider = licensesProvider;
     this.toolPaths = toolPaths;
     this.toolchainFeatures = toolchainFeatures;
@@ -940,8 +940,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     return System.identityHashCode(this);
   }
 
-  public boolean isHostConfiguration() {
-    return isHostConfiguration;
+  public boolean isToolConfiguration() {
+    return isToolConfiguration;
   }
 
   public LicensesProvider getLicensesProvider() {

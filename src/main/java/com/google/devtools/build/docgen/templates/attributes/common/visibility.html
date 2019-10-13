@@ -1,6 +1,7 @@
 <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional;
 default <a href="${link package.default_visibility}">default_visibility</a> from
-<a href="${link package}">package</a> if specified, else private</code></p>
+<a href="${link package}">package</a> if specified, or //visibility:private
+  otherwise.</code></p>
 
 <p>
 The <code>visibility</code> attribute on a rule controls whether
@@ -45,13 +46,16 @@ to entire subtrees, e.g.<code>//myproj/...</code>.
 can not be combined with any other visibility specifications.
 A visibility specification may contain a combination of package labels
 (i.e. <code>//foo:__pkg__</code>) and <code>package_group</code>s.</p>
-<p>If a rule does not specify the visibility attribute,
-the <code><a href="${link package.default_visibility}">default_visibility</a></code>
+<p>If a rule does specify the visibility attribute, that specification
+overrides any
+<code><a href="${link package.default_visibility}">default_visibility</a></code>
 attribute of the <code><a href="${link package}">package</a></code>
-statement in the BUILD file containing the rule is used
-(except <a href="${link exports_files}">exports_files</a>).</p>
-<p>If the default visibility for the package is not specified,
-the rule is private.</p>
+statement in the BUILD file containing the rule.</p>
+<p>Otherwise, if a rule does not specify the visibility attribute, the default_visibility
+of the package is used (except for
+<a href="${link exports_files}">exports_files</a>).</p>
+<p>Otherwise, if the default_visibility for the package is not specified,
+<code>//visibility:private</code> is used.</p>
 <p><b>Example</b>:</p>
 <p>
 File <code>//frobber/bin/BUILD</code>:

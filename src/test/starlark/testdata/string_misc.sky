@@ -1,5 +1,6 @@
 # join
 assert_eq('-'.join(['a', 'b', 'c']), "a-b-c")
+assert_eq('-'.join({'a': 0, 'b': None, 'c': True}), "a-b-c")
 
 ---
 join(' ', ['a', 'b', 'c']) ### name 'join' is not defined
@@ -41,6 +42,18 @@ assert_eq('b$()n$()n$()'.replace('$()', '$($())'), "b$($())n$($())n$($())")
 assert_eq('b\\n\\n\\'.replace('\\', '$()'), "b$()n$()n$()")
 
 assert_eq('banana'.replace('a', 'e', 2), "benena")
+assert_eq('banana'.replace('a', 'e', 0), "banana")
+assert_eq('banana'.replace('a', 'e', -1), "banana")
+assert_eq('banana'.replace('a', 'e', -10), "banana")
+
+assert_eq('banana'.replace('', '-'), "-b-a-n-a-n-a-")
+assert_eq('banana'.replace('', '-', -2), "banana")
+assert_eq('banana'.replace('', '-', 2), "-b-anana")
+assert_eq('banana'.replace('', '-', 0), "banana")
+
+assert_eq('banana'.replace('', ''), "banana")
+assert_eq('banana'.replace('a', ''), "bnn")
+assert_eq('banana'.replace('a', '', 2), "bnna")
 
 # index, rindex
 assert_eq('banana'.index('na'), 2)
@@ -162,6 +175,8 @@ assert_eq("\"", '"')
 # enumerate
 
 assert_eq(enumerate("abc".elems()), [(0, "a"), (1, "b"), (2, "c")])
+assert_eq(enumerate({'a': 0, 2: 1, 'ab': 3}), [(0, 'a'), (1, 2), (2, 'ab')])
+assert_eq(enumerate({}), [])
 assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
 ---
-enumerate("ab") ### expected value of type 'sequence'
+enumerate("ab") ### type 'string' is not a collection

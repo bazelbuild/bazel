@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -62,20 +61,8 @@ public class QueryOutputUtils {
         subgraph = digraphQueryEvalResult.getGraph().extractSubgraph(targetsResult);
       }
 
-      // Building ConditionalEdges involves traversing the subgraph and so we only do this when
-      // needed.
-      //
-      // TODO(bazel-team): Remove this while adding support for conditional edges in other
-      // formatters.
-      ConditionalEdges conditionalEdges;
-      if (formatter instanceof GraphOutputFormatter) {
-        conditionalEdges = new ConditionalEdges(subgraph);
-      } else {
-        conditionalEdges = new ConditionalEdges();
-      }
-
       try (SilentCloseable closeable = Profiler.instance().profile("formatter.output")) {
-        formatter.output(queryOptions, subgraph, outputStream, aspectResolver, conditionalEdges);
+        formatter.output(queryOptions, subgraph, outputStream, aspectResolver);
       }
     }
   }

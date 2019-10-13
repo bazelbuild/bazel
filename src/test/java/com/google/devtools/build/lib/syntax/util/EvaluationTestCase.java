@@ -16,28 +16,27 @@ package com.google.devtools.build.lib.syntax.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Ordered;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BazelLibrary;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.FailFastException;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Parser;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
-import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -53,89 +52,81 @@ public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
   private TestMode testMode = TestMode.SKYLARK;
-  protected Environment env;
+  protected StarlarkThread thread;
   protected Mutability mutability = Mutability.create("test");
 
   @Before
   public final void initialize() throws Exception {
-    env = newEnvironment();
+    thread = newStarlarkThread();
   }
 
   /**
-   * Creates a standard Environment for tests in the BUILD language.
-   * No PythonPreprocessing, mostly empty mutable Environment.
+   * Creates a standard StarlarkThread for tests in the BUILD language. No PythonPreprocessing,
+   * mostly empty mutable StarlarkThread.
    */
-  public Environment newBuildEnvironment() {
-    BazelStarlarkContext context =
-        new BazelStarlarkContext(
-            TestConstants.TOOLS_REPOSITORY,
-            /* repoMapping= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()));
-    Environment env =
-        Environment.builder(mutability)
+  public StarlarkThread newBuildStarlarkThread() {
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
             .useDefaultSemantics()
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
-            .setStarlarkContext(context)
             .build();
-    SkylarkUtils.setPhase(env, Phase.LOADING);
-    return env;
+
+    SkylarkUtils.setPhase(thread, Phase.LOADING);
+
+    new BazelStarlarkContext(
+            TestConstants.TOOLS_REPOSITORY,
+            /* fragmentNameToClass= */ null,
+            /* repoMapping= */ ImmutableMap.of(),
+            new SymbolGenerator<>(new Object()),
+            /* analysisRuleLabel= */ null)
+        .storeInThread(thread);
+
+    return thread;
   }
 
   /**
-   * Creates an Environment for Skylark with a mostly empty initial environment.
-   * For internal initialization or tests.
-   */
-  public Environment newSkylarkEnvironment() {
-    return Environment.builder(mutability)
-        .useDefaultSemantics()
-        .setGlobals(BazelLibrary.GLOBALS)
-        .setEventHandler(getEventHandler())
-        .build();
-  }
-
-  /**
-   * Creates a new Environment suitable for the test case. Subclasses may override it to fit their
-   * purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment; or they may play with the
-   * testMode to run tests in either or both kinds of Environment. Note that all Environment-s may
-   * share the same Mutability, so don't close it.
+   * Creates a new StarlarkThread suitable for the test case. Subclasses may override it to fit
+   * their purpose and e.g. call newBuildStarlarkThread or newStarlarkThread; or they may play with
+   * the testMode to run tests in either or both kinds of StarlarkThread. Note that all
+   * StarlarkThread-s may share the same Mutability, so don't close it.
    *
-   * @return a fresh Environment.
+   * @return a fresh StarlarkThread.
    */
-  public Environment newEnvironment() throws Exception {
-    return newEnvironmentWithSkylarkOptions();
+  public StarlarkThread newStarlarkThread() throws Exception {
+    return newStarlarkThreadWithSkylarkOptions();
   }
 
-  protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
+  protected StarlarkThread newStarlarkThreadWithSkylarkOptions(String... skylarkOptions)
       throws Exception {
-    return newEnvironmentWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
+    return newStarlarkThreadWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
   }
 
-  protected Environment newEnvironmentWithBuiltinsAndSkylarkOptions(Map<String, Object> builtins,
-      String... skylarkOptions) throws Exception {
+  protected StarlarkThread newStarlarkThreadWithBuiltinsAndSkylarkOptions(
+      Map<String, Object> builtins, String... skylarkOptions) throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
-              + "Environment manually by overriding newEnvironment()");
+              + "StarlarkThread manually by overriding newStarlarkThread()");
     }
-    return testMode.createEnvironment(getEventHandler(), builtins, skylarkOptions);
+    return testMode.createStarlarkThread(getEventHandler(), builtins, skylarkOptions);
   }
 
   /**
-   * Sets the specified {@code TestMode} and tries to create the appropriate {@code Environment}
+   * Sets the specified {@code TestMode} and tries to create the appropriate {@code StarlarkThread}
    *
    * @param testMode
    * @throws Exception
    */
   protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironmentWithSkylarkOptions(skylarkOptions);
+    thread = newStarlarkThreadWithSkylarkOptions(skylarkOptions);
   }
 
   protected void setMode(TestMode testMode, Map<String, Object> builtins,
       String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironmentWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
+    thread = newStarlarkThreadWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
   }
 
   protected void enableSkylarkMode(Map<String, Object> builtins,
@@ -155,61 +146,57 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.reporter();
   }
 
-  public Environment getEnvironment() {
-    return env;
+  public StarlarkThread getStarlarkThread() {
+    return thread;
   }
+  // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
+  // Separate all the tests clearly into tests of the scanner, parser, resolver,
+  // and evaluation.
 
-  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
-    return BuildFileAST.parseString(getEventHandler(), input);
-  }
-
-  protected BuildFileAST parseBuildFileAST(String... input) {
-    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
-    return ast.validate(env, getEventHandler());
-  }
-
-  protected List<Statement> parseFile(String... input) {
-    return parseBuildFileAST(input).getStatements();
-  }
-
-  /** Construct a ParserInputSource by concatenating multiple strings with newlines. */
-  private ParserInputSource makeParserInputSource(String... input) {
-    return ParserInputSource.create(Joiner.on("\n").join(input), null);
-  }
-
-  /** Parses a statement, possibly followed by newlines. */
-  protected Statement parseStatement(Parser.ParsingLevel parsingLevel, String... input) {
-    return Parser.parseStatement(makeParserInputSource(input), getEventHandler(), parsingLevel);
-  }
-
-  /** Parses an expression, possibly followed by newlines. */
-  protected Expression parseExpression(String... input) {
-    return Parser.parseExpression(makeParserInputSource(input), getEventHandler());
+  /** Parses an expression. */
+  protected final Expression parseExpression(String... lines) throws SyntaxError {
+    return Expression.parse(ParserInput.fromLines(lines));
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    env.update(varname, value);
+    thread.update(varname, value);
     return this;
   }
 
   public Object lookup(String varname) throws Exception {
-    return env.moduleLookup(varname);
+    return thread.moduleLookup(varname);
   }
 
-  public Object eval(String... input) throws Exception {
-    if (testMode == TestMode.SKYLARK) {
-      return BuildFileAST.eval(env, input);
+  // TODO(adonovan): this function does far too much:
+  // - two forms, exec(file) or exec(file)+eval(expression).
+  // - two modes, BUILD vs Skylark.
+  // - parse + validate + BUILD dialect checks + execute.
+  // Break the tests down into tests of just the scanner, parser, validator, build dialect checks,
+  // or execution, and assert that all passes except the one of interest succeed.
+  // All BUILD-dialect stuff belongs in bazel proper (lib.packages), not here.
+  public Object eval(String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    StarlarkFile file = StarlarkFile.parse(input);
+    ValidationEnvironment.validateFile(
+        file, thread.getGlobals(), thread.getSemantics(), testMode == TestMode.BUILD);
+    if (testMode == TestMode.SKYLARK) { // .bzl and other dialects
+      if (!file.ok()) {
+        throw new SyntaxError(file.errors());
+      }
+    } else {
+      // For BUILD mode, validation events are reported but don't (yet)
+      // prevent execution. We also apply BUILD dialect syntax checks.
+      Event.replayEventsOn(getEventHandler(), file.errors());
+      PackageFactory.checkBuildSyntax(file, getEventHandler());
     }
-    BuildFileAST ast = BuildFileAST.parseString(env.getEventHandler(), input);
-    ValidationEnvironment.checkBuildSyntax(ast.getStatements(), env.getEventHandler(), env);
-    return ast.eval(env);
+    return EvalUtils.execOrEval(file, thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
     try {
       eval(input);
       fail("Expected error '" + msg + "' but got no error");
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().isEqualTo(msg);
     }
   }
@@ -218,7 +205,7 @@ public class EvaluationTestCase {
     try {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().contains(msg);
     }
   }
@@ -226,7 +213,7 @@ public class EvaluationTestCase {
   public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
     try {
       eval(input);
-    } catch (EvalException | FailFastException e) {
+    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().doesNotContain(msg);
     }
   }

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -63,6 +64,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Test StandaloneSpawnStrategy.
@@ -142,8 +144,8 @@ public class StandaloneSpawnStrategyTest {
                                 localExecutionOptions,
                                 resourceManager,
                                 (env, unusedBinTools, unusedFallbackTempDir) -> env,
-                                BinTools.forIntegrationTesting(
-                                    directories, ImmutableList.of())))))),
+                                BinTools.forIntegrationTesting(directories, ImmutableList.of()),
+                                Mockito.mock(RunfilesTreeUpdater.class)))))),
             ImmutableList.of());
 
     executor.getExecRoot().createDirectoryAndParents();

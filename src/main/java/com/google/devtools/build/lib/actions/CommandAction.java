@@ -24,7 +24,12 @@ import java.util.List;
  */
 public interface CommandAction extends Action, ExecutionInfoSpecifier {
 
-  /** Returns a list of command line arguments that implements this action. */
+  /**
+   * Returns a list of command line arguments that implements this action.
+   *
+   * <p>In most cases, this expands any params files. One notable exception is C/C++ compilation
+   * with the "compiler_param_file" feature.
+   */
   List<String> getArguments() throws CommandLineExpansionException;
 
   /**

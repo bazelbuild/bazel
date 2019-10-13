@@ -266,7 +266,7 @@ To enable the Clang toolchain for building C++, there are several situations.
     )
     ```
 
-    The reason we have those two ways is because [--incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
+    The reason we have those two ways is because [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
 
 ### Build Java
 

@@ -401,18 +401,13 @@ public class ResourceManager {
             staticResources.getMemoryMb() * (100.0 - this.ramUtilizationPercentage) / 100.0;
         remainingRam = totalFreeRam - reserveMemory;
       } catch (IOException e) {
-        // If we get an error trying to determine the currently free
-        // system memory for any reason, just continue on.  It is not
-        // terribly clear what could cause this, aside from an
-        // unexpected ABI breakage in the linux kernel or an OS-level
-        // misconfiguration such as not having permissions to read
-        // /proc/meminfo.
+        // If we get an error trying to determine the currently free system memory for any reason,
+        // just continue on.  It is not terribly clear what could cause this, aside from an
+        // unexpected ABI breakage in the linux kernel or an OS-level misconfiguration such as not
+        // having permissions to read /proc/meminfo.
         //
-        // remainingRam is initialized to a value that results in
-        // behavior as if localMemoryEstimate was disabled.
-      } catch (ProcMeminfoParser.KeywordNotFoundException e) {
-        // Similarly fall back to the non-localMemoryEstimate
-        // behavior.
+        // remainingRam is initialized to a value that results in behavior as if localMemoryEstimate
+        // was disabled.
       }
     }
 

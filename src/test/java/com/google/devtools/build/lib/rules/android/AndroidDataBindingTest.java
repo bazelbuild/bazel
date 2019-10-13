@@ -357,9 +357,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     assertWithMessage(UsesDataBindingProvider.NAME).that(usesDataBindingProvider).isNotNull();
 
     Truth.assertThat(
-            usesDataBindingProvider
-                .getMetadataOutputs()
-                .stream()
+            usesDataBindingProvider.getMetadataOutputs().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly(

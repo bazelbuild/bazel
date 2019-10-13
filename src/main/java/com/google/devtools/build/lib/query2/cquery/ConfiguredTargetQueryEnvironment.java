@@ -260,7 +260,7 @@ public class ConfiguredTargetQueryEnvironment
     if (configuredTarget != null) {
       return configuredTarget;
     }
-    // Try with host configuration (even when --nohost_deps is set in the case that top-level
+    // Try with host configuration (even when --notool_deps is set in the case that top-level
     // targets are configured in the host configuration so we are doing a host-configuration-only
     // query).
     configuredTarget = getHostConfiguredTarget(label);

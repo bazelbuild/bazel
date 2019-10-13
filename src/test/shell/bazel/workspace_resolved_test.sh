@@ -1117,6 +1117,27 @@ EOF
       || fail "execution platform not registered in resolved file"
 }
 
+test_local_config_platform_recorded() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  # Verify that the auto-generated local_config_platform repo is
+  # recorded in the resolved file
+  mkdir main
+  cd main
+  # Clear out the WORKSPACE.
+  cat >> WORKSPACE <<EOF
+EOF
+  touch BUILD
+  bazel sync \
+      --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+      --experimental_repository_resolved_file=resolved.bzl
+  echo; cat resolved.bzl; echo
+
+  grep 'local_config_platform' resolved.bzl \
+      || fail "local_config_platform in resolved file"
+}
+
 test_definition_location_recorded() {
   # Verify that for Starlark repositories the location of the definition
   # is recorded in the resolved file.

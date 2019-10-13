@@ -19,12 +19,9 @@ import static java.util.stream.Collectors.joining;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -37,10 +34,8 @@ import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -57,20 +52,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
    * providers to be used for each toolchain type.
    */
   public static ResolvedToolchainContext load(
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       UnloadedToolchainContext unloadedToolchainContext,
       String targetDescription,
       Iterable<ConfiguredTargetAndData> toolchainTargets)
       throws ToolchainException {
-
-    ResolvedToolchainContext.Builder toolchainContext =
-        new AutoValue_ResolvedToolchainContext.Builder()
-            .setTargetDescription(targetDescription)
-            .setExecutionPlatform(unloadedToolchainContext.executionPlatform())
-            .setTargetPlatform(unloadedToolchainContext.targetPlatform())
-            .setRequiredToolchainTypes(unloadedToolchainContext.requiredToolchainTypes())
-            .setResolvedToolchainLabels(unloadedToolchainContext.resolvedToolchainLabels())
-            .setRequestedToolchainTypeLabels(
-                unloadedToolchainContext.requestedLabelToToolchainType());
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchains =
         new ImmutableMap.Builder<>();
@@ -108,43 +94,22 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       }
     }
 
-    return toolchainContext
-        .setToolchains(toolchains.build())
-        .setTemplateVariableProviders(templateVariableProviders.build())
-        .build();
+    return new AutoValue_ResolvedToolchainContext(
+        // super:
+        unloadedToolchainContext.executionPlatform(),
+        unloadedToolchainContext.targetPlatform(),
+        unloadedToolchainContext.requiredToolchainTypes(),
+        unloadedToolchainContext.resolvedToolchainLabels(),
+        // this:
+        repoMapping,
+        targetDescription,
+        unloadedToolchainContext.requestedLabelToToolchainType(),
+        toolchains.build(),
+        templateVariableProviders.build());
   }
 
-  /** Builder interface to help create new instances of {@link ResolvedToolchainContext}. */
-  @AutoValue.Builder
-  interface Builder {
-    /** Sets a description of the target being used, for error messaging. */
-    Builder setTargetDescription(String targetDescription);
-
-    /** Sets the selected execution platform that these toolchains use. */
-    Builder setExecutionPlatform(PlatformInfo executionPlatform);
-
-    /** Sets the target platform that these toolchains generate output for. */
-    Builder setTargetPlatform(PlatformInfo targetPlatform);
-
-    /** Sets the toolchain types that were requested. */
-    Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
-
-    /** Sets the map from requested {@link Label} to toolchain type provider. */
-    Builder setRequestedToolchainTypeLabels(
-        ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels);
-
-    /** Sets the map from toolchain type to toolchain provider. */
-    Builder setToolchains(ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains);
-
-    /** Sets the template variables that these toolchains provide. */
-    Builder setTemplateVariableProviders(ImmutableList<TemplateVariableInfo> providers);
-
-    /** Sets the labels of the specific toolchains being used. */
-    Builder setResolvedToolchainLabels(ImmutableSet<Label> resolvedToolchainLabels);
-
-    /** Returns a new {@link ResolvedToolchainContext}. */
-    ResolvedToolchainContext build();
-  }
+  /** Returns the repository mapping applied by the Starlark 'in' operator to string-form labels. */
+  abstract ImmutableMap<RepositoryName, RepositoryName> repoMapping();
 
   /** Returns a description of the target being used, for error messaging. */
   abstract String targetDescription();
@@ -191,26 +156,20 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
     printer.append(">");
   }
 
-  private static Label transformKey(Object key, Location loc, StarlarkContext context)
+  private static Label transformKey(
+      Object key, Location loc, ImmutableMap<RepositoryName, RepositoryName> repoMapping)
       throws EvalException {
     if (key instanceof Label) {
       return (Label) key;
     } else if (key instanceof ToolchainTypeInfo) {
       return ((ToolchainTypeInfo) key).typeLabel();
     } else if (key instanceof String) {
-      Label toolchainType;
-      String rawLabel = (String) key;
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping = ImmutableMap.of();
-      if (context instanceof BazelStarlarkContext) {
-        repoMapping = ((BazelStarlarkContext) context).getRepoMapping();
-      }
       try {
-        toolchainType = Label.parseAbsolute(rawLabel, repoMapping);
+        return Label.parseAbsolute((String) key, repoMapping);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
-            loc, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
+            loc, String.format("Unable to parse toolchain %s: %s", key, e.getMessage()), e);
       }
-      return toolchainType;
     } else {
       throw new EvalException(
           loc,
@@ -221,11 +180,10 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   }
 
   @Override
-  public ToolchainInfo getIndex(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, loc, context);
+  public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
+    Label toolchainTypeLabel = transformKey(key, loc, repoMapping());
 
-    if (!containsKey(key, loc, context)) {
+    if (!containsKey(key, loc)) {
       // TODO(bazel-configurability): The list of available toolchain types is confusing in the
       // presence of aliases, since it only contains the actual label, not the alias passed to the
       // rule definition.
@@ -244,9 +202,8 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
-    Label toolchainTypeLabel = transformKey(key, loc, context);
+  public boolean containsKey(Object key, Location loc) throws EvalException {
+    Label toolchainTypeLabel = transformKey(key, loc, repoMapping());
     return requestedToolchainTypeLabels().containsKey(toolchainTypeLabel);
   }
 

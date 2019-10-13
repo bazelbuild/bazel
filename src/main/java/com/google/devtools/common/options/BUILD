@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 # Description:
 #   A devtools-common options parser.
 #   Open-sourced as part of Bazel.

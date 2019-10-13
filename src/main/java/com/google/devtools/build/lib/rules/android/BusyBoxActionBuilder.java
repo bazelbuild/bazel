@@ -71,6 +71,14 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a direct input artifact. */
+  public BusyBoxActionBuilder addInput(Artifact value) {
+    Preconditions.checkNotNull(value);
+    commandLine.addExecPath(value);
+    inputs.add(value);
+    return this;
+  }
+
+  /** Adds a direct input artifact. */
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
@@ -109,6 +117,14 @@ public final class BusyBoxActionBuilder {
       @CompileTimeConstant String arg, @Nullable Artifact value) {
     if (value != null) {
       addInput(arg, value);
+    }
+    return this;
+  }
+
+  /** Adds an input artifact if it is non-null */
+  public BusyBoxActionBuilder maybeAddInput(@Nullable Artifact value) {
+    if (value != null) {
+      this.inputs.add(value);
     }
     return this;
   }
@@ -223,21 +239,15 @@ public final class BusyBoxActionBuilder {
   /**
    * Adds an efficient flag and inputs based on transitive values.
    *
-   * <p>Each value will be separated on the command line by the host-specific path separator.
+   * <p>Each value will be separated on the command line by the ':' character, the option parser's
+   * PathListConverter delimiter.
    *
    * <p>Unlike other transitive input methods in this class, this method adds the values to both the
    * command line and the list of inputs.
    */
   public BusyBoxActionBuilder addTransitiveVectoredInput(
       @CompileTimeConstant String arg, NestedSet<Artifact> values) {
-    commandLine.addExecPaths(
-        arg,
-        VectorArg.join(
-                dataContext
-                    .getActionConstructionContext()
-                    .getConfiguration()
-                    .getHostPathSeparator())
-            .each(values));
+    commandLine.addExecPaths(arg, VectorArg.join(":").each(values));
     inputs.addTransitive(values);
     return this;
   }

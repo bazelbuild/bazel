@@ -87,16 +87,22 @@ public final class AndroidIdlProvider extends NativeInfo
         throws EvalException {
       return new AndroidIdlProvider(
           NestedSetBuilder.<String>stableOrder()
-              .addTransitive(transitiveIdlImportRoots.getSet(String.class))
+              .addTransitive(
+                  transitiveIdlImportRoots.getSetFromParam(
+                      String.class, "transitive_idl_import_roots"))
               .build(),
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(transitiveIdlImports.getSet(Artifact.class))
+              .addTransitive(
+                  transitiveIdlImports.getSetFromParam(Artifact.class, "transitive_idl_imports"))
               .build(),
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(transitiveIdlJars.getSet(Artifact.class))
+              .addTransitive(
+                  transitiveIdlJars.getSetFromParam(Artifact.class, "transitive_idl_jars"))
               .build(),
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(transitiveIdlPreprocessed.getSet(Artifact.class))
+              .addTransitive(
+                  transitiveIdlPreprocessed.getSetFromParam(
+                      Artifact.class, "transitive_idl_preprocessed"))
               .build());
     }
   }

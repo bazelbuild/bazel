@@ -1,6 +1,8 @@
 # Description:
 #   Tests for the dependency tracking helper library for desugar.
 
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_testonly = 1,
 )

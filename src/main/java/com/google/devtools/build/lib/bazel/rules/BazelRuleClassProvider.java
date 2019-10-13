@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
@@ -347,7 +348,8 @@ public class BazelRuleClassProvider {
                   AndroidInstrumentationInfo.PROVIDER,
                   AndroidDeviceBrokerInfo.PROVIDER,
                   AndroidResourcesInfo.PROVIDER,
-                  AndroidNativeLibsInfo.PROVIDER);
+                  AndroidNativeLibsInfo.PROVIDER,
+                  AndroidApplicationResourceInfo.PROVIDER);
           builder.addSkylarkBootstrap(bootstrap);
 
           try {

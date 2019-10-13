@@ -52,10 +52,11 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -103,6 +104,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -317,6 +319,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           }
         }
         profiledTasksBuilder.addAll(options.additionalProfileTasks);
+        if (options.recordFullProfilerData) {
+          profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
+        }
       } else if (options.profilePath != null) {
         profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
@@ -1486,6 +1491,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Preconditions.checkNotNull(clock);
 
+      int metricsModules = 0;
+      for (BlazeModule module : blazeModules) {
+        if (module.postsBuildMetricsEvent()) {
+          metricsModules++;
+        }
+      }
+      Preconditions.checkArgument(
+          metricsModules < 2, "At most one module may post a BuildMetricsEvent");
+      if (metricsModules == 0) {
+        blazeModules.add(new DummyMetricsModule());
+      }
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,
@@ -1496,7 +1512,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             clock);
       }
       ServerBuilder serverBuilder = new ServerBuilder();
-      serverBuilder.addQueryOutputFormatters(OutputFormatter.getDefaultFormatters());
+      serverBuilder.addQueryOutputFormatters(OutputFormatters.getDefaultFormatters());
       for (BlazeModule module : blazeModules) {
         module.serverInit(startupOptionsProvider, serverBuilder);
       }
@@ -1532,7 +1548,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
-              serverBuilder.getAttributeContainerFactory(),
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper);

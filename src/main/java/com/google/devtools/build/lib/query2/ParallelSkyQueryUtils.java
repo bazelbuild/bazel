@@ -63,7 +63,7 @@ public class ParallelSkyQueryUtils {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsUnboundedVisitor.Factory(
                 env, /*unfilteredUniverse=*/ Predicates.alwaysTrue(), callback)));
   }
@@ -77,7 +77,7 @@ public class ParallelSkyQueryUtils {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsBoundedVisitor.Factory(
                 env, depth, /*universe=*/ Predicates.alwaysTrue(), callback)));
   }
@@ -91,7 +91,7 @@ public class ParallelSkyQueryUtils {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsUnboundedVisitor.Factory(env, unfilteredUniverse, callback)));
   }
 
@@ -111,14 +111,15 @@ public class ParallelSkyQueryUtils {
                   new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
               return env.execute(
                   () -> {
-                    Callback<Target> visitorCallback =
-                        ParallelVisitor.createParallelVisitorCallback(
-                            new UnfilteredSkyKeyTTVDTCVisitor.Factory(
+                    UnfilteredSkyKeyTTVDTCVisitor visitor =
+                        new UnfilteredSkyKeyTTVDTCVisitor.Factory(
                                 env,
                                 env.createSkyKeyUniquifier(),
                                 processResultsBatchSize,
-                                aggregateAllCallback));
-                    visitorCallback.process(universeValue);
+                                aggregateAllCallback)
+                            .create();
+                    visitor.visitAndWaitForCompletion(
+                        SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(universeValue));
                     return Predicates.in(aggregateAllCallback.getResult());
                   });
             };
@@ -136,7 +137,7 @@ public class ParallelSkyQueryUtils {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new RdepsBoundedVisitor.Factory(env, depth, universe, callback)));
   }
 
@@ -165,7 +166,7 @@ public class ParallelSkyQueryUtils {
     return env.eval(
         expression,
         context,
-        ParallelVisitor.createParallelVisitorCallback(
+        ParallelVisitorUtils.createParallelVisitorCallback(
             new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context)));
   }
 

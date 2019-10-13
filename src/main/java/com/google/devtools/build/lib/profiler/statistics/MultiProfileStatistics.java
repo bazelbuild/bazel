@@ -33,7 +33,6 @@ public final class MultiProfileStatistics implements Iterable<Path> {
   private final Map<Path, EnumMap<ProfilePhase, PhaseStatistics>> filePhaseStatistics;
   private final SkylarkStatistics skylarkStatistics;
 
-  private int missingActionsCount;
   private boolean generateVfsStatistics;
 
   public MultiProfileStatistics(
@@ -66,10 +65,6 @@ public final class MultiProfileStatistics implements Iterable<Path> {
 
   public SkylarkStatistics getSkylarkStatistics() {
     return skylarkStatistics;
-  }
-
-  public int getMissingActionsCount() {
-    return missingActionsCount;
   }
 
   public EnumMap<ProfilePhase, PhaseStatistics> getPhaseStatistics(Path file) {
@@ -117,7 +112,5 @@ public final class MultiProfileStatistics implements Iterable<Path> {
     }
 
     skylarkStatistics.addProfileInfo(info);
-
-    missingActionsCount += info.getMissingActionsCount();
   }
 }

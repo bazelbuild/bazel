@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -130,16 +127,10 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
               "%s %s of type %s does not have attribute '%s'",
               errorMsgPrefix, configuredTarget, rule.getRuleClass(), attrName));
     }
-
-    List<Label> attrLabels;
-    if (attributeMapper.getAttributeType(attrName).equals(LABEL)) {
-      attrLabels = ImmutableList.of(attributeMapper.get(attrName, LABEL));
-    } else {
-      attrLabels = attributeMapper.get(attrName, LABEL_LIST);
-    }
-    List<ConfiguredTarget> toReturn = new ArrayList<>();
-    attrLabels.forEach(label -> toReturn.addAll(depsByLabel.get(label)));
-    return toReturn;
+    ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
+    attributeMapper.visitLabels(attributeMapper.getAttributeDefinition(attrName)).stream()
+        .forEach(depEdge -> toReturn.addAll(depsByLabel.get(depEdge.getLabel())));
+    return toReturn.build();
   }
 
   @Override

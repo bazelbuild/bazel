@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,6 +40,12 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
           Sets.union(alreadyAdded, ImmutableSet.of("binary_type"))));
     }
   };
+
+  @Before
+  public void setUp() throws Exception {
+    MockProtoSupport.setupWorkspace(scratch);
+    invalidatePackages();
+  }
 
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
@@ -136,23 +144,13 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFrameworkDepLinkFlagsPreCleanup() throws Exception {
-    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), false);
+  public void testFrameworkDepLinkFlags() throws Exception {
+    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Test
-  public void testFrameworkDepLinkFlagsPostCleanup() throws Exception {
-    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), true);
-  }
-
-  @Test
-  public void testDylibDependenciesPreCleanup() throws Exception {
-    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), false);
-  }
-
-  @Test
-  public void testDylibDependenciesPostCleanup() throws Exception {
-    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), true);
+  public void testDylibDependencies() throws Exception {
+    checkDylibDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Test

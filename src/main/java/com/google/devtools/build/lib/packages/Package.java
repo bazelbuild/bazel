@@ -256,7 +256,16 @@ public class Package {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
-    return externalPackageRepositoryMappings.getOrDefault(repository, ImmutableMap.of());
+
+    // We are passed a repository name as seen from the main repository, not necessarily
+    // a canonical repository name. So, we first have to find the canonical name for the
+    // repository in question before we can look up the mapping for it.
+    RepositoryName actualRepositoryName =
+        externalPackageRepositoryMappings
+            .getOrDefault(RepositoryName.MAIN, ImmutableMap.of())
+            .getOrDefault(repository, repository);
+
+    return externalPackageRepositoryMappings.getOrDefault(actualRepositoryName, ImmutableMap.of());
   }
 
   /** Get the repository mapping for this package. */
@@ -1465,10 +1474,7 @@ public class Package {
           // All labels mentioned in a rule that refer to an unknown target in the
           // current package are assumed to be InputFiles, so let's create them:
           for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            InputFile inputFile =
-                createInputFileMaybe(
-                    depEdge.getLabel(),
-                    rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            InputFile inputFile = createInputFileMaybe(depEdge.getLabel(), rule.getLocation());
             if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
               newInputFiles.put(depEdge.getLabel(), inputFile);
             }

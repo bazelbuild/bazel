@@ -64,12 +64,10 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         "    deps = extra_deps,",
         "    data = ['data.dat'])");
 
-    writeFile("java/test/data.dat",
-        "this is a dummy data file");
+    writeFile("java/test/data.dat", "this is a dummy data file");
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Artifact data = getFileConfiguredTarget("//java/test:data.dat")
-        .getArtifact();
+    Artifact data = getFileConfiguredTarget("//java/test:data.dat").getArtifact();
     RunfilesProvider runfiles = target.getProvider(RunfilesProvider.class);
 
     assertThat(runfiles.getDataRunfiles().getAllArtifacts().toSet()).contains(data);
@@ -80,7 +78,9 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   @Test
   public void testNeverlinkRuntimeDepsExclusionReportsError() throws Exception {
     useConfiguration("--noexperimental_allow_runtime_deps_on_neverlink");
-    checkError("java/test", "test",
+    checkError(
+        "java/test",
+        "test",
         "neverlink dep //java/test:neverlink_lib not allowed in runtime deps",
         String.format("%s(name = 'test',", getRuleName()),
         "    srcs = ['test.java'],",
@@ -332,8 +332,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   }
 
   @Test
-  public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased()
-      throws Exception {
+  public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased() throws Exception {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         "--experimental_dynamic_configs=on",
@@ -361,10 +360,12 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         "  transitive_configs = [':flag1'],",
         ")");
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
-    assertContainsEvent(String.format(
-        "in feature_flags attribute of %s rule //java/com/foo:foo: "
-            + "Feature flags must be named directly, not through aliases; "
-            + "use '//java/com/foo:flag1', not '//java/com/foo:alias'", getRuleName()));
+    assertContainsEvent(
+        String.format(
+            "in feature_flags attribute of %s rule //java/com/foo:foo: "
+                + "Feature flags must be named directly, not through aliases; "
+                + "use '//java/com/foo:flag1', not '//java/com/foo:alias'",
+            getRuleName()));
   }
 
   @Test
@@ -398,9 +399,11 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         ")");
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
-        String.format("in feature_flags attribute of %s rule "
-            + "//java/com/google/android/foo:foo: the feature_flags attribute is not available in "
-            + "package 'java/com/google/android/foo'", getRuleName()));
+        String.format(
+            "in feature_flags attribute of %s rule //java/com/google/android/foo:foo: the"
+                + " feature_flags attribute is not available in package"
+                + " 'java/com/google/android/foo'",
+            getRuleName()));
   }
 
   @Test

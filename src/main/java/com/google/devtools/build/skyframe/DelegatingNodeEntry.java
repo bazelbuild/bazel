@@ -80,7 +80,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> markClean() throws InterruptedException {
+  public NodeValueAndRdepsToSignal markClean() throws InterruptedException {
     return getDelegate().markClean();
   }
 

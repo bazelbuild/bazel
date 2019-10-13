@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
@@ -65,7 +67,7 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
    * Callback#process} call. Note that all the created instances share the same {@link Uniquifier}
    * so that we don't visit the same Skyframe node more than once.
    */
-  static class Factory implements ParallelVisitor.Factory<SkyKey, SkyKey, Target> {
+  static class Factory implements QueryVisitorFactory<SkyKey, SkyKey, Target> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<SkyKey> validDepUniquifier;
     private final Callback<Target> callback;
@@ -85,7 +87,7 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
     }
 
     @Override
-    public ParallelVisitor<SkyKey, SkyKey, Target> create() {
+    public ParallelQueryVisitor<SkyKey, SkyKey, Target> create() {
       return new DepsUnboundedVisitor(
           env,
           validDepUniquifier,

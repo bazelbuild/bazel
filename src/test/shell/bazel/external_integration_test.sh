@@ -1707,6 +1707,59 @@ EOF
     || fail "expected success"
 }
 
+
+function test_distdir_outputname() {
+  # Verify that distdir searches at least for the local part of the URL,
+  # even if the output is renamed.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  date +%s > actual_file_name.txt
+  sha256=$(sha256sum actual_file_name.txt | head -c 64)
+
+  mkdir distfiles
+  mv actual_file_name.txt distfiles
+
+  mkdir main
+  cd main
+  cat > ext_file.bzl <<'EOF'
+def _impl(ctx):
+  ctx.download(
+    url = ctx.attr.urls,
+    output = 'foo',
+    sha256 = ctx.attr.sha256,
+  )
+  ctx.file(
+    "BUILD",
+    "exports_files(['foo'], visibility=['//visibility:public'])",
+  )
+
+ext_file = repository_rule(
+  implementation = _impl,
+  attrs = { "urls" : attr.string_list(), "sha256" : attr.string() },
+)
+EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("//:ext_file.bzl", "ext_file")
+ext_file(
+  name="ext",
+  urls=["http://doesnotexist.example.com/outdatedpath/actual_file_name.txt"],
+  sha256="${sha256}",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@ext//:foo"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel clean --expunge
+  bazel build --distdir="${WRKDIR}/distfiles" //:local \
+    || fail "expected success"
+}
+
 function test_distdir_relative_path() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"

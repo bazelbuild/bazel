@@ -236,8 +236,8 @@ public class MultiArchBinarySupport {
                     depProtoProviders,
                     ProtobufSupport.getTransitivePortableProtoFilters(depProtoProviders),
                     childConfigurationsAndToolchains.get(childToolchainConfig))
-                .registerGenerationActions()
-                .registerCompilationActions();
+                .registerGenerationAction()
+                .registerCompilationAction();
         protosObjcProvider = protoSupport.getObjcProvider();
       } else {
         protosObjcProvider = Optional.absent();
@@ -320,9 +320,7 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProtoProvider> avoidedProviders) {
     NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider avoidProvider : avoidedProviders) {
-      for (NestedSet<Artifact> avoidProviderOutputGroup : avoidProvider.getProtoGroups()) {
-        avoidArtifacts.addTransitive(avoidProviderOutputGroup);
-      }
+      avoidArtifacts.addTransitive(avoidProvider.getProtoFiles());
     }
     return avoidArtifacts.build();
   }

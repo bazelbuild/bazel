@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
@@ -46,10 +48,10 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -59,7 +61,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -95,18 +97,20 @@ public final class SkylarkRuleConfiguredTargetUtil {
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
       skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, starlarkSemantics);
-      Environment env =
-          Environment.builder(mutability)
-              .setCallerLabel(ruleContext.getLabel())
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
-              .setStarlarkContext(
-                  new BazelStarlarkContext(
-                      toolsRepository,
-                      ruleContext.getTarget().getPackage().getRepositoryMapping(),
-                      ruleContext.getSymbolGenerator()))
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
+
+      new BazelStarlarkContext(
+              toolsRepository,
+              /* fragmentNameToClass= */ null,
+              ruleContext.getTarget().getPackage().getRepositoryMapping(),
+              ruleContext.getSymbolGenerator(),
+              ruleContext.getLabel())
+          .storeInThread(thread);
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
       if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
@@ -130,7 +134,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
               /*args=*/ ImmutableList.of(skylarkRuleContext),
               /*kwargs*/ ImmutableMap.of(),
               /*ast=*/ null,
-              env);
+              thread);
 
       if (ruleContext.hasErrors()) {
         return null;
@@ -273,8 +277,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
   public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
       Object objects) throws EvalException {
-    NestedSet<Artifact> artifacts;
-
     String typeErrorMessage =
         "Output group '%s' is of unexpected type. "
             + "Should be list or set of Files, but got '%s' instead.";
@@ -293,20 +295,29 @@ public final class SkylarkRuleConfiguredTargetUtil {
                   "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
         }
       }
-      artifacts = nestedSetBuilder.build();
+      return nestedSetBuilder.build();
     } else {
-      artifacts =
+      SkylarkNestedSet artifactsSet =
           SkylarkType.cast(
-                  objects,
-                  SkylarkNestedSet.class,
-                  Artifact.class,
-                  loc,
-                  typeErrorMessage,
-                  outputGroup,
-                  EvalUtils.getDataTypeName(objects, true))
-              .getSet(Artifact.class);
+              objects,
+              SkylarkNestedSet.class,
+              Artifact.class,
+              loc,
+              typeErrorMessage,
+              outputGroup,
+              EvalUtils.getDataTypeName(objects, true));
+      try {
+        return artifactsSet.getSet(Artifact.class);
+      } catch (SkylarkNestedSet.TypeException exception) {
+        throw new EvalException(
+            loc,
+            String.format(
+                typeErrorMessage,
+                outputGroup,
+                "depset of type '" + artifactsSet.getContentType() + "'"),
+            exception);
+      }
     }
-    return artifacts;
   }
 
   private static void addProviders(
@@ -409,13 +420,72 @@ public final class SkylarkRuleConfiguredTargetUtil {
       } else if (field.equals("instrumented_files")) {
         StructImpl insStruct = cast("instrumented_files", oldStyleProviders, StructImpl.class, loc);
         addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
-      } else if (isNativeDeclaredProviderWithLegacySkylarkName(oldStyleProviders.getValue(field))) {
-        builder.addNativeDeclaredProvider((InfoInterface) oldStyleProviders.getValue(field));
-      } else if (!field.equals("providers")) {
-        // We handled providers already.
-        builder.addSkylarkTransitiveInfo(field, oldStyleProviders.getValue(field), loc);
+      } else if (!field.equals("providers")) { // "providers" already handled above.
+        addProviderFromLegacySyntax(
+            builder, oldStyleProviders, field, oldStyleProviders.getValue(field));
       }
     }
+  }
+
+  @SuppressWarnings("deprecation") // For legacy migrations
+  private static void addProviderFromLegacySyntax(
+      RuleConfiguredTargetBuilder builder,
+      StructImpl oldStyleProviders,
+      String fieldName,
+      Object value)
+      throws EvalException {
+    builder.addSkylarkTransitiveInfo(fieldName, value);
+
+    if (value instanceof InfoInterface) {
+      InfoInterface info = (InfoInterface) value;
+
+      // To facilitate migration off legacy provider syntax, implicitly set the modern provider key
+      // and the canonical legacy provider key if applicable.
+      if (shouldAddWithModernKey(builder, oldStyleProviders, fieldName, info)) {
+        builder.addNativeDeclaredProvider(info);
+      }
+
+      if (info.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
+        NativeProvider.WithLegacySkylarkName providerWithLegacyName =
+            (NativeProvider.WithLegacySkylarkName) info.getProvider();
+        if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
+          builder.addSkylarkTransitiveInfo(providerWithLegacyName.getSkylarkName(), info);
+        }
+      }
+    }
+  }
+
+  @SuppressWarnings("deprecation") // For legacy migrations
+  private static boolean shouldAddWithModernKey(
+      RuleConfiguredTargetBuilder builder,
+      StructImpl oldStyleProviders,
+      String fieldName,
+      InfoInterface info)
+      throws EvalException {
+    // If the modern key is already set, do nothing.
+    if (builder.containsProviderKey(info.getProvider().getKey())) {
+      return false;
+    }
+    if (info.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
+      String canonicalLegacyKey =
+          ((NativeProvider.WithLegacySkylarkName) info.getProvider()).getSkylarkName();
+      // Add info using its modern key if it was specified using its canonical legacy key, or
+      // if no provider was used using that canonical legacy key.
+      return fieldName.equals(canonicalLegacyKey)
+          || oldStyleProviders.getValue(canonicalLegacyKey) == null;
+    } else {
+      return true;
+    }
+  }
+
+  @SuppressWarnings("deprecation") // For legacy migrations
+  private static boolean shouldAddWithLegacyKey(
+      StructImpl oldStyleProviders, NativeProvider.WithLegacySkylarkName provider)
+      throws EvalException {
+    String canonicalLegacyKey = provider.getSkylarkName();
+    // Add info using its canonical legacy key if no provider was specified using that canonical
+    // legacy key.
+    return oldStyleProviders.getValue(canonicalLegacyKey) == null;
   }
 
   /**
@@ -436,13 +506,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
               + " must be defined outside of a function scope.");
     }
     return infoObject.getProvider().getKey();
-  }
-
-  private static boolean isNativeDeclaredProviderWithLegacySkylarkName(Object value) {
-    if (!(value instanceof InfoInterface)) {
-      return false;
-    }
-    return ((InfoInterface) value).getProvider() instanceof NativeProvider.WithLegacySkylarkName;
   }
 
   /**
@@ -572,8 +635,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
     builder.setFilesToBuild(filesToBuild.build());
 
     if (files != null) {
-      // If we specify files_to_build we don't have the executable in it by default.
-      builder.setFilesToBuild(files.getSet(Artifact.class));
+      try {
+        // If we specify files_to_build we don't have the executable in it by default.
+        builder.setFilesToBuild(files.getSet(Artifact.class));
+      } catch (SkylarkNestedSet.TypeException exception) {
+        throw new EvalException(loc, "'files' field must be a depset of 'file'", exception);
+      }
     }
 
     if (statelessRunfiles == null && dataRunfiles == null && defaultRunfiles == null) {
@@ -603,11 +670,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         Preconditions.checkNotNull(executable, "executable must not be null");
         runfilesSupport =
             RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
-        Map<PathFragment, Artifact> symlinks =
-            runfilesSupport.getRunfiles().asMapWithoutRootSymlinks();
-        if (!symlinks.containsValue(executable)) {
-          throw new EvalException(loc, "main program " + executable + " not included in runfiles");
-        }
+        assertExecutableSymlinkPresent(runfilesSupport.getRunfiles(), executable, loc);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
@@ -616,6 +679,28 @@ public final class SkylarkRuleConfiguredTargetUtil {
       InfoInterface actions =
           ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
       builder.addSkylarkDeclaredProvider(actions);
+    }
+  }
+
+  private static void assertExecutableSymlinkPresent(
+      Runfiles runfiles, Artifact executable, Location loc) throws EvalException {
+    try {
+      // Extracting the map from Runfiles flattens a depset.
+      // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
+      Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
+      if (!symlinks.containsValue(executable)) {
+        throw new EvalException(loc, "main program " + executable + " not included in runfiles");
+      }
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the runfiles depset "
+              + "returned by the rule implementation function. the size of depsets is unknown "
+              + "until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
     }
   }
 

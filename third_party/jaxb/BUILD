@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_import")
+
 licenses(["reciprocal"])  #  CDDL License
 
 package(default_visibility = ["//visibility:public"])

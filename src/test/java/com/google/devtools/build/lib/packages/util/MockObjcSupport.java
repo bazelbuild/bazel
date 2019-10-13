@@ -82,7 +82,6 @@ public final class MockObjcSupport {
     for (String tool :
         ImmutableSet.of(
             "objc_dummy.mm",
-            "device_debug_entitlements.plist",
             "gcov",
             "realpath",
             "testrunner",

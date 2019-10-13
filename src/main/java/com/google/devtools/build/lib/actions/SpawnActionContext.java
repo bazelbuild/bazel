@@ -36,9 +36,12 @@ public interface SpawnActionContext extends ActionContext {
    * the execution. Otherwise all requirements from {@link #exec} apply.
    */
   default SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    return SpawnContinuation.immediate(exec(spawn, actionExecutionContext));
+      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
+    try {
+      return SpawnContinuation.immediate(exec(spawn, actionExecutionContext));
+    } catch (ExecException e) {
+      return SpawnContinuation.failedWithExecException(e);
+    }
   }
 
   /** Returns whether this SpawnActionContext supports executing the given Spawn. */

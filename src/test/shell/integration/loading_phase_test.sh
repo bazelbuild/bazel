@@ -360,7 +360,7 @@ function test_disallow_load_labels_to_cross_package_boundaries() {
   echo "b = 42" > "$pkg"/foo/a/b/b.bzl
 
   bazel query "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
-  expect_log "Label '//$pkg/foo/a:b/b.bzl' crosses boundary of subpackage '$pkg/foo/a/b'"
+  expect_log "Label '//$pkg/foo/a:b/b.bzl' is invalid because '$pkg/foo/a/b' is a subpackage"
 }
 
 function test_package_loading_errors_in_target_parsing() {
@@ -371,10 +371,38 @@ function test_package_loading_errors_in_target_parsing() {
   do
     for target_pattern in "//bad:BUILD" "//bad:all" "//bad/..."
     do
-      bazel build --nobuild "$target_pattern" >& "$TEST_log" \
+      bazel build --nobuild "$keep_going" "$target_pattern" >& "$TEST_log" \
         && fail "Expected failure"
       expect_log "Build did NOT complete successfully"
     done
+  done
+}
+
+function test_severe_package_loading_errors_via_test_suites_in_target_parsing() {
+
+  mkdir bad || fail "mkdir failed"
+  cat > bad/BUILD <<EOF
+load("//bad:bad.bzl", "some_val")
+sh_test(name = "some_test", srcs = ["test.sh"])
+EOF
+
+  cat > bad/bad.bzl <<EOF
+fail()
+EOF
+
+  mkdir dependsonbad || fail "mkdir failed"
+  cat > dependsonbad/BUILD <<EOF
+test_suite(name = "suite", tests = ["//bad:some_test"])
+EOF
+
+  for keep_going in "--keep_going" "--nokeep_going"
+  do
+    bazel build --nobuild "$keep_going" //dependsonbad:suite >& "$TEST_log" \
+      && fail "Expected failure"
+    local exit_code=$?
+    assert_equals 1 "$exit_code"
+    expect_log "Build did NOT complete successfully"
+    expect_not_log "Illegal"
   done
 }
 
@@ -394,6 +422,54 @@ EOF
   assert_equals 7 "$exit_code"
   expect_log "illegal argument in call to glob"
   expect_not_log "IllegalArgumentException"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/9176
+function test_windows_only__glob_with_junction() {
+  if ! $is_windows; then
+    echo "Skipping $FUNCNAME because execution platform is not Windows"
+    return
+  fi
+
+  mkdir -p foo/bar foo2
+  touch foo/bar/x.txt
+  touch foo/a.txt
+  touch foo2/b.txt
+  cat >BUILD <<eof
+filegroup(name = 'x', srcs = glob(["foo/**"]))
+filegroup(name = 'y', srcs = glob(["foo2/**"]))
+eof
+  # Create junction foo2/bar2 -> foo/bar
+  cmd.exe /C mklink /J foo2\\bar2 foo\\bar >NUL
+
+  bazel query 'deps(//:x)' >& "$TEST_log"
+  expect_log "//:x"
+  expect_log "//:foo/a.txt"
+  expect_log "//:foo/bar/x.txt"
+
+  bazel query 'deps(//:y)' >& "$TEST_log"
+  expect_log "//:y"
+  expect_log "//:foo2/b.txt"
+  expect_log "//:foo2/bar2/x.txt"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/pull/9269#issuecomment-531221290
+# Verify that bazel-bin and the other bazel-* symlinks are not treated as
+# packages when expanding the "//..." pattern.
+function test_bazel_bin_is_not_a_package() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
+
+  # Ensure bazel-<pkg> is created.
+  bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
+  [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
+
+  # Assert that "//..." does not expand to //foo_prefix-*
+  bazel query //... >& "$TEST_log"
+  expect_log_once "//$pkg:$pkg"
+  expect_log_once "//.*:$pkg"
+  expect_not_log "//foo_prefix"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -43,7 +42,7 @@ import org.junit.runners.JUnit4;
 public class RuleFactoryTest extends PackageLoadingTestCase {
 
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private RuleFactory ruleFactory = new RuleFactory(provider, AttributeContainer::new);
+  private final RuleFactory ruleFactory = new RuleFactory(provider);
 
   public static final Location LOCATION_42 = Location.fromFileAndOffsets(null, 42, 42);
 
@@ -66,9 +65,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            /*ast=*/ null,
             LOCATION_42,
-            /*env=*/ null,
+            /*thread=*/ null,
             new AttributeContainer(ruleClass));
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -119,9 +117,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            /*ast=*/ null,
             Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-            /*env=*/ null,
+            /*thread=*/ null,
             new AttributeContainer(ruleClass));
     assertThat(rule.containsErrors()).isFalse();
   }
@@ -148,9 +145,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    /*ast=*/ null,
                     LOCATION_42,
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
@@ -177,9 +173,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    /*ast=*/ null,
                     Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
@@ -218,9 +213,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    /*ast=*/ null,
                     Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
-                    /*env=*/ null,
+                    /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))

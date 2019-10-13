@@ -40,6 +40,24 @@ import java.util.TreeMap;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
 public final class SandboxHelpers {
+  /** Wrapper class for the inputs of a sandbox. */
+  public static final class SandboxInputs {
+    private final Map<PathFragment, Path> files;
+    private final Map<PathFragment, PathFragment> symlinks;
+
+    public SandboxInputs(Map<PathFragment, Path> files, Map<PathFragment, PathFragment> symlinks) {
+      this.files = files;
+      this.symlinks = symlinks;
+    }
+
+    public Map<PathFragment, Path> getFiles() {
+      return files;
+    }
+
+    public Map<PathFragment, PathFragment> getSymlinks() {
+      return symlinks;
+    }
+  }
 
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
@@ -49,7 +67,7 @@ public final class SandboxHelpers {
    *
    * @throws IOException If any files could not be written.
    */
-  public static Map<PathFragment, Path> processInputFiles(
+  public static SandboxInputs processInputFiles(
       Spawn spawn,
       SpawnExecutionContext context,
       Path execRoot,
@@ -70,7 +88,7 @@ public final class SandboxHelpers {
    *
    * @throws IOException If any files could not be written.
    */
-  private static Map<PathFragment, Path> processInputFiles(
+  private static SandboxInputs processInputFiles(
       Map<PathFragment, ActionInput> inputMap,
       Spawn spawn,
       ArtifactExpander artifactExpander,
@@ -94,6 +112,8 @@ public final class SandboxHelpers {
     }
 
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
+    Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
+
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
@@ -110,13 +130,21 @@ public final class SandboxHelpers {
           Preconditions.checkState(actionInput instanceof EmptyActionInput);
         }
       }
-      Path inputPath =
-          actionInput instanceof EmptyActionInput
-              ? null
-              : execRoot.getRelative(actionInput.getExecPath());
-      inputFiles.put(pathFragment, inputPath);
+
+      if (actionInput.isSymlink()) {
+        Path inputPath = execRoot.getRelative(actionInput.getExecPath());
+        // TODO(lberki): This does I/O. This method already throws IOException, so I suppose that is
+        // A-OK?
+        inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+      } else {
+        Path inputPath =
+            actionInput instanceof EmptyActionInput
+                ? null
+                : execRoot.getRelative(actionInput.getExecPath());
+        inputFiles.put(pathFragment, inputPath);
+      }
     }
-    return inputFiles;
+    return new SandboxInputs(inputFiles, inputSymlinks);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */

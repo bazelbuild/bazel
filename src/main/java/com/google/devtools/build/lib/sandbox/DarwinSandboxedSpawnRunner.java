@@ -21,15 +21,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -213,8 +213,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -267,61 +267,59 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-    Map<PathFragment, Path> inputs =
+    SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
             spawn,
             context,
             execRoot,
             getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
 
-    SandboxedSpawn sandbox;
     if (sandboxfsProcess != null) {
-      sandbox =
-          new SandboxfsSandboxedSpawn(
-              sandboxfsProcess,
-              sandboxPath,
-              commandLine,
-              environment,
-              inputs,
-              outputs,
-              ImmutableSet.of(),
-              sandboxfsMapSymlinkTargets,
-              treeDeleter) {
-            @Override
-            public void createFileSystem() throws IOException {
-              super.createFileSystem();
-              writeConfig(
-                  sandboxConfigPath,
-                  writableDirs,
-                  getInaccessiblePaths(),
-                  allowNetworkForThisSpawn,
-                  statisticsPath);
-            }
-          };
-    } else {
-      sandbox =
-          new SymlinkedSandboxedSpawn(
-              sandboxPath,
-              sandboxExecRoot,
-              commandLine,
-              environment,
-              inputs,
-              outputs,
+      return new SandboxfsSandboxedSpawn(
+          sandboxfsProcess,
+          sandboxPath,
+          commandLine,
+          environment,
+          inputs,
+          outputs,
+          ImmutableSet.of(),
+          sandboxfsMapSymlinkTargets,
+          treeDeleter,
+          statisticsPath) {
+        @Override
+        public void createFileSystem() throws IOException {
+          super.createFileSystem();
+          writeConfig(
+              sandboxConfigPath,
               writableDirs,
-              treeDeleter) {
-            @Override
-            public void createFileSystem() throws IOException {
-              super.createFileSystem();
-              writeConfig(
-                  sandboxConfigPath,
-                  writableDirs,
-                  getInaccessiblePaths(),
-                  allowNetworkForThisSpawn,
-                  statisticsPath);
-            }
-          };
+              getInaccessiblePaths(),
+              allowNetworkForThisSpawn,
+              statisticsPath);
+        }
+      };
+    } else {
+      return new SymlinkedSandboxedSpawn(
+          sandboxPath,
+          sandboxExecRoot,
+          commandLine,
+          environment,
+          inputs,
+          outputs,
+          writableDirs,
+          treeDeleter,
+          statisticsPath) {
+        @Override
+        public void createFileSystem() throws IOException {
+          super.createFileSystem();
+          writeConfig(
+              sandboxConfigPath,
+              writableDirs,
+              getInaccessiblePaths(),
+              allowNetworkForThisSpawn,
+              statisticsPath);
+        }
+      };
     }
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
   }
 
   private void writeConfig(

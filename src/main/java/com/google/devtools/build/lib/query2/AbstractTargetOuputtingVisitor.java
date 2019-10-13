@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,8 +31,8 @@ import java.util.Collection;
  * Helper class to traverse a visitation graph where the outputs are {@link Target}s and there is a
  * simple mapping between visitation keys and output keys.
  */
-public abstract class AbstractTargetOuputtingVisitor<VisitationKeyT>
-    extends ParallelVisitor<VisitationKeyT, SkyKey, Target> {
+public abstract class AbstractTargetOuputtingVisitor<VisitKeyT>
+    extends ParallelQueryVisitor<VisitKeyT, SkyKey, Target> {
   private static final int PROCESS_RESULTS_BATCH_SIZE = SkyQueryEnvironment.BATCH_CALLBACK_SIZE;
 
   protected final SkyQueryEnvironment env;
@@ -49,12 +50,12 @@ public abstract class AbstractTargetOuputtingVisitor<VisitationKeyT>
   }
 
   @Override
-  protected Iterable<Task> getVisitTasks(Collection<VisitationKeyT> pendingVisits)
+  protected Iterable<Task<QueryException>> getVisitTasks(Collection<VisitKeyT> pendingVisits)
       throws InterruptedException, QueryException {
     // Group pending visitation by the package of the new node, since we'll be targetfying the
     // node during the visitation.
-    ListMultimap<PackageIdentifier, VisitationKeyT> visitsByPackage = ArrayListMultimap.create();
-    for (VisitationKeyT visitationKey : pendingVisits) {
+    ListMultimap<PackageIdentifier, VisitKeyT> visitsByPackage = ArrayListMultimap.create();
+    for (VisitKeyT visitationKey : pendingVisits) {
       // Overrides of visitationKeyToOutputKey are non-blocking.
       SkyKey skyKey = visitationKeyToOutputKey(visitationKey);
       if (skyKey != null) {
@@ -63,18 +64,18 @@ public abstract class AbstractTargetOuputtingVisitor<VisitationKeyT>
       }
     }
 
-    ImmutableList.Builder<Task> builder = ImmutableList.builder();
+    ImmutableList.Builder<Task<QueryException>> builder = ImmutableList.builder();
 
     // A couple notes here:
     // (i)  ArrayListMultimap#values returns the values grouped by key, which is exactly what we
     //      want.
     // (ii) ArrayListMultimap#values returns a Collection view, so we make a copy to avoid
     //      accidentally retaining the entire ArrayListMultimap object.
-    for (Iterable<VisitationKeyT> visitBatch :
+    for (Iterable<VisitKeyT> visitBatch :
         Iterables.partition(
             ImmutableList.copyOf(visitsByPackage.values()),
             ParallelSkyQueryUtils.VISIT_BATCH_SIZE)) {
-      builder.add(new VisitTask(visitBatch));
+      builder.add(new VisitTask(visitBatch, QueryException.class));
     }
 
     return builder.build();
@@ -84,6 +85,6 @@ public abstract class AbstractTargetOuputtingVisitor<VisitationKeyT>
     return env.getPackageMultisetSemaphore();
   }
 
-  protected abstract SkyKey visitationKeyToOutputKey(VisitationKeyT visitationKey)
+  protected abstract SkyKey visitationKeyToOutputKey(VisitKeyT visitationKey)
       throws QueryException, InterruptedException;
 }

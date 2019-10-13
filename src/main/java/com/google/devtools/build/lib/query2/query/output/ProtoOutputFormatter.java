@@ -30,10 +30,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -41,8 +43,9 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.FakeLoadTarget;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
@@ -52,9 +55,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -88,16 +89,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Type.INTEGER, Type.STRING, BuildType.LABEL, BuildType.NODEP_LABEL, BuildType.OUTPUT,
           Type.BOOLEAN, BuildType.TRISTATE, BuildType.LICENSE);
 
+  private AspectResolver aspectResolver;
+  private DependencyFilter dependencyFilter;
   private boolean relativeLocations;
   protected boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
-
-  protected void setDependencyFilter(QueryOptions options) {
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
-  }
 
   @Override
   public String getName() {
@@ -107,6 +106,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
+    this.aspectResolver = aspectResolver;
+    this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
@@ -146,7 +147,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
     return Iterables.transform(
-        result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+        result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
   }
 
   @Override
@@ -171,7 +172,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           .setName(rule.getLabel().toString())
           .setRuleClass(rule.getRuleClass());
       if (includeLocation()) {
-        rulePb.setLocation(getLocation(target, relativeLocations));
+        rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       addAttributes(rulePb, rule, extraDataForPostProcess);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
@@ -242,7 +243,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                        .setName(label.toString());
 
       if (includeLocation()) {
-        output.setLocation(getLocation(target, relativeLocations));
+        output.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
@@ -254,7 +255,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           .setName(label.toString());
 
       if (includeLocation()) {
-        input.setLocation(getLocation(target, relativeLocations));
+        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
 
       if (inputFile.getName().equals("BUILD")) {
@@ -289,7 +290,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                                            .setName(label.toString());
 
       if (includeLocation()) {
-        input.setLocation(getLocation(target, relativeLocations));
+        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());
@@ -338,7 +339,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Object attributeValue;
       if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
         attributeValue =
-            flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
+            flattenAttributeValues(
+                attr.getType(), PossibleAttributeValues.forRuleAndAttribute(rule, attr));
       } else {
         attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
       }

@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
-import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
-import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
+import com.google.devtools.build.lib.syntax.Node;
+import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
@@ -47,7 +47,7 @@ public class AllocationTrackerTest {
 
   private AllocationTracker allocationTracker;
 
-  static class TestNode extends ASTNode {
+  static class TestNode extends Node {
     TestNode(String file, int line) {
       setLocation(location(file, line));
     }
@@ -56,7 +56,7 @@ public class AllocationTrackerTest {
     public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {}
 
     @Override
-    public void accept(SyntaxTreeVisitor visitor) {}
+    public void accept(NodeVisitor visitor) {}
   }
 
   static class TestFunction extends BaseFunction {

@@ -32,12 +32,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
 /** Fake implementation of {@link CcModuleApi}. */
@@ -149,7 +148,7 @@ public class FakeCcModule
       Object interfaceLibrary,
       boolean alwayslink,
       Location location,
-      Environment environment) {
+      StarlarkThread thread) {
     return null;
   }
 
@@ -159,7 +158,7 @@ public class FakeCcModule
       Object userLinkFlagsObject,
       SkylarkList<FileApi> nonCodeInputs,
       Location location,
-      StarlarkContext context) {
+      StarlarkThread thread) {
     return null;
   }
 
@@ -175,7 +174,8 @@ public class FakeCcModule
       Object includes,
       Object quoteIncludes,
       Object frameworkIncludes,
-      Object defines)
+      Object defines,
+      Object localDefines)
       throws EvalException {
     return null;
   }
@@ -201,6 +201,7 @@ public class FakeCcModule
       SkylarkList<String> includes,
       SkylarkList<String> quoteIncludes,
       SkylarkList<String> defines,
+      SkylarkList<String> localDefines,
       SkylarkList<String> systemIncludes,
       SkylarkList<String> frameworkIncludes,
       SkylarkList<String> userCompileFlags,
@@ -208,8 +209,9 @@ public class FakeCcModule
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<FileApi> additionalInputs,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
   }
@@ -230,7 +232,7 @@ public class FakeCcModule
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      StarlarkContext starlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
   }
@@ -249,8 +251,7 @@ public class FakeCcModule
       boolean linkDepsStatically,
       SkylarkList<FileApi> additionalInputs,
       Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
   }

@@ -40,7 +40,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -196,6 +196,29 @@ public class ResourceShrinkerAction {
     )
     public Path log;
 
+    /**
+     * @deprecated pending an upcoming AAPT2 drop, we will always write to resourcesConfigOutput and
+     *     stop writing to this output.
+     */
+    @Deprecated // TODO(b/141204955): remove
+    @Option(
+        name = "keptResourcesOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the list of kept resources should be written.")
+    public Path keptResourcesOutput;
+
+    @Option(
+        name = "resourcesConfigOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the list of resources configuration directives should be written.")
+    public Path resourcesConfigOutput;
+
     @Option(
         name = "packageType",
         defaultValue = "DEFAULT",
@@ -220,7 +243,7 @@ public class ResourceShrinkerAction {
 
   private static Set<String> getManifestPackages(Path primaryManifest, List<Path> otherManifests)
       throws SAXException, IOException, StreamException, ParserConfigurationException {
-    Set<String> manifestPackages = new HashSet<>();
+    Set<String> manifestPackages = new LinkedHashSet<>();
     manifestPackages.add(getManifestPackage(primaryManifest));
     for (Path manifest : otherManifests) {
       manifestPackages.add(getManifestPackage(manifest));
@@ -301,7 +324,6 @@ public class ResourceShrinkerAction {
           null /* packageForR */,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          aaptConfigOptions.splits,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
           ImmutableList.<DependencyAndroidData>of() /* libraries */,

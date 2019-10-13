@@ -34,11 +34,11 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -265,9 +265,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
+    String userDefinedPath = null;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
-      pathFragment = getTargetPath(rule, directories.getWorkspace());
+      userDefinedPath = getPathAttr(rule);
+      pathFragment = getTargetPath(userDefinedPath, directories.getWorkspace());
     } else if (environ.get(PATH_ENV_VAR) != null) {
+      userDefinedPath = environ.get(PATH_ENV_VAR);
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
@@ -286,7 +289,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     Path ndkHome = directories.getOutputBase().getFileSystem().getPath(pathFragment);
-    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome)) {
+    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome, userDefinedPath)) {
       return null;
     }
 

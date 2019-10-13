@@ -55,7 +55,7 @@ Implementation:
 
   ijar is implemented in C++, and runs very quickly.  For example
   (when optimized) it takes only 530ms to process a 42MB
-  .jar file containing 5878 classe, resulting in an interface .jar
+  .jar file containing 5878 classes, resulting in an interface .jar
   file of only 11.4MB in size.  For more usual .jar sizes of a few
   megabytes, a runtime of 50ms is typical.
 

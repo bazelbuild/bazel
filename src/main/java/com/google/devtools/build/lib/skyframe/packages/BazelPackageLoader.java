@@ -122,6 +122,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .build());
       addExtraPrecomputedValues(
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
+          PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
               Suppliers.ofInstance(ImmutableMap.of())),

@@ -25,26 +25,23 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
-/**
- * Global constants and support for static registration of builtin symbols.
- */
-// TODO(bazel-team): Rename to SkylarkRuntime to avoid conflict with java.lang.Runtime.
+/** Global constants and support for static registration of builtin symbols. */
+// TODO(adonovan): migrate None and Unbound to Starlark.java. Get rid of the rest.
 public final class Runtime {
 
   private Runtime() {}
 
-  @SkylarkSignature(name = "True", returnType = Boolean.class,
-      doc = "Literal for the boolean true.")
+  // (for documentation only)
+  @SkylarkSignature(name = "True", returnType = Boolean.class, doc = "The Boolean true value.")
   private static final Boolean TRUE = true;
 
-  @SkylarkSignature(name = "False", returnType = Boolean.class,
-      doc = "Literal for the boolean false.")
+  // (for documentation only)
+  @SkylarkSignature(name = "False", returnType = Boolean.class, doc = "The Boolean false value.")
   private static final Boolean FALSE = false;
 
   /** There should be only one instance of this type to allow "== None" tests. */
@@ -105,27 +102,28 @@ public final class Runtime {
       doc = "Literal for the None value.")
   public static final NoneType NONE = new NoneType();
 
-  @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> "
-          + "instead.</b> The name of the package being evaluated. "
-          + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
-          + "will be <code>some/package</code>. "
-          + "If the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will "
-          + "match the caller BUILD file package. "
-          + "In .bzl files, do not access PACKAGE_NAME at the file-level (outside of functions), "
-          + "either directly or by calling a function at the file-level that accesses "
-          + "PACKAGE_NAME (PACKAGE_NAME is only defined during BUILD file evaluation)."
-          + "Here is an example of a .bzl file:<br>"
-          + "<pre class=language-python>"
-          + "# a = PACKAGE_NAME  # not allowed outside functions\n"
-          + "def extension():\n"
-          + "  return PACKAGE_NAME</pre>"
-          + "In this case, <code>extension()</code> can be called from a BUILD file (even "
-          + "indirectly), but not in a file-level expression in the .bzl file. "
-          + "When implementing a rule, use <a href=\"ctx.html#label\">ctx.label</a> to know where "
-          + "the rule comes from. ")
-  public static final String PKG_NAME = "PACKAGE_NAME";
+  // (for documentation only)
+  @SkylarkSignature(
+      name = "PACKAGE_NAME",
+      returnType = String.class,
+      doc =
+          "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> instead.</b>"
+              + " The name of the package being evaluated. For example, in the BUILD file"
+              + " <code>some/package/BUILD</code>, its value will be <code>some/package</code>. If"
+              + " the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will match"
+              + " the caller BUILD file package. In .bzl files, do not access PACKAGE_NAME at the"
+              + " file-level (outside of functions), either directly or by calling a function at"
+              + " the file-level that accesses PACKAGE_NAME (PACKAGE_NAME is only defined during"
+              + " BUILD file evaluation).Here is an example of a .bzl file:<br><pre"
+              + " class=language-python># a = PACKAGE_NAME  # not allowed outside functions\n"
+              + "def extension():\n"
+              + "  return PACKAGE_NAME</pre>In this case, <code>extension()</code> can be called"
+              + " from a BUILD file (even indirectly), but not in a file-level expression in the"
+              + " .bzl file. When implementing a rule, use <a"
+              + " href=\"ctx.html#label\">ctx.label</a> to know where the rule comes from. ")
+  private final String unusedPackageName = "PACKAGE_NAME";
 
+  // (for documentation only)
   @SkylarkSignature(
       name = "REPOSITORY_NAME",
       returnType = String.class,
@@ -139,7 +137,7 @@ public final class Runtime {
               + "<code>@</code>. It can only be accessed in functions (transitively) called from "
               + "BUILD files, i.e. it follows the same restrictions as "
               + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
-  public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
+  private final String unusedRepositoryName = "REPOSITORY_NAME";
 
   /** Adds bindings for False/True/None constants to the given map builder. */
   public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
@@ -153,12 +151,11 @@ public final class Runtime {
         .put("None", NONE);
   }
 
-
   /**
    * Returns the canonical class representing the namespace associated with the given class, i.e.,
    * the class under which builtins should be registered.
    */
-  public static Class<?> getSkylarkNamespace(Class<?> clazz) {
+  private static Class<?> getSkylarkNamespace(Class<?> clazz) {
     return String.class.isAssignableFrom(clazz)
         ? StringModule.class
         : EvalUtils.getSkylarkType(clazz);
@@ -177,6 +174,7 @@ public final class Runtime {
    * accesses are only allowed before this object has been frozen ({@link #freeze}). Prior to
    * freezing, all operations are synchronized, while after freezing they are lockless.
    */
+  @Deprecated
   public static class BuiltinRegistry {
 
     /**
@@ -241,7 +239,7 @@ public final class Runtime {
      *
      * <p>This is independent of {@link #registerBuiltin}.
      */
-    public synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
+    synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
       Preconditions.checkNotNull(namespace);
       Preconditions.checkNotNull(function.getObjectType());
       Class<?> skylarkNamespace = getSkylarkNamespace(namespace);
@@ -281,7 +279,7 @@ public final class Runtime {
      *
      * <p>If the namespace does not exist or has no function with that name, returns null.
      */
-    public BaseFunction getFunction(Class<?> namespace, String name) {
+    BaseFunction getFunction(Class<?> namespace, String name) {
       if (frozen) {
         Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
         return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
@@ -298,7 +296,7 @@ public final class Runtime {
      *
      * <p>If the namespace does not exist, returns an empty set.
      */
-    public ImmutableSet<String> getFunctionNames(Class<?> namespace) {
+    ImmutableSet<String> getFunctionNames(Class<?> namespace) {
       if (frozen) {
         Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
         if (namespaceFunctions == null) {
@@ -321,8 +319,8 @@ public final class Runtime {
    * All Skylark builtins.
    *
    * <p>Note that just because a symbol is registered here does not necessarily mean that it is
-   * accessible in a particular {@link Environment}. This registry should include any builtin that
-   * is available in any environment.
+   * accessible in a particular {@link StarlarkThread}. This registry should include any builtin
+   * that is available in any environment.
    *
    * <p>Thread safety: This object is unsynchronized. The register functions are typically called
    * from within static initializer blocks, which should be fine.
@@ -338,79 +336,6 @@ public final class Runtime {
   @Deprecated
   public static BuiltinRegistry getBuiltinRegistry() {
     return builtins;
-  }
-
-  /**
-   * Convenience overload of {@link #setupModuleGlobals(ImmutableMap.Builder, Class)} to add
-   * bindings directly to an {@link Environment}.
-   *
-   * @param env the Environment into which to register fields
-   * @param moduleClass the Class object containing globals
-   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
-   *     {@link SkylarkSignature})
-   */
-  @Deprecated
-  public static void setupModuleGlobals(Environment env, Class<?> moduleClass) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-
-    setupModuleGlobals(envBuilder, moduleClass);
-    for (Map.Entry<String, Object> envEntry : envBuilder.build().entrySet()) {
-      env.setup(envEntry.getKey(), envEntry.getValue());
-    }
-  }
-
-  /**
-   * Adds global (top-level) symbols, provided by the given class object, to the given bindings
-   * builder.
-   *
-   * <p>Global symbols may be provided by the given class in the following ways:
-   * <ul>
-   *   <li>If the class is annotated with {@link SkylarkModule}, an instance of that object is
-   *       a global object with the module's name.</li>
-   *   <li>If the class has fields annotated with {@link SkylarkSignature}, each of these
-   *       fields is a global object with the signature's name.</li>
-   *   <li>If the class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
-   *       which are annotated with
-   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
-   *       callables.</li>
-   * </ul>
-   *
-   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
-   * multiple global libraries have functions of the same name, two modules of the same name
-   * are given, or if two subclasses of the same module are given.
-   *
-   * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
-   *     and which will be built into a global frame
-   * @param moduleClass the Class object containing globals
-   * @deprecated use {@link #setupSkylarkLibrary} instead (and {@link SkylarkCallable} instead of
-   *     {@link SkylarkSignature})
-   */
-  @Deprecated
-  public static void setupModuleGlobals(ImmutableMap.Builder<String, Object> builder,
-      Class<?> moduleClass) {
-    try {
-      if (SkylarkInterfaceUtils.getSkylarkModule(moduleClass) != null
-          || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass)) {
-        setupSkylarkLibrary(builder, moduleClass.getConstructor().newInstance());
-      }
-      for (Field field : moduleClass.getDeclaredFields()) {
-        if (field.isAnnotationPresent(SkylarkSignature.class)) {
-          // Fields in Skylark modules are sometimes private.
-          // Nevertheless they have to be annotated with SkylarkSignature.
-          field.setAccessible(true);
-          SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
-          Object value = field.get(null);
-          // Ignore function factories and non-global functions
-          if (!(value instanceof BuiltinFunction.Factory
-              || (value instanceof BaseFunction
-                  && !annotation.objectType().equals(Object.class)))) {
-            builder.put(annotation.name(), value);
-          }
-        }
-      }
-    } catch (ReflectiveOperationException e) {
-      throw new AssertionError(e);
-    }
   }
 
   /**
@@ -452,8 +377,8 @@ public final class Runtime {
       builder.put(skylarkModule.name(), moduleInstance);
     }
     if (hasSkylarkGlobalLibrary) {
-      for (String methodName : FuncallExpression.getMethodNames(moduleClass)) {
-        builder.put(methodName, FuncallExpression.getBuiltinCallable(moduleInstance, methodName));
+      for (String methodName : CallUtils.getMethodNames(moduleClass)) {
+        builder.put(methodName, CallUtils.getBuiltinCallable(moduleInstance, methodName));
       }
     }
   }

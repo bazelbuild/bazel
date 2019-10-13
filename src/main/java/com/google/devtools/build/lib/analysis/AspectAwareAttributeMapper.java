@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.Collection;
 
 /**
@@ -140,6 +139,11 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
+    throw new UnsupportedOperationException("rule + aspects label visition is not supported");
+  }
+
+  @Override
   public String getPackageDefaultHdrsCheck() {
     return ruleAttributes.getPackageDefaultHdrsCheck();
   }
@@ -175,15 +179,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
     } else {
       return aspectAttributes.containsKey(attrName)
           && aspectAttributes.get(attrName).getType() == type;
-    }
-  }
-
-  @Override
-  public Location getAttributeLocation(String attrName) {
-    if (ruleAttributes.has(attrName)) {
-      return ruleAttributes.getAttributeLocation(attrName);
-    } else {
-      return Location.BUILTIN;
     }
   }
 }

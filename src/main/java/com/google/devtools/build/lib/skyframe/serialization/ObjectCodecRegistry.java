@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -169,7 +168,6 @@ public class ObjectCodecRegistry {
    *
    * <p>This is much more efficient than scanning multiple times.
    */
-  @VisibleForTesting
   public Builder getBuilder() {
     Builder builder = newBuilder();
     builder.setAllowDefaultCodec(allowDefaultCodec);

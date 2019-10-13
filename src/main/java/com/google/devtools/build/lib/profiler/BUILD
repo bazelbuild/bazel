@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
@@ -8,9 +10,21 @@ filegroup(
 
 java_library(
     name = "profiler",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = [
+        "AutoProfiler.java",
+        "CollectLocalCpuUsage.java",
+        "MemoryProfiler.java",
+        "MetricData.java",
+        "PredicateBasedStatRecorder.java",
+        "ProfilePhase.java",
+        "ProfilePhaseStatistics.java",
+        "Profiler.java",
+        "ProfilerTask.java",
+        "SilentCloseable.java",
+        "SingleStatRecorder.java",
+        "StatRecorder.java",
+        "TimeSeries.java",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
@@ -18,10 +32,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "google-auto-profiler-utils",
+    srcs = ["GoogleAutoProfilerUtils.java"],
+    deps = [
+        ":profiler",
+        "//third_party:flogger",
     ],
 )
 

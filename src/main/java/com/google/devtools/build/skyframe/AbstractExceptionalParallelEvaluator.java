@@ -205,22 +205,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   @ThreadCompatible
   private <T extends SkyValue> EvaluationResult<T> doMutatingEvaluation(
       ImmutableSet<SkyKey> skyKeys) throws InterruptedException, E {
-    // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
-    // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
-    // up a race condition, because there is no way to atomically create a node and set its value.
-    NodeEntry errorTransienceEntry =
-        Iterables.getOnlyElement(
-            graph
-                .createIfAbsentBatch(
-                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
-                .values());
-    if (!errorTransienceEntry.isDone()) {
-      injectValues(
-          ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
-          evaluatorContext.getGraphVersion(),
-          graph,
-          evaluatorContext.getProgressReceiver());
-    }
+    injectErrorTransienceValue();
     try {
       for (Map.Entry<SkyKey, ? extends NodeEntry> e :
           graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
@@ -263,6 +248,25 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     }
 
     return waitForCompletionAndConstructResult(skyKeys);
+  }
+
+  protected void injectErrorTransienceValue() throws InterruptedException {
+    // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
+    // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
+    // up a race condition, because there is no way to atomically create a node and set its value.
+    NodeEntry errorTransienceEntry =
+        Iterables.getOnlyElement(
+            graph
+                .createIfAbsentBatch(
+                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
+                .values());
+    if (!errorTransienceEntry.isDone()) {
+      injectValues(
+          ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
+          evaluatorContext.getGraphVersion(),
+          graph,
+          evaluatorContext.getProgressReceiver());
+    }
   }
 
   private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
@@ -538,18 +542,6 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       Thread.currentThread().interrupt();
     }
     return bubbleErrorInfo;
-  }
-
-  private void replay(ValueWithMetadata valueWithMetadata) {
-    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
-    // graph. Under those conditions, using the regular NestedSet flattening with .toList() is more
-    // efficient than using NestedSetVisitor's custom traversal logic.
-    evaluatorContext
-        .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables().toList());
-    evaluatorContext
-        .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents().toList());
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(

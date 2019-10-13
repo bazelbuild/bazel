@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
 # Description:
 #   Skyframe Java code
 package(

@@ -136,6 +136,20 @@ public interface AndroidConfigurationApi {
   boolean useAndroidResourceCycleShrinking();
 
   @SkylarkCallable(
+      name = "use_android_resource_path_shortening",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useAndroidResourcePathShortening();
+
+  @SkylarkCallable(
+      name = "use_android_resource_name_obfuscation",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useAndroidResourceNameObfuscation();
+
+  @SkylarkCallable(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",
@@ -144,6 +158,13 @@ public interface AndroidConfigurationApi {
 
   @SkylarkCallable(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
   boolean useParallelDex2Oat();
+
+  @SkylarkCallable(
+      name = "break_build_on_parallel_dex2oat_failure",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean breakBuildOnParallelDex2OatFailure();
 
   @SkylarkCallable(
       name = "compress_java_resources",
@@ -158,24 +179,6 @@ public interface AndroidConfigurationApi {
       doc = "",
       documented = false)
   boolean getExportsManifestDefault();
-
-  @SkylarkCallable(
-      name = "use_aapt2_for_robolectric",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useAapt2ForRobolectric();
-
-  /**
-   * @deprecated control resource conflicts with the <code>allow_resource_conflicts</code> whitelist
-   */
-  @Deprecated
-  @SkylarkCallable(
-      name = "throw_on_resource_conflict",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean throwOnResourceConflict();
 
   @SkylarkCallable(
       name = "omit_resources_info_provider_from_android_binary",

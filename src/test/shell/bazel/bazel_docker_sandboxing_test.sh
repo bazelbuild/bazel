@@ -19,7 +19,7 @@ source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # Platform container is picked up if it specified.
-# --remote_default_platform_properties is ignored in this case
+# --remote_default_exec_properties is ignored in this case
 function test_platform_container() {
   mkdir -p t
   cat >t/BUILD <<'EOF'
@@ -43,13 +43,13 @@ EOF
     --extra_execution_platforms=//t:bad_docker \
     --experimental_enable_docker_sandbox --experimental_docker_verbose \
     --spawn_strategy=docker \
-    --remote_default_platform_properties="properties:{name:\"container-image\" value:\"docker://bad_flag_container\"}"\
+    --remote_default_exec_properties="container-image=docker://bad_flag_container" \
     //t:echo \
     &> $TEST_log && fail "Expected build to fail, it succeded"
   grep "bad_platform_container" $TEST_log || fail "Wrong container was chosen"
 }
 
-# If platform container is not specified, --remote_default_platform_properties
+# If platform container is not specified, --remote_default_exec_properties
 # are picked up
 function test_flag_container() {
   mkdir -p t
@@ -64,7 +64,7 @@ EOF
   bazel build  \
     --experimental_enable_docker_sandbox --experimental_docker_verbose \
     --spawn_strategy=docker \
-    --remote_default_platform_properties="properties:{name:\"container-image\" value:\"docker://bad_flag_container\"}"\
+    --remote_default_exec_properties="container-image=docker://bad_flag_container" \
     //t:echo \
     &> $TEST_log && fail "Expected build to fail, it succeded"
   grep "bad_flag_container" $TEST_log || fail "Wrong container was chosen"

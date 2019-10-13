@@ -21,6 +21,9 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
@@ -34,9 +37,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_ARCHIVE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FILE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -168,14 +168,21 @@ public class BazelCppRuleClasses {
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
           <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
-          is prepended with <code>-D</code> (or <code>/D</code> on Windows) and added to
-          <code>COPTS</code>.
-          Unlike <a href="#cc_binary.copts"><code>copts</code></a>, these flags are added for the
-          target and every rule that depends on it!  Be very careful, since this may have
-          far-reaching effects.  When in doubt, add "-D" (or <code>/D</code> on Windows) flags to
-          <a href="#cc_binary.copts"><code>copts</code></a> instead.
+          is prepended with <code>-D</code> and added to the compile command line to this target,
+          as well as to every rule that depends on it. Be very careful, since this may have
+          far-reaching effects.  When in doubt, add define values to
+          <a href="#cc_binary.local_defines"><code>local_defines</code></a> instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
+          /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(local_defines) -->
+          List of defines to add to the compile line.
+          Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+          Each string, which must consist of a single Bourne shell token,
+          is prepended with <code>-D</code> and added to the compile command line for this target,
+          but not to its dependents.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("local_defines", STRING_LIST))
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(includes) -->
           List of include dirs to be added to the compile line.
           <p>

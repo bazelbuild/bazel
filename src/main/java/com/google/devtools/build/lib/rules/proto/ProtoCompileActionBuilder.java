@@ -244,7 +244,7 @@ public class ProtoCompileActionBuilder {
 
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
-  CustomCommandLine.Builder createProtoCompilerCommandLine() throws MissingPrerequisiteException {
+  CustomCommandLine.Builder createProtoCompilerCommandLine() {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPlugin != null) {
@@ -558,7 +558,8 @@ public class ProtoCompileActionBuilder {
                 .each(protoInfo.getExportedProtoSourcesImportPaths())
                 .mapped(
                     new ExpandToPathFnWithImports(
-                        outputDirectory, protoInfo.getExportedProtoSourceRoots())));
+                        outputDirectory,
+                        protoInfo.getExportedProtoSourceRoots())));
       }
     }
 
@@ -639,7 +640,9 @@ public class ProtoCompileActionBuilder {
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
 
-    public ExpandImportArgsFn(String outputDirectory, NestedSet<String> directProtoSourceRoots) {
+    public ExpandImportArgsFn(
+        String outputDirectory,
+        NestedSet<String> directProtoSourceRoots) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
     }
@@ -668,7 +671,8 @@ public class ProtoCompileActionBuilder {
     private final NestedSet<String> directProtoSourceRoots;
 
     public ExpandToPathFnWithImports(
-        String outputDirectory, NestedSet<String> directProtoSourceRoots) {
+        String outputDirectory,
+        NestedSet<String> directProtoSourceRoots) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
     }

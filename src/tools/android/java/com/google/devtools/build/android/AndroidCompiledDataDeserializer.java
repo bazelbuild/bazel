@@ -76,11 +76,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
-import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
 import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -96,13 +96,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -114,14 +113,15 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledDataDeserializer.class.getName());
 
-  static final ImmutableMap<Configuration.LayoutDirection, LayoutDirection> LAYOUT_DIRECTION_MAP =
-      ImmutableMap.of(
-          Configuration.LayoutDirection.LAYOUT_DIRECTION_LTR,
-          LayoutDirection.LTR,
-          Configuration.LayoutDirection.LAYOUT_DIRECTION_RTL,
-          LayoutDirection.RTL);
+  private static final ImmutableMap<Configuration.LayoutDirection, LayoutDirection>
+      LAYOUT_DIRECTION_MAP =
+          ImmutableMap.of(
+              Configuration.LayoutDirection.LAYOUT_DIRECTION_LTR,
+              LayoutDirection.LTR,
+              Configuration.LayoutDirection.LAYOUT_DIRECTION_RTL,
+              LayoutDirection.RTL);
 
-  static final ImmutableMap<Configuration.ScreenLayoutSize, ScreenSize> LAYOUT_SIZE_MAP =
+  private static final ImmutableMap<Configuration.ScreenLayoutSize, ScreenSize> LAYOUT_SIZE_MAP =
       ImmutableMap.of(
           ScreenLayoutSize.SCREEN_LAYOUT_SIZE_SMALL,
           ScreenSize.SMALL,
@@ -132,14 +132,14 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           ScreenLayoutSize.SCREEN_LAYOUT_SIZE_XLARGE,
           ScreenSize.XLARGE);
 
-  static final ImmutableMap<Configuration.ScreenLayoutLong, ScreenRatio> SCREEN_LONG_MAP =
+  private static final ImmutableMap<Configuration.ScreenLayoutLong, ScreenRatio> SCREEN_LONG_MAP =
       ImmutableMap.of(
           ScreenLayoutLong.SCREEN_LAYOUT_LONG_LONG,
           ScreenRatio.LONG,
           ScreenLayoutLong.SCREEN_LAYOUT_LONG_NOTLONG,
           ScreenRatio.NOTLONG);
 
-  static final ImmutableMap<Configuration.ScreenRound, ScreenRound> SCREEN_ROUND_MAP =
+  private static final ImmutableMap<Configuration.ScreenRound, ScreenRound> SCREEN_ROUND_MAP =
       ImmutableMap.of(
           Configuration.ScreenRound.SCREEN_ROUND_ROUND, ScreenRound.ROUND,
           Configuration.ScreenRound.SCREEN_ROUND_NOTROUND, ScreenRound.NOTROUND);
@@ -162,12 +162,12 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           .put(UiModeType.UI_MODE_TYPE_WATCH, UiMode.WATCH)
           .build();
 
-  static final ImmutableMap<Configuration.UiModeNight, NightMode> NIGHT_MODE_MAP =
+  private static final ImmutableMap<Configuration.UiModeNight, NightMode> NIGHT_MODE_MAP =
       ImmutableMap.of(
           UiModeNight.UI_MODE_NIGHT_NIGHT, NightMode.NIGHT,
           UiModeNight.UI_MODE_NIGHT_NOTNIGHT, NightMode.NOTNIGHT);
 
-  static final ImmutableMap<Configuration.KeysHidden, KeyboardState> KEYBOARD_STATE_MAP =
+  private static final ImmutableMap<Configuration.KeysHidden, KeyboardState> KEYBOARD_STATE_MAP =
       ImmutableMap.of(
           KeysHidden.KEYS_HIDDEN_KEYSEXPOSED,
           KeyboardState.EXPOSED,
@@ -176,7 +176,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           KeysHidden.KEYS_HIDDEN_KEYSHIDDEN,
           KeyboardState.HIDDEN);
 
-  static final ImmutableMap<Configuration.Touchscreen, TouchScreen> TOUCH_TYPE_MAP =
+  private static final ImmutableMap<Configuration.Touchscreen, TouchScreen> TOUCH_TYPE_MAP =
       ImmutableMap.of(
           Touchscreen.TOUCHSCREEN_FINGER,
           TouchScreen.FINGER,
@@ -185,7 +185,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           Touchscreen.TOUCHSCREEN_STYLUS,
           TouchScreen.STYLUS);
 
-  static final ImmutableMap<Configuration.Keyboard, Keyboard> KEYBOARD_MAP =
+  private static final ImmutableMap<Configuration.Keyboard, Keyboard> KEYBOARD_MAP =
       ImmutableMap.of(
           Configuration.Keyboard.KEYBOARD_NOKEYS,
           Keyboard.NOKEY,
@@ -194,14 +194,14 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           Configuration.Keyboard.KEYBOARD_TWELVEKEY,
           Keyboard.TWELVEKEY);
 
-  static final ImmutableMap<Configuration.NavHidden, NavigationState> NAV_STATE_MAP =
+  private static final ImmutableMap<Configuration.NavHidden, NavigationState> NAV_STATE_MAP =
       ImmutableMap.of(
           NavHidden.NAV_HIDDEN_NAVHIDDEN,
           NavigationState.HIDDEN,
           NavHidden.NAV_HIDDEN_NAVEXPOSED,
           NavigationState.EXPOSED);
 
-  static final ImmutableMap<Configuration.Navigation, Navigation> NAVIGATION_MAP =
+  private static final ImmutableMap<Configuration.Navigation, Navigation> NAVIGATION_MAP =
       ImmutableMap.of(
           Configuration.Navigation.NAVIGATION_DPAD,
           Navigation.DPAD,
@@ -212,7 +212,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           Configuration.Navigation.NAVIGATION_WHEEL,
           Navigation.WHEEL);
 
-  static final ImmutableMap<Integer, Density> DENSITY_MAP =
+  private static final ImmutableMap<Integer, Density> DENSITY_MAP =
       ImmutableMap.<Integer, Density>builder()
           .put(0xfffe, Density.ANYDPI)
           .put(0xffff, Density.NODPI)
@@ -244,20 +244,24 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     this.filteredResources = filteredResources;
   }
 
-  private void readResourceTable(
-      LittleEndianDataInputStream resourceTableStream, KeyValueConsumers consumers)
+  private static void readResourceTable(
+      DependencyInfo dependencyInfo,
+      LittleEndianDataInputStream resourceTableStream,
+      KeyValueConsumers consumers)
       throws IOException {
     long alignedSize = resourceTableStream.readLong();
     Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
 
     byte[] tableBytes = new byte[(int) alignedSize];
     resourceTableStream.readFully(tableBytes, 0, (int) alignedSize);
-    ResourceTable resourceTable = ResourceTable.parseFrom(tableBytes);
+    ResourceTable resourceTable =
+        ResourceTable.parseFrom(tableBytes, ExtensionRegistry.getEmptyRegistry());
 
-    readPackages(consumers, resourceTable);
+    readPackages(dependencyInfo, consumers, resourceTable);
   }
 
-  private void readPackages(KeyValueConsumers consumers, ResourceTable resourceTable)
+  private static void readPackages(
+      DependencyInfo dependencyInfo, KeyValueConsumers consumers, ResourceTable resourceTable)
       throws UnsupportedEncodingException, InvalidProtocolBufferException {
     List<String> sourcePool =
         decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray());
@@ -276,18 +280,19 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
           if (resource.getConfigValueList().isEmpty()
               && resource.getVisibility().getLevel() == Level.PUBLIC) {
+            FullyQualifiedName fqn =
+                createAndRecordFqn(
+                    packageResolver, packageName, resourceType, resource, ImmutableList.of());
 
             // This is a public resource definition.
             int sourceIndex = resource.getVisibility().getSource().getPathIdx();
-
             String source = sourcePool.get(sourceIndex);
-            DataSource dataSource = DataSource.of(Paths.get(source));
+            DataSource dataSource = DataSource.of(dependencyInfo, Paths.get(source));
 
             DataResourceXml dataResourceXml =
                 DataResourceXml.fromPublic(dataSource, resourceType, resource.getEntryId().getId());
-            final FullyQualifiedName fqn =
-                createAndRecordFqn(
-                    packageResolver, packageName, resourceType, resource, ImmutableList.of());
+
+            // TODO(b/26297204): does this actually do anything?
             consumers.combiningConsumer.accept(fqn, dataResourceXml);
           } else if (!"android".equals(packageName)) {
             // This means this resource is not in the android sdk, add it to the set.
@@ -301,12 +306,10 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
                       convertToQualifiers(configValue));
 
               int sourceIndex = configValue.getValue().getSource().getPathIdx();
-
               String source = sourcePool.get(sourceIndex);
-              DataSource dataSource = DataSource.of(Paths.get(source));
+              DataSource dataSource = DataSource.of(dependencyInfo, Paths.get(source));
 
               Value resourceValue = configValue.getValue();
-
               DataResource dataResource =
                   resourceValue.getItem().hasFile()
                       ? DataValueFile.of(dataSource)
@@ -322,8 +325,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           } else {
             // In the sdk, just add the fqn for styleables
             createAndRecordFqn(
-                    packageResolver, packageName, resourceType, resource, ImmutableList.of())
-                .toPrettyString();
+                packageResolver, packageName, resourceType, resource, ImmutableList.of());
           }
         }
       }
@@ -331,6 +333,9 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   /** Maintains state for all references in each package of a resource table. */
+  // TODO(b/112848607): Remove this!  This machinery is all really for pretty-printing styleables,
+  // and only ever used for emitting XML with tools:keep attributes.
+  // https://github.com/bazelbuild/bazel/blob/2419d4b2780fc68a0e501c1fab558b045eb054d3/src/tools/android/java/com/google/devtools/build/android/aapt2/ResourceLinker.java#L523
   @NotThreadSafe
   public static class ReferenceResolver {
 
@@ -350,7 +355,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
 
     static ReferenceResolver asRoot() {
-      return new ReferenceResolver(Optional.empty(), new HashMap<>());
+      return new ReferenceResolver(Optional.empty(), new LinkedHashMap<>());
     }
 
     public ReferenceResolver resolveFor(String packageName) {
@@ -385,7 +390,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  private FullyQualifiedName createAndRecordFqn(
+  private static FullyQualifiedName createAndRecordFqn(
       ReferenceResolver packageResolver,
       String packageName,
       ResourceType resourceType,
@@ -401,7 +406,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     return fqn;
   }
 
-  private List<String> convertToQualifiers(ConfigValue configValue) {
+  private static List<String> convertToQualifiers(ConfigValue configValue) {
     FolderConfiguration configuration = new FolderConfiguration();
     final Configuration protoConfig = configValue.getConfig();
     if (protoConfig.getMcc() > 0) {
@@ -535,10 +540,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
    * @param fqnFactory
    * @throws IOException
    */
-  private void readCompiledFile(
+  private static void readCompiledFile(
+      DependencyInfo dependencyInfo,
       LittleEndianDataInputStream compiledFileStream,
       KeyValueConsumers consumers,
-      Factory fqnFactory)
+      FullyQualifiedName.Factory fqnFactory)
       throws IOException {
     // Skip aligned size. We don't need it here.
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
@@ -549,16 +555,14 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     Preconditions.checkArgument(compiledFileStream.skipBytes(8) == 8);
 
     byte[] file = new byte[resFileHeaderSize];
-    compiledFileStream.read(file, 0, resFileHeaderSize);
-    CompiledFile compiledFile = CompiledFile.parseFrom(file);
+    compiledFileStream.readFully(file);
+    CompiledFile compiledFile = CompiledFile.parseFrom(file, ExtensionRegistry.getEmptyRegistry());
 
     Path sourcePath = Paths.get(compiledFile.getSourcePath());
     FullyQualifiedName fqn = fqnFactory.parse(sourcePath);
-    DataSource dataSource = DataSource.of(sourcePath);
+    DataSource dataSource = DataSource.of(dependencyInfo, sourcePath);
 
-    if (consumers != null) {
-      consumers.overwritingConsumer.accept(fqn, DataValueFile.of(dataSource));
-    }
+    consumers.overwritingConsumer.accept(fqn, DataValueFile.of(dataSource));
 
     for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolList()) {
       if (!exportedSymbol.getResourceName().startsWith("android:")) {
@@ -574,11 +578,12 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  private void readAttributesFile(
+  private static void readAttributesFile(
+      DependencyInfo dependencyInfo,
       InputStream resourceFileStream,
       FileSystem fileSystem,
-      BiConsumer<DataKey, DataResource> combine,
-      BiConsumer<DataKey, DataResource> overwrite)
+      ParsedAndroidData.KeyValueConsumer<DataKey, DataResource> combine,
+      ParsedAndroidData.KeyValueConsumer<DataKey, DataResource> overwrite)
       throws IOException {
 
     Header header = Header.parseDelimitedFrom(resourceFileStream);
@@ -589,7 +594,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       fullyQualifiedNames.add(FullyQualifiedName.fromProto(protoKey));
     }
 
-    DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
+    DataSourceTable sourceTable =
+        DataSourceTable.read(dependencyInfo, resourceFileStream, fileSystem, header);
 
     for (FullyQualifiedName fullyQualifiedName : fullyQualifiedNames) {
       SerializeFormat.DataValue protoValue =
@@ -606,14 +612,17 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  public Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
+  public static Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
     try (ZipInputStream zipStream = new ZipInputStream(Files.newInputStream(resources.getZip()))) {
-      Map<DataKey, DataResource> attributes = new HashMap<>();
+      Map<DataKey, DataResource> attributes = new LinkedHashMap<>();
       for (ZipEntry entry = zipStream.getNextEntry();
           entry != null;
           entry = zipStream.getNextEntry()) {
         if (entry.getName().endsWith(".attributes")) {
           readAttributesFile(
+              // Don't care about origin of ".attributes" values, since they don't feed into field
+              // initializers.
+              DependencyInfo.UNKNOWN,
               zipStream,
               FileSystems.getDefault(),
               (key, value) ->
@@ -632,13 +641,16 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  public void readTable(InputStream in, KeyValueConsumers consumers) throws IOException {
-    final ResourceTable resourceTable = ResourceTable.parseFrom(in);
-    readPackages(consumers, resourceTable);
+  public static void readTable(
+      DependencyInfo dependencyInfo, InputStream in, KeyValueConsumers consumers)
+      throws IOException {
+    final ResourceTable resourceTable =
+        ResourceTable.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+    readPackages(dependencyInfo, consumers, resourceTable);
   }
 
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers) {
+  public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       Enumeration<? extends ZipEntry> resourceFiles = zipFile.entries();
@@ -648,12 +660,8 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         String fileZipPath = resourceFile.getName();
         int resourceSubdirectoryIndex = fileZipPath.indexOf('_', fileZipPath.lastIndexOf('/'));
         Path filePath =
-            Paths.get(
-                String.format(
-                    "%s%c%s",
-                    fileZipPath.substring(0, resourceSubdirectoryIndex),
-                    '/',
-                    fileZipPath.substring(resourceSubdirectoryIndex + 1)));
+            Paths.get(fileZipPath.substring(0, resourceSubdirectoryIndex))
+                .resolve(fileZipPath.substring(resourceSubdirectoryIndex + 1));
 
         String shortPath = filePath.getParent().getFileName() + "/" + filePath.getFileName();
 
@@ -667,10 +675,12 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         try (InputStream resourceFileStream = zipFile.getInputStream(resourceFile)) {
           final String[] dirNameAndQualifiers =
               filePath.getParent().getFileName().toString().split(SdkConstants.RES_QUALIFIER_SEP);
-          Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
+          FullyQualifiedName.Factory fqnFactory =
+              FullyQualifiedName.Factory.fromDirectoryName(dirNameAndQualifiers);
 
           if (fileZipPath.endsWith(".attributes")) {
             readAttributesFile(
+                dependencyInfo,
                 resourceFileStream,
                 inPath.getFileSystem(),
                 consumers.combiningConsumer,
@@ -685,9 +695,9 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             int resourceType = dataInputStream.readInt();
 
             if (resourceType == 0) { // 0 is a resource table
-              readResourceTable(dataInputStream, consumers);
+              readResourceTable(dependencyInfo, dataInputStream, consumers);
             } else if (resourceType == 1) { // 1 is a resource file
-              readCompiledFile(dataInputStream, consumers, fqnFactory);
+              readCompiledFile(dependencyInfo, dataInputStream, consumers, fqnFactory);
             } else {
               throw new DeserializationException(
                   "aapt2 version mismatch.",

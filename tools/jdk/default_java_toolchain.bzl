@@ -14,6 +14,8 @@
 
 """Bazel rules for creating Java toolchains."""
 
+load("@rules_java//java:defs.bzl", "java_toolchain")
+
 JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//tools/jdk:javac_jar)",
 ]
@@ -46,17 +48,6 @@ DEFAULT_JAVACOPTS = [
     "-parameters",
 ]
 
-PROTO_JAVACOPTS = [
-    # Restrict protos to Java 7 so that they are compatible with Android.
-    "-source",
-    "7",
-    "-target",
-    "7",
-]
-
-COMPATIBLE_JAVACOPTS = {
-    "proto": PROTO_JAVACOPTS,
-}
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "forcibly_disable_header_compilation": 0,
     "genclass": ["@bazel_tools//tools/jdk:genclass"],
@@ -72,7 +63,6 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "javac_supports_workers": 1,
     "jvm_opts": JDK9_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
-    "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
     "source_version": "8",
@@ -84,8 +74,7 @@ def default_java_toolchain(name, **kwargs):
 
     toolchain_args = dict(DEFAULT_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(kwargs)
-
-    native.java_toolchain(
+    java_toolchain(
         name = name,
         **toolchain_args
     )

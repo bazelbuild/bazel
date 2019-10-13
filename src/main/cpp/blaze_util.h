@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/path.h"
+
 namespace blaze {
 
 extern const char kServerPidFile[];
@@ -44,10 +46,12 @@ bool GetNullaryOption(const char *arg, const char *key);
 
 // Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
 // are omitted from the search.
+// When 'warn_if_dupe' is true, the method checks if 'key' is specified more
+// than once and prints a warning if so.
 // Returns the value of the 'key' flag iff it occurs in args.
 // Returns NULL otherwise.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
-                              const char* key);
+                              const char* key, bool warn_if_dupe);
 
 // Searches for '--flag_name' and '--noflag_name' in 'args' using
 // GetNullaryOption. Arguments found after '--' are omitted from the search.
@@ -72,7 +76,7 @@ std::string AbsolutePathFromFlag(const std::string& value);
 // wait_seconds elapses or the server process terminates. Returns true if a
 // check sees that the server process terminated. Logs to stderr after 5, 10,
 // and 30 seconds if the wait lasts that long.
-bool AwaitServerProcessTermination(int pid, const std::string& output_base,
+bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
                                    unsigned int wait_seconds);
 
 // The number of seconds the client will wait for the server process to

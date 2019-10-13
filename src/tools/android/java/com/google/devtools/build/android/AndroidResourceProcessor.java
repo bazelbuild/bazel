@@ -36,7 +36,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
-import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.build.android.junctions.JunctionCreator;
 import com.google.devtools.build.android.junctions.NoopJunctionCreator;
 import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
@@ -51,7 +50,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -91,28 +89,6 @@ public class AndroidResourceProcessor {
     public Path aapt;
 
     @Option(
-      name = "featureOf",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Base apk path."
-    )
-    public Path featureOf;
-
-    @Option(
-      name = "featureAfter",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Apk path of previous split (if any)."
-    )
-    public Path featureAfter;
-
-    @Option(
       name = "androidJar",
       defaultValue = "null",
       converter = ExistingPathConverter.class,
@@ -150,17 +126,6 @@ public class AndroidResourceProcessor {
     public List<String> uncompressedExtensions;
 
     @Option(
-      name = "assetsToIgnore",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of assets extensions to ignore."
-    )
-    public List<String> assetsToIgnore;
-
-    @Option(
       name = "debug",
       defaultValue = "false",
       category = "config",
@@ -180,32 +145,6 @@ public class AndroidResourceProcessor {
       help = "A list of resource config filters to pass to aapt."
     )
     public List<String> resourceConfigs;
-
-    private static final String ANDROID_SPLIT_DOCUMENTATION_URL =
-        "https://developer.android.com/guide/topics/resources/providing-resources.html"
-            + "#QualifierRules";
-
-    @Option(
-      name = "split",
-      defaultValue = "required but ignored due to allowMultiple",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      allowMultiple = true,
-      help =
-          "An individual split configuration to pass to aapt."
-              + " Each split is a list of configuration filters separated by commas."
-              + " Configuration filters are lists of configuration qualifiers separated by dashes,"
-              + " as used in resource directory names and described on the Android developer site: "
-              + ANDROID_SPLIT_DOCUMENTATION_URL
-              + " For example, a split might be 'en-television,en-xxhdpi', containing English"
-              + " assets which either are for TV screens or are extra extra high resolution."
-              + " Multiple splits can be specified by passing this flag multiple times."
-              + " Each split flag will produce an additional output file, named by replacing the"
-              + " commas in the split specification with underscores, and appending the result to"
-              + " the output package name following an underscore."
-    )
-    public List<String> splits;
   }
 
   /** {@link AaptOptions} backed by an {@link AaptConfigOptions}. */
@@ -226,9 +165,6 @@ public class AndroidResourceProcessor {
 
     @Override
     public String getIgnoreAssets() {
-      if (!options.assetsToIgnore.isEmpty()) {
-        return Joiner.on(":").join(options.assetsToIgnore);
-      }
       return null;
     }
 
@@ -239,16 +175,7 @@ public class AndroidResourceProcessor {
 
     @Override
     public List<String> getAdditionalParameters() {
-      List<String> params = new java.util.ArrayList<String>();
-      if (options.featureOf != null) {
-        params.add("--feature-of");
-        params.add(options.featureOf.toString());
-      }
-      if (options.featureAfter != null) {
-        params.add("--feature-after");
-        params.add(options.featureAfter.toString());
-      }
-      return ImmutableList.copyOf(params);
+      return ImmutableList.of();
     }
   }
 
@@ -275,7 +202,6 @@ public class AndroidResourceProcessor {
       String customPackageForR,
       AaptOptions aaptOptions,
       Collection<String> resourceConfigs,
-      Collection<String> splits,
       MergedAndroidData primaryData,
       List<DependencyAndroidData> dependencyData,
       @Nullable Path sourceOut,
@@ -284,7 +210,7 @@ public class AndroidResourceProcessor {
       @Nullable Path mainDexProguardOut,
       @Nullable Path publicResourcesOut,
       @Nullable Path dataBindingInfoOut)
-      throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
+      throws IOException, InterruptedException, LoggedErrorException {
     Path androidManifest = primaryData.getManifest();
     final Path resourceDir =
         processDataBindings(
@@ -308,7 +234,6 @@ public class AndroidResourceProcessor {
         customPackageForR,
         aaptOptions,
         resourceConfigs,
-        splits,
         androidManifest,
         resourceDir,
         assetsDir,
@@ -323,12 +248,6 @@ public class AndroidResourceProcessor {
       writeDependencyPackageRJavaFiles(
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
-    // Reset the output date stamps.
-    if (packageOut != null) {
-      if (!splits.isEmpty()) {
-        renameSplitPackages(packageOut, splits);
-      }
-    }
     return new MergedAndroidData(resourceDir, assetsDir, androidManifest);
   }
 
@@ -342,7 +261,6 @@ public class AndroidResourceProcessor {
       String customPackageForR,
       AaptOptions aaptOptions,
       Collection<String> resourceConfigs,
-      Collection<String> splits,
       Path androidManifest,
       Path resourceDir,
       Path assetsDir,
@@ -407,10 +325,7 @@ public class AndroidResourceProcessor {
               // Add custom no-compress extensions.
               .addRepeated("-0", aaptOptions.getNoCompress())
               // Filter by resource configuration type.
-              .add("-c", Joiner.on(',').join(resourceConfigs))
-              // Split APKs if any splits were specified.
-              .whenVersionIsAtLeast(new Revision(23))
-              .thenAddRepeated("--split", splits);
+              .add("-c", Joiner.on(',').join(resourceConfigs));
       for (String additional : aaptOptions.getAdditionalParameters()) {
         commandBuilder.add(additional);
       }
@@ -571,33 +486,6 @@ public class AndroidResourceProcessor {
       for (String packageName : libSymbolMap.keySet()) {
         Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
         fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, /* finalFields= */ true);
-      }
-    }
-  }
-
-  /** Renames aapt's split outputs according to the input flags. */
-  private void renameSplitPackages(Path packageOut, Iterable<String> splits)
-      throws UnrecognizedSplitsException, IOException {
-    String prefix = packageOut.getFileName().toString() + "_";
-    // The regex java string literal below is received as [\\{}\[\]*?] by the regex engine,
-    // which produces a character class containing \{}[]*?
-    // The replacement string literal is received as \\$0 by the regex engine, which places
-    // a backslash before the match.
-    String prefixGlob = prefix.replaceAll("[\\\\{}\\[\\]*?]", "\\\\$0") + "*";
-    Path outputDirectory = packageOut.getParent();
-    ImmutableList.Builder<String> filenameSuffixes = new ImmutableList.Builder<>();
-    try (DirectoryStream<Path> glob = Files.newDirectoryStream(outputDirectory, prefixGlob)) {
-      for (Path file : glob) {
-        filenameSuffixes.add(file.getFileName().toString().substring(prefix.length()));
-      }
-    }
-    Map<String, String> outputs =
-        SplitConfigurationFilter.mapFilenamesToSplitFlags(filenameSuffixes.build(), splits);
-    for (Map.Entry<String, String> splitMapping : outputs.entrySet()) {
-      Path resultPath = packageOut.resolveSibling(prefix + splitMapping.getValue());
-      if (!splitMapping.getKey().equals(splitMapping.getValue())) {
-        Path sourcePath = packageOut.resolveSibling(prefix + splitMapping.getKey());
-        Files.move(sourcePath, resultPath);
       }
     }
   }

@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Rule;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -218,4 +219,10 @@ public class ExecutionRequirements {
 
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
+
+  public static boolean maybeExecutedRemotely(Set<String> executionRequirements) {
+    return !executionRequirements.contains(ExecutionRequirements.LOCAL)
+        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE)
+        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE_EXEC);
+  }
 }

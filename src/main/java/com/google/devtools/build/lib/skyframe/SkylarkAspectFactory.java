@@ -21,12 +21,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
@@ -34,12 +34,12 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /** A factory for aspects that are defined in Skylark. */
@@ -71,18 +71,22 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
-      Environment env =
-          Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(analysisEnv.getSkylarkSemantics())
               .setEventHandler(analysisEnv.getEventHandler())
-              .setStarlarkContext(
-                  new BazelStarlarkContext(
-                      toolsRepository,
-                      ruleContext.getRule().getPackage().getRepositoryMapping(),
-                      ruleContext.getSymbolGenerator()))
-              // NB: loading phase functions are not available: this is analysis already, so we do
-              // *not* setLoadingPhase().
               .build();
+      // NB: loading phase functions are not available: this is analysis already, so we do
+      // *not* setLoadingPhase().
+
+      new BazelStarlarkContext(
+              toolsRepository,
+              /* fragmentNameToClass=*/ null,
+              ruleContext.getRule().getPackage().getRepositoryMapping(),
+              ruleContext.getSymbolGenerator(),
+              ruleContext.getLabel())
+          .storeInThread(thread);
+
       Object aspectSkylarkObject;
       try {
         aspectSkylarkObject =
@@ -92,7 +96,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                     /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
                     /* kwargs= */ ImmutableMap.of(),
                     /*ast=*/ null,
-                    env);
+                    thread);
 
         // If allowing analysis failures, targets should be created somewhat normally, and errors
         // will be propagated via a hook elsewhere as AnalysisFailureInfo.

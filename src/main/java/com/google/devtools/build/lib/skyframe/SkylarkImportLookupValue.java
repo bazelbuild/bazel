@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -143,7 +143,8 @@ public class SkylarkImportLookupValue implements SkyValue {
    *     file is loaded more than once, this is the chunk that it was first loaded from
    * @param workspacePath the path of the workspace file for the project
    */
-  static SkyKey keyInWorkspace(Label importLabel, int workspaceChunk, RootedPath workspacePath) {
+  static SkylarkImportLookupKey keyInWorkspace(
+      Label importLabel, int workspaceChunk, RootedPath workspacePath) {
     return SkylarkImportLookupKey.create(
         importLabel, /* inWorkspace= */ true, workspaceChunk, workspacePath);
   }
@@ -154,7 +155,7 @@ public class SkylarkImportLookupValue implements SkyValue {
    *
    * @param importLabel the label of the bzl file being loaded
    */
-  static SkyKey key(Label importLabel) {
+  static SkylarkImportLookupKey key(Label importLabel) {
     return SkylarkImportLookupKey.create(
         importLabel, /* inWorkspace= */ false, /* workspaceChunk= */ -1, /* workspacePath= */ null);
   }

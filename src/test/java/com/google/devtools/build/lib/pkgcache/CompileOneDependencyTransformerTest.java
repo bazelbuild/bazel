@@ -118,8 +118,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   private ResolvedTargets<Target> parseListCompileOneDepWithOffset(
       PathFragment offset, String... patterns) throws TargetParsingException, InterruptedException {
     Map<String, Collection<Target>> resolvedTargetsMap =
-        parser.preloadTargetPatterns(
-            reporter, offset, ImmutableSet.copyOf(patterns), false, /* useForkJoinPool= */ false);
+        parser.preloadTargetPatterns(reporter, offset, ImmutableSet.copyOf(patterns), false);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (String pattern : patterns) {
       result.addAll(resolvedTargetsMap.get(pattern));

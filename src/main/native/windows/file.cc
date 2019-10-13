@@ -781,5 +781,61 @@ bool GetCwd(std::wstring* result, DWORD* err_code) {
   }
 }
 
+std::wstring GetCorrectCasing(const std::wstring& abs_path) {
+  if (!HasDriveSpecifierPrefix(abs_path.c_str())) {
+    return L"";
+  }
+  std::wstring path = Normalize(abs_path);
+  std::unique_ptr<wchar_t[]> result(new wchar_t[4 + path.size() + 1]);
+  // Ensure path starts with UNC prefix, so we can use long paths in
+  // FindFirstFileW.
+  wcscpy(result.get(), L"\\\\?\\");
+  // Copy the rest of the normalized path. (Must be normalized and use `\`
+  // separators, for the UNC prefix to work.)
+  wcscpy(result.get() + 4, path.c_str());
+  // Ensure drive letter is upper case.
+  result[4] = towupper(result[4]);
+  // Start at index 7, which is after the UNC prefix and drive segment (i.e.
+  // past `\\?\C:\`).
+  wchar_t* start = result.get() + 7;
+  // Fix the casing of each segment, from left to right.
+  while (true) {
+    // Find current segment end.
+    wchar_t* seg_end = wcschr(start, L'\\');
+    // Pretend the whole path ends at the current segment.
+    if (seg_end) {
+      *seg_end = 0;
+    }
+    // Find this path from the filesystem. The lookup is case-insensitive, but
+    // the result shows the correct casing. Because we fix the casing from left
+    // to right, only the last segment needs fixing, so we look up that
+    // particular directory (or file).
+    WIN32_FIND_DATAW metadata;
+    HANDLE handle = FindFirstFileW(result.get(), &metadata);
+    if (handle != INVALID_HANDLE_VALUE) {
+      // Found the child. The correct casing is in metadata.cFileName
+      wcscpy(start, metadata.cFileName);
+      FindClose(handle);
+      if (seg_end) {
+        // There are more path segments to fix. Restore the `\` separator.
+        *seg_end = L'\\';
+        start = seg_end + 1;
+      } else {
+        // This was the last segment.
+        break;
+      }
+    } else {
+      // Path does not exist. Restore the `\` separator and leave the rest of
+      // the path unchanged.
+      if (seg_end) {
+        *seg_end = L'\\';
+      }
+      break;
+    }
+  }
+  // Return the case-corrected path without the `\\?\` prefix.
+  return result.get() + 4;
+}
+
 }  // namespace windows
 }  // namespace bazel

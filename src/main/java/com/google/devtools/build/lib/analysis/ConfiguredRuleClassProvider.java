@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -35,38 +36,32 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -119,104 +114,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         RuleContext.Builder contextBuilder,
         ConfiguredTargetAndData prerequisite,
         Attribute attribute);
-  }
-
-  /** Validator to check for and warn on the deprecation of dependencies. */
-  public static final class DeprecationValidator implements PrerequisiteValidator {
-    /** Checks if the given prerequisite is deprecated and prints a warning if so. */
-    @Override
-    public void validate(
-        RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndData prerequisite,
-        Attribute attribute) {
-      validateDirectPrerequisiteForDeprecation(
-          contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
-    }
-
-    /**
-     * Returns whether two packages are considered the same for purposes of deprecation warnings.
-     * Dependencies within the same package do not print deprecation warnings; a package in the
-     * javatests directory may also depend on its corresponding java package without a warning.
-     */
-    public static boolean isSameLogicalPackage(
-        PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
-      if (thisPackage.equals(prerequisitePackage)) {
-        // If the packages are equal, they are the same logical package (and just the same package).
-        return true;
-      }
-      if (!thisPackage.getRepository().equals(prerequisitePackage.getRepository())) {
-        // If the packages are in different repositories, they are not the same logical package.
-        return false;
-      }
-      // If the packages are in the same repository, it's allowed iff this package is the javatests
-      // companion to the prerequisite java package.
-      String thisPackagePath = thisPackage.getPackageFragment().getPathString();
-      String prerequisitePackagePath = prerequisitePackage.getPackageFragment().getPathString();
-      return thisPackagePath.startsWith("javatests/")
-          && prerequisitePackagePath.startsWith("java/")
-          && thisPackagePath.substring("javatests/".length()).equals(
-              prerequisitePackagePath.substring("java/".length()));
-    }
-
-    /** Returns whether a deprecation warning should be printed for the prerequisite described. */
-    private static boolean shouldEmitDeprecationWarningFor(
-        String thisDeprecation, PackageIdentifier thisPackage,
-        String prerequisiteDeprecation, PackageIdentifier prerequisitePackage,
-        boolean forAspect) {
-      // Don't report deprecation edges from javatests to java or within a package;
-      // otherwise tests of deprecated code generate nuisance warnings.
-      // Don't report deprecation if the current target is also deprecated,
-      // or if the current context is evaluating an aspect,
-      // as the base target would have already printed the deprecation warnings.
-      return (!forAspect
-          && prerequisiteDeprecation != null
-          && !isSameLogicalPackage(thisPackage, prerequisitePackage)
-          && thisDeprecation == null);
-    }
-
-    /** Checks if the given prerequisite is deprecated and prints a warning if so. */
-    public static void validateDirectPrerequisiteForDeprecation(
-        RuleErrorConsumer errors,
-        Rule rule,
-        ConfiguredTargetAndData prerequisite,
-        boolean forAspect) {
-      Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
-      PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
-      PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
-
-      if (prerequisiteTarget instanceof Rule) {
-        Rule prerequisiteRule = (Rule) prerequisiteTarget;
-        String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).has("deprecation", Type.STRING)
-                ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
-                : null;
-        String thatDeprecation =
-            NonconfigurableAttributeMapper.of(prerequisiteRule).has("deprecation", Type.STRING)
-                ? NonconfigurableAttributeMapper.of(prerequisiteRule)
-                    .get("deprecation", Type.STRING)
-                : null;
-        if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-          errors.ruleWarning("target '" + rule.getLabel() +  "' depends on deprecated target '"
-              + prerequisiteLabel + "': " + thatDeprecation);
-        }
-      }
-
-      if (prerequisiteTarget instanceof OutputFile) {
-        Rule generatingRule = ((OutputFile) prerequisiteTarget).getGeneratingRule();
-        String thisDeprecation =
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING);
-        String thatDeprecation =
-            NonconfigurableAttributeMapper.of(generatingRule).get("deprecation", Type.STRING);
-        if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-          errors.ruleWarning("target '" + rule.getLabel() + "' depends on the output file "
-              + prerequisiteLabel + " of a deprecated rule " + generatingRule.getLabel()
-              + "': " + thatDeprecation);
-        }
-      }
-    }
   }
 
   /**
@@ -651,7 +548,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final Environment.GlobalFrame globals;
+  private final StarlarkThread.GlobalFrame globals;
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -776,11 +673,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return nativeAspectClassMap.get(key);
   }
 
-  /**
-   * Returns a list of build info factories that are needed for the supported languages.
-   */
-  public ImmutableList<BuildInfoFactory> getBuildInfoFactories() {
-    return buildInfoFactories;
+  public Map<BuildInfoKey, BuildInfoFactory> getBuildInfoFactoriesAsMap() {
+    ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder = ImmutableMap.builder();
+    for (BuildInfoFactory factory : buildInfoFactories) {
+      factoryMapBuilder.put(factory.getKey(), factory);
+    }
+    return factoryMapBuilder.build();
   }
 
   /**
@@ -852,7 +750,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private Environment.GlobalFrame createGlobals(
+  private StarlarkThread.GlobalFrame createGlobals(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
@@ -879,52 +777,34 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return mapBuilder.build();
   }
 
-  private Environment createSkylarkRuleClassEnvironment(
-      Mutability mutability,
-      GlobalFrame globals,
-      StarlarkSemantics starlarkSemantics,
-      EventHandler eventHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      Label callerLabel) {
-    BazelStarlarkContext context =
-        new BazelStarlarkContext(
-            toolsRepository,
-            configurationFragmentMap,
-            repoMapping,
-            new SymbolGenerator<>(callerLabel));
-    Environment env =
-        Environment.builder(mutability)
-            .setGlobals(globals)
-            .setSemantics(starlarkSemantics)
-            .setEventHandler(eventHandler)
-            .setFileContentHashCode(astFileContentHashCode)
-            .setStarlarkContext(context)
-            .setImportedExtensions(importMap)
-            .build();
-    SkylarkUtils.setPhase(env, Phase.LOADING);
-    return env;
-  }
-
   @Override
-  public Environment createSkylarkRuleClassEnvironment(
-      Label extensionLabel,
+  public StarlarkThread createRuleClassStarlarkThread(
+      Label fileLabel,
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    return createSkylarkRuleClassEnvironment(
-        mutability,
-        globals.withLabel(extensionLabel),
-        starlarkSemantics,
-        eventHandler,
-        astFileContentHashCode,
-        importMap,
-        repoMapping,
-        extensionLabel);
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
+            .setGlobals(globals.withLabel(fileLabel))
+            .setSemantics(starlarkSemantics)
+            .setEventHandler(eventHandler)
+            .setFileContentHashCode(astFileContentHashCode)
+            .setImportedExtensions(importMap)
+            .build();
+
+    new BazelStarlarkContext(
+            toolsRepository,
+            configurationFragmentMap,
+            repoMapping,
+            new SymbolGenerator<>(fileLabel),
+            /* analysisRuleLabel= */ null)
+        .storeInThread(thread);
+
+    SkylarkUtils.setPhase(thread, Phase.LOADING);
+    return thread;
   }
 
   @Override

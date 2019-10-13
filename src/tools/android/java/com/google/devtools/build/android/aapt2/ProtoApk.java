@@ -61,7 +61,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -126,9 +126,7 @@ public class ProtoApk implements Closeable {
       dstTableBuilder.setSourcePool(resourceTable.getSourcePool());
       for (Package pkg : resourceTable.getPackageList()) {
         Package dstPkg = copyPackage(resourceFilter, dstZip, pkg);
-        if (!dstPkg.getTypeList().isEmpty()) {
-          dstTableBuilder.addPackage(dstPkg);
-        }
+        dstTableBuilder.addPackage(dstPkg);
       }
       dstZip.addEntry(RESOURCE_TABLE, dstTableBuilder.build().toByteArray(), ZipEntry.DEFLATED);
       srcZip.stream()
@@ -226,7 +224,7 @@ public class ProtoApk implements Closeable {
 
   /** The apk as path. */
   public Path asApkPath() {
-    return Paths.get(uri.toString().substring("jar:".length() + 1));
+    return Paths.get(uri);
   }
 
   /** Thrown when errors occur during proto apk processing. */
@@ -283,7 +281,7 @@ public class ProtoApk implements Closeable {
       }
       final ByteString name = element.getNameBytes();
       name.writeTo(out);
-      final Map<ByteString, ByteString> namespaces = new HashMap<>();
+      final Map<ByteString, ByteString> namespaces = new LinkedHashMap<>();
       for (XmlNamespace namespace : element.getNamespaceDeclarationList()) {
         final ByteString prefix = namespace.getPrefixBytes();
         SPACE.writeTo(out);

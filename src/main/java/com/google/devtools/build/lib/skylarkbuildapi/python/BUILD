@@ -6,6 +6,8 @@
 #   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 licenses(["notice"])  # Apache 2.0

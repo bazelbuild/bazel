@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,12 +55,12 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -415,28 +414,38 @@ public class PackageFunction implements SkyFunction {
     // Load the prelude from the same repository as the package being loaded.  Can't use
     // Label.resolveRepositoryRelative because preludeLabel is in the main repository, not the
     // default one, so it is resolved to itself.
-    Label pkgPreludeLabel =
-        Label.createUnvalidated(
-            PackageIdentifier.create(packageId.getRepository(), preludeLabel.getPackageFragment()),
-            preludeLabel.getName());
-    SkyKey astLookupKey = ASTFileLookupValue.key(pkgPreludeLabel);
-    ASTFileLookupValue astLookupValue = null;
-    try {
-      astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
-          ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
-    } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
-      throw new PackageFunctionException(
-          new NoSuchPackageException(
-              packageId, "Error encountered while reading the prelude file: " + e.getMessage()),
-          Transience.PERSISTENT);
+    List<Statement> preludeStatements = ImmutableList.of();
+    if (preludeLabel != null) {
+      Label pkgPreludeLabel =
+          Label.createUnvalidated(
+              PackageIdentifier.create(
+                  packageId.getRepository(), preludeLabel.getPackageFragment()),
+              preludeLabel.getName());
+      SkyKey astLookupKey = ASTFileLookupValue.key(pkgPreludeLabel);
+      ASTFileLookupValue astLookupValue = null;
+      try {
+        astLookupValue =
+            (ASTFileLookupValue)
+                env.getValueOrThrow(
+                    astLookupKey,
+                    ErrorReadingSkylarkExtensionException.class,
+                    InconsistentFilesystemException.class);
+      } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
+        throw new PackageFunctionException(
+            new NoSuchPackageException(
+                packageId, "Error encountered while reading the prelude file: " + e.getMessage()),
+            Transience.PERSISTENT);
+      }
+      if (astLookupValue == null) {
+        return null;
+      }
+
+      // The prelude file doesn't have to exist. If not, we substitute an empty statement list.
+      preludeStatements =
+          astLookupValue.lookupSuccessful()
+              ? astLookupValue.getAST().getStatements()
+              : ImmutableList.<Statement>of();
     }
-    if (astLookupValue == null) {
-      return null;
-    }
-    // The prelude file doesn't have to exist. If not, we substitute an empty statement list.
-    List<Statement> preludeStatements =
-        astLookupValue.lookupSuccessful()
-            ? astLookupValue.getAST().getStatements() : ImmutableList.<Statement>of();
     LoadedPackageCacheEntry packageCacheEntry = packageFunctionCache.getIfPresent(packageId);
     if (packageCacheEntry == null) {
       packageCacheEntry =
@@ -532,13 +541,11 @@ public class PackageFunction implements SkyFunction {
     return buildFileValue;
   }
 
-  private static BuildFileContainsErrorsException propagateSkylarkImportFailedException(
-      PackageIdentifier packageId, SkylarkImportFailedException e)
-          throws BuildFileContainsErrorsException {
+  private static BuildFileContainsErrorsException makeSkylarkImportFailedException(
+      PackageIdentifier packageId, SkylarkImportFailedException e) {
     Throwable rootCause = Throwables.getRootCause(e);
-    throw (rootCause instanceof IOException)
-        ? new BuildFileContainsErrorsException(
-            packageId, e.getMessage(), (IOException) rootCause)
+    return (rootCause instanceof IOException)
+        ? new BuildFileContainsErrorsException(packageId, e.getMessage(), (IOException) rootCause)
         : new BuildFileContainsErrorsException(packageId, e.getMessage());
   }
 
@@ -550,33 +557,27 @@ public class PackageFunction implements SkyFunction {
   static SkylarkImportResult fetchImportsFromBuildFile(
       RootedPath buildFilePath,
       PackageIdentifier packageId,
-      BuildFileAST buildFileAST,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      StarlarkFile file,
       int workspaceChunk,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
     Preconditions.checkArgument(!packageId.getRepository().isDefault());
 
-    ImmutableList<SkylarkImport> imports = buildFileAST.getImports();
-    Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(imports.size());
-    ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
-
-    // Find the labels corresponding to the load statements.
-    Label labelForCurrBuildFile;
-    try {
-      labelForCurrBuildFile = Label.create(packageId, "BUILD");
-    } catch (LabelSyntaxException e) {
-      // Shouldn't happen; the Label is well-formed by construction.
-      throw new IllegalStateException(e);
+    // Parse the labels in the file's load statements.
+    Map<String, Label> loadMap =
+        SkylarkImportLookupFunction.getLoadMap(env.getListener(), file, packageId, repoMapping);
+    if (loadMap == null) {
+      // malformed load statements
+      throw new BuildFileContainsErrorsException(packageId, "malformed load statements");
     }
-    ImmutableMap<String, Label> importPathMap =
-        SkylarkImportLookupFunction.getLabelsForLoadStatements(imports, labelForCurrBuildFile);
 
-    // Look up and load the imports.
-    ImmutableCollection<Label> importLabels = importPathMap.values();
-    List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
+    // Load imported modules in parallel.
+    List<SkylarkImportLookupKey> importLookupKeys =
+        Lists.newArrayListWithExpectedSize(loadMap.size());
     boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
-    for (Label importLabel : importLabels) {
+    for (Label importLabel : loadMap.values()) {
       int originalChunk =
           getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
       if (inWorkspace) {
@@ -586,59 +587,27 @@ public class PackageFunction implements SkyFunction {
         importLookupKeys.add(SkylarkImportLookupValue.key(importLabel));
       }
     }
-    Map<SkyKey, SkyValue> skylarkImportMap = Maps.newHashMapWithExpectedSize(importPathMap.size());
-    boolean valuesMissing = false;
-
+    Map<SkyKey, SkyValue> skylarkImportMap;
     try {
-      if (skylarkImportLookupFunctionForInlining == null) {
-        // Not inlining
-        Map<SkyKey,
-            ValueOrException2<
-                SkylarkImportFailedException,
-                InconsistentFilesystemException>> skylarkLookupResults = env.getValuesOrThrow(
-                    importLookupKeys,
-                    SkylarkImportFailedException.class,
-                    InconsistentFilesystemException.class);
-        valuesMissing = env.valuesMissing();
-        for (Map.Entry<
-              SkyKey,
-              ValueOrException2<
-                  SkylarkImportFailedException,
-                  InconsistentFilesystemException>> entry : skylarkLookupResults.entrySet()) {
-          // Fetching the value will raise any deferred exceptions
-          skylarkImportMap.put(entry.getKey(), entry.getValue().get());
-        }
-      } else {
-        // Inlining calls to SkylarkImportLookupFunction
-        for (SkyKey importLookupKey : importLookupKeys) {
-          SkyValue skyValue =
-              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importLookupKey, env);
-          if (skyValue == null) {
-            Preconditions.checkState(
-                env.valuesMissing(), "no starlark import value for %s", importLookupKey);
-            // We continue making inline calls even if some requested values are missing, to
-            // maximize the number of dependent (non-inlined) SkyFunctions that are requested, thus
-            // avoiding a quadratic number of restarts.
-            valuesMissing = true;
-          } else {
-            skylarkImportMap.put(importLookupKey, skyValue);
-          }
-        }
-
-      }
+      skylarkImportMap =
+          skylarkImportLookupFunctionForInlining == null
+              ? computeSkylarkImportMapNoInlining(env, importLookupKeys)
+              : computeSkylarkImportMapWithInlining(
+                  env, importLookupKeys, skylarkImportLookupFunctionForInlining);
     } catch (SkylarkImportFailedException e) {
-      throw propagateSkylarkImportFailedException(packageId, e);
+      throw makeSkylarkImportFailedException(packageId, e);
     } catch (InconsistentFilesystemException e) {
       throw new NoSuchPackageException(packageId, e.getMessage(), e);
     }
-
-    if (valuesMissing) {
-      // Some imports are unavailable.
+    // skylarkImportMap is null when skyframe deps are unavailable.
+    if (skylarkImportMap == null) {
       return null;
     }
 
     // Process the loaded imports.
-    for (Map.Entry<String, Label> importEntry : importPathMap.entrySet()) {
+    Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(loadMap.size());
+    ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
+    for (Map.Entry<String, Label> importEntry : loadMap.entrySet()) {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
 
@@ -656,8 +625,83 @@ public class PackageFunction implements SkyFunction {
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }
-
     return new SkylarkImportResult(importMap, transitiveClosureOfLabels(fileDependencies.build()));
+  }
+
+  /**
+   * Compute the SkylarkImportLookupValue for all given SkyKeys using vanilla skyframe evaluation,
+   * returning {@code null} if skyframe deps were missing and have been requested.
+   */
+  @Nullable
+  private static Map<SkyKey, SkyValue> computeSkylarkImportMapNoInlining(
+      Environment env, List<? extends SkyKey> importLookupKeys)
+      throws InterruptedException, SkylarkImportFailedException, InconsistentFilesystemException {
+    Map<SkyKey, SkyValue> skylarkImportMap =
+        Maps.newHashMapWithExpectedSize(importLookupKeys.size());
+    Map<SkyKey, ValueOrException2<SkylarkImportFailedException, InconsistentFilesystemException>>
+        skylarkLookupResults =
+            env.getValuesOrThrow(
+                importLookupKeys,
+                SkylarkImportFailedException.class,
+                InconsistentFilesystemException.class);
+    for (SkyKey importLookupKey : importLookupKeys) {
+      skylarkImportMap.put(importLookupKey, skylarkLookupResults.get(importLookupKey).get());
+    }
+    return env.valuesMissing() ? null : skylarkImportMap;
+  }
+
+  /**
+   * Compute the SkylarkImportLookupValue for all given SkyKeys by "inlining" the
+   * SkylarkImportLookupFunction and bypassing traditional skyframe evaluation, returning {@code
+   * null} if skyframe deps were missing and have been requested.
+   */
+  @Nullable
+  private static Map<SkyKey, SkyValue> computeSkylarkImportMapWithInlining(
+      Environment env,
+      List<? extends SkyKey> importLookupKeys,
+      SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
+      throws InterruptedException, SkylarkImportFailedException, InconsistentFilesystemException {
+    Map<SkyKey, SkyValue> skylarkImportMap =
+        Maps.newHashMapWithExpectedSize(importLookupKeys.size());
+    Exception deferredException = null;
+    boolean valuesMissing = false;
+    // For each listed import in order, try to compute its SkylarkImportLookupValue.
+    Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad =
+        new HashMap<>();
+    for (SkyKey importLookupKey : importLookupKeys) {
+      SkyValue skyValue;
+      try {
+        if (visitedDepsInToplevelLoad.containsKey(importLookupKey)) {
+          skyValue = visitedDepsInToplevelLoad.get(importLookupKey).getValue();
+        } else {
+          skyValue =
+              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
+                  importLookupKey, env, visitedDepsInToplevelLoad);
+        }
+      } catch (SkylarkImportFailedException | InconsistentFilesystemException e) {
+        // For determinism's sake while inlining, preserve the first exception and continue to run
+        // subsequently listed imports to completion/exception, loading all transitive deps anyway.
+        deferredException = MoreObjects.firstNonNull(deferredException, e);
+        continue;
+      }
+      if (skyValue == null) {
+        Preconditions.checkState(
+            env.valuesMissing(), "no starlark import value for %s", importLookupKey);
+        // We continue making inline calls even if some requested values are missing, to
+        // maximize the number of dependent (non-inlined) SkyFunctions that are requested, thus
+        // avoiding a quadratic number of restarts.
+        valuesMissing = true;
+      } else {
+        skylarkImportMap.put(importLookupKey, skyValue);
+      }
+    }
+    if (deferredException != null) {
+      Throwables.throwIfInstanceOf(deferredException, SkylarkImportFailedException.class);
+      Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
+      throw new IllegalStateException(
+          "caught a checked exception of unexpected type", deferredException);
+    }
+    return valuesMissing ? null : skylarkImportMap;
   }
 
   private static int getOriginalWorkspaceChunk(
@@ -1109,7 +1153,7 @@ public class PackageFunction implements SkyFunction {
         if (showLoadingProgress.get()) {
           env.getListener().handle(Event.progress("Loading package: " + packageId));
         }
-        ParserInputSource input;
+        ParserInput input;
         Preconditions.checkNotNull(buildFileValue, packageId);
         byte[] buildFileBytes = null;
         try {
@@ -1131,13 +1175,11 @@ public class PackageFunction implements SkyFunction {
           // If control flow reaches here, we're in territory that is deliberately unsound.
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
-        input =
-            ParserInputSource.create(
-                FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
+        input = ParserInput.create(buildFileBytes, inputFile.asFragment());
         StoredEventHandler astParsingEventHandler = new StoredEventHandler();
-        BuildFileAST ast =
+        StarlarkFile ast =
             PackageFactory.parseBuildFile(
-                packageId, input, preludeStatements, repositoryMapping, astParsingEventHandler);
+                packageId, input, preludeStatements, astParsingEventHandler);
         astParseResult = new AstParseResult(ast, astParsingEventHandler);
         astCache.put(packageId, astParseResult);
       }
@@ -1147,6 +1189,7 @@ public class PackageFunction implements SkyFunction {
             fetchImportsFromBuildFile(
                 buildFilePath,
                 packageId,
+                repositoryMapping,
                 astParseResult.ast,
                 /* workspaceChunk = */ -1,
                 env,
@@ -1160,6 +1203,13 @@ public class PackageFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
+      // From here on, either of the following must happen:
+      // 1. An InterruptedException or PackageFunctionException gets thrown in the code below
+      // before completion of this method.
+      // 2. The packageCacheEnty is successfully created from the AST and put into
+      // packageFunctionCache, so future Skyframe restarts don't need to parse the AST again.
+      //
+      // Therefore, it is safe to invalidate the astCache entry for this packageId here.
       astCache.invalidate(packageId);
       GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
           makeGlobber(inputFile, packageId, packageRoot, env);

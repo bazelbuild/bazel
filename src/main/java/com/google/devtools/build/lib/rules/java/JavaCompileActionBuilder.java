@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -73,7 +76,8 @@ public final class JavaCompileActionBuilder {
   @ThreadCompatible
   @Immutable
   @AutoCodec
-  static class JavaCompileExtraActionInfoSupplier {
+  static class JavaCompileExtraActionInfoSupplier
+      implements JavaCompileAction.ExtraActionInfoSupplier {
 
     private final Artifact outputJar;
 
@@ -117,7 +121,8 @@ public final class JavaCompileActionBuilder {
       this.javacOpts = javacOpts;
     }
 
-    public void extend(ExtraActionInfo.Builder builder, List<String> arguments) {
+    @Override
+    public void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments) {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
               .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
@@ -164,11 +169,13 @@ public final class JavaCompileActionBuilder {
   private PathFragment tempDirectory;
   private PathFragment classDirectory;
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
+  private ImmutableSet<String> builtinProcessorNames = ImmutableSet.of();
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
 
-  public JavaCompileAction build(RuleContext ruleContext, JavaSemantics javaSemantics) {
+  public JavaCompileAction build(
+      RuleContext ruleContext, JavaToolchainProvider javaToolchain, JavaSemantics javaSemantics) {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
     ImmutableList<String> internedJcopts =
@@ -184,7 +191,13 @@ public final class JavaCompileActionBuilder {
     // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
     JavaConfiguration javaConfiguration =
         ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-    if (javaConfiguration.getReduceJavaClasspath() == JavaClasspathMode.OFF) {
+    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
+    if (!Collections.disjoint(
+        plugins.processorClasses().toSet(),
+        javaToolchain.getReducedClasspathIncompatibleProcessors())) {
+      classpathMode = JavaClasspathMode.OFF;
+    }
+    if (classpathMode == JavaClasspathMode.OFF) {
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
@@ -261,7 +274,6 @@ public final class JavaCompileActionBuilder {
             sourceFiles,
             internedJcopts);
 
-    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputDepsProto == null) {
       classpathMode = JavaClasspathMode.OFF;
@@ -290,13 +302,17 @@ public final class JavaCompileActionBuilder {
     mandatoryInputs.addTransitive(tools);
     JavaCompileAction javaCompileAction =
         new JavaCompileAction(
+            /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
             /* owner= */ ruleContext.getActionOwner(),
             /* env= */ actionEnvironment,
             /* tools= */ tools,
             /* runfilesSupplier= */ runfilesSupplier,
-            /* sourceFiles= */ sourceFiles,
-            /* sourceJars= */ sourceJars,
-            /* plugins= */ plugins,
+            /* progressMessage= */ new ProgressMessage(
+                /* prefix= */ "Building",
+                /* output= */ outputJar,
+                /* sourceFiles= */ sourceFiles,
+                /* sourceJars= */ sourceJars,
+                /* plugins= */ plugins),
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,
             /* directJars= */ directJars,
@@ -336,6 +352,9 @@ public final class JavaCompileActionBuilder {
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());
+    result.addAll(
+        "--builtin_processors",
+        Sets.intersection(plugins.processorClasses().toSet(), builtinProcessorNames));
     result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
@@ -435,10 +454,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the strictness of Java dependency checking, see {@link
-   * com.google.devtools.build.lib.analysis.config.StrictDepsMode}.
-   */
+  /** Sets the strictness of Java dependency checking, see {@link StrictDepsMode}. */
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
     return this;
@@ -524,6 +540,13 @@ public final class JavaCompileActionBuilder {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;
+    return this;
+  }
+
+  public JavaCompileActionBuilder setBuiltinProcessorNames(
+      ImmutableSet<String> builtinProcessorNames) {
+    this.builtinProcessorNames =
+        checkNotNull(builtinProcessorNames, "builtinProcessorNames must not be null");
     return this;
   }
 

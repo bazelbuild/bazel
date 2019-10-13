@@ -22,10 +22,10 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -58,8 +58,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstra
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
@@ -789,7 +788,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ruleLabel,
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
-        /*ast=*/ null,
         location,
         new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);
@@ -874,15 +872,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable Environment ruleDefinitionEnvironment,
+      @Nullable StarlarkThread ruleDefinitionStarlarkThread,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
-    String ruleDefinitionEnvironmentHashCode =
-        ruleDefinitionEnvironment == null
+    String ruleDefinitionStarlarkThreadHashCode =
+        ruleDefinitionStarlarkThread == null
             ? null
-            : ruleDefinitionEnvironment.getTransitiveContentHashCode();
+            : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
         name,
@@ -907,10 +905,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionEnvironment == null
+        ruleDefinitionStarlarkThread == null
             ? null
-            : ruleDefinitionEnvironment.getGlobals().getLabel(),
-        ruleDefinitionEnvironmentHashCode,
+            : (Label) ruleDefinitionStarlarkThread.getGlobals().getLabel(),
+        ruleDefinitionStarlarkThreadHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)

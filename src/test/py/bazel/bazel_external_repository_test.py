@@ -83,7 +83,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_party/BUILD')
     self.ScratchFile('third_party/six.BUILD', build_file)
 
-    exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '--noincompatible_disallow_unverified_http_downloads',
+        '@six_archive//...'
+    ])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
     fetching_disabled_msg = 'fetching is disabled'
@@ -130,6 +133,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('BUILD')
     exit_code, _, stderr = self.RunBazel([
         'build',
+        '--noincompatible_disallow_unverified_http_downloads',
         '@archive_with_symlink//:file-A',
     ])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))

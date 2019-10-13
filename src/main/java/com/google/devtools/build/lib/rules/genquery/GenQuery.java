@@ -55,13 +55,14 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
@@ -80,7 +82,6 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -329,13 +330,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Set<Setting> settings = queryOptions.toSettings();
 
       formatter =
-          OutputFormatter.getFormatter(
-              OutputFormatter.getDefaultFormatters(), queryOptions.outputFormat);
+          OutputFormatters.getFormatter(
+              OutputFormatters.getDefaultFormatters(), queryOptions.outputFormat);
       if (formatter == null) {
-        ruleContext.ruleError(String.format(
-            "Invalid output format '%s'. Valid values are: %s",
-            queryOptions.outputFormat,
-            OutputFormatter.formatterNames(OutputFormatter.getDefaultFormatters())));
+        ruleContext.ruleError(
+            String.format(
+                "Invalid output format '%s'. Valid values are: %s",
+                queryOptions.outputFormat,
+                OutputFormatters.formatterNames(OutputFormatters.getDefaultFormatters())));
         return null;
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
@@ -360,7 +362,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useForkJoinPool=*/ false,
               /*useGraphlessQuery=*/ queryOptions.useGraphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
@@ -441,8 +442,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         ExtendedEventHandler eventHandler,
         PathFragment relativeWorkingDirectory,
         Collection<String> patterns,
-        boolean keepGoing,
-        boolean useForkJoinPool)
+        boolean keepGoing)
         throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
       Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());

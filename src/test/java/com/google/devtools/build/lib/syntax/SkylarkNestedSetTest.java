@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -80,10 +81,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
   @Test
@@ -91,10 +89,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(direct = ['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
   @Test
@@ -102,10 +97,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("s = depset(items = ['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").getSet(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
 
@@ -115,10 +107,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test
@@ -127,10 +116,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test
@@ -139,10 +125,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
     assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> get("s").toCollection(Integer.class)
-    );
+    assertThrows(SkylarkNestedSet.TypeException.class, () -> get("s").toCollection(Integer.class));
   }
 
   @Test
@@ -268,9 +251,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testTooManyPositionals() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "expected no more than 2 positional arguments, but got 3, for call to function "
-                + "depset(items = [], order = \"default\", direct = None, transitive = None)",
-            "depset([], 'default', [])");
+            "expected no more than 2 positional arguments, but got 3", "depset([], 'default', [])");
   }
 
 
@@ -315,7 +296,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a']).union(['b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a', 'b']).union(['c'])", "a", "b", "c");
@@ -324,7 +305,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithDepset() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
     assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "b", "c", "a");
     assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "c", "a", "b");
@@ -333,7 +314,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionDuplicates() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     assertContainsInOrder("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
     assertContainsInOrder("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
 
@@ -351,7 +332,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset()",
@@ -366,7 +347,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionIncompatibleOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     checkEvalError(
         "Order mismatch: topological != postorder",
         "depset(['a', 'b'], order='postorder') + depset(['c', 'd'], order='topological')");
@@ -374,7 +355,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWithNonsequence() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     checkEvalError("cannot union value of type 'int' to a depset", "depset([]).union(5)");
     checkEvalError("cannot union value of type 'string' to a depset", "depset(['a']).union('b')");
   }
@@ -390,7 +371,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset(['a'])",
@@ -402,7 +383,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionReturnsDepset() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -415,7 +396,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testPlusEqualsWithList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -427,7 +408,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testPlusEqualsNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  s1 = depset()",
@@ -441,7 +422,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testFuncParamNoSideEffects() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func1(t):",
         "  t += ['b']",
@@ -456,7 +437,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testTransitiveOrdering() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  sa = depset(['a'], order='postorder')",
@@ -470,7 +451,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testLeftRightDirectOrdering() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "def func():",
         "  t = depset()",
@@ -485,7 +466,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToString() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset() + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
@@ -494,7 +475,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToStringWithOrder() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset(order = 'topological') + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
@@ -508,7 +489,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testToList() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_union=false");
+    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
     eval(
         "s = depset() + [2, 4, 6] + [3, 4, 5]",
         "x = s.to_list()");
@@ -607,6 +588,28 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         };
 
     runComplexOrderTest(strategy, preOrder, postOrder);
+  }
+
+  @Test
+  public void testDepthExceedsLimitDuringIteration() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  for element in x:",
+            "    str(x)",
+            "  return None")
+        .testEval("create_depset(1000)", "None")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
+  }
+
+  @Test
+  public void testListComprehensionsWithNestedSet() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .testEval("[x + x for x in depset([1, 2, 3])]", "[2, 4, 6]");
   }
 
   private interface MergeStrategy {

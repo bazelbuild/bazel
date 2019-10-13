@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -77,18 +80,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadSafety.ThreadSafe
-public abstract class AbstractRemoteActionCache implements AutoCloseable {
+public abstract class AbstractRemoteActionCache implements MissingDigestsFinder, AutoCloseable {
 
   /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
   @FunctionalInterface
   interface OutputFilesLocker {
-    void lock() throws InterruptedException;
+    void lock() throws InterruptedException, IOException;
   }
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = SettableFuture.create();
@@ -115,8 +119,33 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException if the remote cache is unavailable.
    */
   @Nullable
-  abstract ActionResult getCachedActionResult(DigestUtil.ActionKey actionKey)
+  abstract ActionResult getCachedActionResult(ActionKey actionKey)
       throws IOException, InterruptedException;
+
+  protected abstract void setCachedActionResult(ActionKey actionKey, ActionResult action)
+      throws IOException, InterruptedException;
+
+  /**
+   * Uploads a file
+   *
+   * <p>Any errors are being propagated via the returned future. If the future completes without
+   * errors the upload was successful.
+   *
+   * @param digest the digest of the file.
+   * @param file the file to upload.
+   */
+  protected abstract ListenableFuture<Void> uploadFile(Digest digest, Path file);
+
+  /**
+   * Uploads a BLOB.
+   *
+   * <p>Any errors are being propagated via the returned future. If the future completes without
+   * errors the upload was successful
+   *
+   * @param digest the digest of the blob.
+   * @param data the blob to upload.
+   */
+  protected abstract ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 
   /**
    * Upload the result of a locally executed action to the remote cache.
@@ -124,14 +153,106 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws IOException if there was an error uploading to the remote cache
    * @throws ExecException if uploading any of the action outputs is not supported
    */
-  abstract void upload(
-      DigestUtil.ActionKey actionKey,
+  public ActionResult upload(
+      ActionKey actionKey,
       Action action,
       Command command,
       Path execRoot,
-      Collection<Path> files,
+      Collection<Path> outputs,
+      FileOutErr outErr,
+      int exitCode)
+      throws ExecException, IOException, InterruptedException {
+    ActionResult.Builder resultBuilder = ActionResult.newBuilder();
+    uploadOutputs(execRoot, actionKey, action, command, outputs, outErr, resultBuilder);
+    resultBuilder.setExitCode(exitCode);
+    ActionResult result = resultBuilder.build();
+    if (exitCode == 0 && !action.getDoNotCache()) {
+      setCachedActionResult(actionKey, result);
+    }
+    return result;
+  }
+
+  public ActionResult upload(
+      ActionKey actionKey,
+      Action action,
+      Command command,
+      Path execRoot,
+      Collection<Path> outputs,
       FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException;
+      throws ExecException, IOException, InterruptedException {
+    return upload(actionKey, action, command, execRoot, outputs, outErr, /* exitCode= */ 0);
+  }
+
+  private void uploadOutputs(
+      Path execRoot,
+      ActionKey actionKey,
+      Action action,
+      Command command,
+      Collection<Path> files,
+      FileOutErr outErr,
+      ActionResult.Builder result)
+      throws ExecException, IOException, InterruptedException {
+    UploadManifest manifest =
+        new UploadManifest(
+            digestUtil,
+            result,
+            execRoot,
+            options.incompatibleRemoteSymlinks,
+            options.allowSymlinkUpload);
+    manifest.addFiles(files);
+    manifest.setStdoutStderr(outErr);
+    manifest.addAction(actionKey, action, command);
+
+    Map<Digest, Path> digestToFile = manifest.getDigestToFile();
+    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
+    Collection<Digest> digests = new ArrayList<>();
+    digests.addAll(digestToFile.keySet());
+    digests.addAll(digestToBlobs.keySet());
+
+    ImmutableSet<Digest> digestsToUpload = Utils.getFromFuture(findMissingDigests(digests));
+    ImmutableList.Builder<ListenableFuture<Void>> uploads = ImmutableList.builder();
+    for (Digest digest : digestsToUpload) {
+      Path file = digestToFile.get(digest);
+      if (file != null) {
+        uploads.add(uploadFile(digest, file));
+      } else {
+        ByteString blob = digestToBlobs.get(digest);
+        if (blob == null) {
+          String message = "FindMissingBlobs call returned an unknown digest: " + digest;
+          throw new IOException(message);
+        }
+        uploads.add(uploadBlob(digest, blob));
+      }
+    }
+
+    waitForUploads(uploads.build());
+
+    if (manifest.getStderrDigest() != null) {
+      result.setStderrDigest(manifest.getStderrDigest());
+    }
+    if (manifest.getStdoutDigest() != null) {
+      result.setStdoutDigest(manifest.getStdoutDigest());
+    }
+  }
+
+  private static void waitForUploads(List<ListenableFuture<Void>> uploads)
+      throws IOException, InterruptedException {
+    try {
+      for (ListenableFuture<Void> upload : uploads) {
+        upload.get();
+      }
+    } catch (ExecutionException e) {
+      // TODO(buchgr): Add support for cancellation and factor this method out to be shared
+      // between ByteStreamUploader as well.
+      Throwable cause = e.getCause();
+      Throwables.throwIfInstanceOf(cause, IOException.class);
+      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+      if (cause != null) {
+        throw new IOException(cause);
+      }
+      throw new IOException(e);
+    }
+  }
 
   /**
    * Downloads a blob with a content hash {@code digest} to {@code out}.
@@ -231,9 +352,17 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         // Wait for all downloads to finish.
         getFromFuture(download);
       } catch (IOException e) {
-        downloadException = downloadException == null ? e : downloadException;
+        if (downloadException == null) {
+          downloadException = e;
+        } else if (e != downloadException) {
+          downloadException.addSuppressed(e);
+        }
       } catch (InterruptedException e) {
-        interruptedException = interruptedException == null ? e : interruptedException;
+        if (interruptedException == null) {
+          interruptedException = e;
+        } else if (e != interruptedException) {
+          interruptedException.addSuppressed(e);
+        }
       }
     }
 
@@ -253,11 +382,15 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           tmpOutErr.clearErr();
         }
       } catch (IOException e) {
+        if (downloadException != null && e != downloadException) {
+          e.addSuppressed(downloadException);
+        }
+        if (interruptedException != null) {
+          e.addSuppressed(interruptedException);
+        }
+
         // If deleting of output files failed, we abort the build with a decent error message as
         // any subsequent local execution failure would likely be incomprehensible.
-
-        // We don't propagate the downloadException, as this is a recoverable error and the cause
-        // of the build failure is really that we couldn't delete output files.
         throw new EnvironmentalExecException(
             "Failed to delete output files after incomplete download", e);
       }
@@ -376,8 +509,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             try {
               out.close();
             } catch (IOException e) {
-              // Intentionally left empty. The download already failed, so we can ignore
-              // the error on close().
+              if (t != e) {
+                t.addSuppressed(e);
+              }
             } finally {
               outerF.setException(t);
             }
@@ -632,8 +766,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     private final Path execRoot;
     private final boolean allowSymlinks;
     private final boolean uploadSymlinks;
-    private final Map<Digest, Path> digestToFile;
-    private final Map<Digest, Chunker> digestToChunkers;
+    private final Map<Digest, Path> digestToFile = new HashMap<>();
+    private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
+    private Digest stderrDigest;
+    private Digest stdoutDigest;
 
     /**
      * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
@@ -650,9 +786,17 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       this.execRoot = execRoot;
       this.uploadSymlinks = uploadSymlinks;
       this.allowSymlinks = allowSymlinks;
+    }
 
-      this.digestToFile = new HashMap<>();
-      this.digestToChunkers = new HashMap<>();
+    public void setStdoutStderr(FileOutErr outErr) throws IOException {
+      if (outErr.getErrorPath().exists()) {
+        stderrDigest = digestUtil.compute(outErr.getErrorPath());
+        digestToFile.put(stderrDigest, outErr.getErrorPath());
+      }
+      if (outErr.getOutputPath().exists()) {
+        stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+        digestToFile.put(stdoutDigest, outErr.getOutputPath());
+      }
     }
 
     /**
@@ -713,16 +857,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * Adds an action and command protos to upload. They need to be uploaded as part of the action
      * result.
      */
-    public void addAction(DigestUtil.ActionKey actionKey, Action action, Command command)
-        throws IOException {
-      byte[] actionBlob = action.toByteArray();
-      digestToChunkers.put(
-          actionKey.getDigest(),
-          Chunker.builder().setInput(actionBlob).setChunkSize(actionBlob.length).build());
-      byte[] commandBlob = command.toByteArray();
-      digestToChunkers.put(
-          action.getCommandDigest(),
-          Chunker.builder().setInput(commandBlob).setChunkSize(commandBlob.length).build());
+    public void addAction(SimpleBlobStore.ActionKey actionKey, Action action, Command command) {
+      digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+      digestToBlobs.put(action.getCommandDigest(), command.toByteString());
     }
 
     /** Map of digests to file paths to upload. */
@@ -733,10 +870,20 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     /**
      * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
      * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as
-     * a {@link Tree} protobuf message through {@link #getDigestToChunkers()}.
+     * a {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
      */
-    public Map<Digest, Chunker> getDigestToChunkers() {
-      return digestToChunkers;
+    public Map<Digest, ByteString> getDigestToBlobs() {
+      return digestToBlobs;
+    }
+
+    @Nullable
+    public Digest getStdoutDigest() {
+      return stdoutDigest;
+    }
+
+    @Nullable
+    public Digest getStderrDigest() {
+      return stderrDigest;
     }
 
     private void addFileSymbolicLink(Path file, PathFragment target) throws IOException {
@@ -768,9 +915,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Directory root = computeDirectory(dir, tree);
       tree.setRoot(root);
 
-      byte[] blob = tree.build().toByteArray();
-      Digest digest = digestUtil.compute(blob);
-      Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(blob.length).build();
+      ByteString data = tree.build().toByteString();
+      Digest digest = digestUtil.compute(data.toByteArray());
 
       if (result != null) {
         result
@@ -779,7 +925,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             .setTreeDigest(digest);
       }
 
-      digestToChunkers.put(digest, chunker);
+      digestToBlobs.put(digest, data);
     }
 
     private Directory computeDirectory(Path path, Tree.Builder tree)

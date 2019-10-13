@@ -343,7 +343,7 @@ public class DataResourceXml implements DataResource {
 
   public static DataResourceXml createWithNamespaces(
       Path sourcePath, XmlResourceValue xml, Namespaces namespaces) {
-    return createWithNamespaces(DataSource.of(sourcePath), xml, namespaces);
+    return createWithNamespaces(DataSource.of(DependencyInfo.UNKNOWN, sourcePath), xml, namespaces);
   }
 
   @Override
@@ -384,7 +384,7 @@ public class DataResourceXml implements DataResource {
 
   @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    xml.writeResourceToClass(key, sink);
+    xml.writeResourceToClass(source().getDependencyInfo(), key, sink);
   }
 
   @Override

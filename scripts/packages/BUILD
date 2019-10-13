@@ -61,7 +61,7 @@ genrule(
     cmd = "\n".join([
         "tmpdir=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXX)",
         "trap \"rm -fr $${tmpdir}\" EXIT",
-        "mv $(SRCS) $${tmpdir}/bazel.exe",
+        "cp $(SRCS) $${tmpdir}/bazel.exe",
         "touch -t 198001010000.00 $${tmpdir}/bazel.exe",
         "zip -jq $@ $${tmpdir}/bazel.exe",
     ]),

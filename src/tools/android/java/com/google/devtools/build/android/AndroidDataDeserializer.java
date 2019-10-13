@@ -21,5 +21,17 @@ import java.nio.file.Path;
  */
 public interface AndroidDataDeserializer {
 
-  void read(Path inPath, KeyValueConsumers consumers);
+  /**
+   * Reads the serialized data info the {@link KeyValueConsumers}.
+   *
+   * @param dependencyInfo The provenance (in terms of Bazel relationship) of the data
+   * @param inPath The path to the serialized data
+   * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt; {@link
+   *     DataValue}.
+   */
+  void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers);
+
+  default void read(Path inPath, KeyValueConsumers consumers) {
+    read(DependencyInfo.UNKNOWN, inPath, consumers);
+  }
 }

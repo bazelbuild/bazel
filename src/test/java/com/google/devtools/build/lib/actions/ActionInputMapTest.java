@@ -134,6 +134,11 @@ public final class ActionInputMapTest {
     }
 
     @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
     public PathFragment getExecPath() {
       return fragment;
     }
@@ -189,6 +194,21 @@ public final class ActionInputMapTest {
 
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isRemote() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isMarkerValue() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
     }
 

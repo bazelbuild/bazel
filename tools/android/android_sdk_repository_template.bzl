@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+
 def create_config_setting_rule():
     """Create config_setting rule for windows.
 
@@ -86,7 +88,7 @@ def create_android_sdk_rules(
         if api_level >= 23:
             # Android 23 removed most of org.apache.http from android.jar and moved it
             # to a separate jar.
-            native.java_import(
+            java_import(
                 name = "org_apache_http_legacy-%d" % api_level,
                 jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level],
             )
@@ -94,7 +96,7 @@ def create_android_sdk_rules(
         if api_level >= 28:
             # Android 28 removed most of android.test from android.jar and moved it
             # to separate jars.
-            native.java_import(
+            java_import(
                 name = "legacy_test-%d" % api_level,
                 jars = [
                     "platforms/android-%d/optional/android.test.base.jar" % api_level,
@@ -148,8 +150,7 @@ def create_android_sdk_rules(
         name = "sdk",
         actual = ":sdk-%d" % default_api_level,
     )
-
-    native.java_binary(
+    java_binary(
         name = "apksigner",
         main_class = "com.android.apksigner.ApkSignerTool",
         runtime_deps = ["build-tools/%s/lib/apksigner.jar" % build_tools_directory],
@@ -248,20 +249,17 @@ def create_android_sdk_rules(
         srcs = ["main_dex_list_creator.sh"],
         data = [":main_dex_list_creator_java"],
     )
-
-    native.java_binary(
+    java_binary(
         name = "main_dex_list_creator_java",
         main_class = "com.android.multidex.ClassReferenceListBuilder",
         runtime_deps = [":dx_jar_import"],
     )
-
-    native.java_binary(
+    java_binary(
         name = "dx_binary",
         main_class = "com.android.dx.command.Main",
         runtime_deps = [":dx_jar_import"],
     )
-
-    native.java_import(
+    java_import(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
     )

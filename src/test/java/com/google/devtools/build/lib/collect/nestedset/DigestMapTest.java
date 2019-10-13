@@ -36,7 +36,7 @@ public class DigestMapTest {
   @Parameters(name = "Hash: {0}")
   public static Iterable<Object[]> hashFunction() {
     return ImmutableList.of(
-        new Object[] {DigestHashFunction.MD5}, new Object[] {DigestHashFunction.SHA256});
+        new Object[] {DigestHashFunction.SHA1}, new Object[] {DigestHashFunction.SHA256});
   }
 
   @Parameter public DigestHashFunction digestHashFunction;

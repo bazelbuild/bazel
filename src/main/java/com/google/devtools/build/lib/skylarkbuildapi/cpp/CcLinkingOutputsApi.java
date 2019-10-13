@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
     name = "CcLinkingOutputs",
     category = SkylarkModuleCategory.BUILTIN,
-    documented = false,
+    documented = true,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcLinkingOutputsApi<FileT extends FileApi> {
   @SkylarkCallable(

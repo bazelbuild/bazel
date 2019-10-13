@@ -19,11 +19,11 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRIN
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
@@ -59,11 +60,9 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -105,10 +104,14 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/aapt2_library.apk");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_R_TXT =
       fromTemplates("%{name}_symbols/R.aapt2.txt");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT =
+      fromTemplates("%{name}_symbols/aapt2.validation.txt");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_SOURCE_JAR =
       fromTemplates("%{name}_files/%{name}_resources_aapt2-src.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SHRUNK_APK =
       fromTemplates("%{name}_shrunk.ap_");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_OPTIMIZED_APK =
+      fromTemplates("%{name}_optimized.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_ZIP =
       fromTemplates("%{name}_files/resource_files.zip");
   public static final SafeImplicitOutputsFunction ANDROID_ASSETS_ZIP =
@@ -117,6 +120,10 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/resource_files_shrunk.zip");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_SHRINKER_LOG =
       fromTemplates("%{name}_files/resource_shrinker.log");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_OPTIMIZATION_CONFIG =
+      fromTemplates("%{name}_files/resource_optimization.cfg");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCE_PATH_SHORTENING_MAP =
+      fromTemplates("%{name}_resource_paths.map");
   public static final SafeImplicitOutputsFunction ANDROID_INCREMENTAL_RESOURCES_APK =
       fromTemplates("%{name}_files/incremental.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_APK = fromTemplates("%{name}.apk");
@@ -593,23 +600,15 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
-          .add(
-              attr("feature_of", LABEL)
-                  .allowedRuleClasses("android_binary")
-                  .allowedFileTypes()
-                  .undocumented("experimental, see b/36226333"))
-          .add(
-              attr("feature_after", LABEL)
-                  .allowedRuleClasses("android_binary")
-                  .allowedFileTypes()
-                  .undocumented("experimental, see b/36226333"))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
           A list of file extension to leave uncompressed in apk.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("nocompress_extensions", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(crunch_png) -->
           Do PNG crunching (or not). This is independent of nine-patch processing, which is always
-          done. Currently only supported for local resources (not android_resources).
+          done. This is a deprecated workaround for an
+          <a href="https://code.google.com/p/android/issues/detail?id=74334">aapt bug</a> which has
+          been fixed in aapt2.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("crunch_png", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resource_configuration_filters) -->
@@ -855,6 +854,9 @@ public final class AndroidRuleClasses {
           .add(attr("manifest_values", STRING_DICT))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(aapt_version) -->
           Select the version of aapt for this rule.<br/>
+
+          This attribute only takes effect if you set `--android_aapt=auto`.<br/>
+
           Possible values:
           <ul>
               <li><code>aapt_version = "aapt"</code>: Use aapt (deprecated).</li>
@@ -910,6 +912,13 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
+          .add(
+              attr("application_resources", LABEL)
+                  .mandatoryProviders(AndroidApplicationResourceInfo.PROVIDER.id())
+                  .allowedFileTypes(NO_FILE)
+                  .undocumented(
+                      "Do not use this attribute. It's for the migration of "
+                          + "Android resource processing to Starlark only."))
           .removeAttribute("data")
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
           .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

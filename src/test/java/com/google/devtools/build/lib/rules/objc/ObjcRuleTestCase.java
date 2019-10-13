@@ -399,12 +399,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void assertAppleSdkPlatformEnv(CommandAction action, String platformName)
       throws ActionExecutionException {
-    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("APPLE_SDK_PLATFORM", platformName);
+    assertThat(action.getIncompleteEnvironmentForTesting())
+        .containsEntry("APPLE_SDK_PLATFORM", platformName);
   }
 
   protected void assertXcodeVersionEnv(CommandAction action, String versionNumber)
       throws ActionExecutionException {
-    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
+    assertThat(action.getIncompleteEnvironmentForTesting())
+        .containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
@@ -449,48 +451,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(action.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
   }
 
-  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport(boolean cleanup)
-      throws Exception {
-    ConfiguredTarget lib;
-    if (!cleanup) {
-      lib = addLibWithDepOnFrameworkImportPreCleanup();
-    } else {
-      lib = addLibWithDepOnFrameworkImportPostCleanup();
-    }
+  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
+    ConfiguredTarget lib = addLibWithDepOnFrameworkImport();
     return createBinaryTargetWriter("//bin:bin")
         .setList("deps", lib.getLabel().toString())
         .write();
 
   }
 
-  private ConfiguredTarget addLibWithDepOnFrameworkImportPreCleanup() throws Exception {
-    scratch.file(
-        "fx/defs.bzl",
-        "def _custom_static_framework_import_impl(ctx):",
-        "  return [apple_common.new_objc_provider(",
-        "      static_framework_file=depset(ctx.files.link_inputs))]",
-        "custom_static_framework_import = rule(",
-        "    _custom_static_framework_import_impl,",
-        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
-        ")");
-    scratch.file("fx/fx1.framework/a");
-    scratch.file("fx/fx1.framework/b");
-    scratch.file("fx/fx2.framework/c");
-    scratch.file("fx/fx2.framework/d");
-    scratch.file(
-        "fx/BUILD",
-        "load(':defs.bzl', 'custom_static_framework_import')",
-        "custom_static_framework_import(",
-        "    name = 'fx',",
-        "    link_inputs = glob(['fx1.framework/*', 'fx2.framework/*']),",
-        ")");
-    return createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("deps", "//fx:fx")
-        .write();
-  }
-
-  private ConfiguredTarget addLibWithDepOnFrameworkImportPostCleanup() throws Exception {
+  private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -596,6 +565,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_1',",
@@ -643,8 +613,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//x:x", childConfig);
 
     assertObjcProtoProviderArtifactsArePropagated(topTarget);
-    assertBundledGenerationActionsAreDifferent(topTarget);
-    assertOnlyRequiredInputsArePresentForBundledGeneration(topTarget);
+    assertBundledGenerationActions(topTarget);
     assertCoptsAndDefinesNotPropagatedToProtos(topTarget);
     assertBundledGroupsGetCreatedAndLinked(topTarget);
   }
@@ -673,10 +642,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
-    assertThat(protoProvider.getProtoGroups().toSet()).hasSize(3);
     assertThat(
             Artifact.toExecPaths(
-                ImmutableSet.copyOf(Iterables.concat(protoProvider.getProtoGroups()))))
+                ImmutableSet.copyOf(Iterables.concat(protoProvider.getProtoFiles()))))
         .containsExactly(
             "protos/data_a.proto",
             "protos/data_b.proto",
@@ -686,11 +654,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsExactly("protos/filter_a.pbascii", "protos/filter_b.pbascii");
   }
 
-  private void assertBundledGenerationActionsAreDifferent(ConfiguredTarget topTarget) {
-    Artifact protoHeaderA = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
-    Artifact protoHeaderB = getBinArtifact("_generated_protos/x/protos/DataB.pbobjc.h", topTarget);
-    Artifact protoHeaderC = getBinArtifact("_generated_protos/x/protos/DataC.pbobjc.h", topTarget);
-    Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
+  private void assertBundledGenerationActions(ConfiguredTarget topTarget) {
+    Artifact protoHeaderA =
+        getBinArtifact("_generated_objc_protos/x/protos/DataA.pbobjc.h", topTarget);
+    Artifact protoHeaderB =
+        getBinArtifact("_generated_objc_protos/x/protos/DataB.pbobjc.h", topTarget);
+    Artifact protoHeaderC =
+        getBinArtifact("_generated_objc_protos/x/protos/DataC.pbobjc.h", topTarget);
+    Artifact protoHeaderD =
+        getBinArtifact("_generated_objc_protos/x/protos/DataD.pbobjc.h", topTarget);
     CommandAction protoActionA = (CommandAction) getGeneratingAction(protoHeaderA);
     CommandAction protoActionB = (CommandAction) getGeneratingAction(protoHeaderB);
     CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
@@ -699,54 +671,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(protoActionB).isNotNull();
     assertThat(protoActionC).isNotNull();
     assertThat(protoActionD).isNotNull();
-    assertThat(protoActionA).isNotEqualTo(protoActionB);
-    assertThat(protoActionB).isNotEqualTo(protoActionC);
-    assertThat(protoActionC).isNotEqualTo(protoActionD);
-  }
-
-  private void assertOnlyRequiredInputsArePresentForBundledGeneration(ConfiguredTarget topTarget)
-      throws Exception {
-    ConfiguredTarget libTarget =
-        view.getPrerequisiteConfiguredTargetForTesting(
-            reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
-
-    Artifact protoHeaderA = getBinArtifact("_generated_protos/x/protos/DataA.pbobjc.h", topTarget);
-    Artifact protoHeaderB = getBinArtifact("_generated_protos/x/protos/DataB.pbobjc.h", topTarget);
-    Artifact protoHeaderC = getBinArtifact("_generated_protos/x/protos/DataC.pbobjc.h", topTarget);
-    Artifact protoHeaderD = getBinArtifact("_generated_protos/x/protos/DataD.pbobjc.h", topTarget);
-
-    CommandAction protoActionA = (CommandAction) getGeneratingAction(protoHeaderA);
-    CommandAction protoActionB = (CommandAction) getGeneratingAction(protoHeaderB);
-    CommandAction protoActionC = (CommandAction) getGeneratingAction(protoHeaderC);
-    CommandAction protoActionD = (CommandAction) getGeneratingAction(protoHeaderD);
-
-    assertThat(protoActionA.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionB.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionC.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-    assertThat(protoActionD.getInputs())
-        .containsAtLeastElementsIn(protoProvider.getPortableProtoFilters());
-
-    assertThat(Artifact.toExecPaths(protoActionA.getInputs())).contains("protos/data_a.proto");
-    assertThat(Artifact.toExecPaths(protoActionA.getInputs()))
-        .containsNoneOf("protos/data_b.proto", "protos/data_c.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionB.getInputs())).contains("protos/data_b.proto");
-    assertThat(Artifact.toExecPaths(protoActionB.getInputs()))
-        .containsNoneOf("protos/data_a.proto", "protos/data_c.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionC.getInputs())).contains("protos/data_c.proto");
-    assertThat(Artifact.toExecPaths(protoActionC.getInputs()))
-        .containsNoneOf("protos/data_a.proto", "protos/data_b.proto", "protos/data_d.proto");
-
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs())).contains("protos/data_d.proto");
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
-        .containsAtLeast("protos/data_a.proto", "protos/data_c.proto");
-    assertThat(Artifact.toExecPaths(protoActionD.getInputs()))
-        .doesNotContain("protos/data_b.proto");
   }
 
   /**
@@ -791,6 +715,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_b.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos',",
@@ -824,6 +749,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/filter_a.pbascii");
     scratch.file(
         "protos/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
         "proto_library(",
         "    name = 'protos_a',",
@@ -858,8 +784,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(protoProvider).isNotNull();
   }
 
-  protected void checkFrameworkDepLinkFlags(
-      RuleType ruleType, ExtraLinkArgs extraLinkArgs, boolean cleanup) throws Exception {
+  protected void checkFrameworkDepLinkFlags(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
+      throws Exception {
     scratch.file(
         "libs/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -882,12 +808,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    name = 'my_framework',",
         "    link_inputs = glob(['buzzbuzz.framework/*']),",
         ")");
-
-    if (!cleanup) {
-      setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    } else {
-      setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    }
 
     ruleType.scratchTarget(scratch, "deps", "['//libs:objc_lib']");
 
@@ -1272,31 +1192,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
   }
 
-  private void checkDylibDependenciesSetupFrameworkPreCleanup() throws Exception {
-    scratch.file(
-        "fx/defs.bzl",
-        "def _custom_dynamic_framework_import_impl(ctx):",
-        "  return [",
-        "    apple_common.new_objc_provider(",
-        "      dynamic_framework_file=depset(ctx.files.link_inputs),",
-        "      dynamic_framework_dir=depset(['fx/MyFramework.framework'])),",
-        "    apple_common.new_dynamic_framework_provider(objc=apple_common.new_objc_provider()),",
-        "  ]",
-        "custom_dynamic_framework_import = rule(",
-        "    _custom_dynamic_framework_import_impl,",
-        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
-        ")");
-    scratch.file("fx/MyFramework.framework/MyFramework");
-    scratch.file(
-        "fx/BUILD",
-        "load(':defs.bzl', 'custom_dynamic_framework_import')",
-        "custom_dynamic_framework_import(",
-        "    name = 'framework_import',",
-        "    link_inputs = glob(['MyFramework.framework/*']),",
-        ")");
-  }
-
-  private void checkDylibDependenciesSetupFrameworkPostCleanup() throws Exception {
+  private void checkDylibDependenciesSetupFramework() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_dynamic_framework_import_impl(ctx):",
@@ -1319,17 +1215,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ")");
   }
 
-  protected void checkDylibDependencies(
-      RuleType ruleType, ExtraLinkArgs extraLinkArgs, boolean cleanup) throws Exception {
+  protected void checkDylibDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
+      throws Exception {
     ruleType.scratchTarget(scratch, "dylibs", "['//fx:framework_import']");
 
-    if (!cleanup) {
-      checkDylibDependenciesSetupFrameworkPreCleanup();
-      setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    } else {
-      checkDylibDependenciesSetupFrameworkPostCleanup();
-      setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    }
+    checkDylibDependenciesSetupFramework();
 
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 

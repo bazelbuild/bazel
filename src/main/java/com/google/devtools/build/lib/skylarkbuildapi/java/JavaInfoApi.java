@@ -19,133 +19,140 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/**
- * Info object encapsulating all information by java rules.
- */
+/** Info object encapsulating all information by java rules. */
 @SkylarkModule(
     name = "JavaInfo",
-    doc = "Encapsulates all information provided by Java rules.",
+    doc = "A provider encapsulating information about Java and Java-like targets.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
+public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(
       name = "transitive_runtime_jars",
-      doc = "Depset of runtime jars required by this target",
-      structField = true
-  )
+      doc =
+          "Returns a transitive set of Jars required on the target's runtime classpath. Returns"
+              + " the same as <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
+              + "</a></code> for legacy reasons.",
+      structField = true)
   public SkylarkNestedSet getTransitiveRuntimeJars();
 
   @SkylarkCallable(
       name = "transitive_compile_time_jars",
-      doc = "Depset of compile time jars recusrively required by this target. See `compile_jars` "
-          + "for more details.",
-      structField = true
-  )
+      doc =
+          "Returns the transitive set of Jars required to build the target. Returns the same as"
+              + " <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
+              + " legacy reasons.",
+      structField = true)
   public SkylarkNestedSet getTransitiveCompileTimeJars();
 
   @SkylarkCallable(
       name = "compile_jars",
-      doc = "Returns the compile time jars required by this target directly. They can be: <ul>"
-          + "<li> interface jars (ijars), if an ijar tool was used, either by calling "
-          + "java_common.create_provider(use_ijar=True, ...) or by passing --use_ijars on the "
-          + "command line for native Java rules and `java_common.compile`</li>"
-          + "<li> normal full jars, if no ijar action was requested</li>"
-          + "<li> both ijars and normal full jars, if this provider was created by merging two or "
-          + "more providers created with different ijar requests </li> </ul>",
-      structField = true
-  )
+      doc =
+          "Returns the Jars required by this target directly at compile time. They can be"
+              + " interface jars (ijar or hjar), regular jars or both, depending on whether rule"
+              + " implementations chose to create interface jars or not.",
+      structField = true)
   public SkylarkNestedSet getCompileTimeJars();
 
   @SkylarkCallable(
       name = "full_compile_jars",
-      doc = "Returns the full compile time jars required by this target directly. They can be <ul>"
-          + "<li> the corresponding normal full jars of the ijars returned by `compile_jars`</li>"
-          + "<li> the normal full jars returned by `compile_jars`</li></ul>"
-          + "Note: `compile_jars` can return a mix of ijars and normal full jars. In that case, "
-          + "`full_compile_jars` returns the corresponding full jars of the ijars and the remaining"
-          + "normal full jars in `compile_jars`.",
-      structField = true
-  )
+      doc =
+          "Returns the regular, full compile time Jars required by this target directly. They can"
+              + " be <ul><li> the corresponding regular Jars of the interface Jars returned by"
+              + " <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li><li>"
+              + " the regular (full) Jars returned by <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li></ul>"
+              + "<p>Note: <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code> can return"
+              + " a mix of interface Jars and regular Jars.<p>Only use this method if interface"
+              + " Jars don't work with your rule set(s) (e.g. some Scala targets) If you're"
+              + " working with Java-only targets it's preferable to use interface Jars via"
+              + " <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li>",
+      structField = true)
   public SkylarkNestedSet getFullCompileTimeJars();
 
   @SkylarkCallable(
       name = "source_jars",
-      doc = "Returns a list of jar files containing all the uncompiled source files (including "
-      + "those generated by annotations) from the target itself, i.e. NOT including the sources of "
-      + "the transitive dependencies",
-      structField = true
-  )
+      doc =
+          "Returns a list of Jars with all the source files (including those generated by"
+              + " annotations) of the target  itself, i.e. NOT including the sources of the"
+              + " transitive dependencies.",
+      structField = true)
   public SkylarkList<FileT> getSourceJars();
 
   @SkylarkCallable(
-    name = "outputs",
-    doc = "Returns information about outputs of this Java target.",
-    structField = true,
-    allowReturnNones = true
-  )
+      name = "outputs",
+      doc = "Returns information about outputs of this Java/Java-like target.",
+      structField = true,
+      allowReturnNones = true)
   public JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @SkylarkCallable(
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
-      doc = "Returns information about annotation processing for this Java target."
-  )
+      doc = "Returns information about annotation processing for this Java/Java-like target.")
   public JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
   @SkylarkCallable(
-    name = "compilation_info",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns compilation information for this Java target."
-  )
+      name = "compilation_info",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns compilation information for this Java/Java-like target.")
   public JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
 
   @SkylarkCallable(
       name = "runtime_output_jars",
-      doc = "Returns the runtime output jars provided by this Java target.",
+      doc = "Returns a list of runtime Jars created by this Java/Java-like target.",
       structField = true)
   public SkylarkList<FileT> getRuntimeOutputJars();
 
   @SkylarkCallable(
-    name = "transitive_deps",
-    doc = "Returns the transitive set of Jars required to build the target.",
-    structField = true
-  )
+      name = "transitive_deps",
+      doc =
+          "Returns the transitive set of Jars required to build the target. Returns the same as"
+              + " <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
+              + " for legacy reasons.",
+      structField = true)
   public NestedSet<FileT> getTransitiveDeps();
 
   @SkylarkCallable(
-    name = "transitive_runtime_deps",
-    doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
-    structField = true
-  )
+      name = "transitive_runtime_deps",
+      doc =
+          "Returns the transitive set of Jars required on the target's runtime classpath. Returns"
+              + " the same as <code><a class=\"anchor\""
+              + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
+              + "</a></code> for legacy reasons.",
+      structField = true)
   public NestedSet<FileT> getTransitiveRuntimeDeps();
 
   @SkylarkCallable(
-    name = "transitive_source_jars",
-    doc = "Returns the Jars containing Java source files for the target "
-            + "and all of its transitive dependencies.",
-    structField = true
-  )
+      name = "transitive_source_jars",
+      doc =
+          "Returns the Jars containing source files of the current target and all of its"
+              + " transitive dependencies.",
+      structField = true)
   public NestedSet<FileT> getTransitiveSourceJars();
 
   @SkylarkCallable(
       name = "transitive_exports",
       structField = true,
-      doc = "Returns transitive set of labels that are being exported from this rule."
-  )
+      doc = "Returns a set of labels that are being exported from this rule transitively.")
   public NestedSet<Label> getTransitiveExports();
 
   /** Provider class for {@link JavaInfoApi} objects. */
@@ -153,147 +160,86 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
   public interface JavaInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
-      name = "JavaInfo",
-      doc = "The <code>JavaInfo</code> constructor.",
-      parameters = {
-        @Param(
-            name = "output_jar",
-            type = FileApi.class,
-            named = true,
-            doc =
-                "The jar that was created as a result of a compilation "
-                    + "(e.g. javac, scalac, etc)."),
-        @Param(
-            name = "compile_jar",
-            type = FileApi.class,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "A jar that is added as the compile-time dependency in lieu of "
-                    + "<code>output_jar</code>. Typically this is the ijar produced by "
-                    + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
-                    + "run_ijar</a></code>. "
-                    + "If you cannot use ijar, consider instead using the output of "
-                    + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
-                    + "stamp_ijar</a></code>. If you do not wish to use either, "
-                    + "you can simply pass <code>output_jar</code>."),
-        @Param(
-            name = "source_jar",
-            type = FileApi.class,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "The source jar that was used to create the output jar. "
-                    + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
-                    + "pack_sources</a></code> to produce this source jar."),
-        @Param(
-            name = "neverlink",
-            type = Boolean.class,
-            named = true,
-            defaultValue = "False",
-            doc = "If true only use this library for compilation and not at runtime."),
-        @Param(
-            name = "deps",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc = "Compile time dependencies that were used to create the output jar."),
-        @Param(
-            name = "runtime_deps",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc = "Runtime dependencies that are needed for this library."),
-        @Param(
-            name = "exports",
-            type = SkylarkList.class,
-            generic1 = JavaInfoApi.class,
-            named = true,
-            defaultValue = "[]",
-            doc =
-                "Libraries to make available for users of this library. See also "
-                    + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
-                    + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
-        @Param(
-            name = "actions",
-            type = SkylarkActionFactoryApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>Used to create the ijar and pack source files to jar actions.</p>"),
-        @Param(
-            name = "sources",
-            type = SkylarkList.class,
-            generic1 = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>source_jar</code> instead. "
-                    + "<p>The sources that were used to create the output jar.</p>"),
-        @Param(
-            name = "source_jars",
-            type = SkylarkList.class,
-            generic1 = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>source_jar</code> instead. "
-                    + "<p>The source jars that were used to create the output jar.</p>"),
-        @Param(
-            name = "use_ijar",
-            type = Boolean.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. Use <code>compile_jar</code> instead. "
-                    + "<p>If an ijar of the output jar should be created and stored in the "
-                    + "provider. </p>"),
-        @Param(
-            name = "java_toolchain",
-            type = Object.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>The toolchain to be used for retrieving the ijar tool and packing source "
-                    + "files to Jar. This should be a Target.</p>"),
-        @Param(
-            name = "host_javabase",
-            type = Object.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "Deprecated. No longer needed when <code>compile_jar</code> and/or "
-                    + "<code>source_jar</code> are used. "
-                    + "<p>The host_javabase to be used for packing source files to Jar. "
-                    + "This should be a Target.</p>"),
-        @Param(
-            name = "jdeps",
-            type = FileApi.class,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            doc = "jdeps information for the rule output (if available). This should be a "
-                + "binary proto encoded using the deps.proto protobuf included with Bazel.  "
-                + "If available this file is typically produced by a compiler. IDEs and other "
-                + "tools can use this information for more efficient processing."),
-      },
-      selfCall = true,
-      useLocation = true,
-      useEnvironment = true)
+        name = "JavaInfo",
+        doc = "The <code>JavaInfo</code> constructor.",
+        parameters = {
+          @Param(
+              name = "output_jar",
+              type = FileApi.class,
+              named = true,
+              doc =
+                  "The jar that was created as a result of a compilation "
+                      + "(e.g. javac, scalac, etc)."),
+          @Param(
+              name = "compile_jar",
+              type = FileApi.class,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
+              doc =
+                  "A jar that is added as the compile-time dependency in lieu of "
+                      + "<code>output_jar</code>. Typically this is the ijar produced by "
+                      + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
+                      + "run_ijar</a></code>. "
+                      + "If you cannot use ijar, consider instead using the output of "
+                      + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
+                      + "stamp_ijar</a></code>. If you do not wish to use either, "
+                      + "you can simply pass <code>output_jar</code>."),
+          @Param(
+              name = "source_jar",
+              type = FileApi.class,
+              named = true,
+              noneable = true,
+              defaultValue = "None",
+              doc =
+                  "The source jar that was used to create the output jar. "
+                      + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
+                      + "pack_sources</a></code> to produce this source jar."),
+          @Param(
+              name = "neverlink",
+              type = Boolean.class,
+              named = true,
+              defaultValue = "False",
+              doc = "If true only use this library for compilation and not at runtime."),
+          @Param(
+              name = "deps",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc = "Compile time dependencies that were used to create the output jar."),
+          @Param(
+              name = "runtime_deps",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc = "Runtime dependencies that are needed for this library."),
+          @Param(
+              name = "exports",
+              type = SkylarkList.class,
+              generic1 = JavaInfoApi.class,
+              named = true,
+              defaultValue = "[]",
+              doc =
+                  "Libraries to make available for users of this library. See also "
+                      + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
+                      + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
+          @Param(
+              name = "jdeps",
+              type = FileApi.class,
+              named = true,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "jdeps information for the rule output (if available). This should be a binary"
+                      + " proto encoded using the deps.proto protobuf included with Bazel.  If"
+                      + " available this file is typically produced by a compiler. IDEs and other"
+                      + " tools can use this information for more efficient processing."),
+        },
+        selfCall = true,
+        useLocation = true,
+        useStarlarkThread = true)
     @SkylarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
     public JavaInfoApi<?> javaInfo(
         FileApi outputJarApi,
@@ -303,15 +249,9 @@ public interface JavaInfoApi <FileT extends FileApi> extends StructApi {
         SkylarkList<?> deps,
         SkylarkList<?> runtimeDeps,
         SkylarkList<?> exports,
-        Object actionsApi,
-        Object sourcesApi,
-        Object sourceJarsApi,
-        Object useIjarApi,
-        Object javaToolchainApi,
-        Object hostJavabaseApi,
         Object jdepsApi,
         Location loc,
-        Environment env)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

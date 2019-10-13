@@ -56,7 +56,7 @@ public class RunfilesSupplierImplTest {
   @Test
   public void testGetManifestsWhenNone() {
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY, null);
+        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY);
     assertThat(underTest.getManifests()).isEmpty();
   }
 
@@ -64,7 +64,12 @@ public class RunfilesSupplierImplTest {
   public void testGetManifestsWhenSupplied() {
     Artifact manifest = ActionsTestUtil.createArtifact(rootDir, "manifest");
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY, manifest);
+        new RunfilesSupplierImpl(
+            PathFragment.create("ignored"),
+            Runfiles.EMPTY,
+            manifest,
+            /* buildRunfileLinks= */ false,
+            /* runfileLinksEnabled= */ false);
     assertThat(underTest.getManifests()).containsExactly(manifest);
   }
 

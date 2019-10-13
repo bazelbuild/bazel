@@ -38,15 +38,14 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -173,12 +172,10 @@ public interface JavaSemantics {
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> {
             // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
-            JavaOptimizationMode optMode = javaConfig.getJavaOptimizationMode();
             boolean hasProguardSpecs =
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-            if (optMode == JavaOptimizationMode.NOOP
-                || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
+            if (!hasProguardSpecs) {
               return ImmutableList.<Label>of();
             }
             return ImmutableList.copyOf(

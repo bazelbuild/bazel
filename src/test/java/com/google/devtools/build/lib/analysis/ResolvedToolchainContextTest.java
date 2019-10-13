@@ -67,7 +67,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+            toolchain.getTarget().getPackage().getRepositoryMapping(),
+            unloadedToolchainContext,
+            "test",
+            ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType).hasField("data")).isTrue();
@@ -107,7 +110,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+            toolchain.getTarget().getPackage().getRepositoryMapping(),
+            unloadedToolchainContext,
+            "test",
+            ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
     assertThat(toolchainContext.forToolchainType(testToolchainType).hasField("data")).isTrue();
@@ -141,7 +147,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ToolchainException.class,
         () ->
             ResolvedToolchainContext.load(
-                unloadedToolchainContext, "test", ImmutableList.of(toolchain)));
+                toolchain.getTarget().getPackage().getRepositoryMapping(),
+                unloadedToolchainContext,
+                "test",
+                ImmutableList.of(toolchain)));
   }
 
   @Test
@@ -192,7 +201,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"), targetConfig);
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+            toolchain.getTarget().getPackage().getRepositoryMapping(),
+            unloadedToolchainContext,
+            "test",
+            ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext.forToolchainType(variableToolchainType)).isNotNull();
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -166,10 +167,7 @@ public class ExecutionTool {
     spawnActionContextMaps =
         builder
             .getSpawnActionContextMapsBuilder()
-            .build(
-                actionContextProviders,
-                options.testStrategy,
-                options.incompatibleListBasedExecutionStrategySelection);
+            .build(actionContextProviders, options.testStrategy);
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
@@ -345,7 +343,7 @@ public class ExecutionTool {
       skyframeExecutor.drainChangedFiles();
 
       try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-        configureResourceManager(request);
+        configureResourceManager(env.getLocalResourceManager(), request);
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -446,23 +444,23 @@ public class ExecutionTool {
       throws ExecutorInitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
-    if (!packageRootMap.isPresent()) {
-      return;
-    }
-    // Prepare for build.
-    Profiler.instance().markPhase(ProfilePhase.PREPARE);
+    if (packageRootMap.isPresent()) {
+      // Prepare for build.
+      Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
-    // Plant the symlink forest.
-    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-      new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
-          .plantSymlinkForest();
-    } catch (IOException e) {
-      throw new ExecutorInitException("Source forest creation failed", e);
+      // Plant the symlink forest.
+      try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
+        new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
+            .plantSymlinkForest();
+      } catch (IOException e) {
+        throw new ExecutorInitException("Source forest creation failed", e);
+      }
     }
+    env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
   private void createActionLogDirectory() throws ExecutorInitException {
-    Path directory = env.getActionConsoleOutputDirectory();
+    Path directory = env.getActionTempsDirectory();
     try {
       if (directory.exists()) {
         directory.deleteTree();
@@ -611,7 +609,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    Path actionOutputRoot = env.getActionConsoleOutputDirectory();
+    Path actionOutputRoot = env.getActionTempsDirectory();
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
 
@@ -619,6 +617,7 @@ public class ExecutionTool {
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(
         skyframeExecutor,
+        env.getLocalResourceManager(),
         new ActionCacheChecker(
             actionCache,
             artifactFactory,
@@ -628,6 +627,7 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
+        env.getTopDownActionCache(),
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
@@ -636,8 +636,7 @@ public class ExecutionTool {
   }
 
   @VisibleForTesting
-  public static void configureResourceManager(BuildRequest request) {
-    ResourceManager resourceMgr = ResourceManager.instance();
+  public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
     if (options.availableResources != null && !options.removeLocalResources) {

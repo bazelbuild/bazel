@@ -57,6 +57,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
           "static_aapt_tool",
           "aapt.static",
           "aapt",
+          "static_aapt2_tool",
           "aapt2",
           "empty.sh",
           "android_blaze.jar",
@@ -176,23 +177,17 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
       assertThat(attributeErrorMessage).isNull();
       assertThat(attributeErrorAttribute).isNull();
     }
-  };
+  }
 
   public FakeRuleErrorConsumer errorConsumer;
   public FileSystem fileSystem;
   public ArtifactRoot root;
 
-  @Override
   @Before
   public void setup() throws Exception {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem();
     root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
-
-    // Force tests to use aapt to unblock global aapt2 migration, until these
-    // tests are migrated to use aapt2.
-    // TODO(jingwen): https://github.com/bazelbuild/bazel/issues/6907
-    useConfiguration("--android_aapt=aapt");
   }
 
   @After
@@ -268,15 +263,17 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
                 DataBinding.DISABLED_V1_CONTEXT),
             getOutput("merged/resources.zip"),
             getOutput("class.jar"),
+            includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
             /* dataBindingInfoZip = */ null,
             resourceDependencies,
             manifest),
         getOutput("r.txt"),
         getOutput("source.jar"),
         getOutput("resources.apk"),
-        includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
+        includeAapt2Outs ? getOutput("aapt2-validation.txt") : null,
         includeAapt2Outs ? getOutput("aapt2-source.jar") : null,
-        includeAapt2Outs ? getOutput("aapt2-static-lib") : null);
+        includeAapt2Outs ? getOutput("aapt2-static-lib") : null,
+        /*useRTxtFromMergedResources=*/ true);
   }
 
   /**

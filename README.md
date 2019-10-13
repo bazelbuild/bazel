@@ -5,7 +5,7 @@
 Build and test software of any size, quickly and reliably.
 
 * **Speed up your builds and tests**:
-  Bazel only rebuilds what is necessary.
+  Bazel rebuilds only what is necessary.
   With advanced local and distributed caching, optimized dependency analysis and
   parallel execution, you get fast and incremental builds.
 
@@ -47,7 +47,3 @@ Build and test software of any size, quickly and reliably.
 See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 [![Build status](https://badge.buildkite.com/1fd282f8ad98c3fb10758a821e5313576356709dd7d11e9618.svg?status=master)](https://ci.bazel.build)
-
-Bazel is released in 'Beta'.
-See the [product roadmap](https://bazel.build/roadmap.html) to learn about the
-path toward a stable 1.0 release.

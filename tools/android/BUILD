@@ -1,3 +1,5 @@
+load("//tools/python:private/defs.bzl", "py_library", "py_binary", "py_test")
+
 package(default_visibility = ["//tools:__pkg__"])
 
 py_binary(

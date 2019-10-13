@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -101,7 +102,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
-  private static final ImmutableList<TargetPatternKey> ALL_PATTERNS;
+  private static final ImmutableList<TargetPattern> ALL_PATTERNS;
 
   static {
     TargetPattern targetPattern;
@@ -110,10 +111,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     } catch (TargetParsingException e) {
       throw new IllegalStateException(e);
     }
-    ALL_PATTERNS =
-        ImmutableList.of(
-            new TargetPatternKey(
-                targetPattern, FilteringPolicies.NO_FILTER, false, "", ImmutableSet.of()));
+    ALL_PATTERNS = ImmutableList.of(targetPattern);
   }
 
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
@@ -178,7 +176,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         || settings.contains(Setting.TESTS_EXPRESSION_STRICT)) {
       settings =
           Sets.difference(
-              settings, ImmutableSet.of(Setting.NO_HOST_DEPS, Setting.NO_IMPLICIT_DEPS));
+              settings, ImmutableSet.of(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS));
       throw new QueryException(
           String.format(
               "The following filter(s) are not currently supported by configured query: %s",
@@ -325,26 +323,30 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    */
   protected Collection<T> getAllowedDeps(T target, Collection<T> deps) {
     // It's possible to query on a target that's configured in the host configuration. In those
-    // cases if --nohost_deps is turned on, we only allow reachable targets that are ALSO in the
+    // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in the
     // host config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
-    if (settings.contains(Setting.NO_HOST_DEPS)) {
+    if (settings.contains(Setting.ONLY_TARGET_DEPS)) {
       BuildConfiguration currentConfig = getConfiguration(target);
-      if (currentConfig != null && currentConfig.isHostConfiguration()) {
+      if (currentConfig != null && currentConfig.isToolConfiguration()) {
         deps =
             deps.stream()
                 .filter(
                     dep ->
                         getConfiguration(dep) != null
-                            && getConfiguration(dep).isHostConfiguration())
+                            && getConfiguration(dep).isToolConfiguration())
                 .collect(Collectors.toList());
       } else {
         deps =
             deps.stream()
                 .filter(
                     dep ->
-                        getConfiguration(dep) != null
-                            && !getConfiguration(dep).isHostConfiguration())
+                        // We include source files, which have null configuration, even though
+                        // they can also appear on host-configured attributes like genrule#tools.
+                        // While this may not be strictly correct, it's better to overapproximate
+                        // than underapproximate the results.
+                        getConfiguration(dep) == null
+                            || !getConfiguration(dep).isToolConfiguration())
                 .collect(Collectors.toList());
       }
     }

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_plugin")
+
 # Description:
 #   A preprocessor for skylark annotations.
 package(default_visibility = ["//src:__subpackages__"])

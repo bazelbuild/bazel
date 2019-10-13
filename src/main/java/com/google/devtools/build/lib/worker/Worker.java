@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -25,7 +26,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 
@@ -89,33 +89,7 @@ class Worker {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
     if (process != null) {
-      destroyProcess(process);
-    }
-  }
-
-  /**
-   * Destroys a process and waits for it to exit. This is necessary for the child to not become a
-   * zombie.
-   *
-   * @param process the process to destroy.
-   */
-  private static void destroyProcess(Subprocess process) {
-    boolean wasInterrupted = false;
-    try {
-      process.destroy();
-      while (true) {
-        try {
-          process.waitFor();
-          return;
-        } catch (InterruptedException ie) {
-          wasInterrupted = true;
-        }
-      }
-    } finally {
-      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
-      if (wasInterrupted) {
-        Thread.currentThread().interrupt(); // preserve interrupted status
-      }
+      process.destroyAndWait();
     }
   }
 
@@ -150,7 +124,7 @@ class Worker {
   }
 
   public void prepareExecution(
-      Map<PathFragment, Path> inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
     if (process == null) {
       createProcess();

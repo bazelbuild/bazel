@@ -61,7 +61,7 @@ public class AndroidResourceMergingAction {
       Logger.getLogger(AndroidResourceMergingAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  public static class Options extends OptionsBase {
 
     @Option(
       name = "primaryData",
@@ -213,6 +213,16 @@ public class AndroidResourceMergingAction {
       help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
     )
     public String injectingRuleKind;
+
+    @Option(
+        name = "annotate_r_fields_from_transitive_deps",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If enabled, annotates R with 'targetLabel' and transitive fields with their"
+                + " respective labels.")
+    public boolean annotateTransitiveFields;
   }
 
   public static void main(String[] args) throws Exception {
@@ -249,9 +259,10 @@ public class AndroidResourceMergingAction {
       }
       AndroidResourceClassWriter resourceClassWriter =
           AndroidResourceClassWriter.createWith(
-              aaptConfigOptions.androidJar, generatedSources, packageForR);
+              options.targetLabel, aaptConfigOptions.androidJar, generatedSources, packageForR);
       resourceClassWriter.setIncludeClassFile(true);
       resourceClassWriter.setIncludeJavaFile(false);
+      resourceClassWriter.setAnnotateTransitiveFields(options.annotateTransitiveFields);
 
       final MergedAndroidData mergedData =
           AndroidResourceMerger.mergeDataAndWrite(

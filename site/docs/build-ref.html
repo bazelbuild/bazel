@@ -15,6 +15,7 @@ title: Concepts and Terminology
   <li><a href="#packages_targets">Workspace, Packages and Targets</a>
     <ul>
       <li><a href="#workspace">Workspace</a></li>
+      <li><a href="#repositories">Repositories</a></li>
       <li><a href="#packages">Packages</a></li>
       <li><a href="#targets">Targets</a></li>
       <li><a href="#labels">Labels</a></li>
@@ -52,15 +53,35 @@ title: Concepts and Terminology
 <p>A <em>workspace</em> is a directory on your filesystem that contains the
    source files for the software you want to build, as well as symbolic links
    to directories that contain the build outputs. Each workspace directory has
-   a text file named <code>WORKSPACE</code> which may be empty,  or may contain
+   a text file named <code>WORKSPACE</code> which may be empty, or may contain
    references to <a href="external.html">external dependencies</a>
-   required to build the outputs. See also the <a
-   href="be/workspace.html">Workspace Rules</a> section in the Build
-   Encyclopedia.
-</p>
+   required to build the outputs.</p>
+
+<p>Directories containing a file called
+   <code>WORKSPACE</code> are considered the root of a workspace.
+   Therefore, Bazel ignores any directory trees in a workspace rooted
+   at a subdirectory containing a <code>WORKSPACE</code> file (as they form
+   another workspace).</p>
+
+<h3 id="repositories">Repositories</h3>
+<p>Code is organized in <em>repositories</em>. The directory containing
+   the <code>WORKSPACE</code> file is the root of the main repository, also
+   called <code>@</code>. Other, (external) repositories
+   are defined in the <code>WORKSPACE</code> file using workspace rules.
+
+<p>The workspace rules bundled with Bazel are documented in the
+   <a href="be/workspace.html">Workspace Rules</a> section in the Build
+   Encyclopedia and the documentation on
+   <a href="repo/index.html">embeded Starlark repository rules</a>.</p>
+
+<p>As external repositories are repositories themselves, they often contain
+   a <code>WORKSPACE</code> file as well. However, these additional
+   <code>WORKSPACE</code> files are ignored by Bazel. In particular,
+   repositories depended upon transitively are not added automatically.</p>
+
 <h3 id="packages">Packages</h3>
 <p>
-  The primary unit of code organization in a workspace is
+  The primary unit of code organization in a repository is
   the <i>package</i>.  A package is a collection of related files and a
   specification of the dependencies among them.
 </p>
@@ -167,6 +188,17 @@ src/my/app/tests/test.cc
   All targets belong to exactly one package.  The name of a target is
   called its <em>label</em>, and a typical label in canonical form
   looks like this:
+</p>
+
+
+<pre>
+@myrepo//my/app/main:app_binary
+</pre>
+
+<p>
+  In the typical case that a label refers to the same repository it occurs
+  in, the repository name may be left out. So, inside <code>@myrepo</code>
+  this label is usually written as
 </p>
 
 <pre>
@@ -290,7 +322,7 @@ testdata/input.txt
   Target names must be composed entirely of
   characters drawn from the set <code>a</code>–<code>z</code>,
   <code>A</code>–<code>Z</code>, <code>0</code>–<code>9</code>,
-  and the punctuation symbols <code>_/.+-=,@~</code>.
+  and the punctuation symbols <code>!%-@^_` "#$&'()*-+,;<=>?[]{|}~</code>.
   Do not use <code>..</code> to refer to files in other packages; use
   <code>//<var>packagename</var>:<var>filename</var></code> instead.
   Filenames must be relative pathnames in normal form, which means
@@ -619,8 +651,8 @@ a <code>.bzl</code> file visible.
 
 <p>
   A target <code>X</code> is <i>actually dependent</i> on target
-  <code>Y</code> iff <code>Y</code> must be present, built and
-  up-to-date in order for <code>X</code> to be built correctly.
+  <code>Y</code> if and only if <code>Y</code> must be present, built
+  and up-to-date in order for <code>X</code> to be built correctly.
   "Built" could mean generated, processed, compiled, linked,
   archived, compressed, executed, or any of the other kinds of tasks
   that routinely occur during a build.
@@ -628,8 +660,8 @@ a <code>.bzl</code> file visible.
 
 <p>
   A target <code>X</code> has a <i>declared dependency</i> on target
-  <code>Y</code> iff there is a dependency edge from <code>X</code> to
-  <code>Y</code> in the package of <code>X</code>.
+  <code>Y</code> if and only if there is a dependency edge from <code>X</code>
+  to <code>Y</code> in the package of <code>X</code>.
 </p>
 
 <p>
@@ -721,11 +753,28 @@ function foo() {
 }</b>
 </pre>
 </div>
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b --&gt; c
-
-Actual dependency graph:    a --&gt; b --&gt; c
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 The declared dependencies overapproximate the actual dependencies.
 All is well.
 </div>
@@ -746,12 +795,29 @@ b.foo();
 </pre>
 </div>
 
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b --&gt; c
-
-Actual dependency graph:    a --&gt; b --&gt;_c
-                             \_________/|
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+} -->
+<img src="images/a_b_c.svg" alt="a_b_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b -> c;
+  a -> c [constraint=false];
+} -->
+<img src="images/a_b_c_ac.svg" alt="a_b_c_ac.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 The declared dependencies no longer overapproximate the actual
 dependencies.  This may build ok, because the transitive closures of
 the two graphs are equal, but masks a problem: <code>a</code> has an
@@ -782,12 +848,31 @@ function foo() {
 }
 </pre>
 </div>
-<pre style="clear: both;">
-Declared dependency graph:  a --&gt; b     c
-
-Actual dependency graph:    a --&gt; b    _c
-                             \_________/|
-</pre>
+<table style='margin: auto; width: 100%'><tr>
+<td style='padding: 10px; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b;
+  b -> c [style=invis];
+} -->
+<img src="images/ab_c.svg" alt="ab_c.svg" style="margin-left=10;" />
+<p><i>Declared dependency graph</i></p>
+</td>
+<td style='padding: 10; text-align: center'>
+<!-- digraph G {
+  graph [size="4,4"];
+  node [shape=circle];
+  rankdir="LR";
+  a -> b;
+  b -> c [style=invis];
+  a -> c [constraint=false];
+} -->
+<img src="images/a_b_a_c.svg" alt="a_b_a_c.svg" style="margin-left=10;" />
+<p><i>Actual dependency graph</i></p>
+</td>
+</tr></table>
 <p>
   The declared dependency graph is now an underapproximation of the
   actual dependencies, even when transitively closed; the build is

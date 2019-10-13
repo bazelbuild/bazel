@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -58,28 +59,17 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
-      name = "incompatible_list_based_execution_strategy_selection",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "See https://github.com/bazelbuild/bazel/issues/7480")
-  public boolean incompatibleListBasedExecutionStrategySelection;
-
-  @Option(
       name = "spawn_strategy",
       defaultValue = "",
       converter = CommaSeparatedNonEmptyOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify how spawn actions are executed by default. "
-              + "'standalone' means run all of them locally without any kind of sandboxing. "
-              + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
-              + "(details depend on platform support).")
+          "Specify how spawn actions are executed by default. Accepts a comma-separated list of"
+              + " strategies from highest to lowest priority. For each action Bazel picks the"
+              + " strategy with the highest priority that can execute the action. The default"
+              + " value is \"remote,worker,sandboxed,local\".See"
+              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<String> spawnStrategy;
 
   @Option(
@@ -102,9 +92,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify how to distribute compilation of other spawn actions. "
-              + "Example: 'Javac=local' means to spawn Java compilation locally. "
-              + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
+          "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
+              + " list of strategies from highest to lowest priority. For each action Bazel picks"
+              + " the strategy with the highest priority that can execute the action. The default"
+              + " value is \"remote,worker,sandboxed,local\".See"
+              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
   @Option(
@@ -134,8 +126,14 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. ")
+              + "remote action execution. Useful when debugging actions. "
+              + "This is implied by --subcommands.")
   public boolean materializeParamFiles;
+
+  public boolean shouldMaterializeParamFiles() {
+    // Implied by --subcommands
+    return materializeParamFiles || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE;
+  }
 
   @Option(
     name = "verbose_failures",

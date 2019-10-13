@@ -64,6 +64,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -159,7 +161,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected ListeningExecutorService executor;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
   protected final SkyKey universeKey;
-  private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -221,9 +222,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         this.blockUniverseEvaluationErrors
             ? new ErrorBlockingForwardingEventHandler(this.eventHandler)
             : this.eventHandler;
-    this.universeTargetPatternKeys =
-        PrepareDepsOfPatternsFunction.getTargetPatternKeys(
-            PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
     // In #getAllowedDeps we have special treatment of deps entailed by the `visibility` attribute.
     // Since this attribute is of the NODEP type, that means we need a special implementation of
     // NO_NODEP_DEPS.
@@ -265,7 +263,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       blacklistPatternsSupplier = MemoizingInterruptibleSupplier.of(new BlacklistSupplier(graph));
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(
-              graph, universeTargetPatternKeys, pkgPath, new TraversalInfoRootPackageExtractor());
+              graph,
+              getTargetPatternsForUniverse(),
+              pkgPath,
+              new TraversalInfoRootPackageExtractor());
     }
 
     if (executor == null) {
@@ -286,6 +287,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             packageSemaphore);
   }
 
+  /** Returns the TargetPatterns corresponding to {@link #universeKey}. */
+  protected ImmutableList<TargetPattern> getTargetPatternsForUniverse() {
+    return ImmutableList.copyOf(
+        Iterables.transform(
+            PrepareDepsOfPatternsFunction.getTargetPatternKeys(
+                PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler)),
+            TargetPatternKey::getParsedPattern));
+  }
+
   /**
    * Configures the default {@link EvaluationContext} to change the behavior of how evaluations in
    * {@link WalkableGraphFactory#prepareAndGet} work.
@@ -301,6 +311,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   public MultisetSemaphore<PackageIdentifier> getPackageMultisetSemaphore() {
     return packageSemaphore;
+  }
+
+  boolean hasDependencyFilter() {
+    return dependencyFilter != DependencyFilter.ALL_DEPS;
   }
 
   protected void checkEvaluationResult(Set<SkyKey> roots, EvaluationResult<SkyValue> result)
@@ -355,7 +369,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
     String universeScopePattern = Iterables.getOnlyElement(universeScope);
-    return new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern);
+    return QueryExpressionMapper.compose(
+        ImmutableList.of(
+            new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
+            new FilteredDirectRdepsInUniverseExpressionMapper(
+                targetPatternParser, universeScopePattern)));
   }
 
   @Override
@@ -1062,11 +1080,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       target -> TransitiveTraversalValue.key(target.getLabel());
 
   /** A strict (i.e. non-lazy) variant of {@link #makeTransitiveTraversalKeys}. */
-  public static Iterable<SkyKey> makeTransitiveTraversalKeysStrict(Iterable<Target> targets) {
+  public static <T extends Target> Iterable<SkyKey> makeTransitiveTraversalKeysStrict(
+      Iterable<T> targets) {
     return ImmutableList.copyOf(makeTransitiveTraversalKeys(targets));
   }
 
-  private static Iterable<SkyKey> makeTransitiveTraversalKeys(Iterable<Target> targets) {
+  private static <T extends Target> Iterable<SkyKey> makeTransitiveTraversalKeys(
+      Iterable<T> targets) {
     return Iterables.transform(targets, TARGET_TO_SKY_KEY);
   }
 

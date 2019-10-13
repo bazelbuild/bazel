@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -40,7 +41,7 @@ class UnfilteredSkyKeyTTVDTCVisitor extends AbstractUnfilteredTTVDTCVisitor<SkyK
     return targetKeys;
   }
 
-  static class Factory implements ParallelVisitor.Factory {
+  static class Factory implements QueryVisitorFactory<SkyKey, SkyKey, SkyKey> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<SkyKey> uniquifier;
     private final AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback;
@@ -58,7 +59,7 @@ class UnfilteredSkyKeyTTVDTCVisitor extends AbstractUnfilteredTTVDTCVisitor<SkyK
     }
 
     @Override
-    public ParallelVisitor<SkyKey, SkyKey, SkyKey> create() {
+    public UnfilteredSkyKeyTTVDTCVisitor create() {
       return new UnfilteredSkyKeyTTVDTCVisitor(
           env, uniquifier, processResultsBatchSize, aggregateAllCallback);
     }

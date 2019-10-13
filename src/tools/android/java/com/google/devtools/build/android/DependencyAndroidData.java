@@ -38,15 +38,12 @@ class DependencyAndroidData extends SerializedAndroidData {
 
   // From the start of the line,
   // 1) match any number of characters that isn't ":" until a ":" (twice for resources and assets)
-  // 2) match at least one character that isn't ":" until a ":" (manifest)
-  // 3) match at least one character that isn't ":" until a ":" or end of line (r.txt)
-  // 4) if not end of line, optionally match anything that isn't ":" until a ":" (symbols.zip)
-  // 5) match anything that isn't ":" until end of line (symbols.bin)
-  private static final Pattern VALID_REGEX =
-      Pattern.compile("^([^:]*:){2}[^:]+:[^:]+(:|$)([^:]*:)?([^:]*)$");
+  // 2) match at least one character that isn't ":" until a ":" (twice for manifest and R.txt)
+  // 3) match anything that isn't ":" until end of line (symbols)
+  private static final Pattern VALID_REGEX = Pattern.compile("^[^:]*:[^:]*(:[^:]+){2,3}$");
 
   public static final String EXPECTED_FORMAT =
-      "resources[#resources]:assets[#assets]:manifest:r.txt(:symbols.zip?):symbols.bin";
+      "[resources[#resources]]:[assets[#assets]]:manifest:R.txt:symbols";
 
   public static DependencyAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -54,30 +51,30 @@ class DependencyAndroidData extends SerializedAndroidData {
 
   @VisibleForTesting
   static DependencyAndroidData valueOf(String text, FileSystem fileSystem) {
-    if (!VALID_REGEX.matcher(text).find()) {
+    if (!VALID_REGEX.matcher(text).matches()) {
       throw new IllegalArgumentException(text + " is not in the format '" + EXPECTED_FORMAT + "'");
     }
     String[] parts = text.split(":");
-    // TODO(bazel-team): Handle the symbols.bin file.
-    // The local symbols.bin is optional -- if it is missing, we'll use the full R.txt
     Path rTxt = exists(fileSystem.getPath(parts[3]));
-    ImmutableList<Path> assetDirs =
-        parts[1].length() == 0 ? ImmutableList.<Path>of() : splitPaths(parts[1], fileSystem);
-    CompiledResources compiledSymbols = null;
-    Path symbolsBin = null;
+    ImmutableList<Path> assetDirs = splitPaths(parts[1], fileSystem);
     Path manifest = exists(fileSystem.getPath(parts[2]));
 
-    if (parts.length == 6) { // contains symbols bin and compiled symbols
-      compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])), manifest);
-      symbolsBin = exists(fileSystem.getPath(parts[5]));
-    } else if (parts.length == 5) {
-      // This is either symbols bin or compiled symbols depending on "useCompiledResourcesForMerge"
-      compiledSymbols = CompiledResources.from(exists(fileSystem.getPath(parts[4])), manifest);
-      symbolsBin = exists(fileSystem.getPath(parts[4]));
+    Path symbols;
+    CompiledResources compiledSymbols;
+    if (parts.length == 5) {
+      // This is called "symbols.zip" in aapt2-land, or "merged.bin" in aapt1-land, with formats
+      // that are to be understood from context.
+      symbols = exists(fileSystem.getPath(parts[4]));
+      compiledSymbols = CompiledResources.from(symbols, manifest);
+    } else {
+      // Legacy code only used by aapt1 tests assuming the obsolete "android_resources" rule.
+      // No production code actually uses this.
+      symbols = null;
+      compiledSymbols = null;
     }
 
     return new DependencyAndroidData(
-        splitPaths(parts[0], fileSystem), assetDirs, manifest, rTxt, symbolsBin, compiledSymbols);
+        splitPaths(parts[0], fileSystem), assetDirs, manifest, rTxt, symbols, compiledSymbols);
   }
 
   private final Path manifest;

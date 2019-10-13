@@ -20,9 +20,22 @@ import java.util.Map;
 /** Defines a sink for collecting data about resource symbols. */
 public interface AndroidResourceSymbolSink {
 
-  void acceptSimpleResource(ResourceType type, String name);
+  void acceptSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name);
 
+  // "inlineable" below affects how resource IDs are assigned by
+  // PlaceholderIdFieldInitializerBuilder to attempt to match the final IDs assigned by aapt1.  This
+  // shouldn't matter, but legacy tests with ODR violations might be relying on this.
+  void acceptStyleableResource(
+      DependencyInfo dependencyInfo,
+      FullyQualifiedName key,
+      Map<FullyQualifiedName, /*inlineable=*/ Boolean> attrs);
+
+  /**
+   * Marks a resource as public.
+   *
+   * <p>This is orthogonal to the two methods above, and omits the 'DependencyInfo' parameter since
+   * a 'public' declaration must also have a matching definition (which triggers a call to one of
+   * the above methods).
+   */
   void acceptPublicResource(ResourceType type, String name, Optional<Integer> value);
-
-  void acceptStyleableResource(FullyQualifiedName key, Map<FullyQualifiedName, Boolean> attrs);
 }

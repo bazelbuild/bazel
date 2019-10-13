@@ -47,10 +47,10 @@ cc_toolchain_suite(
     filegroup(
         name = "osx_tools_" + arch,
         srcs = [
+            ":builtin_include_directory_paths",
             ":cc_wrapper",
             ":libtool",
             ":make_hashed_objlist.py",
-            ":wrapped_ar",
             ":wrapped_clang",
             ":wrapped_clang_pp",
             ":xcrunwrapper.sh",

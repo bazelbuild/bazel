@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * A class for the Skylark native module. TODO(laurentlb): Some definitions are duplicated from
@@ -39,22 +39,22 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       Integer excludeDirectories,
       Object allowEmpty,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
-    SkylarkUtils.checkLoadingPhase(env, "native.glob", ast.getLocation());
+    SkylarkUtils.checkLoadingPhase(thread, "native.glob", ast.getLocation());
     try {
       return PackageFactory.callGlob(
-          null, include, exclude, excludeDirectories != 0, allowEmpty, ast, env);
+          null, include, exclude, excludeDirectories != 0, allowEmpty, ast, thread);
     } catch (IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), "illegal argument in call to glob", e);
     }
   }
 
   @Override
-  public Object existingRule(String name, FuncallExpression ast, Environment env)
+  public Object existingRule(String name, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(env, "native.existing_rule", ast.getLocation());
-    return PackageFactory.callExistingRule(name, ast, env);
+    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rule", ast.getLocation());
+    return PackageFactory.callExistingRule(name, ast, thread);
   }
 
   /*
@@ -63,43 +63,48 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   */
   @Override
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(env, "native.existing_rules", ast.getLocation());
-    return PackageFactory.callExistingRules(ast, env);
+      FuncallExpression ast, StarlarkThread thread) throws EvalException, InterruptedException {
+    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rules", ast.getLocation());
+    return PackageFactory.callExistingRules(ast, thread);
   }
 
   @Override
-  public Runtime.NoneType packageGroup(String name, SkylarkList<?> packages,
+  public Runtime.NoneType packageGroup(
+      String name,
+      SkylarkList<?> packages,
       SkylarkList<?> includes,
-      FuncallExpression ast, Environment env) throws EvalException {
-    SkylarkUtils.checkLoadingPhase(env, "native.package_group", ast.getLocation());
-    return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
+      FuncallExpression ast,
+      StarlarkThread thread)
+      throws EvalException {
+    SkylarkUtils.checkLoadingPhase(thread, "native.package_group", ast.getLocation());
+    return PackageFactory.callPackageFunction(name, packages, includes, ast, thread);
   }
 
   @Override
-  public Runtime.NoneType exportsFiles(SkylarkList<?> srcs, Object visibility, Object licenses,
-      FuncallExpression ast, Environment env)
+  public Runtime.NoneType exportsFiles(
+      SkylarkList<?> srcs,
+      Object visibility,
+      Object licenses,
+      FuncallExpression ast,
+      StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingPhase(env, "native.exports_files", ast.getLocation());
-    return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
+    SkylarkUtils.checkLoadingPhase(thread, "native.exports_files", ast.getLocation());
+    return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, thread);
   }
 
   @Override
-  public String packageName(FuncallExpression ast, Environment env)
-      throws EvalException {
-    SkylarkUtils.checkLoadingPhase(env, "native.package_name", ast.getLocation());
+  public String packageName(FuncallExpression ast, StarlarkThread thread) throws EvalException {
+    SkylarkUtils.checkLoadingPhase(thread, "native.package_name", ast.getLocation());
     PackageIdentifier packageId =
-        PackageFactory.getContext(env, ast.getLocation()).getBuilder().getPackageIdentifier();
+        PackageFactory.getContext(thread, ast.getLocation()).getBuilder().getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
   }
 
   @Override
-  public String repositoryName(Location location, Environment env)
-      throws EvalException {
-    SkylarkUtils.checkLoadingPhase(env, "native.repository_name", location);
+  public String repositoryName(Location location, StarlarkThread thread) throws EvalException {
+    SkylarkUtils.checkLoadingPhase(thread, "native.repository_name", location);
     PackageIdentifier packageId =
-        PackageFactory.getContext(env, location).getBuilder().getPackageIdentifier();
+        PackageFactory.getContext(thread, location).getBuilder().getPackageIdentifier();
     return packageId.getRepository().toString();
   }
 }

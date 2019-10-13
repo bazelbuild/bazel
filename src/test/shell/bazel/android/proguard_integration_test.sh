@@ -19,18 +19,23 @@
 #   1. Install an Android SDK from https://developer.android.com
 #   2. Set the $ANDROID_HOME environment variable
 #   3. Uncomment the line in WORKSPACE containing android_sdk_repository
-#
-# Note that if the environment is not set up as above android_integration_test
-# will silently be ignored and will be shown as passing.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
 
-source "${CURRENT_DIR}/android_helper.sh" \
+source "$(rlocation io_bazel/src/test/shell/bazel/android/android_helper.sh)" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
 
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_proguard() {
@@ -40,30 +45,39 @@ function test_proguard() {
   cat > java/com/bin/BUILD <<EOF
 android_binary(
   name = 'bin',
-  srcs = ['Bin.java', 'NotUsed.java'],
+  srcs = ['Bin.java', 'NotUsed.java', 'Renamed.java', 'Filtered.java'],
   manifest = 'AndroidManifest.xml',
   proguard_specs = ['proguard.config'],
   deps = [':lib'],
 )
 android_library(
   name = 'lib',
-  srcs = ['Lib.java'],
+  srcs = ['Lib.java', 'Filtered.java'],
+  neverlink = 1,
 )
 EOF
   cat > java/com/bin/AndroidManifest.xml <<EOF
-<manifest package='com.bin' />
+<manifest xmlns:android='http://schemas.android.com/apk/res/android' package='com.bin' />
 EOF
   cat > java/com/bin/Bin.java <<EOF
 package com.bin;
 public class Bin {
-  public Lib getLib() {
-    return new Lib();
+  public Renamed getLib() {
+    return new Renamed();
   }
 }
+EOF
+  cat > java/com/bin/Filtered.java <<EOF
+package com.bin;
+public class Filtered {}
 EOF
   cat > java/com/bin/NotUsed.java <<EOF
 package com.bin;
 public class NotUsed {}
+EOF
+  cat > java/com/bin/Renamed.java <<EOF
+package com.bin;
+public class Renamed {}
 EOF
   cat > java/com/bin/Lib.java <<EOF
 package com.bin;
@@ -74,15 +88,23 @@ EOF
   public *;
 }
 EOF
-  assert_build //java/com/bin
+  bazel build --experimental_filter_library_jar_with_program_jar -s --verbose_failures //java/com/bin || fail "Failed to build //java/com/bin"
+
+  filtered_lib=$(zipinfo -1  bazel-bin/java/com/bin/proguard/bin/legacy_bin_combined_library_jars_filtered.jar)
+  # Don't assert on the size of the library jar, because it contains the jdk runtime.
+  assert_one_of $filtered_lib "com/bin/Lib.class"
+  assert_not_one_of $filtered_lib "com/bin/Filtered.class"
+
   output_classes=$(zipinfo -1 bazel-bin/java/com/bin/bin_proguard.jar)
   assert_equals 3 $(wc -w <<< $output_classes)
   assert_one_of $output_classes "META-INF/MANIFEST.MF"
   assert_one_of $output_classes "com/bin/Bin.class"
   # Not kept by proguard
-  assert_not_one_of $output_classes "com/bin/Unused.class"
-  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/NotUsed.class"
+  # This was in ProGuard's library_jars, not in the jar under optimization.
   assert_not_one_of $output_classes "com/bin/Lib.class"
+  # This is renamed by proguard to something else
+  assert_not_one_of $output_classes "com/bin/Renamed.class"
 }
 
 run_suite "Android integration tests for Proguard"

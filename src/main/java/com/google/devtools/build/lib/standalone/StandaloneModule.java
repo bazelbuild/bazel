@@ -14,14 +14,15 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.dynamic.DynamicExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
@@ -31,12 +32,34 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * StandaloneModule provides pluggable functionality for blaze.
  */
 public class StandaloneModule extends BlazeModule {
+
+  @Override
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    LocalExecutionOptions localOptions = env.getOptions().getOptions(LocalExecutionOptions.class);
+    if (localOptions == null) {
+      // This module doesn't make sense in non-build commands (which don't register these options).
+      return;
+    }
+
+    DynamicExecutionOptions dynamicOptions =
+        env.getOptions().getOptions(DynamicExecutionOptions.class);
+    if (dynamicOptions != null) { // Guard against tests that don't pull this module in.
+      if (localOptions.localLockfreeOutput && dynamicOptions.legacySpawnScheduler) {
+        throw new AbruptExitException(
+            "--experimental_local_lockfree_output requires --nolegacy_spawn_scheduler",
+            ExitCode.COMMAND_LINE_ERROR);
+      }
+    }
+  }
+
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     // TODO(ulfjack): Move this to another module.
@@ -56,9 +79,11 @@ public class StandaloneModule extends BlazeModule {
         new LocalSpawnRunner(
             env.getExecRoot(),
             env.getOptions().getOptions(LocalExecutionOptions.class),
-            ResourceManager.instance(),
+            env.getLocalResourceManager(),
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-            env.getBlazeWorkspace().getBinTools());
+            env.getBlazeWorkspace().getBinTools(),
+            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+            RunfilesTreeUpdater.INSTANCE);
 
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the

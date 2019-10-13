@@ -172,6 +172,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   }
 
   @Nullable
+  public abstract FileContentsProxy getContentsProxy();
+
+  @Nullable
   @Override
   public byte[] getDigest() {
     throw new IllegalStateException();
@@ -271,6 +274,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       return digest;
     }
 
+    @Override
     public FileContentsProxy getContentsProxy() {
       return contentsProxy;
     }
@@ -357,6 +361,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       return null;
     }
 
+    @Override
     public FileContentsProxy getContentsProxy() {
       return contentsProxy;
     }
@@ -402,6 +407,11 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     @Override
     public FileStateType getType() {
       return FileStateType.DIRECTORY;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -461,6 +471,11 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     }
 
     @Override
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
     public BigInteger getValueFingerprint() {
       return new BigIntegerFingerprint().addPath(symlinkTarget).getFingerprint();
     }
@@ -483,6 +498,11 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     @Override
     public FileStateType getType() {
       return FileStateType.NONEXISTENT;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
     }
 
     @Override

@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_toolchain")
+
 # Description:
 # JavaBuilder and java tools used by Bazel
 package(default_visibility = [":buildjar_package_group"])

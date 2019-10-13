@@ -32,11 +32,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public SkylarkNestedSet dynamicFrameworkDir() {
-    return null;
-  }
-
-  @Override
   public NestedSet<FileApi> dynamicFrameworkFile() {
     return null;
   }
@@ -183,11 +178,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public SkylarkNestedSet weakSdkFramework() {
-    return null;
-  }
-
-  @Override
-  public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
     return null;
   }
 

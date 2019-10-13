@@ -2,6 +2,8 @@
 #   Dependency tracking helper library for desugar that we package separately
 #   for the benefit of desugar users who want to compile the tool from source.
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(
     default_visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__subpackages__",

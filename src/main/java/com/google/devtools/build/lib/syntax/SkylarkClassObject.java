@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.Location;
+import javax.annotation.Nullable;
+
 /**
  * A marker interface for a {@link ClassObject} whose {@link #getValue} always returns a
  * Skylark-friendly value, with no defensive conversion required.
@@ -26,4 +29,17 @@ package com.google.devtools.build.lib.syntax;
  * Skylark-friendly values.
  */
 public interface SkylarkClassObject extends ClassObject {
+
+  /**
+   * Returns the value of the field with the given name, or null if the field does not exist.
+   *
+   * @param loc the location in the current Starlark evaluation context
+   * @param starlarkSemantics the current starlark semantics, which may affect which fields are
+   *     available, or the semantics of the available fields
+   * @param name the name of the field to return the value of
+   * @throws EvalException if a user-visible error occurs (other than non-existent field).
+   */
+  @Nullable
+  Object getValue(Location loc, StarlarkSemantics starlarkSemantics, String name)
+      throws EvalException;
 }

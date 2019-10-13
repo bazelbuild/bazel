@@ -15,65 +15,70 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** Utilities for accessing platform properties. */
 public final class PlatformUtils {
 
   @Nullable
-  public static Platform getPlatformProto(
-      @Nullable PlatformInfo executionPlatform, @Nullable RemoteOptions remoteOptions)
+  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
-    String defaultPlatformProperties = null;
-    if (remoteOptions != null) {
-      defaultPlatformProperties = remoteOptions.remoteDefaultPlatformProperties;
-    }
+    SortedMap<String, String> defaultExecProperties =
+        remoteOptions != null
+            ? remoteOptions.getRemoteDefaultExecProperties()
+            : ImmutableSortedMap.of();
 
-    if (executionPlatform == null && Strings.isNullOrEmpty(defaultPlatformProperties)) {
+    if (spawn.getExecutionPlatform() == null
+        && spawn.getCombinedExecProperties().isEmpty()
+        && defaultExecProperties.isEmpty()) {
       return null;
     }
 
     Platform.Builder platformBuilder = Platform.newBuilder();
 
-    if (executionPlatform != null
-        && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
+    if (!spawn.getCombinedExecProperties().isEmpty()) {
+      for (Map.Entry<String, String> entry : spawn.getCombinedExecProperties().entrySet()) {
+        platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+      }
+    } else if (spawn.getExecutionPlatform() != null
+        && !Strings.isNullOrEmpty(spawn.getExecutionPlatform().remoteExecutionProperties())) {
       // Try and get the platform info from the execution properties.
       try {
         TextFormat.getParser()
-            .merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
+            .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
       } catch (ParseException e) {
         throw new UserExecException(
             String.format(
                 "Failed to parse remote_execution_properties from platform %s",
-                executionPlatform.label()),
+                spawn.getExecutionPlatform().label()),
             e);
       }
-    } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
-      // Try and use the provided default value.
-      try {
-        TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
-      } catch (ParseException e) {
-        throw new UserExecException(
-            String.format(
-                "Failed to parse --remote_default_platform_properties %s",
-                defaultPlatformProperties),
-            e);
+    } else {
+      for (Map.Entry<String, String> property : defaultExecProperties.entrySet()) {
+        platformBuilder.addProperties(
+            Property.newBuilder().setName(property.getKey()).setValue(property.getValue()).build());
       }
     }
 
     // Sort the properties.
-    List<Platform.Property> properties = platformBuilder.getPropertiesList();
+    List<Platform.Property> properties =
+        Ordering.from(Comparator.comparing(Platform.Property::getName))
+            .sortedCopy(platformBuilder.getPropertiesList());
     platformBuilder.clearProperties();
-    platformBuilder.addAllProperties(
-        Ordering.from(Comparator.comparing(Platform.Property::getName)).sortedCopy(properties));
+    platformBuilder.addAllProperties(properties);
     return platformBuilder.build();
   }
 }

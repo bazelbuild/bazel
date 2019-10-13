@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -23,6 +25,8 @@ import javax.annotation.Nullable;
  * SkylarkProvider}) or a "legacy" string identifier.
  */
 public final class SkylarkProviderIdentifier {
+  private static final Interner<SkylarkProviderIdentifier> interner =
+      BlazeInterners.newWeakInterner();
 
   @Nullable
   private final String legacyId;
@@ -30,14 +34,12 @@ public final class SkylarkProviderIdentifier {
 
   /** Creates an id for a declared provider with a given key ({@see SkylarkProvider}). */
   public static SkylarkProviderIdentifier forKey(Provider.Key key) {
-    return new SkylarkProviderIdentifier(key);
+    return interner.intern(new SkylarkProviderIdentifier(key));
   }
 
-  /**
-   * Creates an id for a provider with a given name.
-   */
+  /** Creates an id for a provider with a given name. */
   public static SkylarkProviderIdentifier forLegacy(String legacyId) {
-    return new SkylarkProviderIdentifier(legacyId);
+    return interner.intern(new SkylarkProviderIdentifier(legacyId));
   }
 
   private SkylarkProviderIdentifier(String legacyId) {

@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +66,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       String name,
       SkylarkDict<String, Object> managedDirectories,
       FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (allowOverride) {
       if (!isLegalWorkspaceName(name)) {
@@ -76,8 +76,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       if (errorMessage != null) {
         throw new EvalException(ast.getLocation(), errorMessage);
       }
-      PackageFactory.getContext(env, ast.getLocation()).pkgBuilder.setWorkspaceName(name);
-      Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
+      PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder.setWorkspaceName(name);
+      Package.Builder builder = PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder;
       RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
       RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
       Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
@@ -91,7 +91,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       }
       // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
       // treats references to @name as a separate external repo
-      if (env.getSemantics().incompatibleRemapMainRepo()) {
+      if (thread.getSemantics().incompatibleRemapMainRepo()) {
         builder.addRepositoryMappingEntry(
             RepositoryName.MAIN,
             RepositoryName.createFromValidStrippedName(name),
@@ -210,8 +210,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   private static List<String> renamePatterns(
-      List<String> patterns, Package.Builder builder, Environment env) {
-    RepositoryName myName = getRepositoryName(env.getGlobals().getLabel());
+      List<String> patterns, Package.Builder builder, StarlarkThread thread) {
+    RepositoryName myName = getRepositoryName((Label) thread.getGlobals().getLabel());
     Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
         .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
@@ -220,34 +220,34 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, Environment env)
+      SkylarkList<?> platformLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
+    Package.Builder builder = PackageFactory.getContext(thread, location).pkgBuilder;
     List<String> patterns = platformLabels.getContents(String.class, "platform_labels");
-    builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, env));
+    builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
     return NONE;
   }
 
   @Override
   public NoneType registerToolchains(
-      SkylarkList<?> toolchainLabels, Location location, Environment env)
+      SkylarkList<?> toolchainLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(env, location).pkgBuilder;
+    Package.Builder builder = PackageFactory.getContext(thread, location).pkgBuilder;
     List<String> patterns = toolchainLabels.getContents(String.class, "toolchain_labels");
-    builder.addRegisteredToolchains(renamePatterns(patterns, builder, env));
+    builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
     return NONE;
   }
 
   @Override
-  public NoneType bind(String name, Object actual, FuncallExpression ast, Environment env)
+  public NoneType bind(String name, Object actual, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Label nameLabel;
     try {
       nameLabel = Label.parseAbsolute("//external:" + name, ImmutableMap.of());
       try {
-        Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
+        Package.Builder builder = PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder;
         RuleClass ruleClass = ruleFactory.getRuleClass("bind");
         WorkspaceFactoryHelper.addBindRule(
             builder,
@@ -255,7 +255,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
             nameLabel,
             actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
             ast.getLocation(),
-            ruleFactory.getAttributeContainer(ruleClass));
+            new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException
           | Package.NameConflictException
           | LabelSyntaxException e) {

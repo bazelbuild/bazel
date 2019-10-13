@@ -1,5 +1,7 @@
 # Bazel - Google's Build System
 
+load("//tools/python:private/defs.bzl", "py_binary")
+
 package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])

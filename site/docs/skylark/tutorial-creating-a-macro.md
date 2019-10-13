@@ -40,7 +40,7 @@ def miniature(name, src, size="100x100", **kwargs):
     name = name,
     srcs = [src],
     outs = ["small_" + src],
-    cmd = "convert $< -resize 100x100 $@",
+    cmd = "convert $< -resize " + size + " $@",
     **kwargs
   )
 ```

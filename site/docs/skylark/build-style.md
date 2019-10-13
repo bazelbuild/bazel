@@ -150,14 +150,15 @@ is more error-prone and less obvious than an empty list.
 
 ### Recursive
 
-Do not use recursive globs (for example, `glob(["**/*.java"])`).
+Do not use recursive globs to match source files (for example,
+`glob(["**/*.java"])`).
 
 Recursive globs make BUILD files difficult to reason about because they skip
 subdirectories containing BUILD files.
 
 Recursive globs are generally less efficient than having a BUILD file per
 directory with a dependency graph defined between them as this enables better
-forge caching and parallelism.
+remote caching and parallelism.
 
 We recommend authoring a BUILD file per directory and defining a dependency
 graph between them instead.

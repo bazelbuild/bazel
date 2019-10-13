@@ -23,9 +23,6 @@ import java.util.Set;
 /**
  * A tokenizer for the Blaze query language, revision 2.
  *
- * Note, we can avoid a lot of quoting by noting that the characters [() ,] do
- * not appear in any label, filename, function name, or regular expression we care about.
- *
  * No string escapes are allowed ("\").  Given the domain, that's not currently
  * a problem.
  */
@@ -169,9 +166,6 @@ public final class Lexer {
     return kind == null ? TokenKind.WORD : kind;
   }
 
-  // Unquoted words may contain [-*$], but not start with them.  For user convenience, unquoted
-  // words must include UNIX filenames, labels and target label patterns, and simple regexps
-  // (e.g. cc_.*). Keep consistent with TargetLiteral.toString()!
   private String scanWord() {
     int oldPos = pos - 1;
     while (pos < input.length()) {
@@ -189,7 +183,9 @@ public final class Lexer {
         case '0': case '1': case '2': case '3': case '4': case '5':
         case '6': case '7': case '8': case '9':
         case '*': case '/': case '@': case '.': case '-': case '_':
-        case ':': case '$':
+        case ':':
+        case '$':
+        case '~':
           pos++;
           break;
        default:

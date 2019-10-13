@@ -88,6 +88,7 @@ public final class BuildStartingEvent implements BuildEvent {
         BuildEventId.structuredCommandlineId(CommandLineEvent.OriginalCommandLineEvent.LABEL),
         BuildEventId.structuredCommandlineId(CommandLineEvent.CanonicalCommandLineEvent.LABEL),
         BuildEventId.structuredCommandlineId(CommandLineEvent.ToolCommandLineEvent.LABEL),
+        BuildEventId.buildMetadataId(),
         BuildEventId.optionsParsedId(),
         BuildEventId.workspaceStatusId(),
         BuildEventId.targetPatternExpanded(request.getTargets()),

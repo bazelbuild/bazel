@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.BatchCallback;
-import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 
 /**
  * Query callback to be called by a {@link QueryExpression} when it has part of the computation

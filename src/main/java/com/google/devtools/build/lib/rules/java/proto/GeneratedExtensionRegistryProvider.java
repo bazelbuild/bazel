@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -154,14 +155,15 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
         boolean isLite,
         Artifact classJar,
         Artifact srcJar,
-        SkylarkNestedSet inputs) {
+        SkylarkNestedSet inputs)
+        throws EvalException {
       return new GeneratedExtensionRegistryProvider(
           generatingRuleLabel,
           isLite,
           classJar,
           srcJar,
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(inputs.getSet(Artifact.class))
+              .addTransitive(inputs.getSetFromParam(Artifact.class, "inputs"))
               .build());
     }
   }

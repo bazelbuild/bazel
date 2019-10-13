@@ -28,8 +28,8 @@ import java.util.List;
 
 /** Partial {@link QueryHelper} implementation for settings storage and event handling. */
 public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
-  protected Reporter reporter;
-  protected EventCollector eventCollector;
+  private Reporter reporter;
+  private EventCollector eventCollector;
 
   protected boolean keepGoing;
   protected ImmutableSet<Setting> settings = ImmutableSet.of();
@@ -40,6 +40,10 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   public void setUp() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(new EventBus(), eventCollector);
+  }
+
+  public Reporter getReporter() {
+    return reporter;
   }
 
   @Override

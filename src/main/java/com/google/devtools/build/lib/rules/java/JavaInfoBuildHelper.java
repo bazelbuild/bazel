@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,99 +57,6 @@ final class JavaInfoBuildHelper {
 
   public static JavaInfoBuildHelper getInstance() {
     return INSTANCE;
-  }
-
-  /**
-   * Creates JavaInfo instance from outputJar.
-   *
-   * @param outputJar the jar that was created as a result of a compilation (e.g. javac, scalac,
-   *     etc)
-   * @param sourceFiles the sources that were used to create the output jar
-   * @param sourceJars the source jars that were used to create the output jar
-   * @param useIjar if an ijar of the output jar should be created and stored in the provider
-   * @param neverlink if true only use this library for compilation and not at runtime
-   * @param compileTimeDeps compile time dependencies that were used to create the output jar
-   * @param runtimeDeps runtime dependencies that are needed for this library
-   * @param exports libraries to make available for users of this library. <a
-   *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
-   *     target="_top">java_library.exports</a>
-   * @param actions used to create the ijar and single jar actions
-   * @param javaToolchain the toolchain to be used for retrieving the ijar tool
-   * @param jdeps optional jdeps information for outputJar
-   * @param semantics the skylark semantics
-   * @return new created JavaInfo instance
-   * @throws EvalException if some mandatory parameter are missing
-   */
-  @Deprecated
-  JavaInfo createJavaInfoLegacy(
-      Artifact outputJar,
-      SkylarkList<Artifact> sourceFiles,
-      SkylarkList<Artifact> sourceJars,
-      Boolean useIjar,
-      Boolean neverlink,
-      SkylarkList<JavaInfo> compileTimeDeps,
-      SkylarkList<JavaInfo> runtimeDeps,
-      SkylarkList<JavaInfo> exports,
-      Object actions,
-      JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase,
-      @Nullable Artifact jdeps,
-      StarlarkSemantics semantics,
-      Location location)
-      throws EvalException {
-    final Artifact sourceJar;
-    if (sourceFiles.isEmpty() && sourceJars.isEmpty()) {
-      sourceJar = null;
-    } else if (sourceFiles.isEmpty() && sourceJars.size() == 1) {
-      sourceJar = sourceJars.get(0);
-    } else {
-      if (!(actions instanceof SkylarkActionFactory)) {
-        throw new EvalException(location, "Must pass ctx.actions when packing sources.");
-      }
-      if (javaToolchain == null) {
-        throw new EvalException(location, "Must pass java_toolchain when packing sources.");
-      }
-      if (hostJavabase == null) {
-        throw new EvalException(location, "Must pass host_javabase when packing sources.");
-      }
-      sourceJar =
-          packSourceFiles(
-              (SkylarkActionFactory) actions,
-              outputJar,
-              /* outputSourceJar= */ null,
-              sourceFiles,
-              sourceJars,
-              javaToolchain,
-              hostJavabase,
-              location);
-    }
-    final Artifact iJar;
-    if (useIjar) {
-      if (!(actions instanceof SkylarkActionFactory)) {
-        throw new EvalException(
-            location,
-            "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
-      }
-      if (javaToolchain == null) {
-        throw new EvalException(
-            location,
-            "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
-      }
-      iJar = buildIjar((SkylarkActionFactory) actions, outputJar, null, javaToolchain, location);
-    } else {
-      iJar = outputJar;
-    }
-
-    return createJavaInfo(
-        outputJar,
-        iJar,
-        sourceJar,
-        neverlink,
-        compileTimeDeps,
-        runtimeDeps,
-        exports,
-        jdeps,
-        location);
   }
 
   /**
@@ -384,8 +291,8 @@ final class JavaInfoBuildHelper {
       Boolean neverlink,
       JavaSemantics javaSemantics,
       Location location,
-      Environment environment)
-      throws EvalException {
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
 
     if (sourceJars.isEmpty()
         && sourceFiles.isEmpty()
@@ -497,7 +404,7 @@ final class JavaInfoBuildHelper {
       Location location)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar, location);
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
@@ -525,7 +432,7 @@ final class JavaInfoBuildHelper {
       Location location)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
-    Artifact outputJar = actions.declareFile(basename, inputJar);
+    Artifact outputJar = actions.declareFile(basename, inputJar, location);
     // ijar doubles as a stamping tool
     FilesToRunProvider ijarTarget = (javaToolchain).getIjar();
     CustomCommandLine.Builder commandLine =

@@ -821,6 +821,10 @@ The default is <code>armeabi-v7a</code>.
   </li>
 
   <li>
+    <code>worker</code> causes commands to be executed using a persistent worker, if available.
+  </li>
+
+  <li>
     <code>docker</code> causes commands to be executed inside a docker sandbox on the local machine.
     This requires that docker is installed.
   </li>
@@ -963,7 +967,7 @@ other flags for specifying strategy.
   should be written to the output tree.
   Disabling it implies <code class='flag'>--nobuild_runfile_links</code>.
 
-  It can be disabled when executing tests on Forge, as runfiles trees will
+  It can be disabled when executing tests remotely, as runfiles trees will
   be created remotely from in-memory manifests.
 
 <h4 id='flag--discard_analysis_cache'>
@@ -2174,10 +2178,9 @@ a user-friendly way.
   disabled if an incomplete result is not acceptable in case of errors.
 </p>
 <p>
-  The <code class='flag'>--[no]host_deps</code> option,
-  enabled by default, causes dependencies on "host
-  configuration" targets to be included in the dependency graph over
-  which the query operates.
+  The <code class='flag'>--[no]tool_deps</code> option,
+  enabled by default, causes dependencies in non-target configurations to be included in the
+  dependency graph over which the query operates.
 
 </p>
 <p>
@@ -2423,6 +2426,13 @@ a user-friendly way.
     binary. Very useful when reporting bugs.
   </li>
 </ul>
+
+<h3 id='--version'><code>bazel --version</code></h3>
+<p>
+  <code>bazel --version</code>, with no other args, will emit the same output as
+  <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
+  a Bazel server.
+</p>
 
 <h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
 <p>
@@ -2835,7 +2845,8 @@ adb -s deadbeef install ...
 <p>
   This option specifies how long, in seconds, the Bazel server process
   should wait after the last client request, before it exits.  The
-  default value is 10800 (3 hours). To disable the feature, set `--max_idle_secs=0`.
+  default value is 10800 (3 hours). <code class='flag'>--max_idle_secs=0</code> will cause the
+  Bazel server process to persist indefinitely.
 </p>
 <p>
   This option may be used by scripts that invoke Bazel to ensure that

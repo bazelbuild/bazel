@@ -70,6 +70,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       // Yuck, manually fill in fields.
       summary.shardRunStatuses =
           MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
+      summary.firstStartTimeMillis = existingSummary.firstStartTimeMillis;
+      summary.lastStopTimeMillis = existingSummary.lastStopTimeMillis;
+      summary.totalRunDurationMillis = existingSummary.totalRunDurationMillis;
       setTarget(existingSummary.target);
       setConfiguration(existingSummary.configuration);
       setStatus(existingSummary.status);
@@ -248,6 +251,15 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    public Builder mergeTiming(long startTimeMillis, long runDurationMillis) {
+      checkMutation();
+      summary.firstStartTimeMillis = Math.min(summary.firstStartTimeMillis, startTimeMillis);
+      summary.lastStopTimeMillis =
+          Math.max(summary.lastStopTimeMillis, startTimeMillis + runDurationMillis);
+      summary.totalRunDurationMillis += runDurationMillis;
+      return this;
+    }
+
     public Builder addWarnings(List<String> warnings) {
       checkMutation(warnings);
       summary.warnings.addAll(warnings);
@@ -355,6 +367,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private List<String> warnings = new ArrayList<>();
   private List<Path> coverageFiles = new ArrayList<>();
   private List<Long> testTimes = new ArrayList<>();
+  private long totalRunDurationMillis;
+  private long firstStartTimeMillis = Long.MAX_VALUE;
+  private long lastStopTimeMillis = Long.MIN_VALUE;
   private FailedTestCasesStatus failedTestCasesStatus = null;
   private int totalTestCases;
 
@@ -505,6 +520,18 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return testTimes.size();
   }
 
+  public long getTotalRunDurationMillis() {
+    return totalRunDurationMillis;
+  }
+
+  public long getFirstStartTimeMillis() {
+    return firstStartTimeMillis;
+  }
+
+  public long getLastStopTimeMillis() {
+    return lastStopTimeMillis;
+  }
+
   static Mode getStatusMode(BlazeTestStatus status) {
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
@@ -550,7 +577,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalNumCached(getNumCached())
-            .setTotalRunCount(totalRuns());
+            .setTotalRunCount(totalRuns())
+            .setFirstStartTimeMillis(firstStartTimeMillis)
+            .setLastStopTimeMillis(lastStopTimeMillis)
+            .setTotalRunDurationMillis(totalRunDurationMillis);
     for (Path path : getFailedLogs()) {
       String uri = pathConverter.apply(path);
       if (uri != null) {

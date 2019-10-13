@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.

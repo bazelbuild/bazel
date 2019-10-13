@@ -42,11 +42,11 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
         new ProcessPackageDirectory(directories, PrepareTestSuitesUnderDirectoryValue::key);
     ProcessPackageDirectoryResult packageExistenceAndSubdirDeps =
         processPackageDirectory.getPackageExistenceAndSubdirDeps(
-            argument.getRootedPath(), argument.getRepository(), env, argument.getExcludedPaths());
+            argument.getRootedPath(), argument.getRepository(), argument.getExcludedPaths(), env);
     if (env.valuesMissing()) {
       return null;
     }
-    Iterable<SkyKey> keysToRequest = packageExistenceAndSubdirDeps.getChildDeps();
+    Iterable<? extends SkyKey> keysToRequest = packageExistenceAndSubdirDeps.getChildDeps();
     if (packageExistenceAndSubdirDeps.packageExists()) {
       keysToRequest =
           Iterables.concat(

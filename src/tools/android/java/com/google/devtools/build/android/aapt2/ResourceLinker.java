@@ -57,7 +57,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -108,12 +108,6 @@ public class ResourceLinker {
   private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
       Boolean.parseBoolean(System.getProperty(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING_KEY, "false"));
 
-  public static final String AAPT2_OPTIMIZE_KEY =
-      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "aapt2_optimize";
-
-  public static final String ENABLE_RESOURCE_PATH_SHORTENING_KEY =
-      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "aapt2_enable_resource_path_shortening";
-
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
 
@@ -142,18 +136,12 @@ public class ResourceLinker {
 
   private Revision buildToolsVersion;
   private List<String> densities = ImmutableList.of();
-  private Path androidJar;
   private Profiler profiler = Profiler.empty();
   private List<String> uncompressedExtensions = ImmutableList.of();
   private List<String> resourceConfigs = ImmutableList.of();
-  private Path baseApk;
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
-  private final boolean aapt2Optimize =
-      Boolean.parseBoolean(System.getProperty(AAPT2_OPTIMIZE_KEY, "false"));
-  private final boolean enableResourcePathShortening =
-      Boolean.parseBoolean(System.getProperty(ENABLE_RESOURCE_PATH_SHORTENING_KEY, "false"));
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -207,11 +195,6 @@ public class ResourceLinker {
 
   public ResourceLinker conditionalKeepRules(boolean conditionalKeepRules) {
     this.conditionalKeepRules = conditionalKeepRules;
-    return this;
-  }
-
-  public ResourceLinker baseApkToLinkAgainst(Path baseApk) {
-    this.baseApk = baseApk;
     return this;
   }
 
@@ -462,7 +445,7 @@ public class ResourceLinker {
       final ZipIn nonResourcesIn = new ZipIn(nonResourceChannel, protoApk.toString());
       final ZipOut zipOut = new ZipOut(outChannel, combined.toString());
 
-      Set<String> skip = new HashSet<>();
+      Set<String> skip = new LinkedHashSet<>();
       skip.add("resources.pb");
       final EntryHandler entryHandler =
           (in, header, dirEntry, data) -> {
@@ -524,7 +507,7 @@ public class ResourceLinker {
   }
 
   private Path optimize(CompiledResources compiled, Path binary) throws IOException {
-    if (!aapt2Optimize && densities.size() < 2) {
+    if (densities.size() < 2) {
       return binary;
     }
 
@@ -542,8 +525,6 @@ public class ResourceLinker {
             // the APK analyzer dashboard.
             .when(densities.size() >= 2)
             .thenAdd("--target-densities", densities.stream().collect(Collectors.joining(",")))
-            .when(enableResourcePathShortening)
-            .thenAdd("--enable-resource-path-shortening")
             .add("-o", optimized)
             .add(binary.toString())
             .execute(String.format("Optimizing %s", compiled.getManifest())));
@@ -622,11 +603,6 @@ public class ResourceLinker {
     return this;
   }
 
-  public ResourceLinker using(Path androidJar) {
-    this.androidJar = androidJar;
-    return this;
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -635,10 +611,8 @@ public class ResourceLinker {
         .add("buildToolsVersion", buildToolsVersion)
         .add("workingDirectory", workingDirectory)
         .add("densities", densities)
-        .add("androidJar", androidJar)
         .add("uncompressedExtensions", uncompressedExtensions)
         .add("resourceConfigs", resourceConfigs)
-        .add("baseApk", baseApk)
         .toString();
   }
 }

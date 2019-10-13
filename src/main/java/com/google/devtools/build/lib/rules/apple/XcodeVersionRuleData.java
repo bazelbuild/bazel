@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.List;
 
 /**
@@ -48,6 +48,7 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
     DottedVersion xcodeVersion =
         DottedVersion.fromStringUnchecked(
             attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
+    boolean isLocal = attrMapper.get(XcodeVersionRule.IS_LOCAL_ATTR_NAME, Type.BOOLEAN);
     String iosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     String watchosSdkVersionString =
@@ -57,8 +58,14 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
     String macosxSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     this.version = xcodeVersion;
-    this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString,
-        watchosSdkVersionString, tvosSdkVersionString, macosxSdkVersionString);
+    this.xcodeVersionProperties =
+        new XcodeVersionProperties(
+            xcodeVersion,
+            isLocal,
+            iosSdkVersionString,
+            watchosSdkVersionString,
+            tvosSdkVersionString,
+            macosxSdkVersionString);
     this.aliases = ImmutableList.copyOf(
         attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
   }

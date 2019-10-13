@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link BaseFunction}. This tests the argument processing by BaseFunction between the
- * outer call(posargs, kwargs, ast, env) and the inner call(args, ast, env).
+ * outer call(posargs, kwargs, ast, thread) and the inner call(args, ast, thread).
  */
 @RunWith(JUnit4.class)
 public class BaseFunctionTest extends EvaluationTestCase {
@@ -42,7 +42,7 @@ public class BaseFunctionTest extends EvaluationTestCase {
     }
 
     @Override
-    public Object call(Object[] arguments, FuncallExpression ast, Environment env) {
+    public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread) {
       return Arrays.asList(arguments);
     }
   }

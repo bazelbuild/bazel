@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -31,7 +30,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -43,13 +45,12 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
-import com.google.devtools.build.lib.util.BatchCallback;
-import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -60,7 +61,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     extends TargetPatternResolver<Target> {
 
   // TODO(janakr): Move this to a more generic place and unify with SkyQueryEnvironment's value?
-  private static final int MAX_PACKAGES_BULK_GET = 1000;
+  static final int MAX_PACKAGES_BULK_GET = 1000;
 
   protected final FilteringPolicy policy;
   private final RecursivePackageProvider recursivePackageProvider;
@@ -180,7 +181,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       implements ThreadSafeBatchCallback<T, E> {
     private final BatchCallback<T, E> delegate;
 
-    public SynchronizedBatchCallback(BatchCallback<T, E> delegate) {
+    SynchronizedBatchCallback(BatchCallback<T, E> delegate) {
       this.delegate = delegate;
     }
 
@@ -241,74 +242,95 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   private <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsyncImpl(
-      final RepositoryName repository,
-      final String originalPattern,
+      RepositoryName repository,
+      String pattern,
       String directory,
       boolean rulesOnly,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      final ThreadSafeBatchCallback<Target, E> callback,
+      ThreadSafeBatchCallback<Target, E> callback,
       ListeningExecutorService executor) {
-    final FilteringPolicy actualPolicy = rulesOnly
-        ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
-        : policy;
-    final PathFragment pathFragment;
-    Iterable<PathFragment> packagesUnderDirectory;
-    try {
+    FilteringPolicy actualPolicy =
+        rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
+
+    ArrayList<ListenableFuture<Void>> futures = new ArrayList<>();
+    ThreadSafeBatchCallback<PackageIdentifier, UnusedException> getPackageTargetsCallback =
+        (pkgIdBatch) ->
+            futures.add(
+                executor.submit(
+                    new GetTargetsInPackagesTask<>(pkgIdBatch, pattern, actualPolicy, callback)));
+
+    PathFragment pathFragment;
+    try (PackageIdentifierBatchingCallback batchingCallback =
+        new PackageIdentifierBatchingCallback(getPackageTargetsCallback, MAX_PACKAGES_BULK_GET)) {
       pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      packagesUnderDirectory =
-          recursivePackageProvider.getPackagesUnderDirectory(
-              eventHandler,
-              repository,
-              pathFragment,
-              blacklistedSubdirectories,
-              excludedSubdirectories);
+      recursivePackageProvider.streamPackagesUnderDirectory(
+          batchingCallback,
+          eventHandler,
+          repository,
+          pathFragment,
+          blacklistedSubdirectories,
+          excludedSubdirectories);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
     } catch (InterruptedException e) {
       return Futures.immediateCancelledFuture();
     }
 
-    if (Iterables.isEmpty(packagesUnderDirectory)) {
+    if (futures.isEmpty()) {
       return Futures.immediateFailedFuture(
           new TargetParsingException("no targets found beneath '" + pathFragment + "'"));
     }
 
-    Iterable<PackageIdentifier> pkgIds =
-        Iterables.transform(
-            packagesUnderDirectory, path -> PackageIdentifier.create(repository, path));
-
-    // For very large sets of packages, we may not want to process all of them at once, so we split
-    // into batches.
-    List<List<PackageIdentifier>> partitions =
-        ImmutableList.copyOf(Iterables.partition(pkgIds, MAX_PACKAGES_BULK_GET));
-    ArrayList<ListenableFuture<Void>> futures = new ArrayList<>(partitions.size());
-    for (final Iterable<PackageIdentifier> pkgIdBatch : partitions) {
-      futures.add(
-          executor.submit(
-              () -> {
-                ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
-                packageSemaphore.acquireAll(pkgIdBatchSet);
-                try {
-                  Iterable<Collection<Target>> resolvedTargets =
-                      bulkGetTargetsInPackage(originalPattern, pkgIdBatch, actualPolicy).values();
-                  List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
-                  for (Collection<Target> targets : resolvedTargets) {
-                    filteredTargets.addAll(targets);
-                  }
-                  // TODO(bazel-core): Invoking the callback while holding onto the package
-                  // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
-                  // acquireAll can also lead to problems if we don't batch appropriately.
-                  // Although we default to an unbounded semaphore for SkyQuery and this is an
-                  // unreported issue, consider refactoring so that the code is strictly correct.
-                  callback.process(filteredTargets);
-                } finally {
-                  packageSemaphore.releaseAll(pkgIdBatchSet);
-                }
-                return null;
-              }));
-    }
     return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());
+  }
+
+  /**
+   * Task to get all matching targets in the given packages, filter them, and pass them to the
+   * target batch callback.
+   */
+  private class GetTargetsInPackagesTask<E extends Exception> implements Callable<Void> {
+
+    private final Iterable<PackageIdentifier> packageIdentifiers;
+    private final String originalPattern;
+    private final FilteringPolicy actualPolicy;
+    private final ThreadSafeBatchCallback<Target, E> callback;
+
+    GetTargetsInPackagesTask(
+        Iterable<PackageIdentifier> packageIdentifiers,
+        String originalPattern,
+        FilteringPolicy actualPolicy,
+        ThreadSafeBatchCallback<Target, E> callback) {
+      this.packageIdentifiers = packageIdentifiers;
+      this.originalPattern = originalPattern;
+      this.actualPolicy = actualPolicy;
+      this.callback = callback;
+    }
+
+    @Override
+    public Void call() throws Exception {
+      ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(packageIdentifiers);
+      packageSemaphore.acquireAll(pkgIdBatchSet);
+      try {
+        Iterable<Collection<Target>> resolvedTargets =
+            RecursivePackageProviderBackedTargetPatternResolver.this
+                .bulkGetTargetsInPackage(originalPattern, packageIdentifiers, actualPolicy)
+                .values();
+        List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
+        for (Collection<Target> targets : resolvedTargets) {
+          filteredTargets.addAll(targets);
+        }
+        // TODO(bazel-core): Invoking the callback while holding onto the package
+        // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
+        // acquireAll can also lead to problems if we don't batch appropriately.
+        // Although we default to an unbounded semaphore for SkyQuery and this is an
+        // unreported issue, consider refactoring so that the code is strictly correct.
+        callback.process(filteredTargets);
+      } finally {
+        packageSemaphore.releaseAll(pkgIdBatchSet);
+      }
+      return null;
+    }
   }
 
   private static <T> int calculateSize(Iterable<Collection<T>> resolvedTargets) {

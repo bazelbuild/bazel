@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import java.util.Optional;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since package groups are
@@ -66,8 +67,9 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       TargetContext targetContext, PackageGroup packageGroup) {
     NestedSetBuilder<PackageGroupContents> builder = NestedSetBuilder.stableOrder();
     for (Label label : packageGroup.getIncludes()) {
-      TransitiveInfoCollection include = targetContext.maybeFindDirectPrerequisite(
-          label, targetContext.getConfiguration());
+      TransitiveInfoCollection include =
+          targetContext.findDirectPrerequisite(
+              label, Optional.ofNullable(targetContext.getConfiguration()));
       PackageSpecificationProvider provider = include == null ? null
           : include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {

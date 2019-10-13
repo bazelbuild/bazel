@@ -27,9 +27,9 @@ public enum RemoteOutputsMode {
   MINIMAL,
 
   /**
-   * Downloads outputs of top level targets, but generally not intermediate outputs. The only
-   * intermediate outputs to be downloaded are .d and .jdeps files for C++ and Java compilation
-   * actions.
+   * Downloads outputs of top level targets. Top level targets are targets specified on the command
+   * line. If a top level target has runfile dependencies it will also download those. Intermediate
+   * outputs are generally not downloaded (See {@link #MINIMAL}.
    */
   TOPLEVEL;
 

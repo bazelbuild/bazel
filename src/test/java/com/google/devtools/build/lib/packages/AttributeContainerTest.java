@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Arrays;
 import java.util.Collections;
@@ -74,61 +72,29 @@ public class AttributeContainerTest {
     assertThat(container.isAttributeValueExplicitlySpecified(attribute2)).isFalse();
   }
 
-  private static Location newLocation() {
-    return Location.fromPathAndStartColumn(null, 0, 0, new LineAndColumn(0, 0));
-  }
-
-  @Test
-  public void testAttributeLocation() throws Exception {
-    Location location1 = newLocation();
-    Location location2 = newLocation();
-    container.setAttributeLocation(ruleClass.getAttributeIndex(attribute1.getName()), location1);
-    container.setAttributeLocation(ruleClass.getAttributeIndex(attribute2.getName()), location2);
-    assertThat(container.getAttributeLocation(attribute1.getName())).isEqualTo(location1);
-    assertThat(container.getAttributeLocation(attribute2.getName())).isEqualTo(location2);
-    assertThat(container.getAttributeLocation("nomatch")).isNull();
-  }
-
-
   @Test
   public void testPackedState() throws Exception {
     Random rng = new Random();
     // The state packing machinery has special behavior at multiples of 8,
-    // so set enough explicit values and locations to exercise that.
+    // so set enough explicit values to exercise that.
     final int numAttributes = 17;
     Attribute[] attributes = new Attribute[numAttributes];
     for (int attributeIndex = 0; attributeIndex < numAttributes; ++attributeIndex) {
       attributes[attributeIndex] = ruleClass.getAttribute(attributeIndex);
     }
 
-    Location[] locations = new Location[numAttributes];
-    for (int attributeIndex = 0; attributeIndex < numAttributes; ++attributeIndex) {
-      locations[attributeIndex] = newLocation();
-    }
-    // Test relies on checking reference inequality
-    assertThat(locations[0] != locations[1]).isTrue();
-
     Object someValue = new Object();
     for (int explicitCount = 0; explicitCount <= numAttributes; ++explicitCount) {
-      for (int locationCount = 0; locationCount <= numAttributes; ++locationCount) {
         AttributeContainer container = new AttributeContainer(ruleClass);
         // Shuffle the attributes each time through, to exercise
         // different stored indices and orderings.
         Collections.shuffle(Arrays.asList(attributes));
         // Also randomly interleave calls to the two setters.
         int valuePassKey = rng.nextInt(1 << numAttributes);
-        int locationPassKey = rng.nextInt(1 << numAttributes);
         for (int pass = 0; pass <= 1; ++pass) {
           for (int i = 0; i < explicitCount; ++i) {
             if (pass == ((valuePassKey >> i) & 1)) {
               container.setAttributeValue(attributes[i], someValue, true);
-            }
-          }
-          for (int i = 0; i < locationCount; ++i) {
-            if (pass == ((locationPassKey >> i) & 1)) {
-              container.setAttributeLocation(
-                  ruleClass.getAttributeIndex(attributes[i].getName()),
-                  locations[i]);
             }
           }
         }
@@ -137,12 +103,7 @@ public class AttributeContainerTest {
           boolean expected = i < explicitCount;
           assertThat(container.isAttributeValueExplicitlySpecified(attributes[i]))
               .isEqualTo(expected);
-
-          Location expectedLocation = i < locationCount ? locations[i] : null;
-          assertThat(container.getAttributeLocation(attributes[i].getName()))
-              .isSameInstanceAs(expectedLocation);
         }
-      }
     }
   }
 }

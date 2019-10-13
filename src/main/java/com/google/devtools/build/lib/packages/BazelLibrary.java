@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 
 /**
  * A helper class containing built in skylark functions for Bazel (BUILD files and .bzl files).

@@ -994,101 +994,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
-  @Test
-  public void testJavaInfoWithNoSources() throws Exception {
-    writeBuildFileForJavaToolchain();
-    scratch.file("java/test/lib.jar");
-    scratch.file(
-        "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  jar = 'lib.jar',",
-        ")");
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.file.jar",
-        "  new = JavaInfo(output_jar = jar, use_ijar = False)",
-        "  old = java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "  java_info = java_common.merge([old, new])",
-        "  return [java_info]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'jar': attr.label(allow_single_file = True),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "    '_host_javabase': attr.label(",
-        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
-        "  },",
-        "  fragments = ['java']",
-        ")");
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(
-            JavaCompilationArgsProvider.class, getConfiguredTarget("//java/test:custom"));
-    assertThat(prettyArtifactNames(provider.getDirectCompileTimeJars()))
-        .containsExactly("java/test/lib.jar");
-  }
-
-  @Test
-  public void testExposesJavaSkylarkApiProvider() throws Exception {
-    scratch.file(
-        "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")",
-        "my_rule(",
-        "  name = 'my',",
-        "  dep = ':dep',",
-        ")");
-    scratch.file(
-        "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep.java",
-        "   return [result(",
-        "             source_jars = depj.source_jars,",
-        "             transitive_deps = depj.transitive_deps,",
-        "             transitive_runtime_deps = depj.transitive_runtime_deps,",
-        "             transitive_source_jars = depj.transitive_source_jars,",
-        "             outputs = depj.outputs.jars,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    StructImpl info =
-        (StructImpl)
-            configuredTarget.get(
-                new SkylarkKey(
-                    Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
-
-    SkylarkNestedSet sourceJars = ((SkylarkNestedSet) info.getValue("source_jars"));
-    SkylarkNestedSet transitiveDeps = ((SkylarkNestedSet) info.getValue("transitive_deps"));
-    SkylarkNestedSet transitiveRuntimeDeps =
-        ((SkylarkNestedSet) info.getValue("transitive_runtime_deps"));
-    SkylarkNestedSet transitiveSourceJars =
-        ((SkylarkNestedSet) info.getValue("transitive_source_jars"));
-    SkylarkList<OutputJar> outputJars = ((SkylarkList<OutputJar>) info.getValue("outputs"));
-
-    assertThat(artifactFilesNames(sourceJars.toCollection(Artifact.class)))
-        .containsExactly("libdep-src.jar");
-    assertThat(artifactFilesNames(transitiveDeps.toCollection(Artifact.class)))
-        .containsExactly("libdep-hjar.jar");
-    assertThat(artifactFilesNames(transitiveRuntimeDeps.toCollection(Artifact.class)))
-        .containsExactly("libdep.jar");
-    assertThat(artifactFilesNames(transitiveSourceJars.toCollection(Artifact.class)))
-        .containsExactly("libdep-src.jar");
-    assertThat(outputJars).hasSize(1);
-    assertThat(outputJars.get(0).getClassJar().getFilename()).isEqualTo("libdep.jar");
-  }
-
   private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
     List<String> result = new ArrayList<>();
     for (Artifact artifact : artifacts) {
@@ -1276,230 +1181,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
     assertThat(myConfiguredTarget.get("java")).isSameInstanceAs(javaLibraryTarget.get("java"));
-  }
-
-  @Test
-  public void javaProviderFieldsAreCorrectAfterCreatingProvider() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  my_provider = java_common.create_provider(",
-        "        compile_time_jars = ctx.files.compile_time_jars,",
-        "        use_ijar = False,",
-        "        runtime_jars = ctx.files.runtime_jars,",
-        "        transitive_compile_time_jars = ctx.files.transitive_compile_time_jars,",
-        "        transitive_runtime_jars = ctx.files.transitive_runtime_jars,",
-        "        source_jars = depset(ctx.files.source_jars))",
-        "  return [my_provider]",
-        "my_rule = rule(_impl, ",
-        "    attrs = { ",
-        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'full_compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "        'transitive_compile_time_jars': attr.label_list(allow_files=['.jar']),",
-        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "        'source_jars': attr.label_list(allow_files=['.jar'])",
-        "})");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(name = 'myrule',",
-        "    compile_time_jars = ['liba.jar'],",
-        "    runtime_jars = ['libb.jar'],",
-        "    transitive_compile_time_jars = ['libc.jar'],",
-        "    transitive_runtime_jars = ['libd.jar'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    JavaInfo info = target.get(JavaInfo.PROVIDER);
-
-    SkylarkNestedSet compileJars = info.getCompileTimeJars();
-    assertThat(prettyArtifactNames(compileJars.getSet(Artifact.class)))
-        .containsExactly("foo/liba.jar");
-
-    SkylarkNestedSet fullCompileJars = info.getFullCompileTimeJars();
-    assertThat(prettyArtifactNames(fullCompileJars.getSet(Artifact.class)))
-        .containsExactly("foo/liba.jar");
-
-    SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
-    assertThat(prettyArtifactNames(transitiveCompileTimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/liba.jar", "foo/libc.jar");
-
-    SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
-    assertThat(prettyArtifactNames(transitiveRuntimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/libd.jar", "foo/libb.jar");
-  }
-
-  @Test
-  public void javaProviderFieldsAreCorrectAfterCreatingProviderSomeEmptyFields() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  my_provider = java_common.create_provider(",
-        "        compile_time_jars = ctx.files.compile_time_jars,",
-        "        use_ijar = False,",
-        "        runtime_jars = [],",
-        "        transitive_compile_time_jars = [],",
-        "        transitive_runtime_jars = ctx.files.transitive_runtime_jars)",
-        "  return [my_provider]",
-        "my_rule = rule(_impl, ",
-        "    attrs = { ",
-        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "})");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(name = 'myrule',",
-        "    compile_time_jars = ['liba.jar'],",
-        "    transitive_runtime_jars = ['libd.jar'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    JavaInfo info = target.get(JavaInfo.PROVIDER);
-
-    SkylarkNestedSet compileJars = info.getCompileTimeJars();
-    assertThat(prettyArtifactNames(compileJars.getSet(Artifact.class)))
-        .containsExactly("foo/liba.jar");
-
-    SkylarkNestedSet transitiveCompileTimeJars = info.getTransitiveCompileTimeJars();
-    assertThat(prettyArtifactNames(transitiveCompileTimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/liba.jar");
-
-    SkylarkNestedSet transitiveRuntimeJars = info.getTransitiveRuntimeJars();
-    assertThat(prettyArtifactNames(transitiveRuntimeJars.getSet(Artifact.class)))
-        .containsExactly("foo/libd.jar");
-  }
-
-  @Test
-  public void constructJavaProvider() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  my_provider = java_common.create_provider(",
-        "        compile_time_jars = depset(ctx.files.compile_time_jars),",
-        "        use_ijar = False,",
-        "        runtime_jars = depset(ctx.files.runtime_jars),",
-        "        transitive_compile_time_jars = depset(ctx.files.transitive_compile_time_jars),",
-        "        transitive_runtime_jars = depset(ctx.files.transitive_runtime_jars),",
-        "        source_jars = depset(ctx.files.source_jars))",
-        "  return [my_provider]",
-        "my_rule = rule(_impl, ",
-        "    attrs = { ",
-        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "        'transitive_compile_time_jars': attr.label_list(allow_files=['.jar']),",
-        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "        'source_jars': attr.label_list(allow_files=['.jar'])",
-        "})");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(name = 'myrule',",
-        "    compile_time_jars = ['liba.jar'],",
-        "    runtime_jars = ['libb.jar'],",
-        "    transitive_compile_time_jars = ['libc.jar'],",
-        "    transitive_runtime_jars = ['libd.jar'],",
-        "    source_jars = ['liba-src.jar'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
-    assertThat(provider).isNotNull();
-    List<String> compileTimeJars = prettyArtifactNames(provider.getDirectCompileTimeJars());
-    assertThat(compileTimeJars).containsExactly("foo/liba.jar");
-
-    List<String> transitiveCompileTimeJars =
-        prettyArtifactNames(provider.getTransitiveCompileTimeJars());
-    assertThat(transitiveCompileTimeJars).containsExactly("foo/liba.jar", "foo/libc.jar");
-    List<String> transitiveRuntimeJars = prettyArtifactNames(provider.getRuntimeJars());
-    assertThat(transitiveRuntimeJars).containsExactly("foo/libd.jar", "foo/libb.jar");
-
-    JavaSourceJarsProvider sourcesProvider =
-        JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
-    List<String> sourceJars = prettyArtifactNames(sourcesProvider.getSourceJars());
-    assertThat(sourceJars).containsExactly("foo/liba-src.jar");
-  }
-
-  @Test
-  public void constructJavaProviderWithAnotherJavaProvider() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  transitive_provider = java_common.merge(",
-        "      [dep[JavaInfo] for dep in ctx.attr.deps])",
-        "  my_provider = java_common.create_provider(",
-        "        compile_time_jars = depset(ctx.files.compile_time_jars),",
-        "        use_ijar = False,",
-        "        runtime_jars = depset(ctx.files.runtime_jars))",
-        "  return [java_common.merge([my_provider, transitive_provider])]",
-        "my_rule = rule(_impl, ",
-        "    attrs = { ",
-        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
-        "        'deps': attr.label_list()",
-        "})");
-    scratch.file("foo/liba.jar");
-    scratch.file("foo/libb.jar");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'java_dep',",
-        "    srcs = ['A.java'])",
-        "my_rule(name = 'myrule',",
-        "    compile_time_jars = ['liba.jar'],",
-        "    runtime_jars = ['libb.jar'],",
-        "    deps = [':java_dep']",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
-    assertThat(provider).isNotNull();
-    List<String> compileTimeJars = prettyArtifactNames(provider.getDirectCompileTimeJars());
-    assertThat(compileTimeJars).containsExactly("foo/liba.jar", "foo/libjava_dep-hjar.jar");
-
-    List<String> runtimeJars = prettyArtifactNames(provider.getRuntimeJars());
-    assertThat(runtimeJars).containsExactly("foo/libb.jar", "foo/libjava_dep.jar");
-  }
-
-  @Test
-  public void constructJavaProviderJavaLibrary() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  my_provider = java_common.create_provider(",
-        "        transitive_compile_time_jars = depset(ctx.files.transitive_compile_time_jars),",
-        "        transitive_runtime_jars = depset(ctx.files.transitive_runtime_jars))",
-        "  return [my_provider]",
-        "my_rule = rule(_impl, ",
-        "    attrs = { ",
-        "        'transitive_compile_time_jars' : attr.label_list(allow_files=['.jar']),",
-        "        'transitive_runtime_jars': attr.label_list(allow_files=['.jar'])",
-        "})");
-    scratch.file("foo/liba.jar");
-    scratch.file("foo/libb.jar");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(name = 'myrule',",
-        "    transitive_compile_time_jars = ['liba.jar'],",
-        "    transitive_runtime_jars = ['libb.jar']",
-        ")",
-        "java_library(name = 'java_lib',",
-        "    srcs = ['C.java'],",
-        "    deps = [':myrule']",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:java_lib");
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
-    List<String> compileTimeJars = prettyArtifactNames(provider.getTransitiveCompileTimeJars());
-    assertThat(compileTimeJars).containsExactly("foo/libjava_lib-hjar.jar", "foo/liba.jar");
-
-    List<String> runtimeJars = prettyArtifactNames(provider.getRuntimeJars());
-    assertThat(runtimeJars).containsExactly("foo/libjava_lib.jar", "foo/libb.jar");
   }
 
   @Test
@@ -2043,6 +1724,61 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void mergeRuntimeOutputJarsTest() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a', ':b'])",
+        "java_library(name = 'a', srcs = ['java/A.java'])",
+        "java_library(name = 'b', srcs = ['java/B.java'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaInfo javaInfo = (JavaInfo) myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    List<String> directJars = prettyArtifactNames(javaInfo.getRuntimeOutputJars());
+    assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
+  }
+
+  @Test
+  public void mergeSourceInfo() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a', ':b'])",
+        "java_import(name = 'a', jars = ['java/A.jar'])",
+        "java_import(name = 'b', jars = ['java/B.jar'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaSourceInfoProvider sourceInfo =
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, myRuleTarget);
+    assertThat(prettyArtifactNames(sourceInfo.getJarFiles()))
+        .containsExactly("foo/java/A.jar", "foo/java/B.jar");
+  }
+
+  @Test
   public void javaToolchainFlag_default() throws Exception {
     writeBuildFileForJavaToolchain();
     scratch.file(
@@ -2117,136 +1853,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                     .get(ToolchainInfo.PROVIDER))
             .getToolchainLabel();
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
-  }
-
-  @Test
-  public void testIncompatibleDisallowLegacyJavaInfo() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.actions.declare_file('jar')",
-        "  java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        ")");
-    checkError(
-        "java/test",
-        "custom",
-        "java_common.create_provider is deprecated and cannot be used when "
-            + "--incompatible_disallow_legacy_javainfo is set.",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        ")");
-  }
-
-  @Test
-  public void testIncompatibleDisallowLegacyJavaInfoWithFlag() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_legacy_javainfo",
-        "--experimental_java_common_create_provider_enabled_packages=java/test");
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.file.jar",
-        "  java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'jar': attr.label(allow_single_file = True),",
-        "  }",
-        ")");
-    scratch.file(
-        "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  jar = 'lib.jar'",
-        ")");
-    assertThat(getConfiguredTarget("//java/test:custom")).isNotNull();
-  }
-
-  @Test
-  public void testIncompatibleDisallowLegacyJavaInfoOtherPackageWithFlag() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_legacy_javainfo",
-        "--experimental_java_common_create_provider_enabled_packages=java/package");
-    scratch.file(
-        "java/package/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.file.jar",
-        "  java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'jar': attr.label(allow_single_file = True),",
-        "  }",
-        ")");
-    scratch.file(
-        "java/package/BUILD",
-        "load('//third_party/bazel_skylib:bzl_library.bzl', 'bzl_library')",
-        "bzl_library(name = 'custom_rule', srcs = ['custom_rule.bzl'])");
-    scratch.file(
-        "java/otherpackage/BUILD",
-        "load('//java/package:custom_rule.bzl', 'custom_rule')",
-        "custom_rule(",
-        "  name = 'custom',",
-        "  jar = 'lib.jar'",
-        ")");
-    assertThat(getConfiguredTarget("//java/otherpackage:custom")).isNotNull();
-  }
-
-  @Test
-  public void testIncompatibleDisallowLegacyJavaInfoOtherPackageFailsWithFlag() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_legacy_javainfo",
-        "--experimental_java_common_create_provider_enabled_packages=java/otherpackage");
-    scratch.file(
-        "java/package/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jar = ctx.file.jar",
-        "  java_common.create_provider(",
-        "      compile_time_jars = [jar],",
-        "      transitive_compile_time_jars = [jar],",
-        "      runtime_jars = [jar],",
-        "      use_ijar = False,",
-        "  )",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'jar': attr.label(allow_single_file = True),",
-        "  }",
-        ")");
-    scratch.file(
-        "java/package/BUILD",
-        "load('//third_party/bazel_skylib:bzl_library.bzl', 'bzl_library')",
-        "bzl_library(name = 'custom_rule', srcs = ['custom_rule.bzl'])");
-    checkError(
-        "java/otherpackage",
-        "custom",
-        "java_common.create_provider is deprecated and cannot be used when "
-            + "--incompatible_disallow_legacy_javainfo is set.",
-        "load('//java/package:custom_rule.bzl', 'custom_rule')",
-        "custom_rule(",
-        "  name = 'custom',",
-        "  jar = 'lib.jar'",
-        ")");
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(
@@ -2467,31 +2073,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     OutputJar output = outputs.getOutputJars().get(0);
     assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
     assertThat(output.getIJar()).isNull();
-  }
-
-  @Test
-  public void testDisallowLegacyJavaProvider() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_java_provider");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.attr.java_lib.java.source_jars",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'java_lib': attr.label(),",
-        "   },",
-        ")");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_library(name = 'java_lib', srcs = ['java/A.java'])",
-        "java_custom_library(name = 'custom_lib', java_lib = ':java_lib')");
-    checkError(
-        "//foo:custom_lib",
-        "The .java provider is deprecated and cannot be used "
-            + "when --incompatible_disallow_legacy_java_provider is set.");
   }
 
   @Test

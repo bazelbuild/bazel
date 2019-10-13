@@ -32,7 +32,7 @@ Rule with &lt;brackets&gt;
       <td>
         String; optional
         <p>
-          Args with &lt;brackets&gt;
+          Args with some <b>formatting</b>
         </p>
       </td>
     </tr>
@@ -61,19 +61,19 @@ Information with &lt;brackets&gt;
     <tr id="bracketuse-foo">
       <td><code>foo</code></td>
       <td>
-        <p>A string &lt;representing foo&gt;</p>
+        <p>A string representing foo</p>
       </td>
     </tr>
     <tr id="bracketuse-bar">
       <td><code>bar</code></td>
       <td>
-        <p>A string &lt;representing bar&gt;</p>
+        <p>A string representing bar</p>
       </td>
     </tr>
     <tr id="bracketuse-baz">
       <td><code>baz</code></td>
       <td>
-        <p>A string &lt;representing baz&gt;</p>
+        <p>A string representing baz</p>
       </td>
     </tr>
   </tbody>
@@ -106,7 +106,7 @@ This rule runs checks on &lt;angle brackets&gt;.
       <td>
         required.
         <p>
-          an arg with &lt;brackets&gt; in the docstring.
+          an arg with <b>formatted</b> docstring.
         </p>
       </td>
     </tr>

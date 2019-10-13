@@ -185,11 +185,11 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the directory where the stdout/stderr for actions can be stored temporarily for a
-   * build. If the directory already exists, the directory is cleaned.
+   * Returns the directory where actions can store temporary files (such as their stdout and stderr)
+   * during a build. If the directory already exists, the directory is cleaned.
    */
-  public Path getActionConsoleOutputDirectory(Path execRoot) {
-    return execRoot.getRelative(getRelativeOutputPath()).getRelative("_tmp/action_outs");
+  public Path getActionTempsDirectory(Path execRoot) {
+    return execRoot.getRelative(getRelativeOutputPath()).getRelative("_tmp/actions");
   }
 
   /** Returns the installed embedded binaries directory, under the shared installBase location. */

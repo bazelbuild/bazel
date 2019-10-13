@@ -56,6 +56,7 @@ public class ExecutionTransitionFactoryTest {
 
     assertThat(result.contains(CoreOptions.class)).isNotNull();
     assertThat(result.get(CoreOptions.class).isHost).isFalse();
+    assertThat(result.get(CoreOptions.class).isExec).isTrue();
     assertThat(result.contains(PlatformOptions.class)).isNotNull();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
   }

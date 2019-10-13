@@ -153,7 +153,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         AnalysisMock.get().getPackageFactoryBuilderForTesting(directories);
     SkylarkImportLookupFunction skylarkImportLookupFunction =
         new SkylarkImportLookupFunction(
-            ruleClassProvider, pkgFactoryBuilder.build(ruleClassProvider, fileSystem));
+            ruleClassProvider,
+            pkgFactoryBuilder.build(ruleClassProvider, fileSystem),
+            /*starlarkImportLookupValueCacheSize=*/ 2);
     skylarkImportLookupFunction.resetCache();
 
     MemoizingEvaluator evaluator =

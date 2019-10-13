@@ -44,7 +44,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
         /*py2OutputsAreSuffixed=*/ pythonOptions.incompatiblePy2OutputsAreSuffixed,
         /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider,
         /*useToolchains=*/ pythonOptions.incompatibleUsePythonToolchains,
-        pythonOptions.windowsEscapePythonArgs);
+        /*loadPythonRulesFromBzl=*/ pythonOptions.loadPythonRulesFromBzl);
   }
 
   @Override

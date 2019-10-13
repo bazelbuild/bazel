@@ -1,0 +1,20 @@
+<a name="#${providerName}"></a>
+
+#[[##]]# ${providerName}
+
+<pre>
+${util.providerSummary($providerName, $providerInfo)}
+</pre>
+
+${providerInfo.docString}
+
+**FIELDS**
+
+#if (!$providerInfo.fieldInfoList.isEmpty())
+
+| Name  | Description |
+| :-------------: | :-------------: |
+#foreach ($field in $providerInfo.fieldInfoList)
+| $field.name | #if(!$field.docString.isEmpty()) ${util.markdownCellFormat($field.docString)} #else - #end   |
+#end
+#end

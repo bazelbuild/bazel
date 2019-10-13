@@ -57,7 +57,7 @@ public class PlatformMappingValueTest {
       BuildOptions.diffForReconstruction(
           DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
+      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
 
   @Test
   public void testMapNoMappings() throws OptionsParsingException {

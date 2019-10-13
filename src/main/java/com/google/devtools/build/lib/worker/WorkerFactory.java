@@ -114,7 +114,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     boolean hashMatches =
         key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
-    if (reporter != null && !hashMatches) {
+    if (workerOptions.workerVerbose && reporter != null && !hashMatches) {
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(

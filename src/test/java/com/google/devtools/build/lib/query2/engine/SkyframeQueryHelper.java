@@ -38,8 +38,8 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
@@ -195,12 +195,11 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         universeScope,
         /*loadingPhaseThreads=*/ 1,
         /*labelFilter=*/ ALL_LABELS,
-        reporter,
+        getReporter(),
         this.settings,
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
         blockUniverseEvaluationErrors,
-        /*useForkJoinPool=*/ false,
         /*useGraphlessQuery=*/ false);
   }
 
@@ -272,10 +271,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     packageCacheOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
     PathPackageLocator packageLocator =
         skyframeExecutor.createPackageLocator(
-            reporter, packageCacheOptions.packagePath, rootDirectory);
+            getReporter(), packageCacheOptions.packagePath, rootDirectory);
     try {
       skyframeExecutor.sync(
-          reporter,
+          getReporter(),
           packageCacheOptions,
           packageLocator,
           Options.getDefaults(StarlarkSemanticsOptions.class),
@@ -307,7 +306,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
             .setAdditionalBlacklistedPackagePrefixesFile(additionalBlacklistedPackagePrefixesFile)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))

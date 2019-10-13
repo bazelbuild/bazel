@@ -37,9 +37,10 @@ Android Studio and IntelliJ.
    emulators and devices.
 *  [Android NDK integration](android-ndk.html). Bazel supports compiling to
    native code through direct NDK integration and the C++ rules.
-*  [Android build performance]. This page provides information on optimizing
-   build performance for Android apps.
+*  [Android build performance](android-build-performance.html). This page
+   provides information on optimizing build performance for Android apps.
 
 ## Further reading
 
+*  Integrating with dependencies from Google Maven and Maven Central with [rules_jvm_external](https://github.com/bazebuild/rules_jvm_external).
 *  Learn [How Android Builds Work in Bazel](https://blog.bazel.build/2018/02/14/how-android-builds-work-in-bazel.html).

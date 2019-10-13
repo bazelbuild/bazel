@@ -43,27 +43,17 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
-        name = "incompatible_do_not_emit_buggy_external_repo_import",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        name = "incompatible_generated_protos_in_virtual_imports",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
         help =
-            "If true, Bazel will not emit import paths for external repos that used to be emitted"
-                + " because of https://github.com/bazelbuild/bazel/issues/8030. This is now fixed"
-                + " and those imports are only emitted for backwards compatibility. See"
-                + " https://github.com/bazelbuild/bazel/issues/8711 for details.")
-    public boolean doNotUseBuggyImportPath;
-
-    @Option(
-        name = "experimental_generated_protos_in_virtual_imports",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "If set, generated .proto files are put into a virtual import directory.")
+            "If set, generated .proto files are put into a virtual import directory. For more "
+                + "information, see https://github.com/bazelbuild/bazel/issues/9215")
     public boolean generatedProtosInVirtualImports;
 
     @Option(
@@ -174,34 +164,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalJavaProtoAddAllowedPublicImports;
 
     @Option(
-        name = "incompatible_disable_legacy_proto_provider",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If true, proto_library will no longer have the legacy provider accessible by "
-                + " 'dep.proto.' and it must be accessed by 'dep[ProtoInfo].")
-    public boolean disableLegacyProvider;
-
-    @Option(
-        name = "incompatible_disable_proto_source_root",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If true, proto_library will no longer allow the proto_source_root= attribute. It has "
-                + "been superseded by the strip_import_prefix= and import_prefix= attributes")
-    public boolean disableProtoSourceRoot;
-
-    @Option(
         name = "incompatible_load_proto_rules_from_bzl",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -218,8 +180,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
-      host.disableLegacyProvider = disableLegacyProvider;
-      host.disableProtoSourceRoot = disableProtoSourceRoot;
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
@@ -235,7 +195,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.experimentalJavaProtoAddAllowedPublicImports =
           experimentalJavaProtoAddAllowedPublicImports;
       host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
-      host.doNotUseBuggyImportPath = doNotUseBuggyImportPath;
       return host;
     }
   }
@@ -271,14 +230,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
     this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);
     this.options = options;
-  }
-
-  public boolean enableLegacyProvider() {
-    return !options.disableLegacyProvider;
-  }
-
-  public boolean enableProtoSourceroot() {
-    return !options.disableProtoSourceRoot;
   }
 
   @Override
@@ -353,10 +304,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean strictPublicImports() {
     return options.experimentalJavaProtoAddAllowedPublicImports;
-  }
-
-  public boolean doNotUseBuggyImportPath() {
-    return options.doNotUseBuggyImportPath;
   }
 
   public boolean generatedProtosInVirtualImports() {

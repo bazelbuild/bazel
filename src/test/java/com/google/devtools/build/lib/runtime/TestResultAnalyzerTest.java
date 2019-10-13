@@ -37,6 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Tests for {@link TestResultAnalyzer}. */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class TestResultAnalyzerTest {
@@ -113,6 +114,27 @@ public class TestResultAnalyzerTest {
 
     TestSummary.Builder newSummaryBuilder = underTest.incrementalAnalyze(summaryBuilder, result);
     assertThat(newSummaryBuilder.peek().actionRan()).isTrue();
+  }
+
+  @Test
+  public void testTimingAggregation() {
+    TestSummary.Builder summaryBuilder = makeTestSummaryBuilder().setActionRan(true);
+
+    TestResultData testResultData =
+        TestResultData.newBuilder().setStartTimeMillisEpoch(7).setRunDurationMillis(10).build();
+    TestResult result =
+        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true);
+    underTest.incrementalAnalyze(summaryBuilder, result);
+
+    testResultData =
+        TestResultData.newBuilder().setStartTimeMillisEpoch(12).setRunDurationMillis(1).build();
+    result = new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true);
+    TestSummary summary = underTest.incrementalAnalyze(summaryBuilder, result).build();
+
+    assertThat(summary.actionRan()).isTrue();
+    assertThat(summary.getFirstStartTimeMillis()).isEqualTo(7);
+    assertThat(summary.getLastStopTimeMillis()).isEqualTo(17);
+    assertThat(summary.getTotalRunDurationMillis()).isEqualTo(11);
   }
 
   private TestSummary.Builder makeTestSummaryBuilder() {

@@ -343,14 +343,20 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testInputManifestsRemovedIfSupplied() throws Exception {
     Artifact manifest = getSourceArtifact("MANIFEST");
-    Action[] actions = builder()
-        .addInput(manifest)
-        .addRunfilesSupplier(
-            new RunfilesSupplierImpl(PathFragment.create("destination"), Runfiles.EMPTY, manifest))
-        .addOutput(getBinArtifactWithNoOwner("output"))
-        .setExecutable(scratch.file("/bin/xxx").asFragment())
-        .setProgressMessage("Test")
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    Action[] actions =
+        builder()
+            .addInput(manifest)
+            .addRunfilesSupplier(
+                new RunfilesSupplierImpl(
+                    PathFragment.create("destination"),
+                    Runfiles.EMPTY,
+                    manifest,
+                    /* buildRunfileLinks= */ false,
+                    /* runfileLinksEnabled= */ false))
+            .addOutput(getBinArtifactWithNoOwner("output"))
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .setProgressMessage("Test")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     List<String> inputFiles = actionInputsToPaths(action.getSpawn().getInputFiles());
@@ -472,6 +478,11 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
-    return new RunfilesSupplierImpl(dir, Runfiles.EMPTY, manifest);
+    return new RunfilesSupplierImpl(
+        dir,
+        Runfiles.EMPTY,
+        manifest,
+        /* buildRunfileLinks= */ false,
+        /* runfileLinksEnabled= */ false);
   }
 }

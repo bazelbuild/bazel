@@ -38,7 +38,6 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
-import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -476,7 +475,6 @@ public class AndroidResourceProcessingAction {
               options.packageForR,
               new FlagAaptOptions(aaptConfigOptions),
               aaptConfigOptions.resourceConfigs,
-              aaptConfigOptions.splits,
               processedData,
               resourceData,
               generatedSources,
@@ -524,10 +522,7 @@ public class AndroidResourceProcessingAction {
     } catch (MergingException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during merging resources", e);
       throw e;
-    } catch (IOException
-        | InterruptedException
-        | LoggedErrorException
-        | UnrecognizedSplitsException e) {
+    } catch (IOException | InterruptedException | LoggedErrorException e) {
       logger.log(java.util.logging.Level.SEVERE, "Error during processing resources", e);
       throw e;
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {

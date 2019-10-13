@@ -46,13 +46,6 @@ static const wchar_t kUtf16Cyrillic[] = {
     0x0,
 };
 
-TEST(BlazeUtil, WcsToAcpTest) {
-  std::string actual;
-  uint32_t win32_err;
-  ASSERT_TRUE(WcsToAcp(kUtf16Latin, &actual, &win32_err));
-  ASSERT_TRUE(actual == kAsciiLatin);
-}
-
 TEST(BlazeUtil, WcsToUtf8Test) {
   std::string actual;
   uint32_t win32_err;
@@ -62,13 +55,6 @@ TEST(BlazeUtil, WcsToUtf8Test) {
   ASSERT_TRUE(actual == kUtf8Cyrillic);
 }
 
-TEST(BlazeUtil, AcpToWcsTest) {
-  std::wstring actual;
-  uint32_t win32_err;
-  ASSERT_TRUE(AcpToWcs(kAsciiLatin, &actual, &win32_err));
-  ASSERT_TRUE(actual == kUtf16Latin);
-}
-
 TEST(BlazeUtil, Utf8ToWcsTest) {
   std::wstring actual;
   uint32_t win32_err;
@@ -76,6 +62,18 @@ TEST(BlazeUtil, Utf8ToWcsTest) {
   ASSERT_TRUE(actual == kUtf16Latin);
   ASSERT_TRUE(Utf8ToWcs(kUtf8Cyrillic, &actual, &win32_err));
   ASSERT_TRUE(actual == kUtf16Cyrillic);
+}
+
+TEST(BlazeUtil, Utf8ToUtf16) {
+  EXPECT_EQ(CstringToWstring("Hello"), L"Hello");
+  EXPECT_EQ(CstringToWstring(kAsciiLatin), kUtf16Latin);
+  EXPECT_EQ(CstringToWstring(kUtf8Cyrillic), kUtf16Cyrillic);
+}
+
+TEST(BlazeUtil, Utf16ToUtf8) {
+  EXPECT_EQ(WstringToCstring(L"Hello"), "Hello");
+  EXPECT_EQ(WstringToCstring(kUtf16Latin), kAsciiLatin);
+  EXPECT_EQ(WstringToCstring(kUtf16Cyrillic), kUtf8Cyrillic);
 }
 
 }  // namespace blaze_util

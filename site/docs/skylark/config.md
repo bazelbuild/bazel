@@ -5,7 +5,17 @@ title: Starlark Build Configurations
 
 # Starlark Build Configurations
 
-User-definable configuration is coming to Starlark!
+- [Overview](#overview)
+- [Current Status](#current-status)
+- [User-defined Build Settings](#user-defined-build-settings)
+- [Build Settings and Select](#build-settings-and-select)
+- [User-defined Transitions](#user-defined-transitions)
+- [Integration With Platforms and Toolchains](#integration-with-platforms-and-toolchains)
+- [Also See](#also-see)
+
+## Overview
+Starlark build configuration is Bazel's API for customizing how your project
+builds.
 
 This makes it possible to:
 
@@ -23,18 +33,16 @@ and more, all completely from .bzl files
 
 ## Current Status
 
-As of Q2'19, this effort is
-[partially rolled out](https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702)
-. Much functionality is guarded while we work out concerns about
-memory and performance
-at scale.
+As of Q4'19, everything documented here works but
+may have memory and performance consequences as we work on scaling concerns.
 
 Related issues:
+
 * [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support for custom configuration transitions
 * [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support for multi-arch ("fat") binaries
 * [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support for custom build flags
 * [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration doesn't block native ->
-Skylark rules migration
+  Skylark rules migration
 
 ## User-defined Build Settings
 A build setting is a single piece of
@@ -101,14 +109,14 @@ temperatures = ["HOT", "LUKEWARM", "ICED"]
 def _impl(ctx):
     raw_temperature = ctx.build_setting_value
     if raw_temperature not in temperatures:
-        fail(ctx.label + " build setting allowed to take values "
-             + temperatures + " but was set to unallowed value "
+        fail(str(ctx.label) + " build setting allowed to take values {"
+             + ", ".join(temperatures) + "} but was set to unallowed value "
              + raw_temperature)
-    return TemperatureProvider(type = value)
+    return TemperatureProvider(type = raw_temperature)
 
 temperature = rule(
     implementation = _impl,
-    build_setting = config.string(flag = true)
+    build_setting = config.string(flag = True)
 )
 ```
 
@@ -132,7 +140,7 @@ def _impl(ctx):
 
 flavor = rule(
     implementation = _impl,
-    build_setting = config.string(flag = true)
+    build_setting = config.string(flag = True)
 )
 ```
 
@@ -145,8 +153,9 @@ flavor(
 )
 ```
 
-TODO(bazel-team): Implement common build settings rules and providers for simple
-cases where the implementation just fowards the value.
+A collection of the most common build setting rules can be found in
+ -->
+[skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
 ### Using Build Settings
 
@@ -158,7 +167,7 @@ directly depend on the build setting via a regular attribute dependency.
 # example/rules.bzl
 load("//example/buildsettings:build_settings.bzl", "FlavorProvider")
 def _rule_impl(ctx):
-    if ctx.attrs.flavor[FlavorProvider].type == "ORANGE":
+    if ctx.attr.flavor[FlavorProvider].type == "ORANGE":
         ...
 
 drink_rule = rule(
@@ -443,13 +452,51 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
+### Accessing Attributes with Transitions
+When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
+(regardless of whether the transition is a 1:1 or 1:2+ transition) access to
+values of that attribute in the rule implementation changes. Access through
+`ctx.attr` is forced to be a list if it isn't already. The order of elements in
+this list is unspecified.
+
+```python
+# example/transitions/rules.bzl
+def _transition_impl(settings, attr):
+    return {"//example:favorite_flavor" : "LATTE"},
+
+coffee_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//example:favorite_flavor"]
+)
+
+def _rule_impl(ctx):
+    # Note: List access even though "dep" is not declared as list
+    transitioned_dep = ctx.attr.dep[0]
+
+    # Note: Access doesn't change, other_deps was already a list
+    for other dep in ctx.attr.other_deps:
+      # ...
+
+
+coffee_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "dep": attr.label(cfg = coffee_transition)
+        "other_deps": attr.label_list(cfg = coffee_transition)
+    })
+```
+
+Access to the value of a single branch of a 1:2+
+[has not been implemented yet](https://github.com/bazelbuild/bazel/issues/8633).
+
 ## Integration with Platforms and Toolchains
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
 [target platform](platforms.html)
 
-## Also see:
+## Also See:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)

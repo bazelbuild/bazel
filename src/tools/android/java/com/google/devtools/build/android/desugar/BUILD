@@ -1,6 +1,8 @@
 # Description:
 #   Tool for desugaring Java constructs not supported by Android tools or devices.
 
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
 filegroup(
     name = "embedded_tools",
     srcs = ["BUILD.tools"],

@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -29,6 +28,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -88,7 +88,7 @@ public interface ActionCache {
       actionKey = key;
       this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
       files = discoversInputs ? new ArrayList<String>() : null;
-      mdMap = CompactHashMap.create();
+      mdMap = new HashMap<>();
     }
 
     public Entry(

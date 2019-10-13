@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -125,6 +126,35 @@ public class RemoteActionFileSystemTest {
     verifyNoMoreInteractions(inputFetcher);
   }
 
+  @Test
+  public void testDeleteRemoteFile() throws Exception {
+    // arrange
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
+    FileSystem actionFs = newRemoteActionFileSystem(inputs);
+
+    // act
+    boolean success = actionFs.delete(actionFs.getPath(remoteArtifact.getPath().getPathString()));
+
+    // assert
+    assertThat(success).isTrue();
+  }
+
+  @Test
+  public void testDeleteLocalFile() throws Exception {
+    // arrange
+    ActionInputMap inputs = new ActionInputMap(0);
+    FileSystem actionFs = newRemoteActionFileSystem(inputs);
+    Path filePath = actionFs.getPath(execRoot.getPathString()).getChild("local-file");
+    FileSystemUtils.writeContent(filePath, StandardCharsets.UTF_8, "local contents");
+
+    // act
+    boolean success = actionFs.delete(actionFs.getPath(filePath.getPathString()));
+
+    // assert
+    assertThat(success).isTrue();
+  }
+
   private FileSystem newRemoteActionFileSystem(ActionInputMap inputs) {
     return new RemoteActionFileSystem(
         fs,
@@ -153,8 +183,12 @@ public class RemoteActionFileSystemTest {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);
     FileSystemUtils.writeContent(p, StandardCharsets.UTF_8, contents);
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, p);
+    Path path = a.getPath();
+    // Caution: there's a race condition between stating the file and computing the
+    // digest. We need to stat first, since we're using the stat to detect changes.
+    // We follow symlinks here to be consistent with getDigest.
     inputs.putWithNoDepOwner(
-        a, FileArtifactValue.createFromFileSystem(a.getPath(), /* isShareable= */ true));
+        a, FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true));
     return a;
   }
 }

@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -35,6 +33,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -64,45 +63,49 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       + "rules can refer to (allowing finer dependency control) instead of referencing the whole "
       + "rule.";
   public static final String EXECUTABLE_DOC =
-      "A <code>struct</code> containing executable files defined in label type "
-          + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. Each value in the struct is either a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>executable=True</code>, no corresponding struct field is generated. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
+      "A <code>struct</code> containing executable files defined in <a "
+          + "href='attr.$DOC_EXT#label'>label type attributes</a> marked as <a "
+          + "href='attr.$DOC_EXT#label.executable'><code>executable=True</code><a>. The struct "
+          + "fields correspond to the attribute names. Each value in the struct is either a <a "
+          + "href='File.$DOC_EXT'><code>File</code></a> or <code>None</code>. If an optional "
+          + "attribute is not specified in the rule then the corresponding struct value is "
+          + "<code>None</code>. If a label type is not marked as <code>executable=True</code>, no "
+          + "corresponding struct field is generated. <a "
+          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
           + "execute.bzl\">See example of use</a>.";
   public static final String FILES_DOC =
-      "A <code>struct</code> containing files defined in label or label list "
-          + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>file</code>s.  "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> "
-          + "In other words, use <code>files</code> to access the "
-          + "<a href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a "
-          + "dependency. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">"
-          + "See example of use</a>.";
+      "A <code>struct</code> containing files defined in <a href='attr.$DOC_EXT#label'>label</a>"
+          + " or <a href='attr.$DOC_EXT#label_list'>label list</a> type attributes. The struct"
+          + " fields correspond to the attribute names. The struct values are <code>list</code> of"
+          + " <a href='File.$DOC_EXT'><code>File</code></a>s.  It is a shortcut for:<pre"
+          + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
+          + " other words, use <code>files</code> to access the <a"
+          + " href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a"
+          + " dependency. <a"
+          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">See"
+          + " example of use</a>.";
   public static final String FILE_DOC =
-      "A <code>struct</code> containing files defined in label type "
-          + "attributes marked as <code>allow_single_file</code>. The struct fields correspond "
-          + "to the attribute names. The struct value is always a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>allow_single_file</code>, no corresponding struct field is generated. "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>"
-          + "In other words, use <code>file</code> to access the (singular) "
-          + "<a href=\"../rules.$DOC_EXT#requesting-output-files\">default output</a> of a "
-          + "dependency. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/"
-          + "hello.bzl\">See example of use</a>.";
+      "A <code>struct</code> containing files defined in <a href='attr.$DOC_EXT#label'>label type"
+          + " attributes</a> marked as <a"
+          + " href='attr.$DOC_EXT#label.allow_single_file'><code>allow_single_file</code></a>. The"
+          + " struct fields correspond to the attribute names. The struct value is always a <a"
+          + " href='File.$DOC_EXT'><code>File</code></a> or <code>None</code>. If an optional"
+          + " attribute is not specified in the rule then the corresponding struct value is"
+          + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
+          + " no corresponding struct field is generated. It is a shortcut for:<pre"
+          + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
+          + " <code>file</code> to access the (singular) <a"
+          + " href=\"../rules.$DOC_EXT#requesting-output-files\">default output</a> of a"
+          + " dependency. <a"
+          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">See"
+          + " example of use</a>.";
   public static final String ATTR_DOC =
-      "A struct to access the values of the attributes. The values are provided by "
-          + "the user (if not, a default value is used). The attributes of the struct and the "
-          + "types of their values correspond to the keys and values of the <code>attrs</code> "
-          + "dict provided to the <code>rule</code> function. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
+      "A struct to access the values of the <a href='../rules.$DOC_EXT#attributes'>attributes</a>. "
+          + "The values are provided by the user (if not, a default value is used). The attributes "
+          + "of the struct and the types of their values correspond to the keys and values of the "
+          + "<a href='globals.$DOC_EXT#rule.attrs'><code>attrs</code> dict</a> provided to the <a "
+          + "href='globals.$DOC_EXT#rule'><code>rule</code> function</a>. <a "
+          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
           + "printer.bzl\">See example of use</a>.";
   public static final String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
@@ -331,57 +334,51 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public SkylarkIndexable toolchains() throws EvalException;
 
   @SkylarkCallable(
-    name = "tokenize",
-    doc = "Splits a shell command into a list of tokens.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "option",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string to split."
-      ),
-    }
-  )
-  public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException;
+      name = "tokenize",
+      doc = "Splits a shell command into a list of tokens.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "option",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string to split."),
+      })
+  public SkylarkList<String> tokenize(String optionString) throws EvalException;
 
   @SkylarkCallable(
-    name = "expand",
-    doc =
-        "Expands all references to labels embedded within a string for all files using a mapping "
-            + "from definition labels (i.e. the label in the output type attribute) to files. "
-            + "Deprecated.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "expression",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string expression to expand."
-      ),
-      @Param(
-        name = "files",
-        positional = true,
-        named = false,
-        type = SkylarkList.class,
-        doc = "The list of files."
-      ),
-      @Param(
-        name = "label_resolver",
-        positional = true,
-        named = false,
-        type = Label.class,
-        doc = "The label resolver."
-      ),
-    }
-  )
+      name = "expand",
+      doc =
+          "Expands all references to labels embedded within a string for all files using a mapping "
+              + "from definition labels (i.e. the label in the output type attribute) to files. "
+              + "Deprecated.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "expression",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string expression to expand."),
+        @Param(
+            name = "files",
+            positional = true,
+            named = false,
+            type = SkylarkList.class,
+            doc = "The list of files."),
+        @Param(
+            name = "label_resolver",
+            positional = true,
+            named = false,
+            type = Label.class,
+            doc = "The label resolver."),
+      })
   public String expand(
       @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
-      throws EvalException, FuncallException;
+      throws EvalException;
 
   @SkylarkCallable(
       name = "new_file",
@@ -693,7 +690,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       },
       allowReturnNones = true,
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public Runtime.NoneType action(
       SkylarkList outputs,
       Object inputs,
@@ -708,155 +705,144 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Location loc,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "expand_location",
-    doc =
-        "Expands all <code>$(location ...)</code> templates in the given string by replacing "
-            + "<code>$(location //x)</code> with the path of the output file of target //x. "
-            + "Expansion only works for labels that point to direct dependencies of this rule or "
-            + "that are explicitly listed in the optional argument <code>targets</code>. "
-            + "<br/><br/>"
-            + "<code>$(location ...)</code> will cause an error if the referenced target has "
-            + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
-            + "produces a space-separated list of output paths. It can be safely used for a "
-            + "single output file, too."
-            + "<br/><br/>"
-            + "This function is useful to let the user specify a command in a BUILD file (like "
-            + "for <code>genrule</code>). In other cases, it is often better to manipulate labels "
-            + "directly.",
-    parameters = {
-      @Param(name = "input", type = String.class, doc = "String to be expanded."),
-      @Param(
-        name = "targets",
-        type = SkylarkList.class,
-        generic1 = TransitiveInfoCollectionApi.class,
-        defaultValue = "[]",
-        named = true,
-        doc = "List of targets for additional lookup information."
-      ),
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String expandLocation(String input, SkylarkList targets, Location loc, Environment env)
-      throws EvalException;
+      name = "expand_location",
+      doc =
+          "Expands all <code>$(location ...)</code> templates in the given string by replacing "
+              + "<code>$(location //x)</code> with the path of the output file of target //x. "
+              + "Expansion only works for labels that point to direct dependencies of this rule or "
+              + "that are explicitly listed in the optional argument <code>targets</code>. "
+              + "<br/><br/>"
+              //
+              + "<code>$(location ...)</code> will cause an error if the referenced target has "
+              + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
+              + "produces a space-separated list of output paths. It can be safely used for a "
+              + "single output file, too."
+              + "<br/><br/>"
+              //
+              + "This function is useful to let the user specify a command in a BUILD file (like"
+              + " for <code>genrule</code>). In other cases, it is often better to manipulate"
+              + " labels directly.",
+      parameters = {
+        @Param(name = "input", type = String.class, doc = "String to be expanded."),
+        @Param(
+            name = "targets",
+            type = SkylarkList.class,
+            generic1 = TransitiveInfoCollectionApi.class,
+            defaultValue = "[]",
+            named = true,
+            doc = "List of targets for additional lookup information."),
+      },
+      allowReturnNones = true,
+      useLocation = true,
+      useStarlarkThread = true)
+  public String expandLocation(
+      String input, SkylarkList targets, Location loc, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
-    name = "file_action",
-    doc =
-        "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
-            + "Creates a file write action.",
-    parameters = {
-      @Param(name = "output", type = FileApi.class, named = true, doc = "The output file."),
-      @Param(
-        name = "content",
-        type = String.class,
-        named = true,
-        doc = "The contents of the file."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc = "Whether the output file should be executable (default is False)."
-      )
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "file_action",
+      doc =
+          "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
+              + "Creates a file write action.",
+      parameters = {
+        @Param(name = "output", type = FileApi.class, named = true, doc = "The output file."),
+        @Param(
+            name = "content",
+            type = String.class,
+            named = true,
+            doc = "The contents of the file."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc = "Whether the output file should be executable (default is False).")
+      },
+      allowReturnNones = true,
+      useLocation = true,
+      useStarlarkThread = true)
   public Runtime.NoneType fileAction(
-      FileApi output, String content, Boolean executable, Location loc, Environment env)
+      FileApi output, String content, Boolean executable, Location loc, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "empty_action",
-    doc =
-        "DEPRECATED. Use <a href=\"actions.html#do_nothing\">ctx.actions.do_nothing</a> instead."
-            + " <br>"
-            + "Creates an empty action that neither executes a command nor produces any "
-            + "output, but that is useful for inserting 'extra actions'.",
-    parameters = {
-      @Param(
-        name = "mnemonic",
-        type = String.class,
-        named = true,
-        positional = false,
-        doc = "A one-word description of the action, e.g. CppCompile or GoLink."
-      ),
-      @Param(
-        name = "inputs",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = FileApi.class,
-        named = true,
-        positional = false,
-        defaultValue = "[]",
-        doc = "List of the input files of the action."
-      ),
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Runtime.NoneType emptyAction(String mnemonic, Object inputs, Location loc, Environment env)
-      throws EvalException;
+      name = "empty_action",
+      doc =
+          "DEPRECATED. Use <a href=\"actions.html#do_nothing\">ctx.actions.do_nothing</a> instead."
+              + " <br>"
+              + "Creates an empty action that neither executes a command nor produces any "
+              + "output, but that is useful for inserting 'extra actions'.",
+      parameters = {
+        @Param(
+            name = "mnemonic",
+            type = String.class,
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, e.g. CppCompile or GoLink."),
+        @Param(
+            name = "inputs",
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+            },
+            generic1 = FileApi.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "List of the input files of the action."),
+      },
+      allowReturnNones = true,
+      useLocation = true,
+      useStarlarkThread = true)
+  public Runtime.NoneType emptyAction(
+      String mnemonic, Object inputs, Location loc, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
-    name = "template_action",
-    doc =
-        "DEPRECATED. "
-            + "Use <a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a> "
-            + "instead. <br>Creates a template expansion action.",
-    parameters = {
-      @Param(
-        name = "template",
-        type = FileApi.class,
-        named = true,
-        positional = false,
-        doc = "The template file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "output",
-        type = FileApi.class,
-        named = true,
-        positional = false,
-        doc = "The output file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "substitutions",
-        type = SkylarkDict.class,
-        named = true,
-        positional = false,
-        doc = "Substitutions to make when expanding the template."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the output file should be executable (default is False)."
-      )
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "template_action",
+      doc =
+          "DEPRECATED. "
+              + "Use <a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a> "
+              + "instead. <br>Creates a template expansion action.",
+      parameters = {
+        @Param(
+            name = "template",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "The template file, which is a UTF-8 encoded text file."),
+        @Param(
+            name = "output",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "The output file, which is a UTF-8 encoded text file."),
+        @Param(
+            name = "substitutions",
+            type = SkylarkDict.class,
+            named = true,
+            positional = false,
+            doc = "Substitutions to make when expanding the template."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = "Whether the output file should be executable (default is False).")
+      },
+      allowReturnNones = true,
+      useLocation = true,
+      useStarlarkThread = true)
   public Runtime.NoneType templateAction(
       FileApi template,
       FileApi output,
       SkylarkDict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location loc,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -997,7 +983,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "for useful keys."),
       },
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public Tuple<Object> resolveCommand(
       String command,
       Object attributeUnchecked,
@@ -1007,7 +993,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       SkylarkDict<?, ?> labelDictUnchecked,
       SkylarkDict<?, ?> executionRequirementsUnchecked,
       Location loc,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -1030,6 +1016,6 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "List of tools (list of targets)."),
       },
       useLocation = false,
-      useEnvironment = false)
+      useStarlarkThread = false)
   public Tuple<Object> resolveTools(SkylarkList tools) throws EvalException;
 }

@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
@@ -395,7 +395,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_Int() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "int_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
@@ -407,7 +408,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_Bool() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "bool_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
@@ -419,7 +421,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyTypeChecking_None() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("java/foo/BUILD", "none_key",
+    scratch.file(
+        "java/foo/BUILD",
         "java_library(",
         "    name = 'none_key',",
         "    srcs = select({None: ['a.java']})",
@@ -429,32 +432,10 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configKeyTypeChecking_Dict() throws Exception {
-    reporter.removeHandler(failFastHandler); // Expect errors.
-    // If we embed a {} literal directly into the select, it fails with a Skylark error before
-    // we even get to select's type checking (since {} isn't a valid hashable type for the
-    // dictionary Skylark passes to the select function's invoke method). We can get around that
-    // by freezing the dict from an external .bzl file.
-    scratch.file("java/foo/external_dict.bzl",
-        "m = {}",
-        "def external_dict():",
-        "    return m");
-    scratch.file("java/foo/BUILD", "dict_key",
-        "load('//java/foo:external_dict.bzl', 'external_dict')",
-        "java_library(",
-        "    name = 'dict_key',",
-        "    srcs = select({external_dict(): ['a.java']})",
-        ")");
-    assertTargetError("//java/foo:dict_key",
-        "Invalid key: {}. select keys must be label references");
-  }
-
-  @Test
   public void selectWithoutConditionsMakesNoSense() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "foo/BUILD",
-        "nothing",
         "genrule(",
         "    name = 'nothing',",
         "    srcs = [],",
@@ -513,6 +494,22 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent("//foo:fake is not a valid configuration key for //foo:g");
+  }
+
+  @Test
+  public void configKeyNonexistentTarget_otherPackage() throws Exception {
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    scratch.file("bar/BUILD");
+    scratch.file(
+        "foo/BUILD",
+        "genrule(",
+        "    name = 'g',",
+        "    outs = ['g.out'],",
+        "    cmd = select({'//bar:fake': ''})",
+        ")");
+    assertThat(getConfiguredTarget("//foo:g")).isNull();
+    assertContainsEvent(
+        "While resolving configuration keys for //foo:g: no such target '//bar:fake'");
   }
 
   /**

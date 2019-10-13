@@ -21,7 +21,7 @@ public final class ExpressionStatement extends Statement {
 
   private final Expression expression;
 
-  public ExpressionStatement(Expression expression) {
+  ExpressionStatement(Expression expression) {
     this.expression = expression;
   }
 
@@ -37,7 +37,7 @@ public final class ExpressionStatement extends Statement {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

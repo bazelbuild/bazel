@@ -222,6 +222,7 @@ public final class CcCompilationHelper {
 
   private final CppSemantics semantics;
   private final BuildConfiguration configuration;
+  private final ImmutableMap<String, String> executionInfo;
   private final CppConfiguration cppConfiguration;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
@@ -237,6 +238,7 @@ public final class CcCompilationHelper {
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
+  private final Set<String> localDefines = new LinkedHashSet<>();
   private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -284,7 +286,8 @@ public final class CcCompilationHelper {
       SourceCategory sourceCategory,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      BuildConfiguration buildConfiguration) {
+      BuildConfiguration buildConfiguration,
+      ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
@@ -303,6 +306,7 @@ public final class CcCompilationHelper {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
+    this.executionInfo = Preconditions.checkNotNull(executionInfo);
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
@@ -314,7 +318,8 @@ public final class CcCompilationHelper {
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoContext fdoContext) {
+      FdoContext fdoContext,
+      ImmutableMap<String, String> executionInfo) {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -325,7 +330,8 @@ public final class CcCompilationHelper {
         SourceCategory.CC,
         ccToolchain,
         fdoContext,
-        actionConstructionContext.getConfiguration());
+        actionConstructionContext.getConfiguration(),
+        executionInfo);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -334,6 +340,7 @@ public final class CcCompilationHelper {
 
     setCopts(Iterables.concat(common.getCopts(), additionalCopts));
     addDefines(common.getDefines());
+    addNonTransitiveDefines(common.getNonTransitiveDefines());
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
@@ -423,6 +430,17 @@ public final class CcCompilationHelper {
     }
     
     this.privateHeaders.add(privateHeader);
+    return this;
+  }
+
+  /**
+   * Add directly to privateHeaders, which are added to the compilation prerequisites and can be
+   * removed by include scanning. This is only used to work around cases where we are not
+   * propagating transitive dependencies properly via scheduling dependency middleman (i.e. objc
+   * compiles).
+   */
+  public CcCompilationHelper addPrivateHeadersUnchecked(Collection<Artifact> privateHeaders) {
+    this.privateHeaders.addAll(privateHeaders);
     return this;
   }
 
@@ -535,9 +553,21 @@ public final class CcCompilationHelper {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
   }
 
-  /** Adds the given defines to the compiler command line. */
+  /**
+   * Adds the given defines to the compiler command line of this target as well as its dependent
+   * targets.
+   */
   public CcCompilationHelper addDefines(Iterable<String> defines) {
     Iterables.addAll(this.defines, defines);
+    return this;
+  }
+
+  /**
+   * Adds the given defines to the compiler command line. These defines are not propagated
+   * transitively to the dependent targets.
+   */
+  public CcCompilationHelper addNonTransitiveDefines(Iterable<String> defines) {
+    Iterables.addAll(this.localDefines, defines);
     return this;
   }
 
@@ -917,6 +947,8 @@ public final class CcCompilationHelper {
 
     // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
+
+    ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 
     // There are no ordering constraints for declared include dirs/srcs.
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicHeaders.getHeaders());
@@ -1366,12 +1398,19 @@ public final class CcCompilationHelper {
             /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
+    SpecialArtifact dotdTreeArtifact = null;
+    // The MSVC compiler won't generate .d file, instead we parse the output of /showIncludes flag.
+    // Therefore, dotdTreeArtifact should be null in this case.
+    if (!featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      dotdTreeArtifact =
+          CppHelper.getDotdOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
-            CppHelper.getDotdOutputTreeArtifact(
-                actionConstructionContext, label, sourceArtifact, outputName, usePic),
+            dotdTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -1477,7 +1516,8 @@ public final class CcCompilationHelper {
           ccCompilationContext.getQuoteIncludeDirs(),
           ccCompilationContext.getSystemIncludeDirs(),
           ccCompilationContext.getFrameworkIncludeDirs(),
-          ccCompilationContext.getDefines());
+          ccCompilationContext.getDefines(),
+          ccCompilationContext.getNonTransitiveDefines());
 
       if (usePrebuiltParent) {
         parent = buildVariables.build();
@@ -1531,6 +1571,7 @@ public final class CcCompilationHelper {
     builder.setCcCompilationContext(ccCompilationContext);
     builder.setCoptsFilter(coptsFilter);
     builder.setFeatureConfiguration(featureConfiguration);
+    builder.addExecutionInfo(executionInfo);
     return builder;
   }
 

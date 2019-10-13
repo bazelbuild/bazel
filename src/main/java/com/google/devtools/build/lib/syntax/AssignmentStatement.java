@@ -19,14 +19,14 @@ import java.io.IOException;
 /** Syntax node for an assignment statement. */
 public final class AssignmentStatement extends Statement {
 
-  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_LITERAL
+  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_EXPR
   private final Expression rhs;
 
   /**
    * Constructs an assignment: "lhs = rhs". The LHS must be of the form id, x.y, x[i], [e, ...], or
    * (e, ...).
    */
-  public AssignmentStatement(Expression lhs, Expression rhs) {
+  AssignmentStatement(Expression lhs, Expression rhs) {
     this.lhs = lhs;
     this.rhs = rhs;
   }
@@ -51,7 +51,7 @@ public final class AssignmentStatement extends Statement {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

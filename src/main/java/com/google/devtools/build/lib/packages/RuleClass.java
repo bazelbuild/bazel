@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -52,16 +52,13 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -136,6 +133,7 @@ public class RuleClass {
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
+  public static final String EXEC_PROPERTIES = "exec_properties";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -853,6 +851,10 @@ public class RuleClass {
           attrBuilder.allowedRuleClasses(ANY_RULE);
         }
         this.add(attrBuilder);
+
+        // Build setting rules should opt out of toolchain resolution, since they form part of the
+        // configuration.
+        this.useToolchainResolution(false);
       }
 
       return new RuleClass(
@@ -1872,7 +1874,6 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
-      @Nullable FuncallExpression ast,
       Location location,
       AttributeContainer attributeContainer,
       boolean checkThirdPartyRulesHaveLicenses)
@@ -1881,9 +1882,6 @@ public class RuleClass {
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
-    if (ast != null) {
-      populateAttributeLocations(rule, ast);
-    }
     checkForDuplicateLabels(rule, eventHandler);
 
     boolean actuallyCheckLicense;
@@ -2015,19 +2013,6 @@ public class RuleClass {
       definedAttrIndices.set(attrIndex);
     }
     return definedAttrIndices;
-  }
-
-  /** Populates attribute locations for attributes defined in {@code ast}. */
-  private void populateAttributeLocations(Rule rule, FuncallExpression ast) {
-    for (Argument.Passed arg : ast.getArguments()) {
-      if (arg.isKeyword()) {
-        String name = arg.getName();
-        Integer attrIndex = getAttributeIndex(name);
-        if (attrIndex != null) {
-          rule.setAttributeLocation(attrIndex, arg.getValue().getLocation());
-        }
-      }
-    }
   }
 
   /**

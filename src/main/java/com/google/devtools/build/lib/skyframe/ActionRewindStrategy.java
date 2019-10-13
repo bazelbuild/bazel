@@ -254,6 +254,15 @@ public class ActionRewindStrategy {
 
       if (lostInput instanceof Artifact
           && failedActionDeps.contains(Artifact.key((Artifact) lostInput))) {
+
+        if (((Artifact) lostInput).isSourceArtifact()) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "Unexpected source artifact as input: " + lostInput + " " + failedAction));
+          throw new ActionExecutionException(
+              lostInputsException, failedAction, /*catastrophe=*/ false);
+        }
+
         lostArtifacts.add((Artifact.DerivedArtifact) lostInput);
         foundLostInputDepOwner = true;
       }

@@ -45,6 +45,8 @@ cc_library(
     hdrs = ["process.h"],
     visibility = [
         "//src/main/cpp:__pkg__",
+        "//src/test/native:__subpackages__",
+        "//src/tools/launcher:__pkg__",
         "//tools/test:__pkg__",
     ],
     deps = [":lib-file"],

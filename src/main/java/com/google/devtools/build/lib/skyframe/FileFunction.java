@@ -141,11 +141,6 @@ public class FileFunction implements SkyFunction {
         realFileStateValue);
   }
 
-  private static RootedPath getParent(RootedPath childRootedPath) {
-    return RootedPath.toRootedPath(
-        childRootedPath.getRoot(), childRootedPath.getRootRelativePath().getParentDirectory());
-  }
-
   private static RootedPath getChild(RootedPath parentRootedPath, String baseName) {
     return RootedPath.toRootedPath(
         parentRootedPath.getRoot(), parentRootedPath.getRootRelativePath().getChild(baseName));
@@ -324,9 +319,8 @@ public class FileFunction implements SkyFunction {
     //   (iii) Unbounded expansion caused by a symlink to an ancestor of a member of the chain:
     //     p -> a/b -> c/d -> a
     //
-    // We can detect all three of these symlink issues inspection of the proposed new element. Here
-    // is our incremental algorithm:
-    //
+    // We can detect all three of these symlink issues via inspection of the proposed new element.
+    // Here is our incremental algorithm:
     //   If 'path' is in 'sortedLogicalChain' then we have a found a cycle (i).
     //   If 'path' is a descendant of any path p in 'sortedLogicalChain' then we have unbounded
     //   expansion (ii).

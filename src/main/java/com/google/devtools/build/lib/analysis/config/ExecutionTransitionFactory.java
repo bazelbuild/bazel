@@ -53,6 +53,11 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
     return false;
   }
 
+  @Override
+  public boolean isTool() {
+    return true;
+  }
+
   private static class ExecutionTransition implements PatchTransition {
     @Nullable private final Label executionPlatform;
 
@@ -84,6 +89,7 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
       CoreOptions coreOptions =
           Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
       coreOptions.isHost = false;
+      coreOptions.isExec = true;
       coreOptions.outputDirectoryName = null;
       coreOptions.platformSuffix =
           String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());

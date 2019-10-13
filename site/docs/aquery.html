@@ -93,7 +93,7 @@ $ bazel aquery 'deps(//src/target_a)'
 
 # Get the action graph generated while building all dependencies of //src/target_a
 # whose inputs filenames match the regex ".*cpp".
-$ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
+$ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 </pre>
 
 <h2 id='functions'>Aquery Functions</h2>

@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -27,6 +26,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -71,6 +72,17 @@ public class AutoCodecProcessor extends AbstractProcessor {
    */
   private static final String PRINT_GENERATED_OPTION = "autocodec_print_generated";
 
+  /** Thrown to indicate that {@code AutoCodec} annotation processing failed. */
+  static final class AutoCodecProcessingFailedException extends RuntimeException {
+    private final Element element;
+
+    @FormatMethod
+    AutoCodecProcessingFailedException(Element element, @FormatString String fmt, Object... args) {
+      super(String.format(fmt, args));
+      this.element = element;
+    }
+  }
+
   private ProcessingEnvironment env; // Captured from `init` method.
   private Marshallers marshallers;
 
@@ -98,6 +110,16 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    try {
+      processInternal(roundEnv);
+    } catch (AutoCodecProcessingFailedException e) {
+      // Reporting a message with ERROR kind will fail compilation.
+      env.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.element);
+    }
+    return true;
+  }
+
+  private void processInternal(RoundEnvironment roundEnv) {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
       TypeSpec builtClass;
@@ -133,12 +155,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
           note("AutoCodec generated codec for " + element + ":\n" + file);
         }
       } catch (IOException e) {
-        env.getMessager()
-            .printMessage(
-                Diagnostic.Kind.ERROR, "Failed to generate output file: " + e.getMessage());
+        throw new AutoCodecProcessingFailedException(
+            element, "Failed to generate output file: %s", e.getMessage());
       }
     }
-    return true;
   }
 
   @SuppressWarnings("MutableConstantField")
@@ -146,9 +166,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
       ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
 
   private TypeSpec buildRegisteredSingletonClass(VariableElement symbol) {
-    Preconditions.checkState(
-        symbol.getModifiers().containsAll(REQUIRED_SINGLETON_MODIFIERS),
-        "Field must be static and final to be annotated with @AutoCodec: " + symbol);
+    if (!symbol.getModifiers().containsAll(REQUIRED_SINGLETON_MODIFIERS)) {
+      throw new AutoCodecProcessingFailedException(
+          symbol, "Field must be static and final to be annotated with @AutoCodec");
+    }
     return TypeSpec.classBuilder(
             AutoCodecUtil.getGeneratedName(
                 symbol, CodecScanningConstants.REGISTERED_SINGLETON_SUFFIX))
@@ -240,9 +261,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
     if (markedInstantiators.isEmpty()) {
       // If nothing is marked, see if there is a unique constructor.
       if (constructors.size() > 1) {
-        throw new IllegalArgumentException(
-            encodedType.getQualifiedName()
-                + " has multiple constructors but no Instantiator annotation.");
+        throw new AutoCodecProcessingFailedException(
+            encodedType,
+            "%s has multiple constructors but no Instantiator annotation.",
+            encodedType.getQualifiedName());
       }
       // In Java, every class has at least one constructor, so this never fails.
       return constructors.get(0);
@@ -250,8 +272,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
     if (markedInstantiators.size() == 1) {
       return markedInstantiators.get(0);
     }
-    throw new IllegalArgumentException(
-        encodedType.getQualifiedName() + " has multiple Instantiator annotations.");
+    throw new AutoCodecProcessingFailedException(
+        encodedType, "%s has multiple Instantiator annotations.", encodedType.getQualifiedName());
   }
 
   private static boolean hasInstantiatorAnnotation(Element elt) {
@@ -265,20 +287,21 @@ public class AutoCodecProcessor extends AbstractProcessor {
           && element.getModifiers().contains(Modifier.STATIC)
           && element.getAnnotation(AutoValue.Builder.class) != null) {
         if (builderType != null) {
-          throw new IllegalArgumentException(
-              "Type "
-                  + encodedType
-                  + " had multiple inner classes annotated as @AutoValue.Builder: "
-                  + builderType
-                  + " and "
-                  + element);
+          throw new AutoCodecProcessingFailedException(
+              encodedType,
+              "Type %s had multiple inner classes annotated as @AutoValue.Builder: %s and %s",
+              encodedType,
+              builderType,
+              element);
         }
         builderType = (TypeElement) element;
       }
     }
     if (builderType == null) {
-      throw new IllegalArgumentException(
-          "Couldn't find @AutoValue.Builder-annotated static class inside " + encodedType);
+      throw new AutoCodecProcessingFailedException(
+          encodedType,
+          "Couldn't find @AutoValue.Builder-annotated static class inside %s",
+          encodedType);
     }
     return builderType;
   }
@@ -299,7 +322,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
       }
     }
     if (result.isEmpty()) {
-      throw new IllegalArgumentException("Couldn't find any properties for " + encodedType);
+      throw new AutoCodecProcessingFailedException(
+          encodedType, "Couldn't find any properties for %s", encodedType);
     }
     return result;
   }
@@ -325,22 +349,23 @@ public class AutoCodecProcessor extends AbstractProcessor {
           && method.getParameters().isEmpty()
           && isSameReturnType(method, builderType)) {
         if (builderMethod != null) {
-          throw new IllegalArgumentException(
-              "Type "
-                  + encodedType
-                  + " had multiple static methods to create an element of type "
-                  + builderType
-                  + ": "
-                  + builderMethod
-                  + " and "
-                  + method);
+          throw new AutoCodecProcessingFailedException(
+              encodedType,
+              "Type %s had multiple static methods to create an element of type %s: %s and %s",
+              encodedType,
+              builderType,
+              builderMethod,
+              method);
         }
         builderMethod = method;
       }
     }
     if (builderMethod == null) {
-      throw new IllegalArgumentException(
-          "Couldn't find builder creation method for " + encodedType + " and " + builderType);
+      throw new AutoCodecProcessingFailedException(
+          builderType,
+          "Couldn't find builder creation method for %s and %s",
+          encodedType,
+          builderType);
     }
     return builderMethod;
   }
@@ -356,22 +381,20 @@ public class AutoCodecProcessor extends AbstractProcessor {
           && isSameReturnType(method, encodedType)
           && method.getModifiers().contains(Modifier.ABSTRACT)) {
           if (abstractBuildMethod != null) {
-            throw new IllegalArgumentException(
-                "Type "
-                    + builderType
-                    + " had multiple abstract methods to create an element of type "
-                    + encodedType
-                    + ": "
-                    + abstractBuildMethod
-                    + " and "
-                    + method);
+          throw new AutoCodecProcessingFailedException(
+              builderType,
+              "Type %s had multiple abstract methods to create an element of type %s: %s and %s",
+              builderType,
+              encodedType,
+              abstractBuildMethod,
+              method);
           }
           abstractBuildMethod = method;
       }
     }
     if (abstractBuildMethod == null) {
-      throw new IllegalArgumentException(
-          "Couldn't find build method for " + encodedType + " and " + builderType);
+      throw new AutoCodecProcessingFailedException(
+          builderType, "Couldn't find build method for %s and %s", encodedType, builderType);
     }
     return abstractBuildMethod;
   }
@@ -427,15 +450,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
           && env.getTypeUtils()
               .isSubtype(type, Iterables.getOnlyElement(method.getParameters()).asType())) {
         if (setterMethod != null) {
-          throw new IllegalArgumentException(
-              "Multiple setter methods for "
-                  + getter
-                  + " found in "
-                  + builderType
-                  + ": "
-                  + setterMethod
-                  + " and "
-                  + method);
+          throw new AutoCodecProcessingFailedException(
+              builderType,
+              "Multiple setter methods for %s found in %s: %s and %s",
+              getter,
+              builderType,
+              setterMethod,
+              method);
         }
         setterMethod = method;
       }
@@ -444,12 +465,11 @@ public class AutoCodecProcessor extends AbstractProcessor {
       return setterMethod;
     }
 
-    throw new IllegalArgumentException(
-        builderType
-            + ": No setter found corresponding to getter "
-            + getter.getSimpleName()
-            + ", "
-            + type);
+    throw new AutoCodecProcessingFailedException(
+        builderType,
+        "No setter found corresponding to getter %s, %s",
+        getter.getSimpleName(),
+        type);
   }
 
   private enum Relation {
@@ -503,14 +523,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
       success = equalityTest == Relation.EQUAL_TO || equalityTest == Relation.INSTANCE_OF;
     }
     if (!success) {
-      throw new IllegalArgumentException(
-          encodedType.getQualifiedName()
-              + " tags "
-              + elt.getSimpleName()
-              + " as an Instantiator, but it's not a valid factory method "
-              + elt.getReturnType()
-              + ", "
-              + encodedType.asType());
+      throw new AutoCodecProcessingFailedException(
+          encodedType,
+          "%s tags %s as an Instantiator, but it's not a valid factory method %s, %s",
+          encodedType,
+          elt.getSimpleName(),
+          elt.getReturnType(),
+          encodedType.asType());
     }
   }
 
@@ -522,14 +541,16 @@ public class AutoCodecProcessor extends AbstractProcessor {
       Optional<FieldValueAndClass> hasField =
           getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
       if (hasField.isPresent()) {
-        Preconditions.checkArgument(
-            findRelationWithGenerics(hasField.get().value.asType(), parameter.asType())
-                != Relation.UNRELATED_TO,
-            "%s: parameter %s's type %s is unrelated to corresponding field type %s",
-            encodedType.getQualifiedName(),
-            parameter.getSimpleName(),
-            parameter.asType(),
-            hasField.get().value.asType());
+        if (findRelationWithGenerics(hasField.get().value.asType(), parameter.asType())
+            == Relation.UNRELATED_TO) {
+          throw new AutoCodecProcessingFailedException(
+              parameter,
+              "%s: parameter %s's type %s is unrelated to corresponding field type %s",
+              encodedType.getQualifiedName(),
+              parameter.getSimpleName(),
+              parameter.asType(),
+              hasField.get().value.asType());
+        }
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
             "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
@@ -592,12 +613,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
       }
     }
 
-    throw new IllegalArgumentException(
-        type
-            + ": No getter found corresponding to parameter "
-            + parameter.getSimpleName()
-            + ", "
-            + parameter.asType());
+    throw new AutoCodecProcessingFailedException(
+        parameter,
+        "%s: No getter found corresponding to parameter %s, %s",
+        type,
+        parameter.getSimpleName(),
+        parameter.asType());
   }
 
   private static String addCamelCasePrefix(String name, String prefix) {

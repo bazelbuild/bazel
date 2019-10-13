@@ -91,10 +91,11 @@ public class ProcessorClasspathTest extends AbstractJavacTurbineCompilationTest 
     // create a jar containing only HostClasspathProcessor
     Path processorJar = createClassJar("libprocessor.jar", HostClasspathProcessor.class);
 
-    optionsBuilder.addProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()));
-    optionsBuilder.addProcessorPathEntries(ImmutableList.of(processorJar.toString()));
-    optionsBuilder.addClassPathEntries(ImmutableList.<String>of());
-    optionsBuilder.addSources(sources.stream().map(Object::toString).collect(toImmutableList()));
+    optionsBuilder
+        .addProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()))
+        .addProcessorPathEntries(ImmutableList.of(processorJar.toString()))
+        .addClassPathEntries(ImmutableList.of())
+        .addSources(sources.stream().map(Object::toString).collect(toImmutableList()));
 
     compile();
 
@@ -106,5 +107,29 @@ public class ProcessorClasspathTest extends AbstractJavacTurbineCompilationTest 
         .contains(
             "java.lang.NoClassDefFoundError:"
                 + " com/google/devtools/build/java/turbine/javac/JavacTurbine");
+  }
+
+  @Test
+  public void builtinProcessors() throws Exception {
+    addSourceLines("MyAnnotation.java", "public @interface MyAnnotation {}");
+    addSourceLines("Hello.java", "@MyAnnotation class Hello {}");
+
+    // create a jar containing only HostClasspathProcessor
+    Path processorJar = createClassJar("libprocessor.jar", HostClasspathProcessor.class);
+
+    optionsBuilder
+        .addProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()))
+        .addBuiltinProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()))
+        .addProcessorPathEntries(ImmutableList.of(processorJar.toString()))
+        .addClassPathEntries(ImmutableList.of())
+        .addSources(sources.stream().map(Object::toString).collect(toImmutableList()));
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+    assertThat(outputs).containsKey("result.txt");
+
+    String text = new String(outputs.get("result.txt"), UTF_8);
+    assertThat(text).isEqualTo("ok");
   }
 }

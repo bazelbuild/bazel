@@ -247,7 +247,7 @@ Use the following flags to:
 
 ```
 build --remote_cache=http://replace-with-your.host:port
-build --spawn_strategy=standalone
+build --spawn_strategy=local
 ```
 
 Using the remote cache with sandboxing enabled is the default. Use the
@@ -266,7 +266,7 @@ disabled.
 ```
 build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
-build --spawn_strategy=standalone
+build --spawn_strategy=local
 ```
 
 Using the remote cache with sandboxing enabled is experimental. Use the
@@ -366,6 +366,12 @@ problem if, for example, an action uses a compiler from `/usr/bin/`. Then,
 two users with different compilers installed will wrongly share cache hits
 because the outputs are different but they have the same action hash. Please
 watch [issue #4558] for updates.
+
+**Incremental in-memory state is lost when running builds inside docker containers**
+Bazel use server/client architecture even when running in single docker container.
+On server side Bazel maintain in-memory state which speed up builds so when running
+builds inside docker containers e.g. in CI, in-memory state is lost so Bazel
+must rebuild it before using remote cache.
 
 ## External Links
 

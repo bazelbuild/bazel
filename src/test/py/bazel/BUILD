@@ -1,6 +1,7 @@
 package(default_visibility = ["//visibility:private"])
 
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//tools/python:private/defs.bzl", "py_library", "py_test")
 
 filegroup(
     name = "srcs",
@@ -81,6 +82,23 @@ py_test(
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
+    name = "bazel_windows_symlinks_test",
+    size = "medium",
+    srcs = select({
+        "//src/conditions:windows": ["bazel_windows_symlinks_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "bazel_windows_symlinks_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({
@@ -192,6 +210,13 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "genrule_test",
+    size = "medium",
+    srcs = ["genrule_test.py"],
     deps = [":test_base"],
 )
 

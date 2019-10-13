@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_java//java:defs.bzl", "java_runtime", "java_import")
+
 exports_files(["BUILD.bazel"])
 
 DEPRECATION_MESSAGE = ("Don't depend on targets in the JDK workspace;" +

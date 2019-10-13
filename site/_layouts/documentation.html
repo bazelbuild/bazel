@@ -6,6 +6,14 @@ nav: docs
 <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
 {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
 {% assign current_version = versioned_url_parts.first %}
+{% assign version_components = current_version | split: '.' %}
+{% if version_components.size < 2 %}
+{%   assign major_version = "master" %}
+{%   assign minor_version = "master" %}
+{% else %}
+{%   assign major_version = version_components[0] | plus:0 %}
+{%   assign minor_version = version_components[1] | plus:0 %}
+{% endif %}
 
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
@@ -68,6 +76,12 @@ nav: docs
                 </ul>
               </li>
 
+              {% if major_version == "master" or major_version > 0 or minor_version > 28 %}
+              <li class="sidebar-nav">
+                <a href="/versions/{{ current_version }}/updating-bazel.html">Updating Bazel</a>
+              </li>
+              {% endif %}
+
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#using-menu" aria-expanded="false"
@@ -87,19 +101,22 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#tutorials-menu" aria-expanded="false"
-                    aria-controls="tutorials-menu">
-                  Tutorials<span class="caret"></span>
+                    href="#build-files-menu" aria-expanded="false"
+                    aria-controls="build-files-menu">
+                  BUILD files<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="tutorials-menu">
-                   <li><a href="/versions/{{ current_version }}/tutorial/java.html">Building a Java Project</a></li>
-                   <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">Building a C++ Project</a></li>
-                   <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Building an Android App</a></li>
-                   <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">Building an iOS App</a></li>
-                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
-                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
-                 </ul>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="build-files-menu">
+                  <li><a href="/versions/{{ current_version }}/be/functions.html">Functions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/common-definitions.html">Common Definitions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/make-variables.html">"Make" Variables</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
+                </ul>
               </li>
+
+              {% if major_version != 0 %}
+                <li><a href="/versions/{{ current_version }}/rules.html">Rules</a></li>
+              {% endif %}
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -151,8 +168,12 @@ nav: docs
                      <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
                   </ul>
               </li>
+              {% if major_version == "master" or major_version > 1 or major_version == 1 and minor_version >= 1 %}
+              <li><a href="/versions/master/platforms-intro.html">Building With Platforms</a></li>
+              {% endif %}
              </ul>
 
+           {% if major_version == 0 %}
            <h3>Rules</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/be/overview.html">Build Encyclopedia</a></li>
@@ -164,6 +185,7 @@ nav: docs
                   Android<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Tutorial</a></li>
                   <li><a href="/versions/{{ current_version }}/bazel-and-android.html">Android Resources</a></li>
                   <li><a href="/versions/{{ current_version }}/mobile-install.html">Using mobile-install</a></li>
                   <li><a href="/versions/{{ current_version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
@@ -179,6 +201,7 @@ nav: docs
                   Apple<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">Tutorial</a></li>
                   <li><a href="/versions/{{ current_version }}/bazel-and-apple.html">Apple Resources</a></li>
                   <li><a href="/versions/{{ current_version }}/migrate-xcode.html">Migrating from Xcode</a></li>
                   <li><a href="/versions/{{ current_version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
@@ -192,6 +215,7 @@ nav: docs
                   C++<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">Tutorial</a></li>
                   <li><a href="/versions/{{ current_version }}/bazel-and-cpp.html">C++ Resources</a></li>
                   <li><a href="/versions/{{ current_version }}/cpp-use-cases.html">C++ Use Cases</a></li>
                   <li>
@@ -219,6 +243,7 @@ nav: docs
                   Java<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/java.html">Tutorial</a></li>
                   <li><a href="/versions/{{ current_version }}/bazel-and-java.html">Java Resources</a></li>
                   <li><a href="/versions/{{ current_version }}/migrate-maven.html">Migrating from Maven</a></li>
                   <li><a href="/versions/{{ current_version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
@@ -238,6 +263,7 @@ nav: docs
               </li>
 
            </ul>
+           {% endif %}
 
            <h3>Reference</h3>
            <ul class="sidebar-nav">
@@ -303,9 +329,11 @@ nav: docs
             var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
             var editButton = document.getElementById('gh-edit');
             // if there is an edit button and we are not in the Build Encyclopedia
+            // or other generated files.
             if (editButton
                 && window.location.pathname.match(versionDocsURLRegex)
                 && window.location.pathname.lastIndexOf('/be/') == -1
+                && window.location.pathname.lastIndexOf('/repo/') == -1
                 && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
               var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
               // some pages are not using markdown :(

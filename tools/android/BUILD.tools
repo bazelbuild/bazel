@@ -1,3 +1,5 @@
+load("//tools/python:private/defs.bzl", "py_library", "py_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 alias(
@@ -440,4 +442,10 @@ sh_binary(
     name = "dex_list_obfuscator",
     srcs = ["dex_list_obfuscator.sh"],
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )

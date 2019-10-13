@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
@@ -31,10 +30,10 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -60,7 +59,6 @@ public class PackageFactoryApparatus {
     factory =
         new PackageFactory(
             ruleClassProvider,
-            AttributeContainer::new,
             ImmutableList.copyOf(environmentExtensions),
             "test",
             Package.Builder.DefaultHelper.INSTANCE);
@@ -136,18 +134,18 @@ public class PackageFactoryApparatus {
     return createPackage(packageIdentifier, buildFile, reporter, null);
   }
 
-  /**
-   * Parses the {@code buildFile} into a {@link BuildFileAST}.
-   */
-  public BuildFileAST ast(Path buildFile) throws IOException {
+  /** Parses the {@code buildFile} into a {@link StarlarkFile}. */
+  public StarlarkFile ast(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, buildFile.asFragment());
-    return BuildFileAST.parseBuildFile(inputSource, eventHandler);
+    ParserInput input = ParserInput.create(bytes, buildFile.asFragment());
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(eventHandler, file.errors());
+    return file;
   }
 
   /** Evaluates the {@code buildFileAST} into a {@link Package}. */
   public Pair<Package, GlobCache> evalAndReturnGlobCache(
-      String packageName, RootedPath buildFile, BuildFileAST buildFileAST)
+      String packageName, RootedPath buildFile, StarlarkFile buildFileAST)
       throws InterruptedException, NoSuchPackageException {
     PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
     GlobCache globCache =
@@ -193,7 +191,7 @@ public class PackageFactoryApparatus {
     return Pair.of(result, globCache);
   }
 
-  public Package eval(String packageName, RootedPath buildFile, BuildFileAST buildFileAST)
+  public Package eval(String packageName, RootedPath buildFile, StarlarkFile buildFileAST)
       throws InterruptedException, NoSuchPackageException {
     return evalAndReturnGlobCache(packageName, buildFile, buildFileAST).first;
   }

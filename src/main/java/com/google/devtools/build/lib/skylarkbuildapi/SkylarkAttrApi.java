@@ -21,14 +21,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * The "attr" module of the Build API.
@@ -152,7 +151,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "0",
             doc = DEFAULT_DOC,
@@ -182,16 +181,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   Descriptor intAttribute(
       Integer defaultInt,
       String doc,
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -231,16 +228,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor stringAttribute(
       String defaultString,
       String doc,
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -264,7 +259,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = String.class),
               @ParamType(type = LateBoundDefaultApi.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             noneable = true,
@@ -365,8 +360,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC),
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor labelAttribute(
       Object defaultO,
       String doc,
@@ -380,8 +374,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -410,7 +403,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -425,8 +418,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor stringListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
@@ -434,8 +426,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -464,7 +455,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -479,8 +470,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor intListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
@@ -488,8 +478,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -508,7 +497,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "[]",
@@ -589,8 +578,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC),
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -604,8 +592,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -625,7 +612,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "{}",
@@ -707,8 +694,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -722,8 +708,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -734,7 +719,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Boolean.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "False",
             named = true,
@@ -756,15 +741,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor boolAttribute(
-      Boolean defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -775,7 +754,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -800,15 +779,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor outputAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -825,7 +798,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -857,8 +830,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -866,8 +838,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -886,7 +857,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             named = true,
             positional = false,
@@ -915,8 +886,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       SkylarkDict<?, ?> defaultO,
@@ -924,8 +894,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -944,7 +913,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "{}",
             named = true,
@@ -973,8 +942,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       SkylarkDict<?, ?> defaultO,
@@ -982,8 +950,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -1016,15 +983,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
       },
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE,
       useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   public Descriptor licenseAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException;
 
   /** An attribute descriptor. */

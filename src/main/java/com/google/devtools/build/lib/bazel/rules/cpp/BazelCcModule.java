@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
@@ -29,13 +30,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * A module that contains Skylark utilities for C++ support.
@@ -76,14 +75,16 @@ public class BazelCcModule extends CcModule
       SkylarkList<String> systemIncludes,
       SkylarkList<String> frameworkIncludes,
       SkylarkList<String> defines,
+      SkylarkList<String> localDefines,
       SkylarkList<String> userCompileFlags,
       SkylarkList<CcCompilationContext> ccCompilationContexts,
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<Artifact> additionalInputs,
       Location location,
-      Environment environment)
-      throws EvalException {
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
     return compile(
         skylarkActionFactoryApi,
         skylarkFeatureConfiguration,
@@ -96,6 +97,7 @@ public class BazelCcModule extends CcModule
         systemIncludes,
         frameworkIncludes,
         defines,
+        localDefines,
         userCompileFlags,
         ccCompilationContexts,
         name,
@@ -103,8 +105,10 @@ public class BazelCcModule extends CcModule
         disallowNopicOutputs,
         /* grepIncludes= */ null,
         SkylarkList.createImmutable(ImmutableList.of()),
+        SkylarkList.createImmutable(
+            additionalInputs.getContents(Artifact.class, "additional_inputs")),
         location,
-        /* environment= */ null);
+        /* thread= */ null);
   }
 
   @Override
@@ -121,8 +125,7 @@ public class BazelCcModule extends CcModule
       boolean linkDepsStatically,
       SkylarkList<Artifact> additionalInputs,
       Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
         actions,
@@ -138,8 +141,7 @@ public class BazelCcModule extends CcModule
         additionalInputs,
         /* grepIncludes= */ null,
         location,
-        /* environment= */ null,
-        starlarkContext);
+        thread);
   }
 
   @Override

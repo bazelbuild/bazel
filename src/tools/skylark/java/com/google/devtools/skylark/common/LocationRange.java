@@ -68,7 +68,7 @@ public class LocationRange {
     }
 
     public static Location from(@Nullable LineAndColumn lac) {
-      // LineAndColumn may be null, e.g. if a BuildFileAST contains no statements:
+      // LineAndColumn may be null, e.g. if a StarlarkFile contains no statements:
       if (lac == null) {
         return new Location(1, 1);
       }

@@ -477,7 +477,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(ZERO_VERSION, /*childForDebugging=*/ null);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.VERIFIED_CLEAN);
-    assertThat(entry.markClean()).containsExactly(parent);
+    assertThat(entry.markClean().getRdepsToSignal()).containsExactly(parent);
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getVersion()).isEqualTo(ZERO_VERSION);
   }

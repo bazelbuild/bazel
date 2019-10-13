@@ -97,6 +97,10 @@ public interface AndroidResourcesInfoApi<
       structField = true)
   NestedSet<FileT> getTransitiveAapt2RTxt();
 
+  // TODO(b/132383435): remove this
+  @SkylarkCallable(name = "validation_artifacts", doc = "", documented = false, structField = true)
+  NestedSet<FileT> getTransitiveAapt2ValidationArtifacts();
+
   @SkylarkCallable(
       name = "transitive_symbols_bin",
       doc = "",
@@ -214,6 +218,15 @@ public interface AndroidResourcesInfoApi<
               named = false,
               type = SkylarkNestedSet.class,
               generic1 = FileApi.class),
+          // TODO(b/132383435): remove this
+          @Param(
+              name = "validation_artifacts",
+              defaultValue = "unbound",
+              doc = "A depset of opaque files to trigger resource validation.",
+              positional = false,
+              named = true,
+              type = SkylarkNestedSet.class,
+              generic1 = FileApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidResourcesInfoApi.class, receiverNameForDoc = NAME)
@@ -229,7 +242,8 @@ public interface AndroidResourcesInfoApi<
         SkylarkNestedSet transitiveSymbolsBin,
         SkylarkNestedSet transitiveCompiledSymbols,
         SkylarkNestedSet transitiveStaticLib,
-        SkylarkNestedSet transitiveRTxt)
+        SkylarkNestedSet transitiveRTxt,
+        Object transitiveAapt2ValidationArtifacts)
         throws EvalException;
   }
 }

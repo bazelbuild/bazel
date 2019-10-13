@@ -37,4 +37,21 @@ public final class ActionSketchTest {
   private static void roundTrip(ActionSketch sketch) {
     assertThat(ActionSketch.fromBytes(sketch.toBytes())).isEqualTo(sketch);
   }
+
+  @Test
+  public void canonicalNullInstance() {
+    ActionSketch sketch1 =
+        ActionSketch.builder()
+            .setTransitiveSourceHash(null)
+            .setTransitiveActionLookupHash(null)
+            .build();
+    ActionSketch sketch2 =
+        ActionSketch.builder()
+            .setTransitiveSourceHash(null)
+            .setTransitiveActionLookupHash(null)
+            .build();
+
+    assertThat(sketch1).isNotNull();
+    assertThat(sketch1).isSameInstanceAs(sketch2);
+  }
 }

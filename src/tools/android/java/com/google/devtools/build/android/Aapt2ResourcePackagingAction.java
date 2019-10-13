@@ -28,6 +28,7 @@ import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
+import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -82,9 +83,7 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
       final AndroidDataDeserializer dataDeserializer =
-          aaptConfigOptions.useCompiledResourcesForMerge
-              ? AndroidCompiledDataDeserializer.withFilteredResources(options.prefilteredResources)
-              : AndroidParsedDataDeserializer.withFilteredResources(options.prefilteredResources);
+          AndroidCompiledDataDeserializer.withFilteredResources(options.prefilteredResources);
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,
@@ -120,13 +119,10 @@ public class Aapt2ResourcePackagingAction {
       final Path symbolsBin =
           AndroidResourceMerger.mergeDataToSymbols(
               ParsedAndroidData.loadedFrom(
+                  DependencyInfo.DependencyType.PRIMARY,
                   ImmutableList.of(SerializedAndroidData.from(compiled)),
                   executorService,
-                  // TODO(b/112848607): Remove when compiled merging is the default for aapt2.
-                  aaptConfigOptions.useCompiledResourcesForMerge
-                      ? dataDeserializer
-                      : AndroidCompiledDataDeserializer.withFilteredResources(
-                          options.prefilteredResources)),
+                  dataDeserializer),
               new DensitySpecificManifestProcessor(options.densities, densityManifest)
                   .process(options.primaryData.getManifest()),
               ImmutableList.<SerializedAndroidData>builder()
@@ -187,16 +183,31 @@ public class Aapt2ResourcePackagingAction {
               .debug(aaptConfigOptions.debug)
               .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
-              .link(compiled)
-              .copyPackageTo(options.packagePath)
-              .copyProguardTo(options.proguardOutput)
-              .copyMainDexProguardTo(options.mainDexProguardOutput)
-              .createSourceJar(options.srcJarOutput)
-              .copyRTxtTo(options.rOutput);
+              .link(compiled);
       profiler.recordEndOf("link");
+
+      copy(packagedResources.apk(), options.packagePath);
+      if (options.proguardOutput != null) {
+        copy(packagedResources.proguardConfig(), options.proguardOutput);
+      }
+      if (options.mainDexProguardOutput != null) {
+        copy(packagedResources.mainDexProguard(), options.mainDexProguardOutput);
+      }
+      if (options.srcJarOutput != null) {
+        AndroidResourceOutputs.createSrcJar(
+            packagedResources.javaSourceDirectory(), options.srcJarOutput, /* staticIds= */ false);
+      }
+      if (options.rOutput != null) {
+        copy(packagedResources.rTxt(), options.rOutput);
+      }
       if (options.resourcesOutput != null) {
         packagedResources.asArchive().writeTo(options.resourcesOutput, /* compress= */ false);
       }
     }
+  }
+
+  private static void copy(Path from, Path out) throws IOException {
+    Files.createDirectories(out.getParent());
+    Files.copy(from, out);
   }
 }
