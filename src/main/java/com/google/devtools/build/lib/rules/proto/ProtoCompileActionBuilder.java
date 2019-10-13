@@ -533,6 +533,8 @@ public class ProtoCompileActionBuilder {
       }
     }
 
+    cmdLine.addAll(ImmutableList.of("--include_source_info"));
+
     cmdLine.addAll(protocOpts);
 
     // Add include maps
