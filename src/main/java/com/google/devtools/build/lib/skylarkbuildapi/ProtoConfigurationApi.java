@@ -26,25 +26,64 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "proto",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment representing protocol buffers. "
-              + "Do not use these fields, they will be removed after migrating "
-              + "Protobuf rules to Starlark."
+              + "<p><b>Do not use these fields directly<b>, they are considered an implementation "
+              + "detail and will be removed after migrating Protobuf rules to Starlark.</p>"
+              // TODO(yannic): Link to generated docs of `proto_toolchain`.
+              // https://github.com/bazelbuild/bazel/issues/9203
+              + "<p>Instead, you can access them through proto_toolchain</p>"
+              + "<p>pre class=\"language-python\">\n"
+              + "def _my_rule_impl(ctx):\n"
+              + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
+              + "\n"
+              + "    # Contains the protoc binary, as specified by `--proto_compiler`.\n"
+              + "    protoc = proto_toolchain.compiler\n"
+              + "\n"
+              + "    # Contains extra args to pass to protoc, as specified by `--protocopt`.\n"
+              + "    compiler_options = proto_toolchain.compiler_options\n"
+              + "\n"
+              + "    # Contains the strict-dependency mode to use for Protocol Buffers\n"
+              + "    # (i.e. 'OFF`, `WARN`, `ERROR`), as specified by `--strict_proto_deps`.\n"
+              + "    strict_deps = proto_toolchain.strict_deps\n"
+              + "\n"
+              + "my_rule = rule(\n"
+              + "    implementation = _my_rule_impl,\n"
+              + "    attrs = {},\n"
+              + "    toolchains = [\n"
+              + "        \"@rules_proto//proto:toolchain\",\n"
+              + "    ],\n"
+              + ")\n"
+              + "</pre></p>"
 )
 public interface ProtoConfigurationApi {
   @SkylarkCallable(
-      name = "protoc_opts",
-      doc = "Additional options to pass to the protobuf compiler. "
-                + "Do not use this field, its only puprose is to help with migration of "
-                + "Protobuf rules to Starlark.",
+      // Must match the value of `_protocopt_key`
+      // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
+      name = "protocopt_do_not_use_or_we_will_break_you_without_mercy",
+      doc = "Exposes the value of `--protocopt`."
+                + "<p><b>Do not use this field directly</b>, its only puprose is to help with "
+                + "migration of Protobuf rules to Starlark.</p>"
+                + "<p>Instead, you can access the value through proto_toolchain</p>"
+                + "<p>pre class=\"language-python\">\n"
+                + "def _my_rule_impl(ctx):"
+                + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
+                + "    compiler_options = proto_toolchain.compiler_options\n"
+                + "</pre></p>",
       structField = true)
   ImmutableList<String> protocOpts();
 
   @SkylarkCallable(
-      name = "strict_deps",
-      doc = "A string that specifies how to handle strict deps. Possible values: 'OFF', 'WARN', "
-                + "'ERROR'. For more details see https://docs.bazel.build/versions/master/"
-                + "command-line-reference.html#flag--strict_proto_deps"
-                + "Do not use this field, its only puprose is to help with migration of "
-                + "Protobuf rules to Starlark.",
+      // Must match the value of `_strict_deps_key`
+      // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
+      name = "strict_deps_do_not_use_or_we_will_break_you_without_mercy",
+      doc = "Exposes the value of `--strict_proto_deps`."
+                + "<p><b>Do not use this field directly</b>, its only puprose is to help with "
+                + "migration of Protobuf rules to Starlark.</p>"
+                + "<p>Instead, you can access the value through proto_toolchain</p>"
+                + "<p>pre class=\"language-python\">\n"
+                + "def _my_rule_impl(ctx):"
+                + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
+                + "    strict_deps = proto_toolchain.strict_deps\n"
+                + "</pre></p>",
       structField = true)
   String starlarkStrictDeps();
 }

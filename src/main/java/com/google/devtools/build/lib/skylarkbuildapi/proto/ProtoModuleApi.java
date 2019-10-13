@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 public interface ProtoModuleApi {
   @Deprecated
   @SkylarkCallable(
-      name = "do_not_use_has_configuration_field_protoc",
+      name = "has_protoc_do_not_use_or_we_will_break_you_without_mercy",
       doc = "Do not use this field, its only puprose is to help with migration of "
                 + "Protobuf rules to Starlark.",
       structField = true)

@@ -247,10 +247,18 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   @SkylarkConfigurationField(
-      name = "protoc",
-      doc = "Returns the target denoted by the value of the --proto_compiler flag. "
-                + "Do not use this field, its only puprose is to help with migration of "
-                + "Protobuf rules to Starlark."
+      // Must match the value of `_protoc_key`
+      // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.
+      name = "protoc_do_not_use_or_we_will_break_you_without_mercy",
+      doc = "Exposes the value of `--proto_compiler`."
+                + "<p><b>Do not use this field directly</b>, its only puprose is to help with "
+                + "migration of Protobuf rules to Starlark.</p>"
+                + "<p>Instead, you can access the value through proto_toolchain</p>"
+                + "<p>pre class=\"language-python\">\n"
+                + "def _my_rule_impl(ctx):"
+                + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
+                + "    protoc = proto_toolchain.compiler\n"
+                + "</pre></p>"
   )
   public Label protoCompiler() {
     return options.protoCompiler;
