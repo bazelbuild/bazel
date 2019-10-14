@@ -645,6 +645,14 @@ sh_test(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+sh_test(
+    name = "validation_actions_test",
+    srcs = ["validation_actions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
 ########################################################################
 # Test suites.
 

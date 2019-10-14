@@ -292,10 +292,12 @@ public class BuildRequest implements OptionsProvider {
 
   /** Creates a new TopLevelArtifactContext from this build request. */
   public TopLevelArtifactContext getTopLevelArtifactContext() {
+    BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
-        OutputGroupInfo.determineOutputGroups(getBuildOptions().outputGroups));
+        OutputGroupInfo.determineOutputGroups(
+            buildOptions.outputGroups, buildOptions.runValidationActions));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {
