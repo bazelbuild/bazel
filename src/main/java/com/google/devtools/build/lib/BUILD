@@ -694,10 +694,21 @@ java_library(
 )
 
 java_library(
+    name = "bazel-ninja",
+    srcs = glob(["bazel/rules/ninja/**/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-rules",
     srcs = glob(
         [
             "bazel/rules/**/*.java",
+            "bazel/rules/ninja/**/*.java",
         ],
         exclude = [
             "bazel/rules/workspace/*.java",
