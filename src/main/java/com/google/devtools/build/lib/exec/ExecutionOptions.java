@@ -202,17 +202,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean testKeepGoing;
 
   @Option(
-    name = "runs_per_test_detects_flakes",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If true, any shard in which at least one run/attempt passes and at least one "
-            + "run/attempt fails gets a FLAKY status."
-  )
-  public boolean runsPerTestDetectsFlakes;
-
-  @Option(
     name = "flaky_test_attempts",
     allowMultiple = true,
     defaultValue = "default",

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.TestAttempt;
@@ -51,17 +52,12 @@ final class TestResultAggregator {
    */
   static final class AggregationPolicy {
     private final EventBus eventBus;
-    private final boolean runsPerTestDetectsFlakes;
     private final boolean testCheckUpToDate;
     private final boolean testVerboseTimeoutWarnings;
 
     AggregationPolicy(
-        EventBus eventBus,
-        boolean runsPerTestDetectsFlakes,
-        boolean testCheckUpToDate,
-        boolean testVerboseTimeoutWarnings) {
+        EventBus eventBus, boolean testCheckUpToDate, boolean testVerboseTimeoutWarnings) {
       this.eventBus = eventBus;
-      this.runsPerTestDetectsFlakes = runsPerTestDetectsFlakes;
       this.testCheckUpToDate = testCheckUpToDate;
       this.testVerboseTimeoutWarnings = testVerboseTimeoutWarnings;
     }
@@ -242,12 +238,13 @@ final class TestResultAggregator {
 
     TransitiveInfoCollection target = existingSummary.getTarget();
     Preconditions.checkNotNull(target, "The existing TestSummary must be associated with a target");
+    TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
 
-    if (!policy.runsPerTestDetectsFlakes) {
+    if (!testParams.runsDetectsFlakes()) {
       status = aggregateStatus(status, result.getData().getStatus());
     } else {
       int shardNumber = result.getShardNum();
-      int runsPerTestForLabel = target.getProvider(TestProvider.class).getTestParams().getRuns();
+      int runsPerTestForLabel = testParams.getRuns();
       List<BlazeTestStatus> singleShardStatuses =
           summary.addShardStatus(shardNumber, result.getData().getStatus());
       if (singleShardStatuses.size() == runsPerTestForLabel) {

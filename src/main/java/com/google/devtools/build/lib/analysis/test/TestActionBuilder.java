@@ -187,6 +187,7 @@ public final class TestActionBuilder {
   private TestParams createTestAction(int shards) {
     PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
+    TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
 
@@ -194,13 +195,8 @@ public final class TestActionBuilder {
     // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
     // initialization.
     final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
-
     final boolean isUsingTestWrapperInsteadOfTestSetupScript =
-        isExecutedOnWindows
-            && ruleContext
-                .getConfiguration()
-                .getFragment(TestConfiguration.class)
-                .isUsingWindowsNativeTestWrapper();
+        isExecutedOnWindows && testConfiguration.isUsingWindowsNativeTestWrapper();
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
@@ -233,8 +229,7 @@ public final class TestActionBuilder {
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
-    int runsPerTest =
-        config.getFragment(TestConfiguration.class).getRunsPerTestForLabel(ruleContext.getLabel());
+    int runsPerTest = testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
@@ -414,6 +409,7 @@ public final class TestActionBuilder {
     return new TestParams(
         runsPerTest,
         shards,
+        testConfiguration.runsPerTestDetectsFlakes(),
         TestTimeout.getTestTimeout(ruleContext.getRule()),
         ruleContext.getRule().getRuleClass(),
         ImmutableList.copyOf(results),

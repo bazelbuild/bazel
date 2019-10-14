@@ -45,6 +45,7 @@ public class TestResultAggregatorTest {
   @Before
   public final void createMocks() throws Exception {
     TestParams mockParams = mock(TestParams.class);
+    when(mockParams.runsDetectsFlakes()).thenReturn(false);
     when(mockParams.getTimeout()).thenReturn(TestTimeout.LONG);
     when(mockParams.getTestStatusArtifacts())
         .thenReturn(ImmutableList.<Artifact.DerivedArtifact>of());
@@ -60,7 +61,6 @@ public class TestResultAggregatorTest {
             null,
             new AggregationPolicy(
                 new EventBus(),
-                /*runsPerTestDetectsFlakes=*/ false,
                 /*testCheckUpToDate=*/ false,
                 /*testVerboseTimeoutWarnings=*/ false));
   }
