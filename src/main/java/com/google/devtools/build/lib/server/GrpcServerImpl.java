@@ -477,7 +477,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       info.writeTo(out);
     }
     Path serverInfoFile = serverDirectory.getChild(SERVER_INFO_FILE);
-    FileSystemUtils.moveFile(serverInfoTmpFile, serverInfoFile);
+    serverInfoTmpFile.renameTo(serverInfoFile);
     deleteAtExit(serverInfoFile);
   }
 
