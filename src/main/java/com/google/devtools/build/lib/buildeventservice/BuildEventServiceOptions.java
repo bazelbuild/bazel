@@ -138,6 +138,16 @@ public class BuildEventServiceOptions extends OptionsBase {
               + "or should end the invocation immediately and finish the upload in the background.")
   public BesUploadMode besUploadMode;
 
+  @Option(
+      name = "bes_proxy",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Connect to the Build Event Service through a proxy. Currently this flag can only be"
+              + " used to configure a Unix domain socket (unix:/path/to/socket).")
+  public String besProxy;
+
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {
     /** Block at the end of the build waiting for the upload to complete */
