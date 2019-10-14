@@ -1596,6 +1596,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1638,6 +1639,17 @@ java_library(
 java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
+    runtime_deps = [
+        ":ExampleWorker-lib",
+    ],
+)
+
+java_binary(
+    name = "ExampleWorkerMultiplexer",
+    main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
     visibility = [
         "//src/test/shell/integration:__pkg__",
     ],

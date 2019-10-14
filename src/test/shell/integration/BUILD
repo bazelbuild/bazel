@@ -447,6 +447,24 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_worker_multiplexer_test",
+    size = "large",
+    srcs = ["bazel_worker_multiplexer_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorkerMultiplexer_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_sandboxed_worker_test",
     size = "large",
     srcs = ["bazel_worker_test.sh"],
