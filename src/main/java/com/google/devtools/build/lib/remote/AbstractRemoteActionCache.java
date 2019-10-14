@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -295,6 +296,36 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
   }
 
   /**
+   * Exception which represents a collection of IOExceptions for the purpose
+   * of distinguishing remote communication exceptions from those which occur
+   * on filesystems locally. This exception serves as a trace point for the actual
+   * download, so that the intented operation can be observed in a stack, with all
+   * constituent exceptions available for observation.
+   */
+  static class DownloadException extends Exception {
+    // true since no empty DownloadException is ever thrown
+    boolean allCacheNotFoundException = true;
+
+    DownloadException() {
+    }
+
+    DownloadException(IOException e) {
+      add(e);
+    }
+
+    void add(IOException e) {
+      if (allCacheNotFoundException) {
+        allCacheNotFoundException = e instanceof CacheNotFoundException;
+      }
+      addSuppressed(e);
+    }
+
+    boolean onlyCausedByCacheNotFoundException() {
+      return allCacheNotFoundException;
+    }
+  }
+
+  /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
    *
@@ -310,8 +341,13 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
       Path execRoot,
       FileOutErr origOutErr,
       OutputFilesLocker outputFilesLocker)
-      throws ExecException, IOException, InterruptedException {
-    ActionResultMetadata metadata = parseActionResultMetadata(result, execRoot);
+      throws ExecException, DownloadException, IOException, InterruptedException {
+    ActionResultMetadata metadata;
+    try {
+      metadata = parseActionResultMetadata(result, execRoot);
+    } catch (IOException e) {
+      throw new DownloadException(e);
+    }
 
     List<ListenableFuture<FileMetadata>> downloads =
         Stream.concat(
@@ -333,9 +369,8 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
     // Subsequently we need to wait for *every* download to finish, even if we already know that
     // one failed. That's so that when exiting this method we can be sure that all downloads have
     // finished and don't race with the cleanup routine.
-    // TODO(buchgr): Look into cancellation.
 
-    IOException downloadException = null;
+    DownloadException downloadException = null;
     InterruptedException interruptedException = null;
     FileOutErr tmpOutErr = null;
     try {
@@ -344,25 +379,29 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
       }
       downloads.addAll(downloadOutErr(result, tmpOutErr));
     } catch (IOException e) {
-      downloadException = e;
+      downloadException = new DownloadException();
+      downloadException.add(e);
     }
 
+    boolean cancelling = false;
+    boolean interrupted = Thread.currentThread().isInterrupted();
     for (ListenableFuture<FileMetadata> download : downloads) {
       try {
-        // Wait for all downloads to finish.
-        getFromFuture(download);
+        if (!cancelling || download.isDone()) {
+          // Wait for all downloads to finish.
+          getFromFuture(download);
+        } else {
+          download.cancel(true);
+        }
       } catch (IOException e) {
         if (downloadException == null) {
-          downloadException = e;
-        } else if (e != downloadException) {
-          downloadException.addSuppressed(e);
+          downloadException = new DownloadException();
         }
+        downloadException.add(e);
       } catch (InterruptedException e) {
-        if (interruptedException == null) {
-          interruptedException = e;
-        } else if (e != interruptedException) {
-          interruptedException.addSuppressed(e);
-        }
+        interrupted = Thread.interrupted() || interrupted;
+        interruptedException = e;
+        cancelling = true;
       }
     }
 
@@ -382,12 +421,7 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
           tmpOutErr.clearErr();
         }
       } catch (IOException e) {
-        if (downloadException != null && e != downloadException) {
-          e.addSuppressed(downloadException);
-        }
-        if (interruptedException != null) {
-          e.addSuppressed(interruptedException);
-        }
+        downloadException.add(e);
 
         // If deleting of output files failed, we abort the build with a decent error message as
         // any subsequent local execution failure would likely be incomprehensible.
@@ -397,6 +431,9 @@ public abstract class AbstractRemoteActionCache implements MissingDigestsFinder,
     }
 
     if (interruptedException != null) {
+      if (downloadException != null) {
+        interruptedException.addSuppressed(downloadException);
+      }
       throw interruptedException;
     }
 

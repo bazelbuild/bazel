@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.DownloadException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -107,8 +108,9 @@ public final class RemoteModule extends BlazeModule {
 
   private static final Predicate<? super Exception> RETRIABLE_EXEC_ERRORS =
       e -> {
-        if (e instanceof CacheNotFoundException || e.getCause() instanceof CacheNotFoundException) {
-          return true;
+        if (e.getCause() instanceof DownloadException) {
+          DownloadException downloadException = (DownloadException) e.getCause();
+          return downloadException.onlyCausedByCacheNotFoundException();
         }
         if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
           return false;

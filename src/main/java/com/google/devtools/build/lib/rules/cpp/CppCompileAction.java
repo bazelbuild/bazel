@@ -332,7 +332,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   private boolean shouldScanDotdFiles() {
-    return !useHeaderModules || !shouldPruneModules;
+    return false; //  && (!useHeaderModules || !shouldPruneModules);
   }
 
   public boolean useInMemoryDotdFiles() {

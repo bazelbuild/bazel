@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.DownloadException;
 import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -202,7 +203,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try {
               return downloadAndFinalizeSpawnResult(
                   cachedResult, /* cacheHit= */ true, spawn, context, remoteOutputsMode);
-            } catch (CacheNotFoundException e) {
+            } catch (DownloadException e) {
+              if (!e.onlyCausedByCacheNotFoundException()) {
+                throw new IOException(e);
+              }
               // No cache hit, so we fall through to local or remote execution.
               // We set acceptCachedResult to false in order to force the action re-execution.
               acceptCachedResult = false;
@@ -262,11 +266,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
               try {
                 return downloadAndFinalizeSpawnResult(
                     actionResult, reply.getCachedResult(), spawn, context, remoteOutputsMode);
-              } catch (CacheNotFoundException e) {
-                // No cache hit, so if we retry this execution, we must no longer accept
-                // cached results, it must be reexecuted
-                requestBuilder.setSkipCacheLookup(true);
-                throw e;
+              } catch (DownloadException e) {
+                if (e.onlyCausedByCacheNotFoundException()) {
+                  // No cache hit, so if we retry this execution, we must no longer accept
+                  // cached results, it must be reexecuted
+                  requestBuilder.setSkipCacheLookup(true);
+                }
+                throw new IOException(e);
               }
             });
       } catch (IOException e) {
@@ -284,7 +290,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       RemoteOutputsMode remoteOutputsMode)
-      throws ExecException, IOException, InterruptedException {
+      throws DownloadException, ExecException, IOException, InterruptedException {
     boolean downloadOutputs =
         shouldDownloadAllSpawnOutputs(
             remoteOutputsMode,
@@ -394,14 +400,19 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       IOException exception, FileOutErr outErr, ActionKey actionKey, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
+    boolean remoteCacheFailed = false;
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(resp, actionKey);
         if (resp.hasResult()) {
-          // We try to download all (partial) results even on server error, for debuggability.
-          remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
+          try {
+            // We try to download all (partial) results even on server error, for debuggability.
+            remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
+          } catch (DownloadException downloadEx) {
+            exception.addSuppressed(downloadEx);
+          }
         }
       }
       if (e.isExecutionTimeout()) {
@@ -411,11 +422,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
             .build();
       }
+    } else if (exception.getCause() instanceof DownloadException) {
+      DownloadException e = (DownloadException) exception.getCause();
+      remoteCacheFailed = e.onlyCausedByCacheNotFoundException();
     }
     final Status status;
     if (RemoteRetrierUtils.causedByStatus(exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
-    } else if (exception instanceof CacheNotFoundException) {
+    } else if (remoteCacheFailed) {
       status = Status.REMOTE_CACHE_FAILED;
     } else {
       status = Status.EXECUTION_FAILED;
