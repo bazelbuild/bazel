@@ -90,7 +90,7 @@ public class ParallelFileProcessingTest {
 
   @Test
   public void testPerformanceLarge() throws Exception {
-    doPerformanceTest(5000);
+    doPerformanceTest(2000);
   }
 
   private static void doPerformanceTest(int limit) throws Exception {
