@@ -58,7 +58,9 @@ public class NinjaSeparatorPredicateTest {
 
   private static void doTestIsSeparator(String s, Boolean expected) {
     ListIterator<Byte> iterator = fragment(s).iterator();
-    if (!iterator.hasNext()) return;
+    if (!iterator.hasNext()) {
+      return;
+    }
     Optional<Boolean> value = NinjaSeparatorPredicate.INSTANCE.isSeparator(iterator.next(),
         iterator);
     if (expected == null) {
