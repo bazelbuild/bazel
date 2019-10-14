@@ -309,7 +309,7 @@ public class JavaHeaderCompileActionBuilder {
           CustomCommandLine.builder()
               .addPath(hostJavabase.javaBinaryExecPath())
               .add("-Xverify:none")
-              .addAll(javaToolchain.getJvmOptions())
+              .addAll(javaToolchain.getTurbineJvmOptions())
               .add("-jar")
               .addExecPath(headerCompiler.getExecutable())
               .build();
