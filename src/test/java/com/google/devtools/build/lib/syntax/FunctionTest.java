@@ -32,7 +32,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDef() throws Exception {
-    eval("def func(a,b,c):",
+    exec(
+        "def func(a,b,c):", //
         "  a = 1",
         "  b = a\n");
     StarlarkFunction stmt = (StarlarkFunction) lookup("func");
@@ -58,7 +59,8 @@ public class FunctionTest extends EvaluationTestCase {
   public void testFunctionDefCallOuterFunc() throws Exception {
     List<Object> params = new ArrayList<>();
     createOuterFunction(params);
-    eval("def func(a):",
+    exec(
+        "def func(a):", //
         "  outer_func(a)",
         "func(1)",
         "func(2)");
@@ -85,7 +87,8 @@ public class FunctionTest extends EvaluationTestCase {
   @Test
   public void testFunctionDefNoEffectOutsideScope() throws Exception {
     update("a", 1);
-    eval("def func():",
+    exec(
+        "def func():", //
         "  a = 2",
         "func()\n");
     assertThat(lookup("a")).isEqualTo(1);
@@ -93,7 +96,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefGlobalVaribleReadInFunction() throws Exception {
-    eval("a = 1",
+    exec(
+        "a = 1", //
         "def func():",
         "  b = a",
         "  return b",
@@ -103,7 +107,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefLocalGlobalScope() throws Exception {
-    eval("a = 1",
+    exec(
+        "a = 1", //
         "def func():",
         "  a = 2",
         "  b = a",
@@ -139,7 +144,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefLocalVariableReferencedAfterAssignment() throws Exception {
-    eval("a = 1",
+    exec(
+        "a = 1", //
         "def func():",
         "  a = 2",
         "  b = a",
@@ -152,13 +158,14 @@ public class FunctionTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testSkylarkGlobalComprehensionIsAllowed() throws Exception {
-    eval("a = [i for i in [1, 2, 3]]\n");
+    exec("a = [i for i in [1, 2, 3]]\n");
     assertThat((Iterable<Object>) lookup("a")).containsExactly(1, 2, 3).inOrder();
   }
 
   @Test
   public void testFunctionReturn() throws Exception {
-    eval("def func():",
+    exec(
+        "def func():", //
         "  return 2",
         "b = func()\n");
     assertThat(lookup("b")).isEqualTo(2);
@@ -166,7 +173,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionReturnFromALoop() throws Exception {
-    eval("def func():",
+    exec(
+        "def func():", //
         "  for i in [1, 2, 3, 4, 5]:",
         "    return i",
         "b = func()\n");
@@ -175,7 +183,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionExecutesProperly() throws Exception {
-    eval("def func(a):",
+    exec(
+        "def func(a):",
         "  b = 1",
         "  if a:",
         "    b = 2",
@@ -190,7 +199,8 @@ public class FunctionTest extends EvaluationTestCase {
   public void testFunctionCallFromFunction() throws Exception {
     final List<Object> params = new ArrayList<>();
     createOuterFunction(params);
-    eval("def func2(a):",
+    exec(
+        "def func2(a):",
         "  outer_func(a)",
         "def func1(b):",
         "  func2(b)",
@@ -201,7 +211,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionCallFromFunctionReadGlobalVar() throws Exception {
-    eval("a = 1",
+    exec(
+        "a = 1", //
         "def func2():",
         "  return a",
         "def func1():",
@@ -212,7 +223,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionParamCanShadowGlobalVarAfterGlobalVarIsRead() throws Exception {
-    eval("a = 1",
+    exec(
+        "a = 1",
         "def func2(a):",
         "  return 0",
         "def func1():",
@@ -224,14 +236,16 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testSingleLineFunction() throws Exception {
-    eval("def func(): return 'a'",
+    exec(
+        "def func(): return 'a'", //
         "s = func()\n");
     assertThat(lookup("s")).isEqualTo("a");
   }
 
   @Test
   public void testFunctionReturnsDictionary() throws Exception {
-    eval("def func(): return {'a' : 1}",
+    exec(
+        "def func(): return {'a' : 1}", //
         "d = func()",
         "a = d['a']\n");
     assertThat(lookup("a")).isEqualTo(1);
@@ -239,7 +253,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionReturnsList() throws Exception {
-    eval("def func(): return [1, 2, 3]",
+    exec(
+        "def func(): return [1, 2, 3]", //
         "d = func()",
         "a = d[1]\n");
     assertThat(lookup("a")).isEqualTo(2);
@@ -247,7 +262,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionNameAliasing() throws Exception {
-    eval("def func(a):",
+    exec(
+        "def func(a):", //
         "  return a + 1",
         "alias = func",
         "r = alias(1)");
@@ -256,7 +272,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testCallingFunctionsWithMixedModeArgs() throws Exception {
-    eval("def func(a, b, c):",
+    exec(
+        "def func(a, b, c):", //
         "  return a + b + c",
         "v = func(1, c = 2, b = 3)");
     assertThat(lookup("v")).isEqualTo(6);
@@ -274,7 +291,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testWhichOptionalArgsAreDefinedForFunctions() throws Exception {
-    eval(functionWithOptionalArgs(),
+    exec(
+        functionWithOptionalArgs(),
         "v1 = func('1', 1, 1)",
         "v2 = func(b = 2, a = '2', c = 2)",
         "v3 = func('3')",
@@ -287,7 +305,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testDefaultArguments() throws Exception {
-    eval("def func(a, b = 'b', c = 'c'):",
+    exec(
+        "def func(a, b = 'b', c = 'c'):",
         "  return a + b + c",
         "v1 = func('a', 'x', 'y')",
         "v2 = func(b = 'x', a = 'a', c = 'y')",
@@ -363,7 +382,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testDefaultArguments2() throws Exception {
-    eval("a = 2",
+    exec(
+        "a = 2",
         "def foo(x=a): return x",
         "def bar():",
         "  a = 3",
@@ -374,14 +394,16 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testMixingPositionalOptional() throws Exception {
-    eval("def f(name, value = '', optional = ''): return value",
-        "v = f('name', 'value')\n");
+    exec(
+        "def f(name, value = '', optional = ''):", //
+        "  return value",
+        "v = f('name', 'value')");
     assertThat(lookup("v")).isEqualTo("value");
   }
 
   @Test
   public void testStarArg() throws Exception {
-    eval(
+    exec(
         "def f(name, value = '1', optional = '2'): return name + value + optional",
         "v1 = f(*['name', 'value'])",
         "v2 = f('0', *['name', 'value'])",
@@ -395,7 +417,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testStarParam() throws Exception {
-    eval("def f(name, value = '1', optional = '2', *rest):",
+    exec(
+        "def f(name, value = '1', optional = '2', *rest):",
         "  r = name + value + optional + '|'",
         "  for x in rest: r += x",
         "  return r",

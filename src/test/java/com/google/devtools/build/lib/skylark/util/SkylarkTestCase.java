@@ -91,6 +91,10 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return ev.eval(input);
   }
 
+  protected final void exec(String... lines) throws Exception {
+    ev.exec(lines);
+  }
+
   protected final void update(String name, Object value) throws Exception {
     ev.update(name, value);
   }

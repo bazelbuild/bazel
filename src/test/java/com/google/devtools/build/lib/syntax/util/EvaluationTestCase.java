@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -167,14 +166,20 @@ public class EvaluationTestCase {
     return thread.moduleLookup(varname);
   }
 
-  // TODO(adonovan): this function does far too much:
-  // - two forms, exec(file) or exec(file)+eval(expression).
+  /** Joins the lines, parses them as an expression, and evaluates it. */
+  public final Object eval(String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    return EvalUtils.eval(input, thread);
+  }
+
+  /** Joins the lines, parses them as a file, and executes it. */
+  // TODO(adonovan): this function does too much:
   // - two modes, BUILD vs Skylark.
   // - parse + validate + BUILD dialect checks + execute.
   // Break the tests down into tests of just the scanner, parser, validator, build dialect checks,
   // or execution, and assert that all passes except the one of interest succeed.
   // All BUILD-dialect stuff belongs in bazel proper (lib.packages), not here.
-  public Object eval(String... lines) throws Exception {
+  public final void exec(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input);
     ValidationEnvironment.validateFile(
@@ -189,12 +194,12 @@ public class EvaluationTestCase {
       Event.replayEventsOn(getEventHandler(), file.errors());
       PackageFactory.checkBuildSyntax(file, getEventHandler());
     }
-    return EvalUtils.execOrEval(file, thread);
+    EvalUtils.exec(file, thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
     try {
-      eval(input);
+      exec(input);
       fail("Expected error '" + msg + "' but got no error");
     } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().isEqualTo(msg);
@@ -203,7 +208,7 @@ public class EvaluationTestCase {
 
   public void checkEvalErrorContains(String msg, String... input) throws Exception {
     try {
-      eval(input);
+      exec(input);
       fail("Expected error containing '" + msg + "' but got no error");
     } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().contains(msg);
@@ -212,7 +217,7 @@ public class EvaluationTestCase {
 
   public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
     try {
-      eval(input);
+      exec(input);
     } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().doesNotContain(msg);
     }
@@ -267,13 +272,9 @@ public class EvaluationTestCase {
       setup = new SetupActions();
     }
 
-    /**
-     * Allows the execution of several statements before each following test
-     * @param statements The statement(s) to be executed
-     * @return This {@code ModalTestCase}
-     */
-    public ModalTestCase setUp(String... statements) {
-      setup.registerEval(statements);
+    /** Allows the execution of several statements before each following test. */
+    public ModalTestCase setUp(String... lines) {
+      setup.registerExec(lines);
       return this;
     }
 
@@ -289,153 +290,97 @@ public class EvaluationTestCase {
     }
 
     /**
-     * Evaluates two parameters and compares their results.
-     * @param statement The statement to be evaluated
+     * Evaluates two expressions and asserts that their results are equal.
+     *
+     * @param src The source expression to be evaluated
      * @param expectedEvalString The expression of the expected result
      * @return This {@code ModalTestCase}
      * @throws Exception
      */
-    public ModalTestCase testEval(String statement, String expectedEvalString) throws Exception {
-      runTest(createComparisonTestable(statement, expectedEvalString, true));
+    public ModalTestCase testEval(String src, String expectedEvalString) throws Exception {
+      runTest(createComparisonTestable(src, expectedEvalString, true));
       return this;
     }
 
-    /**
-     * Evaluates the given statement and compares its result to the expected object
-     * @param statement
-     * @param expected
-     * @return This {@code ModalTestCase}
-     * @throws Exception
-     */
-    public ModalTestCase testStatement(String statement, Object expected) throws Exception {
-      runTest(createComparisonTestable(statement, expected, false));
+    /** Evaluates an expression and compares its result to the expected object. */
+    public ModalTestCase testExpression(String src, Object expected) throws Exception {
+      runTest(createComparisonTestable(src, expected, false));
       return this;
     }
 
-    /**
-     * Evaluates the given statement and compares its result to the collection of expected objects
-     * without considering their order
-     * @param statement The statement to be evaluated
-     * @param items The expected items
-     * @return This {@code ModalTestCase}
-     * @throws Exception
-     */
-    public ModalTestCase testCollection(String statement, Object... items) throws Exception {
-      runTest(collectionTestable(statement, false, items));
+    /** Evaluates an expression and compares its result to the ordered list of expected objects. */
+    public ModalTestCase testExactOrder(String src, Object... items) throws Exception {
+      runTest(collectionTestable(src, items));
       return this;
     }
 
-    /**
-     * Evaluates the given statement and compares its result to the collection of expected objects
-     * while considering their order
-     * @param statement The statement to be evaluated
-     * @param items The expected items, in order
-     * @return This {@code ModalTestCase}
-     * @throws Exception
-     */
-    public ModalTestCase testExactOrder(String statement, Object... items) throws Exception {
-      runTest(collectionTestable(statement, true, items));
+    /** Evaluates an expression and checks whether it fails with the expected error. */
+    public ModalTestCase testIfExactError(String expectedError, String... lines) throws Exception {
+      runTest(errorTestable(true, expectedError, lines));
       return this;
     }
 
-    /**
-     * Evaluates the given statement and checks whether the given error message appears
-     * @param expectedError The expected error message
-     * @param statements The statement(s) to be evaluated
-     * @return This ModalTestCase
-     * @throws Exception
-     */
-    public ModalTestCase testIfExactError(String expectedError, String... statements)
+    /** Evaluates the expresson and checks whether it fails with the expected error. */
+    public ModalTestCase testIfErrorContains(String expectedError, String... lines)
         throws Exception {
-      runTest(errorTestable(true, expectedError, statements));
+      runTest(errorTestable(false, expectedError, lines));
       return this;
     }
 
-    /**
-     * Evaluates the given statement and checks whether an error that contains the expected message
-     * occurs
-     * @param expectedError
-     * @param statements
-     * @return This ModalTestCase
-     * @throws Exception
-     */
-    public ModalTestCase testIfErrorContains(String expectedError, String... statements)
-        throws Exception {
-      runTest(errorTestable(false, expectedError, statements));
-      return this;
-    }
-
-    /**
-     * Looks up the value of the specified variable and compares it to the expected value
-     * @param name
-     * @param expected
-     * @return This ModalTestCase
-     * @throws Exception
-     */
+    /** Looks up the value of the specified variable and compares it to the expected value. */
     public ModalTestCase testLookup(String name, Object expected) throws Exception {
       runTest(createLookUpTestable(name, expected));
       return this;
     }
 
     /**
-     * Creates a Testable that checks whether the evaluation of the given statement leads to the
-     * expected error
-     * @param statements
-     * @param error
-     * @param exactMatch If true, the error message has to be identical to the expected error
-     * @return An instance of Testable that runs the error check
+     * Creates a Testable that checks whether the evaluation of the given expression fails with the
+     * expected error.
+     *
+     * @param exactMatch whether the error message must be identical to the expected error.
      */
     protected Testable errorTestable(
-        final boolean exactMatch, final String error, final String... statements) {
+        final boolean exactMatch, final String error, final String... lines) {
       return new Testable() {
         @Override
         public void run() throws Exception {
           if (exactMatch) {
-            checkEvalError(error, statements);
+            checkEvalError(error, lines);
           } else {
-            checkEvalErrorContains(error, statements);
+            checkEvalErrorContains(error, lines);
           }
         }
       };
     }
 
     /**
-     * Creates a testable that checks whether the evaluation of the given statement leads to a list
-     * that contains exactly the expected objects
-     * @param statement The statement to be evaluated
-     * @param ordered Determines whether the order of the elements is checked as well
-     * @param expected Expected objects
-     * @return An instance of Testable that runs the check
+     * Creates a Testable that checks whether the value of the expression is a sequence containing
+     * the expected elements.
      */
-    protected Testable collectionTestable(
-        final String statement, final boolean ordered, final Object... expected) {
+    protected Testable collectionTestable(final String src, final Object... expected) {
       return new Testable() {
         @Override
         public void run() throws Exception {
-          Ordered tmp = assertThat((Iterable<?>) eval(statement)).containsExactly(expected);
-
-          if (ordered) {
-            tmp.inOrder();
-          }
+          assertThat((Iterable<?>) eval(src)).containsExactly(expected).inOrder();
         }
       };
     }
 
     /**
-     * Creates a testable that compares the evaluation of the given statement to a specified result
+     * Creates a testable that compares the value of the expression to a specified result.
      *
-     * @param statement The statement to be evaluated
+     * @param src The expression to be evaluated
      * @param expected Either the expected object or an expression whose evaluation leads to the
-     *  expected object
+     *     expected object
      * @param expectedIsExpression Signals whether {@code expected} is an object or an expression
      * @return An instance of Testable that runs the comparison
      */
     protected Testable createComparisonTestable(
-        final String statement, final Object expected, final boolean expectedIsExpression) {
+        final String src, final Object expected, final boolean expectedIsExpression) {
       return new Testable() {
         @Override
         public void run() throws Exception {
-          Object actual = eval(statement);
+          Object actual = eval(src);
           Object realExpected = expected;
 
           // We could also print the actual object and compare the string to the expected
@@ -525,17 +470,13 @@ public class EvaluationTestCase {
           });
     }
 
-    /**
-     * Registers a statement for evaluation prior to a test
-     *
-     * @param statements
-     */
-    public void registerEval(final String... statements) {
+    /** Registers a sequence of statements for execution prior to a test. */
+    public void registerExec(final String... lines) {
       setup.add(
           new Testable() {
             @Override
             public void run() throws Exception {
-              EvaluationTestCase.this.eval(statements);
+              EvaluationTestCase.this.exec(lines);
             }
           });
     }

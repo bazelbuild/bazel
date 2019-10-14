@@ -55,7 +55,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testAssign() throws Exception {
     assertThat(lookup("foo")).isNull();
-    eval("foo = 'bar'");
+    exec("foo = 'bar'");
     assertThat(lookup("foo")).isEqualTo("bar");
   }
 
@@ -74,7 +74,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   public void testAssignAndReference() throws Exception {
     SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
-    eval("foo = 'bar'");
+    exec("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");
   }
 
@@ -188,7 +188,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     StarlarkThread thread = newStarlarkThreadWithSkylarkOptions().setup("special_var", 42);
-    EvalUtils.execOrEval(ParserInput.fromLines("special_var = 41"), thread);
+    EvalUtils.exec(ParserInput.fromLines("special_var = 41"), thread);
     assertThat(thread.moduleLookup("special_var")).isEqualTo(41);
   }
 
@@ -196,8 +196,10 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     StarlarkThread thread = newStarlarkThread().update("global_var", 666);
     try {
-      EvalUtils.execOrEval(
-          ParserInput.fromLines("def foo(x): x += global_var; global_var = 36; return x", "foo(1)"),
+      EvalUtils.exec(
+          ParserInput.fromLines(
+              "def foo(x): x += global_var; global_var = 36; return x", //
+              "foo(1)"),
           thread);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {

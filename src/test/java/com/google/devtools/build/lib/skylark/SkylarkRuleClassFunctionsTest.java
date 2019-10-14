@@ -136,7 +136,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private void registerDummyStarlarkFunction() throws Exception {
-    eval("def impl():", "  pass");
+    exec("def impl():", "  pass");
   }
 
   @Test
@@ -689,6 +689,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
+  // TODO(adonovan): rename execAndExport
   private void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, ev.getStarlarkThread());
@@ -1071,14 +1072,14 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructCreation() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)");
+    exec("x = struct(a = 1, b = 2)");
     assertThat(lookup("x")).isInstanceOf(ClassObject.class);
   }
 
   @Test
   public void testStructFields() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)");
+    exec("x = struct(a = 1, b = 2)");
     ClassObject x = (ClassObject) lookup("x");
     assertThat(x.getValue("a")).isEqualTo(1);
     assertThat(x.getValue("b")).isEqualTo(2);
@@ -1090,14 +1091,15 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat((Boolean) eval("struct(a = 1) == struct(a = 1, b = 2)")).isFalse();
     assertThat((Boolean) eval("struct(a = 1, b = 2) == struct(a = 1)")).isFalse();
     // Compare a recursive object to itself to make sure reference equality is checked
-    assertThat((Boolean) eval("s = (struct(a = 1, b = [])); s.b.append(s); s == s")).isTrue();
+    exec("s = struct(a = 1, b = []); s.b.append(s)");
+    assertThat((Boolean) eval("s == s")).isTrue();
     assertThat((Boolean) eval("struct(a = 1, b = 2) == struct(a = 1, b = 3)")).isFalse();
     assertThat((Boolean) eval("struct(a = 1) == [1]")).isFalse();
     assertThat((Boolean) eval("[1] == struct(a = 1)")).isFalse();
     assertThat((Boolean) eval("struct() == struct()")).isTrue();
     assertThat((Boolean) eval("struct() == struct(a = 1)")).isFalse();
 
-    eval("foo = provider(); bar = provider()");
+    exec("foo = provider(); bar = provider()");
     assertThat((Boolean) eval("struct(a = 1) == foo(a = 1)")).isFalse();
     assertThat((Boolean) eval("foo(a = 1) == struct(a = 1)")).isFalse();
     assertThat((Boolean) eval("foo(a = 1) == bar(a = 1)")).isFalse();
@@ -1114,7 +1116,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructAccessingFieldsFromSkylark() throws Exception {
-    eval("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
+    exec("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
     assertThat(lookup("x1")).isEqualTo(1);
     assertThat(lookup("x2")).isEqualTo(2);
   }
@@ -1141,7 +1143,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructAccessingFunctionFieldWithArgs() throws Exception {
-    eval("def f(x): return x+5", "x = struct(a = f, b = 2)", "x1 = x.a(1)");
+    exec("def f(x): return x+5", "x = struct(a = f, b = 2)", "x1 = x.a(1)");
     assertThat(lookup("x1")).isEqualTo(6);
   }
 
@@ -1154,7 +1156,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructConcatenationFieldNames() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)",
+    exec(
+        "x = struct(a = 1, b = 2)", //
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     StructImpl z = (StructImpl) lookup("z");
@@ -1164,7 +1167,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructConcatenationFieldValues() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)",
+    exec(
+        "x = struct(a = 1, b = 2)", //
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     StructImpl z = (StructImpl) lookup("z");
@@ -1186,7 +1190,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testConditionalStructConcatenation() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    eval("def func():",
+    exec(
+        "def func():",
         "  x = struct(a = 1, b = 2)",
         "  if True:",
         "    x += struct(c = 1, d = 2)",
@@ -1209,14 +1214,15 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testGetattr() throws Exception {
-    eval("s = struct(a='val')", "x = getattr(s, 'a')", "y = getattr(s, 'b', 'def')");
+    exec("s = struct(a='val')", "x = getattr(s, 'a')", "y = getattr(s, 'b', 'def')");
     assertThat(lookup("x")).isEqualTo("val");
     assertThat(lookup("y")).isEqualTo("def");
   }
 
   @Test
   public void testHasattr() throws Exception {
-    eval("s = struct(a=1)",
+    exec(
+        "s = struct(a=1)", //
         "x = hasattr(s, 'a')",
         "y = hasattr(s, 'b')\n");
     assertThat(lookup("x")).isEqualTo(true);
@@ -1231,12 +1237,12 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructsInSets() throws Exception {
-    eval("depset([struct(a='a')])");
+    exec("depset([struct(a='a')])");
   }
 
   @Test
   public void testStructsInDicts() throws Exception {
-    eval("d = {struct(a = 1): 'aa', struct(b = 2): 'bb'}");
+    exec("d = {struct(a = 1): 'aa', struct(b = 2): 'bb'}");
     assertThat(eval("d[struct(a = 1)]")).isEqualTo("aa");
     assertThat(eval("d[struct(b = 2)]")).isEqualTo("bb");
     assertThat(eval("str([d[k] for k in d])")).isEqualTo("[\"aa\", \"bb\"]");
@@ -1246,15 +1252,15 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructDictMembersAreMutable() throws Exception {
-    eval(
-        "s = struct(x = {'a' : 1})",
+    exec(
+        "s = struct(x = {'a' : 1})", //
         "s.x['b'] = 2\n");
     assertThat(((StructImpl) lookup("s")).getValue("x")).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
-    eval("def func():", "  return depset([struct(a='a')])", "s = func()");
+    exec("def func():", "  return depset([struct(a='a')])", "s = func()");
     Collection<?> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
@@ -1808,7 +1814,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testTypeOfStruct() throws Exception {
-    eval("p = type(struct)", "s = type(struct())");
+    exec("p = type(struct)", "s = type(struct())");
 
     assertThat(lookup("p")).isEqualTo("Provider");
     assertThat(lookup("s")).isEqualTo("struct");

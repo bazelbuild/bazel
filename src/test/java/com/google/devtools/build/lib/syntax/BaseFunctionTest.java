@@ -130,7 +130,7 @@ public class BaseFunctionTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testKwParam() throws Exception {
-    eval(
+    exec(
         "def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
             + "  return (a, b, c, d, g, h, args, kwargs)\n"
             + "v1 = foo(1, 2)\n"
@@ -159,7 +159,7 @@ public class BaseFunctionTest extends EvaluationTestCase {
   public void testTrailingCommas() throws Exception {
     // Test that trailing commas are allowed in function definitions and calls
     // even after last *args or **kwargs expressions, like python3
-    eval(
+    exec(
         "def f(*args, **kwargs): pass\n"
             + "v1 = f(1,)\n"
             + "v2 = f(*(1,2),)\n"

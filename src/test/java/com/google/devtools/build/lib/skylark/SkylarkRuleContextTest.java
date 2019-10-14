@@ -692,7 +692,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     setRuleContext(ruleContext);
-    eval(
+    exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -709,7 +709,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    eval(
+    exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -729,7 +729,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    eval(
+    exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -905,8 +905,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testDeriveTreeArtifactType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("b = ruleContext.actions.declare_directory('a/b')\n" + "type(b)");
-    assertThat(result).isInstanceOf(String.class);
+    String result = (String) eval("type(ruleContext.actions.declare_directory('a/b'))");
     assertThat(result).isEqualTo("File");
   }
 
@@ -914,11 +913,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testDeriveTreeArtifactNextToSibling() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result =
-        eval(
-            "b = ruleContext.actions.declare_directory('a/b')\n"
-                + "ruleContext.actions.declare_directory('c', sibling=b)");
-    Artifact artifact = (Artifact) result;
+    Artifact artifact =
+        (Artifact)
+            eval(
+                "ruleContext.actions.declare_directory('c',"
+                    + " sibling=ruleContext.actions.declare_directory('a/b'))");
     PathFragment fragment = artifact.getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/c");
     assertThat(artifact.isTreeArtifact()).isTrue();
