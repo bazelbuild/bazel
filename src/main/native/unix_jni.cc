@@ -1085,3 +1085,25 @@ Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
   ReleaseStringLatin1Chars(name_chars);
   return (jlong)r;
 }
+
+/*
+ * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
+ * Method:    pushDisableSleep
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_pushDisableSleep(
+    JNIEnv *, jclass) {
+  return ::portable_push_disable_sleep();
+}
+
+/*
+ * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
+ * Method:    popDisableSleep
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_popDisableSleep(
+    JNIEnv *, jclass) {
+  return ::portable_pop_disable_sleep();
+}

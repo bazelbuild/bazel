@@ -91,3 +91,13 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
   errno = ENOSYS;
   return -1;
 }
+
+int portable_push_disable_sleep() {
+  // Currently not supported.
+  return -1;
+}
+
+int portable_pop_disable_sleep() {
+  // Currently not supported.
+  return -1;
+}

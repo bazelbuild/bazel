@@ -98,4 +98,14 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 // Run sysctlbyname(3), only available on darwin
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
 
+// Used to surround an region that we want sleep disabled for.
+// push_disable_sleep to start the area.
+// pop_disable_sleep to end the area.
+// Note that this is a stack so sleep will not be reenabled until the stack
+// is empty.
+// Returns 0 on success.
+// Returns -1 if sleep is not supported.
+int portable_push_disable_sleep();
+int portable_pop_disable_sleep();
+
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

@@ -38,6 +38,7 @@ public final class Bazel {
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           BazelStartupOptionsModule.class,
+          com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
