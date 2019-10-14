@@ -80,15 +80,15 @@ public class BufferTokenizer implements Callable<Void> {
   }
 
   /**
-   * @return start offset of the underlying ByteBuffer from the beginning of the file
+   * Returns start offset of the underlying ByteBuffer from the beginning of the file
    */
   public int getOffset() {
     return offset;
   }
 
   /**
-   * @return fragments on the bounds of the buffer fragment, where we can not say if it is
-   * a seaparate token, or a part of a bigger token.
+   * Returns fragments on the bounds of the buffer fragment, where we can not say if it is
+   * a separate token, or a part of a bigger token.
    * They should be observed together with neighbour fragments from other BufferTokenizers.
    * {@link TokenAssembler} is solving this problem.
    */

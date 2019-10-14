@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.ListIterator;
@@ -74,7 +75,7 @@ public class TokenAssembler {
 
     for (ByteBufferFragment sequence : list) {
       if (!leftPart.isEmpty()) {
-        ListIterator<Byte> leftIterator = leftPart.get(leftPart.size() - 1).iteratorAtEnd();
+        ListIterator<Byte> leftIterator = Iterables.getLast(leftPart).iteratorAtEnd();
         if (separatorPredicate.splitAdjacent(leftIterator, sequence.iterator())) {
           tokenConsumer.token(ByteBufferFragment.merge(leftPart));
           leftPart.clear();

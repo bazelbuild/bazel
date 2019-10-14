@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
@@ -64,9 +65,9 @@ public class NinjaSeparatorPredicateTest {
     Optional<Boolean> value = NinjaSeparatorPredicate.INSTANCE.isSeparator(iterator.next(),
         iterator);
     if (expected == null) {
-      assertThat(value.isPresent()).isFalse();
+      assertThat(value).isEmpty();
     } else {
-      assertThat(value.isPresent()).isTrue();
+      assertThat(value).isPresent();
       assertThat(value.get()).isEqualTo(expected);
     }
   }

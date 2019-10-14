@@ -60,7 +60,7 @@ public class ByteBufferFragmentTest {
     goForward(iteratorAtEnd);
   }
 
-  private void goForward(ListIterator<Byte> iterator) {
+  private static void goForward(ListIterator<Byte> iterator) {
     assertThat(iterator.hasNext()).isTrue();
     assertThat(iterator.hasPrevious()).isFalse();
     assertThat(iterator.nextIndex()).isEqualTo(0);
@@ -72,7 +72,7 @@ public class ByteBufferFragmentTest {
     }
   }
 
-  private void goBackward(ListIterator<Byte> iterator) {
+  private static void goBackward(ListIterator<Byte> iterator) {
     assertThat(iterator.hasNext()).isFalse();
     assertThat(iterator.hasPrevious()).isTrue();
     assertThat(iterator.nextIndex()).isEqualTo(8);

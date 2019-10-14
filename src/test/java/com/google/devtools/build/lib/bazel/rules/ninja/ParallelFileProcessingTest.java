@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
@@ -87,6 +88,11 @@ public class ParallelFileProcessingTest {
     doPerformanceTest(500);
   }
 
+  @Test
+  public void testPerformanceLarge() throws Exception {
+    doPerformanceTest(5000);
+  }
+
   private static void doPerformanceTest(int limit) throws Exception {
     File file = randomFile(new Random(), limit);
     try {
@@ -103,6 +109,7 @@ public class ParallelFileProcessingTest {
               return inner::add;
             },
             NinjaSeparatorPredicate.INSTANCE, -1, -1);
+        assertThat(list).isNotEmpty();
       }, 3);
       long[] usual = nTimesAvg(() -> {
         List<String> usualLines = Files.readLines(file, StandardCharsets.ISO_8859_1);
@@ -134,36 +141,14 @@ public class ParallelFileProcessingTest {
   private static long[] nTimesAvg(Callback r, int num) throws Exception {
     long[] result = new long[num];
     for (int i = 0; i < num; i++) {
-      long start = System.currentTimeMillis();
+      Stopwatch stopwatch = Stopwatch.createStarted();
       r.process();
-      long end = System.currentTimeMillis();
-      result[i] = end - start;
+      result[i] = stopwatch.elapsed().toMillis();
     }
     return result;
   }
 
-  private static File randomFile(Random r, int limit) throws IOException {
-    String[] strings = new String[limit];
-    IntStream.range(0, limit).parallel()
-        .forEach(i -> {
-          StringBuilder sb = new StringBuilder();
-          int len = 100 + r.nextInt(10000);
-          for (int j = 0; j < len; j++) {
-            sb.append(r.nextInt());
-            int value = r.nextInt(50);
-            if (value == 5) {
-              sb.append('\n');
-            }
-          }
-
-          strings[i] = sb.toString();
-        });
-    File file = File.createTempFile("test", ".txt");
-    Files.write(String.join("\n", strings).getBytes(StandardCharsets.ISO_8859_1), file);
-    return file;
-  }
-
-  private void doTestNumbers(int limit, int blockSize)
+  private static void doTestNumbers(int limit, int blockSize)
       throws IOException, GenericParsingException, ExecutionException, InterruptedException {
     File file = writeTestFile(limit);
     try {
@@ -190,6 +175,27 @@ public class ParallelFileProcessingTest {
     }
   }
 
+  private static File randomFile(Random r, int limit) throws IOException {
+    String[] strings = new String[limit];
+    IntStream.range(0, limit).parallel()
+        .forEach(i -> {
+          StringBuilder sb = new StringBuilder();
+          int len = 100 + r.nextInt(10000);
+          for (int j = 0; j < len; j++) {
+            sb.append(r.nextInt());
+            int value = r.nextInt(50);
+            if (value == 5) {
+              sb.append('\n');
+            }
+          }
+
+          strings[i] = sb.toString();
+        });
+    File file = File.createTempFile("test", ".txt");
+    Files.asCharSink(file, StandardCharsets.ISO_8859_1).write(String.join("\n", strings));
+    return file;
+  }
+
   private static File writeTestFile(int limit) throws IOException {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < limit; i++) {
@@ -199,7 +205,7 @@ public class ParallelFileProcessingTest {
       sb.append(i);
     }
     File file = File.createTempFile("test", ".txt");
-    Files.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1), file);
+    Files.asCharSink(file, StandardCharsets.ISO_8859_1).write(sb.toString());
     return file;
   }
 

@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -144,7 +145,7 @@ public class ByteBufferFragment {
     if (list.subList(1, list.size()).stream().allMatch(el -> el.buffer == first)) {
       return new ByteBufferFragment(first,
           list.get(0).startIncl,
-          list.get(list.size() - 1).endExcl);
+          Iterables.getLast(list).endExcl);
     }
     int len = list.stream().mapToInt(ByteBufferFragment::length).sum();
     byte[] bytes = new byte[len];

@@ -47,17 +47,17 @@ public class BufferTokenizerTest {
     BufferTokenizer tokenizer = new BufferTokenizer(
         ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
     tokenizer.call();
-    assertThat(result).isEqualTo(ImmutableList.of("two\n"));
+    assertThat(result).containsExactly("two\n");
     assertThat(tokenizer.getFragments().stream()
         .map(ByteBufferFragment::toString).collect(Collectors.toList()))
-        .isEqualTo(ImmutableList.of("one\n", "three"));
+        .containsExactly("one\n", "three").inOrder();
   }
 
   @Test
   public void testTokenizeWithDetails() throws Exception {
     List<String> list = ImmutableList.of("one", " one-detail", "two", "\ttwo-detail",
         "three", " three-detail");
-    byte[] chars = String.join("\n", list).getBytes();
+    byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
 
     List<String> result = Lists.newArrayList();
     TokenConsumer consumer = fragment -> result.add(fragment.toString());
@@ -65,10 +65,9 @@ public class BufferTokenizerTest {
     BufferTokenizer tokenizer = new BufferTokenizer(
         ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
     tokenizer.call();
-    assertThat(result).isEqualTo(ImmutableList.of("two\n\ttwo-detail\n"));
+    assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(tokenizer.getFragments().stream()
       .map(ByteBufferFragment::toString).collect(Collectors.toList()))
-        .isEqualTo(ImmutableList.of("one\n one-detail\n", "three\n three-detail"
-    ));
+        .containsExactly("one\n one-detail\n", "three\n three-detail").inOrder();
   }
 }
