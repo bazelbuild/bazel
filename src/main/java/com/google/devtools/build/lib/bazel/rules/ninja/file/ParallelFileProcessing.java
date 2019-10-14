@@ -43,10 +43,40 @@ import java.util.stream.Collectors;
 public class ParallelFileProcessing {
   private static final int BLOCK_SIZE = 25 * 1024 * 1024;
   private static final int MIN_BLOCK_SIZE = 10 * 1024 * 1024;
+  /**
+   * Number of threads to use in parallel tokenizing; during experiments, it did not help
+   * to increase the number of threads above 25 even when the actual number of cores was
+   * much higher.
+   */
   private static final int NUM_THREADS =
       Math.min(25, Runtime.getRuntime().availableProcessors() - 1);
+  private final Path path;
+  private final Supplier<TokenConsumer> tokenConsumerSupplier;
+  private final SeparatorPredicate predicate;
+  private final int blockSize;
+  private final int numThreads;
+  private final int minBlockSize;
+  private final List<BufferTokenizer> tokenizers;
 
-  private ParallelFileProcessing() {
+  private ParallelFileProcessing(Path path,
+      Supplier<TokenConsumer> tokenConsumerSupplier,
+      SeparatorPredicate predicate,
+      int blockSize,
+      int numThreads) throws IOException {
+    this.path = path;
+    this.tokenConsumerSupplier = tokenConsumerSupplier;
+    this.predicate = predicate;
+    long size = Files.size(path);
+    if (blockSize <= 0) {
+      blockSize = (int) Math.min(BLOCK_SIZE, size);
+    }
+    this.blockSize = blockSize;
+    minBlockSize = Math.min(blockSize, MIN_BLOCK_SIZE);
+    if (numThreads <= 0) {
+      numThreads = NUM_THREADS;
+    }
+    this.numThreads = numThreads;
+    tokenizers = Lists.newArrayList();
   }
 
   /**
@@ -95,17 +125,15 @@ public class ParallelFileProcessing {
       int blockSize,
       int numThreads)
       throws GenericParsingException, IOException, ExecutionException, InterruptedException {
+    new ParallelFileProcessing(path, tokenConsumerSupplier, predicate, blockSize, numThreads)
+        .processFileImpl();
+  }
 
+  private void processFileImpl()
+      throws InterruptedException, ExecutionException, IOException, GenericParsingException {
     TokenAssembler assembler = new TokenAssembler(tokenConsumerSupplier.get(), predicate);
-    List<BufferTokenizer> tokenizers = Lists.newArrayList();
-    BufferTokenizerFactory factory = (buffer, offset, start, end) -> {
-      BufferTokenizer tokenizer = new BufferTokenizer(buffer, tokenConsumerSupplier.get(), predicate,
-          offset, start, end);
-      tokenizers.add(tokenizer);
-      return tokenizer;
-    };
 
-    readAndTokenize(path, factory, blockSize, numThreads);
+    readAndTokenize();
 
     List<Integer> offsets = tokenizers.stream().map(BufferTokenizer::getOffset)
         .collect(Collectors.toList());
@@ -116,29 +144,17 @@ public class ParallelFileProcessing {
     assembler.wrapUp(offsets, fragments);
   }
 
-  private static void readAndTokenize(Path path,
-      BufferTokenizerFactory tokenizerFactory,
-      int blockSize,
-      int numThreads) throws IOException, ExecutionException, InterruptedException {
-    long size = Files.size(path);
-    if (blockSize <= 0) {
-      blockSize = (int) Math.min(BLOCK_SIZE, size);
-    }
-    int minBlockSize = Math.min(blockSize, MIN_BLOCK_SIZE);
-    if (numThreads <= 0) {
-      numThreads = NUM_THREADS;
-    }
-
+  private void readAndTokenize() throws IOException, ExecutionException, InterruptedException {
     try (SeekableByteChannel ch = Files.newByteChannel(path);
         ExecutorHelper service = new ExecutorHelper(numThreads)) {
       int offset = 0;
       boolean keepReading = true;
       while (keepReading && ch.isOpen()) {
         ByteBuffer bb = ByteBuffer.allocateDirect(blockSize);
-        keepReading = readFromChannel(ch, bb, minBlockSize);
+        keepReading = readFromChannel(ch, bb);
         if (bb.position() > 0) {
           bb.flip();
-          tokenizeFragments(tokenizerFactory, bb, offset, service, numThreads);
+          tokenizeFragments(bb.asReadOnlyBuffer(), offset, service);
           offset += bb.limit();
         }
       }
@@ -146,7 +162,7 @@ public class ParallelFileProcessing {
     }
   }
 
-  private static boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb, int minBlockSize)
+  private boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb)
       throws IOException {
     // Continue reading until we are
     while (ch.isOpen() && bb.position() < minBlockSize) {
@@ -158,19 +174,25 @@ public class ParallelFileProcessing {
     return true;
   }
 
-  private static void tokenizeFragments(BufferTokenizerFactory tokenizerFactory,
+  private void tokenizeFragments(
       ByteBuffer bb,
       int offset,
-      ExecutorHelper service,
-      int numThreads) {
+      ExecutorHelper service) {
     int fragmentSize = (int) Math.ceil((double) bb.limit() / numThreads);
     int from = 0;
-    ByteBuffer readOnlyBuffer = bb.asReadOnlyBuffer();
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + fragmentSize);
-      service.accept(tokenizerFactory.create(readOnlyBuffer, offset, from, to));
+      service.accept(tokenizeFragment(bb, offset, from, to));
       from += fragmentSize;
     }
+  }
+
+  private BufferTokenizer tokenizeFragment(ByteBuffer bb, int offset, int from, int to) {
+    TokenConsumer tokenConsumer = tokenConsumerSupplier.get();
+    BufferTokenizer tokenizer = new BufferTokenizer(bb, tokenConsumer, predicate,
+        offset, from, to);
+    tokenizers.add(tokenizer);
+    return tokenizer;
   }
 
   private static class ExecutorHelper implements Consumer<Callable<?>>, AutoCloseable {

@@ -136,12 +136,15 @@ public class ByteBufferFragment {
    * @return buffer fragment with the contents, merged from all passed buffers.
    * If only one buffer fragment was passed, returns it.
    */
+  @SuppressWarnings("ReferenceEquality")
   public static ByteBufferFragment merge(List<ByteBufferFragment> list) {
     Preconditions.checkState(!list.isEmpty());
     if (list.size() == 1) {
       return list.get(0);
     }
     ByteBuffer first = list.get(0).buffer;
+    // We compare contained buffers to be exactly same objects here, i.e. changing to use
+    // of equals() is not needed. (Warning suppressed.)
     if (list.subList(1, list.size()).stream().allMatch(el -> el.buffer == first)) {
       return new ByteBufferFragment(first,
           list.get(0).startIncl,

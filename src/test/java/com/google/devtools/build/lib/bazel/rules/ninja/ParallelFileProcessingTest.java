@@ -205,7 +205,7 @@ public class ParallelFileProcessingTest {
       sb.append(i);
     }
     File file = File.createTempFile("test", ".txt");
-    Files.asCharSink(file, StandardCharsets.ISO_8859_1).write(sb.toString());
+    Files.asCharSink(file, StandardCharsets.ISO_8859_1).write(sb);
     return file;
   }
 
