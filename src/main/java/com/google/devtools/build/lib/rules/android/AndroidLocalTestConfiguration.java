@@ -42,14 +42,6 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
               + " for testing purposes."
     )
     public boolean androidLocalTestBinaryResources;
-
-    @Option(
-        name = "android_local_test_uses_java_rule_validation",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "This attribute is deprecated and has no effect.")
-    public boolean androidLocalTestUsesJavaRuleValidation;
   }
 
   /**
