@@ -254,7 +254,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + "<p><b>Do not use this field directly</b>, its only purpose is to help with "
                 + "migration of Protobuf rules to Starlark.</p>"
                 + "<p>Instead, you can access the value through proto_toolchain</p>"
-                + "<p>pre class=\"language-python\">\n"
+                + "<p><pre class=\"language-python\">\n"
                 + "def _my_rule_impl(ctx):"
                 + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
                 + "    protoc = proto_toolchain.compiler\n"
