@@ -106,7 +106,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         String wrapper,
         Object fullPintoSources,
         Object directPintoSources,
-        SkylarkList<JsModuleInfoApi<?>> directModuleDependencies)
+        SkylarkList<?> directModuleDependencies /* <? extends JsModuleApi> expected */)
         throws EvalException;
   }
 }

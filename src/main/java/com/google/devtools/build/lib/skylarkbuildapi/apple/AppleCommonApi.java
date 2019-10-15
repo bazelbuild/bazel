@@ -388,8 +388,8 @@ public interface AppleCommonApi<
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      SkylarkList<?> extraLinkopts, // <String> expected.
+      SkylarkList<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
