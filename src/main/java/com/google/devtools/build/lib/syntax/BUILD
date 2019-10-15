@@ -109,6 +109,7 @@ java_library(
         "FunctionSignature.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",
+        "Module.java",
         "Mutability.java",
         "ParamDescriptor.java",
         "ParamTypeDescriptor.java",

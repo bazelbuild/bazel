@@ -217,7 +217,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
     parentThread.update("a", 1);
     parentThread.update("c", 2);
     parentThread.update("b", 3);
-    StarlarkThread.GlobalFrame parentFrame = parentThread.getGlobals();
+    Module parentFrame = parentThread.getGlobals();
     parentMutability.freeze();
     Mutability mutability = Mutability.create("testing");
     StarlarkThread thread =
