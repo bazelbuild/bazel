@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -31,14 +32,14 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Parallel file processing implementation.
- * See comment to {@link #processFile(Path, Supplier, SeparatorPredicate, int, int)}.
+ * See comment to {@link #processFile(Path, Supplier, BiPredicate, int, int)}.
  */
 public class ParallelFileProcessing {
   private static final int BLOCK_SIZE = 25 * 1024 * 1024;
@@ -46,25 +47,24 @@ public class ParallelFileProcessing {
   /**
    * Number of threads to use in parallel tokenizing; during experiments, it did not help
    * to increase the number of threads above 25 even when the actual number of cores was
-   * much higher.
+   * much higher: the limiting factor is probably merging of fragment bounds.
    */
   private static final int NUM_THREADS =
       Math.min(25, Runtime.getRuntime().availableProcessors() - 1);
   private final Path path;
-  private final Supplier<TokenConsumer> tokenConsumerSupplier;
-  private final SeparatorPredicate predicate;
+  private final Supplier<TokenConsumer> tokenConsumerFactory;
+  private final BiPredicate<Byte, Byte> predicate;
   private final int blockSize;
   private final int numThreads;
   private final int minBlockSize;
-  private final List<BufferTokenizer> tokenizers;
 
   private ParallelFileProcessing(Path path,
-      Supplier<TokenConsumer> tokenConsumerSupplier,
-      SeparatorPredicate predicate,
+      Supplier<TokenConsumer> tokenConsumerFactory,
+      BiPredicate<Byte, Byte> predicate,
       int blockSize,
       int numThreads) throws IOException {
     this.path = path;
-    this.tokenConsumerSupplier = tokenConsumerSupplier;
+    this.tokenConsumerFactory = tokenConsumerFactory;
     this.predicate = predicate;
     long size = Files.size(path);
     if (blockSize <= 0) {
@@ -76,14 +76,13 @@ public class ParallelFileProcessing {
       numThreads = NUM_THREADS;
     }
     this.numThreads = numThreads;
-    tokenizers = Lists.newArrayList();
   }
 
   /**
    * Processes file in parallel: {@link java.nio.channels.FileChannel} is used to read
    * contents into a sequence of buffers.
    * Each buffer is split into chunks, which are tokenized in parallel by
-   * {@link BufferTokenizer}, using the {@link SeparatorPredicate}.
+   * {@link BufferTokenizer}, using the <code>predicate</code>.
    * Fragments of tokens (on the bounds of buffer fragments) are assembled by
    * {@link TokenAssembler}.
    * The resulting tokens (each can be further parsed independently) are passed to
@@ -112,7 +111,7 @@ public class ParallelFileProcessing {
    * {@link com.google.devtools.build.lib.bazel.rules.ninja.ParallelFileProcessingTest}.
    *
    * @param path path to file to process
-   * @param tokenConsumerSupplier supplier of {@link TokenConsumer} for further processing / parsing
+   * @param tokenConsumerFactory factory of {@link TokenConsumer} for further processing / parsing
    * @param predicate predicate for separating tokens
    * @param blockSize size of the buffer for reading from channel, -1 for using the default value.
    * @param numThreads number of threads for parallel tokenizing, -1 for default value.
@@ -120,31 +119,20 @@ public class ParallelFileProcessing {
    * @throws IOException thrown by file reading
    */
   public static void processFile(Path path,
-      Supplier<TokenConsumer> tokenConsumerSupplier,
-      SeparatorPredicate predicate,
+      Supplier<TokenConsumer> tokenConsumerFactory,
+      BiPredicate<Byte, Byte> predicate,
       int blockSize,
       int numThreads)
       throws GenericParsingException, IOException, ExecutionException, InterruptedException {
-    new ParallelFileProcessing(path, tokenConsumerSupplier, predicate, blockSize, numThreads)
+    new ParallelFileProcessing(path, tokenConsumerFactory, predicate, blockSize, numThreads)
         .processFileImpl();
   }
 
   private void processFileImpl()
       throws InterruptedException, ExecutionException, IOException, GenericParsingException {
-    TokenAssembler assembler = new TokenAssembler(tokenConsumerSupplier.get(), predicate);
+    TokenAssembler assembler = new TokenAssembler(tokenConsumerFactory.get(), predicate);
 
-    readAndTokenize();
-
-    List<Integer> offsets = tokenizers.stream().map(BufferTokenizer::getOffset)
-        .collect(Collectors.toList());
-    List<List<ByteBufferFragment>> fragments = tokenizers.stream()
-        .map(BufferTokenizer::getFragments)
-        .collect(Collectors.toList());
-
-    assembler.wrapUp(offsets, fragments);
-  }
-
-  private void readAndTokenize() throws IOException, ExecutionException, InterruptedException {
+    List<Pair<Integer, ByteBufferFragment>> fragments;
     try (SeekableByteChannel ch = Files.newByteChannel(path);
         ExecutorHelper service = new ExecutorHelper(numThreads)) {
       int offset = 0;
@@ -158,13 +146,14 @@ public class ParallelFileProcessing {
           offset += bb.limit();
         }
       }
-      service.get().get();
+      fragments = service.get();
     }
+
+    assembler.wrapUp(fragments);
   }
 
-  private boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb)
-      throws IOException {
-    // Continue reading until we are
+  private boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb) throws IOException {
+    // Continue reading until we filled the minimum buffer size.
     while (ch.isOpen() && bb.position() < minBlockSize) {
       // Stop if we reached the end of stream.
       if (ch.read(bb) < 0) {
@@ -174,29 +163,20 @@ public class ParallelFileProcessing {
     return true;
   }
 
-  private void tokenizeFragments(
-      ByteBuffer bb,
-      int offset,
-      ExecutorHelper service) {
+  private void tokenizeFragments(ByteBuffer bb, int offset, ExecutorHelper service) {
     int fragmentSize = (int) Math.ceil((double) bb.limit() / numThreads);
     int from = 0;
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + fragmentSize);
-      service.accept(tokenizeFragment(bb, offset, from, to));
+      TokenConsumer consumer = tokenConsumerFactory.get();
+      service.accept(new BufferTokenizer(bb, consumer, predicate, offset, from, to));
       from += fragmentSize;
     }
   }
 
-  private BufferTokenizer tokenizeFragment(ByteBuffer bb, int offset, int from, int to) {
-    TokenConsumer tokenConsumer = tokenConsumerSupplier.get();
-    BufferTokenizer tokenizer = new BufferTokenizer(bb, tokenConsumer, predicate,
-        offset, from, to);
-    tokenizers.add(tokenizer);
-    return tokenizer;
-  }
-
-  private static class ExecutorHelper implements Consumer<Callable<?>>, AutoCloseable {
-    private final List<ListenableFuture<?>> futures;
+  private static class ExecutorHelper
+      implements Consumer<Callable<List<Pair<Integer, ByteBufferFragment>>>>, AutoCloseable {
+    private final List<ListenableFuture<List<Pair<Integer, ByteBufferFragment>>>> futures;
     private final ListeningExecutorService executorService;
 
     private ExecutorHelper(int numThreads) {
@@ -207,12 +187,16 @@ public class ParallelFileProcessing {
     }
 
     @Override
-    public void accept(Callable<?> callable) {
+    public void accept(Callable<List<Pair<Integer, ByteBufferFragment>>> callable) {
       futures.add(executorService.submit(callable));
     }
 
-    public Future<?> get() {
-      return Futures.allAsList(futures);
+    public List<Pair<Integer, ByteBufferFragment>> get()
+        throws ExecutionException, InterruptedException {
+      List<List<Pair<Integer, ByteBufferFragment>>> listOfLists = Futures.allAsList(futures).get();
+      return listOfLists.stream()
+          .flatMap(List::stream)
+          .collect(Collectors.toList());
     }
 
     @Override

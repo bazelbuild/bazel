@@ -18,8 +18,10 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.Pair;
+import java.util.Comparator;
 import java.util.List;
-import java.util.ListIterator;
+import java.util.function.BiPredicate;
 
 /**
  * A {@link BufferTokenizer} callback interface implementation, that assembles fragments of
@@ -28,7 +30,7 @@ import java.util.ListIterator;
  */
 public class TokenAssembler {
   private final TokenConsumer tokenConsumer;
-  private final SeparatorPredicate separatorPredicate;
+  private final BiPredicate<Byte, Byte> separatorPredicate;
 
   /**
    * @param tokenConsumer delegate token consumer for actual processing / parsing
@@ -38,32 +40,32 @@ public class TokenAssembler {
    */
   public TokenAssembler(
       TokenConsumer tokenConsumer,
-      SeparatorPredicate separatorPredicate) {
+      BiPredicate<Byte, Byte> separatorPredicate) {
     this.tokenConsumer = tokenConsumer;
     this.separatorPredicate = separatorPredicate;
   }
 
   /**
    * Should be called after all work for processing of individual buffer fragments is complete.
+   * @param fragments list of pairs (offset from the beginning of file, buffer fragment) of
+   * the pieces on the bounds of sub-fragments.
    * @throws GenericParsingException thrown by delegate {@link #tokenConsumer}
    */
-  public void wrapUp(List<Integer> offsets, List<List<ByteBufferFragment>> fragments)
+  public void wrapUp(List<Pair<Integer, ByteBufferFragment>> fragments)
       throws GenericParsingException {
-    Preconditions.checkState(offsets.size() == fragments.size());
+    fragments.sort(Comparator.comparingInt(Pair::getFirst));
 
     List<ByteBufferFragment> list = Lists.newArrayList();
     int previous = -1;
-    for (int i = 0; i < offsets.size(); i++) {
-      int offset = offsets.get(i);
-      for (ByteBufferFragment fragment : fragments.get(i)) {
-        int key = offset + fragment.getStartIncl();
-        if (previous >= 0 && previous != key) {
-          sendMerged(list);
-          list.clear();
-        }
-        list.add(fragment);
-        previous = offset + fragment.getEndExcl();
+    for (Pair<Integer, ByteBufferFragment> pair : fragments) {
+      int start = Preconditions.checkNotNull(pair.getFirst());
+      ByteBufferFragment fragment = Preconditions.checkNotNull(pair.getSecond());
+      if (previous >= 0 && previous != start) {
+        sendMerged(list);
+        list.clear();
       }
+      list.add(fragment);
+      previous = start + fragment.length();
     }
     if (! list.isEmpty()) {
       sendMerged(list);
@@ -75,8 +77,12 @@ public class TokenAssembler {
 
     for (ByteBufferFragment sequence : list) {
       if (!leftPart.isEmpty()) {
-        ListIterator<Byte> leftIterator = Iterables.getLast(leftPart).iteratorAtEnd();
-        if (separatorPredicate.splitAdjacent(leftIterator, sequence.iterator())) {
+        ByteBufferFragment lastPart = Iterables.getLast(leftPart);
+        boolean isSeparator = separatorPredicate
+            .test(lastPart.byteAt(lastPart.length() - 1), sequence.byteAt(0));
+        // If the new sequence is separate from already collected parts,
+        // merge them and feed to consumer.
+        if (isSeparator) {
           tokenConsumer.token(ByteBufferFragment.merge(leftPart));
           leftPart.clear();
         }

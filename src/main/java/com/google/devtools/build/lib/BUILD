@@ -697,6 +697,7 @@ java_library(
     name = "bazel-ninja",
     srcs = glob(["bazel/rules/ninja/**/*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",

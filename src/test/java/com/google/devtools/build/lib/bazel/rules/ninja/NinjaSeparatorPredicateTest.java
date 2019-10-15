@@ -16,14 +16,9 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ListIterator;
-import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,7 +31,6 @@ public class NinjaSeparatorPredicateTest {
   @Test
   public void testIsSeparator() {
     doTestIsSeparator("\n ", false);
-    doTestIsSeparator("\n", null);
     doTestIsSeparator("\na", true);
     doTestIsSeparator("\n\n", true);
   }
@@ -46,34 +40,23 @@ public class NinjaSeparatorPredicateTest {
     doTestSplitAdjacent("abc", "def", false);
     doTestSplitAdjacent("abc\n", "def", true);
     doTestSplitAdjacent("abc\n", " def", false);
-    doTestSplitAdjacent("abc\n", "", false);
     doTestSplitAdjacent("abc\n", " ", false);
     doTestSplitAdjacent("abc", "\n", false);
   }
 
   private static void doTestSplitAdjacent(String left, String right, boolean expected) {
-    boolean value = NinjaSeparatorPredicate.INSTANCE
-        .splitAdjacent(fragment(left).iteratorAtEnd(), fragment(right).iterator());
-    assertThat(value).isEqualTo(expected);
+    byte[] leftBytes = left.getBytes(StandardCharsets.ISO_8859_1);
+    byte[] rightBytes = right.getBytes(StandardCharsets.ISO_8859_1);
+    boolean result = NinjaSeparatorPredicate.INSTANCE
+        .test(leftBytes[leftBytes.length - 1], rightBytes[0]);
+    assertThat(result).isEqualTo(expected);
   }
 
   private static void doTestIsSeparator(String s, Boolean expected) {
-    ListIterator<Byte> iterator = fragment(s).iterator();
-    if (!iterator.hasNext()) {
-      return;
-    }
-    Optional<Boolean> value = NinjaSeparatorPredicate.INSTANCE.isSeparator(iterator.next(),
-        iterator);
-    if (expected == null) {
-      assertThat(value).isEmpty();
-    } else {
-      assertThat(value).isPresent();
-      assertThat(value.get()).isEqualTo(expected);
-    }
-  }
-
-  private static ByteBufferFragment fragment(String s) {
     byte[] bytes = s.getBytes(StandardCharsets.ISO_8859_1);
-    return new ByteBufferFragment(ByteBuffer.wrap(bytes), 0, bytes.length);
+    assertThat(bytes.length > 1).isTrue();
+    boolean result = NinjaSeparatorPredicate.INSTANCE
+        .test(bytes[0], bytes[1]);
+    assertThat(result).isEqualTo(expected);
   }
 }

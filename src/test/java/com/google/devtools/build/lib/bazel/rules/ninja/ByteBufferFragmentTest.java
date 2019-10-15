@@ -16,13 +16,11 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ListIterator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,48 +38,6 @@ public class ByteBufferFragmentTest {
     assertThat(fragment.toString()).isEqualTo("12345678");
     assertThat(fragment.subFragment(2, 4).toString()).isEqualTo("34");
     assertThat(fragment.subFragment(0, 8).toString()).isEqualTo("12345678");
-  }
-
-  @Test
-  public void testIterator() {
-    final byte[] bytes = "0123456789".getBytes(StandardCharsets.ISO_8859_1);
-    ByteBufferFragment sequence = new ByteBufferFragment(ByteBuffer.wrap(bytes), 1, 9);
-    ListIterator<Byte> iterator = sequence.iterator();
-
-    assertThrows(UnsupportedOperationException.class, () -> iterator.add((byte) 0));
-    assertThrows(UnsupportedOperationException.class, () -> iterator.set((byte) 0));
-    assertThrows(UnsupportedOperationException.class, iterator::remove);
-
-    goForward(iterator);
-    goBackward(iterator);
-
-    ListIterator<Byte> iteratorAtEnd = sequence.iteratorAtEnd();
-    goBackward(iteratorAtEnd);
-    goForward(iteratorAtEnd);
-  }
-
-  private static void goForward(ListIterator<Byte> iterator) {
-    assertThat(iterator.hasNext()).isTrue();
-    assertThat(iterator.hasPrevious()).isFalse();
-    assertThat(iterator.nextIndex()).isEqualTo(0);
-    assertThat(iterator.previousIndex()).isEqualTo(-1);
-    for (int i = 0; i < 8; i++) {
-      assertThat(iterator.hasNext()).isTrue();
-      Byte b = iterator.next();
-      assertThat(Character.getNumericValue(b)).isEqualTo(i + 1);
-    }
-  }
-
-  private static void goBackward(ListIterator<Byte> iterator) {
-    assertThat(iterator.hasNext()).isFalse();
-    assertThat(iterator.hasPrevious()).isTrue();
-    assertThat(iterator.nextIndex()).isEqualTo(8);
-    assertThat(iterator.previousIndex()).isEqualTo(7);
-    for (int i = 7; i >= 0; i--) {
-      assertThat(iterator.hasPrevious()).isTrue();
-      byte b = iterator.previous();
-      assertThat(Character.getNumericValue(b)).isEqualTo(i + 1);
-    }
   }
 
   @Test

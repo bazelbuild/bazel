@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenAssembler;
+import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -61,10 +62,10 @@ public class TokenAssemblerTest {
     final byte[] chars2 = s2.getBytes(StandardCharsets.ISO_8859_1);
 
     assembler.wrapUp(
-        ImmutableList.of(0, chars1.length),
-        ImmutableList.of(
-            ImmutableList.of(new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
-            ImmutableList.of(new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length())))
+        Lists.newArrayList(
+            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
+            createPair(chars1.length,
+                new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length())))
     );
 
     assertThat(list).isEqualTo(Arrays.asList(expected));
@@ -78,12 +79,16 @@ public class TokenAssemblerTest {
 
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     assembler.wrapUp(
-        ImmutableList.of(0, 0),
-        ImmutableList.of(
-            ImmutableList.of(new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
-            ImmutableList.of(new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2)))
+        Lists.newArrayList(
+            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
+            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2)))
     );
 
     assertThat(list).isEqualTo(Arrays.asList(expected));
+  }
+
+  private static Pair<Integer, ByteBufferFragment> createPair(int offset,
+      ByteBufferFragment fragment) {
+    return Pair.of(offset + fragment.getStartIncl(), fragment);
   }
 }

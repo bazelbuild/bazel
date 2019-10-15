@@ -15,13 +15,13 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.ListIterator;
 
 /**
  * Represents the fragment of immutable {@link ByteBuffer} for parallel processing.
@@ -40,12 +40,9 @@ public class ByteBufferFragment {
     this.endExcl = endExcl;
   }
 
-  int getStartIncl() {
+  @VisibleForTesting
+  public int getStartIncl() {
     return startIncl;
-  }
-
-  int getEndExcl() {
-    return endExcl;
   }
 
   /**
@@ -92,22 +89,6 @@ public class ByteBufferFragment {
     ByteBuffer copy = buffer.duplicate();
     copy.position(startIncl);
     copy.get(dst, offset, (endExcl - startIncl));
-  }
-
-  /**
-   * Creates read-only bidirectional byte iterator for the symbols in the fragment,
-   * positioned at the start of the fragment.
-   */
-  public ListIterator<Byte> iterator() {
-    return new ByteBufferReadIterator(this);
-  }
-
-  /**
-   * Creates read-only bidirectional byte iterator for the symbols in the fragment,
-   * positioned at the end of the fragment.
-   */
-  public ListIterator<Byte> iteratorAtEnd() {
-    return new ByteBufferReadIterator(this, length());
   }
 
   @Override

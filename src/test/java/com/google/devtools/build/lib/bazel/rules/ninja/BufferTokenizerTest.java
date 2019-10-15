@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferTokenizer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenConsumer;
+import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -46,10 +48,11 @@ public class BufferTokenizerTest {
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     BufferTokenizer tokenizer = new BufferTokenizer(
         ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
-    tokenizer.call();
+    List<Pair<Integer, ByteBufferFragment>> pairs = tokenizer.call();
     assertThat(result).containsExactly("two\n");
-    assertThat(tokenizer.getFragments().stream()
-        .map(ByteBufferFragment::toString).collect(Collectors.toList()))
+    assertThat(pairs.stream()
+        .map(pair -> Preconditions.checkNotNull(pair.getSecond()).toString())
+        .collect(Collectors.toList()))
         .containsExactly("one\n", "three").inOrder();
   }
 
@@ -64,10 +67,11 @@ public class BufferTokenizerTest {
 
     BufferTokenizer tokenizer = new BufferTokenizer(
         ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
-    tokenizer.call();
+    List<Pair<Integer, ByteBufferFragment>> pairs = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
-    assertThat(tokenizer.getFragments().stream()
-      .map(ByteBufferFragment::toString).collect(Collectors.toList()))
+    assertThat(pairs.stream()
+        .map(pair -> Preconditions.checkNotNull(pair.getSecond()).toString())
+        .collect(Collectors.toList()))
         .containsExactly("one\n one-detail\n", "three\n three-detail").inOrder();
   }
 }

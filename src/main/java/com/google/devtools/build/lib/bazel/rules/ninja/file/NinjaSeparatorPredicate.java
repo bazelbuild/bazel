@@ -15,18 +15,16 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-import com.google.common.base.Preconditions;
-import java.util.ListIterator;
-import java.util.Optional;
+import java.util.function.BiPredicate;
 
 /**
- * Implementation of {@link SeparatorPredicate} for Ninja files.
+ * Implementation of separator predicate for Ninja files.
  *
  * The Ninja token consists of several text lines;
  * if the line is a part of the previous token, it starts with some amount of spaces or tabs.
  * If the line is the beginning of the new token, it starts with non-space symbol.
  */
-public class NinjaSeparatorPredicate implements SeparatorPredicate {
+public class NinjaSeparatorPredicate implements BiPredicate<Byte, Byte> {
   public static final NinjaSeparatorPredicate INSTANCE = new NinjaSeparatorPredicate();
   private final static byte SPACE_BYTE = (byte) (' ' & 0xff);
   private final static byte TAB_BYTE = (byte) ('\t' & 0xff);
@@ -35,30 +33,11 @@ public class NinjaSeparatorPredicate implements SeparatorPredicate {
   }
 
   @Override
-  public Optional<Boolean> isSeparator(byte b, ListIterator<Byte> iterator) {
-    if ('\n' != b) {
-      return Optional.of(false);
-    }
-    if (!iterator.hasNext()) {
-      return Optional.empty();
-    }
-    byte next = iterator.next();
-    iterator.previous();
-    return Optional.of(isNotSpace(next));
+  public boolean test(Byte current, Byte next) {
+    return '\n' == current && isNotSpace(next);
   }
 
   private static boolean isNotSpace(byte aByte) {
     return SPACE_BYTE != aByte && TAB_BYTE != aByte;
-  }
-
-  @Override
-  public boolean splitAdjacent(ListIterator<Byte> leftAtEnd,
-      ListIterator<Byte> rightAtBeginning) {
-    Preconditions.checkState(!leftAtEnd.hasNext());
-    Preconditions.checkState(!rightAtBeginning.hasPrevious());
-    if (!leftAtEnd.hasPrevious() || !rightAtBeginning.hasNext()) {
-      return false;
-    }
-    return '\n' == leftAtEnd.previous() && isNotSpace(rightAtBeginning.next());
   }
 }

@@ -16,26 +16,26 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.function.BiPredicate;
 
 /**
  * Task for tokenizing the contents of the {@link }ByteBufferFragment}
  * (with underlying {@link ByteBuffer}).
- * Intended to be called in parallel for the fragments of the {@link }ByteBuffer} for lexing the
+ * Intended to be called in parallel for the fragments of the {@link ByteBuffer} for lexing the
  * contents into independent logical tokens.
  *
  * {@link ParallelFileProcessing}
  */
-public class BufferTokenizer implements Callable<Void> {
+public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFragment>>> {
   private final ByteBufferFragment bufferFragment;
   private final TokenConsumer consumer;
-  private final SeparatorPredicate separatorPredicate;
+  private final BiPredicate<Byte, Byte> separatorPredicate;
   private final int offset;
-  private final List<ByteBufferFragment> fragments;
+  private final List<Pair<Integer, ByteBufferFragment>> fragments;
 
   /**
    * @param buffer buffer, fragment of which should be tokenized
@@ -47,7 +47,7 @@ public class BufferTokenizer implements Callable<Void> {
    */
   public BufferTokenizer(ByteBuffer buffer,
       TokenConsumer consumer,
-      SeparatorPredicate separatorPredicate,
+      BiPredicate<Byte, Byte> separatorPredicate,
       int offset, int startIncl, int endExcl) {
     bufferFragment = new ByteBufferFragment(buffer, startIncl, endExcl);
     this.consumer = consumer;
@@ -56,43 +56,37 @@ public class BufferTokenizer implements Callable<Void> {
     fragments = Lists.newArrayList();
   }
 
+  /**
+   * Returns the list of pairs (offset from the beginning of the file, fragment) of the
+   * fragments on the bounds of the current fragment, which should be potentially merged with
+   * fragments from the neighbor buffer fragments.
+   *
+   * Combined list of such fragments is passed to {@link TokenAssembler} for merging.
+   */
   @Override
-  public Void call() throws Exception {
+  public List<Pair<Integer, ByteBufferFragment>> call() throws Exception {
     int start = 0;
-    ListIterator<Byte> iterator = bufferFragment.iterator();
-    while (iterator.hasNext()) {
-      Optional<Boolean> isSeparator = separatorPredicate.isSeparator(iterator.next(), iterator);
-      if (isSeparator.isPresent() && !isSeparator.get()) {
+    for (int i = 0; i < bufferFragment.length() - 1; i++) {
+      byte current = bufferFragment.byteAt(i);
+      byte next = bufferFragment.byteAt(i + 1);
+
+      if (!separatorPredicate.test(current, next)) {
         continue;
       }
-      ByteBufferFragment fragment = bufferFragment.subFragment(start, iterator.nextIndex());
-      if (isSeparator.isPresent() && start > 0) {
+      ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 1);
+      if (start > 0) {
         consumer.token(fragment);
       } else {
-        fragments.add(fragment);
+        addFragment(fragment);
       }
-      start = iterator.nextIndex();
+      start = i + 1;
     }
-    if (start < bufferFragment.length()) {
-      fragments.add(bufferFragment.subFragment(start, bufferFragment.length()));
-    }
-    return null;
-  }
-
-  /**
-   * Returns start offset of the underlying ByteBuffer from the beginning of the file
-   */
-  public int getOffset() {
-    return offset;
-  }
-
-  /**
-   * Returns fragments on the bounds of the buffer fragment, where we can not say if it is
-   * a separate token, or a part of a bigger token.
-   * They should be observed together with neighbour fragments from other BufferTokenizers.
-   * {@link TokenAssembler} is solving this problem.
-   */
-  public List<ByteBufferFragment> getFragments() {
+    // There is always at least one byte at the bounds of the fragment.
+    addFragment(bufferFragment.subFragment(start, bufferFragment.length()));
     return fragments;
+  }
+
+  private void addFragment(ByteBufferFragment fragment) {
+    fragments.add(Pair.of(offset + fragment.getStartIncl(), fragment));
   }
 }
