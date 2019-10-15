@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** Helper module for accessing test infrastructure. */
@@ -32,20 +33,19 @@ public interface TestingModuleApi {
           "Creates a new execution info provider. Use this provider to specify special"
               + "environments requirements needed to run tests.",
       parameters = {
-          @Param(
-              name = "requirements",
-              type = SkylarkDict.class,
-              named = false,
-              positional = true,
-              doc =
-                  "A map of string keys and values to indicate special execution requirements,"
-                      + " such as hardware platforms, etc. These keys and values are passed to the"
-                      + " executor of the test action as parameters to configure the execution"
-                      + " environment."
-          )
-      }
-  )
-  public ExecutionInfoApi executionInfo(SkylarkDict<String, String> requirements);
+        @Param(
+            name = "requirements",
+            type = SkylarkDict.class,
+            named = false,
+            positional = true,
+            doc =
+                "A map of string keys and values to indicate special execution requirements,"
+                    + " such as hardware platforms, etc. These keys and values are passed to the"
+                    + " executor of the test action as parameters to configure the execution"
+                    + " environment.")
+      })
+  public ExecutionInfoApi executionInfo(SkylarkDict<?, ?> requirements // <String, String> expected
+      ) throws EvalException;
 
   // TODO(bazel-team): Change this function to be the actual TestEnvironmentInfo.PROVIDER.
   @SkylarkCallable(
@@ -54,16 +54,16 @@ public interface TestingModuleApi {
           "Creates a new test environment provider. Use this provider to specify extra"
               + "environment variables to be made available during test execution.",
       parameters = {
-          @Param(
-              name = "environment",
-              type = SkylarkDict.class,
-              named = false,
-              positional = true,
-              doc =
-                  "A map of string keys and values that represent environment variables and their"
-                      + " values. These will be made available during the test execution."
-          )
-      }
-  )
-  public TestEnvironmentInfoApi testEnvironment(SkylarkDict<String, String> environment);
+        @Param(
+            name = "environment",
+            type = SkylarkDict.class,
+            named = false,
+            positional = true,
+            doc =
+                "A map of string keys and values that represent environment variables and their"
+                    + " values. These will be made available during the test execution.")
+      })
+  public TestEnvironmentInfoApi testEnvironment(
+      SkylarkDict<?, ?> environment // <String, String> expected
+      ) throws EvalException;
 }

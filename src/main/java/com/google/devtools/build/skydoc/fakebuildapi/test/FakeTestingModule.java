@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 public class FakeTestingModule implements TestingModuleApi {
 
   @Override
-  public ExecutionInfoApi executionInfo(SkylarkDict<String, String> requirements) {
+  public ExecutionInfoApi executionInfo(SkylarkDict<?, ?> requirements) {
     return new FakeExecutionInfo();
   }
 
   @Override
-  public TestEnvironmentInfoApi testEnvironment(SkylarkDict<String, String> environment) {
+  public TestEnvironmentInfoApi testEnvironment(SkylarkDict<?, ?> environment) {
     return new FakeTestingEnvironmentInfo();
   }
 }

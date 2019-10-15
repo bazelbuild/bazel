@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.List;
 
 /**
  * A collection of top-level Starlark functions pertaining to configuration.
@@ -104,8 +103,8 @@ public interface ConfigGlobalLibraryApi {
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      List<String> inputs,
-      List<String> outputs,
+      SkylarkList<?> inputs, // <String> expected
+      SkylarkList<?> outputs, // <String> expected
       Location location,
       StarlarkThread thread)
       throws EvalException;
@@ -135,6 +134,8 @@ public interface ConfigGlobalLibraryApi {
       useLocation = true,
       useStarlarkSemantics = true)
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics)
+      SkylarkDict<?, ?> changedSettings, // <String, String> expected
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException;
 }
