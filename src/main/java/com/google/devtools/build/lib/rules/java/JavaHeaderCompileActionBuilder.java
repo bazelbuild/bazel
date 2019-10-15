@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
@@ -87,7 +86,6 @@ public class JavaHeaderCompileActionBuilder {
   private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
   @Nullable private Label targetLabel;
   @Nullable private String injectingRuleKind;
-  private PathFragment tempDirectory;
   private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
   private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
@@ -191,16 +189,6 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the path to a temporary directory, e.g. for extracting sourcejar entries to before
-   * compilation.
-   */
-  public JavaHeaderCompileActionBuilder setTempDirectory(PathFragment tempDirectory) {
-    checkNotNull(tempDirectory, "tempDirectory must not be null");
-    this.tempDirectory = tempDirectory;
-    return this;
-  }
-
   /** Sets the Strict Java Deps mode. */
   public JavaHeaderCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictJavaDeps) {
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
@@ -230,7 +218,6 @@ public class JavaHeaderCompileActionBuilder {
     checkNotNull(sourceJars, "sourceJars must not be null");
     checkNotNull(classpathEntries, "classpathEntries must not be null");
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
-    checkNotNull(tempDirectory, "tempDirectory must not be null");
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
     checkNotNull(directJars, "directJars must not be null");
     checkNotNull(compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
@@ -319,7 +306,6 @@ public class JavaHeaderCompileActionBuilder {
         CustomCommandLine.builder()
             .addExecPath("--output", outputJar)
             .addExecPath("--output_deps", outputDepsProto)
-            .addPath("--temp_dir", tempDirectory)
             .addExecPaths("--bootclasspath", bootclasspathEntries)
             .addExecPaths("--sources", sourceFiles)
             .addExecPaths("--source_jars", sourceJars)

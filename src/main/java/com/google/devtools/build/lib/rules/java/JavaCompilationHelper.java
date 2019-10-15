@@ -395,7 +395,6 @@ public final class JavaCompilationHelper {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }
-    builder.setTempDirectory(tempDir(headerJar, ruleContext.getLabel()));
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
