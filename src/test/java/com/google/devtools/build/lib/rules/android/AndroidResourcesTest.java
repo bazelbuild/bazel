@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -495,13 +496,39 @@ public class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void test_incompatibleUseAapt2ByDefaultEnabled_targetsAapt2() throws Exception {
-    useConfiguration("--incompatible_use_aapt2_by_default");
-    RuleContext ruleContext =
-        getRuleContext(
-            "android_binary", "aapt_version = 'auto',", "manifest = 'AndroidManifest.xml',");
+  public void test_incompatibleProhibitAapt1_targetsAapt2() throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    RuleContext ruleContext = getRuleContext("android_binary", "manifest = 'AndroidManifest.xml',");
     assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
         .isEqualTo(AndroidAaptVersion.AAPT2);
+  }
+
+  @Test
+  public void test_incompatibleProhibitAapt1_aaptVersionAapt_throwsAttributeError()
+      throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    try {
+      getRuleContext(
+          "android_binary", "aapt_version = 'aapt',", "manifest = 'AndroidManifest.xml',");
+      fail("Expected AssertionError");
+    } catch (AssertionError e) {
+      assertThat(e).hasMessageThat().contains("aapt_version");
+      assertThat(e).hasMessageThat().contains("Attribute is no longer supported");
+    }
+  }
+
+  @Test
+  public void test_incompatibleProhibitAapt1_aaptVersionAapt2_throwsAttributeError()
+      throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    try {
+      getRuleContext(
+          "android_binary", "aapt_version = 'aapt2',", "manifest = 'AndroidManifest.xml',");
+      fail("Expected AssertionError");
+    } catch (AssertionError e) {
+      assertThat(e).hasMessageThat().contains("aapt_version");
+      assertThat(e).hasMessageThat().contains("Attribute is no longer supported");
+    }
   }
 
   /**
