@@ -48,8 +48,8 @@ By default, Bazel writes to two directories:
 
 -   The "output user root", configurable with the `--output_user_root` flag.
 
-    This is where Bazel extracts from itself some embedded tools, its own Java runtime, and where it
-    writes some log files.
+    This is where Bazel extracts from itself its embedded tools, its own runtime, and where it
+    writes some log files and some caches.
 
     This is also the default location for the "output base".
   
