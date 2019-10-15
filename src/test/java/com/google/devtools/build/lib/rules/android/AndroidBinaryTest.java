@@ -1097,7 +1097,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceShrinkingAction() throws Exception {
+  public void testResourceShrinkingAction_legacyAapt1() throws Exception {
     useConfiguration("--android_aapt=aapt");
 
     scratch.file(
