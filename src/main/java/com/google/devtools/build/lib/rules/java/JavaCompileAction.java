@@ -467,7 +467,7 @@ public class JavaCompileAction extends AbstractAction
     CustomCommandLine.Builder classpathLine =
         CustomCommandLine.builder().addExecPaths("--classpath", transitiveInputs);
     if (classpathMode == JavaClasspathMode.JAVABUILDER) {
-      classpathLine.add("--reduce_classpath");
+      classpathLine.add("--reduce_classpath_mode", "JAVABUILDER_REDUCED");
       if (!dependencyArtifacts.isEmpty()) {
         classpathLine.addExecPaths("--deps_artifacts", dependencyArtifacts);
       }
