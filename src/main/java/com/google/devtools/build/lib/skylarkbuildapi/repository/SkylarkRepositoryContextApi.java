@@ -193,7 +193,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;

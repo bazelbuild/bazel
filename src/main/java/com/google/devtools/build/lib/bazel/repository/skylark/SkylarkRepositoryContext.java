@@ -295,17 +295,19 @@ public class SkylarkRepositoryContext
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    Map<String, String> substitutionMap =
+        substitutions.getContents(String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newTemplateEvent(
             p.toString(),
             t.toString(),
-            substitutions,
+            substitutionMap,
             executable,
             rule.getLabel().toString(),
             location);
@@ -314,7 +316,7 @@ public class SkylarkRepositoryContext
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
-      for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
+      for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }

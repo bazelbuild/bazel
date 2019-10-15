@@ -98,8 +98,8 @@ public interface WrapCcHelperApi<
       CcToolchainProviderT ccToolchain,
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<CcCompilationContextT> depCcCompilationContexts,
-      SkylarkList<String> targetCopts)
+      SkylarkList<?> depCcCompilationContexts, // <CcCompilationContextT> expected
+      SkylarkList<?> targetCopts /* <String> expected */)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -199,10 +199,10 @@ public interface WrapCcHelperApi<
       CcCompilationContextT wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileT swigSource,
-      SkylarkList<String> subParameters,
+      SkylarkList<?> subParameters, // <String> expected
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<FileT> outputFiles,
+      SkylarkList<?> outputFiles, // <FileT> expected
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,

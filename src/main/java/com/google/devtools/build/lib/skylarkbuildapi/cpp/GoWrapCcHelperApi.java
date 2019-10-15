@@ -159,8 +159,8 @@ public interface GoWrapCcHelperApi<
   public Tuple<FileT> createGoCompileActions(
       SkylarkRuleContextT skylarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
-      SkylarkList<FileT> srcs,
-      SkylarkList<TransitiveInfoCollectionT> deps)
+      SkylarkList<?> srcs, // <FileT> expected
+      SkylarkList<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
   @SkylarkCallable(
@@ -180,8 +180,8 @@ public interface GoWrapCcHelperApi<
   public Tuple<FileT> createGoCompileActionsGopkg(
       SkylarkRuleContextT skylarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
-      SkylarkList<FileT> srcs,
-      SkylarkList<TransitiveInfoCollectionT> deps)
+      SkylarkList<?> srcs, // <FileT> expected
+      SkylarkList<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
   @SkylarkCallable(
