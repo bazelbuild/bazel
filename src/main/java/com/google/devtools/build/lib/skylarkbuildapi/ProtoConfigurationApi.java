@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
               // TODO(yannic): Link to generated docs of `proto_toolchain`.
               // https://github.com/bazelbuild/bazel/issues/9203
               + "<p>Instead, you can access them through proto_toolchain</p>"
-              + "<p>pre class=\"language-python\">\n"
+              + "<p><pre class=\"language-python\">\n"
               + "def _my_rule_impl(ctx):\n"
               + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
               + "\n"
@@ -63,7 +63,7 @@ public interface ProtoConfigurationApi {
                 + "<p><b>Do not use this field directly</b>, its only purpose is to help with "
                 + "migration of Protobuf rules to Starlark.</p>"
                 + "<p>Instead, you can access the value through proto_toolchain</p>"
-                + "<p>pre class=\"language-python\">\n"
+                + "<p><pre class=\"language-python\">\n"
                 + "def _my_rule_impl(ctx):"
                 + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
                 + "    compiler_options = proto_toolchain.compiler_options\n"
@@ -79,7 +79,7 @@ public interface ProtoConfigurationApi {
                 + "<p><b>Do not use this field directly</b>, its only purpose is to help with "
                 + "migration of Protobuf rules to Starlark.</p>"
                 + "<p>Instead, you can access the value through proto_toolchain</p>"
-                + "<p>pre class=\"language-python\">\n"
+                + "<p><pre class=\"language-python\">\n"
                 + "def _my_rule_impl(ctx):"
                 + "    proto_toolchain = ctx.toolchains[\"@rules_proto//proto:toolchain\"]\n"
                 + "    strict_deps = proto_toolchain.strict_deps\n"

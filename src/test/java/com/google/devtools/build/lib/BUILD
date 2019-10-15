@@ -1502,6 +1502,23 @@ java_test(
 )
 
 java_test(
+    name = "ProtoConfigurationTest",
+    srcs = ["rules/proto/ProtoConfigurationTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":guava_junit_truth",
+        ":packages_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+    ],
+)
+
+java_test(
     name = "BazelProtoLibraryTest",
     srcs = ["rules/proto/BazelProtoLibraryTest.java"],
     deps = [

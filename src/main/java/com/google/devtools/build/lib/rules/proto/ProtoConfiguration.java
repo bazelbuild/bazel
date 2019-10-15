@@ -287,7 +287,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   @Override
   public String starlarkStrictDeps() {
     switch (strictProtoDeps()) {
-      case OFF:
+      case OFF:  // fall-through
+      case DEFAULT:
         return "OFF";
 
       case WARN:
@@ -295,11 +296,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
       case ERROR:  // fall-through
       case STRICT:
-      case DEFAULT:
         return "ERROR";
     }
-    Preconditions.checkState(false, "NOTREACHED");
-    return null;
+    throw new IllegalStateException();
   }
 
   public List<String> ccProtoLibraryHeaderSuffixes() {
