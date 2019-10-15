@@ -16,19 +16,9 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,9 +28,6 @@ import org.junit.runners.JUnit4;
 public class ProtoConfigurationTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
-
     scratch.file("proto/BUILD", "cc_binary(name='compiler')");
     scratch.file(
         "proto/defs.bzl",
