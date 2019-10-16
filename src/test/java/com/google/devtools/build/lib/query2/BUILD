@@ -24,6 +24,8 @@ QUERY_TESTUTIL_SRCS = [
     "engine/AbstractQueryTest.java",
     "engine/AbstractQueryHelper.java",
     "engine/SkyframeQueryHelper.java",
+    "PostAnalysisQueryHelper.java",
+    "PostAnalysisQueryTest.java",
 ]
 
 java_library(
@@ -32,6 +34,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -75,7 +78,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
@@ -86,7 +88,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
@@ -96,7 +97,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
