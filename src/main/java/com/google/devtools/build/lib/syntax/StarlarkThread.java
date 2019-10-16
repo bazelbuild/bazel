@@ -147,17 +147,16 @@ public final class StarlarkThread implements Freezable {
      * <p>If the binding has the same name as one in a transitive parent, the parent binding is
      * shadowed (i.e., the parent is unaffected).
      *
-     * @param thread the {@link StarlarkThread} attempting the mutation
      * @param varname the name of the variable to be bound
      * @param value the value to bind to the variable
      */
-    void put(StarlarkThread thread, String varname, Object value) throws MutabilityException;
+    void put(String varname, Object value) throws MutabilityException;
 
     /**
      * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
      * public interface.
      */
-    void remove(StarlarkThread thread, String varname) throws MutabilityException;
+    void remove(String varname) throws MutabilityException;
 
     /**
      * Returns a map containing all bindings of this {@link Frame} and of its transitive parents,
@@ -197,15 +196,14 @@ public final class StarlarkThread implements Freezable {
     }
 
     @Override
-    public void put(StarlarkThread thread, String varname, Object value)
-        throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void put(String varname, Object value) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       throw new IllegalStateException();
     }
 
     @Override
-    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void remove(String varname) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       throw new IllegalStateException();
     }
 
@@ -247,15 +245,14 @@ public final class StarlarkThread implements Freezable {
     }
 
     @Override
-    public void put(StarlarkThread thread, String varname, Object value)
-        throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void put(String varname, Object value) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       bindings.put(varname, value);
     }
 
     @Override
-    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void remove(String varname) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       bindings.remove(varname);
     }
 
@@ -750,7 +747,7 @@ public final class StarlarkThread implements Freezable {
   /** Remove variable from local bindings. */
   void removeLocalBinding(String varname) {
     try {
-      lexicalFrame.remove(this, varname);
+      lexicalFrame.remove(varname);
     } catch (MutabilityException e) {
       throw new AssertionError(e);
     }
@@ -795,7 +792,7 @@ public final class StarlarkThread implements Freezable {
   public StarlarkThread update(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
-      lexicalFrame.put(this, varname, value);
+      lexicalFrame.put(varname, value);
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
       // end users should never be able to mutate a frozen StarlarkThread, and a MutabilityException
@@ -812,9 +809,9 @@ public final class StarlarkThread implements Freezable {
   void updateInternal(String name, @Nullable Object value) {
     try {
       if (value != null) {
-        lexicalFrame.put(this, name, value);
+        lexicalFrame.put(name, value);
       } else {
-        lexicalFrame.remove(this, name);
+        lexicalFrame.remove(name);
       }
     } catch (MutabilityException ex) {
       throw new IllegalStateException(ex);

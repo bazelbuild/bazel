@@ -308,16 +308,16 @@ public final class Module implements StarlarkThread.Frame, ValidationEnvironment
   }
 
   @Override
-  public void put(StarlarkThread thread, String varname, Object value) throws MutabilityException {
+  public void put(String varname, Object value) throws MutabilityException {
     checkInitialized();
-    Mutability.checkMutable(this, thread.mutability());
+    Mutability.checkMutable(this, mutability());
     bindings.put(varname, value);
   }
 
   @Override
-  public void remove(StarlarkThread thread, String varname) throws MutabilityException {
+  public void remove(String varname) throws MutabilityException {
     checkInitialized();
-    Mutability.checkMutable(this, thread.mutability());
+    Mutability.checkMutable(this, mutability());
     bindings.remove(varname);
   }
 
