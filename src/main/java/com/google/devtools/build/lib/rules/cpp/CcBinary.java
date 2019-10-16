@@ -430,8 +430,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcLinkingContext depsCcLinkingContext = collectCcLinkingContext(ruleContext);
 
     Artifact generatedDefFile = null;
-    Artifact customDefFile = null;
-    Artifact trivialDefFile = null;
+    Artifact customDefFile;
+    Artifact winDefFile = null;
     if (isLinkShared(ruleContext)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
@@ -459,7 +459,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   ruleContext, defParser, objectFiles.build(), binary.getFilename());
         }
         customDefFile = common.getWinDefFile();
-        trivialDefFile = CppHelper.createTrivialDefFileAction(ruleContext);
+        winDefFile = CppHelper.getWindowsDefFileForLinking(ruleContext, customDefFile, generatedDefFile, featureConfiguration);
       }
     }
 
@@ -509,9 +509,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppConfiguration,
             linkType,
             pdbFile,
-            generatedDefFile,
-            customDefFile,
-            trivialDefFile);
+            winDefFile);
 
     CcLinkingOutputs ccLinkingOutputsBinary = ccLinkingOutputsAndCcLinkingInfo.first;
 
@@ -700,9 +698,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppConfiguration cppConfiguration,
       LinkTargetType linkType,
       Artifact pdbFile,
-      Artifact generatedDefFile,
-      Artifact customDefFile,
-      Artifact trivialDefFile)
+      Artifact winDefFile)
       throws InterruptedException, RuleErrorException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder =
         CcCompilationOutputs.builder()
@@ -827,17 +823,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setPdbFile(pdbFile)
         .setFake(fake);
 
-    // 1. If a custom DEF file is specified in win_def_file attribute, use it.
-    // 2. If the windows_export_all_symbols feature is enabled, parse object files to
-    //    generate DEF file and use it to export symbols - if we have a parser.
-    // 3. Otherwise, we use a trivial DEF file to ensure the import library will be generated.
-    if (customDefFile != null) {
-      ccLinkingHelper.setDefFile(customDefFile);
-    } else if (generatedDefFile != null && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-      ccLinkingHelper.setDefFile(generatedDefFile);
-    } else {
-      ccLinkingHelper.setDefFile(trivialDefFile);
-    }
+    ccLinkingHelper.setDefFile(winDefFile);
 
     return Pair.of(
         ccLinkingHelper.link(ccCompilationOutputsWithOnlyObjects),
