@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerS
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -555,9 +553,6 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      // TODO(elenairina): Remove this and its usage in lcov_merger. Note it requires syncing
-      // between the blaze release and the lcov_merger release.
-      env.put("NEW_JAVA_COVERAGE_IMPL", "released");
     }
   }
 
@@ -751,26 +746,15 @@ public class TestRunnerAction extends AbstractAction
     try {
       TestRunnerSpawn testRunnerSpawn =
           testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
-      TestAttemptContinuation beginContinuation =
-          new TestAttemptContinuation() {
-            @Nullable
-            @Override
-            public ListenableFuture<?> getFuture() {
-              return null;
-            }
-
-            @Override
-            public TestAttemptContinuation execute()
-                throws InterruptedException, IOException, ExecException {
-              return testRunnerSpawn.beginExecution();
-            }
-          };
+      TestAttemptContinuation beginContinuation = testRunnerSpawn.beginExecution();
       RunAttemptsContinuation continuation =
           new RunAttemptsContinuation(
               testRunnerSpawn, beginContinuation, testActionContext.isTestKeepGoing());
-      return continuation.execute();
+      return continuation;
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e).toActionExecutionException(this);
     }
   }
 
@@ -948,7 +932,6 @@ public class TestRunnerAction extends AbstractAction
         int maxAttempts,
         List<SpawnResult> spawnResults,
         List<FailedAttemptResult> failedAttempts) {
-      Preconditions.checkArgument(!testContinuation.isDone());
       this.testRunnerSpawn = testRunnerSpawn;
       this.testContinuation = testContinuation;
       this.keepGoing = keepGoing;
@@ -998,59 +981,41 @@ public class TestRunnerAction extends AbstractAction
     }
 
     private ActionContinuationOrResult process(TestAttemptResult result, int actualMaxAttempts)
-        throws ActionExecutionException, InterruptedException {
-      try {
-        spawnResults.addAll(result.spawnResults());
-        if (!result.hasPassed()) {
-          boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
-          TestRunnerSpawn nextRunner;
-          if (runAnotherAttempt) {
-            nextRunner = testRunnerSpawn;
-          } else {
-            nextRunner = testRunnerSpawn.getFallbackRunner();
-            if (nextRunner != null) {
-              // We only support one level of fallback, in which case this gets doubled once. We
-              // don't support a different number of max attempts for the fallback strategy.
-              actualMaxAttempts = 2 * actualMaxAttempts;
-            }
-          }
+        throws ExecException, IOException, InterruptedException {
+      spawnResults.addAll(result.spawnResults());
+      if (!result.hasPassed()) {
+        boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
+        TestRunnerSpawn nextRunner;
+        if (runAnotherAttempt) {
+          nextRunner = testRunnerSpawn;
+        } else {
+          nextRunner = testRunnerSpawn.getFallbackRunner();
           if (nextRunner != null) {
-            failedAttempts.add(
-                testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
-
-            TestAttemptContinuation nextContinuation = nextRunner.beginExecution();
-            if (nextContinuation.isDone()) {
-              // This avoids unnecessary creation of RunAttemptsContinuation objects, but does a
-              // recursive call in exchange. We don't allow more than 10 flaky attempts, so that
-              // should be fine.
-              return process(nextContinuation.get(), actualMaxAttempts);
-            }
-            return new RunAttemptsContinuation(
-                nextRunner,
-                nextContinuation,
-                keepGoing,
-                actualMaxAttempts,
-                spawnResults,
-                failedAttempts);
+            // We only support one level of fallback, in which case this gets doubled once. We
+            // don't support a different number of max attempts for the fallback strategy.
+            actualMaxAttempts = 2 * actualMaxAttempts;
           }
         }
-        testRunnerSpawn.finalizeTest(result, failedAttempts);
+        if (nextRunner != null) {
+          failedAttempts.add(
+              testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
 
-        if (!keepGoing && !result.hasPassed()) {
-          throw new TestExecException("Test failed: aborting");
+          TestAttemptContinuation nextContinuation = nextRunner.beginExecution();
+          return new RunAttemptsContinuation(
+              nextRunner,
+              nextContinuation,
+              keepGoing,
+              actualMaxAttempts,
+              spawnResults,
+              failedAttempts);
         }
-        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
-      } catch (ExecException e) {
-        throw e.toActionExecutionException(TestRunnerAction.this);
-      } catch (IOException e) {
-        // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-        // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-        testRunnerSpawn
-            .getActionExecutionContext()
-            .getEventHandler()
-            .handle(Event.error(Throwables.getStackTraceAsString(e)));
-        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
       }
+      testRunnerSpawn.finalizeTest(result, failedAttempts);
+
+      if (!keepGoing && !result.hasPassed()) {
+        throw new TestExecException("Test failed: aborting");
+      }
+      return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
   }
 }

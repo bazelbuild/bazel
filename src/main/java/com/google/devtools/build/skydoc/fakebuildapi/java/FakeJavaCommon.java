@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
 /** Fake implementation of {@link JavaCommonApi}. */
@@ -48,25 +48,25 @@ public class FakeJavaCommon
   @Override
   public FakeJavaInfo createJavaCompileAction(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<FileApi> sourceJars,
-      SkylarkList<FileApi> sourceFiles,
+      SkylarkList<?> sourceJars,
+      SkylarkList<?> sourceFiles,
       FileApi outputJar,
       Object outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<FakeJavaInfo> deps,
-      SkylarkList<FakeJavaInfo> exports,
-      SkylarkList<FakeJavaInfo> plugins,
-      SkylarkList<FakeJavaInfo> exportedPlugins,
-      SkylarkList<FileApi> annotationProcessorAdditionalInputs,
-      SkylarkList<FileApi> annotationProcessorAdditionalOutputs,
+      SkylarkList<?> javacOpts,
+      SkylarkList<?> deps,
+      SkylarkList<?> exports,
+      SkylarkList<?> plugins,
+      SkylarkList<?> exportedPlugins,
+      SkylarkList<?> annotationProcessorAdditionalInputs,
+      SkylarkList<?> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
-      SkylarkList<FileApi> sourcepathEntries,
-      SkylarkList<FileApi> resources,
+      SkylarkList<?> sourcepathEntries,
+      SkylarkList<?> resources,
       Boolean neverlink,
       Location loc,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     return new FakeJavaInfo();
   }
@@ -99,8 +99,8 @@ public class FakeJavaCommon
   public FileApi packSources(
       SkylarkActionFactoryApi actions,
       FileApi outputJar,
-      SkylarkList<FileApi> sourceFiles,
-      SkylarkList<FileApi> sourceJars,
+      SkylarkList<?> sourceFiles,
+      SkylarkList<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
       Location location,
@@ -116,7 +116,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public FakeJavaInfo mergeJavaProviders(SkylarkList<FakeJavaInfo> providers) {
+  public FakeJavaInfo mergeJavaProviders(SkylarkList<?> providers) {
     return new FakeJavaInfo();
   }
 
@@ -146,7 +146,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, SkylarkList<String> constraints) {
+  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, SkylarkList<?> constraints) {
     return new FakeJavaInfo();
   }
 
@@ -162,7 +162,7 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo addCompileTimeJavaDependencyArtifacts(
-      FakeJavaInfo javaInfo, SkylarkList<FileApi> compileTimeJavaDependencyArtifacts) {
+      FakeJavaInfo javaInfo, SkylarkList<?> compileTimeJavaDependencyArtifacts) {
     return new FakeJavaInfo();
   }
 

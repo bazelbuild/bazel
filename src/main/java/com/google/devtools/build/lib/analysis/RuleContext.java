@@ -92,10 +92,10 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -1607,7 +1607,9 @@ public final class RuleContext extends TargetContext
       if (configuration.allowAnalysisFailures()) {
         reporter = new SuppressingErrorReporter();
       } else {
-        reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
+        reporter =
+            new ErrorReporter(
+                env, target.getAssociatedRule(), configuration, getRuleClassNameForLogging());
       }
     }
 
@@ -2124,19 +2126,30 @@ public final class RuleContext extends TargetContext
   private static final class ErrorReporter extends EventHandlingErrorReporter
       implements RuleErrorConsumer {
     private final Rule rule;
+    private final BuildConfiguration configuration;
 
-    ErrorReporter(AnalysisEnvironment env, Rule rule, String ruleClassNameForLogging) {
+    ErrorReporter(
+        AnalysisEnvironment env,
+        Rule rule,
+        BuildConfiguration configuration,
+        String ruleClassNameForLogging) {
       super(ruleClassNameForLogging, env);
       this.rule = rule;
+      this.configuration = configuration;
     }
 
     @Override
-    protected String getMacroMessageAppendix(String attrName) {
+    protected String getMacroMessageAppendix(String unusedAttrName) {
+      // TODO(b/141234726):  Historically this reported the location
+      // of the rule attribute in the macro call (assuming no **kwargs),
+      // but we no longer locations for individual attributes.
+      // We should record the instantiation call stack in each rule
+      // and report the position of its topmost frame here.
       return rule.wasCreatedByMacro()
           ? String.format(
               ". Since this rule was created by the macro '%s', the error might have been "
-                  + "caused by the macro implementation in %s",
-              getGeneratorFunction(), rule.getAttributeLocationWithoutMacro(attrName))
+                  + "caused by the macro implementation",
+              getGeneratorFunction())
           : "";
     }
 
@@ -2150,13 +2163,13 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    protected Location getRuleLocation() {
-      return rule.getLocation();
+    protected BuildConfiguration getConfiguration() {
+      return configuration;
     }
 
     @Override
-    protected Location getAttributeLocation(String attrName) {
-      return rule.getAttributeLocation(attrName);
+    protected Location getRuleLocation() {
+      return rule.getLocation();
     }
   }
 

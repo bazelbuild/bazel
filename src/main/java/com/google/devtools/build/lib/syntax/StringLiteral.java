@@ -30,23 +30,55 @@ public final class StringLiteral extends Expression {
     return value;
   }
 
-  @Override
-  Object doEval(Environment env) {
-    return value;
-  }
-
-  // TODO(adonovan): lock down, after removing last use in skyframe serialization.
-  public StringLiteral(String value) {
+  StringLiteral(String value) {
     this.value = value;
   }
 
   @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(Printer.repr(value));
+  public void prettyPrint(Appendable buf) throws IOException {
+    // TODO(adonovan): record the raw text of string (and integer) literals
+    // so that we can use the syntax tree for source modification tools.
+    // However, that may come with a memory cost until we start compiling
+    // (at which point the cost is only transient).
+    // For now, just simulate the behavior of repr(str).
+    buf.append('"');
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      switch (c) {
+        case '"':
+          buf.append("\\\"");
+          break;
+        case '\\':
+          buf.append("\\\\");
+          break;
+        case '\r':
+          buf.append("\\r");
+          break;
+        case '\n':
+          buf.append("\\n");
+          break;
+        case '\t':
+          buf.append("\\t");
+          break;
+        default:
+          // The Starlark spec (and lexer) are far from complete here,
+          // and it's hard to come up with a clean semantics for
+          // string escapes that serves Java (UTF-16) and Go (UTF-8).
+          // Clearly string literals should not contain non-printable
+          // characters. For now we'll continue to pretend that all
+          // non-printables are < 32, but this obviously false.
+          if (c < 32) {
+            buf.append(String.format("\\x%02x", (int) c));
+          } else {
+            buf.append(c);
+          }
+      }
+    }
+    buf.append('"');
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

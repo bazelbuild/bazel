@@ -20,11 +20,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -75,12 +76,12 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -92,8 +93,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
@@ -291,12 +291,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object buildSetting,
       Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
+    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "rule", ast.getLocation());
 
-    BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
+    BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 
@@ -331,7 +330,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
             new StarlarkCallbackHelper(
-                (StarlarkFunction) implicitOutputs, ast, funcallEnv.getSemantics(), bazelContext);
+                (StarlarkFunction) implicitOutputs, ast, thread.getSemantics(), bazelContext);
         builder.setImplicitOutputsFunction(
             new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
       } else {
@@ -357,15 +356,13 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             hostFragments.getContents(String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
+        (Label) thread.getGlobals().getLabel(), thread.getTransitiveContentHashCode());
 
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping = ImmutableMap.of();
-    if (context instanceof BazelStarlarkContext) {
-      repoMapping = ((BazelStarlarkContext) context).getRepoMapping();
-    }
     builder.addRequiredToolchains(
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping));
+            toolchains.getContents(String.class, "toolchains"),
+            ast.getLocation(),
+            bazelContext.getRepoMapping()));
 
     if (!buildSetting.equals(Runtime.NONE) && !cfg.equals(Runtime.NONE)) {
       throw new EvalException(
@@ -407,7 +404,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           collectConstraintLabels(
               execCompatibleWith.getContents(String.class, "exec_compatile_with"),
               ast.getLocation(),
-              repoMapping));
+              bazelContext.getRepoMapping()));
     }
 
     if (executionPlatformConstraintsAllowed) {
@@ -500,9 +497,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
-      FuncallExpression ast,
-      Environment funcallEnv,
-      StarlarkContext context)
+      Boolean applyToGeneratingRules,
+      FuncallExpression ast, // just for getLocation(); TODO(adonovan): simplify
+      StarlarkThread thread)
       throws EvalException {
     Location location = ast.getLocation();
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
@@ -579,10 +576,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 EvalUtils.getDataTypeName(o, true)));
       }
     }
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping = ImmutableMap.of();
-    if (context instanceof BazelStarlarkContext) {
-      repoMapping = ((BazelStarlarkContext) context).getRepoMapping();
-    }
     return new SkylarkDefinedAspect(
         implementation,
         attrAspects.build(),
@@ -595,7 +588,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"), ast.getLocation(), repoMapping));
+            toolchains.getContents(String.class, "toolchains"),
+            ast.getLocation(),
+            BazelStarlarkContext.from(thread).getRepoMapping()),
+        applyToGeneratingRules);
   }
 
   /**
@@ -642,12 +638,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     @Override
-    public Object call(Object[] args, FuncallExpression ast, Environment env)
+    public Object call(Object[] args, FuncallExpression astForLocation, StarlarkThread thread)
         throws EvalException, InterruptedException, ConversionException {
-      SkylarkUtils.checkLoadingPhase(env, getName(), ast.getLocation());
+      Location loc = astForLocation.getLocation();
+      SkylarkUtils.checkLoadingPhase(thread, getName(), loc);
       if (ruleClass == null) {
-        throw new EvalException(
-            ast.getLocation(), "Invalid rule class hasn't been exported by a bzl file");
+        throw new EvalException(loc, "Invalid rule class hasn't been exported by a bzl file");
       }
 
       for (Attribute attribute : ruleClass.getAttributes()) {
@@ -670,23 +666,18 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
-        PackageContext pkgContext = env.getThreadLocal(PackageContext.class);
+        PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
         if (pkgContext == null) {
           throw new EvalException(
-              ast.getLocation(),
+              loc,
               "Cannot instantiate a rule when loading a .bzl file. "
                   + "Rules may be instantiated only in a BUILD thread.");
         }
         RuleFactory.createAndAddRule(
-            pkgContext,
-            ruleClass,
-            attributeValues,
-            ast,
-            env,
-            pkgContext.getAttributeContainerFactory().apply(ruleClass));
+            pkgContext, ruleClass, attributeValues, loc, thread, new AttributeContainer(ruleClass));
         return Runtime.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(loc, e.getMessage());
       }
     }
 
@@ -799,27 +790,73 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   @Override
   public Label label(
-      String labelString,
-      Boolean relativeToCallerRepository,
-      Location loc,
-      Environment env,
-      StarlarkContext context)
+      String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
       throws EvalException {
+    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
 
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+    // This function is surprisingly complex.
+    //
+    // Doc:
+    // "When relative_to_caller_repository is True and the calling thread is a
+    // rule's implementation function, then a repo-relative label //foo:bar is
+    // resolved relative to the rule's repository. For calls to Label from any
+    // other thread, or calls in which the relative_to_caller_repository flag is
+    // False, a repo-relative label is resolved relative to the file in which the
+    // Label() call appears.)"
+    //
+    // - The "and" conjunction in first line of the doc above doesn't match the code.
+    //   There are three cases to consider, not two, as parentLabel can be null or
+    //   in the relativeToCallerRepository branch.
+    //   Thus in a loading phase thread with relativeToCallerRepository=True,
+    //   the repo mapping is (I suspect) erroneously skipped.
+    //   TODO(adonovan): verify, and file a doc bug if so.
+    //
+    // - The deprecated relative_to_caller_repository semantics can be explained
+    //   as thread-local state, something we've embraced elsewhere in the build language.
+    //   (For example, in the loading phase, calling cc_binary creates a rule in the
+    //   package associated with the calling thread.)
+    //
+    //   By contrast, the default relative_to_caller_repository=False semantics
+    //   are more magical, using dynamic scope: introspection on the call stack.
+    //   This is an obstacle to removing GlobalFrame.
+    //
+    //   An alternative way to implement that would be to say that each BUILD/.bzl file
+    //   has its own function value called Label that is a closure over the current
+    //   file label. (That would mean that if you export the Label function from a.bzl
+    //   file and load it into b.bzl, it would behave differently from the Label function
+    //   predeclared in b.bzl, so the choice of implementation strategy is observable.
+    //   However this case is not important in practice.)
+    //   TODO(adonovan): use this alternative implementation.
+    //
+    // - Logically all we really need from this process is a RepoID, not a Label
+    //   or PackageID, but the Label class doesn't yet have the necessary primitives.
+    //   TODO(adonovan): augment the Label class.
+    //
+    // - When repository mapping does occur, the result is converted back to a string
+    //   "unambiguous" canonical form and then parsed again by the cache, with
+    //   no repo mapping.
+    //   TODO(adonovan): augment the Label class so that we can validate, remap,
+    //   and cache without needing four allocations (parseAbsoluteLabel,
+    //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
+    //   in labelCache)
 
     Label parentLabel;
     if (relativeToCallerRepository) {
-      parentLabel = env.getCallerLabel();
+      // This is the label of the rule, if this is an analysis-phase
+      // rule or aspect implementation thread, or null otherwise.
+      parentLabel = context.getAnalysisRuleLabel();
     } else {
-      parentLabel = env.getGlobals().getLabel();
+      // This is the label of the BUILD/.bzl file on the top of the current call stack.
+      // (Function enter/exit changes getGlobals.)
+      parentLabel = (Label) thread.getGlobals().getLabel();
     }
+
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);
         labelString =
             parentLabel
-                .getRelativeWithRemapping(labelString, bazelStarlarkContext.getRepoMapping())
+                .getRelativeWithRemapping(labelString, context.getRepoMapping())
                 .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);

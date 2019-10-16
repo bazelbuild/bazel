@@ -58,6 +58,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
   /**
    * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
    *
+   * @param dependencyInfo The provenance (in terms of Bazel relationship) of the data
    * @param inPath The path to the serialized protocol buffer.
    * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt; {@link
    *     DataValue}.
@@ -65,7 +66,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
    *     proto buffer.
    */
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers) {
+  public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (InputStream in = Files.newInputStream(inPath, StandardOpenOption.READ)) {
       FileSystem currentFileSystem = inPath.getFileSystem();
@@ -103,7 +104,8 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     }
 
     // Read back the sources table.
-    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
+    DataSourceTable sourceTable =
+        DataSourceTable.read(DependencyInfo.UNKNOWN, in, currentFileSystem, header);
 
     // TODO(corysmith): Make this a lazy read of the values.
     for (Map.Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {

@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
 @SkylarkModule(
@@ -70,14 +70,17 @@ public interface AndroidDataProcessingApi<
                 "Defaults to False. If true, assets will not be exposed to targets that depend on"
                     + " them.")
       },
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Creates an AndroidAssetsInfoApi from this target's asset dependencies, ignoring local"
               + " assets. No processing will be done. This method is deprecated and exposed only"
               + " for backwards-compatibility with existing behavior.",
       documented = false)
   AndroidAssetsInfoT assetsFromDeps(
-      SkylarkList<AndroidAssetsInfoT> deps, boolean neverlink, Environment env);
+      SkylarkList<?> deps, // <AndroidAssetsInfoT>
+      boolean neverlink,
+      StarlarkThread thread)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "resources_from_deps",
@@ -122,7 +125,7 @@ public interface AndroidDataProcessingApi<
             doc = "The Android application package to stamp the manifest with."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Creates an AndroidResourcesInfoApi from this target's resource dependencies, ignoring"
               + " local resources. Only processing of deps will be done. This method is deprecated"
@@ -132,12 +135,12 @@ public interface AndroidDataProcessingApi<
       documented = false)
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
-      SkylarkList<AndroidResourcesInfoT> deps,
-      SkylarkList<AndroidAssetsInfoT> assets,
+      SkylarkList<?> deps, // <AndroidResourcesInfoT>
+      SkylarkList<?> assets, // <AndroidAssetsInfoT>
       boolean neverlink,
       String customPackage,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -181,7 +184,7 @@ public interface AndroidDataProcessingApi<
                     + " inherited."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc = "Stamps a manifest with package information.",
       documented = false)
   AndroidManifestInfoT stampAndroidManifest(
@@ -190,7 +193,7 @@ public interface AndroidDataProcessingApi<
       Object customPackage,
       boolean exported,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -244,7 +247,7 @@ public interface AndroidDataProcessingApi<
                     + " targets that depend on this one.")
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Merges this target's assets together with assets inherited from dependencies. Note that,"
               + " by default, actions for validating the merge are created but may not be called."
@@ -255,10 +258,10 @@ public interface AndroidDataProcessingApi<
       AndroidDataContextT ctx,
       Object assets,
       Object assetsDir,
-      SkylarkList<AndroidAssetsInfoT> deps,
+      SkylarkList<?> deps, // <AndroidAssetsInfoT>
       boolean neverlink,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -316,7 +319,7 @@ public interface AndroidDataProcessingApi<
                     + " resources."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Merges this target's resources together with resources inherited from dependencies."
               + " Returns a dict of provider type to actual info, with elements for"
@@ -331,12 +334,12 @@ public interface AndroidDataProcessingApi<
   ValidatedAndroidDataT mergeRes(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
-      SkylarkList<AndroidResourcesInfoT> deps,
+      SkylarkList<?> resources, // <TransitiveInfoCollectionT>
+      SkylarkList<?> deps, // <AndroidResourcesInfoT>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -394,7 +397,7 @@ public interface AndroidDataProcessingApi<
                     + " resources."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Merges this target's resources together with resources inherited from dependencies."
               + " Returns a dict of provider type to actual info, with elements for"
@@ -408,12 +411,12 @@ public interface AndroidDataProcessingApi<
   SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
-      SkylarkList<AndroidResourcesInfoT> deps,
+      SkylarkList<?> resources, // <TransitiveInfoCollectionT>
+      SkylarkList<?> deps, // <AndroidResourcesInfoT>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -485,8 +488,8 @@ public interface AndroidDataProcessingApi<
       AndroidResourcesInfoT resourcesInfo,
       AndroidAssetsInfoT assetsInfo,
       FileT libraryClassJar,
-      SkylarkList<FileT> localProguardSpecs,
-      SkylarkList<AndroidLibraryAarInfoT> deps,
+      SkylarkList<?> localProguardSpecs, // <FileT>
+      SkylarkList<?> deps, // <AndroidLibraryAarInfoT>
       boolean neverlink)
       throws EvalException, InterruptedException;
 
@@ -533,8 +536,8 @@ public interface AndroidDataProcessingApi<
       SpecialFileT resources,
       SpecialFileT assets,
       FileT androidManifest,
-      SkylarkList<TransitiveInfoCollectionT> deps)
-      throws InterruptedException;
+      SkylarkList<?> deps /* <TransitiveInfoCollectionT> */)
+      throws InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "process_local_test_data",
@@ -635,7 +638,7 @@ public interface AndroidDataProcessingApi<
             doc = "A list of file extensions to leave uncompressed in the resource apk.")
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.",
@@ -643,16 +646,16 @@ public interface AndroidDataProcessingApi<
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
+      SkylarkList<?> resources, // <TransitiveInfoCollectionT>
       Object assets,
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
       SkylarkDict<String, String> manifestValues,
-      SkylarkList<TransitiveInfoCollectionT> deps,
-      SkylarkList<String> noCompressExtensions,
+      SkylarkList<?> deps, // <TransitiveInfoCollectionT>
+      SkylarkList<?> noCompressExtensions, // <String>
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -716,7 +719,7 @@ public interface AndroidDataProcessingApi<
                     + " supported."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Returns a wrapper object containing various settings shared across multiple methods for"
               + " processing binary data.",
@@ -724,12 +727,12 @@ public interface AndroidDataProcessingApi<
   AndroidBinaryDataSettingsApi makeBinarySettings(
       AndroidDataContextT ctx,
       Object shrinkResources,
-      SkylarkList<String> resourceConfigurationFilters,
-      SkylarkList<String> densities,
-      SkylarkList<String> noCompressExtensions,
+      SkylarkList<?> resourceConfigurationFilters, // <String>
+      SkylarkList<?> densities, // <String>
+      SkylarkList<?> noCompressExtensions, // <String>
       String aaptVersionString,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -849,26 +852,26 @@ public interface AndroidDataProcessingApi<
                     + " resources."),
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Processes resources, assets, and manifests for android_binary and returns the"
               + " appropriate providers.",
       documented = false)
   AndroidBinaryDataInfoT processBinaryData(
       AndroidDataContextT ctx,
-      SkylarkList<TransitiveInfoCollectionT> resources,
+      SkylarkList<?> resources, // <TransitiveInfoCollectionT>
       Object assets,
       Object assetsDir,
       Object manifest,
       Object customPackage,
-      SkylarkDict<String, String> manifestValues,
-      SkylarkList<TransitiveInfoCollectionT> deps,
+      SkylarkDict<?, ?> manifestValues, // <String, String>
+      SkylarkList<?> deps, // <TransitiveInfoCollectionT>
       String manifestMerger,
       Object maybeSettings,
       boolean crunchPng,
       boolean dataBindingEnabled,
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -940,7 +943,7 @@ public interface AndroidDataProcessingApi<
                     + " is controlled by Java configuration.")
       },
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
               + " proguarding.",
@@ -951,11 +954,11 @@ public interface AndroidDataProcessingApi<
       FileT proguardOutputJar,
       FileT proguardMapping,
       Object maybeSettings,
-      SkylarkList<TransitiveInfoCollectionT> deps,
-      SkylarkList<TransitiveInfoCollectionT> localProguardSpecs,
-      SkylarkList<TransitiveInfoCollectionT> extraProguardSpecs,
+      SkylarkList<?> deps, // <TransitiveInfoCollectionT>
+      SkylarkList<?> localProguardSpecs, // <TransitiveInfoCollectionT>
+      SkylarkList<?> extraProguardSpecs, // <TransitiveInfoCollectionT>
       Location location,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

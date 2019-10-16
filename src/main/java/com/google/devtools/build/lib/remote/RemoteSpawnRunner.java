@@ -125,7 +125,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       String buildRequestId,
       String commandId,
       GrpcRemoteCache remoteCache,
-      @Nullable GrpcRemoteExecutor remoteExecutor,
+      GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
       Path logDir,
@@ -135,7 +135,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.executionOptions = executionOptions;
     this.fallbackRunner = fallbackRunner;
     this.remoteCache = Preconditions.checkNotNull(remoteCache, "remoteCache");
-    this.remoteExecutor = remoteExecutor;
+    this.remoteExecutor = Preconditions.checkNotNull(remoteExecutor, "remoteExecutor");
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
     this.buildRequestId = buildRequestId;
@@ -178,11 +178,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             commandHash, merkleTree.getRootDigest(), context.getTimeout(), spawnCacheableRemotely);
     ActionKey actionKey = digestUtil.computeActionKey(action);
 
-    if (!Spawns.mayBeExecutedRemotely(spawn)) {
-      return execLocallyAndUpload(
-          spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
-    }
-
+    Preconditions.checkArgument(
+        Spawns.mayBeExecutedRemotely(spawn), "Spawn can't be executed remotely. This is a bug.");
     // Look up action cache, and reuse the action output if it is found.
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
@@ -215,12 +212,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
       } catch (IOException e) {
         return execLocallyAndUploadOrFail(
             spawn, context, inputMap, actionKey, action, command, uploadLocalResults, e);
-      }
-
-      if (remoteExecutor == null) {
-        // Remote execution is disabled and so execute the spawn on the local machine.
-        return execLocallyAndUpload(
-            spawn, context, inputMap, actionKey, action, command, uploadLocalResults);
       }
 
       ExecuteRequest.Builder requestBuilder =

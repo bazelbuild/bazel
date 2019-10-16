@@ -100,6 +100,8 @@ public class DataResourceXml implements DataResource {
           String attributeName =
               attribute.getName().getNamespaceURI().isEmpty()
                   ? attribute.getName().getLocalPart()
+                  // This is intentionally putting the "package" in the wrong place!
+                  // TODO: FullyQualifiedName.Factory#create has a overload which accepts "package".
                   : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
           FullyQualifiedName fqn =
               fqnFactory.create(VirtualType.RESOURCES_ATTRIBUTE, attribute.getName().toString());
@@ -343,7 +345,7 @@ public class DataResourceXml implements DataResource {
 
   public static DataResourceXml createWithNamespaces(
       Path sourcePath, XmlResourceValue xml, Namespaces namespaces) {
-    return createWithNamespaces(DataSource.of(sourcePath), xml, namespaces);
+    return createWithNamespaces(DataSource.of(DependencyInfo.UNKNOWN, sourcePath), xml, namespaces);
   }
 
   @Override
@@ -384,7 +386,7 @@ public class DataResourceXml implements DataResource {
 
   @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    xml.writeResourceToClass(key, sink);
+    xml.writeResourceToClass(source().getDependencyInfo(), key, sink);
   }
 
   @Override

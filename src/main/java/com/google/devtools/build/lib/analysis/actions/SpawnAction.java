@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -289,7 +290,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * if the subprocess execution returns normally, not in case of errors (non-zero exit,
    * setup/network failures, etc.).
    */
-  protected void afterExecute(ActionExecutionContext actionExecutionContext) throws IOException {}
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws IOException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(
@@ -305,13 +308,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
     }
-    // This construction ensures that beginExecution and execute are called with identical exception
-    // handling, pre-processing, and post-processing, at the expense of two throwaway objects.
-    SpawnActionContinuation continuation =
-        new SpawnActionContinuation(
-            actionExecutionContext,
-            SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext));
-    return continuation.execute();
+    SpawnContinuation spawnContinuation =
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, actionExecutionContext);
+    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private ActionExecutionException toActionExecutionException(
@@ -721,6 +722,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           commandLineLimits,
           isShellCommand,
           env,
+          configuration,
           configuration == null
               ? executionInfo
               : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
@@ -741,6 +743,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
+        @Nullable BuildConfiguration configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -1344,7 +1347,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           if (resultConsumer != null) {
             resultConsumer.accept(Pair.of(actionExecutionContext, nextContinuation.get()));
           }
-          afterExecute(actionExecutionContext);
+          List<SpawnResult> spawnResults = nextContinuation.get();
+          afterExecute(actionExecutionContext, spawnResults);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);

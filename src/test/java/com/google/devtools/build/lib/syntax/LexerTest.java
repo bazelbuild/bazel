@@ -15,15 +15,12 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,6 +30,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class LexerTest {
+
+  // TODO(adonovan): make these these tests less unnecessarily stateful.
+
+  private final List<Event> errors = new ArrayList<>();
   private String lastError;
   private Location lastErrorLocation;
 
@@ -42,20 +43,11 @@ public class LexerTest {
    */
   private Lexer createLexer(String input) {
     PathFragment somePath = PathFragment.create("/some/path.txt");
-    ParserInputSource inputSource = ParserInputSource.create(input, somePath);
-    Reporter reporter = new Reporter(new EventBus());
-    reporter.addHandler(new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        if (EventKind.ERRORS.contains(event.getKind())) {
-          lastErrorLocation = event.getLocation();
-          lastError = lastErrorLocation.getPath() + ":"
-              + event.getLocation().getStartLineAndColumn().getLine() + ": " + event.getMessage();
-        }
-      }
-    });
-
-    return new Lexer(inputSource, reporter);
+    ParserInput inputSource = ParserInput.create(input, somePath);
+    errors.clear();
+    lastErrorLocation = null;
+    lastError = null;
+    return new Lexer(inputSource, errors);
   }
 
   private ArrayList<Token> allTokens(Lexer lexer) {
@@ -65,6 +57,17 @@ public class LexerTest {
       tok = lexer.nextToken();
       result.add(tok.copy());
     } while (tok.kind != TokenKind.EOF);
+
+    for (Event error : errors) {
+      lastErrorLocation = error.getLocation();
+      lastError =
+          error.getLocation().getPath()
+              + ":"
+              + error.getLocation().getStartLineAndColumn().getLine()
+              + ": "
+              + error.getMessage();
+    }
+
     return result;
   }
 
@@ -182,6 +185,16 @@ public class LexerTest {
   }
 
   @Test
+  public void testNoWhiteSpaceBetweenTokens() throws Exception {
+    assertThat(names(tokens("6or()"))).isEqualTo("INT OR LPAREN RPAREN NEWLINE EOF");
+    assertThat(names(tokens("0in(''and[])")))
+        .isEqualTo("INT IN LPAREN STRING AND LBRACKET RBRACKET RPAREN NEWLINE EOF");
+
+    assertThat(values(tokens("0or()"))).isEqualTo("INT(0) IDENTIFIER(r) LPAREN RPAREN NEWLINE EOF");
+    assertThat(lastError).isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0o");
+  }
+
+  @Test
   public void testNonAsciiIdentifiers() throws Exception {
     tokens("ümlaut");
     assertThat(lastError.toString()).contains("invalid character: 'ü'");
@@ -237,13 +250,13 @@ public class LexerTest {
 
     assertThat(values(tokens("1.2.345"))).isEqualTo("INT(1) DOT INT(2) DOT INT(345) NEWLINE EOF");
 
-    assertThat(values(tokens("1.23E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
+    assertThat(values(tokens("1.0E10"))).isEqualTo("INT(1) DOT INT(0) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-10 integer constant: 23E10");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 0E10");
 
-    assertThat(values(tokens("1.23E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
+    assertThat(values(tokens("1.03E-10"))).isEqualTo("INT(1) DOT INT(0) MINUS INT(10) NEWLINE EOF");
     assertThat(lastError.toString())
-        .isEqualTo("/some/path.txt:1: invalid base-10 integer constant: 23E");
+        .isEqualTo("/some/path.txt:1: invalid base-8 integer constant: 03E");
 
     assertThat(values(tokens(". 123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
     assertThat(values(tokens(".123"))).isEqualTo("DOT INT(123) NEWLINE EOF");
@@ -482,16 +495,16 @@ public class LexerTest {
   public void testContainsErrors() throws Exception {
     Lexer lexerSuccess = createLexer("foo");
     allTokens(lexerSuccess); // ensure the file has been completely scanned
-    assertThat(lexerSuccess.containsErrors()).isFalse();
+    assertThat(errors).isEmpty();
 
     Lexer lexerFail = createLexer("f$o");
     allTokens(lexerFail);
-    assertThat(lexerFail.containsErrors()).isTrue();
+    assertThat(errors).isNotEmpty();
 
     String s = "'unterminated";
     lexerFail = createLexer(s);
     allTokens(lexerFail);
-    assertThat(lexerFail.containsErrors()).isTrue();
+    assertThat(errors).isNotEmpty();
     assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
     assertThat(lastErrorLocation.getEndOffset()).isEqualTo(s.length());
     assertThat(values(tokens(s))).isEqualTo("STRING(unterminated) NEWLINE EOF");

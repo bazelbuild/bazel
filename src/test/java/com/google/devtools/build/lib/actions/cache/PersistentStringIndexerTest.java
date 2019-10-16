@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.EOFException;
@@ -118,22 +119,20 @@ public class PersistentStringIndexerTest {
     final int NUM_THREADS = 10;
     final CountDownLatch synchronizerLatch = new CountDownLatch(NUM_THREADS);
 
-    class IndexAdder extends TestThread {
-      @Override
-      public void runTest() throws Exception {
-        for (int i = 0; i < numToWrite; i++) {
-          synchronizerLatch.countDown();
-          synchronizerLatch.await();
+    TestRunnable indexAdder =
+        () -> {
+          for (int i = 0; i < numToWrite; i++) {
+            synchronizerLatch.countDown();
+            synchronizerLatch.await();
 
-          String value = "fooconcurrent" + i;
-          mappings.put(psi.getOrCreateIndex(value), value);
-        }
-      }
-    }
+            String value = "fooconcurrent" + i;
+            mappings.put(psi.getOrCreateIndex(value), value);
+          }
+        };
 
     Collection<TestThread> threads = new ArrayList<>();
     for (int i = 0; i < NUM_THREADS; i++) {
-      TestThread thread = new IndexAdder();
+      TestThread thread = new TestThread(indexAdder);
       thread.start();
       threads.add(thread);
     }

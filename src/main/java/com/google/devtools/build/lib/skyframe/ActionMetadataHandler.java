@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
-import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -298,11 +297,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest) {
+  public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
     Preconditions.checkArgument(artifact.isMiddlemanArtifact(), artifact);
-    Preconditions.checkNotNull(md5Digest, artifact);
-    store.putArtifactData(
-        artifact, FileArtifactValue.createProxy(md5Digest.getDigestBytesUnsafe()));
+    Preconditions.checkNotNull(digest, artifact);
+    store.putArtifactData(artifact, FileArtifactValue.createProxy(digest));
   }
 
   private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
@@ -332,8 +330,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
       // By the time we're constructing TreeArtifactValues, use of the metadata handler
       // should be single threaded and there should be no race condition.
       // The current design of ActionMetadataHandler makes this hard to enforce.
-      Set<PathFragment> paths = null;
-      paths = TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
+      Set<PathFragment> paths =
+          TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
       Set<TreeFileArtifact> diskFiles = ActionInputHelper.asTreeFileArtifacts(artifact, paths);
       if (!diskFiles.equals(registeredContents)) {
         // There might be more than one error here. We first look for missing output files.

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RequiredProviders;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /**
  * A native provider to allow select()s to know the type and default value when selecting on build

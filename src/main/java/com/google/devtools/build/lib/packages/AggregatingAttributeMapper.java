@@ -21,13 +21,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.Type.ListType;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.ListType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -584,11 +582,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public <T> boolean has(String attrName, Type<T> type) {
         return owner.has(attrName, type);
-      }
-
-      @Override
-      public Location getAttributeLocation(String attrName) {
-        return owner.getAttributeLocation(attrName);
       }
     };
   }

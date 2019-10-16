@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicate;
@@ -54,7 +54,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("srcs", BuildType.LABEL_LIST).legacyAllowAnyFileType())
             .add(attr("tags", STRING_LIST))
-            .add(attr("X", com.google.devtools.build.lib.syntax.Type.INTEGER).mandatory())
+            .add(attr("X", com.google.devtools.build.lib.packages.Type.INTEGER).mandatory())
             .build();
 
     assertThat(ruleClassA.getName()).isEqualTo("ruleA");

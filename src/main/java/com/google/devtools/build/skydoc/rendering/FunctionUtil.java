@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
@@ -109,12 +108,11 @@ public final class FunctionUtil {
 
   private static List<FunctionParamInfo> parameterInfos(
       StarlarkFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
-    FunctionSignature.WithValues<Object, SkylarkType> signature =
-        userDefinedFunction.getSignature();
+    FunctionSignature signature = userDefinedFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
-    List<String> paramNames = signature.getSignature().getNames();
-    int numMandatoryParams = signature.getSignature().getShape().getMandatoryPositionals();
+    List<String> paramNames = signature.getParameterNames();
+    int numMandatoryParams = signature.numMandatoryPositionals();
 
     int paramIndex;
     // Mandatory parameters.
@@ -128,8 +126,9 @@ public final class FunctionUtil {
     }
 
     // Parameters with defaults.
-    if (signature.getDefaultValues() != null) {
-      for (Object element : signature.getDefaultValues()) {
+    List<Object> defaultValues = userDefinedFunction.getDefaultValues();
+    if (defaultValues != null) {
+      for (Object element : defaultValues) {
         String paramName = paramNames.get(paramIndex);
         String paramDoc = "";
         Object defaultParamValue = element;
@@ -142,7 +141,7 @@ public final class FunctionUtil {
     }
 
     // *arg
-    if (signature.getSignature().getShape().hasStarArg()) {
+    if (signature.hasVarargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {
@@ -155,7 +154,7 @@ public final class FunctionUtil {
     }
 
     // **kwargs
-    if (signature.getSignature().getShape().hasKwArg()) {
+    if (signature.hasKwargs()) {
       String paramName = paramNames.get(paramIndex);
       String paramDoc = "";
       if (paramNameToDocMap.containsKey(paramName)) {

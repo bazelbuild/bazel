@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.StarlarkMutable.MutableMap;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -40,29 +39,44 @@ import javax.annotation.Nullable;
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
  */
 @SkylarkModule(
-  name = "dict",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A language built-in type representating a dictionary (associative mapping). "
-          + "Dictionaries may be constructed with a special literal syntax:<br>"
-          + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
-          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
-          + "When using the literal syntax, it is an error to have duplicated keys. "
-          + "Use square brackets to access elements:<br>"
-          + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
-          + "Like lists, they can also be constructed using a comprehension syntax:<br>"
-          + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
-          + "e = d[8]       # e == 16</pre>"
-          + "Dictionaries are mutable. You can add new elements or mutate existing ones:"
-          + "<pre class=\"language-python\">d[\"key\"] = 5</pre>"
-          + "<p>Iterating over a dict is equivalent to iterating over its keys. The "
-          + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
-          + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
-          + "# evaluates as True</pre>"
-          + "The iteration order for a dict is deterministic and specified as the order in which "
-          + "the keys have been added to the dict. The iteration order is not affected if a value "
-          + "associated with an existing key is updated."
-)
+    name = "dict",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A language built-in type representing a dictionary (associative mapping). Dictionaries"
+            + " are mutable, indexable, ordered, iterable (equivalent to iterating over its keys),"
+            + " and support fast membership tests of keys using the <code>in</code> operator. The"
+            + " order of the keys is the order of their most recent insertion: it is unaffected by"
+            + " updating the value associated with an existing key, but is affected by removing"
+            + " then reinserting a key.</p>\n"
+            + "<pre>d = {0: 0, 2: 2, 1: 1}\n"
+            + "[k for k in d]  # [0, 2, 1]\n"
+            + "d.pop(2)\n"
+            + "d[0], d[2] = \"a\", \"b\"\n"
+            + "0 in d, \"a\" in d  # (True, False)\n"
+            + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
+            + "</pre>\n"
+            + "<p>There are 3 ways to construct a dictionary, each with a different treatment of"
+            + " duplicate keys:</p>\n"
+            + "<p>The dict literal expression will result in a dynamic error if duplicate keys are"
+            + " given, regardless of whether the keys are themselves given as literals. The keys'"
+            + " insertion order is the order in which they are given in the expression.</p>\n"
+            + "<p>In the dict comprehension, key/value pairs yielded by the generator expression is"
+            + " set in the dictionary in the order yielded: the first occurrence of the key"
+            + " determines its insertion order, and the last determines the value associated to"
+            + " it.</p>\n"
+            + "<pre class=\"language-python\">\n"
+            + "{k: v for k, v in ((\"a\", 0), (\"b\", 1), (\"a\", 2))}  # {\"a\": 2, \"b\": 1}\n"
+            + "{i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}\n"
+            + "</pre>\n"
+            + "<p>The <a href=\"globals.html#dict\">dict()</a> global function is documented"
+            + " elsewhere.<p>")
+// TODO(b/64208606): eliminate these type parameters as they are wildly unsound.
+// Starlark code may update a StarlarkDict in ways incompatible with its Java
+// parameterized type. There is no realistic static or dynamic way to prevent
+// this, as Java parameterized types are not accessible at runtime.
+// Every cast to a parameterized type is a lie.
+// Unchecked warnings should be treated as errors.
+// Ditto SkylarkList.
 public final class SkylarkDict<K, V> extends MutableMap<K, V>
     implements Map<K, V>, SkylarkIndexable {
 
@@ -75,8 +89,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
-  private SkylarkDict(@Nullable Environment env) {
-    this.mutability = env == null ? Mutability.IMMUTABLE : env.mutability();
+  private SkylarkDict(@Nullable StarlarkThread thread) {
+    this.mutability = thread == null ? Mutability.IMMUTABLE : thread.mutability();
   }
 
   @SkylarkCallable(
@@ -95,9 +109,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             doc = "The default value to use (instead of None) if the key is not found.")
       },
       allowReturnNones = true,
-      useEnvironment = true)
-  public Object get(Object key, Object defaultValue, Environment env) throws EvalException {
-    if (containsKey(key, null, env)) {
+      useStarlarkThread = true)
+  public Object get(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
+    if (containsKey(key, null, thread)) {
       return this.get(key);
     }
     return defaultValue;
@@ -120,12 +134,12 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             doc = "a default value if the key is absent."),
       },
       useLocation = true,
-      useEnvironment = true)
-  public Object pop(Object key, Object defaultValue, Location loc, Environment env)
+      useStarlarkThread = true)
+  public Object pop(Object key, Object defaultValue, Location loc, StarlarkThread thread)
       throws EvalException {
     Object value = get(key);
     if (value != null) {
-      remove(key, loc, env.mutability());
+      remove(key, loc, thread.mutability());
       return value;
     }
     if (defaultValue != Runtime.UNBOUND) {
@@ -143,27 +157,25 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
               + "If the dictionary is empty, calling <code>popitem()</code> fails. "
               + "It is deterministic which pair is returned.",
       useLocation = true,
-      useEnvironment = true
-  )
-  public Tuple<Object> popitem(Location loc, Environment env)
-      throws EvalException {
+      useStarlarkThread = true)
+  public Tuple<Object> popitem(Location loc, StarlarkThread thread) throws EvalException {
     if (isEmpty()) {
       throw new EvalException(loc, "popitem(): dictionary is empty");
     }
     Object key = keySet().iterator().next();
     Object value = get(key);
-    remove(key, loc, env.mutability());
+    remove(key, loc, thread.mutability());
     return Tuple.of(key, value);
   }
 
   @SkylarkCallable(
-    name = "setdefault",
-    doc =
-        "If <code>key</code> is in the dictionary, return its value. "
-            + "If not, insert key with a value of <code>default</code> "
-            + "and return <code>default</code>. "
-            + "<code>default</code> defaults to <code>None</code>.",
-    parameters = {
+      name = "setdefault",
+      doc =
+          "If <code>key</code> is in the dictionary, return its value. "
+              + "If not, insert key with a value of <code>default</code> "
+              + "and return <code>default</code>. "
+              + "<code>default</code> defaults to <code>None</code>.",
+      parameters = {
         @Param(name = "key", type = Object.class, doc = "The key."),
         @Param(
             name = "default",
@@ -171,23 +183,17 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             defaultValue = "None",
             named = true,
             noneable = true,
-            doc = "a default value if the key is absent."
-        ),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Object setdefault(
-      K key,
-      V defaultValue,
-      Location loc,
-      Environment env)
+            doc = "a default value if the key is absent."),
+      },
+      useLocation = true,
+      useStarlarkThread = true)
+  public Object setdefault(K key, V defaultValue, Location loc, StarlarkThread thread)
       throws EvalException {
     Object value = get(key);
     if (value != null) {
       return value;
     }
-    put(key, defaultValue, loc, env);
+    put(key, defaultValue, loc, thread);
     return defaultValue;
   }
 
@@ -215,57 +221,62 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useLocation = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   public Runtime.NoneType update(
-      Object args, SkylarkDict<?, ?> kwargs, Location loc, Environment env) throws EvalException {
+      Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
+      throws EvalException {
+    // TODO(adonovan): opt: don't materialize dict; call put directly.
+
+    // All these types and casts are lies.
     SkylarkDict<K, V> dict =
-        (args instanceof SkylarkDict) ? (SkylarkDict<K, V>) args : getDictFromArgs(args, loc, env);
-    dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, env);
-    putAll(dict, loc, env.mutability(), env);
+        args instanceof SkylarkDict
+            ? (SkylarkDict<K, V>) args
+            : getDictFromArgs("update", args, loc, thread);
+    dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, thread);
+    putAll(dict, loc, thread.mutability(), thread);
     return Runtime.NONE;
   }
 
   @SkylarkCallable(
-    name = "values",
-    doc =
-        "Returns the list of values:"
-            + "<pre class=\"language-python\">"
-            + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
-    useEnvironment = true
-  )
-  public MutableList<?> invoke(Environment env) throws EvalException {
-    return MutableList.copyOf(env, values());
+      name = "values",
+      doc =
+          "Returns the list of values:"
+              + "<pre class=\"language-python\">"
+              + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
+      useStarlarkThread = true)
+  public MutableList<?> invoke(StarlarkThread thread) throws EvalException {
+    return MutableList.copyOf(thread, values());
   }
 
   @SkylarkCallable(
-    name = "items",
-    doc =
-        "Returns the list of key-value tuples:"
-            + "<pre class=\"language-python\">"
-            + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(2, \"a\"), (4, \"b\"), (1, \"c\")]"
-            + "</pre>\n",
-    useEnvironment = true
-  )
-  public MutableList<?> items(Environment env) throws EvalException {
+      name = "items",
+      doc =
+          "Returns the list of key-value tuples:"
+              + "<pre class=\"language-python\">"
+              + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(2, \"a\"), (4, \"b\"), (1, \"c\")]"
+              + "</pre>\n",
+      useStarlarkThread = true)
+  public MutableList<?> items(StarlarkThread thread) throws EvalException {
     ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
     for (Map.Entry<?, ?> entries : entrySet()) {
       list.add(Tuple.of(entries.getKey(), entries.getValue()));
     }
-    return MutableList.wrapUnsafe(env, list);
+    return MutableList.wrapUnsafe(thread, list);
   }
 
-  @SkylarkCallable(name = "keys",
-    doc = "Returns the list of keys:"
-        + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [2, 4, 1]"
-        + "</pre>\n",
-    useEnvironment = true
-  )
-  public MutableList<?> keys(Environment env) throws EvalException {
+  @SkylarkCallable(
+      name = "keys",
+      doc =
+          "Returns the list of keys:"
+              + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [2, 4, 1]"
+              + "</pre>\n",
+      useStarlarkThread = true)
+  public MutableList<?> keys(StarlarkThread thread) throws EvalException {
     ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
     for (Map.Entry<?, ?> entries : entrySet()) {
       list.add(entries.getKey());
     }
-    return MutableList.wrapUnsafe(env, list);
+    return MutableList.wrapUnsafe(thread, list);
   }
 
   private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
@@ -283,19 +294,19 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /** @return a dict mutable in given environment only */
-  public static <K, V> SkylarkDict<K, V> of(@Nullable Environment env) {
-    return new SkylarkDict<>(env);
+  public static <K, V> SkylarkDict<K, V> of(@Nullable StarlarkThread thread) {
+    return new SkylarkDict<>(thread);
   }
 
   /** @return a dict mutable in given environment only, with given initial key and value */
-  public static <K, V> SkylarkDict<K, V> of(@Nullable Environment env, K k, V v) {
-    return SkylarkDict.<K, V>of(env).putUnsafe(k, v);
+  public static <K, V> SkylarkDict<K, V> of(@Nullable StarlarkThread thread, K k, V v) {
+    return SkylarkDict.<K, V>of(thread).putUnsafe(k, v);
   }
 
   /** @return a dict mutable in given environment only, with two given initial key value pairs */
   public static <K, V> SkylarkDict<K, V> of(
-      @Nullable Environment env, K k1, V v1, K k2, V v2) {
-    return SkylarkDict.<K, V>of(env).putUnsafe(k1, v1).putUnsafe(k2, v2);
+      @Nullable StarlarkThread thread, K k1, V v1, K k2, V v2) {
+    return SkylarkDict.<K, V>of(thread).putUnsafe(k1, v1).putUnsafe(k2, v2);
   }
 
   // TODO(bazel-team): Make other methods that take in mutabilities instead of environments, make
@@ -308,8 +319,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   /** @return a dict mutable in given environment only, with contents copied from given map */
   public static <K, V> SkylarkDict<K, V> copyOf(
-      @Nullable Environment env, Map<? extends K, ? extends V> m) {
-    return SkylarkDict.<K, V>of(env).putAllUnsafe(m);
+      @Nullable StarlarkThread thread, Map<? extends K, ? extends V> m) {
+    return SkylarkDict.<K, V>of(thread).putAllUnsafe(m);
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
@@ -360,12 +371,12 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   /**
    * Convenience version of {@link #put(K, V, Location, Mutability)} that uses the {@link
-   * Mutability} of an {@link Environment}.
+   * Mutability} of an {@link StarlarkThread}.
    */
   // TODO(bazel-team): Decide whether to eliminate this overload.
-  public void put(K key, V value, Location loc, Environment env) throws EvalException {
+  public void put(K key, V value, Location loc, StarlarkThread thread) throws EvalException {
     checkMutable(loc, mutability);
-    EvalUtils.checkValidDictKey(key, env);
+    EvalUtils.checkValidDictKey(key, thread);
     contents.put(key, value);
   }
 
@@ -378,11 +389,12 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * @throws EvalException if some key is invalid or the dict is frozen
    */
   public <KK extends K, VV extends V> void putAll(
-      Map<KK, VV> map, Location loc, Mutability mutability, Environment env) throws EvalException {
+      Map<KK, VV> map, Location loc, Mutability mutability, StarlarkThread thread)
+      throws EvalException {
     checkMutable(loc, mutability);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
-      EvalUtils.checkValidDictKey(k, env);
+      EvalUtils.checkValidDictKey(k, thread);
       contents.put(k, e.getValue());
     }
   }
@@ -405,12 +417,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       name = "clear",
       doc = "Remove all items from the dictionary.",
       useLocation = true,
-      useEnvironment = true
-  )
-  public Runtime.NoneType clearDict(
-      Location loc, Environment env)
-      throws EvalException {
-    clear(loc, env.mutability());
+      useStarlarkThread = true)
+  public Runtime.NoneType clearDict(Location loc, StarlarkThread thread) throws EvalException {
+    clear(loc, thread.mutability());
     return Runtime.NONE;
   }
 
@@ -465,10 +474,20 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /**
-   * Casts this dict to an unmodifiable {@code SkylarkDict<X, Y>}, after checking that all keys and
-   * values have types {@code keyType} and {@code valueType} respectively.
+   * Returns an unmodifiable view of this StarlarkDict coerced to type {@code SkylarkDict<X, Y>},
+   * after superficially checking that all keys and values are of class {@code keyType} and {@code
+   * valueType} respectively.
    *
-   * <p>The returned map may or may not be a view that is affected by updates to the original dict.
+   * <p>The returned map is a view that reflects subsequent updates to the original dict. If such
+   * updates should insert keys or values of types other than X or Y respectively, the reference
+   * returned by getContents will have a false type that may cause the program to fail in unexpected
+   * and hard-to-debug ways.
+   *
+   * <p>The dynamic checks are necessarily superficial if either of X or Y is itself a parameterized
+   * type. For example, if Y is {@code List<String>}, getContents checks that the dict values are
+   * instances of List, but it does not and cannot check that all the elements of those lists are
+   * Strings. If one of the dict values in fact a List of Integer, the returned reference will again
+   * have a false type.
    *
    * @param keyType the expected class of keys
    * @param valueType the expected class of values
@@ -476,8 +495,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    */
   @SuppressWarnings("unchecked")
   public <X, Y> Map<X, Y> getContents(
-      Class<X> keyType, Class<Y> valueType, @Nullable String description)
-      throws EvalException {
+      Class<X> keyType, Class<Y> valueType, @Nullable String description) throws EvalException {
     Object keyDescription = description == null
         ? null : Printer.formattable("'%s' key", description);
     Object valueDescription = description == null
@@ -505,9 +523,10 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
-    if (env.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
-      EvalUtils.checkValidDictKey(key, env);
+  public final boolean containsKey(Object key, Location loc, StarlarkThread thread)
+      throws EvalException {
+    if (thread.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
+      EvalUtils.checkValidDictKey(key, thread);
     }
     return this.containsKey(key);
   }
@@ -515,39 +534,52 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   public static <K, V> SkylarkDict<K, V> plus(
       SkylarkDict<? extends K, ? extends V> left,
       SkylarkDict<? extends K, ? extends V> right,
-      @Nullable Environment env) {
-    SkylarkDict<K, V> result = SkylarkDict.of(env);
+      @Nullable StarlarkThread thread) {
+    SkylarkDict<K, V> result = SkylarkDict.of(thread);
     result.putAllUnsafe(left);
     result.putAllUnsafe(right);
     return result;
   }
 
-  public static <K, V> SkylarkDict<K, V> getDictFromArgs(
-      Object args, Location loc, @Nullable Environment env) throws EvalException {
-    SkylarkDict<K, V> result = SkylarkDict.of(env);
+  static <K, V> SkylarkDict<K, V> getDictFromArgs(
+      String funcname, Object args, Location loc, @Nullable StarlarkThread thread)
+      throws EvalException {
+    Iterable<?> seq;
+    try {
+      seq = EvalUtils.toIterable(args, loc, thread);
+    } catch (EvalException ex) {
+      throw new EvalException(
+          loc,
+          String.format("in %s, got %s, want iterable", funcname, EvalUtils.getDataTypeName(args)));
+    }
+    SkylarkDict<K, V> result = SkylarkDict.of(thread);
     int pos = 0;
-    for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
-      List<Object> pair = convertToPair(element, pos, loc);
-      result.put((K) pair.get(0), (V) pair.get(1), loc, env);
-      ++pos;
+    for (Object item : seq) {
+      Iterable<?> seq2;
+      try {
+        seq2 = EvalUtils.toIterable(item, loc, null);
+      } catch (EvalException ex) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "in %s, dictionary update sequence element #%d is not iterable (%s)",
+                funcname, pos, EvalUtils.getDataTypeName(item)));
+      }
+      // TODO(adonovan): opt: avoid unnecessary allocations and copies.
+      // Why is there no operator to compute len(x), following the spec, without iterating??
+      List<Object> pair = Lists.newArrayList(seq2);
+      if (pair.size() != 2) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "in %s, item #%d has length %d, but exactly two elements are required",
+                funcname, pos, pair.size()));
+      }
+      // These casts are lies
+      result.put((K) pair.get(0), (V) pair.get(1), loc, thread);
+      pos++;
     }
     return result;
   }
 
-  private static List<Object> convertToPair(Object element, int pos, Location loc)
-      throws EvalException {
-    try {
-      List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
-      int numElements = tuple.size();
-      if (numElements != 2) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "item #%d has length %d, but exactly two elements are required", pos, numElements));
-      }
-      return tuple;
-    } catch (ConversionException e) {
-      throw new EvalException(loc, String.format("cannot convert item #%d to a sequence", pos), e);
-    }
-  }
 }

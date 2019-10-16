@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -70,8 +71,10 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -206,6 +209,7 @@ public final class SkyframeActionExecutor {
   private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
+  private int nestedSetAsSkyKeyThreshold;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -424,6 +428,9 @@ public final class SkyframeActionExecutor {
     this.outputService = outputService;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
+
+    this.nestedSetAsSkyKeyThreshold =
+        options.getOptions(BuildRequestOptions.class).nestedSetAsSkyKeyThreshold;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -531,6 +538,7 @@ public final class SkyframeActionExecutor {
    *
    * <p>For use from {@link ArtifactFunction} only.
    */
+  @SuppressWarnings("SynchronizeOnNonFinalField")
   ActionExecutionValue executeAction(
       SkyFunction.Environment env,
       Action action,
@@ -634,9 +642,15 @@ public final class SkyframeActionExecutor {
       MetadataHandler metadataHandler,
       long actionStartTime,
       Iterable<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv)
+      throws ActionExecutionException {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      SortedMap<String, String> remoteDefaultProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableSortedMap.of();
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
@@ -645,7 +659,10 @@ public final class SkyframeActionExecutor {
               options.getOptions(BuildRequestOptions.class).explanationPath != null
                   ? reporter
                   : null,
-              metadataHandler);
+              metadataHandler,
+              remoteDefaultProperties);
+    } catch (UserExecException e) {
+      throw e.toActionExecutionException(action);
     }
     if (token == null) {
       boolean eventPosted = false;
@@ -692,12 +709,25 @@ public final class SkyframeActionExecutor {
   }
 
   void updateActionCache(
-      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv) {
+      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv)
+      throws ActionExecutionException {
     if (!actionCacheChecker.enabled()) {
       return;
     }
+    final SortedMap<String, String> remoteDefaultProperties;
     try {
-      actionCacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
+      RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
+      remoteDefaultProperties =
+          remoteOptions != null
+              ? remoteOptions.getRemoteDefaultExecProperties()
+              : ImmutableSortedMap.of();
+    } catch (UserExecException e) {
+      throw e.toActionExecutionException(action);
+    }
+
+    try {
+      actionCacheChecker.updateActionCache(
+          action, token, metadataHandler, clientEnv, remoteDefaultProperties);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
@@ -726,7 +756,7 @@ public final class SkyframeActionExecutor {
       ProgressEventBehavior progressEventBehavior,
       Environment env,
       @Nullable FileSystem actionFileSystem)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException, IOException {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
@@ -764,11 +794,16 @@ public final class SkyframeActionExecutor {
           ErrorTiming.BEFORE_EXECUTION);
     } finally {
       actionExecutionContext.getEventHandler().post(new StoppedScanningActionEvent(action));
+      actionExecutionContext.close();
     }
   }
 
   boolean isBazelRemoteExecutionEnabled() {
     return bazelRemoteExecutionEnabled;
+  }
+
+  int getNestedSetAsSkyKeyThreshold() {
+    return nestedSetAsSkyKeyThreshold;
   }
 
   private MetadataProvider createFileCache(
@@ -817,7 +852,7 @@ public final class SkyframeActionExecutor {
         Action action,
         ActionMetadataHandler metadataHandler,
         Map<String, String> clientEnv)
-        throws InterruptedException;
+        throws InterruptedException, ActionExecutionException;
   }
 
   private static ActionContinuationOrResult begin(
@@ -880,7 +915,7 @@ public final class SkyframeActionExecutor {
     }
 
     @Override
-    public ActionStepOrResult run(SkyFunction.Environment env) {
+    public ActionStepOrResult run(SkyFunction.Environment env) throws InterruptedException {
       // There are three ExtendedEventHandler instances available while this method is running.
       //   SkyframeActionExecutor.this.reporter
       //   actionExecutionContext.getEventHandler
@@ -976,7 +1011,8 @@ public final class SkyframeActionExecutor {
 
     /** Executes the given continuation and returns a new one or a final result. */
     private ActionStepOrResult continueAction(
-        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation) {
+        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation)
+        throws InterruptedException {
       // Every code path that exits this method must call notifyActionCompletion, except for the
       // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
       // duplication.
@@ -1018,7 +1054,7 @@ public final class SkyframeActionExecutor {
 
     private ActionExecutionValue actuallyCompleteAction(
         ExtendedEventHandler eventHandler, ActionResult actionResult)
-        throws ActionExecutionException {
+        throws ActionExecutionException, InterruptedException {
       boolean outputAlreadyDumped = false;
       if (actionResult != ActionResult.EMPTY) {
         eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
@@ -1063,13 +1099,20 @@ public final class SkyframeActionExecutor {
 
         // Success in execution but failure in completion.
         reportActionExecution(
-            eventHandler, primaryOutputPath, action, null, fileOutErr, ErrorTiming.NO_ERROR);
+            eventHandler,
+            primaryOutputPath,
+            action,
+            actionResult,
+            null,
+            fileOutErr,
+            ErrorTiming.NO_ERROR);
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
             action,
+            actionResult,
             actionException,
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
@@ -1080,6 +1123,7 @@ public final class SkyframeActionExecutor {
             eventHandler,
             primaryOutputPath,
             action,
+            actionResult,
             new ActionExecutionException(exception, action, true),
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
@@ -1112,7 +1156,7 @@ public final class SkyframeActionExecutor {
       }
 
       @Override
-      public ActionStepOrResult run(Environment env) {
+      public ActionStepOrResult run(Environment env) throws InterruptedException {
         ListenableFuture<?> future = actionContinuationOrResult.getFuture();
         if (future != null && !future.isDone()) {
           env.dependOnFuture(future);
@@ -1138,6 +1182,8 @@ public final class SkyframeActionExecutor {
             return this;
           }
         } catch (InterruptedException e) {
+          return ActionStepOrResult.of(e);
+        } catch (ActionExecutionException e) {
           return ActionStepOrResult.of(e);
         }
         return ActionStepOrResult.of(value);
@@ -1272,7 +1318,8 @@ public final class SkyframeActionExecutor {
       return lostInputsException;
     }
 
-    reportActionExecution(eventHandler, primaryOutputPath, action, e, outErrBuffer, errorTiming);
+    reportActionExecution(
+        eventHandler, primaryOutputPath, action, null, e, outErrBuffer, errorTiming);
     boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
 
     ActionExecutionException toThrow = e;
@@ -1387,17 +1434,17 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * For the action 'action' that failed due to 'ex' with the output
-   * 'actionOutput', notify the user about the error. To notify the user, the
-   * method first displays the output of the action and then reports an error
-   * via the reporter. The method ensures that the two messages appear next to
+   * For the action 'action' that failed due to 'ex' with the output 'actionOutput', notify the user
+   * about the error. To notify the user, the method first displays the output of the action and
+   * then reports an error via the reporter. The method ensures that the two messages appear next to
    * each other by locking the outErr object where the output is displayed.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
-   * @param actionOutput The output of the failed Action.
-   *     May be null, if there is no output to display
+   * @param actionOutput The output of the failed Action. May be null, if there is no output to
+   *     display
    */
+  @SuppressWarnings("SynchronizeOnNonFinalField")
   private void printError(String message, Action action, FileOutErr actionOutput) {
     synchronized (reporter) {
       if (options.getOptions(KeepGoingOption.class).keepGoing) {
@@ -1452,8 +1499,7 @@ public final class SkyframeActionExecutor {
       // output into memory; as the output of regular actions (as opposed to test runs) usually is
       // short, so this should not be a problem. If it does turn out to be a problem, we have to
       // pass the outErrbuffer instead.
-      reporter.handle(
-          prefixEvent.withStdoutStderr(outErrBuffer.outAsLatin1(), outErrBuffer.errAsLatin1()));
+      reporter.handle(prefixEvent.withStdoutStderr(outErrBuffer));
     } else {
       reporter.handle(prefixEvent);
     }
@@ -1463,17 +1509,26 @@ public final class SkyframeActionExecutor {
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
       Action action,
+      @Nullable ActionResult actionResult,
       ActionExecutionException exception,
       FileOutErr outErr,
       ErrorTiming errorTiming) {
     Path stdout = null;
     Path stderr = null;
+    ImmutableList<MetadataLog> logs = ImmutableList.of();
 
     if (outErr.hasRecordedStdout()) {
       stdout = outErr.getOutputPath();
     }
     if (outErr.hasRecordedStderr()) {
       stderr = outErr.getErrorPath();
+    }
+    if (actionResult != null) {
+      logs =
+          actionResult.spawnResults().stream()
+              .filter(spawnResult -> spawnResult.getActionMetadataLog().isPresent())
+              .map(spawnResult -> spawnResult.getActionMetadataLog().get())
+              .collect(ImmutableList.toImmutableList());
     }
     eventHandler.post(
         new ActionExecutedEvent(
@@ -1483,6 +1538,7 @@ public final class SkyframeActionExecutor {
             primaryOutputPath,
             stdout,
             stderr,
+            logs,
             errorTiming));
   }
 
@@ -1495,8 +1551,9 @@ public final class SkyframeActionExecutor {
    * ActionExecutionException), we probably do not want to also store the StdErr output, so
    * dumpRecordedOutErr() should still be called here.
    */
-  private boolean reportErrorIfNotAbortingMode(ActionExecutionException ex,
-      FileOutErr outErrBuffer) {
+  @SuppressWarnings("SynchronizeOnNonFinalField")
+  private boolean reportErrorIfNotAbortingMode(
+      ActionExecutionException ex, FileOutErr outErrBuffer) {
     // For some actions (e.g., many local actions) the pollInterruptedStatus()
     // won't notice that we had an interrupted job. It will continue.
     // For that reason we must take care to NOT report errors if we're

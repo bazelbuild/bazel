@@ -55,9 +55,6 @@ public class DigestHashFunctionGlobalsTest {
     assertThat(converter.convert("sha-1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("SHA1")).isSameInstanceAs(DigestHashFunction.SHA1);
     assertThat(converter.convert("sha1")).isSameInstanceAs(DigestHashFunction.SHA1);
-
-    assertThat(converter.convert("MD5")).isSameInstanceAs(DigestHashFunction.MD5);
-    assertThat(converter.convert("md5")).isSameInstanceAs(DigestHashFunction.MD5);
   }
 
   @Test
@@ -97,7 +94,7 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void cannotSetDefaultMultipleTimes() throws Exception {
-    DigestHashFunction.setDefault(DigestHashFunction.MD5);
+    DigestHashFunction.setDefault(DigestHashFunction.SHA256);
     assertThrows(
         DigestHashFunction.DefaultAlreadySetException.class,
         () -> DigestHashFunction.setDefault(DigestHashFunction.SHA1));

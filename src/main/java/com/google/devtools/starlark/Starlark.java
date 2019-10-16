@@ -16,11 +16,13 @@ package com.google.devtools.starlark;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -54,10 +56,10 @@ class Starlark {
   private final BufferedReader reader =
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final Mutability mutability = Mutability.create("interpreter");
-  private final Environment env =
-      Environment.builder(mutability)
+  private final StarlarkThread thread =
+      StarlarkThread.builder(mutability)
           .useDefaultSemantics()
-          .setGlobals(Environment.DEFAULT_GLOBALS)
+          .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();
 
@@ -85,16 +87,31 @@ class Starlark {
   }
 
   /** Provide a REPL evaluating Starlark code. */
+  @SuppressWarnings("CatchAndPrintStackTrace")
   public void readEvalPrintLoop() {
-    String input;
-    while ((input = prompt()) != null) {
+    String line;
+
+    // TODO(adonovan): parse a compound statement, like the Python and
+    // go.starlark.net REPLs. This requires a new grammar production, and
+    // integration with the lexer so that it consumes new
+    // lines only until the parse is complete.
+
+    while ((line = prompt()) != null) {
+      ParserInput input = ParserInput.fromLines(line);
       try {
-        Object result = BuildFileAST.eval(env, input);
+        Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }
-      } catch (Exception e) {
-        e.printStackTrace();
+      } catch (SyntaxError ex) {
+        for (Event ev : ex.errors()) {
+          System.err.println(ev);
+        }
+      } catch (EvalException ex) {
+        // TODO(adonovan): show Starlark (not Java) stack.
+        ex.printStackTrace();
+      } catch (InterruptedException ex) {
+        System.err.println("Interrupted");
       }
     }
   }
@@ -111,11 +128,17 @@ class Starlark {
     }
   }
 
-  /** Execute a Starlark command. */
+  /** Execute a Starlark file. */
   public int execute(String content) {
+    ParserInput input = ParserInput.create(content, null);
     try {
-      BuildFileAST.eval(env, content);
+      EvalUtils.exec(input, thread);
       return 0;
+    } catch (SyntaxError ex) {
+      for (Event ev : ex.errors()) {
+        System.err.println(ev);
+      }
+      return 1;
     } catch (EvalException e) {
       System.err.println(e.print());
       return 1;

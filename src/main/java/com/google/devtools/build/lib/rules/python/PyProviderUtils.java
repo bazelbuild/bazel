@@ -86,7 +86,7 @@ public class PyProviderUtils {
   public static NestedSet<Artifact> getTransitiveSources(TransitiveInfoCollection target)
       throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getTransitiveSources().getSet(Artifact.class);
+      return getModernProvider(target).getTransitiveSourcesSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getTransitiveSources(getLegacyProvider(target));
     } else {
@@ -128,7 +128,7 @@ public class PyProviderUtils {
    */
   public static NestedSet<String> getImports(TransitiveInfoCollection target) throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getImports().getSet(String.class);
+      return getModernProvider(target).getImportsSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getImports(getLegacyProvider(target));
     } else {

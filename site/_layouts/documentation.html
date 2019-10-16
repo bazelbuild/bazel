@@ -114,6 +114,10 @@ nav: docs
                 </ul>
               </li>
 
+              {% if major_version != 0 %}
+                <li><a href="/versions/{{ current_version }}/rules.html">Rules</a></li>
+              {% endif %}
+
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#query-menu" aria-expanded="false"
@@ -164,8 +168,12 @@ nav: docs
                      <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
                   </ul>
               </li>
+              {% if major_version == "master" or major_version > 1 or major_version == 1 and minor_version >= 1 %}
+              <li><a href="/versions/master/platforms-intro.html">Building With Platforms</a></li>
+              {% endif %}
              </ul>
 
+           {% if major_version == 0 %}
            <h3>Rules</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/be/overview.html">Build Encyclopedia</a></li>
@@ -255,6 +263,7 @@ nav: docs
               </li>
 
            </ul>
+           {% endif %}
 
            <h3>Reference</h3>
            <ul class="sidebar-nav">

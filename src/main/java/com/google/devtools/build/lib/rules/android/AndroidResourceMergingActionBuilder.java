@@ -35,6 +35,7 @@ public class AndroidResourceMergingActionBuilder {
   // Outputs
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
+  private Artifact aapt2RTxtOut;
   private Artifact manifestOut;
   private @Nullable Artifact dataBindingInfoZip;
 
@@ -43,7 +44,7 @@ public class AndroidResourceMergingActionBuilder {
   private boolean throwOnResourceConflict;
   private boolean useCompiledMerge;
   private boolean annotateRFieldsFromTransitiveDeps;
-  private boolean omitTransitiveDependencies;
+  private boolean omitTransitiveDependenciesFromAndroidRClasses;
 
   /**
    * The primary resource for merging. This resource will overwrite any resource or data value in
@@ -66,6 +67,11 @@ public class AndroidResourceMergingActionBuilder {
 
   public AndroidResourceMergingActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
+    return this;
+  }
+
+  public AndroidResourceMergingActionBuilder setAapt2RTxtOut(Artifact aapt2RTxtOut) {
+    this.aapt2RTxtOut = aapt2RTxtOut;
     return this;
   }
 
@@ -107,9 +113,10 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
-  public AndroidResourceMergingActionBuilder setOmitTransitiveDependencies(
-      boolean omitTransitiveDependencies) {
-    this.omitTransitiveDependencies = omitTransitiveDependencies;
+  public AndroidResourceMergingActionBuilder setOmitTransitiveDependenciesFromAndroidRClasses(
+      boolean omitTransitiveDependenciesFromAndroidRClasses) {
+    this.omitTransitiveDependenciesFromAndroidRClasses =
+        omitTransitiveDependenciesFromAndroidRClasses;
     return this;
   }
 
@@ -137,7 +144,7 @@ public class AndroidResourceMergingActionBuilder {
           dependencies.getDirectResourceContainers(),
           AndroidDataConverter.COMPILED_RESOURCE_CONVERTER);
 
-      if (omitTransitiveDependencies) {
+      if (omitTransitiveDependenciesFromAndroidRClasses) {
         for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
           builder.addInputs(resources.getResources());
           builder.maybeAddInput(resources.getCompiledSymbols());
@@ -173,20 +180,13 @@ public class AndroidResourceMergingActionBuilder {
           dependencies.getDirectResourceContainers(),
           AndroidDataConverter.PARSED_RESOURCE_CONVERTER);
 
-      if (omitTransitiveDependencies) {
-        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
-          builder.addInputs(resources.getResources());
-          builder.maybeAddInput(resources.getSymbols());
-        }
-      } else {
-        builder
-            .addTransitiveFlag(
-                "--data",
-                dependencies.getTransitiveResourceContainers(),
-                AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
-            .addTransitiveInputValues(dependencies.getTransitiveResources())
-            .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
-      }
+      builder
+          .addTransitiveFlag(
+              "--data",
+              dependencies.getTransitiveResourceContainers(),
+              AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
+          .addTransitiveInputValues(dependencies.getTransitiveResources())
+          .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
     }
 
     builder.buildAndRegister("Merging Android resources", "AndroidResourceMerger");
@@ -212,6 +212,7 @@ public class AndroidResourceMergingActionBuilder {
         .maybeAddOutput("--manifestOutput", manifestOut);
 
     if (useCompiledMerge) {
+      compiledMergeBuilder.maybeAddOutput("--rTxtOut", aapt2RTxtOut);
       buildCompiledResourceMergingAction(compiledMergeBuilder);
     }
 
@@ -228,6 +229,7 @@ public class AndroidResourceMergingActionBuilder {
         parsed,
         mergedResourcesOut,
         classJarOut,
+        aapt2RTxtOut,
         dataBindingInfoZip,
         dependencies,
         parsed.getStampedManifest().withProcessedManifest(manifestOut));

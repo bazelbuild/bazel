@@ -89,10 +89,17 @@ public class QueryOptions extends CommonQueryOptions {
 
   /** Whether and how output should be ordered. */
   public enum OrderOutput {
-    NO, /** Make no effort to order output besides that required by output formatter. */
-    DEPS, /** Output in dependency order when compatible with output formatter. */
-    AUTO, /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
-    FULL /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    /** Make no effort to order output besides that required by output formatter. */
+    NO,
+
+    /** Output in dependency order when compatible with output formatter. */
+    DEPS,
+
+    /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
+    AUTO,
+
+    /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    FULL
   }
 
   @Option(
@@ -188,14 +195,6 @@ public class QueryOptions extends CommonQueryOptions {
             + "line. It is an error to specify a file here as well as a command-line query."
   )
   public String queryFile;
-
-  @Option(
-      name = "experimental_query_use_fork_join_pool",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help = "If true, uses a ForkJoinPool instead of a PriorityBlockingQueue for Skyframe.")
-  public boolean useForkJoinPool;
 
   @Option(
       name = "experimental_graphless_query",

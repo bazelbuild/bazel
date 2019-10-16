@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet.TypeException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -63,8 +64,10 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
     }
   }
 
+  // Verified on initialization to contain Artifact.
   private final SkylarkNestedSet transitiveSources;
   private final boolean usesSharedLibraries;
+  // Verified on initialization to contain String.
   private final SkylarkNestedSet imports;
   private final boolean hasPy2OnlySources;
   private final boolean hasPy3OnlySources;
@@ -122,6 +125,15 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
     return transitiveSources;
   }
 
+  public NestedSet<Artifact> getTransitiveSourcesSet() {
+    try {
+      return transitiveSources.getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new IllegalStateException(
+          "'transitiveSources' depset was found to be invalid type " + imports.getContentType(), e);
+    }
+  }
+
   @Override
   public boolean getUsesSharedLibraries() {
     return usesSharedLibraries;
@@ -130,6 +142,15 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
   @Override
   public SkylarkNestedSet getImports() {
     return imports;
+  }
+
+  public NestedSet<String> getImportsSet() {
+    try {
+      return imports.getSet(String.class);
+    } catch (TypeException e) {
+      throw new IllegalStateException(
+          "'imports' depset was found to be invalid type " + imports.getContentType(), e);
+    }
   }
 
   @Override
@@ -180,6 +201,9 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
                 "'imports' field should be a depset of strings (got a '%s')",
                 describeType(imports)));
       }
+      // Validate depset parameters
+      transitiveSources.getSetFromParam(Artifact.class, "transitive_sources");
+      imports.getSetFromParam(String.class, "imports");
 
       return new PyInfo(
           loc,

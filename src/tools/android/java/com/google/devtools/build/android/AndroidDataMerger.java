@@ -162,8 +162,10 @@ class AndroidDataMerger {
           String.format("Merged dependencies read in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       return doMerge(
-          ParsedAndroidData.loadedFrom(transitive, executorService, deserializer),
-          ParsedAndroidData.loadedFrom(direct, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(
+              DependencyInfo.DependencyType.TRANSITIVE, transitive, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(
+              DependencyInfo.DependencyType.DIRECT, direct, executorService, deserializer),
           primary,
           primaryManifest,
           allowPrimaryOverrideAll,

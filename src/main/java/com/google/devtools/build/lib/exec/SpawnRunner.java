@@ -178,10 +178,10 @@ public interface SpawnRunner {
 
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or
-     * to any of the output file locations. This method is used to coordinate - implementations
-     * must throw an {@link InterruptedException} for all but one caller.
+     * to any of the output file locations. This method is used to coordinate - implementations must
+     * throw an {@link InterruptedException} for all but one caller.
      */
-    void lockOutputFiles() throws InterruptedException;
+    void lockOutputFiles() throws InterruptedException, IOException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,

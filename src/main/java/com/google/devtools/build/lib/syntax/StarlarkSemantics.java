@@ -40,9 +40,15 @@ public abstract class StarlarkSemantics {
    * Enum where each element represents a starlark semantics flag. The name of each value should be
    * the exact name of the flag transformed to upper case (for error representation).
    */
+  // TODO(adonovan): This class, being part of the core Starlark frontend, shouldn't refer to Bazel
+  // features. There's no need for an enumeration to represent a set of boolean features. Instead,
+  // have StarlarkSemantics hold a set of enabled features (strings), and have callers query
+  // features by name. The features can be named string constants, defined close to the code they
+  // affect, to avoid accidential misspellings.
   public enum FlagIdentifier {
     EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
         StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
+    EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION(StarlarkSemantics::experimentalAspectOutputPropagation),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
@@ -57,7 +63,6 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
     INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
         StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
@@ -125,6 +130,8 @@ public abstract class StarlarkSemantics {
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
 
+  public abstract boolean experimentalAspectOutputPropagation();
+
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
@@ -180,8 +187,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleNoTargetOutputGroup();
 
   public abstract boolean incompatibleNoTransitiveLoads();
-
-  public abstract boolean incompatibleObjcFrameworkCleanup();
 
   public abstract boolean incompatibleRemapMainRepo();
 
@@ -241,6 +246,7 @@ public abstract class StarlarkSemantics {
       builder()
           // <== Add new options here in alphabetic order ==>
           .experimentalAllowTagsPropagation(false)
+          .experimentalAspectOutputPropagation(false)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
@@ -270,7 +276,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleNoTransitiveLoads(true)
-          .incompatibleObjcFrameworkCleanup(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRunShellCommandString(false)
@@ -291,6 +296,10 @@ public abstract class StarlarkSemantics {
     // <== Add new options here in alphabetic order ==>
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
+    public abstract Builder experimentalAllowTagsPropagation(boolean value);
+
+    public abstract Builder experimentalAspectOutputPropagation(boolean value);
+
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
@@ -304,8 +313,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
-
-    public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
@@ -349,8 +356,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
-
-    public abstract Builder incompatibleObjcFrameworkCleanup(boolean value);
 
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 

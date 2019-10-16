@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.config;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -371,7 +371,7 @@ public class ConfigRuleClasses {
       <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
       Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
       support and is not recommended. See
-      <a href="${link common-definitions#configurable-attributes}"> for more discussion.
+      <a href="${link common-definitions#configurable-attributes}">here</a> for more discussion.
     </li>
 
     <li>Avoid repeating identical <code>config_setting</code> definitions in different packages.

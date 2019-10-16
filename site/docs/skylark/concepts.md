@@ -74,7 +74,8 @@ they will not be executed.
 ## Creating extensions
 
 * [Create your first macro](tutorial-creating-a-macro.md) in order to reuse some
-  code. Then [learn more about macros](macros.md).
+  code. Then [learn more about macros](macros.md) and
+  [using them to create "custom verbs"](tutorial-custom-verbs.md).
 
 * [Follow the rules tutorial](rules-tutorial.md) to get started with rules.
   Next, you can read more about the [rules concepts](rules.md).

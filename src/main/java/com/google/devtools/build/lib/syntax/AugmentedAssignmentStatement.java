@@ -58,7 +58,7 @@ public final class AugmentedAssignmentStatement extends Statement {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

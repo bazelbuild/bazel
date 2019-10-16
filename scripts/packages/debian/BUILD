@@ -79,7 +79,6 @@ pkg_deb(
         # Keep in sync with Depends section in ./control
         "g++",
         "zlib1g-dev",
-        "bash-completion",
         "unzip",
         "python",
     ],
@@ -90,6 +89,7 @@ pkg_deb(
     suggests = [
         # Keep in sync with Suggests section in ./control
         "google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer",
+        "bash-completion",
     ],
     version_file = ":version.txt",
     visibility = ["//scripts/packages:__pkg__"],

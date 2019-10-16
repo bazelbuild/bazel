@@ -38,12 +38,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class EvalUtilsTest extends EvaluationTestCase {
 
-  private static MutableList<Object> makeList(Environment env) {
-    return MutableList.of(env, 1, 2, 3);
+  private static MutableList<Object> makeList(StarlarkThread thread) {
+    return MutableList.of(thread, 1, 2, 3);
   }
 
-  private static SkylarkDict<Object, Object> makeDict(Environment env) {
-    return SkylarkDict.of(env, 1, 1, 2, 2);
+  private static SkylarkDict<Object, Object> makeDict(StarlarkThread thread) {
+    return SkylarkDict.of(thread, 1, 1, 2, 2);
   }
 
   /** MockClassA */
@@ -80,15 +80,15 @@ public class EvalUtilsTest extends EvaluationTestCase {
     // Mutability depends on the environment.
     assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
     assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeList(env))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(env))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeList(thread))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(thread))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
     assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env)))).isFalse();
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(thread)))).isFalse();
   }
 
   @Test
@@ -100,10 +100,10 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Runtime.NONE,
       SkylarkList.Tuple.of(1, 2, 3),
       SkylarkList.Tuple.of("1", "2", "3"),
-      SkylarkList.MutableList.of(env, 1, 2, 3),
-      SkylarkList.MutableList.of(env, "1", "2", "3"),
-      SkylarkDict.of(env, "key", 123),
-      SkylarkDict.of(env, 123, "value"),
+      SkylarkList.MutableList.of(thread, 1, 2, 3),
+      SkylarkList.MutableList.of(thread, "1", "2", "3"),
+      SkylarkDict.of(thread, "key", 123),
+      SkylarkDict.of(thread, 123, "value"),
       NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };

@@ -95,6 +95,43 @@ EOF
       || fail "Failed to build //a:foo with remote cache"
 }
 
+function test_remote_grpc_via_unix_socket() {
+  case "$PLATFORM" in
+  darwin|freebsd|linux)
+    ;;
+  *)
+    return 0
+    ;;
+  esac
+
+  # Test that remote execution can be routed via a UNIX domain socket if
+  # supported by the platform.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  # Note: not using $TEST_TMPDIR because many OSes, notably macOS, have
+  # small maximum length limits for UNIX domain sockets.
+  socket_dir=$(mktemp -d -t "remote_executor.XXXXXXXX")
+  python "${CURRENT_DIR}/uds_proxy.py" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
+  proxy_pid=$!
+
+  bazel build \
+      --remote_executor=grpc://noexist.invalid \
+      --remote_proxy="unix:${socket_dir}/executor-socket" \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+
+  kill ${proxy_pid}
+  rm "${socket_dir}/executor-socket"
+  rmdir "${socket_dir}"
+}
+
 function test_cc_binary() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
@@ -1371,6 +1408,67 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
   [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
+}
+
+function test_platform_default_properties_invalidation() {
+  # Test that when changing values of --remote_default_platform_properties all actions are
+  # invalidated.
+mkdir -p test
+  cat > test/BUILD << 'EOF'
+genrule(
+    name = "test",
+    srcs = [],
+    outs = ["output.txt"],
+    cmd = "echo \"foo\" > \"$@\""
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=1234" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  expect_log "1 process: 1 remote"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
+  # caching and make it re-run the action.
+  expect_log "1 process: 1 remote"
+
+  bazel  build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
+  #  and make the action should not be re-run.
+  expect_log "0 processes"
+
+  bazel shutdown
+
+  bazel  build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames od-disk cache
+  #  and the action should not be re-run.
+  expect_log "0 processes"
+
+  bazel build\
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
+    //test:test >& $TEST_log && fail "Should fail" || true
+
+  # Build should fail with a proper error message if both
+  # --remote_default_platform_properties and --remote_default_exec_properties
+  # are provided via command line
+  expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

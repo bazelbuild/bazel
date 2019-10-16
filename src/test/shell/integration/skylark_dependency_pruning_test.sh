@@ -45,6 +45,21 @@ build_rule(
     executable = ":cat_unused",
     inputs = ":all_inputs",
 )
+
+sh_binary(
+    name = "cat_unused2",
+    srcs = ["cat_unused.sh"],
+    data = [
+      "output.out",
+    ],
+)
+
+build_rule(
+    name = "output2",
+    out = "output2.out",
+    executable = ":cat_unused2",
+    inputs = ":all_inputs",
+)
 EOF
 
   cat > pkg/build.bzl << 'EOF'
@@ -263,6 +278,45 @@ function test_experiment_flag_required() {
   exitcode=$?
   assert_equals 1 "$exitcode"
   expect_log "Use --experimental_starlark_unused_inputs_list"
+}
+
+# Test with orphaned artifacts features.
+# This requires --experimental_inmemory_unused_inputs_list flag.
+function test_orphaned_artifacts() {
+  options="--discard_orphaned_artifacts \
+      --force_multigroup_accounting \
+      --nokeep_state_after_build"
+
+  # Use in-memory files.
+  bazel build ${options} --experimental_inmemory_unused_inputs_list \
+      //pkg:output || fail "build failed"
+
+  # This should fail.
+  bazel build ${options} --noexperimental_inmemory_unused_inputs_list \
+      //pkg:output >& $TEST_log && fail "Expected failure"
+  exitcode=$?
+  assert_equals 1 "$exitcode"
+  expect_log "bin/pkg/output.unused (No such file or directory)"
+}
+
+# Test with orphaned artifacts features with host config.
+# output2 requires a tool (cat_unused2) that uses unused_inputs_list.
+# This requires --experimental_inmemory_unused_inputs_list flag.
+function test_orphaned_artifacts_host_config() {
+  options="--discard_orphaned_artifacts \
+      --force_multigroup_accounting \
+      --nokeep_state_after_build"
+
+  # Use in-memory files.
+  bazel build ${options} --experimental_inmemory_unused_inputs_list \
+      //pkg:output2 || fail "build failed"
+
+  # This should fail while building "output", needed by the tool.
+  bazel build ${options} --noexperimental_inmemory_unused_inputs_list \
+      //pkg:output2 >& $TEST_log && fail "Expected failure"
+  exitcode=$?
+  assert_equals 1 "$exitcode"
+  expect_log "bin/pkg/output.unused (No such file or directory)"
 }
 
 run_suite "Tests Skylark dependency pruning"

@@ -19,18 +19,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
-/**
- * Contextual information associated with each Starlark thread created by Bazel.
- */
-public class BazelStarlarkContext
-    implements StarlarkContext, RuleDefinitionContext, Label.HasRepoMapping {
+/** Contextual information associated with each Starlark thread created by Bazel. */
+public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+
+  /** Return the Bazel information associated with the specified Starlark thread. */
+  public static BazelStarlarkContext from(StarlarkThread thread) {
+    return thread.getThreadLocal(BazelStarlarkContext.class);
+  }
+
+  /** Save this BazelStarlarkContext in the specified Starlark thread. */
+  public void storeInThread(StarlarkThread thread) {
+    thread.setThreadLocal(BazelStarlarkContext.class, this);
+    thread.setThreadLocal(Label.HasRepoMapping.class, this);
+  }
+
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
   private final SymbolGenerator<?> symbolGenerator;
+  @Nullable private final Label analysisRuleLabel;
 
   /**
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
@@ -39,29 +49,27 @@ public class BazelStarlarkContext
    * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
    *     compared using reference equality.
+   * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
+   *     'implementation') thread, or null for all other threads.
    */
+  // TODO(adonovan): clearly demarcate which fields are defined in which kinds of threads (loading,
+  // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
+  // separate structs, exactly one of which is populated (plus the common fields). And eliminate
+  // SkylarkUtils.Phase.
+  // TODO(adonovan): add a PackageIdentifier here, for use by the Starlark Label function.
+  // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for
+  // analysis threads?
   public BazelStarlarkContext(
       String toolsRepository,
-      ImmutableMap<String, Class<?>> fragmentNameToClass,
+      @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      SymbolGenerator<?> symbolGenerator) {
+      SymbolGenerator<?> symbolGenerator,
+      @Nullable Label analysisRuleLabel) {
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
-  }
-
-  /**
-   * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
-   * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
-   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
-   *     compared using reference equality.
-   */
-  public BazelStarlarkContext(
-      String toolsRepository,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      SymbolGenerator<?> symbolGenerator) {
-    this(toolsRepository, null, repoMapping, symbolGenerator);
+    this.analysisRuleLabel = analysisRuleLabel;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
@@ -71,6 +79,7 @@ public class BazelStarlarkContext
   }
 
   /** Returns a map from configuration fragment name to configuration fragment class. */
+  @Nullable
   public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
     return fragmentNameToClass;
   }
@@ -86,5 +95,14 @@ public class BazelStarlarkContext
 
   public SymbolGenerator<?> getSymbolGenerator() {
     return symbolGenerator;
+  }
+
+  /**
+   * Returns the label of the rule, if this is an analysis-phase (rule or aspect 'implementation')
+   * thread, or null otherwise.
+   */
+  @Nullable
+  public Label getAnalysisRuleLabel() {
+    return analysisRuleLabel;
   }
 }

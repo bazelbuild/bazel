@@ -157,6 +157,8 @@ public class ExecutionRequirements {
   /** If an action supports running in persistent worker mode. */
   public static final String SUPPORTS_WORKERS = "supports-workers";
 
+  public static final String SUPPORTS_MULTIPLEX_WORKERS = "supports-multiplex-workers";
+
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
 

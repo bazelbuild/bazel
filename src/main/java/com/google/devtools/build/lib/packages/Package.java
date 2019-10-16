@@ -1474,10 +1474,7 @@ public class Package {
           // All labels mentioned in a rule that refer to an unknown target in the
           // current package are assumed to be InputFiles, so let's create them:
           for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            InputFile inputFile =
-                createInputFileMaybe(
-                    depEdge.getLabel(),
-                    rule.getAttributeLocation(depEdge.getAttribute().getName()));
+            InputFile inputFile = createInputFileMaybe(depEdge.getLabel(), rule.getLocation());
             if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
               newInputFiles.put(depEdge.getLabel(), inputFile);
             }

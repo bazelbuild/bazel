@@ -356,7 +356,7 @@ public class JavacTurbine implements AutoCloseable {
   private static void emitClassJar(
       TurbineOptions turbineOptions, Map<String, byte[]> files, Map<String, byte[]> transitive)
       throws IOException {
-    Path outputJar = Paths.get(turbineOptions.outputFile());
+    Path outputJar = Paths.get(turbineOptions.output().get());
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {

@@ -168,8 +168,8 @@ public final class DataBindingV2Provider extends NativeInfo
         Object brFile,
         Object label,
         Object javaPackage,
-        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
-        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports)
+        SkylarkList<?> databindingV2ProvidersInDeps, // <DataBindingV2Provider>
+        SkylarkList<?> databindingV2ProvidersInExports) // <DataBindingV2Provider>
         throws EvalException {
 
       return createProvider(
@@ -180,10 +180,14 @@ public final class DataBindingV2Provider extends NativeInfo
           fromNoneable(javaPackage, String.class),
           databindingV2ProvidersInDeps == null
               ? null
-              : databindingV2ProvidersInDeps.getImmutableList(),
+              : ImmutableList.copyOf(
+                  databindingV2ProvidersInDeps.getContents(
+                      DataBindingV2Provider.class, "databinding_v2_providers_in_deps")),
           databindingV2ProvidersInExports == null
               ? null
-              : databindingV2ProvidersInExports.getImmutableList());
+              : ImmutableList.copyOf(
+                  databindingV2ProvidersInExports.getContents(
+                      DataBindingV2Provider.class, "databinding_v2_providers_in_exports")));
     }
   }
 }

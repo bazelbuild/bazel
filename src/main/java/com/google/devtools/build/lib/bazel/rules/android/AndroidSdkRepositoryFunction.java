@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -333,18 +333,16 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       Revision buildToolsRevision = Revision.parseRevision(buildToolsVersion);
       if (buildToolsRevision.compareTo(MIN_BUILD_TOOLS_REVISION) < 0) {
         throw new EvalException(
-            rule.getAttributeLocation("build_tools_version"),
+            rule.getLocation(),
             String.format(
                 "Bazel requires Android build tools version %s or newer, %s was provided",
-                MIN_BUILD_TOOLS_REVISION,
-                buildToolsRevision));
+                MIN_BUILD_TOOLS_REVISION, buildToolsRevision));
       }
     } catch (NumberFormatException e) {
       throw new EvalException(
-          rule.getAttributeLocation("build_tools_version"),
+          rule.getLocation(),
           String.format(
-              "Bazel does not recognize Android build tools version %s",
-              buildToolsVersion),
+              "Bazel does not recognize Android build tools version %s", buildToolsVersion),
           e);
     }
   }

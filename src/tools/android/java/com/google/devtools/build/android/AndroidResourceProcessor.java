@@ -89,28 +89,6 @@ public class AndroidResourceProcessor {
     public Path aapt;
 
     @Option(
-      name = "featureOf",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Base apk path."
-    )
-    public Path featureOf;
-
-    @Option(
-      name = "featureAfter",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Apk path of previous split (if any)."
-    )
-    public Path featureAfter;
-
-    @Option(
       name = "androidJar",
       defaultValue = "null",
       converter = ExistingPathConverter.class,
@@ -146,17 +124,6 @@ public class AndroidResourceProcessor {
       help = "A list of file extensions not to compress."
     )
     public List<String> uncompressedExtensions;
-
-    @Option(
-      name = "assetsToIgnore",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of assets extensions to ignore."
-    )
-    public List<String> assetsToIgnore;
 
     @Option(
       name = "debug",
@@ -198,9 +165,6 @@ public class AndroidResourceProcessor {
 
     @Override
     public String getIgnoreAssets() {
-      if (!options.assetsToIgnore.isEmpty()) {
-        return Joiner.on(":").join(options.assetsToIgnore);
-      }
       return null;
     }
 
@@ -211,16 +175,7 @@ public class AndroidResourceProcessor {
 
     @Override
     public List<String> getAdditionalParameters() {
-      List<String> params = new java.util.ArrayList<String>();
-      if (options.featureOf != null) {
-        params.add("--feature-of");
-        params.add(options.featureOf.toString());
-      }
-      if (options.featureAfter != null) {
-        params.add("--feature-after");
-        params.add(options.featureAfter.toString());
-      }
-      return ImmutableList.copyOf(params);
+      return ImmutableList.of();
     }
   }
 

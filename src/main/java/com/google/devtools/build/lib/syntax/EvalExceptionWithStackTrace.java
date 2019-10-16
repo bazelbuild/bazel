@@ -27,7 +27,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   private StackFrame mostRecentElement;
 
-  public EvalExceptionWithStackTrace(Exception original, ASTNode culprit) {
+  public EvalExceptionWithStackTrace(Exception original, Node culprit) {
     super(extractLocation(original, culprit), getNonEmptyMessage(original), getCause(original));
     registerNode(culprit);
   }
@@ -42,10 +42,10 @@ public class EvalExceptionWithStackTrace extends EvalException {
   /**
    * Returns the appropriate location for this exception.
    *
-   * <p>If the {@code ASTNode} has a valid location, this one is used. Otherwise, we try to get the
+   * <p>If the {@code Node} has a valid location, this one is used. Otherwise, we try to get the
    * location of the exception.
    */
-  private static Location extractLocation(Exception original, ASTNode culprit) {
+  private static Location extractLocation(Exception original, Node culprit) {
     if (culprit != null && culprit.getLocation() != null) {
       return culprit.getLocation();
     }
@@ -62,10 +62,8 @@ public class EvalExceptionWithStackTrace extends EvalException {
     return (ex instanceof EvalException) ? ex.getCause() : ex;
   }
 
-  /**
-   * Adds an entry for the given {@code ASTNode} to the stack trace.
-   */
-  public void registerNode(ASTNode node) {
+  /** Adds an entry for the given {@code Node} to the stack trace. */
+  public void registerNode(Node node) {
     addStackFrame(node.toString().trim(), node.getLocation());
   }
 

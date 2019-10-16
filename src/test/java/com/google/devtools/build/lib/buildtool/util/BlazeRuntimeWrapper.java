@@ -327,8 +327,13 @@ public class BlazeRuntimeWrapper {
       env.getEventBus()
           .post(
               new CommandStartEvent(
-                  "build", env.getCommandId(), env.getClientEnv(), env.getWorkingDirectory(),
-                  env.getDirectories(), 0));
+                  "build",
+                  env.getCommandId(),
+                  env.getBuildRequestId(),
+                  env.getClientEnv(),
+                  env.getWorkingDirectory(),
+                  env.getDirectories(),
+                  0));
 
       lastRequest = createRequest("build", targets);
       lastResult = new BuildResult(lastRequest.getStartTime());

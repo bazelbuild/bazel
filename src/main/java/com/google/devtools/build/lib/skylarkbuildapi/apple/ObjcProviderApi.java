@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * An interface for an info type that provides all compiling and linking information in the
@@ -41,13 +40,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
           + "all invocations of the compiler for this target and all depending targets."
   )
   public NestedSet<String> define();
-
-  @SkylarkCallable(
-      name = "dynamic_framework_dir",
-      structField = true,
-      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
-  public SkylarkNestedSet dynamicFrameworkDir();
 
   @SkylarkCallable(
       name = "dynamic_framework_file",
@@ -249,39 +241,26 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   public SkylarkNestedSet weakSdkFramework();
 
   @SkylarkCallable(
-      name = "framework_dir",
-      structField = true,
-      doc =
-          "Returns all unique static framework directories (directories ending in '.framework') "
-              + "for all static framework files in this provider.",
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
-  public SkylarkNestedSet getStaticFrameworkDirsForSkylark();
-
-  @SkylarkCallable(
       name = "dynamic_framework_names",
       structField = true,
-      doc = "Returns all names of dynamic frameworks in this provider.",
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+      doc = "Returns all names of dynamic frameworks in this provider.")
   public NestedSet<String> dynamicFrameworkNames();
 
   @SkylarkCallable(
       name = "dynamic_framework_paths",
       structField = true,
-      doc = "Returns all framework paths to dynamic frameworks in this provider.",
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+      doc = "Returns all framework paths to dynamic frameworks in this provider.")
   public NestedSet<String> dynamicFrameworkPaths();
 
   @SkylarkCallable(
       name = "static_framework_names",
       structField = true,
-      doc = "Returns all names of static frameworks in this provider.",
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+      doc = "Returns all names of static frameworks in this provider.")
   public NestedSet<String> staticFrameworkNames();
 
   @SkylarkCallable(
       name = "static_framework_paths",
       structField = true,
-      doc = "Returns all framework paths to static frameworks in this provider.",
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP)
+      doc = "Returns all framework paths to static frameworks in this provider.")
   public NestedSet<String> staticFrameworkPaths();
 }

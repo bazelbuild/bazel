@@ -46,15 +46,26 @@ public class DynamicExecutionOptions extends OptionsBase {
   public Void experimentalSpawnScheduler;
 
   @Option(
-    name = "internal_spawn_scheduler",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "false",
-    help =
-        "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
-            + "enabled."
-  )
+      name = "internal_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
+              + "enabled.")
   public boolean internalSpawnScheduler;
+
+  @Option(
+      name = "legacy_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "true",
+      help =
+          "Enables the old but tested implementation of the spawn scheduler. This differs from the "
+              + "new version in that this version cannot stop a local spawn once it has started "
+              + "running. You should never have to enable the legacy scheduler except to "
+              + "workaround bugs in the new version.")
+  public boolean legacySpawnScheduler;
 
   @Option(
       name = "dynamic_local_strategy",

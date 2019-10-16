@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -102,12 +103,12 @@ public interface TestActionContext extends ActionContext {
 
       @Override
       public ListenableFuture<?> getFuture() {
-        throw new IllegalStateException();
+        return Futures.immediateFuture(null);
       }
 
       @Override
       public TestAttemptContinuation execute() {
-        throw new IllegalStateException();
+        return this;
       }
 
       @Override
@@ -126,8 +127,7 @@ public interface TestActionContext extends ActionContext {
      * return a completed result, or it may return a continuation with a non-null future
      * representing asynchronous execution.
      */
-    TestAttemptContinuation beginExecution()
-        throws InterruptedException, IOException, ExecException;
+    TestAttemptContinuation beginExecution() throws InterruptedException, IOException;
 
     /**
      * After the first attempt has run, this method is called to determine the maximum number of
@@ -150,7 +150,7 @@ public interface TestActionContext extends ActionContext {
      * attempts are exhausted and then run with another strategy for another set of attempts. This
      * is rarely used, and should ideally be removed.
      */
-    default TestRunnerSpawn getFallbackRunner() throws ExecException, InterruptedException {
+    default TestRunnerSpawn getFallbackRunner() throws ExecException {
       return null;
     }
   }

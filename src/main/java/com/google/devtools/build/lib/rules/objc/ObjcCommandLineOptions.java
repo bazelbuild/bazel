@@ -202,18 +202,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean debugWithGlibcxx;
 
   @Option(
-    name = "extra_entitlements",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of a .entitlements file that is merged into any iOS signing action in this "
-            + "build."
-  )
-  public Label extraEntitlements;
-
-  @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -266,15 +254,26 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public int objcHeaderThinningPartitionSize;
 
   @Option(
-    name = "objc_header_scanner_tool",
-    defaultValue = "@bazel_tools//tools/objc:header_scanner",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
-            + "file."
-  )
+      name = "experimental_objc_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      help = "Whether to perform include scanning for objective C/C++.")
+  public boolean scanIncludes;
+
+  @Option(
+      name = "objc_header_scanner_tool",
+      defaultValue = "@bazel_tools//tools/objc:header_scanner",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
+              + "file.")
   public Label objcHeaderScannerTool;
 
   @Option(

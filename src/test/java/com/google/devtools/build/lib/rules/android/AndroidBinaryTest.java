@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getArtifactsEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.hasInput;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorpath;
@@ -937,7 +938,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourcePathShortening_flagEnabledAndCOpt_flagsGetPassedToAction()
+  public void testResourcePathShortening_flagEnabledAndCOpt_optimizedApkIsInputToApkBuilderAction()
       throws Exception {
     useConfiguration("--experimental_android_resource_path_shortening", "-c", "opt");
 
@@ -945,23 +946,26 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
-    Artifact resourcePathShorteningMapArtifact =
-        getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
-    assertThat(resourcePathShorteningMapArtifact).isNotNull();
-    assertThat(getGeneratingAction(resourcePathShorteningMapArtifact).getMnemonic())
-        .isEqualTo("AndroidAapt2");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+    assertThat(getGeneratingAction(getFirstArtifactEndingWith(artifacts, "app_resource_paths.map")))
+        .isEqualTo(optimizeAction);
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
-
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).contains("--resourcePathShortening");
-    assertThat(flagValue("--resourcePathShorteningMapOutput", processingArgs))
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--shorten-resource-paths");
+    assertThat(flagValue("--resource-path-shortening-map", processingArgs))
         .endsWith("app_resource_paths.map");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isTrue();
   }
 
   @Test
-  public void testResourcePathShortening_flagEnabledAndCDefault_flagsNotPassedToAction()
+  public void testResourcePathShortening_flagEnabledAndCDefault_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("--experimental_android_resource_path_shortening");
 
@@ -973,16 +977,18 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNull();
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "app_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
 
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
-    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isFalse();
   }
 
   @Test
-  public void testResourcePathShorteningMap_flagNotEnabledAndCOpt_flagsNotPassedToAction()
+  public void testResourcePathShortening_flagNotEnabledAndCOpt_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("-c", "opt");
 
@@ -994,16 +1000,104 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getFirstArtifactEndingWith(artifacts, "app_resource_paths.map");
     assertThat(resourcePathShorteningMapArtifact).isNull();
 
-    Artifact androidResourcesApk = getFirstArtifactEndingWith(artifacts, ".ap_");
-    assertThat(getGeneratingAction(androidResourcesApk).getMnemonic()).isEqualTo("AndroidAapt2");
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "app_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
 
-    List<String> processingArgs = getGeneratingSpawnActionArgs(androidResourcesApk);
-    assertThat(processingArgs).doesNotContain("--resourcePathShortening");
-    assertThat(processingArgs).doesNotContain("--resourcePathShorteningMapOutput");
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "app_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "app_optimized.ap_")).isFalse();
   }
 
   @Test
-  public void testResourceShrinkingAction() throws Exception {
+  public void resourceNameCollapse_flagAndProguardSpecsPresent_optimizedApkIsInputToApkBuilder()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_name_obfuscation");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    SpawnAction shrinkerAction =
+        getGeneratingSpawnAction(
+            getFirstArtifactEndingWith(artifacts, "resource_optimization.cfg"));
+    assertThat(shrinkerAction.getMnemonic()).isEqualTo("ResourceShrinker");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--collapse-resource-names");
+    assertThat(flagValue("--resources-config-path", processingArgs))
+        .endsWith("resource_optimization.cfg");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isTrue();
+  }
+
+  @Test
+  public void resourceNameCollapse_flagPresentProguardSpecsAbsent_optimizeArtifactsAbsent()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_name_obfuscation");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
+
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isFalse();
+  }
+
+  @Test
+  public void resourceNameCollapse_flagAbsentProguardSpecsPresent_optimizeArtifactsAbsent()
+      throws Exception {
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    Artifact optimizedResourceApk = getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_");
+    assertThat(optimizedResourceApk).isNull();
+
+    // Verify that the optimized APK is not an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isFalse();
+  }
+
+  @Test
+  public void testResourceShrinkingAction_legacyAapt1() throws Exception {
     useConfiguration("--android_aapt=aapt");
 
     scratch.file(
@@ -1051,9 +1145,10 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--rOutput", processingArgs));
     assertThat(flagValue("--primaryManifest", shrinkingArgs))
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
-
     assertThat(flagValue("--resourceConfigs", shrinkingArgs))
         .isEqualTo(flagValue("--resourceConfigs", processingArgs));
+
+    assertThat(shrinkingArgs).doesNotContain("--keptResourcesOutput");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
@@ -2243,9 +2338,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testUseRClassGeneratorMultipleDeps() throws Exception {
-    // This test assumes using aapt.
-    useConfiguration("--android_aapt=aapt");
-
     scratch.file(
         "java/r/android/BUILD",
         "android_library(name = 'lib1',",
@@ -2279,15 +2371,92 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "--primaryRTxt",
             "--primaryManifest",
             "--library",
-            firstDep.getRTxt().getExecPathString()
+            firstDep.getAapt2RTxt().getExecPathString()
                 + ","
                 + firstDep.getManifest().getExecPathString(),
             "--library",
-            secondDep.getRTxt().getExecPathString()
+            secondDep.getAapt2RTxt().getExecPathString()
                 + ","
                 + secondDep.getManifest().getExecPathString(),
             "--classJarOutput")
         .inOrder();
+  }
+
+  @Test
+  public void useRTxtFromMergedResourcesForFinalRClasses() throws Exception {
+    useConfiguration("--experimental_use_rtxt_from_merged_resources");
+    scratch.file(
+        "java/pkg/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")",
+        "android_binary(",
+        "    name = 'bin',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ ':lib' ],",
+        ")");
+
+    ConfiguredTargetAndData bin = getConfiguredTargetAndData("//java/pkg:bin");
+    ConfiguredTarget lib = getDirectPrerequisite(bin.getConfiguredTarget(), "//java/pkg:lib");
+    ValidatedAndroidResources libResources =
+        lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
+    SpawnAction topLevelResourceClassAction = getGeneratingSpawnAction(getResourceClassJar(bin));
+
+    // verify that the R.txt from creating the library-level resources.jar is also used for creating
+    // the top-level resources.jar
+    assertThat(getGeneratingSpawnAction(libResources.getClassJar()).getOutputs())
+        .contains(libResources.getAapt2RTxt());
+    MoreAsserts.assertContainsSublist(
+        topLevelResourceClassAction.getArguments(),
+        "--library",
+        libResources.getAapt2RTxt().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
+
+    // the "validation artifact" shouldn't be used for creating the top-level resources.jar,
+    // but it's still fed as an pseudo-input to trigger validation.
+    MoreAsserts.assertDoesNotContainSublist(
+        topLevelResourceClassAction.getArguments(),
+        "--library",
+        libResources.getAapt2ValidationArtifact().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
+    assertThat(topLevelResourceClassAction.getInputs())
+        .contains(libResources.getAapt2ValidationArtifact());
+  }
+
+  // (test for undesired legacy behavior)
+  @Test
+  public void doNotUseRTxtFromMergedResourcesForFinalRClasses() throws Exception {
+    scratch.file(
+        "java/pkg/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = [ 'res/values/values.xml' ], ",
+        ")",
+        "android_binary(",
+        "    name = 'bin',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [ ':lib' ],",
+        ")");
+
+    ConfiguredTargetAndData bin = getConfiguredTargetAndData("//java/pkg:bin");
+    ConfiguredTarget lib = getDirectPrerequisite(bin.getConfiguredTarget(), "//java/pkg:lib");
+    ValidatedAndroidResources libResources =
+        lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
+
+    // use the "validation artifact" for creating the top-level resources.jar
+    MoreAsserts.assertContainsSublist(
+        getGeneratingSpawnActionArgs(getResourceClassJar(bin)),
+        "--library",
+        libResources.getAapt2ValidationArtifact().getExecPathString()
+            + ","
+            + libResources.getManifest().getExecPathString());
   }
 
   @Test
@@ -3873,7 +4042,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     SpawnAction classAction = getGeneratingSpawnAction(classJar);
     assertThat(classAction.getInputs())
         .containsAtLeast(
-            rTxt, getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT));
+            rTxt,
+            getImplicitOutputArtifact(
+                b, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT));
   }
 
   @Test
@@ -3930,12 +4101,34 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("-printmapping", proguardArgs));
     assertThat(flagValue("--rTxt", shrinkingArgs))
         .isEqualTo(flagValue("--rOutput", processingArgs));
+    assertThat(flagValue("--resourcesConfigOutput", shrinkingArgs))
+        .endsWith("resource_optimization.cfg");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
 
     assertThat(flagValue("--tool", packageArgs)).isEqualTo("AAPT2_PACKAGE");
     assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
+  }
+
+  @Test
+  public void testAapt2ResourceShrinking_proguardSpecsAbsent_noShrunkApk() throws Exception {
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               aapt_version='aapt2',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1,)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+    ConfiguredTarget binary = targetAndData.getConfiguredTarget();
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    assertThat(getFirstArtifactEndingWith(artifacts, "shrunk.ap_")).isNull();
   }
 
   @Test

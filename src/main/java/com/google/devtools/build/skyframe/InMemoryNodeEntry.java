@@ -51,16 +51,16 @@ import javax.annotation.Nullable;
  *
  * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsentBatch} and
  * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to call
- * both methods in that order if they want to create a node. The second method transitions the
- * current node to the "evaluating" state and returns true only the first time it was called. A
- * caller that gets "true" back from that call must start the evaluation of this node, while any
- * subsequent callers must not.
+ * both methods in that order if they want to create a node. The second method returns the
+ * NEEDS_SCHEDULING state only on the first time it was called. A caller that gets NEEDS_SCHEDULING
+ * back from that call must start the evaluation of this node, while any subsequent callers must
+ * not.
  *
- * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a node
- * that is never actually built (for instance, a dirty node that is verified as clean) is in the
- * "evaluating" state until it is done.
+ * <p>An entry is set to ALREADY_EVALUATING as soon as it is scheduled for evaluation. Thus, even a
+ * node that is never actually built (for instance, a dirty node that is verified as clean) is in
+ * the ALREADY_EVALUATING state until it is DONE.
  *
- * <p>From the "Done" state, the node can go back to the "marked as affected" state.
+ * <p>From the DONE state, the node can go back to the "marked as affected" state.
  *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.

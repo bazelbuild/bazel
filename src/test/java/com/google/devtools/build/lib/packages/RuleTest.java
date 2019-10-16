@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -41,37 +40,6 @@ public class RuleTest {
   @Before
   public void setUp() throws Exception {
     root = Root.fromPath(scratch.dir(""));
-  }
-
-  @Test
-  public void testAttributeLocation() throws Exception {
-    Path buildFile = scratch.file("x/BUILD",
-        "cc_binary(name = 'x',",
-        "          srcs = ['a', 'b', 'c'],",
-        "          defines = ['-Da', '-Db'])");
-    Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, buildFile));
-    Rule rule = pkg.getRule("x");
-
-    assertThat(rule.getLocation().getStartLineAndColumn()).isEqualTo(new LineAndColumn(1, 1));
-
-    // Special "name" attribute always has same location as rule:
-    assertThat(rule.getAttributeLocation("name").getStartLineAndColumn())
-        .isEqualTo(new LineAndColumn(1, 1));
-
-    // User-provided attributes have precise locations:
-    assertThat(rule.getAttributeLocation("srcs").getStartLineAndColumn())
-        .isEqualTo(new LineAndColumn(2, 18));
-    assertThat(rule.getAttributeLocation("defines").getStartLineAndColumn())
-        .isEqualTo(new LineAndColumn(3, 21));
-
-    // Default attributes have same location as rule:
-    assertThat(rule.getAttributeLocation("malloc").getStartLineAndColumn())
-        .isEqualTo(new LineAndColumn(1, 1));
-
-    // Attempts to locate non-existent attributes don't fail;
-    // the rule location is returned:
-    assertThat(rule.getAttributeLocation("no-such-attr").getStartLineAndColumn())
-        .isEqualTo(new LineAndColumn(1, 1));
   }
 
   @Test

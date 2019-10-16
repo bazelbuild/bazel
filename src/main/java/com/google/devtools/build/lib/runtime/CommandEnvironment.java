@@ -461,11 +461,11 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the directory where actions' outputs and errors will be written. Is below the directory
+   * Returns the directory where actions' temporary files will be written. Is below the directory
    * returned by {@link #getExecRoot}.
    */
-  public Path getActionConsoleOutputDirectory() {
-    return getDirectories().getActionConsoleOutputDirectory(getExecRoot());
+  public Path getActionTempsDirectory() {
+    return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
   /**
@@ -708,9 +708,15 @@ public final class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
 
-    eventBus.post(new CommandStartEvent(
-        command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
-        waitTimeInMs + commonOptions.waitTime));
+    eventBus.post(
+        new CommandStartEvent(
+            command.name(),
+            getCommandId(),
+            getBuildRequestId(),
+            getClientEnv(),
+            workingDirectory,
+            getDirectories(),
+            waitTimeInMs + commonOptions.waitTime));
 
     // Modules that are subscribed to CommandStartEvents may create pending exceptions.
     throwPendingException();

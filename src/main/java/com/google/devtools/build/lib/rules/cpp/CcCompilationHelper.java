@@ -434,6 +434,17 @@ public final class CcCompilationHelper {
   }
 
   /**
+   * Add directly to privateHeaders, which are added to the compilation prerequisites and can be
+   * removed by include scanning. This is only used to work around cases where we are not
+   * propagating transitive dependencies properly via scheduling dependency middleman (i.e. objc
+   * compiles).
+   */
+  public CcCompilationHelper addPrivateHeadersUnchecked(Collection<Artifact> privateHeaders) {
+    this.privateHeaders.addAll(privateHeaders);
+    return this;
+  }
+
+  /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given build
    * variables will be added to those used for compiling this source.
@@ -1387,12 +1398,19 @@ public final class CcCompilationHelper {
             /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
+    SpecialArtifact dotdTreeArtifact = null;
+    // The MSVC compiler won't generate .d file, instead we parse the output of /showIncludes flag.
+    // Therefore, dotdTreeArtifact should be null in this case.
+    if (!featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      dotdTreeArtifact =
+          CppHelper.getDotdOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
-            CppHelper.getDotdOutputTreeArtifact(
-                actionConstructionContext, label, sourceArtifact, outputName, usePic),
+            dotdTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -2014,6 +2032,9 @@ public final class CcCompilationHelper {
   }
 
   private Artifact getLtoIndexingFile(Artifact outputFile) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+      return null;
+    }
     String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
     return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ext);
   }

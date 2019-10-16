@@ -57,22 +57,20 @@ public class CommandManagerTest {
     CyclicBarrier cyclicBarrier = new CyclicBarrier(2);
 
     TestThread thread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            try {
-              while (true) {
-                waiting.set(true);
-                underTest.waitForChange();
-                waiting.set(false);
-                notificationCounter.incrementAndGet();
-                cyclicBarrier.await();
+        new TestThread(
+            () -> {
+              try {
+                while (true) {
+                  waiting.set(true);
+                  underTest.waitForChange();
+                  waiting.set(false);
+                  notificationCounter.incrementAndGet();
+                  cyclicBarrier.await();
+                }
+              } catch (InterruptedException e) {
+                // Used to terminate the thread.
               }
-            } catch (InterruptedException e) {
-              // Used to terminate the thread.
-            }
-          }
-        };
+            });
     thread.start();
 
     // We want to ensure at each step that we are actively awaiting notification.

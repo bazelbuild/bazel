@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
@@ -357,20 +356,9 @@ public final class ObjcCommon {
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders);
 
-      if (!semantics.incompatibleObjcFrameworkCleanup()) {
-        objcProvider.addAll(
-            DYNAMIC_FRAMEWORK_DIR,
-            uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE));
-      }
-
       for (ObjcProvider provider : runtimeDepObjcProviders) {
-        if (!semantics.incompatibleObjcFrameworkCleanup()) {
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
-        } else {
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY, provider);
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
-        }
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATHS, provider);
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
 

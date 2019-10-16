@@ -111,16 +111,25 @@ public class PyStructUtils {
             PROVIDER_NAME,
             TRANSITIVE_SOURCES,
             EvalUtils.getDataTypeName(fieldValue, /*fullDetails=*/ true));
-    NestedSet<Artifact> unwrappedValue = castValue.getSet(Artifact.class);
-    if (!unwrappedValue.getOrder().isCompatible(Order.COMPILE_ORDER)) {
+    try {
+      NestedSet<Artifact> unwrappedValue = castValue.getSet(Artifact.class);
+      if (!unwrappedValue.getOrder().isCompatible(Order.COMPILE_ORDER)) {
+        throw new EvalException(
+            /*location=*/ null,
+            String.format(
+                "Incompatible depset order for 'transitive_sources': expected 'default' or "
+                    + "'postorder', but got '%s'",
+                unwrappedValue.getOrder().getSkylarkName()));
+      }
+      return unwrappedValue;
+    } catch (SkylarkNestedSet.TypeException exception) {
       throw new EvalException(
-          /*location=*/ null,
+          null,
           String.format(
-              "Incompatible depset order for 'transitive_sources': expected 'default' or "
-                  + "'postorder', but got '%s'",
-              unwrappedValue.getOrder().getSkylarkName()));
+              "expected field '%s' to be a depset of type 'file', but was a depset of type '%s'",
+              TRANSITIVE_SOURCES, castValue.getContentType()),
+          exception);
     }
-    return unwrappedValue;
   }
 
   /**
@@ -157,7 +166,16 @@ public class PyStructUtils {
             PROVIDER_NAME,
             IMPORTS,
             EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
-    return castValue.getSet(String.class);
+    try {
+      return castValue.getSet(String.class);
+    } catch (SkylarkNestedSet.TypeException exception) {
+      throw new EvalException(
+          null,
+          String.format(
+              "expected field '%s' to be a depset of type 'file', but was a depset of type '%s'",
+              IMPORTS, castValue.getContentType()),
+          exception);
+    }
   }
 
   /**

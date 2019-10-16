@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -51,8 +52,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1199,7 +1202,39 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("'headers' argument must be a depset");
+    assertContainsEvent("expected a depset of 'File' but got '[]' for parameter 'headers'");
+  }
+
+  @Test
+  public void testCreateCompilationOutputs_invalidDepset() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name='x')");
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(",
+        "      objects = depset([1, 2]), pic_objects = depset([1, 2]))",
+        "my_rule = rule(",
+        "  _impl,",
+        ");");
+
+    assertThat(getConfiguredTarget("//test:x")).isNull();
+    assertContainsEvent(
+        "for parameter 'objects', got a depset of 'int', expected a depset of 'File'");
+  }
+
+  @Test
+  public void testCreateCompilationOutputs_empty() throws Exception {
+    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name='x')");
+    scratch.file(
+        "test/my_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs()",
+        "my_rule = rule(",
+        "  _impl,",
+        ");");
+
+    assertThat(getConfiguredTarget("//test:x")).isNotNull();
   }
 
   @Test
@@ -5305,12 +5340,24 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAdditionalInputs() throws Exception {
+  public void testAdditionalLinkingInputs() throws Exception {
     createFilesForTestingLinking(
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs()).hasSize(1);
+  }
+
+  @Test
+  public void testAdditionalCompilationInputs() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_compiler_inputs");
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(artifactsToStrings(action.getMandatoryInputs()))
+        .contains("src foo/extra_compiler_input");
   }
 
   @Test
@@ -5358,20 +5405,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//bar:skylark_lib");
     assertContainsEvent("The list of possible extensions for 'srcs'");
-  }
-
-  @Test
-  public void testFlagWhitelist() throws Exception {
-    if (!AnalysisMock.get().isThisBazel()) {
-    setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
-    createFiles(scratch, "foo/bar");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:bin");
-    assertContainsEvent(
-        "You can try it out by passing "
-            + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
-            + "will be making breaking changes to this API without prior warning.");
-    }
   }
 
   private static void createFilesForTestingCompilation(
@@ -5474,6 +5507,96 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//b:b")).isNotNull();
   }
 
+  @Test
+  public void testObjectsApi() throws Exception {
+    useConfiguration("--compilation_mode=opt");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
+
+    scratchObjectsProvidingRule();
+
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    LibraryToLink fooLibrary =
+        Iterables.getOnlyElement(
+            getConfiguredTarget("//foo:dep")
+                .get(CcInfo.PROVIDER)
+                .getCcLinkingContext()
+                .getLibraries()
+                .toList());
+    SkylarkInfo fooInfo =
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+
+    assertThat(fooLibrary.getObjectFiles()).isEqualTo(fooInfo.getValue("objects"));
+    assertThat(fooLibrary.getPicObjectFiles()).isEqualTo(fooInfo.getValue("pic_objects"));
+  }
+
+  @Test
+  public void testObjectsApiNeverReturningNones() throws Exception {
+    scratchObjectsProvidingRule();
+
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+
+    // Default toolchain is without PIC support, so pic_objects should be None
+    SkylarkInfo fooInfoForPic =
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+
+    Object picObjects = fooInfoForPic.getValue("pic_objects");
+    assertThat(picObjects).isNotEqualTo(Runtime.NONE);
+    assertThat((MutableList) picObjects).isEmpty();
+
+    // With PIC and the default compilation_mode which is fastbuild C++ rules only produce PIC
+    // objects.
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
+    invalidatePackages();
+    SkylarkInfo fooInfoForNoPic =
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+
+    Object objects = fooInfoForNoPic.getValue("objects");
+    assertThat(objects).isNotEqualTo(Runtime.NONE);
+    assertThat((MutableList) objects).isEmpty();
+  }
+
+  private void scratchObjectsProvidingRule() throws IOException {
+    scratch.file(
+        "foo/BUILD",
+        "load(':foo.bzl', 'foo')",
+        "foo(",
+        "  name = 'foo',",
+        "  dep = ':dep',",
+        ")",
+        "cc_library(",
+        "  name = 'dep',",
+        "  srcs = ['dep.cc'],",
+        ")");
+    scratch.file(
+        "foo/foo.bzl",
+        "FooInfo = provider(fields=['objects', 'pic_objects'])",
+        "",
+        "def _foo_impl(ctx):",
+        "  lib = ctx.attr.dep[CcInfo].linking_context.libraries_to_link.to_list()[0]",
+        "  return [FooInfo(objects=lib.objects, pic_objects=lib.pic_objects)]",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  }",
+        ")");
+  }
+
   private static void createFiles(
       Scratch scratch, String bzlFilePath, String compileProviderLines, String linkProviderLines)
       throws Exception {
@@ -5573,6 +5696,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      'private_hdrs': attr.label_list(allow_files=True),",
         "      '_additional_inputs': attr.label_list(allow_files=True,"
             + " default=['//foo:script.lds']),",
+        "      '_additional_compiler_inputs': attr.label_list(allow_files=True,"
+            + " default=['//foo:extra_compiler_input']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
         "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
         "      '_cc_toolchain': attr.label(default =",

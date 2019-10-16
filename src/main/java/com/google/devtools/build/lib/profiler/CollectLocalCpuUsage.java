@@ -68,6 +68,11 @@ public class CollectLocalCpuUsage extends Thread {
     long currentTimeNanos = System.nanoTime();
     long currentTimeMillis = System.currentTimeMillis();
     int len = (int) ((currentTimeMillis - cpuProfileStartMillis) / BUCKET_SIZE_MILLIS) + 1;
+    // Time math is famously unreliable and this class is doing it wrong, occasionally resulting in
+    // a negative len value.
+    // TODO(b/141709559): Rearchitect profiling to use Stopwatch etc. where possible to ensure time
+    // only travels in one direction.
+    len = Math.max(0, len);
     double[] localCpuUsageValues = localCpuUsage.toDoubleArray(len);
     Profiler profiler = Profiler.instance();
     for (int i = 0; i < len; i++) {

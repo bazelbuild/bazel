@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -169,7 +169,7 @@ final class SkylarkDocumentationCollector {
 
       if (moduleClass == moduleDoc.getClassObject()) {
         ImmutableMap<Method, SkylarkCallable> methods =
-            FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+            CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
           // Only collect methods not annotated with @SkylarkConstructor. Methods with
           // @SkylarkConstructor are added later.
@@ -186,7 +186,7 @@ final class SkylarkDocumentationCollector {
   private static Map.Entry<Method, SkylarkCallable> getSelfCallConstructorMethod(
       Class<?> objectClass) {
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(objectClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(objectClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getValue().selfCall()
           && entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
@@ -209,7 +209,7 @@ final class SkylarkDocumentationCollector {
     SkylarkModuleDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       // Only add non-constructor global library methods. Constructors are added later.
       if (!entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
@@ -284,7 +284,7 @@ final class SkylarkDocumentationCollector {
       Class<?> moduleClass, Map<String, SkylarkModuleDoc> modules) {
 
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
         collectConstructor(modules, moduleClass, entry.getKey(), entry.getValue());

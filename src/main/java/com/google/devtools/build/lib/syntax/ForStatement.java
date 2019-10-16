@@ -64,7 +64,7 @@ public final class ForStatement extends Statement {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

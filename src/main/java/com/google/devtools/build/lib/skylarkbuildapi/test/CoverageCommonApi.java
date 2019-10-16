@@ -26,15 +26,17 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @SkylarkModule(
     name = "coverage_common",
-    doc = "Helper functions for Starlark to access coverage-related infrastructure.")
+    doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
     extends SkylarkValue {
 
   @SkylarkCallable(
       name = "instrumented_files_info",
       doc =
-          "Creates a new execution info provider. Use this provider to specify special"
-              + "environments requirements needed to run tests.",
+          "Creates a new "
+              + "<a class=\"anchor\" href=\"InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a> "
+              + "instance. Use this provider to communicate coverage-related attributes of the "
+              + "current build rule.",
       parameters = {
         @Param(
             name = "ctx",
@@ -74,8 +76,8 @@ public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
       useLocation = true)
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
+      SkylarkList<?> sourceAttributes, // <String> expected
+      SkylarkList<?> dependencyAttributes, // <String> expected
       Object extensions,
       Location location)
       throws EvalException;

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -105,6 +107,18 @@ public final class AnalysisPhaseRunner {
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
+
+      // The build info factories are immutable during the life time of this server. However, we
+      // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
+      // do so afterwards, and there is no such hook at the server / workspace level right now. For
+      // simplicity, we keep the code here for now.
+      env.getSkyframeExecutor()
+          .injectExtraPrecomputedValues(
+              ImmutableList.of(
+                  PrecomputedValue.injected(
+                      PrecomputedValue.BUILD_INFO_FACTORIES,
+                      env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
+
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
         analysisResult =
             runAnalysisPhase(request, loadingResult, buildOptions, request.getMultiCpus());

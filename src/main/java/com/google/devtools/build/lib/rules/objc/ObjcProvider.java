@@ -237,25 +237,16 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to include in search
-   * paths, but not to link.  These cause -F arguments (framework search paths) to be added to
-   * each compile action, but do not cause -framework (link framework) arguments to be added to
-   * link actions.
+   * paths, but not to link. These cause -F arguments (framework search paths) to be added to each
+   * compile action, but do not cause -framework (link framework) arguments to be added to link
+   * actions.
    */
-  public static final Key<PathFragment> FRAMEWORK_SEARCH_PATH_ONLY =
+  public static final Key<PathFragment> FRAMEWORK_SEARCH_PATHS =
       new Key<>(LINK_ORDER, "framework_search_paths", PathFragment.class);
 
   /** The static library files of user-specified static frameworks. */
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
-
-  /**
-   * Exec paths of {@code .framework} directories corresponding to dynamic frameworks to link. These
-   * cause -F arguments (framework search paths) to be added to each compile action, and
-   * -framework (link framework) arguments to be added to each link action. These differ from
-   * static frameworks in that they are not statically linked into the binary.
-   */
-  public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
-      new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
 
   /** The dynamic library files of user-specified dynamic frameworks. */
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
@@ -348,17 +339,19 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
-  // Lazily initialized because it's only needed when header thinning is not enabled.
+  // Lazily initialized because it's only needed when there is no include processing.
   @Nullable private volatile NestedSet<Artifact> generatedHeaders;
+
+  // Lazily initialized because it's only needed for including scanning.
+  @Nullable private volatile ImmutableList<Artifact> generatedHeaderList;
 
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
           DEFINE,
-          DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           EXPORTED_DEBUG_ARTIFACTS,
-          FRAMEWORK_SEARCH_PATH_ONLY,
+          FRAMEWORK_SEARCH_PATHS,
           FORCE_LOAD_LIBRARY,
           HEADER,
           IMPORTED_LIBRARY,
@@ -406,11 +399,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public SkylarkNestedSet dynamicFrameworkDir() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(DYNAMIC_FRAMEWORK_DIR));
-  }
-
-  @Override
   public NestedSet<Artifact> dynamicFrameworkFile() {
     return get(DYNAMIC_FRAMEWORK_FILE);
   }
@@ -422,8 +410,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   @Override
   public SkylarkNestedSet frameworkSearchPathOnly() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(
-        get(FRAMEWORK_SEARCH_PATH_ONLY));
+    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(FRAMEWORK_SEARCH_PATHS));
   }
 
   @Override
@@ -590,11 +577,10 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   private static final ImmutableSet<Key<?>> NON_SUBTRACTABLE_KEYS =
       ImmutableSet.<Key<?>>of(
           DEFINE,
-          DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
           MERGE_ZIP,
-          FRAMEWORK_SEARCH_PATH_ONLY,
+          FRAMEWORK_SEARCH_PATHS,
           HEADER,
           INCLUDE,
           INCLUDE_SYSTEM,
@@ -736,6 +722,24 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       }
     }
     return generatedHeaders;
+  }
+
+  /** Returns the list of generated header files. */
+  List<Artifact> getGeneratedHeaderList() {
+    if (generatedHeaderList == null) {
+      synchronized (this) {
+        if (generatedHeaderList == null) {
+          ImmutableList.Builder<Artifact> generatedHeadersBuilder = ImmutableList.builder();
+          for (Artifact header : header()) {
+            if (!header.isSourceArtifact()) {
+              generatedHeadersBuilder.add(header);
+            }
+          }
+          generatedHeaderList = generatedHeadersBuilder.build();
+        }
+      }
+    }
+    return generatedHeaderList;
   }
 
   /**
@@ -886,24 +890,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
     }
     addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
-  }
-
-  /**
-   * Returns all unique static framework directories (directories ending in '.framework') for all
-   * static framework files in this provider.
-   */
-  public Iterable<PathFragment> getStaticFrameworkDirs() {
-    return ObjcCommon.uniqueContainers(get(STATIC_FRAMEWORK_FILE),
-        ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
-  }
-
-  /**
-   * Returns all unique static framework directories (directories ending in '.framework') for all
-   * static framework files in this provider.
-   */
-  @Override
-  public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
-    return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(getStaticFrameworkDirs());
   }
 
   /**

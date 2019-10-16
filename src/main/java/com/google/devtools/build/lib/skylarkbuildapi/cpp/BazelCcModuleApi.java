@@ -22,13 +22,12 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -62,8 +61,10 @@ public interface BazelCcModuleApi<
 
   @SkylarkCallable(
       name = "compile",
-      doc = "Should be used for C++ compilation.",
-      useEnvironment = true,
+      doc =
+          "Should be used for C++ compilation. Returns tuple of "
+              + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
+      useStarlarkThread = true,
       useLocation = true,
       parameters = {
         @Param(
@@ -208,36 +209,43 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "False",
-            type = Boolean.class)
+            type = Boolean.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "List of additional files needed for compilation of srcs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
       })
   Tuple<Object> compile(
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      SkylarkList<FileT> sources,
-      SkylarkList<FileT> publicHeaders,
-      SkylarkList<FileT> privateHeaders,
-      SkylarkList<String> includes,
-      SkylarkList<String> quoteIncludes,
-      SkylarkList<String> systemIncludes,
-      SkylarkList<String> frameworkIncludes,
-      SkylarkList<String> defines,
-      SkylarkList<String> localDefines,
-      SkylarkList<String> userCompileFlags,
-      SkylarkList<CompilationContextT> ccCompilationContexts,
+      SkylarkList<?> sources, // <FileT> expected
+      SkylarkList<?> publicHeaders, // <FileT> expected
+      SkylarkList<?> privateHeaders, // <FileT> expected
+      SkylarkList<?> includes, // <String> expected
+      SkylarkList<?> quoteIncludes, // <String> expected
+      SkylarkList<?> systemIncludes, // <String> expected
+      SkylarkList<?> frameworkIncludes, // <String> expected
+      SkylarkList<?> defines, // <String> expected
+      SkylarkList<?> localDefines, // <String> expected
+      SkylarkList<?> userCompileFlags, // <String> expected
+      SkylarkList<?> ccCompilationContexts, // <CompilationContextT> expected
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
-      useEnvironment = true,
+      useStarlarkThread = true,
       useLocation = true,
-      useContext = true,
       parameters = {
         @Param(
             name = "actions",
@@ -331,16 +339,15 @@ public interface BazelCcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       Object compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      SkylarkList<?> userLinkFlags, // <String> expected
+      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       String outputType,
       boolean linkDepsStatically,
-      SkylarkList<FileT> additionalInputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -386,5 +393,6 @@ public interface BazelCcModuleApi<
             type = SkylarkList.class),
       })
   CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
-      SkylarkList<CompilationOutputsT> compilationOutputs);
+      SkylarkList<?> compilationOutputs) // <CompilationOutputsT> expected
+      throws EvalException;
 }

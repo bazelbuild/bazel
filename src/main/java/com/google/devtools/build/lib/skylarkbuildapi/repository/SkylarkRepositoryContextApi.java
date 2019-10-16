@@ -193,7 +193,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -266,9 +266,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
-      SkylarkList<Object> arguments,
+      SkylarkList<?> arguments,
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      SkylarkDict<?, ?> environment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
@@ -405,7 +405,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = SkylarkDict.class,
             defaultValue = "{}",
             named = true,
-            doc = "Has no effect; do not use."),
+            doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
             name = "integrity",
             type = String.class,
@@ -426,7 +426,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -560,7 +560,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             type = SkylarkDict.class,
             defaultValue = "{}",
             named = true,
-            doc = "Has no effect; do not use."),
+            doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
             name = "integrity",
             type = String.class,
@@ -582,7 +582,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;

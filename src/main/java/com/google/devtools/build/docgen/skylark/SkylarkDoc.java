@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -88,7 +88,7 @@ abstract class SkylarkDoc {
         && (params[0].defaultValue() != null && params[0].defaultValue().isEmpty())
         && params[0].positional()
         && annotation.objectType() != Object.class
-        && !FuncallExpression.isNamespace(annotation.objectType())) {
+        && !CallUtils.isNamespace(annotation.objectType())) {
       // Skip the self parameter, which is the first mandatory positional parameter.
       return Arrays.copyOfRange(params, 1, params.length);
     } else {

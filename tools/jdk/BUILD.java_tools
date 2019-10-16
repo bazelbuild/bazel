@@ -17,15 +17,6 @@ SUPRESSED_WARNINGS = select({
 java_toolchain(
     name = "toolchain",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
-    compatible_javacopts = {
-        # Restrict protos to Java 7 so that they are compatible with Android.
-        "proto": [
-            "-source",
-            "7",
-            "-target",
-            "7",
-        ],
-    },
     forcibly_disable_header_compilation = 0,
     genclass = [":GenClass"],
     header_compiler = [":Turbine"],
@@ -36,6 +27,10 @@ java_toolchain(
     javac = [":javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+        # G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -74,15 +69,6 @@ java_toolchain(
 java_toolchain(
     name = "toolchain_jdk_JAVA_LANGUAGE_LEVEL",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
-    compatible_javacopts = {
-        # Restrict protos to Java 7 so that they are compatible with Android.
-        "proto": [
-            "-source",
-            "7",
-            "-target",
-            "7",
-        ],
-    },
     forcibly_disable_header_compilation = 0,
     genclass = [":GenClass"],
     header_compiler = [":Turbine"],
@@ -93,6 +79,10 @@ java_toolchain(
     javac = [":javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance
+        # when using G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -135,15 +125,6 @@ java_toolchain(
 java_toolchain(
     name = "prebuilt_toolchain",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
-    compatible_javacopts = {
-        # Restrict protos to Java 7 so that they are compatible with Android.
-        "proto": [
-            "-source",
-            "7",
-            "-target",
-            "7",
-        ],
-    },
     forcibly_disable_header_compilation = 0,
     genclass = [":GenClass"],
     header_compiler = [":Turbine"],
@@ -154,6 +135,10 @@ java_toolchain(
     javac = [":javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
+        # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+        # G1 collector and having compact strings enabled.
+        "-XX:+UseParallelOldGC",
+        "-XX:-CompactStrings",
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",

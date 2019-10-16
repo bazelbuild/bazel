@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -65,7 +66,8 @@ public class FilteredDirectRdepsInUniverseExpressionMapper extends QueryExpressi
   private final TargetPattern.Parser targetPatternParser;
   private final String absoluteUniverseScopePattern;
 
-  FilteredDirectRdepsInUniverseExpressionMapper(
+  @VisibleForTesting
+  public FilteredDirectRdepsInUniverseExpressionMapper(
       TargetPattern.Parser targetPatternParser, String universeScopePattern) {
     this.targetPatternParser = targetPatternParser;
     this.absoluteUniverseScopePattern = targetPatternParser.absolutize(universeScopePattern);

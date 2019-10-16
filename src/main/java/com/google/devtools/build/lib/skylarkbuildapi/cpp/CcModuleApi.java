@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -103,8 +102,8 @@ public interface CcModuleApi<
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
-      SkylarkList<String> requestedFeatures,
-      SkylarkList<String> unsupportedFeatures)
+      SkylarkList<?> requestedFeatures, // <String> expected
+      SkylarkList<?> unsupportedFeatures) // <String> expected
       throws EvalException;
 
   @SkylarkCallable(
@@ -526,7 +525,7 @@ public interface CcModuleApi<
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
       useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -597,14 +596,14 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       boolean alwayslink,
       Location location,
-      Environment environment)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useLocation = true,
-      useContext = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "libraries_to_link",
@@ -633,9 +632,9 @@ public interface CcModuleApi<
   LinkingContextT createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<FileT> nonCodeInputs,
+      SkylarkList<?> nonCodeInputs, // <FileT> expected
       Location location,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -650,7 +649,8 @@ public interface CcModuleApi<
             defaultValue = "[]",
             type = SkylarkList.class)
       })
-  CcInfoApi mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) throws EvalException;
+  CcInfoApi mergeCcInfos(SkylarkList<?> ccInfos) // <CcInfoApi> expected
+      throws EvalException;
 
   @SkylarkCallable(
       name = "create_compilation_context",
@@ -901,10 +901,10 @@ public interface CcModuleApi<
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<Object> features,
-      SkylarkList<Object> actionConfigs,
-      SkylarkList<Object> artifactNamePatterns,
-      SkylarkList<String> cxxBuiltInIncludeDirectories,
+      SkylarkList<?> features, // <StructApi> expected
+      SkylarkList<?> actionConfigs, // <StructApi> expected
+      SkylarkList<?> artifactNamePatterns, // <StructApi> expected
+      SkylarkList<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       String hostSystemName,
       String targetSystemName,
@@ -913,8 +913,8 @@ public interface CcModuleApi<
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      SkylarkList<Object> toolPaths,
-      SkylarkList<Object> makeVariables,
+      SkylarkList<?> toolPaths, // <StructApi> expected
+      SkylarkList<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException;
@@ -926,7 +926,7 @@ public interface CcModuleApi<
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
       useLocation = true,
-      useContext = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1028,16 +1028,16 @@ public interface CcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      SkylarkList<?> userLinkFlags, // <String> expected
+      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       boolean alwayslink,
-      SkylarkList<FileT> additionalInputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
       Location location,
-      StarlarkContext bazelStarlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

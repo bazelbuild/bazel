@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.annotations.VisibleForTesting;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.common.options.OptionsParser;
@@ -33,8 +33,7 @@ class Aapt2OptimizeAction {
     logger.fine(CommandHelper.execute("Optimizing resources", buildCommand(args)));
   }
 
-  @VisibleForTesting
-  static List<String> buildCommand(String... args) {
+  private static List<String> buildCommand(String... args) {
     OptionsParser optionsParser =
         OptionsParser.builder()
             .optionsClasses(Aapt2ConfigOptions.class)
@@ -42,6 +41,7 @@ class Aapt2OptimizeAction {
             .allowResidue(true)
             .build();
     optionsParser.parseAndExitUponError(args);
+
     return ImmutableList.<String>builder()
         .add(optionsParser.getOptions(Aapt2ConfigOptions.class).aapt2.toString())
         .add("optimize")

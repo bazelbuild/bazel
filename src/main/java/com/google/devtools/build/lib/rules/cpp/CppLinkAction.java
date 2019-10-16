@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -293,8 +294,10 @@ public final class CppLinkAction extends AbstractAction
     }
     Spawn spawn = createSpawn(actionExecutionContext);
     SpawnContinuation spawnContinuation =
-        SpawnContinuation.ofBeginExecution(spawn, actionExecutionContext);
-    return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation).execute();
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, actionExecutionContext);
+    return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext)
@@ -544,10 +547,10 @@ public final class CppLinkAction extends AbstractAction
         throws ActionExecutionException, InterruptedException {
       try {
         SpawnContinuation nextContinuation = spawnContinuation.execute();
-        if (nextContinuation.isDone()) {
-          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+        if (!nextContinuation.isDone()) {
+          return new CppLinkActionContinuation(actionExecutionContext, nextContinuation);
         }
-        return new CppLinkActionContinuation(actionExecutionContext, nextContinuation);
+        return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             "Linking of rule '" + getOwner().getLabel() + "'",

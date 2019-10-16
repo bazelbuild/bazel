@@ -466,6 +466,9 @@ message ActionExecuted {
 
   // The command-line of the action, if the action is a command.
   repeated string command_line = 9;
+
+  // List of paths to log files
+  repeated File action_metadata_logs = 10;
 }
 
 // Collection of all output files belonging to that output group.

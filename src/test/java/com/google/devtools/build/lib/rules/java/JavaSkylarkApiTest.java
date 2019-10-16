@@ -1724,6 +1724,61 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void mergeRuntimeOutputJarsTest() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a', ':b'])",
+        "java_library(name = 'a', srcs = ['java/A.java'])",
+        "java_library(name = 'b', srcs = ['java/B.java'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaInfo javaInfo = (JavaInfo) myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    List<String> directJars = prettyArtifactNames(javaInfo.getRuntimeOutputJars());
+    assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
+  }
+
+  @Test
+  public void mergeSourceInfo() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a', ':b'])",
+        "java_import(name = 'a', jars = ['java/A.jar'])",
+        "java_import(name = 'b', jars = ['java/B.jar'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaSourceInfoProvider sourceInfo =
+        JavaInfo.getProvider(JavaSourceInfoProvider.class, myRuleTarget);
+    assertThat(prettyArtifactNames(sourceInfo.getJarFiles()))
+        .containsExactly("foo/java/A.jar", "foo/java/B.jar");
+  }
+
+  @Test
   public void javaToolchainFlag_default() throws Exception {
     writeBuildFileForJavaToolchain();
     scratch.file(

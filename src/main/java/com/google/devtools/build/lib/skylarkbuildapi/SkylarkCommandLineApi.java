@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Interface for a module associated with creating efficient command lines. */
@@ -29,19 +30,17 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface SkylarkCommandLineApi {
 
   @SkylarkCallable(
-    name = "join_paths",
-    doc =
-        "Deprecated. Creates a single command line argument joining the paths of a set "
-            + "of files on the separator string.",
-    parameters = {
-      @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
-      @Param(
-        name = "files",
-        type = SkylarkNestedSet.class,
-        generic1 = FileApi.class,
-        doc = "the files to concatenate."
-      )
-    }
-  )
-  public String joinPaths(String separator, SkylarkNestedSet files);
+      name = "join_paths",
+      doc =
+          "Deprecated. Creates a single command line argument joining the paths of a set "
+              + "of files on the separator string.",
+      parameters = {
+        @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
+        @Param(
+            name = "files",
+            type = SkylarkNestedSet.class,
+            generic1 = FileApi.class,
+            doc = "the files to concatenate.")
+      })
+  public String joinPaths(String separator, SkylarkNestedSet files) throws EvalException;
 }

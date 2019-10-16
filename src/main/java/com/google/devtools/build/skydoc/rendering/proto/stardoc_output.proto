@@ -97,6 +97,9 @@ message AttributeInfo {
   // label, a label list, or a label-keyed string dictionary, the field will be
   // left empty.
   repeated ProviderNameGroup provider_name_group = 5;
+
+  // The string representation of the default value of this attribute.
+  string default_value = 6;
 }
 
 // Representation of a set of providers that a rule attribute may be required to

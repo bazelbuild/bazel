@@ -31,9 +31,12 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   private final Artifact apk;
 
   // aapt2 outputs. Will be null if and only if aapt2 is not used for validation.
-  @Nullable private final Artifact aapt2RTxt;
   @Nullable private final Artifact aapt2SourceJar;
   @Nullable private final Artifact staticLibrary;
+
+  // Opaque file used to trigger resource validation.
+  @Nullable private final Artifact aapt2ValidationArtifact;
+  private final boolean useRTxtFromMergedResources;
 
   /**
    * Validates and packages merged resources.
@@ -74,8 +77,9 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     if (aaptVersion == AndroidAaptVersion.AAPT2) {
       builder
           .setCompiledSymbols(merged.getCompiledSymbols())
-          .setAapt2RTxtOut(
-              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT))
+          .setAapt2ValidationArtifactOut(
+              dataContext.createOutputArtifact(
+                  AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT))
           .setAapt2SourceJarOut(
               dataContext.createOutputArtifact(
                   AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR))
@@ -92,11 +96,19 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       Artifact rTxt,
       Artifact sourceJar,
       Artifact apk,
-      @Nullable Artifact aapt2RTxt,
+      @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
-      @Nullable Artifact staticLibrary) {
+      @Nullable Artifact staticLibrary,
+      boolean useRTxtFromMergedResources) {
     return new ValidatedAndroidResources(
-        merged, rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary);
+        merged,
+        rTxt,
+        sourceJar,
+        apk,
+        aapt2ValidationArtifact,
+        aapt2SourceJar,
+        staticLibrary,
+        useRTxtFromMergedResources);
   }
 
   private ValidatedAndroidResources(
@@ -104,16 +116,18 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       Artifact rTxt,
       Artifact sourceJar,
       Artifact apk,
-      @Nullable Artifact aapt2RTxt,
+      @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
-      @Nullable Artifact staticLibrary) {
+      @Nullable Artifact staticLibrary,
+      boolean useRTxtFromMergedResources) {
     super(merged);
     this.rTxt = rTxt;
     this.sourceJar = sourceJar;
     this.apk = apk;
-    this.aapt2RTxt = aapt2RTxt;
+    this.aapt2ValidationArtifact = aapt2ValidationArtifact;
     this.aapt2SourceJar = aapt2SourceJar;
     this.staticLibrary = staticLibrary;
+    this.useRTxtFromMergedResources = useRTxtFromMergedResources;
   }
 
   @Override
@@ -142,9 +156,13 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   }
 
   @Override
-  @Nullable
   public Artifact getAapt2RTxt() {
-    return aapt2RTxt;
+    return useRTxtFromMergedResources ? super.getAapt2RTxt() : aapt2ValidationArtifact;
+  }
+
+  @Nullable
+  Artifact getAapt2ValidationArtifact() {
+    return aapt2ValidationArtifact;
   }
 
   @Override
@@ -178,7 +196,14 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         .map(
             merged ->
                 ValidatedAndroidResources.of(
-                    merged, rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary));
+                    merged,
+                    rTxt,
+                    sourceJar,
+                    apk,
+                    aapt2ValidationArtifact,
+                    aapt2SourceJar,
+                    staticLibrary,
+                    useRTxtFromMergedResources));
   }
 
   @Override
@@ -191,15 +216,13 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     return rTxt.equals(other.rTxt)
         && sourceJar.equals(other.sourceJar)
         && apk.equals(other.apk)
-        && Objects.equals(aapt2RTxt, other.aapt2RTxt)
         && Objects.equals(aapt2SourceJar, other.aapt2SourceJar)
         && Objects.equals(staticLibrary, other.staticLibrary);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        super.hashCode(), rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary);
+    return Objects.hash(super.hashCode(), rTxt, sourceJar, apk, aapt2SourceJar, staticLibrary);
   }
 
   public ValidatedAndroidResources export() {
@@ -215,14 +238,16 @@ public class ValidatedAndroidResources extends MergedAndroidResources
                 null),
             getMergedResources(),
             getClassJar(),
+            getAapt2RTxt(),
             getDataBindingInfoZip(),
             getResourceDependencies(),
             getProcessedManifest()),
         getRTxt(),
         getJavaSourceJar(),
         getApk(),
-        getAapt2RTxt(),
+        getAapt2ValidationArtifact(),
         getAapt2SourceJar(),
-        getStaticLibrary());
+        getStaticLibrary(),
+        useRTxtFromMergedResources);
   }
 }

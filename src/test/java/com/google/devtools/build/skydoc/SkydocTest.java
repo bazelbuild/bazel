@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -60,10 +60,10 @@ public final class SkydocTest extends SkylarkTestCase {
             new SkylarkFileAccessor() {
 
               @Override
-              public ParserInputSource inputSource(String pathString) throws IOException {
+              public ParserInput inputSource(String pathString) throws IOException {
                 Path path = fileSystem.getPath("/" + pathString);
                 byte[] bytes = FileSystemUtils.asByteSource(path).read();
-                return ParserInputSource.create(bytes, path.asFragment());
+                return ParserInput.create(bytes, path.asFragment());
               }
 
               @Override

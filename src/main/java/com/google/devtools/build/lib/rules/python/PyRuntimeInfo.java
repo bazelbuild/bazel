@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet.TypeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -51,6 +52,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
 
   @Nullable private final PathFragment interpreterPath;
   @Nullable private final Artifact interpreter;
+  // Validated on initalization to contain Artifact
   @Nullable private final SkylarkNestedSet files;
   /** Invariant: either PY2 or PY3. */
   private final PythonVersion pythonVersion;
@@ -65,14 +67,9 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
     Preconditions.checkArgument(pythonVersion.isTargetValue());
-    if (files != null) {
-      // Work around #7266 by special-casing the empty set in the type check.
-      Preconditions.checkArgument(
-          files.isEmpty() || files.getContentType().canBeCastTo(Artifact.class));
-    }
+    this.files = files;
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
-    this.files = files;
     this.pythonVersion = pythonVersion;
   }
 
@@ -146,7 +143,12 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
 
   @Nullable
   public NestedSet<Artifact> getFiles() {
-    return files == null ? null : files.getSet(Artifact.class);
+    try {
+      return files == null ? null : files.getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new IllegalStateException(
+          "'files' depset was found to be invalid type " + files.getContentType(), e);
+    }
   }
 
   @Override
@@ -183,7 +185,12 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
       String interpreterPath =
           interpreterPathUncast == NONE ? null : (String) interpreterPathUncast;
       Artifact interpreter = interpreterUncast == NONE ? null : (Artifact) interpreterUncast;
-      SkylarkNestedSet files = filesUncast == NONE ? null : (SkylarkNestedSet) filesUncast;
+      SkylarkNestedSet filesDepset = null;
+      if (filesUncast != NONE) {
+        filesDepset = (SkylarkNestedSet) filesUncast;
+        // Validate type of filesDepset.
+        filesDepset.getSetFromParam(Artifact.class, "files");
+      }
 
       if ((interpreter == null) == (interpreterPath == null)) {
         throw new EvalException(
@@ -191,7 +198,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
             "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified");
       }
       boolean isInBuildRuntime = interpreter != null;
-      if (!isInBuildRuntime && files != null) {
+      if (!isInBuildRuntime && filesDepset != null) {
         throw new EvalException(loc, "cannot specify 'files' if 'interpreter_path' is given");
       }
 
@@ -203,12 +210,12 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
       }
 
       if (isInBuildRuntime) {
-        if (files == null) {
-          files =
+        if (filesDepset == null) {
+          filesDepset =
               SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
         return new PyRuntimeInfo(
-            loc, /*interpreterPath=*/ null, interpreter, files, parsedPythonVersion);
+            loc, /*interpreterPath=*/ null, interpreter, filesDepset, parsedPythonVersion);
       } else {
         return new PyRuntimeInfo(
             loc,

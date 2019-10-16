@@ -35,12 +35,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 import javax.annotation.Nullable;
 

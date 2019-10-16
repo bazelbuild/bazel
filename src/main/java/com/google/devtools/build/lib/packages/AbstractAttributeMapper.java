@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -296,10 +294,5 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Override
   public <T> boolean has(String attrName, Type<T> type) {
     return getAttributeType(attrName) == type;
-  }
-
-  @Override
-  public Location getAttributeLocation(String attrName) {
-    return attributes.getAttributeLocation(attrName);
   }
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,15 +27,21 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Concatable.Concatter;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Utilities used by the evaluator.
- */
+/** Utilities used by the evaluator. */
+// TODO(adonovan): rename this class to Starlark. Its API should contain all the fundamental values
+// and operators of the language: None, len, truth, str, iterate, equal, compare, getattr, index,
+// slice, parse, exec, eval, and so on.
 public final class EvalUtils {
 
   private EvalUtils() {}
@@ -85,8 +92,8 @@ public final class EvalUtils {
             return Integer.compare((Integer) o1, (Integer) o2);
           }
 
-          o1 = SkylarkType.convertToSkylark(o1, (Environment) null);
-          o2 = SkylarkType.convertToSkylark(o2, (Environment) null);
+          o1 = SkylarkType.convertToSkylark(o1, (StarlarkThread) null);
+          o2 = SkylarkType.convertToSkylark(o2, (StarlarkThread) null);
 
           if (o1 instanceof SkylarkList
               && o2 instanceof SkylarkList
@@ -115,9 +122,9 @@ public final class EvalUtils {
    * @param o an Object to validate
    * @throws EvalException if o is not a valid key
    */
-  public static void checkValidDictKey(Object o, Environment env) throws EvalException {
+  public static void checkValidDictKey(Object o, StarlarkThread thread) throws EvalException {
     // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.
-    if (env != null && env.getSemantics().incompatibleDisallowHashingFrozenMutables()) {
+    if (thread != null && thread.getSemantics().incompatibleDisallowHashingFrozenMutables()) {
       if (isHashable(o)) {
         return;
       }
@@ -310,6 +317,7 @@ public final class EvalUtils {
    * Returns the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
+  // TODO(adonovan): rename 'truth'.
   public static boolean toBoolean(Object o) {
     if (o == null || o == Runtime.NONE) {
       return false;
@@ -334,7 +342,7 @@ public final class EvalUtils {
     }
   }
 
-  public static Collection<?> toCollection(Object o, Location loc, @Nullable Environment env)
+  public static Collection<?> toCollection(Object o, Location loc, @Nullable StarlarkThread thread)
       throws EvalException {
     if (o instanceof Collection) {
       return (Collection<?>) o;
@@ -358,7 +366,7 @@ public final class EvalUtils {
         throw new EvalException(loc, e);
       }
     } else if (o instanceof SkylarkNestedSet) {
-      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, thread);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not a collection");
@@ -366,8 +374,8 @@ public final class EvalUtils {
   }
 
   private static Collection<?> nestedSetToCollection(
-      SkylarkNestedSet set, Location loc, @Nullable Environment env) throws EvalException {
-    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable()) {
+      SkylarkNestedSet set, Location loc, @Nullable StarlarkThread thread) throws EvalException {
+    if (thread != null && thread.getSemantics().incompatibleDepsetIsNotIterable()) {
       throw new EvalException(
           loc,
           "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
@@ -387,14 +395,14 @@ public final class EvalUtils {
     }
   }
 
-  public static Iterable<?> toIterable(Object o, Location loc, @Nullable Environment env)
+  public static Iterable<?> toIterable(Object o, Location loc, @Nullable StarlarkThread thread)
       throws EvalException {
     if (o instanceof SkylarkNestedSet) {
-      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, thread);
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof Map) {
-      return toCollection(o, loc, env);
+      return toCollection(o, loc, thread);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
@@ -416,12 +424,12 @@ public final class EvalUtils {
    *     is no longer supported.
    */
   @Deprecated
-  public static Iterable<?> toIterableStrict(Object o, Location loc, @Nullable Environment env)
-      throws EvalException {
+  public static Iterable<?> toIterableStrict(
+      Object o, Location loc, @Nullable StarlarkThread thread) throws EvalException {
     if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof SkylarkNestedSet) {
-      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, thread);
     } else {
       throw new EvalException(loc,
           "expected Iterable or depset, but got '" + getDataTypeName(o) + "' (strings and maps "
@@ -468,8 +476,7 @@ public final class EvalUtils {
   public static int getSequenceIndex(Object index, int length, Location loc)
       throws EvalException {
     if (!(index instanceof Integer)) {
-      throw new EvalException(
-          loc, "indices must be integers, not " + EvalUtils.getDataTypeName(index));
+      throw new EvalException(loc, "indices must be integers, not " + getDataTypeName(index));
     }
     return getSequenceIndex(((Integer) index).intValue(), length, loc);
   }
@@ -575,19 +582,15 @@ public final class EvalUtils {
   /**
    * Build a SkylarkDict of kwarg arguments from a list, removing null-s or None-s.
    *
-   * @param env the Environment in which this map can be mutated.
-   * @param init a series of key, value pairs (as consecutive arguments)
-   *   as in {@code optionMap(k1, v1, k2, v2, k3, v3)}
-   *   where each key is a String, each value is an arbitrary Objet.
-   * @return a {@code Map<String, Object>} that has all the specified entries,
-   *   where key, value pairs appearing earlier have precedence,
-   *   i.e. {@code k1, v1} may override {@code k3, v3}.
-   *
-   * Ignore any entry where the value is null or None.
-   * Keys cannot be null.
+   * @param thread the StarlarkThread in which this map can be mutated.
+   * @param init a series of key, value pairs (as consecutive arguments) as in {@code optionMap(k1,
+   *     v1, k2, v2, k3, v3)} where each key is a String, each value is an arbitrary Objet.
+   * @return a {@code Map<String, Object>} that has all the specified entries, where key, value
+   *     pairs appearing earlier have precedence, i.e. {@code k1, v1} may override {@code k3, v3}.
+   *     <p>Ignore any entry where the value is null or None. Keys cannot be null.
    */
   @SuppressWarnings("unchecked")
-  public static <K, V> SkylarkDict<K, V> optionMap(Environment env, Object... init) {
+  public static <K, V> SkylarkDict<K, V> optionMap(StarlarkThread thread, Object... init) {
     ImmutableMap.Builder<K, V> b = new ImmutableMap.Builder<>();
     Preconditions.checkState(init.length % 2 == 0);
     for (int i = init.length - 2; i >= 0; i -= 2) {
@@ -597,6 +600,593 @@ public final class EvalUtils {
         b.put(key, value);
       }
     }
-    return SkylarkDict.copyOf(env, b.build());
+    return SkylarkDict.copyOf(thread, b.build());
+  }
+
+  /**
+   * Installs a global hook that causes subsequently executed Starlark threads to notify the
+   * debugger of important events. Closes any previously set debugger. Call {@code
+   * setDebugger(null)} to disable debugging.
+   */
+  public static void setDebugger(Debugger dbg) {
+    Eval.setDebugger(dbg);
+  }
+
+  /** Returns the named field or method of the specified object. */
+  static Object getAttr(StarlarkThread thread, Location loc, Object object, String name)
+      throws EvalException, InterruptedException {
+    MethodDescriptor method =
+        object instanceof Class<?>
+            ? CallUtils.getMethod(thread.getSemantics(), (Class<?>) object, name)
+            : CallUtils.getMethod(thread.getSemantics(), object.getClass(), name);
+    if (method != null && method.isStructField()) {
+      return method.call(
+          object,
+          CallUtils.extraInterpreterArgs(method, /*ast=*/ null, loc, thread).toArray(),
+          loc,
+          thread);
+    }
+
+    if (object instanceof SkylarkClassObject) {
+      try {
+        return ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
+      } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
+        throw new EvalException(loc, ex);
+      }
+    }
+
+    if (object instanceof ClassObject) {
+      Object result = null;
+      try {
+        result = ((ClassObject) object).getValue(name);
+      } catch (IllegalArgumentException ex) {
+        throw new EvalException(loc, ex);
+      }
+      // ClassObjects may have fields that are annotated with @SkylarkCallable.
+      // Since getValue() does not know about those, we cannot expect that result is a valid object.
+      if (result != null) {
+        result = SkylarkType.convertToSkylark(result, thread);
+        // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
+        // so we have to disable it. This should not happen.
+        SkylarkType.checkTypeAllowedInSkylark(result, loc);
+        return result;
+      }
+    }
+    if (method != null) {
+      return new BuiltinCallable(object, name);
+    }
+    return null;
+  }
+
+  static EvalException getMissingFieldException(
+      Object object, String name, Location loc, StarlarkSemantics semantics, String accessName) {
+    String suffix = "";
+    EvalException toSuppress = null;
+    if (object instanceof ClassObject) {
+      String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
+      if (customErrorMessage != null) {
+        return new EvalException(loc, customErrorMessage);
+      }
+      try {
+        suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
+      } catch (EvalException ee) {
+        toSuppress = ee;
+      }
+    } else {
+      suffix =
+          SpellChecker.didYouMean(
+              name,
+              CallUtils.getStructFieldNames(
+                  semantics, object instanceof Class ? (Class<?>) object : object.getClass()));
+    }
+    if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
+      // If looking up the field failed, then we know that this method must have struct_field=false
+      suffix = ", however, a method of that name exists";
+    }
+    EvalException ee =
+        new EvalException(
+            loc,
+            String.format(
+                "object of type '%s' has no %s '%s'%s",
+                getDataTypeName(object), accessName, name, suffix));
+    if (toSuppress != null) {
+      ee.addSuppressed(toSuppress);
+    }
+    return ee;
+  }
+
+  /** Returns whether the given object has a method with the given name. */
+  static boolean hasMethod(StarlarkSemantics semantics, Object object, String name) {
+    Class<?> cls = object instanceof Class ? (Class<?>) object : object.getClass();
+    if (Runtime.getBuiltinRegistry().getFunctionNames(cls).contains(name)) {
+      return true;
+    }
+
+    return CallUtils.getMethodNames(semantics, cls).contains(name);
+  }
+
+  /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
+  static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread thread, Location location)
+      throws EvalException, InterruptedException {
+    try {
+      switch (op) {
+        case PLUS:
+          return plus(x, y, thread, location);
+
+        case PIPE:
+          return pipe(x, y, thread, location);
+
+        case AMPERSAND:
+          return and(x, y, location);
+
+        case CARET:
+          return xor(x, y, location);
+
+        case GREATER_GREATER:
+          return rightShift(x, y, location);
+
+        case LESS_LESS:
+          return leftShift(x, y, location);
+
+        case MINUS:
+          return minus(x, y, location);
+
+        case STAR:
+          return mult(x, y, thread, location);
+
+        case SLASH:
+          throw new EvalException(
+              location,
+              "The `/` operator is not allowed. Please use the `//` operator for integer "
+                  + "division.");
+
+        case SLASH_SLASH:
+          return divide(x, y, location);
+
+        case PERCENT:
+          return percent(x, y, location);
+
+        case EQUALS_EQUALS:
+          return x.equals(y);
+
+        case NOT_EQUALS:
+          return !x.equals(y);
+
+        case LESS:
+          return compare(x, y, location) < 0;
+
+        case LESS_EQUALS:
+          return compare(x, y, location) <= 0;
+
+        case GREATER:
+          return compare(x, y, location) > 0;
+
+        case GREATER_EQUALS:
+          return compare(x, y, location) >= 0;
+
+        case IN:
+          return in(x, y, thread, location);
+
+        case NOT_IN:
+          return !in(x, y, thread, location);
+
+        default:
+          throw new AssertionError("Unsupported binary operator: " + op);
+      }
+    } catch (ArithmeticException e) {
+      throw new EvalException(location, e.getMessage());
+    }
+  }
+
+  /** Implements comparison operators. */
+  private static int compare(Object x, Object y, Location location) throws EvalException {
+    try {
+      return SKYLARK_COMPARATOR.compare(x, y);
+    } catch (ComparisonException e) {
+      throw new EvalException(location, e);
+    }
+  }
+
+  /** Implements 'x + y'. */
+  static Object plus(Object x, Object y, StarlarkThread thread, Location location)
+      throws EvalException {
+    // int + int
+    if (x instanceof Integer && y instanceof Integer) {
+      return Math.addExact((Integer) x, (Integer) y);
+    }
+
+    // string + string
+    if (x instanceof String && y instanceof String) {
+      return (String) x + (String) y;
+    }
+
+    if (x instanceof SelectorValue
+        || y instanceof SelectorValue
+        || x instanceof SelectorList
+        || y instanceof SelectorList) {
+      return SelectorList.concat(location, x, y);
+    }
+
+    if (x instanceof Tuple && y instanceof Tuple) {
+      return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
+    }
+
+    if (x instanceof MutableList && y instanceof MutableList) {
+      return MutableList.concat((MutableList<?>) x, (MutableList<?>) y, thread.mutability());
+    }
+
+    if (x instanceof SkylarkDict && y instanceof SkylarkDict) {
+      if (thread.getSemantics().incompatibleDisallowDictPlus()) {
+        throw new EvalException(
+            location,
+            "The `+` operator for dicts is deprecated and no longer supported. Please use the "
+                + "`update` method instead. You can temporarily enable the `+` operator by passing "
+                + "the flag --incompatible_disallow_dict_plus=false");
+      }
+      return SkylarkDict.plus((SkylarkDict<?, ?>) x, (SkylarkDict<?, ?>) y, thread);
+    }
+
+    if (x instanceof Concatable && y instanceof Concatable) {
+      Concatable lobj = (Concatable) x;
+      Concatable robj = (Concatable) y;
+      Concatter concatter = lobj.getConcatter();
+      if (concatter != null && concatter.equals(robj.getConcatter())) {
+        return concatter.concat(lobj, robj, location);
+      } else {
+        throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
+      }
+    }
+
+    // TODO(bazel-team): Remove deprecated operator.
+    if (x instanceof SkylarkNestedSet) {
+      if (thread.getSemantics().incompatibleDepsetUnion()) {
+        throw new EvalException(
+            location,
+            "`+` operator on a depset is forbidden. See "
+                + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                + "recommendations. Use --incompatible_depset_union=false "
+                + "to temporarily disable this check.");
+      }
+      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
+  }
+
+  /** Implements 'x | y'. */
+  private static Object pipe(Object x, Object y, StarlarkThread thread, Location location)
+      throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return ((Integer) x) | ((Integer) y);
+    } else if (x instanceof SkylarkNestedSet) {
+      if (thread.getSemantics().incompatibleDepsetUnion()) {
+        throw new EvalException(
+            location,
+            "`|` operator on a depset is forbidden. See "
+                + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                + "recommendations. Use --incompatible_depset_union=false "
+                + "to temporarily disable this check.");
+      }
+      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.PIPE, location);
+  }
+
+  /** Implements 'x - y'. */
+  private static Object minus(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return Math.subtractExact((Integer) x, (Integer) y);
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.MINUS, location);
+  }
+
+  /** Implements 'x * y'. */
+  private static Object mult(Object x, Object y, StarlarkThread thread, Location location)
+      throws EvalException {
+    Integer number = null;
+    Object otherFactor = null;
+
+    if (x instanceof Integer) {
+      number = (Integer) x;
+      otherFactor = y;
+    } else if (y instanceof Integer) {
+      number = (Integer) y;
+      otherFactor = x;
+    }
+
+    if (number != null) {
+      if (otherFactor instanceof Integer) {
+        return Math.multiplyExact(number, (Integer) otherFactor);
+      } else if (otherFactor instanceof String) {
+        // Similar to Python, a factor < 1 leads to an empty string.
+        return Strings.repeat((String) otherFactor, Math.max(0, number));
+      } else if (otherFactor instanceof SkylarkList && !(otherFactor instanceof RangeList)) {
+        // Similar to Python, a factor < 1 leads to an empty string.
+        return ((SkylarkList<?>) otherFactor).repeat(number, thread.mutability());
+      }
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.STAR, location);
+  }
+
+  /** Implements 'x // y'. */
+  private static Object divide(Object x, Object y, Location location) throws EvalException {
+    // int / int
+    if (x instanceof Integer && y instanceof Integer) {
+      if (y.equals(0)) {
+        throw new EvalException(location, "integer division by zero");
+      }
+      // Integer division doesn't give the same result in Java and in Python 2 with
+      // negative numbers.
+      // Java:   -7/3 = -2
+      // Python: -7/3 = -3
+      // We want to follow Python semantics, so we use float division and round down.
+      return (int) Math.floor(Double.valueOf((Integer) x) / (Integer) y);
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.SLASH_SLASH, location);
+  }
+
+  /** Implements 'x % y'. */
+  private static Object percent(Object x, Object y, Location location) throws EvalException {
+    // int % int
+    if (x instanceof Integer && y instanceof Integer) {
+      if (y.equals(0)) {
+        throw new EvalException(location, "integer modulo by zero");
+      }
+      // Python and Java implement division differently, wrt negative numbers.
+      // In Python, sign of the result is the sign of the divisor.
+      int div = (Integer) y;
+      int result = ((Integer) x).intValue() % Math.abs(div);
+      if (result > 0 && div < 0) {
+        result += div; // make the result negative
+      } else if (result < 0 && div > 0) {
+        result += div; // make the result positive
+      }
+      return result;
+    }
+
+    // string % tuple, string % dict, string % anything-else
+    if (x instanceof String) {
+      String pattern = (String) x;
+      try {
+        if (y instanceof Tuple) {
+          return Printer.formatWithList(pattern, (Tuple) y);
+        }
+        return Printer.format(pattern, y);
+      } catch (IllegalFormatException e) {
+        throw new EvalException(location, e.getMessage());
+      }
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.PERCENT, location);
+  }
+
+  /** Implements 'x & y'. */
+  private static Object and(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return (Integer) x & (Integer) y;
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.AMPERSAND, location);
+  }
+
+  /** Implements 'x ^ y'. */
+  private static Object xor(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      return (Integer) x ^ (Integer) y;
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.CARET, location);
+  }
+
+  /** Implements 'x >> y'. */
+  private static Object rightShift(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      if ((Integer) y < 0) {
+        throw new EvalException(location, "negative shift count: " + y);
+      } else if ((Integer) y >= Integer.SIZE) {
+        return ((Integer) x < 0) ? -1 : 0;
+      }
+      return (Integer) x >> (Integer) y;
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.GREATER_GREATER, location);
+  }
+
+  /** Implements 'x << y'. */
+  private static Object leftShift(Object x, Object y, Location location) throws EvalException {
+    if (x instanceof Integer && y instanceof Integer) {
+      if ((Integer) y < 0) {
+        throw new EvalException(location, "negative shift count: " + y);
+      }
+      Integer result = (Integer) x << (Integer) y;
+      if (!rightShift(result, y, location).equals(x)) {
+        throw new ArithmeticException("integer overflow");
+      }
+      return result;
+    }
+    throw unknownBinaryOperator(x, y, TokenKind.LESS_LESS, location);
+  }
+
+  /** Implements 'x in y'. */
+  private static boolean in(Object x, Object y, StarlarkThread thread, Location location)
+      throws EvalException {
+    if (thread.getSemantics().incompatibleDepsetIsNotIterable() && y instanceof SkylarkNestedSet) {
+      throw new EvalException(
+          location,
+          "argument of type '"
+              + getDataTypeName(y)
+              + "' is not iterable. "
+              + "in operator only works on lists, tuples, dicts and strings. "
+              + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
+              + "this check.");
+    } else if (y instanceof SkylarkQueryable) {
+      return ((SkylarkQueryable) y).containsKey(x, location, thread);
+    } else if (y instanceof String) {
+      if (x instanceof String) {
+        return ((String) y).contains((String) x);
+      } else {
+        throw new EvalException(
+            location,
+            "'in <string>' requires string as left operand, not '" + getDataTypeName(x) + "'");
+      }
+    } else {
+      throw new EvalException(
+          location,
+          "argument of type '"
+              + getDataTypeName(y)
+              + "' is not iterable. "
+              + "in operator only works on lists, tuples, dicts and strings.");
+    }
+  }
+
+  /** Returns an exception signifying incorrect types for the given operator. */
+  private static EvalException unknownBinaryOperator(
+      Object x, Object y, TokenKind op, Location location) {
+    // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
+    // though python raises a TypeError.
+    // TODO(adonovan): make error more concise: "unsupported binary op: list + int".
+    return new EvalException(
+        location,
+        String.format(
+            "unsupported operand type(s) for %s: '%s' and '%s'",
+            op, getDataTypeName(x), getDataTypeName(y)));
+  }
+
+  /** Evaluates a unary operation. */
+  static Object unaryOp(TokenKind op, Object x, Location loc)
+      throws EvalException, InterruptedException {
+    switch (op) {
+      case NOT:
+        return !toBoolean(x);
+
+      case MINUS:
+        if (x instanceof Integer) {
+          try {
+            return Math.negateExact((Integer) x);
+          } catch (ArithmeticException e) {
+            // Fails for -MIN_INT.
+            throw new EvalException(loc, e.getMessage());
+          }
+        }
+        break;
+
+      case PLUS:
+        if (x instanceof Integer) {
+          return x;
+        }
+        break;
+
+      case TILDE:
+        if (x instanceof Integer) {
+          return ~((Integer) x);
+        }
+        break;
+
+      default:
+        /* fall through */
+    }
+    throw new EvalException(
+        loc, String.format("unsupported unary operation: %s%s", op, getDataTypeName(x)));
+  }
+
+  /**
+   * Returns the element of sequence or mapping {@code object} indexed by {@code key}.
+   *
+   * @throws EvalException if {@code object} is not a sequence or mapping.
+   */
+  public static Object index(Object object, Object key, StarlarkThread thread, Location loc)
+      throws EvalException, InterruptedException {
+    if (object instanceof SkylarkIndexable) {
+      Object result = ((SkylarkIndexable) object).getIndex(key, loc);
+      // TODO(bazel-team): We shouldn't have this convertToSkylark call here. If it's needed at all,
+      // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Skylark
+      // values.
+      return SkylarkType.convertToSkylark(result, thread);
+    } else if (object instanceof String) {
+      String string = (String) object;
+      int index = getSequenceIndex(key, string.length(), loc);
+      return string.substring(index, index + 1);
+    } else {
+      throw new EvalException(
+          loc,
+          String.format(
+              "type '%s' has no operator [](%s)", getDataTypeName(object), getDataTypeName(key)));
+    }
+  }
+
+  /**
+   * Parses the input as a file, validates it in the {@code thread.getGlobals} environment using
+   * options defined by {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark
+   * (not BUILD) validation semantics.
+   *
+   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
+   * the StarlarkFile. It is the caller's responsibility to inspect them.
+   */
+  public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
+    StarlarkFile file = StarlarkFile.parse(input);
+    ValidationEnvironment.validateFile(
+        file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
+    return file;
+  }
+
+  /**
+   * Parses the input as a file, validates it in the {@code thread.getGlobals} environment using
+   * options defined by {@code thread.getSemantics}, and executes it. It uses Starlark (not BUILD)
+   * validation semantics.
+   */
+  public static void exec(ParserInput input, StarlarkThread thread)
+      throws SyntaxError, EvalException, InterruptedException {
+    StarlarkFile file = parseAndValidateSkylark(input, thread);
+    if (!file.ok()) {
+      throw new SyntaxError(file.errors());
+    }
+    // TODO(adonovan): turn toplevel statements into a StarlarkFunction, and call it.
+    // This ensures we have an entry in the call stack even for the toplevel.
+    exec(file, thread);
+  }
+
+  /** Executes a parsed, validated Starlark file in a given StarlarkThread. */
+  public static void exec(StarlarkFile file, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    Eval.execFile(thread, file);
+  }
+
+  /**
+   * Parses the input as an expression, validates it in the {@code thread.getGlobals} environment
+   * using options defined by {@code thread.getSemantics}, and evaluates it. It uses Starlark (not
+   * BUILD) validation semantics.
+   */
+  public static Object eval(ParserInput input, StarlarkThread thread)
+      throws SyntaxError, EvalException, InterruptedException {
+    Expression expr = Expression.parse(input);
+    ValidationEnvironment.validateExpr(expr, thread.getGlobals(), thread.getSemantics());
+    // TODO(adonovan): turn expr into a StarlarkFunction, and call it.
+    // This ensures we have an entry in the call stack even for the toplevel.
+    return Eval.eval(thread, expr);
+  }
+
+  /**
+   * Parses the input as a file, validates it in the {@code thread.getGlobals} environment using
+   * options defined by {@code thread.getSemantics}, and executes it. The function uses Starlark
+   * (not BUILD) validation semantics. If the final statement is an expression statement, it returns
+   * the value of that expression, otherwise it returns null.
+   *
+   * <p>The function's name is intentionally unattractive. Don't call it unless you're accepting
+   * strings from an interactive user interface such as a REPL or debugger; use {@link #exec} or
+   * {@link #eval} instead.
+   */
+  @Nullable
+  public static Object execAndEvalOptionalFinalExpression(ParserInput input, StarlarkThread thread)
+      throws SyntaxError, EvalException, InterruptedException {
+    StarlarkFile file = StarlarkFile.parse(input);
+    List<Statement> stmts = file.getStatements();
+    Expression expr = null;
+    int n = stmts.size();
+    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
+      expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
+      stmts = stmts.subList(0, n - 1);
+    }
+    ValidationEnvironment.validateFile(
+        file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
+    if (!file.ok()) {
+      throw new SyntaxError(file.errors());
+    }
+    Eval.execStatements(thread, stmts);
+    return expr != null ? Eval.eval(thread, expr) : null;
   }
 }

@@ -148,8 +148,9 @@ std::string GetJavaBinaryUnderJavabase();
 // CreateProcessW.
 //
 // This function does not return on success.
-void ExecuteServerJvm(const blaze_util::Path& exe,
-                      const std::vector<std::string>& server_jvm_args);
+ATTRIBUTE_NORETURN void ExecuteServerJvm(
+    const blaze_util::Path& exe,
+    const std::vector<std::string>& server_jvm_args);
 
 // Execute the "bazel run" request in the current directory.
 //
@@ -157,8 +158,9 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
 // CreateProcessW.
 //
 // This function does not return on success.
-void ExecuteRunRequest(const blaze_util::Path& exe,
-                       const std::vector<std::string>& run_request_args);
+ATTRIBUTE_NORETURN void ExecuteRunRequest(
+    const blaze_util::Path& exe,
+    const std::vector<std::string>& run_request_args);
 
 class BlazeServerStartup {
  public:

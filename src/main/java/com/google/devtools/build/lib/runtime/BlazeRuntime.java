@@ -104,6 +104,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -318,6 +319,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           }
         }
         profiledTasksBuilder.addAll(options.additionalProfileTasks);
+        if (options.recordFullProfilerData) {
+          profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
+        }
       } else if (options.profilePath != null) {
         profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
@@ -640,15 +644,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     env.getBlazeWorkspace().clearEventBus();
 
+    for (BlazeModule module : blazeModules) {
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".commandComplete")) {
+        module.commandComplete();
+      }
+    }
+
     try {
       Profiler.instance().stop();
       MemoryProfiler.instance().stop();
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
-    }
-
-    for (BlazeModule module : blazeModules) {
-      module.commandComplete();
     }
 
     env.getReporter().clearEventBus();
@@ -1487,6 +1493,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Preconditions.checkNotNull(clock);
 
+      int metricsModules = 0;
+      for (BlazeModule module : blazeModules) {
+        if (module.postsBuildMetricsEvent()) {
+          metricsModules++;
+        }
+      }
+      Preconditions.checkArgument(
+          metricsModules < 2, "At most one module may post a BuildMetricsEvent");
+      if (metricsModules == 0) {
+        blazeModules.add(new DummyMetricsModule());
+      }
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,
@@ -1533,7 +1550,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
-              serverBuilder.getAttributeContainerFactory(),
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper);

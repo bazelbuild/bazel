@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.IncludeScanningHeaderDataHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
@@ -86,6 +88,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -188,6 +192,8 @@ public class CppCompileAction extends AbstractAction
 
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
+
+  private Iterable<Artifact> alternateIncludeScanningDataInputs = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -295,6 +301,7 @@ public class CppCompileAction extends AbstractAction
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
     }
+    this.alternateIncludeScanningDataInputs = cppSemantics.getAlternateIncludeScanningDataInputs();
   }
 
   static CompileCommandLine buildCommandLine(
@@ -491,6 +498,50 @@ public class CppCompileAction extends AbstractAction
     return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
+  private static IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
+      SkyFunction.Environment env, Iterable<Artifact> inputs) throws InterruptedException {
+    Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
+    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    for (Artifact a : inputs) {
+      IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+    }
+    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts)) {
+      return null;
+    }
+    return new IncludeScanningHeaderData.Builder(
+        Collections.unmodifiableMap(pathToLegalOutputArtifact),
+        Collections.unmodifiableSet(CompactHashSet.create()));
+  }
+
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
+  public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
+      SkyFunction.Environment env,
+      boolean usePic,
+      boolean useHeaderModules,
+      List<CcCompilationContext.HeaderInfo> headerInfo)
+      throws InterruptedException {
+    if (alternateIncludeScanningDataInputs != null) {
+      return createIncludeScanningHeaderData(env, alternateIncludeScanningDataInputs);
+    } else {
+      return ccCompilationContext.createIncludeScanningHeaderData(
+          env, usePic, useHeaderModules, headerInfo);
+    }
+  }
+
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -514,11 +565,19 @@ public class CppCompileAction extends AbstractAction
       List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
+      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+          createIncludeScanningHeaderData(
+              actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+              usePic,
+              useHeaderModules,
+              headerInfo);
+      if (includeScanningHeaderData == null) {
+        return null;
+      }
       additionalInputs =
           findUsedHeaders(
               actionExecutionContext,
-              ccCompilationContext
-                  .createIncludeScanningHeaderData(usePic, useHeaderModules, headerInfo)
+              includeScanningHeaderData
                   .setSystemIncludeDirs(systemIncludeDirs)
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
@@ -638,7 +697,23 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public List<PathFragment> getQuoteIncludeDirs() {
-    return ccCompilationContext.getQuoteIncludeDirs();
+    ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
+    result.addAll(ccCompilationContext.getQuoteIncludeDirs());
+    ImmutableList<String> copts = compileCommandLine.getCopts();
+    for (int i = 0; i < copts.size(); i++) {
+      String opt = copts.get(i);
+      if (opt.startsWith("-iquote")) {
+        if (opt.length() > 7) {
+          result.add(PathFragment.create(opt.substring(7).trim()));
+        } else if (i + 1 < copts.size()) {
+          i++;
+          result.add(PathFragment.create(copts.get(i)));
+        } else {
+          System.err.println("WARNING: dangling -iquote flag in options for " + prettyPrint());
+        }
+      }
+    }
+    return result.build();
   }
 
   @Override
@@ -652,6 +727,11 @@ public class CppCompileAction extends AbstractAction
       }
     }
     return result.build();
+  }
+
+  @Override
+  public ImmutableList<PathFragment> getFrameworkIncludeDirs() {
+    return ccCompilationContext.getFrameworkIncludeDirs();
   }
 
   @VisibleForTesting
@@ -919,13 +999,11 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
-    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
-    //   CcCommon.getIncludeDirsFromIncludesAttribute().
     // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
     //   to use an absolute system root, in which case the builtin include dirs might be absolute.
 
     Iterable<PathFragment> includePathsToVerify =
-        Iterables.concat(getIncludeDirs(), systemIncludeDirs);
+        Iterables.concat(getIncludeDirs(), getQuoteIncludeDirs(), systemIncludeDirs);
     for (PathFragment includePath : includePathsToVerify) {
       // includePathsToVerify contains all paths that are added as -isystem directive on the command
       // line, most of which are added for include directives in the CcCompilationContext and are
@@ -1259,13 +1337,16 @@ public class CppCompileAction extends AbstractAction
       clearAdditionalInputs();
     }
 
+    SpawnContinuation spawnContinuation =
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
+            .beginExecution(spawn, spawnContext);
     return new CppCompileActionContinuation(
-            actionExecutionContext,
-            spawnContext,
-            showIncludesFilterForStdout,
-            showIncludesFilterForStderr,
-            SpawnContinuation.ofBeginExecution(spawn, spawnContext))
-        .execute();
+        actionExecutionContext,
+        spawnContext,
+        showIncludesFilterForStdout,
+        showIncludesFilterForStderr,
+        spawnContinuation);
   }
 
   protected byte[] getDotDContents(SpawnResult spawnResult) throws EnvironmentalExecException {
@@ -1443,18 +1524,29 @@ public class CppCompileAction extends AbstractAction
    * When compiling with modules, the C++ compile action only has the {@code .pcm} files on its
    * inputs, which is not enough for extra actions that parse header files. Thus, re-run include
    * scanning and add headers to the inputs of the extra action, too.
+   *
+   * <p>This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
    */
+  @Nullable
   @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
+      IncludeScanningHeaderData.Builder includeScanningHeaderData =
+          createIncludeScanningHeaderData(
+              actionExecutionContext.getEnvironmentForDiscoveringInputs(),
+              usePic,
+              useHeaderModules,
+              ccCompilationContext.getTransitiveHeaderInfos());
+      if (includeScanningHeaderData == null) {
+        return null;
+      }
       Iterable<Artifact> discoveredInputs =
           findUsedHeaders(
               actionExecutionContext,
-              ccCompilationContext
-                  .createIncludeScanningHeaderData(
-                      usePic, useHeaderModules, ccCompilationContext.getTransitiveHeaderInfos())
+              includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
                   .build());

@@ -32,6 +32,7 @@ import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
+import com.google.devtools.build.android.DependencyInfo;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -75,7 +76,7 @@ import javax.xml.stream.events.XMLEvent;
  * contains multiple {@link XmlResourceValue} instances for each resource.
  */
 @Immutable
-public class AttrXmlResourceValue implements XmlResourceValue {
+public final class AttrXmlResourceValue implements XmlResourceValue {
 
   private static final String FRACTION = "fraction";
   private static final String STRING = "string";
@@ -403,12 +404,13 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(dependencyInfo, key.type(), key.name());
     // Flags and enums generate ID fields.
     if (formats.keySet().contains(FLAGS) || formats.keySet().contains(ENUM)) {
       for (ResourceXmlAttrValue value : formats.values()) {
-        value.writeToClass(sink);
+        value.writeToClass(dependencyInfo, sink);
       }
     }
   }
@@ -471,7 +473,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
     SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder);
 
-    void writeToClass(AndroidResourceSymbolSink writer);
+    void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer);
   }
 
   // TODO(corysmith): The ResourceXmlAttrValue implementors, other than enum and flag, share a
@@ -542,9 +544,9 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {
       for (Map.Entry<String, String> entry : values.entrySet()) {
-        writer.acceptSimpleResource(ResourceType.ID, entry.getKey());
+        writer.acceptSimpleResource(dependencyInfo, ResourceType.ID, entry.getKey());
       }
     }
   }
@@ -615,9 +617,9 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {
       for (Map.Entry<String, String> entry : values.entrySet()) {
-        writer.acceptSimpleResource(ResourceType.ID, entry.getKey());
+        writer.acceptSimpleResource(dependencyInfo, ResourceType.ID, entry.getKey());
       }
     }
   }
@@ -648,7 +650,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Color Attribute resource. */
@@ -676,7 +678,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Boolean Attribute resource. */
@@ -704,7 +706,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Float Attribute resource. */
@@ -732,7 +734,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Dimension Attribute resource. */
@@ -761,7 +763,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Integer Attribute resource. */
@@ -789,7 +791,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android String Attribute resource. */
@@ -817,7 +819,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Fraction Attribute resource. */
@@ -845,7 +847,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void writeToClass(AndroidResourceSymbolSink writer) {}
+    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   @Override

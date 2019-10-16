@@ -19,9 +19,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrate
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.Serializable;
@@ -75,9 +75,6 @@ public class ObjcRuleClasses {
   /** Name of attribute used for implicit dependency on the apple SDKs. */
   public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
 
-  static final String CLANG = "clang";
-  static final String CLANG_PLUSPLUS = "clang++";
-  static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
@@ -306,7 +303,7 @@ public class ObjcRuleClasses {
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
    */
-  static final FileType HEADERS = FileType.of(".h", ".inc", ".hpp");
+  static final FileType HEADERS = FileType.of(".h", ".inc", ".hpp", ".hh");
 
   /**
    * Files allowed in the srcs attribute. This includes private headers.
@@ -429,7 +426,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_compile_dependency_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(SdkFrameworksDependerRule.class)
+          .ancestors(CppRuleClasses.CcIncludeScanningRule.class, SdkFrameworksDependerRule.class)
           .build();
     }
   }
@@ -839,8 +836,14 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(PlatformRule.class, CrosstoolRule.class, BaseRuleClasses.RuleBase.class,
-              XcrunRule.class, SdkFrameworksDependerRule.class, LibtoolRule.class)
+          .ancestors(
+              PlatformRule.class,
+              CrosstoolRule.class,
+              BaseRuleClasses.RuleBase.class,
+              CppRuleClasses.CcIncludeScanningRule.class,
+              XcrunRule.class,
+              SdkFrameworksDependerRule.class,
+              LibtoolRule.class)
           .build();
     }
   }

@@ -17,10 +17,10 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,6 +101,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking JavaBuilder.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javabuilder_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_jvm_opts) -->
+        The list of arguments for the JVM when invoking turbine.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("turbine_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -199,6 +203,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .exec())
         .add(
             attr("header_compiler_builtin_processors", STRING_LIST)
+                .undocumented("internal")
+                .value(ImmutableList.<String>of()))
+        .add(
+            attr("reduced_classpath_incompatible_processors", STRING_LIST)
                 .undocumented("internal")
                 .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->

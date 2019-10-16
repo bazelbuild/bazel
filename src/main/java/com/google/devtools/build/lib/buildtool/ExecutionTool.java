@@ -460,7 +460,7 @@ public class ExecutionTool {
   }
 
   private void createActionLogDirectory() throws ExecutorInitException {
-    Path directory = env.getActionConsoleOutputDirectory();
+    Path directory = env.getActionTempsDirectory();
     try {
       if (directory.exists()) {
         directory.deleteTree();
@@ -609,7 +609,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    Path actionOutputRoot = env.getActionConsoleOutputDirectory();
+    Path actionOutputRoot = env.getActionTempsDirectory();
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
 

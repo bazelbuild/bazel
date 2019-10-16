@@ -634,6 +634,15 @@ sh_test(
 )
 
 sh_test(
+    name = "external_skylark_execute_test",
+    size = "large",
+    srcs = ["external_skylark_execute_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "external_correctness_test",
     size = "large",
     srcs = ["external_correctness_test.sh"],

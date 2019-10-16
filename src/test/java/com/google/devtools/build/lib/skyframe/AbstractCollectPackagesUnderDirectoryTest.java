@@ -288,7 +288,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 directories,
                 new ActionKeyContext(),
                 /*workspaceStatusActionFactory=*/ null,
-                ruleClassProvider.getBuildInfoFactories(),
                 /*diffAwarenessFactories=*/ ImmutableList.of(),
                 getExtraSkyFunctions(),
                 /*customDirtinessCheckers=*/ ImmutableList.of(),

@@ -170,6 +170,18 @@ java_test(
 )
 
 java_test(
+    name = "DataSourceTest",
+    size = "small",
+    srcs = ["DataSourceTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DensitySpecificManifestProcessorTest",
     size = "small",
     srcs = ["DensitySpecificManifestProcessorTest.java"],
@@ -234,6 +246,20 @@ java_test(
     deps = [
         ":test_utils",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PlaceholderRTxtWriterTest",
+    size = "small",
+    srcs = ["PlaceholderRTxtWriterTest.java"],
+    deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:android_common_25_0_0",
         "//third_party:guava",

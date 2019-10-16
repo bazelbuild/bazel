@@ -28,9 +28,7 @@ public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi 
   private static int idCounter = 0;
 
   public FakeSkylarkAspect() {
-    super(
-        "AspectIdentifier" + idCounter++,
-        FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
+    super("AspectIdentifier" + idCounter++, FunctionSignature.KWARGS);
   }
 
   @Override

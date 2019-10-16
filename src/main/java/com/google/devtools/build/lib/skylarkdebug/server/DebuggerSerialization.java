@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -140,21 +140,20 @@ final class DebuggerSerialization {
       ThreadObjectMap objectMap, SkylarkValue skylarkValue) {
     Set<String> fieldNames;
     try {
-      fieldNames = FuncallExpression.getStructFieldNames(skylarkValue.getClass());
+      fieldNames = CallUtils.getStructFieldNames(skylarkValue.getClass());
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
     }
     ImmutableList.Builder<Value> children = ImmutableList.builder();
     for (String fieldName : fieldNames) {
-      MethodDescriptor method =
-          FuncallExpression.getStructField(skylarkValue.getClass(), fieldName);
+      MethodDescriptor method = CallUtils.getStructField(skylarkValue.getClass(), fieldName);
       try {
         children.add(
             getValueProto(
                 objectMap,
                 fieldName,
-                FuncallExpression.invokeStructField(method, fieldName, skylarkValue)));
+                CallUtils.invokeStructField(method, fieldName, skylarkValue)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }
@@ -164,7 +163,6 @@ final class DebuggerSerialization {
 
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, SkylarkNestedSet nestedSet) {
-    Class<?> type = nestedSet.getContentType().getType();
     return ImmutableList.<Value>builder()
         .add(
             Value.newBuilder()
@@ -172,7 +170,7 @@ final class DebuggerSerialization {
                 .setType("Traversal order")
                 .setDescription(nestedSet.getOrder().getSkylarkName())
                 .build())
-        .addAll(getChildren(objectMap, new NestedSetView<>(nestedSet.getSet(type))))
+        .addAll(getChildren(objectMap, new NestedSetView<>(nestedSet.getSet())))
         .build();
   }
 

@@ -27,8 +27,8 @@ public class FakeCoverageCommon implements CoverageCommonApi<SkylarkRuleContextA
   @Override
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
+      SkylarkList<?> sourceAttributes,
+      SkylarkList<?> dependencyAttributes,
       Object extensions,
       Location location) {
     return null;

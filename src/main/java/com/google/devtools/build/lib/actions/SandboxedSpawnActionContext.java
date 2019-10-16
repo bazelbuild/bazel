@@ -15,34 +15,35 @@
 package com.google.devtools.build.lib.actions;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * A context that allows execution of {@link Spawn} instances similar to {@link SpawnActionContext},
- * but with the additional restriction, that during execution the {@link Spawn} must not be allowed
+ * but with the additional restriction that during execution the {@link Spawn} must not be allowed
  * to modify the current execution root of the build. Instead, the {@link Spawn} should be executed
- * in a sandbox or on a remote system and its output files only be moved to the execution root, if
- * the implementation is able to {@code compareAndSet} the {@link AtomicReference} that is passed to
- * the {@link #exec} method to its own class object (e.g. LinuxSandboxedStrategy.class).
- *
- * <p>If the {@code compareAndSet} fails, the Spawn strategy should abandon the output of its
- * execution and throw an {@link InterruptedException} from its {@code exec} method.
+ * in a sandbox or on a remote system and its output files only be moved to the execution root.
  */
 public interface SandboxedSpawnActionContext extends SpawnActionContext {
+
+  /** Lambda interface to stop other instances of the same spawn before writing outputs. */
+  @FunctionalInterface
+  interface StopConcurrentSpawns {
+    /**
+     * Stops other instances of the same spawn before writing outputs.
+     *
+     * <p>This should be called once by each of the concurrent spawns to ensure that the others are
+     * stopped, thus preventing conflicts when writing to the output tree.
+     */
+    void stop() throws InterruptedException;
+  }
 
   /**
    * Executes the given spawn.
    *
-   * <p>When the {@link SpawnActionContext} is about to move the output files of the spawn out of
-   * the sandbox into the execroot, it has to first verify that the {@link AtomicReference} is still
-   * null or already set to a value uniquely identifying the current {@link SpawnActionContext}
-   * (e.g. the class object of the strategy). This is to ensure that in case multiple {@link
-   * SandboxedSpawnActionContext} instances are processing the {@link Spawn} in parallel that only
-   * one strategy actually generates the output files.
-   *
-   * <p>If the {@link AtomicReference} is not null (thus {@code #compareAndSet} fails) and not set
-   * to the unique reference of the strategy, the {@link SandboxedSpawnActionContext} should abandon
-   * all results and raise {@link InterruptedException}.
+   * <p>When the {@link SpawnActionContext} is about to write output files into the execroot, it
+   * first asks any other concurrent instances of this same spawn (handled by other spawn runners
+   * when dynamic scheduling is enabled) to stop by invoking the {@code stopConcurrentSpawns}
+   * lambda.
    *
    * @return a List of {@link SpawnResult}s containing metadata about the Spawn's execution. This
    *     will typically contain one element, but could contain no elements if spawn execution did
@@ -51,6 +52,8 @@ public interface SandboxedSpawnActionContext extends SpawnActionContext {
   List<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+      // TODO(jmmv): Inject an empty lambda instead of allowing this to be null. Need to find a way
+      // to deal with non-null implying speculation in e.g. AbstractSpawnStrategy (if it matters).
+      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException;
 }

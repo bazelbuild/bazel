@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.Clas
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;

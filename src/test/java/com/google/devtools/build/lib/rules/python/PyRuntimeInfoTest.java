@@ -52,7 +52,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   }
 
   @Test
-  public void factoryMethod_InBuildRuntime() {
+  public void factoryMethod_InBuildRuntime() throws Exception {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
     PyRuntimeInfo inBuildRuntime =
         PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2);
@@ -84,7 +84,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_InBuildRuntime() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset([dummy_file]),",
@@ -100,7 +100,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_PlatformRuntime() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(", //
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY2',",
@@ -115,7 +115,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_FilesDefaultsToEmpty() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(", //
         "    interpreter = dummy_interpreter,",
         "    python_version = 'PY2',",

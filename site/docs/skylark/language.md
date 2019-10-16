@@ -129,9 +129,6 @@ not defined across value types. In short: `5 < 'foo'` will throw an error and
 * Dictionary literals cannot have duplicated keys. For example, this is an
   error: `{"a": 4, "b": 7, "a": 1}`.
 
-* The identifier used in a comprehension may not be used after the comprehension.
-  This is stricter than Python 2 and Python 3.
-
 * Strings are represented with double-quotes (e.g. when you call
   [repr](lib/globals.html#repr)).
 

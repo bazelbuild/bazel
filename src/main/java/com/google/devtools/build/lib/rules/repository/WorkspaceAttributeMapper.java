@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import javax.annotation.Nullable;
 
 /**
@@ -51,8 +51,7 @@ public class WorkspaceAttributeMapper {
     try {
       return type.cast(value);
     } catch (ClassCastException e) {
-      throw new EvalException(
-          rule.getAttributeContainer().getAttributeLocation(attributeName), e.getMessage());
+      throw new EvalException(rule.getLocation(), e.getMessage());
     }
   }
 
@@ -72,8 +71,7 @@ public class WorkspaceAttributeMapper {
       } else {
         message = "select() cannot be used in macros called from WORKSPACE files";
       }
-      throw new EvalException(
-          rule.getAttributeContainer().getAttributeLocation(attributeName), message);
+      throw new EvalException(rule.getLocation(), message);
     }
     return value;
   }

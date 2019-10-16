@@ -29,12 +29,13 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -90,7 +91,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
         }
         attributes.put(
             Attribute.getSkylarkName(attribute.getPublicName()),
-            val == null ? Runtime.NONE : SkylarkType.convertToSkylark(val, (Environment) null));
+            val == null ? Runtime.NONE : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
       }
       attrObject =
           StructProvider.STRUCT.create(
@@ -130,6 +131,23 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
         return buildOptions.clone();
       }
       return Iterables.getOnlyElement(result);
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      }
+      if (!(object instanceof FunctionPatchTransition)) {
+        return false;
+      }
+      FunctionPatchTransition other = (FunctionPatchTransition) object;
+      return Objects.equals(attrObject, other.attrObject) && super.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(attrObject, super.hashCode());
     }
   }
 }

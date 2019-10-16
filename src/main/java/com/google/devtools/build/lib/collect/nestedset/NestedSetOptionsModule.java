@@ -29,7 +29,7 @@ public class NestedSetOptionsModule extends BlazeModule {
   public static final class Options extends OptionsBase {
     @Option(
         name = "nested_set_depth_limit",
-        defaultValue = "100000",
+        defaultValue = "3500",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =

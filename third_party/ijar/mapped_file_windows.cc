@@ -58,7 +58,7 @@ MappedInputFile::MappedInputFile(const char* name) {
   if (file == INVALID_HANDLE_VALUE) {
     string errormsg = blaze_util::GetLastErrorString();
     BAZEL_DIE(255) << "MappedInputFile(" << name << "): CreateFileW("
-                   << blaze_util::WstringToString(wname)
+                   << blaze_util::WstringToCstring(wname)
                    << ") failed: " << errormsg;
   }
 
@@ -148,7 +148,7 @@ MappedOutputFile::MappedOutputFile(const char* name, size_t estimated_size) {
   if (file == INVALID_HANDLE_VALUE) {
     string errormsg = blaze_util::GetLastErrorString();
     BAZEL_DIE(255) << "MappedOutputFile(" << name << "): CreateFileW("
-                   << blaze_util::WstringToString(wname)
+                   << blaze_util::WstringToCstring(wname)
                    << ") failed: " << errormsg;
   }
 

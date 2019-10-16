@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider of information about this target's manifest. */
 @SkylarkModule(
@@ -53,4 +56,27 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
       documented = false,
       structField = true)
   boolean exportsManifest();
+
+  /** Provider for {@link AndroidManifestInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider<FileT extends FileApi> extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "AndroidManifestInfo",
+        doc = "The <code>AndroidManifestInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(name = "manifest", positional = true, named = true, type = FileApi.class),
+          @Param(name = "package", positional = true, named = true, type = String.class),
+          @Param(
+              name = "exports_manifest",
+              positional = true,
+              named = true,
+              defaultValue = "False",
+              type = Boolean.class),
+        },
+        selfCall = true)
+    AndroidManifestInfoApi<FileT> androidManifestInfo(
+        FileT manifest, String packageString, Boolean exportsManifest) throws EvalException;
+  }
 }

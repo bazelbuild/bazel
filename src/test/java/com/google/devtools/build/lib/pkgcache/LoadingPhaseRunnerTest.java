@@ -1219,7 +1219,6 @@ public class LoadingPhaseRunnerTest {
               .setFileSystem(fs)
               .setDirectories(directories)
               .setActionKeyContext(actionKeyContext)
-              .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
               .setDefaultBuildOptions(defaultBuildOptions)
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .build();

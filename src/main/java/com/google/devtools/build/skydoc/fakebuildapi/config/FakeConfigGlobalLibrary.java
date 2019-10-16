@@ -17,12 +17,11 @@ package com.google.devtools.build.skydoc.fakebuildapi.config;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import java.util.List;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Fake implementation of {@link ConfigGlobalLibraryApi}.
@@ -32,17 +31,16 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   @Override
   public ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      List<String> inputs,
-      List<String> outputs,
+      SkylarkList<?> inputs,
+      SkylarkList<?> outputs,
       Location location,
-      Environment env,
-      StarlarkContext context) {
+      StarlarkThread thread) {
     return new FakeConfigurationTransition();
   }
 
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics) {
+      SkylarkDict<?, ?> changedSettings, Location location, StarlarkSemantics semantics) {
     return new FakeConfigurationTransition();
   }
 }

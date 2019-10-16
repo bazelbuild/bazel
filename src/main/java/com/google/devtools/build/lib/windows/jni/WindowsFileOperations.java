@@ -42,6 +42,34 @@ public class WindowsFileOperations {
     // Prevent construction
   }
 
+  /** Result of {@link #readSymlinkOrJunction}. */
+  public static class ReadSymlinkOrJunctionResult {
+
+    /** Status code, indicating success or failure. */
+    public enum Status {
+      OK,
+      NOT_A_LINK,
+      ERROR
+    }
+
+    private String result;
+    private Status status;
+
+    public ReadSymlinkOrJunctionResult(Status s, String r) {
+      this.status = s;
+      this.result = r;
+    }
+
+    /** Result string (junction target) or error message (depending on {@link status}). */
+    public String getResult() {
+      return result;
+    }
+
+    public Status getStatus() {
+      return status;
+    }
+  }
+
   private static final int MAX_PATH = 260;
 
   // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
@@ -84,6 +112,8 @@ public class WindowsFileOperations {
       String name, String[] result, String[] error);
 
   private static native int nativeDeletePath(String path, String[] error);
+
+  private static native void nativeGetCorrectCasing(String path, String[] result);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isSymlinkOrJunction(String path) throws IOException {
@@ -183,13 +213,14 @@ public class WindowsFileOperations {
         String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
   }
 
-  public static String readSymlinkOrJunction(String name) throws IOException {
+  public static ReadSymlinkOrJunctionResult readSymlinkOrJunction(String name) {
     WindowsJniLoader.loadJni();
     String[] target = new String[] {null};
     String[] error = new String[] {null};
     switch (nativeReadSymlinkOrJunction(asLongPath(name), target, error)) {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
-        return removeUncPrefixAndUseSlashes(target[0]);
+        return new ReadSymlinkOrJunctionResult(
+            ReadSymlinkOrJunctionResult.Status.OK, removeUncPrefixAndUseSlashes(target[0]));
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
         error[0] = "access is denied";
         break;
@@ -197,8 +228,8 @@ public class WindowsFileOperations {
         error[0] = "path does not exist";
         break;
       case READ_SYMLINK_OR_JUNCTION_NOT_A_LINK:
-        error[0] = "path is not a link";
-        break;
+        return new ReadSymlinkOrJunctionResult(
+            ReadSymlinkOrJunctionResult.Status.NOT_A_LINK, "path is not a link");
       case READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE:
         error[0] = "unknown link type";
         break;
@@ -207,7 +238,9 @@ public class WindowsFileOperations {
         // 'error[0]'.
         break;
     }
-    throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
+    return new ReadSymlinkOrJunctionResult(
+        ReadSymlinkOrJunctionResult.Status.ERROR,
+        String.format("Cannot read link (name=%s): %s", name, error[0]));
   }
 
   public static boolean deletePath(String path) throws IOException {
@@ -227,5 +260,34 @@ public class WindowsFileOperations {
         // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
     }
+  }
+
+  /**
+   * Returns the case-corrected copy of <code>absPath</code>
+   *
+   * <p>Windows paths are case-insensitive, but the filesystem preserves the casing. For example you
+   * can create <code>C:\Foo\Bar</code> and access it as <code>c:\FOO\bar</code>, but the correct
+   * casing would be <code>C:\Foo\Bar</code>. Sometimes Bazel needs the correct casing (see
+   * https://github.com/bazelbuild/bazel/issues/8799 for example).
+   *
+   * <p>This method fixes paths to have the correct casing, up to the last existing segment of the
+   * path.
+   *
+   * @param absPath an absolute Windows path. May not be normalized (i.e. have <code>./</code> and
+   *     <code>../</code> segments) and may have <code>/</code> separators instead of <code>\\
+   *     </code>.
+   * @return an absolute, normalized Windows path. The path is case-corrected up to the last
+   *     existing segment of <code>absPath</code>. The rest of the segments are left unchanged (with
+   *     regard to casing) but are normalized and copied into the result.
+   * @throws IOException if <code>absPath</code> was empty or was not absolute
+   */
+  public static String getCorrectCasing(String absPath) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] result = new String[] {null};
+    nativeGetCorrectCasing(absPath, result);
+    if (result[0].isEmpty()) {
+      throw new IOException(String.format("Path is not absolute: '%s'", absPath));
+    }
+    return removeUncPrefixAndUseSlashes(result[0]);
   }
 }

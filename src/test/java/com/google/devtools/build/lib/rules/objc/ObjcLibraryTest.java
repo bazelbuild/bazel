@@ -504,28 +504,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsAndInputArtifactsPreCleanup()
-      throws Exception {
+  public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
     useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    addBinWithTransitiveDepOnFrameworkImport(false);
-    CommandAction compileAction = compileAction("//lib:lib", "a.o");
-
-    assertThat(compileAction.getArguments()).doesNotContain("-framework");
-    assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
-    assertThat(compileAction.getInputs())
-        .containsAtLeast(
-            getSourceArtifact("fx/fx1.framework/a"),
-            getSourceArtifact("fx/fx1.framework/b"),
-            getSourceArtifact("fx/fx2.framework/c"),
-            getSourceArtifact("fx/fx2.framework/d"));
-  }
-
-  @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPostCleanup() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    addBinWithTransitiveDepOnFrameworkImport(true);
+    addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");

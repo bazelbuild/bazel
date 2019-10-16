@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -36,6 +35,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +47,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> implements Iterable<E> {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final Logger logger = Logger.getLogger(NestedSet.class.getName());
 
   /**
    * Order and size of set packed into one int.
@@ -66,7 +67,7 @@ public final class NestedSet<E> implements Iterable<E> {
    *
    * <p>This limit should be set by command line option processing in the Bazel server.
    */
-  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(100000);
+  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(3500);
 
   private static final byte[] LEAF_MEMO = {};
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
@@ -320,6 +321,19 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
+   * Important: This does a full traversal of the nested set if it's not been previously traversed.
+   *
+   * @return the size of the nested set.
+   */
+  public int memoizedFlattenAndGetSize() {
+    if (orderAndSize >> 2 == 0) {
+      // toList() implicitly updates orderAndSize.
+      return toList().size();
+    }
+    return orderAndSize >> 2;
+  }
+
+  /**
    * Returns true if this set is equal to {@code other} based on the top-level elements and object
    * identity (==) of direct subsets. As such, this function can fail to equate {@code this} with
    * another {@code NestedSet} that holds the same elements. It will never fail to detect that two
@@ -377,7 +391,7 @@ public final class NestedSet<E> implements Iterable<E> {
         try {
           return Arrays.toString(Futures.getDone(future));
         } catch (ExecutionException e) {
-          logger.atSevere().withCause(e).log("Error getting %s", future);
+          logger.log(Level.SEVERE, "Error getting " + future, e);
           // Don't rethrow, since we may be in the process of trying to construct an error message.
           return "Future " + future + " with error: " + e.getCause().getMessage();
         }

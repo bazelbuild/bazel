@@ -151,6 +151,14 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> outputGroups;
 
   @Option(
+      name = "experimental_run_validations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to run validation actions as part of the build.")
+  public boolean runValidationActions;
+
+  @Option(
     name = "show_result",
     defaultValue = "1",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -344,6 +352,17 @@ public class BuildRequestOptions extends OptionsBase {
           "If set to true, the genfiles symlink will not be created. For more information, see "
               + "https://github.com/bazelbuild/bazel/issues/8651")
   public boolean incompatibleSkipGenfilesSymlink;
+
+  @Option(
+      name = "experimental_nested_set_as_skykey_threshold",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
+              + " will be evaluated as a unit on Skyframe.")
+  public int nestedSetAsSkyKeyThreshold;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

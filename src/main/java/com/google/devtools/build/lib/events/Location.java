@@ -290,6 +290,11 @@ public abstract class Location implements Serializable {
     public int hashCode() {
       return line * 41 + column;
     }
+
+    @Override
+    public String toString() {
+      return line + ":" + column;
+    }
   }
 
   static final class BuiltinLocation extends Location {

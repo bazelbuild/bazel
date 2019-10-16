@@ -169,7 +169,9 @@ public final class AspectResolver {
   }
 
   public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData dep, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles() && !(dep.getTarget() instanceof Rule)) {
+    if (!aspect.getDefinition().applyToFiles()
+        && !aspect.getDefinition().applyToGeneratingRules()
+        && !(dep.getTarget() instanceof Rule)) {
       return false;
     }
     if (dep.getTarget().getAssociatedRule() == null) {

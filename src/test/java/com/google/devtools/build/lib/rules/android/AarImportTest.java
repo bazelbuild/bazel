@@ -140,7 +140,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void aapt2RTxtProvided() throws Exception {
-    useConfiguration("--android_sdk=//aapt2/sdk:sdk", "--android_aapt=aapt2");
+    useConfiguration("--android_sdk=//aapt2/sdk:sdk");
 
     ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 

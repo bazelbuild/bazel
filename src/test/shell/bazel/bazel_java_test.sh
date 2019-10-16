@@ -1543,4 +1543,39 @@ EOF
   grep "key2" out.txt || fail "Did not find the platform key"
 }
 
+
+function test_current_host_java_runtime_runfiles() {
+  if "$is_windows"; then
+    echo "Skipping test on Windows" && return
+  fi
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "${pkg}" || fail "Expected success"
+
+  touch "${pkg}"/BUILD "${pkg}"/run.sh
+
+  cat > "${pkg}"/BUILD <<EOF
+sh_test(
+    name = "bar",
+    args = ["\$(JAVA)"],
+    data = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    srcs = ["run.sh"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+)
+EOF
+
+  cat > "${pkg}"/run.sh <<EOF
+#!/bin/bash
+
+set -eu
+
+JAVA=\$1
+[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\$JAVA"
+"\${JAVA}" -fullversion
+EOF
+  chmod +x "${pkg}"/run.sh
+
+  bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
+      || fail "Expected success"
+}
+
 run_suite "Java integration tests"

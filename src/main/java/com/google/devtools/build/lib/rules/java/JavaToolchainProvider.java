@@ -74,6 +74,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -83,6 +84,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompiler,
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
+      ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -105,6 +107,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         headerCompiler,
         headerCompilerDirect,
         headerCompilerBuiltinProcessors,
+        reducedClasspathIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
@@ -117,6 +120,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javacOptions,
         jvmOptions,
         javabuilderJvmOptions,
+        turbineJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
         jacocoRunner,
@@ -132,6 +136,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable private final FilesToRunProvider headerCompiler;
   @Nullable private final FilesToRunProvider headerCompilerDirect;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
+  private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -144,6 +149,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
   private final ImmutableList<String> javabuilderJvmOptions;
+  private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
@@ -160,6 +166,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompiler,
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
+      ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -172,6 +179,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
@@ -187,6 +195,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.headerCompiler = headerCompiler;
     this.headerCompilerDirect = headerCompilerDirect;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
+    this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
@@ -199,6 +208,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
     this.javabuilderJvmOptions = javabuilderJvmOptions;
+    this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
@@ -254,6 +264,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns class names of annotation processors that are built in to the header compiler. */
   public ImmutableSet<String> getHeaderCompilerBuiltinProcessors() {
     return headerCompilerBuiltinProcessors;
+  }
+
+  public ImmutableSet<String> getReducedClasspathIncompatibleProcessors() {
+    return reducedClasspathIncompatibleProcessors;
   }
 
   /**
@@ -338,6 +352,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the list of JVM options for running JavaBuilder. */
   public ImmutableList<String> getJavabuilderJvmOptions() {
     return javabuilderJvmOptions;
+  }
+
+  public ImmutableList<String> getTurbineJvmOptions() {
+    return turbineJvmOptions;
   }
 
   /** @return whether JavaBuilders supports running as a persistent worker or not */

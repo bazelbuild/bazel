@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -122,19 +123,22 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
 
     try (Mutability mutability = Mutability.create("Starlark repository")) {
-      com.google.devtools.build.lib.syntax.Environment buildEnv =
-          com.google.devtools.build.lib.syntax.Environment.builder(mutability)
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(env.getListener())
-              // The fetch phase does not need the tools repository or the fragment map because
-              // it happens before analysis.
-              .setStarlarkContext(
-                  new BazelStarlarkContext(
-                      /* toolsRepository = */ null,
-                      /* fragmentNameToClass = */ null,
-                      rule.getPackage().getRepositoryMapping(),
-                      new SymbolGenerator<>(key)))
               .build();
+
+      // The fetch phase does not need the tools repository
+      // or the fragment map because it happens before analysis.
+      new BazelStarlarkContext(
+              /* toolsRepository = */ null,
+              /* fragmentNameToClass = */ null,
+              rule.getPackage().getRepositoryMapping(),
+              new SymbolGenerator<>(key),
+              /* analysisRuleLabel= */ null)
+          .storeInThread(thread);
+
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
               rule,
@@ -144,6 +148,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               env,
               clientEnvironment,
               httpDownloader,
+              directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
               markerData,
               useNativePatch);
@@ -174,7 +179,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*args=*/ ImmutableList.of(skylarkRepositoryContext),
               /*kwargs=*/ ImmutableMap.of(),
               null,
-              buildEnv);
+              thread);
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);

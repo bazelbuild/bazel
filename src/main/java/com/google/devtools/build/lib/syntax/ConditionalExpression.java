@@ -48,16 +48,7 @@ public final class ConditionalExpression extends Expression {
   }
 
   @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    if (EvalUtils.toBoolean(condition.eval(env))) {
-      return thenCase.eval(env);
-    } else {
-      return elseCase.eval(env);
-    }
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

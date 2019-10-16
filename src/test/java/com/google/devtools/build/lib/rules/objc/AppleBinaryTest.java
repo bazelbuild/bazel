@@ -1014,23 +1014,13 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFrameworkDepLinkFlagsPreCleanup() throws Exception {
-    checkFrameworkDepLinkFlags(getRuleType(), new ExtraLinkArgs(), false);
-  }
-
-  @Test
   public void testFrameworkDepLinkFlagsPostCleanup() throws Exception {
-    checkFrameworkDepLinkFlags(getRuleType(), new ExtraLinkArgs(), true);
-  }
-
-  @Test
-  public void testDylibDependenciesPreCleanup() throws Exception {
-    checkDylibDependencies(getRuleType(), new ExtraLinkArgs(), false);
+    checkFrameworkDepLinkFlags(getRuleType(), new ExtraLinkArgs());
   }
 
   @Test
   public void testDylibDependenciesPostCleanup() throws Exception {
-    checkDylibDependencies(getRuleType(), new ExtraLinkArgs(), true);
+    checkDylibDependencies(getRuleType(), new ExtraLinkArgs());
   }
 
   @Test

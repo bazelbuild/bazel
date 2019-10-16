@@ -389,7 +389,7 @@ string GetSelfPath() {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "GetSelfPath: GetModuleFileNameW: " << GetLastErrorString();
   }
-  return string(blaze_util::WstringToCstring(buffer).get());
+  return blaze_util::WstringToCstring(buffer);
 }
 
 string GetOutputRoot() {
@@ -407,30 +407,36 @@ string GetOutputRoot() {
 }
 
 string GetHomeDir() {
-  if (IsRunningWithinTest()) {
+  // Check HOME, for sake of consistency with Linux / macOS. This is only set
+  // under MSYS2, or potentially in tests.
+  string home = GetPathEnv("HOME");
+  if (IsRunningWithinTest() || !home.empty()) {
     // Bazel is running inside of a test. Respect $HOME that the test setup has
-    // set instead of using the actual home directory of the current user.
-    return GetPathEnv("HOME");
+    // set, even if it's empty.
+    return home;
   }
 
-  PWSTR wpath;
-  // Look up the user's home directory. The default value of "FOLDERID_Profile"
-  // is the same as %USERPROFILE%, but it does not require the envvar to be set.
-  if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
-                                       &wpath))) {
-    string result = string(blaze_util::WstringToCstring(wpath).get());
-    ::CoTaskMemFree(wpath);
-    return result;
-  }
-
-  // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
-  // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
+  // Check USERPROFILE before calling SHGetKnownFolderPath. Doing so allows the
+  // user to customize (or override) the home directory.
+  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
   string userprofile = GetPathEnv("USERPROFILE");
   if (!userprofile.empty()) {
     return userprofile;
   }
 
-  return GetPathEnv("HOME");  // only defined in MSYS/Cygwin
+  PWSTR wpath;
+  // Look up the user's home directory. The default value of "FOLDERID_Profile"
+  // is the same as %USERPROFILE%, but it does not require the envvar to be set.
+  // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
+  // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
+  if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
+                                       &wpath))) {
+    string result = blaze_util::WstringToCstring(wpath);
+    ::CoTaskMemFree(wpath);
+    return result;
+  }
+
+  return "";
 }
 
 string FindSystemWideBlazerc() {
@@ -515,7 +521,7 @@ static void CreateCommandLine(CmdLine* result, const blaze_util::Path& exe,
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Command line too long (" << cmdline_str.size() << " > "
         << MAX_CMDLINE_LENGTH
-        << "): " << blaze_util::WstringToCstring(cmdline_str.c_str()).get();
+        << "): " << blaze_util::WstringToCstring(cmdline_str);
   }
 
   // Copy command line into a mutable buffer.
@@ -675,7 +681,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe.AsPrintablePath()
         << "): attribute list creation failed: "
-        << blaze_util::WstringToString(werror);
+        << blaze_util::WstringToCstring(werror);
   }
 
   PROCESS_INFORMATION processInfo = {0};
@@ -685,7 +691,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   std::vector<std::wstring> wesc_args_vector;
   wesc_args_vector.reserve(args_vector.size());
   for (const string& a : args_vector) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wesc_args_vector.push_back(wesc);
   }
@@ -741,8 +747,9 @@ int ExecuteDaemon(const blaze_util::Path& exe,
 // Run the given program in the current working directory, using the given
 // argument vector, wait for it to finish, then exit ourselves with the exitcode
 // of that program.
-static void ExecuteProgram(const blaze_util::Path& exe,
-                           const std::vector<std::wstring>& wargs_vector) {
+ATTRIBUTE_NORETURN static void ExecuteProgram(
+    const blaze_util::Path& exe,
+    const std::vector<std::wstring>& wargs_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, blaze_util::Path(), wargs_vector);
 
@@ -755,14 +762,14 @@ static void ExecuteProgram(const blaze_util::Path& exe,
           bazel::windows::WaitableProcess::kWaitSuccess) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteProgram(" << exe.AsPrintablePath()
-        << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
+        << ") failed: " << blaze_util::WstringToCstring(werror);
   }
   werror.clear();
   int x = proc.GetExitCode(&werror);
   if (!werror.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteProgram(" << exe.AsPrintablePath()
-        << ") failed: " << blaze_util::WstringToCstring(werror.c_str()).get();
+        << ") failed: " << blaze_util::WstringToCstring(werror);
   }
   exit(x);
 }
@@ -772,7 +779,7 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
   std::vector<std::wstring> wargs;
   wargs.reserve(server_jvm_args.size());
   for (const string& a : server_jvm_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     std::wstring wesc = bazel::windows::WindowsEscapeArg(wa);
     wargs.push_back(wesc);
   }
@@ -786,7 +793,7 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
   wargs.reserve(run_request_args.size());
   std::wstringstream joined;
   for (const string& a : run_request_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a.c_str()).get();
+    std::wstring wa = blaze_util::CstringToWstring(a);
     // The arguments are already escaped (Bash-style or Windows-style, depending
     // on --[no]incompatible_windows_bashless_run_command).
     wargs.push_back(wa);
@@ -812,7 +819,7 @@ bool SymlinkDirectories(const string& posix_target,
   wstring werror;
   if (CreateJunction(name.AsNativePath(), target, &werror) !=
       CreateJunctionResult::kSuccess) {
-    string error(blaze_util::WstringToCstring(werror.c_str()).get());
+    string error(blaze_util::WstringToCstring(werror));
     BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
                      << name.AsPrintablePath()
                      << "): CreateJunction: " << error;
@@ -1157,13 +1164,28 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 #endif
 
 string GetUserName() {
+  // Check USER, for sake of consistency with Linux / macOS. This is only set
+  // under MSYS2, or potentially in tests.
+  string user = GetEnv("USER");
+  if (!user.empty()) {
+    return user;
+  }
+
+  // Check USERNAME before calling GetUserNameW. Doing so allows the user to
+  // customize (or override) the user name.
+  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+  user = GetEnv("USERNAME");
+  if (!user.empty()) {
+    return user;
+  }
+
   WCHAR buffer[UNLEN + 1];
   DWORD len = UNLEN + 1;
   if (!::GetUserNameW(buffer, &len)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "GetUserNameW failed: " << GetLastErrorString();
   }
-  return string(blaze_util::WstringToCstring(buffer).get());
+  return blaze_util::WstringToCstring(buffer);
 }
 
 bool IsEmacsTerminal() {

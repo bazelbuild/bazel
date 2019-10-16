@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Implementation for {@code objc_import}.
@@ -60,8 +60,11 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .registerGenerateModuleMapAction(moduleMap, publicHeaders)
         .validateAttributes();
 
+    ObjcProvider objcProvider = common.getObjcProvider();
+
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addNativeDeclaredProvider(common.getObjcProvider())
+        .addNativeDeclaredProvider(objcProvider)
+        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
         .build();
   }
 }

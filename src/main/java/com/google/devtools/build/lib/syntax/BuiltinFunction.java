@@ -21,12 +21,13 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
+import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
@@ -44,12 +45,8 @@ public class BuiltinFunction extends BaseFunction {
     ENVIRONMENT;
   }
   // Predefined system add-ons to function signatures
-  public static final ExtraArgKind[] USE_LOC =
-      new ExtraArgKind[] {ExtraArgKind.LOCATION};
   public static final ExtraArgKind[] USE_LOC_ENV =
       new ExtraArgKind[] {ExtraArgKind.LOCATION, ExtraArgKind.ENVIRONMENT};
-  public static final ExtraArgKind[] USE_AST =
-      new ExtraArgKind[] {ExtraArgKind.SYNTAX_TREE};
   public static final ExtraArgKind[] USE_AST_ENV =
       new ExtraArgKind[] {ExtraArgKind.SYNTAX_TREE, ExtraArgKind.ENVIRONMENT};
 
@@ -71,76 +68,44 @@ public class BuiltinFunction extends BaseFunction {
   // The returnType of the method.
   private Class<?> returnType;
 
-  // True if the function is a rule class
-  private boolean isRule;
-
-  /** Create unconfigured function from its name */
-  public BuiltinFunction(String name) {
+  /** Create unconfigured (signature-less) function from its name */
+  protected BuiltinFunction(String name) {
     super(name);
   }
 
-  /** Creates an unconfigured BuiltinFunction with the given name and defaultValues */
-  public BuiltinFunction(String name, Iterable<Object> defaultValues) {
-    super(name, defaultValues);
-  }
-
   /** Creates a BuiltinFunction with the given name and signature */
-  public BuiltinFunction(String name, FunctionSignature signature) {
-    super(name, signature);
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name and signature with values */
-  public BuiltinFunction(String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature) {
+  protected BuiltinFunction(String name, FunctionSignature signature) {
     super(name, signature);
     configure();
   }
 
   /** Creates a BuiltinFunction with the given name and signature and extra arguments */
-  public BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
-    super(name, signature);
-    this.extraArgs = extraArgs;
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name, signature, extra arguments, and a rule flag */
-  public BuiltinFunction(
-      String name, FunctionSignature signature, ExtraArgKind[] extraArgs, boolean isRule) {
-    super(name, signature);
-    this.extraArgs = extraArgs;
-    this.isRule = isRule;
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name, signature with values, and extra arguments */
-  public BuiltinFunction(String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature, ExtraArgKind[] extraArgs) {
+  protected BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
     super(name, signature);
     this.extraArgs = extraArgs;
     configure();
   }
 
   /** Creates a BuiltinFunction from the given name and a Factory */
-  public BuiltinFunction(String name, Factory factory) {
+  protected BuiltinFunction(String name, Factory factory) {
     super(name);
     configure(factory);
   }
 
   @Override
-  protected int getArgArraySize () {
+  protected int getArgArraySize() {
     return innerArgumentCount;
   }
 
-  protected ExtraArgKind[] getExtraArgs () {
+  ExtraArgKind[] getExtraArgs() {
     return extraArgs;
   }
 
   @Override
   @Nullable
-  public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+  public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Preconditions.checkNotNull(env);
+    Preconditions.checkNotNull(thread);
 
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
@@ -159,7 +124,7 @@ public class BuiltinFunction extends BaseFunction {
             break;
 
           case ENVIRONMENT:
-            args[i] = env;
+            args[i] = thread;
             break;
         }
         i++;
@@ -169,7 +134,8 @@ public class BuiltinFunction extends BaseFunction {
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, getName())) {
-      env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, env.getGlobals());
+      thread.enterScope(
+          this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, thread.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {
       Throwable e = x.getCause();
@@ -190,7 +156,7 @@ public class BuiltinFunction extends BaseFunction {
       for (int i = 0; i < args.length; i++) {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
-              i < len ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
+              i < len ? signature.getParameterNames().get(i) : extraArgs[i - len].name();
           throw new EvalException(
               loc,
               String.format(
@@ -206,7 +172,7 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     } finally {
-      env.exitScope();
+      thread.exitScope();
     }
   }
 
@@ -232,7 +198,7 @@ public class BuiltinFunction extends BaseFunction {
             stacktraceToString(e.getStackTrace()),
             this,
             Arrays.asList(invokeMethod.getParameterTypes()),
-            signature.getTypes()),
+            enforcedArgumentTypes),
         e);
   }
 
@@ -251,7 +217,7 @@ public class BuiltinFunction extends BaseFunction {
   protected void configure() {
     invokeMethod = findMethod("invoke");
 
-    int arguments = signature.getSignature().getShape().getArguments();
+    int arguments = signature.numParameters();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
     if (innerArgumentCount != parameterTypes.length) {
@@ -272,7 +238,7 @@ public class BuiltinFunction extends BaseFunction {
                   "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
                   getName(),
                   signature,
-                  signature.getSignature().getNames().get(i),
+                  signature.getParameterNames().get(i),
                   enforcedType,
                   enforcedType.getType(),
                   parameterType);
@@ -289,9 +255,9 @@ public class BuiltinFunction extends BaseFunction {
           }
         }
       }
+      // No need for the enforcedArgumentTypes List if all the types were Simple
+      enforcedArgumentTypes = valueListOrNull(enforcedArgumentTypes);
     }
-    // No need for the enforcedArgumentTypes List if all the types were Simple
-    enforcedArgumentTypes = FunctionSignature.valueListOrNull(enforcedArgumentTypes);
 
     if (returnType != null) {
       Class<?> type = returnType;
@@ -308,7 +274,7 @@ public class BuiltinFunction extends BaseFunction {
   /** Configure by copying another function's configuration */
   // Alternatively, we could have an extension BuiltinFunctionSignature of FunctionSignature,
   // and use *that* instead of a Factory.
-  public void configure(BuiltinFunction.Factory factory) {
+  private void configure(BuiltinFunction.Factory factory) {
     // this function must not be configured yet, but the factory must be
     Preconditions.checkState(!isConfigured());
     Preconditions.checkState(
@@ -316,13 +282,28 @@ public class BuiltinFunction extends BaseFunction {
 
     this.paramDoc = factory.getParamDoc();
     this.signature = factory.getSignature();
+    this.defaultValues = factory.getDefaultValues();
+    this.paramTypes = factory.getEnforcedArgumentTypes();
     this.extraArgs = factory.getExtraArgs();
     this.objectType = factory.getObjectType();
     configure();
   }
 
+  /** Returns list, or null if all its elements are null. */
+  @Nullable
+  private static <E> List<E> valueListOrNull(List<E> list) {
+    if (list != null) {
+      for (E value : list) {
+        if (value != null) {
+          return list;
+        }
+      }
+    }
+    return null;
+  }
+
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
-  protected Method findMethod(final String name) {
+  Method findMethod(final String name) {
     Method found = null;
     for (Method method : this.getClass().getDeclaredMethods()) {
       method.setAccessible(true);
@@ -356,11 +337,6 @@ public class BuiltinFunction extends BaseFunction {
       super(name);
     }
 
-    /** Creates an unconfigured function Factory with the given name and defaultValues */
-    public Factory(String name, Iterable<Object> defaultValues) {
-      super(name, defaultValues);
-    }
-
     @Override
     public void configure() {
       if (createMethod != null) {
@@ -370,7 +346,7 @@ public class BuiltinFunction extends BaseFunction {
     }
 
     @Override
-    public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+    public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
         throws EvalException {
       throw new EvalException(null, "tried to invoke a Factory for function " + this);
     }
@@ -392,10 +368,6 @@ public class BuiltinFunction extends BaseFunction {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    if (isRule) {
-      printer.append("<built-in rule " + getName() + ">");
-    } else {
-      printer.append("<built-in function " + getName() + ">");
-    }
+    printer.append("<built-in function " + getName() + ">");
   }
 }

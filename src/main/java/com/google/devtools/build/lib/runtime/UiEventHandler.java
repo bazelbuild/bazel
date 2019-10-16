@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
+import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
@@ -89,6 +90,13 @@ public class UiEventHandler implements EventHandler {
   static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
   static final long LONG_REFRESH_MILLIS = 20000L;
+
+  /**
+   * Even if the output is not limited, we restrict the message size to something we can still
+   * handle internally. This is the maximal size specified here. Currently, it is the maximal length
+   * a byte[] can hold.
+   */
+  static final int MAXIMAL_MESSAGE_LENGTH = Integer.MAX_VALUE - 8;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -404,53 +412,14 @@ public class UiEventHandler implements EventHandler {
               stream.write(event.getMessageBytes());
               stream.flush();
             } else {
-              byte[] message = event.getMessageBytes();
               if (remainingCapacity() < 0) {
                 return;
               }
-              double cap = remainingCapacity(message.length);
-              if (cap < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
-                // Have to ensure the message is not too large.
-                long allowedLength =
-                    Math.max(2 * terminalWidth, Math.round(RELATIVE_OUT_ERR_LIMIT * counter.get()));
-                if (cap < CAPACITY_STRONG_LIMIT_OUT_ERR_EVENTS) {
-                  allowedLength = Math.min(allowedLength, 2 * terminalWidth);
-                }
-                if (message.length > allowedLength) {
-                  // Have to truncate the message
-                  message =
-                      Arrays.copyOfRange(
-                          message, message.length - (int) allowedLength, message.length);
-                  // Mark message as truncated
-                  message[0] = '.';
-                  message[1] = '.';
-                  message[2] = '.';
-                }
-              }
-              int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
-              if (eolIndex >= 0) {
-                clearProgressBar();
-                terminal.flush();
-                stream.write(event.getKind() == EventKind.STDOUT ? stdoutBuffer : stderrBuffer);
-                stream.write(Arrays.copyOf(message, eolIndex + 1));
-                byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length);
-                if (event.getKind() == EventKind.STDOUT) {
-                  stdoutBuffer = restMessage;
-                } else {
-                  stderrBuffer = restMessage;
-                }
-                stream.flush();
-                if (showProgress && cursorControl) {
-                  addProgressBar();
-                }
-                terminal.flush();
-              } else {
-                if (event.getKind() == EventKind.STDOUT) {
-                  stdoutBuffer = Bytes.concat(stdoutBuffer, message);
-                } else {
-                  stderrBuffer = Bytes.concat(stderrBuffer, message);
-                }
-              }
+              writeToStream(
+                  stream,
+                  event.getKind(),
+                  event.getMessageReference(),
+                  /* readdProgressBar= */ showProgress && cursorControl);
             }
             break;
           case ERROR:
@@ -509,21 +478,77 @@ public class UiEventHandler implements EventHandler {
           case DEPCHECKER:
             break;
         }
-        if (event.getStdErr() != null) {
-          handleLocked(
-              Event.of(
-                  EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)),
-              /* isFollowUp= */ true);
-        }
-        if (event.getStdOut() != null) {
-          handleLocked(
-              Event.of(
-                  EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)),
-              /* isFollowUp= */ true);
+        if (event.hasStdoutStderr()) {
+          clearProgressBar();
+          terminal.flush();
+          writeToStream(
+              outErr.getErrorStream(),
+              EventKind.STDERR,
+              event.getStdErrReference(),
+              /* readdProgressBar= */ false);
+          outErr.getErrorStream().flush();
+          writeToStream(
+              outErr.getOutputStream(),
+              EventKind.STDOUT,
+              event.getStdOutReference(),
+              /* readdProgressBar= */ false);
+          outErr.getOutputStream().flush();
+          if (showProgress && cursorControl) {
+            addProgressBar();
+          }
+          terminal.flush();
         }
       }
     } catch (IOException e) {
       logger.warning("IO Error writing to output stream: " + e);
+    }
+  }
+
+  private void writeToStream(
+      OutputStream stream, EventKind eventKind, OutputReference reference, boolean readdProgressBar)
+      throws IOException {
+    byte[] message;
+    double cap = remainingCapacity(reference.getLength());
+    if (cap < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
+      // Have to ensure the message is not too large.
+      long allowedLength =
+          Math.max(2 * terminalWidth, Math.round(RELATIVE_OUT_ERR_LIMIT * counter.get()));
+      if (cap < CAPACITY_STRONG_LIMIT_OUT_ERR_EVENTS) {
+        allowedLength = Math.min(allowedLength, 2 * terminalWidth);
+      }
+      message = reference.getFinalBytes((int) allowedLength);
+      if (reference.getLength() > allowedLength) {
+        // Mark message as truncated
+        message[0] = '.';
+        message[1] = '.';
+        message[2] = '.';
+      }
+    } else {
+      message = reference.getFinalBytes(MAXIMAL_MESSAGE_LENGTH);
+    }
+    int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
+    if (eolIndex >= 0) {
+      clearProgressBar();
+      terminal.flush();
+      stream.write(eventKind == EventKind.STDOUT ? stdoutBuffer : stderrBuffer);
+      stream.write(Arrays.copyOf(message, eolIndex + 1));
+      byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length);
+      if (eventKind == EventKind.STDOUT) {
+        stdoutBuffer = restMessage;
+      } else {
+        stderrBuffer = restMessage;
+      }
+      stream.flush();
+      if (readdProgressBar) {
+        addProgressBar();
+        terminal.flush();
+      }
+    } else {
+      if (eventKind == EventKind.STDOUT) {
+        stdoutBuffer = Bytes.concat(stdoutBuffer, message);
+      } else {
+        stderrBuffer = Bytes.concat(stderrBuffer, message);
+      }
     }
   }
 

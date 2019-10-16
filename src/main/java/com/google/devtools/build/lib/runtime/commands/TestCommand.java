@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
-import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.runtime.UiOptions;
@@ -93,11 +92,6 @@ public class TestCommand implements BlazeCommand {
           + "one at a time"));
     }
 
-    TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
-        options.getOptions(TestSummaryOptions.class),
-        options.getOptions(ExecutionOptions.class),
-        env.getEventBus());
-
     AnsiTerminalPrinter printer =
         new AnsiTerminalPrinter(
             env.getReporter().getOutErr().getOutputStream(),
@@ -105,7 +99,10 @@ public class TestCommand implements BlazeCommand {
 
     // Initialize test handler.
     AggregatingTestListener testListener =
-        new AggregatingTestListener(resultAnalyzer, env.getEventBus());
+        new AggregatingTestListener(
+            options.getOptions(TestSummaryOptions.class),
+            options.getOptions(ExecutionOptions.class),
+            env.getEventBus());
 
     env.getEventBus().register(testListener);
     return doTest(env, options, testListener, printer);
@@ -192,8 +189,7 @@ public class TestCommand implements BlazeCommand {
         printer,
         makeTestLogPathFormatter(options, env),
         options);
-    return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, skippedTargets, listener, notifier);
+    return listener.differentialAnalyzeAndReport(testTargets, skippedTargets, notifier);
   }
 
   private static TestLogPathFormatter makeTestLogPathFormatter(

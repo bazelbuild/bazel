@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
@@ -54,18 +56,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -158,7 +161,7 @@ public class SkydocMain {
 
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
-  private final Map<Path, Environment> loaded = new HashMap<>();
+  private final Map<Path, StarlarkThread> loaded = new HashMap<>();
   private final SkylarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
@@ -292,7 +295,7 @@ public class SkydocMain {
    *     docstring, an empty string will be printed.
    * @throws InterruptedException if evaluation is interrupted
    */
-  public Environment eval(
+  public StarlarkThread eval(
       StarlarkSemantics semantics,
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
@@ -309,7 +312,7 @@ public class SkydocMain {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    Environment env =
+    StarlarkThread thread =
         recursiveEval(
             semantics, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
 
@@ -328,7 +331,8 @@ public class SkydocMain {
                 Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));
 
     // Sort the bindings so their ordering is deterministic.
-    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
+    TreeMap<String, Object> sortedBindings =
+        new TreeMap<>(thread.getGlobals().getExportedBindings());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
@@ -359,7 +363,7 @@ public class SkydocMain {
       }
     }
 
-    return env;
+    return thread;
   }
 
   /**
@@ -387,7 +391,7 @@ public class SkydocMain {
     }
   }
 
-  private static String getModuleDoc(BuildFileAST buildFileAST) {
+  private static String getModuleDoc(StarlarkFile buildFileAST) {
     ImmutableList<Statement> fileStatements = buildFileAST.getStatements();
     if (!fileStatements.isEmpty()) {
       Statement moduleComment = fileStatements.get(0);
@@ -409,7 +413,7 @@ public class SkydocMain {
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
-  private Environment recursiveEval(
+  private StarlarkThread recursiveEval(
       StarlarkSemantics semantics,
       Label label,
       List<RuleInfoWrapper> ruleInfoList,
@@ -426,41 +430,44 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInputSource parserInputSource = getInputSource(path.toString());
-    BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
+    ParserInput parserInputSource = getInputSource(path.toString());
+    StarlarkFile file = StarlarkFile.parse(parserInputSource);
+    Event.replayEventsOn(eventHandler, file.errors());
 
-    moduleDocMap.put(label, getModuleDoc(buildFileAST));
+    moduleDocMap.put(label, getModuleDoc(file));
 
     Map<String, Extension> imports = new HashMap<>();
-    for (SkylarkImport anImport : buildFileAST.getImports()) {
-      Label relativeLabel =
-          label.getRelativeWithRemapping(anImport.getImportString(), ImmutableMap.of());
-      try {
-        Environment importEnv =
-            recursiveEval(
-                semantics,
-                relativeLabel,
-                ruleInfoList,
-                providerInfoList,
-                aspectInfoList,
-                moduleDocMap);
-        imports.put(anImport.getImportString(), new Extension(importEnv));
-      } catch (NoSuchFileException noSuchFileException) {
-        throw new StarlarkEvaluationException(
-            String.format(
-                "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots));
+    for (Statement stmt : file.getStatements()) {
+      if (stmt instanceof LoadStatement) {
+        LoadStatement load = (LoadStatement) stmt;
+        String module = load.getImport().getValue();
+        Label relativeLabel = label.getRelativeWithRemapping(module, ImmutableMap.of());
+        try {
+          StarlarkThread importThread =
+              recursiveEval(
+                  semantics,
+                  relativeLabel,
+                  ruleInfoList,
+                  providerInfoList,
+                  aspectInfoList,
+                  moduleDocMap);
+          imports.put(module, new Extension(importThread));
+        } catch (NoSuchFileException noSuchFileException) {
+          throw new StarlarkEvaluationException(
+              String.format(
+                  "File %s imported '%s', yet %s was not found, even at roots %s.",
+                  path, module, pathOfLabel(relativeLabel), depRoots));
+        }
       }
     }
 
-    Environment env =
-        evalSkylarkBody(
-            semantics, buildFileAST, imports, ruleInfoList, providerInfoList, aspectInfoList);
+    StarlarkThread thread =
+        evalSkylarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
-    env.mutability().freeze();
-    loaded.put(path, env);
-    return env;
+    thread.mutability().freeze();
+    loaded.put(path, thread);
+    return thread;
   }
 
   private Path pathOfLabel(Label label) {
@@ -472,7 +479,7 @@ public class SkydocMain {
     return Paths.get(workspacePrefix + label.toPathFragment());
   }
 
-  private ParserInputSource getInputSource(String bzlWorkspacePath) throws IOException {
+  private ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
     for (String rootPath : depRoots) {
       if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
         return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);
@@ -484,29 +491,32 @@ public class SkydocMain {
   }
 
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
-  private Environment evalSkylarkBody(
+  private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
-      BuildFileAST buildFileAST,
+      StarlarkFile file,
       Map<String, Extension> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, StarlarkEvaluationException {
 
-    Environment env =
-        createEnvironment(
+    StarlarkThread thread =
+        createStarlarkThread(
             semantics,
             eventHandler,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
 
-    if (!buildFileAST.exec(env, eventHandler)) {
+    try {
+      EvalUtils.exec(file, thread);
+    } catch (EvalException | InterruptedException ex) {
+      // This exception class seems a bit unnecessary. Replace with EvalException?
       throw new StarlarkEvaluationException("Starlark evaluation error");
     }
 
-    env.mutability().freeze();
+    thread.mutability().freeze();
 
-    return env;
+    return thread;
   }
 
   /**
@@ -517,7 +527,7 @@ public class SkydocMain {
    * @param providerInfoList the list of {@link ProviderInfo} objects, to which provider()
    *     invocation information will be added
    */
-  private static GlobalFrame globalFrame(
+  private static Module globalFrame(
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList) {
@@ -595,7 +605,7 @@ public class SkydocMain {
     testingBootstrap.addBindingsToBuilder(envBuilder);
     addNonBootstrapGlobals(envBuilder);
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return Module.createForBuiltins(envBuilder.build());
   }
 
   // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
@@ -617,6 +627,8 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
+    JsModuleInfoApi.NAME,
+    "PintoModuleProvider"
   };
 
   /**
@@ -630,12 +642,12 @@ public class SkydocMain {
     }
   }
 
-  private static Environment createEnvironment(
+  private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
       EventHandler eventHandler,
-      GlobalFrame globals,
+      Module globals,
       Map<String, Extension> imports) {
-    return Environment.builder(Mutability.create("Skydoc"))
+    return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)
         .setGlobals(globals)
         .setImportedExtensions(imports)

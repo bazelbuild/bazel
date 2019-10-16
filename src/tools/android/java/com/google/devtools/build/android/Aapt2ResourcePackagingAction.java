@@ -119,6 +119,7 @@ public class Aapt2ResourcePackagingAction {
       final Path symbolsBin =
           AndroidResourceMerger.mergeDataToSymbols(
               ParsedAndroidData.loadedFrom(
+                  DependencyInfo.DependencyType.PRIMARY,
                   ImmutableList.of(SerializedAndroidData.from(compiled)),
                   executorService,
                   dataDeserializer),
@@ -177,7 +178,6 @@ public class Aapt2ResourcePackagingAction {
               .withAssets(assetDirs)
               .buildVersion(aaptConfigOptions.buildToolsVersion)
               .conditionalKeepRules(aaptConfigOptions.conditionalKeepRules == TriState.YES)
-              .resourcePathShortening(aaptConfigOptions.resourcePathShortening)
               .filterToDensity(options.densities)
               .storeUncompressed(aaptConfigOptions.uncompressedExtensions)
               .debug(aaptConfigOptions.debug)
@@ -202,11 +202,6 @@ public class Aapt2ResourcePackagingAction {
       }
       if (options.resourcesOutput != null) {
         packagedResources.asArchive().writeTo(options.resourcesOutput, /* compress= */ false);
-      }
-      if (aaptConfigOptions.resourcePathShorteningMapOutput != null) {
-        copy(
-            packagedResources.resourcePathShorteningMap(),
-            aaptConfigOptions.resourcePathShorteningMapOutput);
       }
     }
   }

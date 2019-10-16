@@ -341,8 +341,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             deps.stream()
                 .filter(
                     dep ->
-                        getConfiguration(dep) != null
-                            && !getConfiguration(dep).isToolConfiguration())
+                        // We include source files, which have null configuration, even though
+                        // they can also appear on host-configured attributes like genrule#tools.
+                        // While this may not be strictly correct, it's better to overapproximate
+                        // than underapproximate the results.
+                        getConfiguration(dep) == null
+                            || !getConfiguration(dep).isToolConfiguration())
                 .collect(Collectors.toList());
       }
     }

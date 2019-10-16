@@ -38,11 +38,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -127,11 +127,20 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
+    List<JavaSourceInfoProvider> sourceInfos =
+        JavaInfo.fetchProvidersFromList(providers, JavaSourceInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
       Runfiles runfiles = javaRunfilesProvider.getRunfiles();
       mergedRunfiles = mergedRunfiles == Runfiles.EMPTY ? runfiles : mergedRunfiles.merge(runfiles);
+    }
+
+    ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
+    ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
+    for (JavaInfo javaInfo : providers) {
+      runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
+      javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
     return JavaInfo.Builder.create()
@@ -150,7 +159,11 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
+        .addProvider(JavaSourceInfoProvider.class, JavaSourceInfoProvider.merge(sourceInfos))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+        // TODO(iirina): merge or remove JavaCompilationInfoProvider
+        .setRuntimeJars(runtimeJars.build())
+        .setJavaConstraints(javaConstraints.build())
         .build();
   }
 
@@ -397,7 +410,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         SkylarkList<?> exports,
         Object jdepsApi,
         Location loc,
-        Environment env)
+        StarlarkThread thread)
         throws EvalException {
       Artifact outputJar = (Artifact) outputJarApi;
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);

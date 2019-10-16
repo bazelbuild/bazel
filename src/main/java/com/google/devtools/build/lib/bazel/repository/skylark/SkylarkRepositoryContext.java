@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -58,6 +59,8 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -80,8 +83,11 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
@@ -90,6 +96,7 @@ public class SkylarkRepositoryContext
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
+  private final Path embeddedBinariesRoot;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
@@ -111,6 +118,7 @@ public class SkylarkRepositoryContext
       Environment environment,
       Map<String, String> env,
       HttpDownloader httpDownloader,
+      Path embeddedBinariesRoot,
       double timeoutScaling,
       Map<String, String> markerData,
       boolean useNativePatch)
@@ -118,6 +126,7 @@ public class SkylarkRepositoryContext
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
+    this.embeddedBinariesRoot = embeddedBinariesRoot;
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
@@ -135,8 +144,7 @@ public class SkylarkRepositoryContext
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val,
-                    (com.google.devtools.build.lib.syntax.Environment) null));
+                : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
       }
     }
     attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
@@ -287,17 +295,19 @@ public class SkylarkRepositoryContext
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    Map<String, String> substitutionMap =
+        substitutions.getContents(String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newTemplateEvent(
             p.toString(),
             t.toString(),
-            substitutions,
+            substitutionMap,
             executable,
             rule.getLabel().toString(),
             location);
@@ -306,7 +316,7 @@ public class SkylarkRepositoryContext
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
-      for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
+      for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
@@ -364,13 +374,15 @@ public class SkylarkRepositoryContext
 
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments,
+      SkylarkList<?> arguments, // <String> or <SkylarkPath> expected
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      SkylarkDict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
       throws EvalException, RepositoryFunctionException, InterruptedException {
+    Map<String, String> environment =
+        uncheckedEnvironment.getContents(String.class, String.class, "environment");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExecuteEvent(
             arguments,
@@ -384,16 +396,30 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     createDirectory(outputDirectory);
 
+    long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
+    List<?> args = arguments;
+    if (OS.getCurrent() != OS.WINDOWS && embeddedBinariesRoot != null) {
+      Path processWrapper = ProcessWrapperUtil.getProcessWrapper(embeddedBinariesRoot);
+      if (processWrapper.exists()) {
+        args =
+            ProcessWrapperUtil.commandLineBuilder(
+                    processWrapper.getPathString(),
+                    arguments.stream().map(Object::toString).collect(Collectors.toList()))
+                .setTimeout(Duration.ofMillis(timeoutMillis))
+                .build();
+      }
+    }
+
     Path workingDirectoryPath = outputDirectory;
     if (workingDirectory != null && !workingDirectory.isEmpty()) {
       workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
     }
     createDirectory(workingDirectoryPath);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
-        .addArguments(arguments)
+        .addArguments(args)
         .setDirectory(workingDirectoryPath.getPathFile())
         .addEnvironmentVariables(environment)
-        .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
+        .setTimeout(timeoutMillis)
         .setQuiet(quiet)
         .execute();
   }
@@ -536,6 +562,20 @@ public class SkylarkRepositoryContext
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"}) // Explained in method comment
+  private static Map<String, SkylarkDict<?, ?>> getAuthContents(
+      SkylarkDict<?, ?> authUnchecked, @Nullable String description) throws EvalException {
+    // This method would not be worth having (SkylarkDict#getContents could be called
+    // instead), except that some trickery is required to cast Map<String, SkylarkDict> to
+    // Map<String, SkylarkDict<?, ?>>.
+
+    // getContents can only guarantee raw types, so SkylarkDict is the raw type here.
+    Map<String, SkylarkDict> result =
+        authUnchecked.getContents(String.class, SkylarkDict.class, description);
+
+    return (Map<String, SkylarkDict<?, ?>>) (Map<String, ? extends SkylarkDict>) result;
+  }
+
   @Override
   public StructImpl download(
       Object url,
@@ -544,11 +584,12 @@ public class SkylarkRepositoryContext
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> authUnchecked, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders =
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
     List<URL> urls =
         getUrls(
@@ -657,11 +698,11 @@ public class SkylarkRepositoryContext
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(getAuthContents(auth, "auth"));
 
     List<URL> urls =
         getUrls(
@@ -964,9 +1005,7 @@ public class SkylarkRepositoryContext
   }
 
   /**
-   * From an authentication dict extract a map of headers. Due to
-   * https://github.com/bazelbuild/bazel/issues/9327, this fucntion does the validation of the
-   * <code>auth</code> map, but always returns an empty set of headers.
+   * From an authentication dict extract a map of headers.
    *
    * <p>Given a dict as provided as "auth" argument, compute a map specifying for each URI provided
    * which additional headers (as usual, represented as a map from Strings to Strings) should
@@ -974,13 +1013,13 @@ public class SkylarkRepositoryContext
    * authentication, adding those headers is enough; for other forms of authentication other
    * measures might be necessary.
    */
-  private static Map<URI, Map<String, String>> getAuthHeaders(
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth)
+  private static Map<URI, Map<String, String>> getAuthHeaders(Map<String, SkylarkDict<?, ?>> auth)
       throws RepositoryFunctionException, EvalException {
-    for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
+    ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, SkylarkDict<?, ?>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
-        SkylarkDict<Object, Object> authMap = entry.getValue();
+        SkylarkDict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
@@ -990,7 +1029,14 @@ public class SkylarkRepositoryContext
                       + entry.getKey()
                       + " without 'login' and 'password' being provided.");
             }
-            url.toURI(); // for URL validation.
+            String credentials = authMap.get("login") + ":" + authMap.get("password");
+            headers.put(
+                url.toURI(),
+                ImmutableMap.<String, String>of(
+                    "Authorization",
+                    "Basic "
+                        + Base64.getEncoder()
+                            .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
           }
         }
       } catch (MalformedURLException e) {
@@ -999,7 +1045,6 @@ public class SkylarkRepositoryContext
         throw new EvalException(null, e.getMessage());
       }
     }
-    // TODO(https://github.com/bazelbuild/bazel/issues/9327)
-    return ImmutableMap.of();
+    return headers.build();
   }
 }

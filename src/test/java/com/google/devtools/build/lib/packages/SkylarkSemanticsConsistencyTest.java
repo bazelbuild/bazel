@@ -119,6 +119,7 @@ public class SkylarkSemanticsConsistencyTest {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
         "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
+        "--experimental_aspect_output_propagation=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
@@ -153,7 +154,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_no_target_output_group=" + rand.nextBoolean(),
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
-        "--incompatible_objc_framework_cleanup=" + rand.nextBoolean(),
         "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
         "--incompatible_restrict_named_params=" + rand.nextBoolean(),
@@ -173,6 +173,7 @@ public class SkylarkSemanticsConsistencyTest {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
+        .experimentalAspectOutputPropagation(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
@@ -205,7 +206,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatibleNoTargetOutputGroup(rand.nextBoolean())
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
-        .incompatibleObjcFrameworkCleanup(rand.nextBoolean())
         .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
         .incompatibleRestrictNamedParams(rand.nextBoolean())

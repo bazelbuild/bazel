@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
@@ -42,8 +42,8 @@ public interface CcLinkingContextApi<FileT extends FileApi> {
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
               + "deprecated. See #8118.",
       structField = true,
-      useEnvironment = true)
-  Object getSkylarkLibrariesToLink(Environment environment);
+      useStarlarkThread = true)
+  Object getSkylarkLibrariesToLink(StarlarkThread thread);
 
   @SkylarkCallable(
       name = "additional_inputs",

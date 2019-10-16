@@ -50,10 +50,14 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
 
   @Override
   public SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    return resolveOne(spawn, actionExecutionContext.getEventHandler())
-        .beginExecution(spawn, actionExecutionContext);
+      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
+    SpawnActionContext resolvedContext;
+    try {
+      resolvedContext = resolveOne(spawn, actionExecutionContext.getEventHandler());
+    } catch (ExecException e) {
+      return SpawnContinuation.failedWithExecException(e);
+    }
+    return resolvedContext.beginExecution(spawn, actionExecutionContext);
   }
 
   private SpawnActionContext resolveOne(Spawn spawn, EventHandler eventHandler)

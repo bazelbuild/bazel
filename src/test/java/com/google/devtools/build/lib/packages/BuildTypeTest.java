@@ -26,13 +26,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SelectorList;
 import com.google.devtools.build.lib.syntax.SelectorValue;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -538,7 +537,8 @@ public class BuildTypeTest {
   }
 
   /**
-   * Tests that {@link com.google.devtools.build.lib.syntax.Type#convert} fails on selector inputs.
+   * Tests that {@link com.google.devtools.build.lib.packages.Type#convert} fails on selector
+   * inputs.
    */
   @Test
   public void testConvertDoesNotAcceptSelectables() throws Exception {

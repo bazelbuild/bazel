@@ -106,6 +106,43 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcProviderLegacyName() throws Exception {
+    scratch.file(
+        "test/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _dep_rule_impl(ctx):",
+        "   objc_provider = apple_common.new_objc_provider(define=depset(['mock_define']))",
+        "   return struct(foo = objc_provider)",
+        "",
+        "def _root_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   return MyInfo(",
+        "      define = dep.objc.define,",
+        "   )",
+        "",
+        "root_rule = rule(implementation = _root_rule_impl,",
+        "   attrs = {'deps': attr.label_list(providers = ['objc']),",
+        "})",
+        "dep_rule = rule(implementation = _dep_rule_impl)");
+    scratch.file(
+        "test/BUILD",
+        "load(':my_rule.bzl', 'root_rule', 'dep_rule')",
+        "root_rule(",
+        "    name = 'test',",
+        "    deps = [':dep'],",
+        ")",
+        "dep_rule(",
+        "    name = 'dep',",
+        ")");
+
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//test:test");
+    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    SkylarkNestedSet defineSet = (SkylarkNestedSet) myInfo.getValue("define");
+
+    assertThat(defineSet.getSet(String.class)).containsExactly("mock_define");
+  }
+
+  @Test
   public void testSkylarkProviderRetrievalNoneIfNoProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -1379,109 +1416,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(runMemleaks).isEqualTo(expectedValue);
   }
 
-  private void addDummyObjcProviderRule(String name) throws Exception {
-    scratch.file(
-        "fx/defs.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _my_rule_impl(ctx):",
-        "  objc = apple_common.new_objc_provider()",
-        String.format("  return MyInfo(names=objc.%s)", name),
-        "my_rule = rule(implementation = _my_rule_impl,",
-        "   attrs = {})");
-    scratch.file("fx/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'lib')");
-  }
-
-  private void testObjcProviderHas(String name) throws Exception {
-    addDummyObjcProviderRule(name);
-    assertThat(view.hasErrors(getConfiguredTarget("//fx:lib"))).isFalse();
-  }
-
-  private void testObjcProviderDoesNotHave(String name) throws Exception {
-    addDummyObjcProviderRule(name);
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//fx:lib"));
-    if (name.endsWith("()")) {
-        assertThat(e).hasMessageThat().contains("'ObjcProvider' has no method " + name);
-      } else {
-        assertThat(e).hasMessageThat().contains("'ObjcProvider' has no field '" + name + "'");
-    }
-  }
-
   @Test
-  public void testObjcProviderDynamicFrameworkDirPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderHas("dynamic_framework_dir");
-  }
-
-  @Test
-  public void testObjcProviderFrameworkDirPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderHas("framework_dir");
-  }
-
-  @Test
-  public void testObjcProviderDynamicFrameworkNamesPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderDoesNotHave("dynamic_framework_names");
-  }
-
-  @Test
-  public void testObjcProviderDynamicFrameworkPathsPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderDoesNotHave("dynamic_framework_paths");
-  }
-
-  @Test
-  public void testObjcProviderStaticFrameworkNamesPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderDoesNotHave("static_framework_names");
-  }
-
-  @Test
-  public void testObjcProviderStaticFrameworkPathsPreCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
-    testObjcProviderDoesNotHave("static_framework_paths");
-  }
-
-  @Test
-  public void testObjcProviderDynamicFrameworkDirPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderDoesNotHave("dynamic_framework_dir");
-  }
-
-  @Test
-  public void testObjcProviderFrameworkDirPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderDoesNotHave("framework_dir");
-  }
-
-  @Test
-  public void testObjcProviderDynamicFrameworkNamesPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderHas("dynamic_framework_names");
-  }
-
-  @Test
-  public void testObjcProviderDynamicFrameworkPathsPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderHas("dynamic_framework_paths");
-  }
-
-  @Test
-  public void testObjcProviderStaticFrameworkNamesPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderHas("static_framework_names");
-  }
-
-  @Test
-  public void testObjcProviderStaticFrameworkPathsPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-    testObjcProviderHas("static_framework_paths");
-  }
-
-  @Test
-  public void testStaticFrameworkApiPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-
+  public void testStaticFrameworkApi() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -1510,9 +1446,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDynamicFrameworkApiPostCleanup() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
-
+  public void testDynamicFrameworkApi() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_dynamic_framework_import_impl(ctx):",

@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtractor;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -146,24 +146,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(isValidPackageName("foo/PROTECTED/bar")).isTrue();
     // Multiple "PROTECTED"s:
     assertThat(isValidPackageName("foo/PROTECTED/bar/PROTECTED/wiz")).isTrue();
-  }
-
-  @Test
-  public void testDuplicateRuleName() throws Exception {
-    events.setFailFast(false);
-    Path buildFile =
-        scratch.file(
-            "/duplicaterulename/BUILD",
-            "# -*- python -*-",
-            "proto_library(name = 'spell_proto', srcs = ['spell.proto'], cc_api_version = 2)",
-            "cc_library(name = 'spell_proto')");
-    Package pkg =
-        packages.createPackage("duplicaterulename", RootedPath.toRootedPath(root, buildFile));
-
-    events.assertContainsError(
-        "cc_library rule 'spell_proto' in package "
-            + "'duplicaterulename' conflicts with existing proto_library rule");
-    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -286,31 +268,23 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testMultipleDuplicateRuleName() throws Exception {
+  public void testDuplicateRuleName() throws Exception {
     events.setFailFast(false);
 
     Path buildFile =
         scratch.file(
-            "/multipleduplicaterulename/BUILD",
-            "# -*- python -*-",
+            "/duplicaterulename/BUILD",
             "proto_library(name = 'spellcheck_proto',",
             "         srcs = ['spellcheck.proto'],",
             "         cc_api_version = 2)",
-            "cc_library(name = 'spellcheck_proto')",
-            "proto_library(name = 'spell_proto',",
-            "         srcs = ['spell.proto'],",
-            "         cc_api_version = 2)",
-            "cc_library(name = 'spell_proto')");
+            "cc_library(name = 'spellcheck_proto')", // conflict error stops execution
+            "x = 1//0"); // not reached
     Package pkg =
-        packages.createPackage(
-            "multipleduplicaterulename", RootedPath.toRootedPath(root, buildFile));
-
+        packages.createPackage("duplicaterulename", RootedPath.toRootedPath(root, buildFile));
     events.assertContainsError(
-        "cc_library rule 'spellcheck_proto' in package "
-            + "'multipleduplicaterulename' conflicts with existing proto_library rule");
-    events.assertContainsError(
-        "cc_library rule 'spell_proto' in package "
-            + "'multipleduplicaterulename' conflicts with existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' in package 'duplicaterulename' conflicts with existing"
+            + " proto_library rule");
+    events.assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
 
@@ -437,8 +411,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   // Was: Regression test for bug "Rules declared after an error in
   // a package should be considered 'in error'".
-  // Now: Regression test for bug "Why aren't ERRORS considered
+  // Then: Regression test for bug "Why aren't ERRORS considered
   // fatal?*"
+  // Now: Regression test for: execution should stop at the first EvalException;
+  // all rules created prior to the exception error are marked in error.
   @Test
   public void testAllRulesInErrantPackageAreInError() throws Exception {
     events.setFailFast(false);
@@ -449,25 +425,21 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "        cmd = ':',",
             "        outs = ['out.1'])",
             "list = ['bad']",
-            "PopulateList(list)", // undefined => error
+            "x = 1//0", // dynamic error
             "genrule(name = 'rule2',",
             "        cmd = ':',",
             "        outs = list)");
     Package pkg = packages.createPackage("error", RootedPath.toRootedPath(root, path));
-    events.assertContainsError("name 'PopulateList' is not defined");
+    events.assertContainsError("division by zero");
 
     assertThat(pkg.containsErrors()).isTrue();
 
     // rule1 would be fine but is still marked as in error:
     assertThat(pkg.getRule("rule1").containsErrors()).isTrue();
 
-    // rule2 is considered "in error" because it's after an error.
-    // Indeed, it has the wrong "outs" set because the call to PopulateList
-    // failed.
+    // rule2's genrule is never executed.
     Rule rule2 = pkg.getRule("rule2");
-    assertThat(rule2.containsErrors()).isTrue();
-    assertThat(Sets.newHashSet(rule2.getOutputFiles()))
-        .isEqualTo(Sets.newHashSet(pkg.getTarget("bad")));
+    assertThat(rule2).isNull();
   }
 
   @Test
@@ -918,7 +890,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
-        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
+        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
     assertThat(deprAttr).isEqualTo(msg);
   }
 
@@ -934,12 +906,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
     assertThat(
-            attributes(fooRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+            attributes(fooRule)
+                .get("testonly", com.google.devtools.build.lib.packages.Type.BOOLEAN))
         .isTrue();
 
     Rule barRule = (Rule) pkg.getTarget("bar");
     assertThat(
-            attributes(barRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+            attributes(barRule)
+                .get("testonly", com.google.devtools.build.lib.packages.Type.BOOLEAN))
         .isFalse();
   }
 
@@ -956,7 +930,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
-        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
+        attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
     assertThat(deprAttr).isEqualTo(msg);
   }
 
@@ -1205,18 +1179,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testGlobPatternExtractor() {
     GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
     globPatternExtractor.visit(
-        BuildFileAST.parseString(
-            event -> {
-              throw new IllegalArgumentException(event.getMessage());
-            },
-            "pattern = '*'",
-            "some_variable = glob([",
-            "  '**/*',",
-            "  'a' + 'b',",
-            "  pattern,",
-            "])",
-            "other_variable = glob(include = ['a'], exclude = ['b'])",
-            "third_variable = glob(['c'], exclude_directories = 0)"));
+        StarlarkFile.parse(
+            ParserInput.fromLines(
+                "pattern = '*'",
+                "some_variable = glob([",
+                "  '**/*',",
+                "  'a' + 'b',",
+                "  pattern,",
+                "])",
+                "other_variable = glob(include = ['a'], exclude = ['b'])",
+                "third_variable = glob(['c'], exclude_directories = 0)")));
     assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
         .containsExactly("ab", "a", "**/*");
     assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");

@@ -51,7 +51,7 @@ public class WorkspaceFactoryHelper {
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
-      FuncallExpression ast,
+      FuncallExpression ast, // just for getLocation(); TODO(adonovan): simplify
       String definitionInfo)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
           InterruptedException {
@@ -64,9 +64,8 @@ public class WorkspaceFactoryHelper {
             ruleClass,
             attributeValues,
             eventHandler,
-            ast,
             ast.getLocation(),
-            /*env=*/ null,
+            /* thread= */ null,
             new AttributeContainer(ruleClass));
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
@@ -179,9 +178,8 @@ public class WorkspaceFactoryHelper {
             bindRuleClass,
             attributeValues,
             handler,
-            /*ast=*/ null,
             location,
-            /*env=*/ null,
+            /* thread= */ null,
             attributeContainer);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);

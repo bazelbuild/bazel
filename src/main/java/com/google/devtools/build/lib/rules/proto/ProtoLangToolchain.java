@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /** Implements {code proto_lang_toolchain}. */
 public class ProtoLangToolchain implements RuleConfiguredTargetFactory {

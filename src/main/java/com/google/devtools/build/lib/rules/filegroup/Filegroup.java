@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Iterator;

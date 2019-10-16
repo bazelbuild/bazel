@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -251,7 +252,7 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    return builder.build(ruleContext, semantics);
+    return builder.build(ruleContext, javaToolchain, semantics);
   }
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
@@ -383,12 +384,17 @@ public final class JavaCompilationHelper {
         ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
 
     // only run API-generating annotation processors during header compilation
-    builder.setPlugins(attributes.plugins().apiGeneratingPlugins());
+    JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
+    builder.setPlugins(plugins);
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
-    builder.setJavacOpts(getJavacOpts());
-    builder.setTempDirectory(tempDir(headerJar, ruleContext.getLabel()));
+    builder.addAllJavacOpts(getJavacOpts());
+    if (Iterables.contains(
+        plugins.processorClasses(), "dagger.internal.codegen.ComponentProcessor")) {
+      // see b/31371210
+      builder.addJavacOpt("-Aexperimental_turbine_hjar");
+    }
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());

@@ -90,8 +90,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -538,8 +536,7 @@ public class FileFunctionTest {
 
   @Test
   public void testUnreadableFileWithFastDigest() throws Exception {
-    final byte[] expectedDigest =
-        MessageDigest.getInstance("md5").digest("blah".getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedDigest = {1, 2, 3, 4};
 
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {

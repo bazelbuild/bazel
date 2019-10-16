@@ -44,11 +44,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Tests that a list based strategy selection is enabled by default
-function test_incompatible_flag_flipped() {
-  bazel build --spawn_strategy=worker,local --debug_print_action_contexts &> $TEST_log || fail
-  expect_not_log "incompatible_list_based_execution_strategy_selection was not enabled"
-}
 
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {

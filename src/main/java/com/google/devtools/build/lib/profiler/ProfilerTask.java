@@ -30,12 +30,12 @@ public enum ProfilerTask {
   ACTION("action processing", 0x666699),
   __ACTION_BUILDER("parallel builder completion queue", 0xCC3399), // unused
   __ACTION_SUBMIT("execution queue submission", 0xCC3399), // unused
-  ACTION_CHECK("action dependency checking", 10000000, 0x999933, 0, false),
+  ACTION_CHECK("action dependency checking", 10000000, 0x999933, 0),
   __ACTION_EXECUTE("action execution", 0x99CCFF), // unused
-  ACTION_LOCK("action resource lock", 10000000, 0xCC9933, 0, false),
-  ACTION_RELEASE("action resource release", 10000000, 0x006666, 0, false),
+  ACTION_LOCK("action resource lock", 10000000, 0xCC9933, 0),
+  ACTION_RELEASE("action resource release", 10000000, 0x006666, 0),
   __ACTION_GRAPH("action graph dependency", 0x3399FF), // unused
-  ACTION_UPDATE("update action information", 10000000, 0x993300, 0, false),
+  ACTION_UPDATE("update action information", 10000000, 0x993300, 0),
   ACTION_COMPLETE("complete action execution", 0xCCCC99),
   INFO("general information", 0x000066),
   __EXCEPTION("exception", 0xFFCC66), // unused
@@ -47,27 +47,27 @@ public enum ProfilerTask {
   SCANNER("include scanner", 0x669999),
   // 30 is a good number because the slowest items are stored in a heap, with temporarily
   // one more element, and with 31 items, a heap becomes a complete binary tree
-  LOCAL_PARSE("Local parse to prepare for remote execution", 50000000, 0x6699CC, 30, false),
-  UPLOAD_TIME("Remote execution upload time", 50000000, 0x6699CC, 0, false),
-  PROCESS_TIME("Remote execution process wall time", 50000000, 0xF999CC, 0, false),
-  REMOTE_QUEUE("Remote execution queuing time", 50000000, 0xCC6600, 0, false),
-  REMOTE_SETUP("Remote execution setup", 50000000, 0xA999CC, 0, false),
-  FETCH("Remote execution file fetching", 50000000, 0xBB99CC, 0, false),
-  VFS_STAT("VFS stat", 10000000, 0x9999FF, 30, true),
-  VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30, true),
-  VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30, true),
+  LOCAL_PARSE("Local parse to prepare for remote execution", 50000000, 0x6699CC, 30),
+  UPLOAD_TIME("Remote execution upload time", 50000000, 0x6699CC, 0),
+  PROCESS_TIME("Remote execution process wall time", 50000000, 0xF999CC, 0),
+  REMOTE_QUEUE("Remote execution queuing time", 50000000, 0xCC6600, 0),
+  REMOTE_SETUP("Remote execution setup", 50000000, 0xA999CC, 0),
+  FETCH("Remote execution file fetching", 50000000, 0xBB99CC, 0),
+  VFS_STAT("VFS stat", 10000000, 0x9999FF, 30),
+  VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30),
+  VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30),
   // TODO(olaola): rename to VFS_DIGEST. This refers to all digest function computations.
-  VFS_MD5("VFS md5", 10000000, 0x999999, 30, true),
-  VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30, true),
-  VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0, true),
-  VFS_OPEN("VFS open", 10000000, 0x009999, 30, true),
-  VFS_READ("VFS read", 10000000, 0x99CC33, 30, true),
-  VFS_WRITE("VFS write", 10000000, 0xFF9900, 30, true),
-  VFS_GLOB("globbing", -1, 0x999966, 30, true),
-  VFS_VMFS_STAT("VMFS stat", 10000000, 0x9999FF, 0, true),
-  VFS_VMFS_DIR("VMFS readdir", 10000000, 0x0066CC, 0, true),
-  VFS_VMFS_READ("VMFS read", 10000000, 0x99CC33, 0, true),
-  WAIT("thread wait", 5000000, 0x66CCCC, 0, false),
+  VFS_MD5("VFS md5", 10000000, 0x999999, 30),
+  VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30),
+  VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0),
+  VFS_OPEN("VFS open", 10000000, 0x009999, 30),
+  VFS_READ("VFS read", 10000000, 0x99CC33, 30),
+  VFS_WRITE("VFS write", 10000000, 0xFF9900, 30),
+  VFS_GLOB("globbing", -1, 0x999966, 30),
+  VFS_VMFS_STAT("VMFS stat", 10000000, 0x9999FF, 0),
+  VFS_VMFS_DIR("VMFS readdir", 10000000, 0x0066CC, 0),
+  VFS_VMFS_READ("VMFS read", 10000000, 0x99CC33, 0),
+  WAIT("thread wait", 5000000, 0x66CCCC, 0),
   __CONFIGURED_TARGET("configured target creation", 0x663300), // unused
   THREAD_NAME("thread name", 0x996600), // Do not use directly!
   __TEST("for testing only", 0x000000), // unused
@@ -110,26 +110,20 @@ public enum ProfilerTask {
   /** True if the metric records VFS operations */
   private final boolean vfs;
 
-  private ProfilerTask(
-      String description, long minDuration, int color, int slowestInstanceCount, boolean vfs) {
+  private ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount) {
     this.description = description;
     this.minDuration = minDuration;
     this.color = color;
     this.slowestInstancesCount = slowestInstanceCount;
-    this.vfs = vfs;
+    this.vfs = this.name().startsWith("VFS");
   }
 
   private ProfilerTask(String description, int color) {
-    this(
-        description,
-        /* minDuration= */ -1,
-        color,
-        /* slowestInstanceCount= */ 0,
-        /* vfs= */ false);
+    this(description, /* minDuration= */ -1, color, /* slowestInstanceCount= */ 0);
   }
 
   private ProfilerTask(String description) {
-    this(description, -1, 0x000000, 0, /* vfs= */ false);
+    this(description, /* minDuration= */ -1, /* color= */ 0x000000, /* slowestInstanceCount= */ 0);
   }
 
   /** Whether the Profiler collects the slowest instances of this task. */

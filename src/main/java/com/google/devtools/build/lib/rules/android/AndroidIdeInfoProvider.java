@@ -322,8 +322,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object manifest,
         Object generatedManifest,
         Object idlImportRoot,
-        SkylarkList<Artifact> idlSrcs,
-        SkylarkList<Artifact> idlGeneratedJavaFiles,
+        SkylarkList<?> idlSrcs, // <Artifact>
+        SkylarkList<?> idlGeneratedJavaFiles, // <Artifact>
         Object idlSourceJar,
         Object idlClassJar,
         boolean definesAndroidResources,
@@ -331,15 +331,16 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object resourceApk,
         Object signedApk,
         Object aar,
-        SkylarkList<Artifact> apksUnderTest,
-        SkylarkDict<String, SkylarkNestedSet> nativeLibs)
+        SkylarkList<?> apksUnderTest, // <Artifact>
+        SkylarkDict<?, ?> nativeLibs) // <String, SkylarkNestedSet>
         throws EvalException {
       Map<String, SkylarkNestedSet> nativeLibsMap =
           nativeLibs.getContents(String.class, SkylarkNestedSet.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Map.Entry<String, SkylarkNestedSet> entry : nativeLibsMap.entrySet()) {
-        builder.put(entry.getKey(), entry.getValue().getSet(Artifact.class));
+        builder.put(
+            entry.getKey(), entry.getValue().getSetFromParam(Artifact.class, "native_libs"));
       }
       return new AndroidIdeInfoProvider(
           fromNoneable(javaPackage, String.class),
@@ -352,9 +353,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(resourceJar, OutputJar.class),
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
-          idlSrcs.getImmutableList(),
-          idlGeneratedJavaFiles.getImmutableList(),
-          apksUnderTest.getImmutableList(),
+          ImmutableList.copyOf(idlSrcs.getContents(Artifact.class, "idl_srcs")),
+          ImmutableList.copyOf(
+              idlGeneratedJavaFiles.getContents(Artifact.class, "idl_generated_java_files")),
+          ImmutableList.copyOf(apksUnderTest.getContents(Artifact.class, "apks_under_test")),
           builder.build(),
           fromNoneable(resourceApk, Artifact.class));
     }

@@ -37,7 +37,7 @@ public class Callstack {
     Callstack.enabled = enabled;
   }
 
-  public static void push(ASTNode node) {
+  public static void push(Node node) {
     callstack.get().add(node);
   }
 

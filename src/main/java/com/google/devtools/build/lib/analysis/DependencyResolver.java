@@ -657,11 +657,19 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Filter the set of aspects that are to be propagated according to the set of advertised
-   * providers of the dependency.
+   * Filter the set of aspects that are to be propagated according to the dependency type and the
+   * set of advertised providers of the dependency.
    */
   private AspectCollection filterPropagatingAspects(ImmutableList<Aspect> aspects, Target toTarget)
       throws InconsistentAspectOrderException {
+    if (toTarget instanceof OutputFile) {
+      aspects =
+          aspects.stream()
+              .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
+              .collect(ImmutableList.toImmutableList());
+      toTarget = ((OutputFile) toTarget).getGeneratingRule();
+    }
+
     if (!(toTarget instanceof Rule) || aspects.isEmpty()) {
       return AspectCollection.EMPTY;
     }

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import java.util.Set;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
@@ -226,8 +227,12 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
+  private static String getShellEscapedExecPathString(Artifact artifact) {
+    return ShellUtils.shellEscape(artifact.getExecPathString());
+  }
+
   private void addDsymVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(DSYM_PATH_VARIABLE_NAME, dsymSymbol.getShellEscapedExecPathString());
+    builder.addStringVariable(DSYM_PATH_VARIABLE_NAME, getShellEscapedExecPathString(dsymSymbol));
   }
 
   private void addLinkmapVariables(CcToolchainVariables.Builder builder) {

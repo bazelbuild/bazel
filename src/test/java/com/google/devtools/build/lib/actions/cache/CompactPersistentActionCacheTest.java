@@ -198,7 +198,7 @@ public class CompactPersistentActionCacheTest {
 
   private void putKey(String key, ActionCache ac, boolean discoversInputs) {
     ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.<String, String>of(), discoversInputs);
+        new ActionCache.Entry(key, ImmutableMap.<String, String>of("k", "v"), discoversInputs);
     entry.getFileDigest();
     ac.put(key, entry);
   }

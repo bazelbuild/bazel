@@ -51,7 +51,7 @@ import java.util.NoSuchElementException;
             + "range(10)[::2]  # range(0, 10, 2)\n"
             + "range(10)[3:0:-1]  # range(3, 0, -1)</pre>"
             + "Ranges are immutable, as in Python 3.")
-public final class RangeList extends SkylarkList<Integer> {
+final class RangeList extends SkylarkList<Integer> {
 
   private final int step;
   private final int start;
@@ -225,7 +225,7 @@ public final class RangeList extends SkylarkList<Integer> {
    * @return A half-opened range defined by its starting value (inclusive), stop value (exclusive)
    *     and a step from previous value to the next one.
    */
-  public static RangeList of(int start, int stop, int step) {
+  static RangeList of(int start, int stop, int step) {
     Preconditions.checkArgument(step != 0);
     return new RangeList(start, stop, step);
   }
@@ -255,8 +255,7 @@ public final class RangeList extends SkylarkList<Integer> {
      * <p>The implementation is based on CPython
      * https://github.com/python/cpython/blob/09bb918a61031377d720f1a0fa1fe53c962791b6/Objects/sliceobject.c#L366-L509
      */
-    public static Slice from(
-        int length, Object startObj, Object endObj, Object stepObj, Location loc)
+    static Slice from(int length, Object startObj, Object endObj, Object stepObj, Location loc)
         throws EvalException {
       int start;
       int stop;

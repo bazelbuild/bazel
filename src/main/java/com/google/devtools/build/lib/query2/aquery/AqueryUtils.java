@@ -46,11 +46,10 @@ public class AqueryUtils {
     if (actionFilters.hasFilterForFunction(INPUTS)) {
       Boolean containsFile =
           Streams.stream(inputs)
-              .map(
+              .anyMatch(
                   artifact ->
                       actionFilters.matchesAllPatternsForFunction(
-                          INPUTS, artifact.getExecPathString()))
-              .reduce(false, Boolean::logicalOr);
+                          INPUTS, artifact.getExecPathString()));
 
       if (!containsFile) {
         return false;
@@ -60,11 +59,10 @@ public class AqueryUtils {
     if (actionFilters.hasFilterForFunction(OUTPUTS)) {
       Boolean containsFile =
           Streams.stream(outputs)
-              .map(
+              .anyMatch(
                   artifact ->
                       actionFilters.matchesAllPatternsForFunction(
-                          OUTPUTS, artifact.getExecPathString()))
-              .reduce(false, Boolean::logicalOr);
+                          OUTPUTS, artifact.getExecPathString()));
 
       return containsFile;
     }

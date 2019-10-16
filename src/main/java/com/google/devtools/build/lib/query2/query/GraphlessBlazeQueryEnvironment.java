@@ -81,7 +81,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
   protected final int loadingPhaseThreads;
-  private final boolean useForkJoinPool;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
 
@@ -109,8 +108,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions,
-      boolean useForkJoinPool) {
+      Iterable<QueryFunction> extraFunctions) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
@@ -119,8 +117,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     this.cachingPackageLocator = cachingPackageLocator;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter, useForkJoinPool);
-    this.useForkJoinPool = useForkJoinPool;
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
   }
 
   @Override
@@ -204,7 +201,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     }
     Set<Target> result = Sets.newConcurrentHashSet();
     try (SilentCloseable closeable = Profiler.instance().profile("syncUncached")) {
-      new LabelVisitor(targetProvider, dependencyFilter, useForkJoinPool)
+      new LabelVisitor(targetProvider, dependencyFilter)
           .syncUncached(
               eventHandler,
               from,
@@ -342,7 +339,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
         labels.add(t.getLabel());
       }
       ((SkyframeLabelVisitor) transitivePackageLoader)
-          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, false, useForkJoinPool);
+          .sync(eventHandler, labels, keepGoing, loadingPhaseThreads, /* errorOnCycles= */ false);
     }
   }
 
@@ -410,7 +407,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       // being called from within a SkyFunction.
       resolvedTargetPatterns.putAll(
           targetPatternPreloader.preloadTargetPatterns(
-              eventHandler, relativeWorkingDirectory, patterns, keepGoing, useForkJoinPool));
+              eventHandler, relativeWorkingDirectory, patterns, keepGoing));
     }
   }
 
