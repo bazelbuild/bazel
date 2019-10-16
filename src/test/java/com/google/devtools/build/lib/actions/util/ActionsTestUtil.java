@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -793,7 +792,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest) {
+    public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -154,7 +155,7 @@ public class ActionCacheChecker {
     for (Artifact artifact : actionInputs) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
-    return !DigestUtils.fromMetadata(mdMap).equals(entry.getFileDigest());
+    return !Arrays.equals(DigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
 
   private void reportCommand(EventHandler handler, Action action) {
@@ -330,7 +331,7 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
-    if (!entry.getUsedClientEnvDigest().equals(DigestUtils.fromEnv(usedEnvironment))) {
+    if (!Arrays.equals(entry.getUsedClientEnvDigest(), DigestUtils.fromEnv(usedEnvironment))) {
       reportClientEnv(handler, action, usedEnvironment);
       actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
       return true;
