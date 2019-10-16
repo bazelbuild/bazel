@@ -893,7 +893,7 @@ public class CppHelper {
    *
    * @return The artifact of an empty DEF file.
    */
-  public static Artifact createEmptyDefFileAction(RuleContext ruleContext) {
+  private static Artifact createEmptyDefFileAction(RuleContext ruleContext) {
     Artifact trivialDefFile =
         ruleContext.getBinArtifact(
             ruleContext.getLabel().getName()

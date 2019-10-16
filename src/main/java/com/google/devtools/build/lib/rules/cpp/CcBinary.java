@@ -430,7 +430,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcLinkingContext depsCcLinkingContext = collectCcLinkingContext(ruleContext);
 
     Artifact generatedDefFile = null;
-    Artifact customDefFile;
     Artifact winDefFile = null;
     if (isLinkShared(ruleContext)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
@@ -458,8 +457,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               CppHelper.createDefFileActions(
                   ruleContext, defParser, objectFiles.build(), binary.getFilename());
         }
-        customDefFile = common.getWinDefFile();
-        winDefFile = CppHelper.getWindowsDefFileForLinking(ruleContext, customDefFile, generatedDefFile, featureConfiguration);
+        winDefFile = CppHelper.getWindowsDefFileForLinking(ruleContext, common.getWinDefFile(), generatedDefFile, featureConfiguration);
       }
     }
 
