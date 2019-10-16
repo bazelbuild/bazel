@@ -182,6 +182,11 @@ proto_library(
     ],
 )
 
+cc_proto_library(
+    name = "remote_execution_log_cc_proto",
+    deps = [":remote_execution_log_proto"],
+)
+
 java_proto_library(
     name = "remote_execution_log_java_proto",
     deps = [":remote_execution_log_proto"],

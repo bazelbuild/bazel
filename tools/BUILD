@@ -30,6 +30,7 @@ filegroup(
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:srcs",
         "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:srcs",
         "//tools/python:srcs",
+        "//tools/remote_execution_log_dump:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
         "//tools/whitelists:srcs",
