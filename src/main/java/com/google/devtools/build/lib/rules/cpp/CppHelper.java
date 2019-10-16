@@ -897,7 +897,7 @@ public class CppHelper {
     Artifact trivialDefFile =
         ruleContext.getBinArtifact(
             ruleContext.getLabel().getName()
-                + ".gen.trivial"
+                + ".gen.empty"
                 + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
     ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
     return trivialDefFile;

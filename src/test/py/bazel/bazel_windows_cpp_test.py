@@ -138,17 +138,15 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
-    # extensions correct on
-    # Windows.
+    # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'A.if.lib')
     shared_library = os.path.join(bazel_bin, 'A.dll')
-    def_file = os.path.join(bazel_bin, 'A.gen.def')
-    trivial_def_file = os.path.join(bazel_bin, 'A.gen.trivial.def')
+    empty_def_file = os.path.join(bazel_bin, 'A.gen.empty.def')
 
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
-    # A trivial DEF file should be generated for //:A
-    self.assertTrue(os.path.exists(trivial_def_file))
+    # An empty DEF file should be generated for //:A
+    self.assertTrue(os.path.exists(empty_def_file))
 
   def testBuildDynamicLibraryWithExportSymbolFeature(self):
     self.createProjectFiles()
@@ -161,8 +159,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
-    # extensions correct on
-    # Windows.
+    # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B.dll')
     def_file = os.path.join(bazel_bin, 'B.gen.def')
@@ -180,12 +177,12 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B.dll')
-    trivial_def_file = os.path.join(bazel_bin, 'B.gen.trivial.def')
+    empty_def_file = os.path.join(bazel_bin, 'B.gen.empty.def')
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
-    # A trivial DEF file should be generated for //:B
-    self.assertTrue(os.path.exists(trivial_def_file))
-    self.AssertFileContentNotContains(trivial_def_file, 'hello_B')
+    # An empty DEF file should be generated for //:B
+    self.assertTrue(os.path.exists(empty_def_file))
+    self.AssertFileContentNotContains(empty_def_file, 'hello_B')
 
   def testBuildCcBinaryWithDependenciesDynamicallyLinked(self):
     self.createProjectFiles()
@@ -204,7 +201,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # a_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
     # a_def_file
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.gen.trivial.def')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.gen.empty.def')))
     # b_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.if.lib')))
     # b_shared_library
@@ -533,9 +530,9 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Although windows_export_all_symbols is not specified for this target,
     # we should still be able to build a DLL without any symbol exported.
-    trivial_def_file = os.path.join(bazel_bin, 'A.dll.gen.trivial.def')
-    self.assertTrue(os.path.exists(trivial_def_file))
-    self.AssertFileContentNotContains(trivial_def_file, 'hello_A')
+    empty_def_file = os.path.join(bazel_bin, 'A.dll.gen.empty.def')
+    self.assertTrue(os.path.exists(empty_def_file))
+    self.AssertFileContentNotContains(empty_def_file, 'hello_A')
 
   def testUsingDefFileGeneratedFromCcLibrary(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
