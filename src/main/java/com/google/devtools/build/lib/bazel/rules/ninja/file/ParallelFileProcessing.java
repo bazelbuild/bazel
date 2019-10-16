@@ -130,9 +130,9 @@ public class ParallelFileProcessing {
       throws InterruptedException, ExecutionException, IOException, GenericParsingException {
     TokenAssembler assembler = new TokenAssembler(tokenConsumerFactory.get(), predicate);
 
-    List<Pair<Integer, ByteBufferFragment>> fragments;
+    List<List<Pair<Integer, ByteBufferFragment>>> listOfLists;
     try (SeekableByteChannel ch = Files.newByteChannel(path);
-        ExecutorHelper<Pair<Integer, ByteBufferFragment>> service =
+        ExecutorHelper<List<Pair<Integer, ByteBufferFragment>>> service =
             new ExecutorHelper<>(numThreads)) {
       int offset = 0;
       boolean keepReading = true;
@@ -145,8 +145,11 @@ public class ParallelFileProcessing {
           offset += bb.limit();
         }
       }
-      fragments = service.getMergedResult();
+      listOfLists = service.getMergedResult();
     }
+    List<Pair<Integer, ByteBufferFragment>> fragments = listOfLists.stream()
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
 
     assembler.wrapUp(fragments);
   }
@@ -163,7 +166,7 @@ public class ParallelFileProcessing {
   }
 
   private void tokenizeFragments(ByteBuffer bb, int offset,
-      ExecutorHelper<Pair<Integer, ByteBufferFragment>> service) {
+      ExecutorHelper<List<Pair<Integer, ByteBufferFragment>>> service) {
     int fragmentSize = (int) Math.ceil((double) bb.limit() / numThreads);
     int from = 0;
     while (from < bb.limit()) {
@@ -175,7 +178,7 @@ public class ParallelFileProcessing {
   }
 
   private static class ExecutorHelper<T> implements AutoCloseable {
-    private final List<ListenableFuture<List<T>>> futures;
+    private final List<ListenableFuture<T>> futures;
     private final ListeningExecutorService executorService;
 
     private ExecutorHelper(int numThreads) {
@@ -185,16 +188,13 @@ public class ParallelFileProcessing {
       futures = Lists.newArrayList();
     }
 
-    public void accept(Callable<List<T>> callable) {
+    public void accept(Callable<T> callable) {
       futures.add(executorService.submit(callable));
     }
 
     public List<T> getMergedResult()
         throws ExecutionException, InterruptedException {
-      List<List<T>> listOfLists = Futures.allAsList(futures).get();
-      return listOfLists.stream()
-          .flatMap(List::stream)
-          .collect(Collectors.toList());
+      return Futures.allAsList(futures).get();
     }
 
     @Override
