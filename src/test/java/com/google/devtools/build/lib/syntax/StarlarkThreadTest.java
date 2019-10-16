@@ -27,12 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests of StarlarkThread. */
 @RunWith(JUnit4.class)
-public class StarlarkThreadTest extends EvaluationTestCase {
-
-  @Override
-  public StarlarkThread newStarlarkThread() {
-    return newBuildStarlarkThread();
-  }
+public final class StarlarkThreadTest extends EvaluationTestCase {
 
   // Test the API directly
   @Test
@@ -136,13 +131,6 @@ public class StarlarkThreadTest extends EvaluationTestCase {
                 "tuple",
                 "type",
                 "zip"));
-  }
-
-  @Test
-  public void testToString() throws Exception {
-    update("subject", new StringLiteral("Hello, 'world'."));
-    update("from", new StringLiteral("Java"));
-    assertThat(getStarlarkThread().toString()).isEqualTo("<StarlarkThread[test]>");
   }
 
   @Test

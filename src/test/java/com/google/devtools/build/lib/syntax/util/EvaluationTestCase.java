@@ -22,22 +22,16 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.BazelLibrary;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,31 +51,6 @@ public class EvaluationTestCase {
   @Before
   public final void initialize() throws Exception {
     thread = newStarlarkThread();
-  }
-
-  /**
-   * Creates a standard StarlarkThread for tests in the BUILD language. No PythonPreprocessing,
-   * mostly empty mutable StarlarkThread.
-   */
-  public StarlarkThread newBuildStarlarkThread() {
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .useDefaultSemantics()
-            .setGlobals(BazelLibrary.GLOBALS)
-            .setEventHandler(getEventHandler())
-            .build();
-
-    SkylarkUtils.setPhase(thread, Phase.LOADING);
-
-    new BazelStarlarkContext(
-            TestConstants.TOOLS_REPOSITORY,
-            /* fragmentNameToClass= */ null,
-            /* repoMapping= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()),
-            /* analysisRuleLabel= */ null)
-        .storeInThread(thread);
-
-    return thread;
   }
 
   /**
