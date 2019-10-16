@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.function.BiPredicate;
 
 /**
  * Task for tokenizing the contents of the {@link }ByteBufferFragment}
@@ -33,7 +32,7 @@ import java.util.function.BiPredicate;
 public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFragment>>> {
   private final ByteBufferFragment bufferFragment;
   private final TokenConsumer consumer;
-  private final BiPredicate<Byte, Byte> separatorPredicate;
+  private final SeparatorPredicate separatorPredicate;
   private final int offset;
   private final List<Pair<Integer, ByteBufferFragment>> fragments;
 
@@ -47,7 +46,7 @@ public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFr
    */
   public BufferTokenizer(ByteBuffer buffer,
       TokenConsumer consumer,
-      BiPredicate<Byte, Byte> separatorPredicate,
+      SeparatorPredicate separatorPredicate,
       int offset, int startIncl, int endExcl) {
     bufferFragment = new ByteBufferFragment(buffer, startIncl, endExcl);
     this.consumer = consumer;
@@ -66,20 +65,21 @@ public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFr
   @Override
   public List<Pair<Integer, ByteBufferFragment>> call() throws Exception {
     int start = 0;
-    for (int i = 0; i < bufferFragment.length() - 1; i++) {
-      byte current = bufferFragment.byteAt(i);
-      byte next = bufferFragment.byteAt(i + 1);
+    for (int i = 0; i < bufferFragment.length() - 2; i++) {
+      byte previous = bufferFragment.byteAt(i);
+      byte current = bufferFragment.byteAt(i + 1);
+      byte next = bufferFragment.byteAt(i + 2);
 
-      if (!separatorPredicate.test(current, next)) {
+      if (!separatorPredicate.test(previous, current, next)) {
         continue;
       }
-      ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 1);
+      ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 2);
       if (start > 0) {
         consumer.token(fragment);
       } else {
         addFragment(fragment);
       }
-      start = i + 1;
+      start = i + 2;
     }
     // There is always at least one byte at the bounds of the fragment.
     addFragment(bufferFragment.subFragment(start, bufferFragment.length()));

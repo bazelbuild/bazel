@@ -126,7 +126,13 @@ public class ByteBufferFragment {
     ByteBuffer first = list.get(0).buffer;
     // We compare contained buffers to be exactly same objects here, i.e. changing to use
     // of equals() is not needed. (Warning suppressed.)
-    if (list.subList(1, list.size()).stream().allMatch(el -> el.buffer == first)) {
+    List<ByteBufferFragment> tail = list.subList(1, list.size());
+    if (tail.stream().allMatch(el -> el.buffer == first)) {
+      int previousEnd = list.get(0).endExcl;
+      for (ByteBufferFragment fragment : tail) {
+        Preconditions.checkState(fragment.startIncl == previousEnd);
+        previousEnd = fragment.endExcl;
+      }
       return new ByteBufferFragment(first,
           list.get(0).startIncl,
           Iterables.getLast(list).endExcl);

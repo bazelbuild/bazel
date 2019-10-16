@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.BiPredicate;
 
 /**
  * A {@link BufferTokenizer} callback interface implementation, that assembles fragments of
@@ -30,7 +29,7 @@ import java.util.function.BiPredicate;
  */
 public class TokenAssembler {
   private final TokenConsumer tokenConsumer;
-  private final BiPredicate<Byte, Byte> separatorPredicate;
+  private final SeparatorPredicate separatorPredicate;
 
   /**
    * @param tokenConsumer delegate token consumer for actual processing / parsing
@@ -40,7 +39,7 @@ public class TokenAssembler {
    */
   public TokenAssembler(
       TokenConsumer tokenConsumer,
-      BiPredicate<Byte, Byte> separatorPredicate) {
+      SeparatorPredicate separatorPredicate) {
     this.tokenConsumer = tokenConsumer;
     this.separatorPredicate = separatorPredicate;
   }
@@ -76,17 +75,36 @@ public class TokenAssembler {
     List<ByteBufferFragment> leftPart = Lists.newArrayList();
 
     for (ByteBufferFragment sequence : list) {
+      // If the new sequence is separate from already collected parts,
+      // merge them and feed to consumer.
       if (!leftPart.isEmpty()) {
         ByteBufferFragment lastPart = Iterables.getLast(leftPart);
-        boolean isSeparator = separatorPredicate
-            .test(lastPart.byteAt(lastPart.length() - 1), sequence.byteAt(0));
-        // If the new sequence is separate from already collected parts,
-        // merge them and feed to consumer.
-        if (isSeparator) {
+        // The order of symbols: previousInOld, lastInOld, currentInNew, nextInNew.
+        byte previousInOld = lastPart.length() == 1 ? 0 : lastPart.byteAt(lastPart.length() - 2);
+        byte lastInOld = lastPart.byteAt(lastPart.length() - 1);
+        byte currentInNew = sequence.byteAt(0);
+        byte nextInNew = sequence.length() == 1 ? 0 : sequence.byteAt(1);
+
+        // <symbol> | \n<non-space>
+        if (separatorPredicate.test(lastInOld, currentInNew, nextInNew)) {
+          // Add separator to the end of the accumulated sequence
+          leftPart.add(sequence.subFragment(0, 1));
+          tokenConsumer.token(ByteBufferFragment.merge(leftPart));
+          leftPart.clear();
+          // Cutting out the separator in the beginning
+          if (sequence.length() > 1) {
+            leftPart.add(sequence.subFragment(1, sequence.length()));
+          }
+          continue;
+        }
+
+        // <symbol>\n | <non-space>
+        if (separatorPredicate.test(previousInOld, lastInOld, currentInNew)) {
           tokenConsumer.token(ByteBufferFragment.merge(leftPart));
           leftPart.clear();
         }
       }
+
       leftPart.add(sequence);
     }
     if (!leftPart.isEmpty()) {

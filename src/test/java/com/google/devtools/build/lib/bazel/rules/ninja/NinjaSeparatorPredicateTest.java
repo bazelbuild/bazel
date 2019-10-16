@@ -30,33 +30,24 @@ import org.junit.runners.JUnit4;
 public class NinjaSeparatorPredicateTest {
   @Test
   public void testIsSeparator() {
-    doTestIsSeparator("\n ", false);
-    doTestIsSeparator("\na", true);
-    doTestIsSeparator("\n\n", true);
-  }
-
-  @Test
-  public void testAdjacent() {
-    doTestSplitAdjacent("abc", "def", false);
-    doTestSplitAdjacent("abc\n", "def", true);
-    doTestSplitAdjacent("abc\n", " def", false);
-    doTestSplitAdjacent("abc\n", " ", false);
-    doTestSplitAdjacent("abc", "\n", false);
-  }
-
-  private static void doTestSplitAdjacent(String left, String right, boolean expected) {
-    byte[] leftBytes = left.getBytes(StandardCharsets.ISO_8859_1);
-    byte[] rightBytes = right.getBytes(StandardCharsets.ISO_8859_1);
-    boolean result = NinjaSeparatorPredicate.INSTANCE
-        .test(leftBytes[leftBytes.length - 1], rightBytes[0]);
-    assertThat(result).isEqualTo(expected);
+    doTestIsSeparator(" \n ", false);
+    doTestIsSeparator(" \na", true);
+    doTestIsSeparator("$\n ", false);
+    doTestIsSeparator("$\n\n", false);
+    doTestIsSeparator("$\na", false);
+    doTestIsSeparator("b\na", true);
+    doTestIsSeparator(" \na", true);
+    doTestIsSeparator("b\n$", true);
+    doTestIsSeparator(" \n\n", true);
+    doTestIsSeparator("a\n\n", true);
+    doTestIsSeparator("a\n ", false);
+    doTestIsSeparator("a\n\t", false);
   }
 
   private static void doTestIsSeparator(String s, Boolean expected) {
+    assertThat(s).hasLength(3);
     byte[] bytes = s.getBytes(StandardCharsets.ISO_8859_1);
-    assertThat(bytes.length > 1).isTrue();
-    boolean result = NinjaSeparatorPredicate.INSTANCE
-        .test(bytes[0], bytes[1]);
+    boolean result = NinjaSeparatorPredicate.INSTANCE.test(bytes[0], bytes[1], bytes[2]);
     assertThat(result).isEqualTo(expected);
   }
 }

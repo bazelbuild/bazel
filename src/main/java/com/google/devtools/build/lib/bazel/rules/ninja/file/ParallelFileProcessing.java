@@ -32,14 +32,12 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Parallel file processing implementation.
- * See comment to {@link #processFile(Path, Supplier, BiPredicate, int, int)}.
+ * See comment to {@link #processFile(Path, Supplier, SeparatorPredicate, int, int)}.
  */
 public class ParallelFileProcessing {
   private static final int BLOCK_SIZE = 25 * 1024 * 1024;
@@ -53,14 +51,14 @@ public class ParallelFileProcessing {
       Math.min(25, Runtime.getRuntime().availableProcessors() - 1);
   private final Path path;
   private final Supplier<TokenConsumer> tokenConsumerFactory;
-  private final BiPredicate<Byte, Byte> predicate;
+  private final SeparatorPredicate predicate;
   private final int blockSize;
   private final int numThreads;
   private final int minBlockSize;
 
   private ParallelFileProcessing(Path path,
       Supplier<TokenConsumer> tokenConsumerFactory,
-      BiPredicate<Byte, Byte> predicate,
+      SeparatorPredicate predicate,
       int blockSize,
       int numThreads) throws IOException {
     this.path = path;
@@ -120,7 +118,7 @@ public class ParallelFileProcessing {
    */
   public static void processFile(Path path,
       Supplier<TokenConsumer> tokenConsumerFactory,
-      BiPredicate<Byte, Byte> predicate,
+      SeparatorPredicate predicate,
       int blockSize,
       int numThreads)
       throws GenericParsingException, IOException, ExecutionException, InterruptedException {
@@ -134,7 +132,8 @@ public class ParallelFileProcessing {
 
     List<Pair<Integer, ByteBufferFragment>> fragments;
     try (SeekableByteChannel ch = Files.newByteChannel(path);
-        ExecutorHelper service = new ExecutorHelper(numThreads)) {
+        ExecutorHelper<Pair<Integer, ByteBufferFragment>> service =
+            new ExecutorHelper<>(numThreads)) {
       int offset = 0;
       boolean keepReading = true;
       while (keepReading && ch.isOpen()) {
@@ -146,7 +145,7 @@ public class ParallelFileProcessing {
           offset += bb.limit();
         }
       }
-      fragments = service.get();
+      fragments = service.getMergedResult();
     }
 
     assembler.wrapUp(fragments);
@@ -163,7 +162,8 @@ public class ParallelFileProcessing {
     return true;
   }
 
-  private void tokenizeFragments(ByteBuffer bb, int offset, ExecutorHelper service) {
+  private void tokenizeFragments(ByteBuffer bb, int offset,
+      ExecutorHelper<Pair<Integer, ByteBufferFragment>> service) {
     int fragmentSize = (int) Math.ceil((double) bb.limit() / numThreads);
     int from = 0;
     while (from < bb.limit()) {
@@ -174,9 +174,8 @@ public class ParallelFileProcessing {
     }
   }
 
-  private static class ExecutorHelper
-      implements Consumer<Callable<List<Pair<Integer, ByteBufferFragment>>>>, AutoCloseable {
-    private final List<ListenableFuture<List<Pair<Integer, ByteBufferFragment>>>> futures;
+  private static class ExecutorHelper<T> implements AutoCloseable {
+    private final List<ListenableFuture<List<T>>> futures;
     private final ListeningExecutorService executorService;
 
     private ExecutorHelper(int numThreads) {
@@ -186,14 +185,13 @@ public class ParallelFileProcessing {
       futures = Lists.newArrayList();
     }
 
-    @Override
-    public void accept(Callable<List<Pair<Integer, ByteBufferFragment>>> callable) {
+    public void accept(Callable<List<T>> callable) {
       futures.add(executorService.submit(callable));
     }
 
-    public List<Pair<Integer, ByteBufferFragment>> get()
+    public List<T> getMergedResult()
         throws ExecutionException, InterruptedException {
-      List<List<Pair<Integer, ByteBufferFragment>>> listOfLists = Futures.allAsList(futures).get();
+      List<List<T>> listOfLists = Futures.allAsList(futures).get();
       return listOfLists.stream()
           .flatMap(List::stream)
           .collect(Collectors.toList());

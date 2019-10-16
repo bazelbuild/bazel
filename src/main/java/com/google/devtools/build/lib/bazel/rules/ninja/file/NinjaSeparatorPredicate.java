@@ -15,17 +15,19 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-import java.util.function.BiPredicate;
-
 /**
- * Implementation of separator predicate for Ninja files.
+ * Implementation of {@link SeparatorPredicate} for Ninja files.
  *
  * The Ninja token consists of several text lines;
  * if the line is a part of the previous token, it starts with some amount of spaces or tabs.
  * If the line is the beginning of the new token, it starts with non-space symbol.
+ * Dollar symbol '$' escapes the newline, i.e. "$\nsomething" does not contain a separator.
  */
-public class NinjaSeparatorPredicate implements BiPredicate<Byte, Byte> {
+public class NinjaSeparatorPredicate implements SeparatorPredicate {
   public static final NinjaSeparatorPredicate INSTANCE = new NinjaSeparatorPredicate();
+
+  private final static byte DOLLAR_BYTE = (byte) ('$' & 0xff);
+  private final static byte NEWLINE_BYTE = (byte) ('\n' & 0xff);
   private final static byte SPACE_BYTE = (byte) (' ' & 0xff);
   private final static byte TAB_BYTE = (byte) ('\t' & 0xff);
 
@@ -33,11 +35,10 @@ public class NinjaSeparatorPredicate implements BiPredicate<Byte, Byte> {
   }
 
   @Override
-  public boolean test(Byte current, Byte next) {
-    return '\n' == current && isNotSpace(next);
-  }
-
-  private static boolean isNotSpace(byte aByte) {
-    return SPACE_BYTE != aByte && TAB_BYTE != aByte;
+  public boolean test(byte previous, byte current, byte next) {
+    return NEWLINE_BYTE == current
+        && DOLLAR_BYTE != previous
+        && SPACE_BYTE != next
+        && TAB_BYTE != next;
   }
 }

@@ -15,22 +15,16 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-import java.nio.ByteBuffer;
-import java.util.concurrent.Callable;
-
 /**
- * Factor interface for creating the buffer tokenizing task.
- *
- * {@link BufferTokenizer}
+ * Interface for determining where the byte sequence should be split into parts.
  */
-public interface BufferTokenizerFactory {
+public interface SeparatorPredicate {
+
   /**
-   * Creates the new task for tokenizing the passed buffer fragment.
-   *  @param buffer buffer, fragment of which should be tokenized
-   * @param offset offset of this buffer (sum of the number of characters in all previous buffers,
-   * read from this file)
-   * @param startIncl start index of the buffer fragment, inclusive
-   * @param endExcl end index of the buffer fragment, exclusive, or the size of the buffer,
+   * Returns true if the sequence should be split after <code>current</code> byte.
+   * @param previous previous byte (before current)
+   * @param current current byte
+   * @param next next byte (after current)
    */
-  Callable<Void> create(ByteBuffer buffer, int offset, int startIncl, int endExcl);
+  boolean test(byte previous, byte current, byte next);
 }

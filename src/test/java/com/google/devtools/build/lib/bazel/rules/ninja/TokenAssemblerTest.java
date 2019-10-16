@@ -50,6 +50,10 @@ public class TokenAssemblerTest {
     doTwoBuffersTest("abc", "def", "abcdef");
     doTwoBuffersTest("abc\n", "def", "abc\n", "def");
     doTwoBuffersTest("abc\n", " def", "abc\n def");
+    doTwoBuffersTest("abc", "\ndef", "abc\n", "def");
+
+    doTwoBuffersTest("abc$\n", "def", "abc$\ndef");
+    doTwoBuffersTest("abc$", "\ndef", "abc$\ndef");
   }
 
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
