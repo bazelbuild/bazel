@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -1082,6 +1083,13 @@ public class TestRunnerAction extends AbstractAction
             testRunnerSpawn.finalizeCancelledTest(failedAttempts);
             return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
           }
+
+          // Change the phase here because we are executing a rerun of the failed attempt.
+          this.testRunnerSpawn
+              .getActionExecutionContext()
+              .getEventHandler()
+              .post(new SpawnExecutedEvent.ChangePhase(TestRunnerAction.this));
+
           return new RunAttemptsContinuation(
               nextRunner,
               nextContinuation,
