@@ -156,6 +156,9 @@ public interface TestActionContext extends ActionContext {
         TestAttemptResult lastTestAttemptResult, List<FailedAttemptResult> failedAttempts)
         throws IOException;
 
+    /** Post the final test result based on the last attempt and the list of failed attempts. */
+    void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException;
+
     /**
      * Return a {@link TestRunnerSpawn} object if test fallback is enabled, or {@code null}
      * otherwise. Test fallback is a feature to allow a test to run with one strategy until the max

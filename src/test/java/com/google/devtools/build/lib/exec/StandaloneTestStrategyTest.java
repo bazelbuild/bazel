@@ -773,10 +773,169 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(cancelFuture.isCancelled()).isTrue();
     verify(spawnActionContext).beginExecution(any(), any());
     assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.PASSED);
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
 
     when(spawnActionContext.beginExecution(any(), any()))
         .thenThrow(new AssertionError("failure: this should not have been called"));
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
     assertThat(resultB).isEmpty();
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.INCOMPLETE);
+  }
+
+  @Test
+  public void testExperimentalCancelConcurrentTestsDoesNotTriggerOnFailedRun() throws Exception {
+    useConfiguration(
+        "--runs_per_test=2",
+        "--runs_per_test_detects_flakes",
+        "--experimental_cancel_concurrent_tests");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    List<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
+    assertThat(testRunnerActions).hasSize(2);
+
+    TestRunnerAction actionA = testRunnerActions.get(0);
+    TestRunnerAction actionB = testRunnerActions.get(1);
+    ListenableFuture<Void> cancelFuture =
+        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
+    assertThat(cancelFuture)
+        .isSameInstanceAs(
+            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(cancelFuture.isCancelled()).isFalse();
+
+    SpawnResult expectedSpawnResultA =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResultA, false));
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
+    List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    verify(spawnActionContext).beginExecution(any(), any());
+    assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
+
+    SpawnResult expectedSpawnResultB =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.immediate(expectedSpawnResultB);
+            });
+    List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isTrue();
+    assertThat(resultB).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.PASSED);
+  }
+
+  @Test
+  public void testExperimentalCancelConcurrentTestsAllFailed() throws Exception {
+    useConfiguration(
+        "--runs_per_test=2",
+        "--runs_per_test_detects_flakes",
+        "--experimental_cancel_concurrent_tests");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    List<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
+    assertThat(testRunnerActions).hasSize(2);
+
+    TestRunnerAction actionA = testRunnerActions.get(0);
+    TestRunnerAction actionB = testRunnerActions.get(1);
+    ListenableFuture<Void> cancelFuture =
+        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
+    assertThat(cancelFuture)
+        .isSameInstanceAs(
+            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(cancelFuture.isCancelled()).isFalse();
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResult, false));
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
+    List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    verify(spawnActionContext).beginExecution(any(), any());
+    assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
+
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResult, false));
+            });
+    List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(resultB).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
   }
 }

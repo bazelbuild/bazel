@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
@@ -239,7 +240,6 @@ public class StandaloneTestStrategy extends TestStrategy {
       testOutputs = renameOutputs(actionExecutionContext, action, testOutputs, attemptId);
     }
 
-    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
     // Recover the test log path, which may have been renamed, and add it to the data builder.
     Path renamedTestLog = null;
     for (Pair<String, Path> pair : testOutputs) {
@@ -247,8 +247,13 @@ public class StandaloneTestStrategy extends TestStrategy {
         renamedTestLog = pair.getSecond();
       }
     }
+
+    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
     if (dataBuilder.getStatus() == BlazeTestStatus.PASSED) {
       dataBuilder.setPassedLog(renamedTestLog.toString());
+    } else if (dataBuilder.getStatus() == BlazeTestStatus.INCOMPLETE) {
+      // Incomplete (cancelled) test runs don't have a log.
+      Preconditions.checkState(renamedTestLog == null);
     } else {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
@@ -465,6 +470,19 @@ public class StandaloneTestStrategy extends TestStrategy {
         throws IOException {
       StandaloneTestStrategy.this.finalizeTest(
           testAction, actionExecutionContext, (StandaloneTestResult) finalResult, failedAttempts);
+    }
+
+    @Override
+    public void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException {
+      TestResultData.Builder builder =
+          TestResultData.newBuilder().setTestPassed(false).setStatus(BlazeTestStatus.INCOMPLETE);
+      StandaloneTestResult standaloneTestResult =
+          StandaloneTestResult.builder()
+              .setSpawnResults(ImmutableList.of())
+              .setTestResultDataBuilder(builder)
+              .setExecutionInfo(ExecutionInfo.getDefaultInstance())
+              .build();
+      finalizeTest(standaloneTestResult, failedAttempts);
     }
   }
 
