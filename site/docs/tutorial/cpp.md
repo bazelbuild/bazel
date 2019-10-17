@@ -234,7 +234,7 @@ cc_binary(
 ```
 
 With this `BUILD` file, Bazel first builds the `hello-greet` library
-(using Bazel's built-in [`cc_library` rule](../be/c-cpp.html#cc_library),
+(using Bazel's built-in [`cc_library` rule](../be/c-cpp.html#cc_library)),
 then the `hello-world` binary. The `deps` attribute in the `hello-world` target
 tells Bazel that the `hello-greet` library is required to build the `hello-world`
 binary.
