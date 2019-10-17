@@ -499,7 +499,7 @@ function test_case_sensitive_pkg_names() {
   fi
 
   # The wrong casing should not work.
-  bazel query --incompatible_validate_package_path_casing \
+  bazel query --experimental_check_label_casing \
       //$pkg1_upper/$pkg2_upper:all >&"$TEST_log" \
       && fail "Expected failure" || true
   if $is_windows || $is_mac; then
@@ -508,7 +508,7 @@ function test_case_sensitive_pkg_names() {
     expect_log "no such package.*$pkg1_upper/$pkg2_upper.*BUILD file not found"
   fi
 
-  bazel query --incompatible_validate_package_path_casing \
+  bazel query --experimental_check_label_casing \
       //$pkg1/$pkg2_upper:all >&"$TEST_log" && fail "Expected failure" || true
   if $is_windows || $is_mac; then
     expect_log "no such package.*$pkg1/$pkg2_upper.*path casing is wrong"
@@ -516,7 +516,7 @@ function test_case_sensitive_pkg_names() {
     expect_log "no such package.*$pkg1/$pkg2_upper.*BUILD file not found"
   fi
 
-  bazel query --incompatible_validate_package_path_casing \
+  bazel query --experimental_check_label_casing \
       //$pkg1_upper/$pkg2:all >&"$TEST_log" && fail "Expected failure" || true
   if $is_windows || $is_mac; then
     expect_log "no such package.*$pkg1_upper/$pkg2.*path casing is wrong"
@@ -525,13 +525,13 @@ function test_case_sensitive_pkg_names() {
   fi
 
   # The right casing should work.
-  bazel query --incompatible_validate_package_path_casing \
+  bazel query --experimental_check_label_casing \
       //$pkg1/$pkg2:all >&"$TEST_log" || fail "Expected success"
   expect_not_log "no such package"
   expect_log "//$pkg1/$pkg2:MyTarget"
 
   # The wrong casing should still not work.
-  bazel query --incompatible_validate_package_path_casing \
+  bazel query --experimental_check_label_casing \
       //$pkg1_upper/$pkg2_upper:all >&"$TEST_log" \
       && fail "Expected failure" || true
   if $is_windows || $is_mac; then
