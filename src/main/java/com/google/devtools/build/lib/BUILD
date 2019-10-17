@@ -798,7 +798,6 @@ java_library(
     srcs = ["bazel/Bazel.java"],
     resources = [
         "bazel/rules/java/java_stub_template.txt",
-        "bazel/rules/python/python_stub_template.txt",
     ],
     deps = [
         ":bazel",

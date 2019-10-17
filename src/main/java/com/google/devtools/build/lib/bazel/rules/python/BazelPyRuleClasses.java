@@ -41,12 +41,14 @@ import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PyStructUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Bazel-specific rule definitions for Python rules.
  */
 public final class BazelPyRuleClasses {
   public static final FileType PYTHON_SOURCE = FileType.of(".py");
+  public static final String DEFAULT_PY_STUB_TEMPLATE = "//tools/python:python_stub_template.txt";
 
   public static final LabelLateBoundDefault<?> PY_INTERPRETER =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -130,6 +132,15 @@ public final class BazelPyRuleClasses {
               attr("srcs_version", STRING)
                   .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
                   .allowedValues(new AllowedValueSet(PythonVersion.SRCS_STRINGS)))
+          /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(stub_template) -->
+          The label set here replaces the default template file that is used as
+          the entrypoint for the binary in bazel-bin/
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("stub_template", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .value(env.getToolsLabel(DEFAULT_PY_STUB_TEMPLATE))
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
           .add(

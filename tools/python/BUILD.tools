@@ -49,6 +49,7 @@ write_file(
 # https://github.com/bazelbuild/skydoc/issues/166.
 exports_files([
     "python_version.bzl",
+    "python_stub_template.txt",
     "srcs_version.bzl",
     "toolchain.bzl",
     "utils.bzl",

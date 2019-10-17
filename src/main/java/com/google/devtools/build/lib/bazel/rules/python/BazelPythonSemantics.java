@@ -61,8 +61,6 @@ import javax.annotation.Nullable;
  * Functionality specific to the Python rules in Bazel.
  */
 public class BazelPythonSemantics implements PythonSemantics {
-  private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
       "srcs", "deps", "data");
@@ -182,6 +180,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     // workspace-relative path. On Windows this is also passed to the launcher to use for the
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
+    Artifact stubTemplateArtifact = ruleContext.getPrerequisiteArtifact("stub_template", Mode.HOST);
 
     // Version information for host config diagnostic warning.
     PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
@@ -193,8 +192,8 @@ public class BazelPythonSemantics implements PythonSemantics {
     ruleContext.registerAction(
         new TemplateExpansionAction(
             ruleContext.getActionOwner(),
+            stubTemplateArtifact,
             stubOutput,
-            STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of(
                     "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
