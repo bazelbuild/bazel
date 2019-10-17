@@ -20,7 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -53,10 +56,14 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
+  private final ConcurrentHashMap<ShardKey, ListenableFuture<Void>> futures =
+      new ConcurrentHashMap<>();
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -145,6 +152,12 @@ public abstract class TestStrategy implements TestActionContext {
   @Override
   public final boolean isTestKeepGoing() {
     return executionOptions.testKeepGoing;
+  }
+
+  @Override
+  public final ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum) {
+    ShardKey key = new ShardKey(owner, shardNum);
+    return futures.computeIfAbsent(key, (k) -> SettableFuture.<Void>create());
   }
 
   /**
@@ -430,6 +443,33 @@ public abstract class TestStrategy implements TestActionContext {
           ByteStreams.copy(input, outErr.getOutputStream());
         }
       }
+    }
+  }
+
+  private static final class ShardKey {
+    private final ActionOwner owner;
+    private final int shard;
+
+    ShardKey(ActionOwner owner, int shard) {
+      this.owner = Preconditions.checkNotNull(owner);
+      this.shard = shard;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(owner, shard);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ShardKey)) {
+        return false;
+      }
+      ShardKey s = (ShardKey) o;
+      return owner.equals(s.owner) && shard == s.shard;
     }
   }
 }

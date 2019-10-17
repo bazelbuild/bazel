@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,11 +37,22 @@ public interface TestActionContext extends ActionContext {
   /** Returns whether test_keep_going is enabled. */
   boolean isTestKeepGoing();
 
-  /**
-   * Creates a cached test result.
-   */
+  /** Creates a cached test result. */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
       throws IOException;
+
+  /**
+   * Returns a listenable future that is unique for any given combination of owner and shard number,
+   * i.e., that is cached across different runs within the same shard of the same target. This is to
+   * facilitate cross-action cancellation - if {@code runs_per_test} and {@code
+   * runs_per_test_detects_flake} are both set, then it is sufficient to have a single passing
+   * result per shard, and any concurrent actions can be cancelled.
+   *
+   * <p>Note that the output files of a test are named after the owner, which guarantees that there
+   * are no two tests with the same owner.
+   */
+  @Nullable
+  ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum);
 
   /**
    * An object representing an individual test attempt result. Note that {@link TestRunnerSpawn} is

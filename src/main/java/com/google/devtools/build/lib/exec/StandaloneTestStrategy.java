@@ -443,7 +443,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptContinuation beginExecution() throws InterruptedException, IOException {
-      prepareFileSystem(testAction, actionExecutionContext.getExecRoot(), tmpDir, workingDirectory);
+      prepareFileSystem(testAction, execRoot, tmpDir, workingDirectory);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 

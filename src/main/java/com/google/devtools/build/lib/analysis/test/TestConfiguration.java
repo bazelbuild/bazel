@@ -188,6 +188,16 @@ public class TestConfiguration extends Fragment {
     public boolean runsPerTestDetectsFlakes;
 
     @Option(
+        name = "experimental_cancel_concurrent_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "If true, then Blaze will cancel concurrently running tests on the first successful "
+                + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
+    public boolean cancelConcurrentTests;
+
+    @Option(
         name = "coverage_support",
         converter = LabelConverter.class,
         defaultValue = "@bazel_tools//tools/test:coverage_support",
@@ -330,6 +340,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean runsPerTestDetectsFlakes() {
     return options.runsPerTestDetectsFlakes;
+  }
+
+  public boolean cancelConcurrentTests() {
+    return options.cancelConcurrentTests;
   }
 
   /**
