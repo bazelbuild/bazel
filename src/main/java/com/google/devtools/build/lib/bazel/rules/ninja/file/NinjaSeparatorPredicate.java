@@ -26,10 +26,10 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 public class NinjaSeparatorPredicate implements SeparatorPredicate {
   public static final NinjaSeparatorPredicate INSTANCE = new NinjaSeparatorPredicate();
 
-  private final static byte DOLLAR_BYTE = (byte) ('$' & 0xff);
-  private final static byte NEWLINE_BYTE = (byte) ('\n' & 0xff);
-  private final static byte SPACE_BYTE = (byte) (' ' & 0xff);
-  private final static byte TAB_BYTE = (byte) ('\t' & 0xff);
+  private final static byte DOLLAR_BYTE = '$';
+  private final static byte NEWLINE_BYTE = '\n';
+  private final static byte SPACE_BYTE = ' ';
+  private final static byte TAB_BYTE = '\t';
 
   private NinjaSeparatorPredicate() {
   }

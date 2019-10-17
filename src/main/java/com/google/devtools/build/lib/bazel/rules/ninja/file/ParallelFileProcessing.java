@@ -57,6 +57,7 @@ public class ParallelFileProcessing {
   private final int minBlockSize;
 
   private ParallelFileProcessing(Path path,
+      long fileSize,
       Supplier<TokenConsumer> tokenConsumerFactory,
       SeparatorPredicate predicate,
       int blockSize,
@@ -64,9 +65,8 @@ public class ParallelFileProcessing {
     this.path = path;
     this.tokenConsumerFactory = tokenConsumerFactory;
     this.predicate = predicate;
-    long size = Files.size(path);
     if (blockSize <= 0) {
-      blockSize = (int) Math.min(BLOCK_SIZE, size);
+      blockSize = (int) Math.min(BLOCK_SIZE, fileSize);
     }
     this.blockSize = blockSize;
     minBlockSize = Math.min(blockSize, MIN_BLOCK_SIZE);
@@ -122,7 +122,8 @@ public class ParallelFileProcessing {
       int blockSize,
       int numThreads)
       throws GenericParsingException, IOException, ExecutionException, InterruptedException {
-    new ParallelFileProcessing(path, tokenConsumerFactory, predicate, blockSize, numThreads)
+    long size = Files.size(path);
+    new ParallelFileProcessing(path, size, tokenConsumerFactory, predicate, blockSize, numThreads)
         .processFileImpl();
   }
 
@@ -136,7 +137,7 @@ public class ParallelFileProcessing {
             new ExecutorHelper<>(numThreads)) {
       int offset = 0;
       boolean keepReading = true;
-      while (keepReading && ch.isOpen()) {
+      while (keepReading) {
         ByteBuffer bb = ByteBuffer.allocateDirect(blockSize);
         keepReading = readFromChannel(ch, bb);
         if (bb.position() > 0) {
@@ -156,7 +157,7 @@ public class ParallelFileProcessing {
 
   private boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb) throws IOException {
     // Continue reading until we filled the minimum buffer size.
-    while (ch.isOpen() && bb.position() < minBlockSize) {
+    while (bb.position() < minBlockSize) {
       // Stop if we reached the end of stream.
       if (ch.read(bb) < 0) {
         return false;
@@ -172,7 +173,8 @@ public class ParallelFileProcessing {
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + fragmentSize);
       TokenConsumer consumer = tokenConsumerFactory.get();
-      service.accept(new BufferTokenizer(bb, consumer, predicate, offset, from, to));
+      ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
+      service.accept(new BufferTokenizer(fragment, consumer, predicate, offset));
       from += fragmentSize;
     }
   }

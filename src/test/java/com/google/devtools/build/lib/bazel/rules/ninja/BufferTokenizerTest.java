@@ -46,8 +46,9 @@ public class BufferTokenizerTest {
     TokenConsumer consumer = fragment -> result.add(fragment.toString());
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
-    BufferTokenizer tokenizer = new BufferTokenizer(
-        ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
+    ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
+    BufferTokenizer tokenizer =
+        new BufferTokenizer(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
     List<Pair<Integer, ByteBufferFragment>> pairs = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(pairs.stream()
@@ -65,8 +66,9 @@ public class BufferTokenizerTest {
     List<String> result = Lists.newArrayList();
     TokenConsumer consumer = fragment -> result.add(fragment.toString());
 
-    BufferTokenizer tokenizer = new BufferTokenizer(
-        ByteBuffer.wrap(chars), consumer, NinjaSeparatorPredicate.INSTANCE, 0, 0, chars.length);
+    ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
+    BufferTokenizer tokenizer =
+        new BufferTokenizer(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
     List<Pair<Integer, ByteBufferFragment>> pairs = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(pairs.stream()

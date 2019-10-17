@@ -37,18 +37,16 @@ public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFr
   private final List<Pair<Integer, ByteBufferFragment>> fragments;
 
   /**
-   * @param buffer buffer, fragment of which should be tokenized
+   * @param bufferFragment {@link ByteBufferFragment}, fragment of which should be tokenized
    * @param consumer token consumer
    * @param separatorPredicate predicate for separating tokens
    * @param offset start offset of <code>buffer</code> from the beginning of the file
-   * @param startIncl start index of the buffer fragment, inclusive
-   * @param endExcl end index of the buffer fragment, exclusive, or the size of the buffer,
    */
-  public BufferTokenizer(ByteBuffer buffer,
+  public BufferTokenizer(ByteBufferFragment bufferFragment,
       TokenConsumer consumer,
       SeparatorPredicate separatorPredicate,
-      int offset, int startIncl, int endExcl) {
-    bufferFragment = new ByteBufferFragment(buffer, startIncl, endExcl);
+      int offset) {
+    this.bufferFragment = bufferFragment;
     this.consumer = consumer;
     this.separatorPredicate = separatorPredicate;
     this.offset = offset;
