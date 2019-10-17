@@ -170,7 +170,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.buildPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.buildInputsForInvalidation());
+        cppCompileActionBuilder.buildInputsForInvalidation(),
+        toolchain
+            .getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+            .validateTopLevelHeaderInclusions());
   }
 
   private boolean shouldCompileHeaders() {
