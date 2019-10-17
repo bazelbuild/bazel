@@ -653,6 +653,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         OptionsParser.builder()
             .optionsData(optionsData)
             .skippedPrefix("--//")
+            .skippedPrefix("--@")
             .allowResidue(annotation.allowResidue())
             .build();
     return parser;

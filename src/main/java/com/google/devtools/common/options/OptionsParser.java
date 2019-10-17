@@ -183,7 +183,7 @@ public class OptionsParser implements OptionsParsingResult {
     }
 
     /** Any flags with this prefix will be skipped during processing. */
-    public Builder skippedPrefix(@Nullable String skippedPrefix) {
+    public Builder skippedPrefix(String skippedPrefix) {
       this.implBuilder.skippedPrefix(skippedPrefix);
       return this;
     }
