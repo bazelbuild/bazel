@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSemantics;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -286,7 +287,7 @@ public class PackageLookupFunction implements SkyFunction {
       return null;
     }
     if (fileValue.isFile()) {
-      if (PrecomputedValue.VALIDATE_PACKAGE_PATH_CASING.get(env).booleanValue()) {
+      if (LabelSemantics.getCurrent().shouldCheckCasing()) {
         PathCasingLookupValue casingValue =
             (PathCasingLookupValue) env.getValue(PathCasingLookupValue.key(buildFileRootedPath));
         if (casingValue == null) {

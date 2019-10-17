@@ -142,6 +142,8 @@ StartupOptions::StartupOptions(const string &product_name,
                              &incompatible_enable_execution_transition);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
+  RegisterNullaryStartupFlag("experimental_check_label_casing",
+                             &experimental_check_label_casing);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);

@@ -490,4 +490,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       },
       help = "If false, the execution transition behaves like the host transition.")
   public boolean enableExecutionTransition;
+
+  @Option(
+    name = "experimental_check_label_casing",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help =
+        "On Linux/macOS: no-op. On Windows: if true, Bazel validates the path casing of package "
+            + "paths. This means Bazel will not only check that a BUILD file exists but also that "
+            + "the package's path is correctly spelled with regard to upper case and lower case "
+            + "letters."
+  )
+  public boolean checkLabelCasing;
 }

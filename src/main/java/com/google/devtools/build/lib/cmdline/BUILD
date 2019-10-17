@@ -19,6 +19,7 @@ java_library(
     srcs = [
         "Label.java",
         "LabelConstants.java",
+        "LabelSemantics.java",
         "LabelSerializationProxy.java",
         "LabelSyntaxException.java",
         "LabelValidator.java",

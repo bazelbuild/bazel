@@ -107,6 +107,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
   public static final SkyFunctionName ARTIFACT_NESTED_SET =
       SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
+  public static final SkyFunctionName PATH_CASING_LOOKUP =
+      SkyFunctionName.createHermetic("PATH_CASING_LOOKUP");
 
   @VisibleForTesting
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
@@ -149,8 +151,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
   public static final SkyFunctionName LOCAL_CONFIG_PLATFORM =
       SkyFunctionName.createHermetic("LOCAL_CONFIG_PLATFORM");
-  public static final SkyFunctionName PATH_CASING_LOOKUP =
-      SkyFunctionName.createHermetic("PATH_CASING_LOOKUP");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

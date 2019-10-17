@@ -414,6 +414,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("-Xdebug");
     result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
   }
+
+  if (startup_options.experimental_check_label_casing) {
+    result.push_back("-Dbazel.check_label_casing=1");
+  }
+
   result.insert(result.end(), user_options.begin(), user_options.end());
 
   startup_options.AddJVMArgumentSuffix(

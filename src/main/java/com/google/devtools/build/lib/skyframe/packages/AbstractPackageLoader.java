@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCache
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PathCasingLookupFunction;
 import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -294,7 +293,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
-    PrecomputedValue.VALIDATE_PACKAGE_PATH_CASING.set(injectable, false);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 
