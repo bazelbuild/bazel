@@ -525,7 +525,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return libcLink;
     } else {
       return targetLibcLink;
@@ -696,7 +696,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
    * toolchain in rules.
    */
-  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
+  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas() {
     return cppConfiguration;
   }
 
@@ -727,7 +727,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return builtinIncludeFiles;
     } else {
       return targetBuiltinIncludeFiles;
@@ -756,7 +756,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return sysroot;
     } else {
       return targetSysroot;
@@ -953,7 +953,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public boolean requireCtxInConfigureFeatures() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+    return getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
         .requireCtxInConfigureFeatures();
   }
 

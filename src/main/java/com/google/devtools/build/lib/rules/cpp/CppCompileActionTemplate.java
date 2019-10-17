@@ -172,7 +172,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
         cppCompileActionBuilder.buildInputsForInvalidation(),
         toolchain
-            .getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+            .getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
             .validateTopLevelHeaderInclusions());
   }
 

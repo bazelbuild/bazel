@@ -141,7 +141,7 @@ public abstract class CcModule
     }
     CppConfiguration cppConfiguration =
         ruleContext == null
-            ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+            ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
             : ruleContext.getRuleContext().getFragment(CppConfiguration.class);
     // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
     // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
