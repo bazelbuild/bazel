@@ -1148,8 +1148,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(flagValue("--resourceConfigs", shrinkingArgs))
         .isEqualTo(flagValue("--resourceConfigs", processingArgs));
 
-    assertThat(shrinkingArgs).doesNotContain("--keptResourcesOutput");
-
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
 
