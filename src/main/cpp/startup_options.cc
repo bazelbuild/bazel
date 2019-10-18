@@ -95,7 +95,8 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
       unlimit_coredumps(false),
-      incompatible_enable_execution_transition(false) {
+      incompatible_enable_execution_transition(false),
+      experimental_check_label_casing(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
