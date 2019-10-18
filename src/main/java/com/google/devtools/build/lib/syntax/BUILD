@@ -127,6 +127,7 @@ java_library(
         "SkylarkSignatureProcessor.java",
         "SkylarkType.java",
         "SkylarkUtils.java",
+        "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",
         "StarlarkMutable.java",
