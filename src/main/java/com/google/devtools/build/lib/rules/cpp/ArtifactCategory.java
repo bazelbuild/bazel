@@ -29,6 +29,7 @@ public enum ArtifactCategory {
   DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
   EXECUTABLE("", "", ".exe"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib"),
+  PDB_FILE("", ".pdb"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
   OBJECT_FILE("", ".o", ".obj"),

@@ -1678,7 +1678,8 @@ public abstract class CcModule
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
-                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration));
+                        cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+            .emitPdbFile(actualFeatureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE));
     try {
       return helper.link(
           compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);

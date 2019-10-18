@@ -34,6 +34,13 @@ public interface CcLinkingOutputsApi<FileT extends FileApi> {
   LibraryToLinkApi<FileT> getLibraryToLink();
 
   @SkylarkCallable(
+          name = "pdb_file",
+          structField = true,
+          allowReturnNones = true,
+          documented = false)
+  FileT getPdbFile();
+
+  @SkylarkCallable(
       name = "executable",
       structField = true,
       allowReturnNones = true,

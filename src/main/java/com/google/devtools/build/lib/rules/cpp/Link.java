@@ -150,11 +150,19 @@ public abstract class Link {
 
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
-        LinkerOrArchiver.LINKER,
-        CppActionNames.CPP_LINK_DYNAMIC_LIBRARY,
-        Picness.NOPIC, // Actually PIC but it's not indicated in the file name
-        ArtifactCategory.INTERFACE_LIBRARY,
-        Executable.NOT_EXECUTABLE),
+            LinkerOrArchiver.LINKER,
+            CppActionNames.CPP_LINK_DYNAMIC_LIBRARY,
+            Picness.NOPIC, // Actually PIC but it's not indicated in the file name
+            ArtifactCategory.INTERFACE_LIBRARY,
+            Executable.NOT_EXECUTABLE),
+
+    /** An pdb file for dynamic library. */
+    PDB_FILE(
+            LinkerOrArchiver.LINKER,
+            CppActionNames.CPP_LINK_DYNAMIC_LIBRARY,
+            Picness.NOPIC,
+            ArtifactCategory.PDB_FILE,
+            Executable.NOT_EXECUTABLE),
 
     /** A dynamic library built from cc_library srcs. */
     NODEPS_DYNAMIC_LIBRARY(

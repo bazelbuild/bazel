@@ -5393,7 +5393,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testWrongSrcExtensionGivesError() throws Exception {
-    createFiles(scratch, "tools/build_defs/foo");
+      createFiles(scratch, "tools/build_defs/foo");
 
     scratch.file(
         "bar/BUILD",
@@ -5461,6 +5461,44 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(library).isNotNull();
     assertThat(library.getDynamicLibrary()).isNotNull();
     assertThat(library.getInterfaceLibrary()).isNotNull();
+  }
+
+  @Test
+  public void testPdbProducedForLinkOnWindowsDll() throws Exception {
+    getAnalysisMock()
+            .ccSupport()
+            .setupCcToolchainConfig(
+                    mockToolsConfig,
+                    CcToolchainConfig.builder()
+                            .withFeatures(
+                                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                                    CppRuleClasses.TARGETS_WINDOWS,
+                                    CppRuleClasses.GENERATE_PDB_FILE,
+                                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact pdb_file = (Artifact) getMyInfoFromTarget(target).getValue("pdb_file");
+    assertThat(pdb_file).isNotNull();
+  }
+
+  @Test
+  public void testPdbProducedForLinkOnWindowsExe() throws Exception {
+    getAnalysisMock()
+            .ccSupport()
+            .setupCcToolchainConfig(
+                    mockToolsConfig,
+                    CcToolchainConfig.builder()
+                            .withFeatures(
+                                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                                    CppRuleClasses.TARGETS_WINDOWS,
+                                    CppRuleClasses.GENERATE_PDB_FILE,
+                                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    setupTestTransitiveLink(scratch, "output_type = 'executable'");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    Artifact pdb_file = (Artifact) getMyInfoFromTarget(target).getValue("pdb_file");
+    assertThat(pdb_file).isNotNull();
   }
 
   @Test
@@ -5868,7 +5906,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    return [",
         "      MyInfo(",
         "        library=linking_outputs.library_to_link,",
-        "        executable=linking_outputs.executable",
+        "        executable=linking_outputs.executable,",
+        "        pdb_file=linking_outputs.pdb_file,",
         "      )",
         "    ]",
         "cc_bin = rule(",

@@ -96,6 +96,7 @@ public class CppLinkActionBuilder {
   @Nullable private final CcToolchainProvider toolchain;
   private final FdoContext fdoContext;
   private Artifact interfaceOutput;
+  private Artifact pdbFileOutput;
   /** Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...) */
   private PathFragment toolchainLibrariesSolibDir;
 
@@ -622,7 +623,12 @@ public class CppLinkActionBuilder {
 
     if (interfaceOutput != null && (fake || !linkType.isDynamicLibrary())) {
       throw new RuntimeException(
-          "Interface output can only be used " + "with non-fake DYNAMIC_LIBRARY targets");
+              "Interface output can only be used with non-fake DYNAMIC_LIBRARY targets");
+    }
+
+    if (pdbFileOutput != null && fake) {
+      throw new RuntimeException(
+              "Pdb file output output can only be used with non-fake targets");
     }
 
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
@@ -1281,6 +1287,11 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder setInterfaceOutput(Artifact interfaceOutput) {
     this.interfaceOutput = interfaceOutput;
+    return this;
+  }
+
+  public CppLinkActionBuilder setPdbFileOutput(Artifact pdbFileOutput) {
+    this.pdbFileOutput = pdbFileOutput;
     return this;
   }
 

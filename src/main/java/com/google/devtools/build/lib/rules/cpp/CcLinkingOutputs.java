@@ -28,6 +28,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   public static final CcLinkingOutputs EMPTY = builder().build();
 
   @Nullable private final LibraryToLink libraryToLink;
+  @Nullable private final Artifact pdbFile;
   @Nullable private final Artifact executable;
 
   private final ImmutableList<LtoBackendArtifacts> allLtoArtifacts;
@@ -35,10 +36,12 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
   private CcLinkingOutputs(
       LibraryToLink libraryToLink,
+      Artifact pdbFile,
       Artifact executable,
       ImmutableList<LtoBackendArtifacts> allLtoArtifacts,
       ImmutableList<Artifact> linkActionInputs) {
     this.libraryToLink = libraryToLink;
+    this.pdbFile = pdbFile;
     this.executable = executable;
     this.allLtoArtifacts = allLtoArtifacts;
     this.linkActionInputs = linkActionInputs;
@@ -48,6 +51,12 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   @Nullable
   public LibraryToLink getLibraryToLink() {
     return libraryToLink;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getPdbFile() {
+    return pdbFile;
   }
 
   @Override
@@ -107,6 +116,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
   /** Builder for {@link CcLinkingOutputs} */
   public static final class Builder {
     private LibraryToLink libraryToLink;
+    private Artifact pdbFile;
     private Artifact executable;
 
     private Builder() {
@@ -121,11 +131,16 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact> {
 
     public CcLinkingOutputs build() {
       return new CcLinkingOutputs(
-          libraryToLink, executable, allLtoArtifacts.build(), linkActionInputs.build());
+          libraryToLink, pdbFile, executable, allLtoArtifacts.build(), linkActionInputs.build());
     }
 
     public Builder setLibraryToLink(LibraryToLink libraryToLink) {
       this.libraryToLink = libraryToLink;
+      return this;
+    }
+
+    public Builder setPdbFile(Artifact pdbFile) {
+      this.pdbFile = pdbFile;
       return this;
     }
 
