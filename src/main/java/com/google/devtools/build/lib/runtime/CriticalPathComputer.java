@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.clock.Clock;
-import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -106,41 +105,18 @@ public class CriticalPathComputer {
    */
   public AggregatedCriticalPath aggregate() {
     CriticalPathComponent criticalPath = getMaxCriticalPath();
-    Duration totalTime = Duration.ZERO;
-    Duration parseTime = Duration.ZERO;
-    Duration networkTime = Duration.ZERO;
-    Duration fetchTime = Duration.ZERO;
-    Duration remoteQueueTime = Duration.ZERO;
-    Duration uploadTime = Duration.ZERO;
-    Duration setupTime = Duration.ZERO;
-    Duration executionWallTime = Duration.ZERO;
-    Duration retryTime = Duration.ZERO;
-    Duration remoteProcessOutputsTime = Duration.ZERO;
-    long inputFiles = 0L;
-    long inputBytes = 0L;
-    long memoryEstimate = 0L;
-    ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
     if (criticalPath == null) {
       return AggregatedCriticalPath.EMPTY;
     }
+
+    ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
+    ImmutableList.Builder<SpawnMetrics> metrics = ImmutableList.builder();
     CriticalPathComponent child = criticalPath;
+
     while (child != null) {
       SpawnMetrics childSpawnMetrics = child.getSpawnMetrics();
       if (childSpawnMetrics != null) {
-        totalTime = totalTime.plus(childSpawnMetrics.totalTime());
-        parseTime = parseTime.plus(childSpawnMetrics.parseTime());
-        networkTime = networkTime.plus(childSpawnMetrics.networkTime());
-        fetchTime = fetchTime.plus(childSpawnMetrics.fetchTime());
-        remoteQueueTime = remoteQueueTime.plus(childSpawnMetrics.remoteQueueTime());
-        uploadTime = uploadTime.plus(childSpawnMetrics.uploadTime());
-        setupTime = setupTime.plus(childSpawnMetrics.setupTime());
-        executionWallTime = executionWallTime.plus(childSpawnMetrics.executionWallTime());
-        retryTime = retryTime.plus(childSpawnMetrics.retryTime());
-        remoteProcessOutputsTime =
-            remoteProcessOutputsTime.plus(childSpawnMetrics.remoteProcessOutputsTime());
-        inputBytes += childSpawnMetrics.inputBytes();
-        inputFiles += childSpawnMetrics.inputFiles();
-        memoryEstimate += childSpawnMetrics.memoryEstimate();
+        metrics.add(childSpawnMetrics);
       }
       components.add(child);
       child = child.getChild();
@@ -148,25 +124,22 @@ public class CriticalPathComputer {
 
     return new AggregatedCriticalPath(
         criticalPath.getAggregatedElapsedTime(),
-        new SpawnMetrics(
-            /*totalTime=*/ totalTime,
-            /*parseTime=*/ parseTime,
-            /*networkTime=*/ networkTime,
-            /*fetchTime=*/ fetchTime,
-            /*remoteQueueTime=*/ remoteQueueTime,
-            /*setupTime=*/ setupTime,
-            /*uploadTime=*/ uploadTime,
-            /*executionWallTime=*/ executionWallTime,
-            /*retryTime=*/ retryTime,
-            /*remoteProcessOutputsTime=*/ remoteProcessOutputsTime,
-            inputBytes,
-            inputFiles,
-            memoryEstimate),
+        SpawnMetrics.aggregateMetrics(metrics.build(), false),
         components.build());
   }
 
   public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {
     return outputArtifactToComponent;
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void nextCriticalPathPhase(SpawnExecutedEvent.ChangePhase phase) {
+    CriticalPathComponent stats =
+        outputArtifactToComponent.get(phase.getAction().getPrimaryOutput());
+    if (stats != null) {
+      stats.changePhase();
+    }
   }
 
   /** Adds spawn metrics to the action stats. */

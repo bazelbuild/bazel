@@ -48,4 +48,23 @@ public class SpawnExecutedEvent implements ExtendedEventHandler.ProgressLike {
   public SpawnResult getSpawnResult() {
     return result;
   }
+
+  /**
+   * This event is fired to differentiate actions with multiple spawns that are run sequentially
+   * versus parallel. An example of a use case of why this would be important is if we have flaky
+   * tests. We want to tell the {@link CriticalPathComponent} that all the failed test spawns should
+   * have their Duration metrics aggregated so the test runtime matches the runtime of the entire
+   * CriticalPathComponent.
+   */
+  public static class ChangePhase implements ExtendedEventHandler.ProgressLike {
+    private final Action action;
+
+    public ChangePhase(Action action) {
+      this.action = action;
+    }
+
+    public Action getAction() {
+      return this.action;
+    }
+  }
 }

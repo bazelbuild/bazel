@@ -115,8 +115,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileArtifactValue.createForTesting(tree.getPath().getRelative(child));
       digestBuilder.put(child.getPathString(), subdigest);
     }
-    assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
-        .isEqualTo(value.getDigest());
+    assertThat(DigestUtils.fromMetadata(digestBuilder)).isEqualTo(value.getDigest());
     return value;
   }
 
@@ -124,10 +123,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   public void testEmptyTreeArtifacts() throws Exception {
     TreeArtifactValue value = doTestTreeArtifacts(ImmutableList.<PathFragment>of());
     // Additional test, only for this test method: we expect the FileArtifactValue is equal to
-    // the digest [0, 0, ...]
+    // the digest [0]
     assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
-    assertThat(value.getDigest()).isEqualTo(new byte[16]);
+    assertThat(value.getDigest()).isEqualTo(new byte[1]);
   }
 
   @Test

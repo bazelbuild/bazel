@@ -1097,7 +1097,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceShrinkingAction() throws Exception {
+  public void testResourceShrinkingAction_legacyAapt1() throws Exception {
     useConfiguration("--android_aapt=aapt");
 
     scratch.file(
@@ -1147,8 +1147,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
     assertThat(flagValue("--resourceConfigs", shrinkingArgs))
         .isEqualTo(flagValue("--resourceConfigs", processingArgs));
-
-    assertThat(shrinkingArgs).doesNotContain("--keptResourcesOutput");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));

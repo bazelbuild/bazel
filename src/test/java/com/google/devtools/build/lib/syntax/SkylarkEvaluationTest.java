@@ -879,7 +879,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @SuppressWarnings("unchecked")
   private void simpleFlowTest(String statement, int expected) throws Exception {
-    eval("def foo():",
+    exec(
+        "def foo():",
         "  s = 0",
         "  hit = 0",
         "  for i in range(0, 10):",
@@ -904,7 +905,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   private void flowFromDeeperBlock(String statement, int expected) throws Exception {
-    eval("def foo():",
+    exec(
+        "def foo():",
         "   s = 0",
         "   for i in range(0, 10):",
         "       if i % 2 != 0:",
@@ -916,7 +918,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   private void flowFromNestedBlocks(String statement, int expected) throws Exception {
-    eval("def foo2():",
+    exec(
+        "def foo2():",
         "   s = 0",
         "   for i in range(1, 41):",
         "       if i % 2 == 0:",
@@ -942,7 +945,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @SuppressWarnings("unchecked")
   private void nestedLoopsTest(String statement, Integer outerExpected, int firstExpected,
       int secondExpected) throws Exception {
-    eval("def foo():",
+    exec(
+        "def foo():",
         "   outer = 0",
         "   first = 0",
         "   second = 0",
@@ -978,7 +982,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   // TODO(adonovan): move this and all tests that use it to Validation tests.
   private void assertValidationError(String expectedError, final String... lines) throws Exception {
-    SyntaxError error = assertThrows(SyntaxError.class, () -> eval(lines));
+    SyntaxError error = assertThrows(SyntaxError.class, () -> exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 
@@ -1016,7 +1020,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testReassignment() throws Exception {
-    eval("def foo(x=None):",
+    exec(
+        "def foo(x=None):", //
         "  x = 1",
         "  x = [1, 2]",
         "  x = 'str'",
@@ -1447,7 +1452,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessOfMethod() throws Exception {
-    new SkylarkTest().update("mock", new Mock()).testStatement("v = mock.function", null);
+    new SkylarkTest().update("mock", new Mock()).testExpression("type(mock.function)", "function");
+    new SkylarkTest().update("mock", new Mock()).testExpression("mock.function()", "a");
   }
 
   @Test
@@ -1495,16 +1501,16 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testInSetDeprecated() throws Exception {
     new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testStatement("'b' in depset(['a', 'b'])", Boolean.TRUE)
-        .testStatement("'c' in depset(['a', 'b'])", Boolean.FALSE)
-        .testStatement("1 in depset(['a', 'b'])", Boolean.FALSE);
+        .testExpression("'b' in depset(['a', 'b'])", Boolean.TRUE)
+        .testExpression("'c' in depset(['a', 'b'])", Boolean.FALSE)
+        .testExpression("1 in depset(['a', 'b'])", Boolean.FALSE);
   }
 
   @Test
   public void testUnionSet() throws Exception {
     new SkylarkTest("--incompatible_depset_union=false")
-        .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
-        .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
+        .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
+        .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported operand type(s) for |: 'int' and 'bool'", "2 | False");
   }
 
@@ -1523,13 +1529,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testSetIsIterable() throws Exception {
     new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testStatement("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
-        .testStatement("max(depset([1, 2, 3]))", 3)
-        .testStatement("1 in depset([1, 2, 3])", true)
-        .testStatement("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
-        .testStatement("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
-        .testStatement("str([x for x in depset()])", "[]")
-        .testStatement("len(depset(['a']))", 1);
+        .testExpression("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
+        .testExpression("max(depset([1, 2, 3]))", 3)
+        .testExpression("1 in depset([1, 2, 3])", true)
+        .testExpression("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
+        .testExpression("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
+        .testExpression("str([x for x in depset()])", "[]")
+        .testExpression("len(depset(['a']))", 1);
   }
 
   @Test
@@ -2004,11 +2010,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testPrint() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
     setFailFast(false);
-    eval("print('hello')");
+    exec("print('hello')");
     assertContainsDebug("hello");
-    eval("print('a', 'b')");
+    exec("print('a', 'b')");
     assertContainsDebug("a b");
-    eval("print('a', 'b', sep='x')");
+    exec("print('a', 'b', sep='x')");
     assertContainsDebug("axb");
   }
 
@@ -2081,9 +2087,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Override
   @Test
   public void testNotCallInt() throws Exception {
-    new SkylarkTest().setUp("sum = 123456").testLookup("sum", 123456)
+    new SkylarkTest()
+        .setUp("sum = 123456")
+        .testLookup("sum", 123456)
         .testIfExactError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)")
-        .testStatement("sum", 123456);
+        .testExpression("sum", 123456);
   }
 
   @Test
@@ -2093,8 +2101,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testConditionalExpressionInFunction() throws Exception {
-    new SkylarkTest().setUp("def foo(a, b, c): return a+b if c else a-b\n").testStatement(
-        "foo(23, 5, 0)", 18);
+    new SkylarkTest()
+        .setUp("def foo(a, b, c): return a+b if c else a-b\n")
+        .testExpression("foo(23, 5, 0)", 18);
   }
 
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
@@ -2211,7 +2220,12 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListComprehensionsShadowGlobalVariable() throws Exception {
-    eval("a = 18", "def foo():", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    exec(
+        "a = 18", //
+        "def foo():",
+        "  b = [a for a in range(3)]",
+        "  return a",
+        "x = foo()");
     assertThat(lookup("x")).isEqualTo(18);
   }
 

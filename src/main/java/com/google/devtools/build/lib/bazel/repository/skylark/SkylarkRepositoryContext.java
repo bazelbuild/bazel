@@ -87,6 +87,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
@@ -294,17 +295,19 @@ public class SkylarkRepositoryContext
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    Map<String, String> substitutionMap =
+        substitutions.getContents(String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newTemplateEvent(
             p.toString(),
             t.toString(),
-            substitutions,
+            substitutionMap,
             executable,
             rule.getLabel().toString(),
             location);
@@ -313,7 +316,7 @@ public class SkylarkRepositoryContext
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
-      for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
+      for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
@@ -371,13 +374,15 @@ public class SkylarkRepositoryContext
 
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments,
+      SkylarkList<?> arguments, // <String> or <SkylarkPath> expected
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      SkylarkDict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
       throws EvalException, RepositoryFunctionException, InterruptedException {
+    Map<String, String> environment =
+        uncheckedEnvironment.getContents(String.class, String.class, "environment");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExecuteEvent(
             arguments,
@@ -392,17 +397,16 @@ public class SkylarkRepositoryContext
     createDirectory(outputDirectory);
 
     long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
-    List<Object> args = arguments;
+    List<?> args = arguments;
     if (OS.getCurrent() != OS.WINDOWS && embeddedBinariesRoot != null) {
       Path processWrapper = ProcessWrapperUtil.getProcessWrapper(embeddedBinariesRoot);
       if (processWrapper.exists()) {
-        List<String> newArgs =
+        args =
             ProcessWrapperUtil.commandLineBuilder(
                     processWrapper.getPathString(),
                     arguments.stream().map(Object::toString).collect(Collectors.toList()))
                 .setTimeout(Duration.ofMillis(timeoutMillis))
                 .build();
-        args = newArgs.stream().map(s -> (Object) s).collect(Collectors.toList());
       }
     }
 
@@ -558,6 +562,20 @@ public class SkylarkRepositoryContext
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"}) // Explained in method comment
+  private static Map<String, SkylarkDict<?, ?>> getAuthContents(
+      SkylarkDict<?, ?> authUnchecked, @Nullable String description) throws EvalException {
+    // This method would not be worth having (SkylarkDict#getContents could be called
+    // instead), except that some trickery is required to cast Map<String, SkylarkDict> to
+    // Map<String, SkylarkDict<?, ?>>.
+
+    // getContents can only guarantee raw types, so SkylarkDict is the raw type here.
+    Map<String, SkylarkDict> result =
+        authUnchecked.getContents(String.class, SkylarkDict.class, description);
+
+    return (Map<String, SkylarkDict<?, ?>>) (Map<String, ? extends SkylarkDict>) result;
+  }
+
   @Override
   public StructImpl download(
       Object url,
@@ -566,11 +584,12 @@ public class SkylarkRepositoryContext
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> authUnchecked, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders =
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
     List<URL> urls =
         getUrls(
@@ -679,11 +698,11 @@ public class SkylarkRepositoryContext
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(getAuthContents(auth, "auth"));
 
     List<URL> urls =
         getUrls(
@@ -994,14 +1013,13 @@ public class SkylarkRepositoryContext
    * authentication, adding those headers is enough; for other forms of authentication other
    * measures might be necessary.
    */
-  private static Map<URI, Map<String, String>> getAuthHeaders(
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth)
+  private static Map<URI, Map<String, String>> getAuthHeaders(Map<String, SkylarkDict<?, ?>> auth)
       throws RepositoryFunctionException, EvalException {
     ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
+    for (Map.Entry<String, SkylarkDict<?, ?>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
-        SkylarkDict<Object, Object> authMap = entry.getValue();
+        SkylarkDict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {

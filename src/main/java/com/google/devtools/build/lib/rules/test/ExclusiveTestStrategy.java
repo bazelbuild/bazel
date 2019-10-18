@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -54,5 +56,12 @@ public class ExclusiveTestStrategy implements TestActionContext {
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData cached) throws IOException {
     return parent.newCachedTestResult(execRoot, action, cached);
+  }
+
+  @Override
+  public ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shard) {
+    // TODO(ulfjack): Exclusive tests run sequentially, and this feature exists to allow faster
+    //  aborts of concurrent actions. It's not clear what, if anything, we should do here.
+    return null;
   }
 }

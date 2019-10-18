@@ -222,21 +222,21 @@ public interface BazelCcModuleApi<
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      SkylarkList<FileT> sources,
-      SkylarkList<FileT> publicHeaders,
-      SkylarkList<FileT> privateHeaders,
-      SkylarkList<String> includes,
-      SkylarkList<String> quoteIncludes,
-      SkylarkList<String> systemIncludes,
-      SkylarkList<String> frameworkIncludes,
-      SkylarkList<String> defines,
-      SkylarkList<String> localDefines,
-      SkylarkList<String> userCompileFlags,
-      SkylarkList<CompilationContextT> ccCompilationContexts,
+      SkylarkList<?> sources, // <FileT> expected
+      SkylarkList<?> publicHeaders, // <FileT> expected
+      SkylarkList<?> privateHeaders, // <FileT> expected
+      SkylarkList<?> includes, // <String> expected
+      SkylarkList<?> quoteIncludes, // <String> expected
+      SkylarkList<?> systemIncludes, // <String> expected
+      SkylarkList<?> frameworkIncludes, // <String> expected
+      SkylarkList<?> defines, // <String> expected
+      SkylarkList<?> localDefines, // <String> expected
+      SkylarkList<?> userCompileFlags, // <String> expected
+      SkylarkList<?> ccCompilationContexts, // <CompilationContextT> expected
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
-      SkylarkList<FileT> additionalInputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -339,13 +339,13 @@ public interface BazelCcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       Object compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      SkylarkList<?> userLinkFlags, // <String> expected
+      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       String outputType,
       boolean linkDepsStatically,
-      SkylarkList<FileT> additionalInputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
@@ -393,5 +393,6 @@ public interface BazelCcModuleApi<
             type = SkylarkList.class),
       })
   CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
-      SkylarkList<CompilationOutputsT> compilationOutputs);
+      SkylarkList<?> compilationOutputs) // <CompilationOutputsT> expected
+      throws EvalException;
 }

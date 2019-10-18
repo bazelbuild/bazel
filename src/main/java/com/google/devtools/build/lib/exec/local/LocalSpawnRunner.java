@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -196,6 +197,12 @@ public class LocalSpawnRunner implements SpawnRunner {
     private State currentState = State.INITIALIZING;
     private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
 
+    /**
+     * If true, the local subprocess has already started, which means we need to clean up the output
+     * tree once we get interrupted.
+     */
+    private boolean needCleanup = false;
+
     private final int id;
 
     public SubprocessHandler(Spawn spawn, SpawnExecutionContext context) {
@@ -209,6 +216,12 @@ public class LocalSpawnRunner implements SpawnRunner {
     public SpawnResult run() throws InterruptedException, IOException {
       try {
         return start();
+      } catch (InterruptedException e) {
+        maybeCleanupOnInterrupt();
+        // Logging the exception causes a lot of noise in builds using the dynamic scheduler, and
+        // the information is not very interesting, so avoid that.
+        stepLog(SEVERE, "Interrupted (and cleanup finished)");
+        throw e;
       } catch (Error e) {
         stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
         throw e;
@@ -367,6 +380,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         try (SilentCloseable c =
             Profiler.instance()
                 .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
+          needCleanup = true;
           Subprocess subprocess = subprocessBuilder.start();
           subprocess.getOutputStream().close();
           try {
@@ -444,6 +458,43 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     private boolean wasTimeout(Duration timeout, Duration wallTime) {
       return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
+    }
+
+    /**
+     * Clean up any known side-effects that the running spawn may have had on the output tree.
+     *
+     * <p>This is supposed to leave the output tree as it was right after {@link
+     * com.google.devtools.build.lib.skyframe.SkyframeActionExecutor} created the output directories
+     * for the spawn, which means that any outputs have to be deleted but any top-level directory
+     * for tree artifacts has to be kept behind (and empty).
+     */
+    private void maybeCleanupOnInterrupt() {
+      if (!localExecutionOptions.localLockfreeOutput) {
+        // If we don't allow lockfree executions of local subprocesses, there is no need to clean up
+        // anything: we would have already locked the output tree upfront, so we "own" it.
+        return;
+      }
+      if (!needCleanup) {
+        // If the subprocess has not yet started, there is no need to worry about checking on-disk
+        // state.
+        return;
+      }
+
+      for (ActionInput output : spawn.getOutputFiles()) {
+        Path path = context.getPathResolver().toPath(output);
+        try {
+          if (path.exists()) {
+            stepLog(INFO, "Clearing output %s after interrupt", path);
+            if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+              path.deleteTreesBelow();
+            } else {
+              path.deleteTree();
+            }
+          }
+        } catch (IOException e) {
+          stepLog(SEVERE, e, "Cannot delete local output %s after interrupt", path);
+        }
+      }
     }
   }
 

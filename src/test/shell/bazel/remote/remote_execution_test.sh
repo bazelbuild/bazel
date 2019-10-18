@@ -95,6 +95,43 @@ EOF
       || fail "Failed to build //a:foo with remote cache"
 }
 
+function test_remote_grpc_via_unix_socket() {
+  case "$PLATFORM" in
+  darwin|freebsd|linux)
+    ;;
+  *)
+    return 0
+    ;;
+  esac
+
+  # Test that remote execution can be routed via a UNIX domain socket if
+  # supported by the platform.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  # Note: not using $TEST_TMPDIR because many OSes, notably macOS, have
+  # small maximum length limits for UNIX domain sockets.
+  socket_dir=$(mktemp -d -t "remote_executor.XXXXXXXX")
+  python "${CURRENT_DIR}/uds_proxy.py" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
+  proxy_pid=$!
+
+  bazel build \
+      --remote_executor=grpc://noexist.invalid \
+      --remote_proxy="unix:${socket_dir}/executor-socket" \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+
+  kill ${proxy_pid}
+  rm "${socket_dir}/executor-socket"
+  rmdir "${socket_dir}"
+}
+
 function test_cc_binary() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting

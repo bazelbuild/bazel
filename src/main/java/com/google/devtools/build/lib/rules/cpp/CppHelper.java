@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -883,6 +884,45 @@ public class CppHelper {
             .setMnemonic("DefParser")
             .build(ruleContext));
     return defFile;
+  }
+
+  /**
+   * Create action for generating an empty DEF file without any exports, should only be used when
+   * targeting Windows.
+   *
+   * @return The artifact of an empty DEF file.
+   */
+  private static Artifact createEmptyDefFileAction(RuleContext ruleContext) {
+    Artifact trivialDefFile =
+        ruleContext.getBinArtifact(
+            ruleContext.getLabel().getName()
+                + ".gen.empty"
+                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
+    return trivialDefFile;
+  }
+
+  /**
+   * Decide which DEF file should be used for the linking action.
+   *
+   * @return The artifact of the DEF file that should be used for the linking action.
+   */
+  public static Artifact getWindowsDefFileForLinking(
+      RuleContext ruleContext,
+      Artifact customDefFile,
+      Artifact generatedDefFile,
+      FeatureConfiguration featureConfiguration) {
+    // 1. If a custom DEF file is specified in win_def_file attribute, use it.
+    // 2. If a generated DEF file is available and should be used, use it.
+    // 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
+    if (customDefFile != null) {
+      return customDefFile;
+    } else if (generatedDefFile != null
+        && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+      return generatedDefFile;
+    } else {
+      return createEmptyDefFileAction(ruleContext);
+    }
   }
 
   /**

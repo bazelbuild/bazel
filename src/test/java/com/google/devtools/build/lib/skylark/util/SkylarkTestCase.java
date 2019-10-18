@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -52,7 +52,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     SkylarkModules.addSkylarkGlobalsToBuilder(env);
     Runtime.setupSkylarkLibrary(env, new PlatformCommon());
-    GlobalFrame globals = GlobalFrame.createForBuiltins(env.build());
+    Module globals = Module.createForBuiltins(env.build());
 
     EvaluationTestCase ev =
         new EvaluationTestCase() {
@@ -89,6 +89,10 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   protected final Object eval(String... input) throws Exception {
     return ev.eval(input);
+  }
+
+  protected final void exec(String... lines) throws Exception {
+    ev.exec(lines);
   }
 
   protected final void update(String name, Object value) throws Exception {

@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -25,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#include <atomic>
 #include <string>
 
 const int PATH_MAX2 = PATH_MAX * 2;
@@ -119,4 +121,35 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+}
+
+// Keep track of our pushes and pops of sleep state.
+static std::atomic_int g_sleep_stack;
+
+// Our assertion for disabling sleep.
+static IOPMAssertionID g_sleep_assertion = kIOPMNullAssertionID;
+
+int portable_push_disable_sleep() {
+  if (g_sleep_stack++ == 0) {
+    assert(g_sleep_assertion == kIOPMNullAssertionID);
+    CFStringRef reasonForActivity = CFSTR("build.bazel");
+
+    IOReturn success = IOPMAssertionCreateWithName(
+        kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
+        &g_sleep_assertion);
+    assert(success == kIOReturnSuccess);
+  }
+  return 0;
+}
+
+int portable_pop_disable_sleep() {
+  int stack_value = --g_sleep_stack;
+  assert(stack_value >= 0);
+  if (stack_value == 0) {
+    assert(g_sleep_assertion != kIOPMNullAssertionID);
+    IOReturn success = IOPMAssertionRelease(g_sleep_assertion);
+    assert(success == kIOReturnSuccess);
+    g_sleep_assertion = kIOPMNullAssertionID;
+  }
+  return 0;
 }

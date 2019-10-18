@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -80,7 +81,11 @@ public interface PythonSemantics {
    *
    * @throws InterruptedException
    */
-  void postInitExecutable(RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common)
+  void postInitExecutable(
+      RuleContext ruleContext,
+      RunfilesSupport runfilesSupport,
+      PyCommon common,
+      RuleConfiguredTargetBuilder builder)
       throws InterruptedException, RuleErrorException;
 
   CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);

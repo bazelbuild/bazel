@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -485,6 +486,25 @@ public final class ValidationEnvironment extends NodeVisitor {
     venv.validateToplevelStatements(file.getStatements());
     // Check that no closeBlock was forgotten.
     Preconditions.checkState(venv.block.parent == null);
+  }
+
+  /**
+   * Performs static checks, including resolution of identifiers in {@code expr} in the environment
+   * defined by {@code module}. This operation mutates the Expression.
+   */
+  public static void validateExpr(Expression expr, Module module, StarlarkSemantics semantics)
+      throws SyntaxError {
+    List<Event> errors = new ArrayList<>();
+    ValidationEnvironment venv =
+        new ValidationEnvironment(errors, module, semantics, /*isBuildFile=*/ false);
+
+    venv.openBlock(Scope.Local); // needed?
+    venv.visit(expr);
+    venv.closeBlock();
+
+    if (!errors.isEmpty()) {
+      throw new SyntaxError(errors);
+    }
   }
 
   /** Open a new lexical block that will contain the future declarations. */

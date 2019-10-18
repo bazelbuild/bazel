@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -229,7 +229,7 @@ public class WorkspaceFactory {
     // also have a package builder specific to the current part and should be reinitialized for
     // each workspace file.
     ImmutableMap.Builder<String, Object> bindingsBuilder = ImmutableMap.builder();
-    GlobalFrame globals = workspaceThread.getGlobals();
+    Module globals = workspaceThread.getGlobals();
     for (String s : globals.getBindings().keySet()) {
       Object o = globals.get(s);
       if (!isAWorkspaceFunction(s, o)) {

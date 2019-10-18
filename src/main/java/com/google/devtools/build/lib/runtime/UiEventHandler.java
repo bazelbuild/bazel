@@ -415,12 +415,11 @@ public class UiEventHandler implements EventHandler {
               if (remainingCapacity() < 0) {
                 return;
               }
-              writeToStream(stream, event.getKind(), event.getMessageReference());
-              stream.flush();
-              if (showProgress && cursorControl) {
-                addProgressBar();
-              }
-              terminal.flush();
+              writeToStream(
+                  stream,
+                  event.getKind(),
+                  event.getMessageReference(),
+                  /* readdProgressBar= */ showProgress && cursorControl);
             }
             break;
           case ERROR:
@@ -482,9 +481,17 @@ public class UiEventHandler implements EventHandler {
         if (event.hasStdoutStderr()) {
           clearProgressBar();
           terminal.flush();
-          writeToStream(outErr.getErrorStream(), EventKind.STDERR, event.getStdErrReference());
+          writeToStream(
+              outErr.getErrorStream(),
+              EventKind.STDERR,
+              event.getStdErrReference(),
+              /* readdProgressBar= */ false);
           outErr.getErrorStream().flush();
-          writeToStream(outErr.getOutputStream(), EventKind.STDOUT, event.getStdOutReference());
+          writeToStream(
+              outErr.getOutputStream(),
+              EventKind.STDOUT,
+              event.getStdOutReference(),
+              /* readdProgressBar= */ false);
           outErr.getOutputStream().flush();
           if (showProgress && cursorControl) {
             addProgressBar();
@@ -497,7 +504,8 @@ public class UiEventHandler implements EventHandler {
     }
   }
 
-  private void writeToStream(OutputStream stream, EventKind eventKind, OutputReference reference)
+  private void writeToStream(
+      OutputStream stream, EventKind eventKind, OutputReference reference, boolean readdProgressBar)
       throws IOException {
     byte[] message;
     double cap = remainingCapacity(reference.getLength());
@@ -529,6 +537,11 @@ public class UiEventHandler implements EventHandler {
         stdoutBuffer = restMessage;
       } else {
         stderrBuffer = restMessage;
+      }
+      stream.flush();
+      if (readdProgressBar) {
+        addProgressBar();
+        terminal.flush();
       }
     } else {
       if (eventKind == EventKind.STDOUT) {

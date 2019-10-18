@@ -181,7 +181,7 @@ platforms:
       # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
       - "--noincompatible_strict_action_env"
     build_targets:
-      - "//src:bazel"
+      - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--copt=-w"

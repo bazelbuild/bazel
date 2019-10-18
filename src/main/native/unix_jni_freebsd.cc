@@ -89,3 +89,15 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
 }
+
+int portable_push_disable_sleep() {
+  // Currently not supported.
+  // https://wiki.freebsd.org/SuspendResume
+  return -1;
+}
+
+int portable_pop_disable_sleep() {
+  // Currently not supported.
+  // https://wiki.freebsd.org/SuspendResume
+  return -1;
+}

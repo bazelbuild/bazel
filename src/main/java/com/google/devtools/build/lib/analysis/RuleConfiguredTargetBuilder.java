@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
@@ -134,6 +135,8 @@ public final class RuleConfiguredTargetBuilder {
               .getDefaultRunfiles()
               .getAllArtifacts());
     }
+
+    collectTransitiveValidationOutputGroups();
 
     // Create test action and artifacts if target was successfully initialized
     // and is a test.
@@ -251,6 +254,44 @@ public final class RuleConfiguredTargetBuilder {
     }
     nestedSetBuilder.add(ruleContext.getLabel());
     return nestedSetBuilder.build();
+  }
+
+  /**
+   * Collects the validation action output groups from every dependency-type attribute on this rule.
+   * This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
+   * automatically propagates the validation action output group.
+   *
+   * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
+   * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
+   * validation action output group itself.
+   */
+  private void collectTransitiveValidationOutputGroups() {
+
+    for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+
+      Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+
+      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // not fail the overall build, since those dependencies should have their own builds
+      // and tests that should surface any failing validations.
+      if (!attribute.getTransitionFactory().isHost()
+          && !attribute.getTransitionFactory().isTool()
+          && !attribute.isImplicit()
+          && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+
+        for (OutputGroupInfo outputGroup :
+            ruleContext.getPrerequisites(
+                attributeName, Mode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+
+          NestedSet<Artifact> validationArtifacts =
+              outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
+
+          if (!validationArtifacts.isEmpty()) {
+            addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts);
+          }
+        }
+      }
+    }
   }
 
   /**

@@ -430,7 +430,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcLinkingContext depsCcLinkingContext = collectCcLinkingContext(ruleContext);
 
     Artifact generatedDefFile = null;
-    Artifact customDefFile = null;
+    Artifact winDefFile = null;
     if (isLinkShared(ruleContext)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
@@ -457,7 +457,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               CppHelper.createDefFileActions(
                   ruleContext, defParser, objectFiles.build(), binary.getFilename());
         }
-        customDefFile = common.getWinDefFile();
+        winDefFile =
+            CppHelper.getWindowsDefFileForLinking(
+                ruleContext, common.getWinDefFile(), generatedDefFile, featureConfiguration);
       }
     }
 
@@ -690,8 +692,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       LinkingMode linkingMode,
       CppConfiguration cppConfiguration,
       LinkTargetType linkType,
-      Artifact generatedDefFile,
-      Artifact customDefFile)
+      Artifact winDefFile)
       throws InterruptedException, RuleErrorException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder =
         CcCompilationOutputs.builder()
@@ -816,11 +817,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
         .setFake(fake);
 
-    if (customDefFile != null) {
-      ccLinkingHelper.setDefFile(customDefFile);
-    } else if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-      ccLinkingHelper.setDefFile(generatedDefFile);
-    }
+    ccLinkingHelper.setDefFile(winDefFile);
 
     return Pair.of(
         ccLinkingHelper.link(ccCompilationOutputsWithOnlyObjects),

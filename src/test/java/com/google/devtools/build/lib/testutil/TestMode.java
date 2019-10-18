@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public abstract class TestMode {
             EventHandler eventHandler, Map<String, Object> builtins, String... skylarkOptions)
             throws Exception {
           return StarlarkThread.builder(Mutability.create("build test"))
-              .setGlobals(createGlobalFrame(builtins))
+              .setGlobals(createModule(builtins))
               .setEventHandler(eventHandler)
               .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
@@ -58,19 +58,19 @@ public abstract class TestMode {
             EventHandler eventHandler, Map<String, Object> builtins, String... skylarkOptions)
             throws Exception {
           return StarlarkThread.builder(Mutability.create("skylark test"))
-              .setGlobals(createGlobalFrame(builtins))
+              .setGlobals(createModule(builtins))
               .setEventHandler(eventHandler)
               .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
         }
       };
 
-  private static GlobalFrame createGlobalFrame(Map<String, Object> builtins) {
+  private static Module createModule(Map<String, Object> builtins) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
     envBuilder.putAll(builtins);
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return Module.createForBuiltins(envBuilder.build());
   }
 
   public abstract StarlarkThread createStarlarkThread(

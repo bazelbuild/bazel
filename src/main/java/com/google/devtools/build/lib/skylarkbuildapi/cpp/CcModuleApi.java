@@ -102,8 +102,8 @@ public interface CcModuleApi<
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
-      SkylarkList<String> requestedFeatures,
-      SkylarkList<String> unsupportedFeatures)
+      SkylarkList<?> requestedFeatures, // <String> expected
+      SkylarkList<?> unsupportedFeatures) // <String> expected
       throws EvalException;
 
   @SkylarkCallable(
@@ -632,7 +632,7 @@ public interface CcModuleApi<
   LinkingContextT createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<FileT> nonCodeInputs,
+      SkylarkList<?> nonCodeInputs, // <FileT> expected
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -649,7 +649,8 @@ public interface CcModuleApi<
             defaultValue = "[]",
             type = SkylarkList.class)
       })
-  CcInfoApi mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) throws EvalException;
+  CcInfoApi mergeCcInfos(SkylarkList<?> ccInfos) // <CcInfoApi> expected
+      throws EvalException;
 
   @SkylarkCallable(
       name = "create_compilation_context",
@@ -900,10 +901,10 @@ public interface CcModuleApi<
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<Object> features,
-      SkylarkList<Object> actionConfigs,
-      SkylarkList<Object> artifactNamePatterns,
-      SkylarkList<String> cxxBuiltInIncludeDirectories,
+      SkylarkList<?> features, // <StructApi> expected
+      SkylarkList<?> actionConfigs, // <StructApi> expected
+      SkylarkList<?> artifactNamePatterns, // <StructApi> expected
+      SkylarkList<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       String hostSystemName,
       String targetSystemName,
@@ -912,8 +913,8 @@ public interface CcModuleApi<
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      SkylarkList<Object> toolPaths,
-      SkylarkList<Object> makeVariables,
+      SkylarkList<?> toolPaths, // <StructApi> expected
+      SkylarkList<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException;
@@ -1027,12 +1028,12 @@ public interface CcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      SkylarkList<?> userLinkFlags, // <String> expected
+      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       boolean alwayslink,
-      SkylarkList<FileT> additionalInputs,
+      SkylarkList<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,

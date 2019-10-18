@@ -49,7 +49,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
       NestedSet<PackageGroupContents> visibility,
       SourceArtifact artifact,
       NestedSet<TargetLicense> licenses) {
-    super(label, null, visibility, artifact, null);
+    super(label, null, visibility, artifact, null, null);
     this.artifact = artifact;
     this.licenses = licenses;
   }

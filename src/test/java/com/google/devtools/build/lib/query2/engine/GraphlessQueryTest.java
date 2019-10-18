@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.GraphlessBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest;
+import com.google.devtools.build.lib.query2.testutil.SkyframeQueryHelper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import java.util.List;

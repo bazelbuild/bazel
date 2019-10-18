@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
 import org.junit.Before;
@@ -495,13 +496,43 @@ public class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void test_incompatibleUseAapt2ByDefaultEnabled_targetsAapt2() throws Exception {
-    useConfiguration("--incompatible_use_aapt2_by_default");
-    RuleContext ruleContext =
-        getRuleContext(
-            "android_binary", "aapt_version = 'auto',", "manifest = 'AndroidManifest.xml',");
+  public void test_incompatibleProhibitAapt1_targetsAapt2() throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    RuleContext ruleContext = getRuleContext("android_binary", "manifest = 'AndroidManifest.xml',");
     assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
         .isEqualTo(AndroidAaptVersion.AAPT2);
+  }
+
+  @Test
+  public void test_incompatibleProhibitAapt1_aaptVersionAapt_throwsAttributeError()
+      throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    AssertionError e =
+        MoreAsserts.assertThrows(
+            AssertionError.class,
+            () ->
+                getRuleContext(
+                    "android_binary",
+                    "aapt_version = 'aapt',",
+                    "manifest = 'AndroidManifest.xml',"));
+    assertThat(e).hasMessageThat().contains("aapt_version");
+    assertThat(e).hasMessageThat().contains("Attribute is no longer supported");
+  }
+
+  @Test
+  public void test_incompatibleProhibitAapt1_aaptVersionAapt2_throwsAttributeError()
+      throws Exception {
+    useConfiguration("--incompatible_prohibit_aapt1");
+    AssertionError e =
+        MoreAsserts.assertThrows(
+            AssertionError.class,
+            () ->
+                getRuleContext(
+                    "android_binary",
+                    "aapt_version = 'aapt2',",
+                    "manifest = 'AndroidManifest.xml',"));
+    assertThat(e).hasMessageThat().contains("aapt_version");
+    assertThat(e).hasMessageThat().contains("Attribute is no longer supported");
   }
 
   /**

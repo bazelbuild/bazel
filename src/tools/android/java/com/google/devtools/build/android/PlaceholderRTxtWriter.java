@@ -66,7 +66,7 @@ final class PlaceholderRTxtWriter implements Flushable, AndroidResourceSymbolSin
             PlaceholderIdFieldInitializerBuilder.normalizeName(key.name()), n -> new TreeSet<>());
 
     for (FullyQualifiedName attr : attrs.keySet()) {
-      attrSet.add(PlaceholderIdFieldInitializerBuilder.normalizeAttrName(attr.name()));
+      attrSet.add(PlaceholderIdFieldInitializerBuilder.normalizeAttrName(attr));
     }
   }
 

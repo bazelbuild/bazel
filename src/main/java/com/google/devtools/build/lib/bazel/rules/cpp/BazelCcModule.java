@@ -67,21 +67,21 @@ public class BazelCcModule extends CcModule
       SkylarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
-      SkylarkList<Artifact> sources,
-      SkylarkList<Artifact> publicHeaders,
-      SkylarkList<Artifact> privateHeaders,
-      SkylarkList<String> includes,
-      SkylarkList<String> quoteIncludes,
-      SkylarkList<String> systemIncludes,
-      SkylarkList<String> frameworkIncludes,
-      SkylarkList<String> defines,
-      SkylarkList<String> localDefines,
-      SkylarkList<String> userCompileFlags,
-      SkylarkList<CcCompilationContext> ccCompilationContexts,
+      SkylarkList<?> sources, // <Artifact> expected
+      SkylarkList<?> publicHeaders, // <Artifact> expected
+      SkylarkList<?> privateHeaders, // <Artifact> expected
+      SkylarkList<?> includes, // <String> expected
+      SkylarkList<?> quoteIncludes, // <String> expected
+      SkylarkList<?> systemIncludes, // <String> expected
+      SkylarkList<?> frameworkIncludes, // <String> expected
+      SkylarkList<?> defines, // <String> expected
+      SkylarkList<?> localDefines, // <String> expected
+      SkylarkList<?> userCompileFlags, // <String> expected
+      SkylarkList<?> ccCompilationContexts, // <CcCompilationContext> expected
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
-      SkylarkList<Artifact> additionalInputs,
+      SkylarkList<?> additionalInputs, // <Artifact> expected
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -104,7 +104,7 @@ public class BazelCcModule extends CcModule
         disallowPicOutputs,
         disallowNopicOutputs,
         /* grepIncludes= */ null,
-        SkylarkList.createImmutable(ImmutableList.of()),
+        /* headersForClifDoNotUseThisParam= */ ImmutableList.of(),
         SkylarkList.createImmutable(
             additionalInputs.getContents(Artifact.class, "additional_inputs")),
         location,
@@ -117,13 +117,13 @@ public class BazelCcModule extends CcModule
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       Object compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<CcLinkingContext> linkingContexts,
+      SkylarkList<?> userLinkFlags, // <String> expected
+      SkylarkList<?> linkingContexts, // <CcLinkingContext> expected
       String name,
       String language,
       String outputType,
       boolean linkDepsStatically,
-      SkylarkList<Artifact> additionalInputs,
+      SkylarkList<?> additionalInputs, // <Artifact> expected
       Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
@@ -152,9 +152,10 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CcCompilationOutputs mergeCcCompilationOutputsFromSkylark(
-      SkylarkList<CcCompilationOutputs> compilationOutputs) {
+      SkylarkList<?> compilationOutputs) throws EvalException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
-    for (CcCompilationOutputs ccCompilationOutputs : compilationOutputs) {
+    for (CcCompilationOutputs ccCompilationOutputs :
+        compilationOutputs.getContents(CcCompilationOutputs.class, "compilation_outputs")) {
       ccCompilationOutputsBuilder.merge(ccCompilationOutputs);
     }
     return ccCompilationOutputsBuilder.build();

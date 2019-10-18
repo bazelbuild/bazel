@@ -17,21 +17,12 @@ Also supported:
 
 *   64 bit Windows Server 2008 R2 or newer
 
+*   Older Windows 10 versions, disabled "Developer Mode" (enabling the mode just lets you use the
+    `--enable_runfiles` Bazel flag)
+
 ## 2. Install the prerequisites
 
 *   [Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
-
-*   [MSYS2 x86_64](https://www.msys2.org/)
-
-    You should use the default install path.
-
-*   MSYS2 packages
-
-    Open the MSYS2 terminal, and run this command:
-
-    ```
-    pacman -S zip unzip patch diffutils git
-    ```
 
 ## 3. Download Bazel
 
@@ -42,15 +33,66 @@ Recommended: rename this binary to `bazel.exe` and move it to a directory on the
 
 Alternatively you can:
 
-*   [Install from Chocolatey](#install-using-chocolatey) (see below)
-*   [Install from Scoop](#install-using-scoop) (see below)
-*   [Build from source](install-compile-source.html)
+*   [Download Bazelisk](https://github.com/bazelbuild/bazelisk) instead of Bazel. Bazelisk is a
+    Bazel launcher that ensures you always use the latest Bazel release.
+*   [Install Bazel from Chocolatey](#install-using-chocolatey) (see below)
+*   [Install Bazel from Scoop](#install-using-scoop) (see below)
+*   [Build Bazel from source](install-compile-source.html)
 
-## 4. Optional: install compilers
+## 4. Optional: configure output directories
+
+**You can skip this step. Bazel can work without configuring the output directories, and will use
+its default values.**
+
+By default, Bazel writes to two directories:
+
+-   The "output user root", configurable with the `--output_user_root` flag.
+
+    This is where Bazel extracts from itself its embedded tools, its own runtime, and where it
+    writes some log files and some caches.
+
+    This is also the default location for the "output base".
+
+-   The "output base", configurable with the `--output_base` flag.
+
+    This is where Bazel writes all output files. By default, this is a subdirectory of the "output
+    user root".
+
+By default, Bazel also writes in the workspace directory:
+
+-   The "convenience symlinks", configurable with the `--symlink_prefix` flag.
+
+    These are the "bazel-bin", "bazel-testlogs", and similar directories that Bazel creates in your
+    workspace. These are not really directories but "junctions": they just point to other
+    directories in your filesystem (under the "output root").
+
+    You can tell Bazel not to create these junctions with `--symlink_prefix=/`.
+
+## 5. Optional: install compilers and language runtimes
 
 **You can skip this step. Bazel can work without these programs, but you may need them.**
 
 We recommend installing:
+
+*   [MSYS2 x86_64](https://www.msys2.org/)
+
+    MSYS2 is a software distro and building platform for Windows. It contains Bash and common Unix
+    tools (like `grep`, `tar`, `git`).
+
+    You will need MSYS2 to build, test, or run targets that depend on Bash. Typically these are
+    `genrule`, `sh_binary`, `sh_test`, but there may be more (e.g. Starlark rules). Bazel shows an
+    error if a build target needs Bash but Bazel could not locate it.
+
+*   Common MSYS2 packages
+
+    You will likely need these to build and run targets that depend on Bash.  MSYS2 does not install
+    these tools by default, so you need to install them manually.
+
+    Open the MSYS2 terminal and run this command:
+
+    ```
+    pacman -S zip unzip patch diffutils git
+    ```
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
@@ -68,7 +110,7 @@ We recommend installing:
 
     You will need this to build Java code on Windows.
 
-    Also supported: Java 8, 9
+    Also supported: Java 8 and 9
 
 *   [Python 2.7 for Windows x86-64](https://www.python.org/downloads/windows/)
 

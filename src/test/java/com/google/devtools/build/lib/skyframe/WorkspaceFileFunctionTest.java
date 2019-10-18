@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -149,7 +148,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Override
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.<EnvironmentExtension>of(new PackageFactory.EmptyEnvironmentExtension());
+    return ImmutableList.of();
   }
 
   private Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {

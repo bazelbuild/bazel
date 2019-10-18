@@ -153,7 +153,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     @Override
-    public AndroidFeatureFlagSetProvider create(SkylarkDict<Label, String> flags)
+    public AndroidFeatureFlagSetProvider create(SkylarkDict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
           Optional.of(

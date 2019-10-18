@@ -66,7 +66,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       built = false;
     }
 
-    private void mergeFrom(TestSummary existingSummary) {
+    void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
       summary.shardRunStatuses =
           MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);

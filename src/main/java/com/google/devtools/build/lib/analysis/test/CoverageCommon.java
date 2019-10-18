@@ -40,8 +40,8 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
   @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
+      SkylarkList<?> sourceAttributes, // <String>
+      SkylarkList<?> dependencyAttributes, // <String>
       Object extensions,
       Location location)
       throws EvalException {
@@ -53,8 +53,8 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
     return createInstrumentedFilesInfo(
         location,
         skylarkRuleContext.getRuleContext(),
-        sourceAttributes,
-        dependencyAttributes,
+        sourceAttributes.getContents(String.class, "source_attributes"),
+        dependencyAttributes.getContents(String.class, "dependency_attributes"),
         extensionsList);
   }
 

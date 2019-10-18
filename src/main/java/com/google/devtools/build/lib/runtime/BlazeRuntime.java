@@ -644,15 +644,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     env.getBlazeWorkspace().clearEventBus();
 
+    for (BlazeModule module : blazeModules) {
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".commandComplete")) {
+        module.commandComplete();
+      }
+    }
+
     try {
       Profiler.instance().stop();
       MemoryProfiler.instance().stop();
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
-    }
-
-    for (BlazeModule module : blazeModules) {
-      module.commandComplete();
     }
 
     env.getReporter().clearEventBus();

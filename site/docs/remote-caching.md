@@ -235,45 +235,21 @@ team dynamics, you can add flags to a `.bazelrc` file that is:
 * In your project's workspace, shared with the team
 * On the CI system
 
-### Read from and write to the remote cache
+### Read from or write to the remote cache
 
 Take care in who has the ability to write to the remote cache. You may want
 only your CI system to be able to write to the remote cache.
 
-Use the following flags to:
-
-* read from and write to the remote cache
-* disable sandboxing
-
-```
-build --remote_cache=http://replace-with-your.host:port
-build --spawn_strategy=local
-```
-
-Using the remote cache with sandboxing enabled is the default. Use the
-following flags to read and write from the remote cache with sandboxing
-enabled:
+Use the following flag to read from and write to the remote cache:
 
 ```
 build --remote_cache=http://replace-with-your.host:port
 ```
 
-### Read only from the remote cache
-
-Use the following flags to: read from the remote cache with sandboxing
-disabled.
+Use the following flag in addition to the one above to only read from the
+remote cache:
 
 ```
-build --remote_cache=http://replace-with-your.host:port
-build --remote_upload_local_results=false
-build --spawn_strategy=local
-```
-
-Using the remote cache with sandboxing enabled is experimental. Use the
-following flags to read from the remote cache with sandboxing enabled:
-
-```
-build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 ```
 

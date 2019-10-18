@@ -1915,25 +1915,6 @@ public final class PackageFactory {
     SkylarkSignatureProcessor.configureSkylarkFunctions(PackageFactory.class);
   }
 
-  /** Empty EnvironmentExtension */
-  public static class EmptyEnvironmentExtension implements EnvironmentExtension {
-    @Override
-    public void update(StarlarkThread thread) {}
-
-    @Override
-    public void updateWorkspace(StarlarkThread thread) {}
-
-    @Override
-    public Iterable<PackageArgument<?>> getPackageArguments() {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public ImmutableList<BaseFunction> nativeModuleFunctions() {
-      return ImmutableList.<BaseFunction>of();
-    }
-  }
-
   /**
    * checkBuildSyntax checks the syntax tree of a BUILD (not .bzl) file. If it discovers a 'def',
    * 'if', or 'for' statement, or a f(*args) or f(**kwargs) call, it reports an event to handler and

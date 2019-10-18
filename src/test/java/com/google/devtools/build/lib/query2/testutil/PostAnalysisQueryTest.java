@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.testutil;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryTest;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -617,6 +617,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testNodepDeps_False() throws Exception {}
 
   // package_group instances have a null configuration and are filtered out by --host_deps=false.
+  @Override
   @Test
   public void testDefaultVisibilityReturnedInDeps_NonEmptyDependencyFilter() throws Exception {}
 }

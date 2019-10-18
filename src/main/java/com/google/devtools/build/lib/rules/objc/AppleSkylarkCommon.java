@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
@@ -233,8 +233,8 @@ public class AppleSkylarkCommon
   @Override
   public StructImpl linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContextApi,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      SkylarkList<?> extraLinkopts,
+      SkylarkList<?> extraLinkInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
@@ -243,7 +243,7 @@ public class AppleSkylarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              extraLinkopts.getImmutableList(),
+              ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
               SkylarkList.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {

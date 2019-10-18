@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -68,7 +69,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -527,7 +527,7 @@ public class SkydocMain {
    * @param providerInfoList the list of {@link ProviderInfo} objects, to which provider()
    *     invocation information will be added
    */
-  private static GlobalFrame globalFrame(
+  private static Module globalFrame(
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList) {
@@ -605,7 +605,7 @@ public class SkydocMain {
     testingBootstrap.addBindingsToBuilder(envBuilder);
     addNonBootstrapGlobals(envBuilder);
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return Module.createForBuiltins(envBuilder.build());
   }
 
   // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
@@ -645,7 +645,7 @@ public class SkydocMain {
   private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
       EventHandler eventHandler,
-      GlobalFrame globals,
+      Module globals,
       Map<String, Extension> imports) {
     return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)

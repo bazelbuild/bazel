@@ -311,11 +311,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        // If user specifies a custom DEF file, then we use it.
-        Artifact defFile = common.getWinDefFile();
+        Artifact generatedDefFile = null;
 
         Artifact defParser = common.getDefParser();
-        Artifact generatedDefFile = null;
         if (defParser != null) {
           try {
             generatedDefFile =
@@ -332,18 +330,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             throw ruleContext.throwWithRuleError(e.getMessage());
           }
         }
-
-        // If no DEF file is specified and the windows_export_all_symbols feature is enabled, parse
-        // object files to generate DEF file and use it to export symbols - if we have a parser.
-        // Otherwise, use no DEF file.
-        if (defFile == null
-            && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-          defFile = generatedDefFile;
-        }
-
-        if (defFile != null) {
-          linkingHelper.setDefFile(defFile);
-        }
+        linkingHelper.setDefFile(
+            CppHelper.getWindowsDefFileForLinking(
+                ruleContext, common.getWinDefFile(), generatedDefFile, featureConfiguration));
       }
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }

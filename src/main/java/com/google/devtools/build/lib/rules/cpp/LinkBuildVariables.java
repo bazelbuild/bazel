@@ -184,11 +184,13 @@ public enum LinkBuildVariables {
           ccToolchainProvider
               .getFeatures()
               .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
-      buildVariables.addStringVariable(
-          THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
-          Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";"
-              + objectFileExtension);
+      if (!featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+        buildVariables.addStringVariable(
+            THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
+            Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
+                + ";"
+                + objectFileExtension);
+      }
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
             THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);

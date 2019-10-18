@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -96,17 +96,17 @@ public class TestUtils {
     return TestUtils.roundTrip(value, ImmutableMap.of());
   }
 
-  public static void assertFramesEqual(GlobalFrame frame1, GlobalFrame frame2) {
+  public static void assertFramesEqual(Module frame1, Module frame2) {
     assertThat(frame1.getTransitiveBindings())
         .containsExactlyEntriesIn(frame2.getTransitiveBindings())
         .inOrder();
   }
 
   /**
-   * Asserts that two {@link GlobalFrame}s have the same structure. Needed because
-   * {@link GlobalFrame} doesn't override {@link Object#equals}.
+   * Asserts that two {@link Module}s have the same structure. Needed because {@link Module} doesn't
+   * override {@link Object#equals}.
    */
-  public static void assertGlobalFramesEqual(GlobalFrame frame1, GlobalFrame frame2) {
+  public static void assertModulesEqual(Module frame1, Module frame2) {
     assertThat(frame1.mutability().getAnnotation())
         .isEqualTo(frame2.mutability().getAnnotation());
     assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());

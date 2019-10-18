@@ -975,7 +975,7 @@ public final class CcCommon {
     //   will be gone.
     String sysrootCcFlags =
         computeCcFlagForSysroot(
-            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas(),
+            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas(),
             toolchainProvider);
 
     // Fetch additional flags from the FeatureConfiguration.
@@ -1022,7 +1022,7 @@ public final class CcCommon {
       cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     } else {
       cppConfiguration =
-          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas();
+          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
     }
     try {
       featureConfiguration =

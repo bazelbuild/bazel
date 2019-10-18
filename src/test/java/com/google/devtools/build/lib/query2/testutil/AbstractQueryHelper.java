@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2.engine;
+package com.google.devtools.build.lib.query2.testutil;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;

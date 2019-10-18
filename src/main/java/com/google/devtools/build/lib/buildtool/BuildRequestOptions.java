@@ -151,6 +151,14 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> outputGroups;
 
   @Option(
+      name = "experimental_run_validations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to run validation actions as part of the build.")
+  public boolean runValidationActions;
+
+  @Option(
     name = "show_result",
     defaultValue = "1",
     documentationCategory = OptionDocumentationCategory.LOGGING,

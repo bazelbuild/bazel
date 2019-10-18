@@ -55,13 +55,13 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -548,7 +548,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final StarlarkThread.GlobalFrame globals;
+  private final Module globals;
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -750,7 +750,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private StarlarkThread.GlobalFrame createGlobals(
+  private Module createGlobals(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
@@ -761,7 +761,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       bootstrap.addBindingsToBuilder(envBuilder);
     }
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return Module.createForBuiltins(envBuilder.build());
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(

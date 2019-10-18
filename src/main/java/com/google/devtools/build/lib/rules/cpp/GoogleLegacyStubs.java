@@ -81,8 +81,8 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-        SkylarkList<String> targetCopts)
+        SkylarkList<?> depCcCompilationContexts, // <CcCompilationContextApi>
+        SkylarkList<?> targetCopts /* <String> */)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -108,10 +108,10 @@ public final class GoogleLegacyStubs {
         CcCompilationContextApi wrapperCcCompilationContext,
         SkylarkNestedSet swigIncludes,
         FileApi swigSource,
-        SkylarkList<String> subParameters,
+        SkylarkList<?> subParameters, // <String>
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<FileApi> outputFiles,
+        SkylarkList<?> outputFiles, // <FileApi>
         Object outDir,
         Object javaDir,
         SkylarkNestedSet auxiliaryInputs,
@@ -215,8 +215,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActions(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<FileApi> srcs,
-        SkylarkList<TransitiveInfoCollectionApi> deps) {
+        SkylarkList<?> srcs, // <FileApi>
+        SkylarkList<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 
@@ -224,8 +224,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActionsGopkg(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<FileApi> srcs,
-        SkylarkList<TransitiveInfoCollectionApi> deps) {
+        SkylarkList<?> srcs, // <FileApi>
+        SkylarkList<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 

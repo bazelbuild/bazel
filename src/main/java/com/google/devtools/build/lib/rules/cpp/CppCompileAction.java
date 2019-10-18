@@ -487,7 +487,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
-      if (!isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
         missing.add(header);
       }
     }
@@ -959,7 +959,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
       }
-      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
         errors.add(input.getExecPath().toString());
       }
     }
@@ -1038,6 +1038,7 @@ public class CppCompileAction extends AbstractAction
    * matches.
    */
   private static boolean isDeclaredIn(
+      CppConfiguration cppConfiguration,
       ActionExecutionContext actionExecutionContext,
       Artifact input,
       Set<PathFragment> declaredIncludeDirs) {
@@ -1049,7 +1050,10 @@ public class CppCompileAction extends AbstractAction
     }
     // Need to do dir/package matching: first try a quick exact lookup.
     PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (includeDir.isEmpty() || declaredIncludeDirs.contains(includeDir)) {
+    if (!cppConfiguration.validateTopLevelHeaderInclusions() && includeDir.isEmpty()) {
+      return true; // Legacy behavior nobody understands anymore.
+    }
+    if (declaredIncludeDirs.contains(includeDir)) {
       return true;  // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.
@@ -1062,12 +1066,16 @@ public class CppCompileAction extends AbstractAction
     }
     // Still not found: see if it is in a subdir of a declared package.
     Root root = actionExecutionContext.getRoot(input);
+    Path dir = actionExecutionContext.getInputPath(input).getParentDirectory();
+    if (dir.equals(root.asPath())) {
+      return false; // Bad: at the top, give up.
+    }
     // As we walk up along parent paths, we'll need to check whether Bazel build files exist, which
     // would mean that the file is in a sub-package and not a subdir of a declared include
     // directory. Do so lazily to avoid stats when this file doesn't lie beneath any declared
     // include directory.
     List<Path> packagesToCheckForBuildFiles = new ArrayList<>();
-    for (Path dir = actionExecutionContext.getInputPath(input).getParentDirectory(); ; ) {
+    while (true) {
       packagesToCheckForBuildFiles.add(dir);
       dir = dir.getParentDirectory();
       if (dir.equals(root.asPath())) {
@@ -1221,7 +1229,8 @@ public class CppCompileAction extends AbstractAction
         additionalPrunableHeaders,
         ccCompilationContext.getDeclaredIncludeDirs(),
         builtInIncludeDirectories,
-        inputsForInvalidation);
+        inputsForInvalidation,
+        cppConfiguration.validateTopLevelHeaderInclusions());
   }
 
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
@@ -1238,12 +1247,14 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> prunableHeaders,
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
-      Iterable<Artifact> inputsForInvalidation) {
+      Iterable<Artifact> inputsForInvalidation,
+      boolean validateTopLevelHeaderInclusions) {
     fp.addUUID(actionClassId);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
+    fp.addBoolean(validateTopLevelHeaderInclusions);
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types

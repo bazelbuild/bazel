@@ -122,7 +122,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<F extends FileApi> extends ProviderApi {
+  public interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -188,14 +188,14 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
         },
         selfCall = true)
     @SkylarkConstructor(objectType = DataBindingV2ProviderApi.class)
-    DataBindingV2ProviderApi<F> createInfo(
+    DataBindingV2ProviderApi<FileT> createInfo(
         Object setterStoreFile,
         Object classInfoFile,
         Object brFile,
         Object label,
         Object javaPackage,
-        SkylarkList<DataBindingV2ProviderApi<F>> databindingV2ProvidersInDeps,
-        SkylarkList<DataBindingV2ProviderApi<F>> databindingV2ProvidersInExports)
+        SkylarkList<?> databindingV2ProvidersInDeps, // <DataBindingV2ProviderApi<FileT>>
+        SkylarkList<?> databindingV2ProvidersInExports /* <DataBindingV2ProviderApi<FileT>> */)
         throws EvalException;
   }
 }

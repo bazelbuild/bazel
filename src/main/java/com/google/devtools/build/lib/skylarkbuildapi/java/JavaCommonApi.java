@@ -203,22 +203,22 @@ public interface JavaCommonApi<
       useStarlarkThread = true)
   public JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<FileT> sourceJars,
-      SkylarkList<FileT> sourceFiles,
+      SkylarkList<?> sourceJars, // <FileT> expected.
+      SkylarkList<?> sourceFiles, // <FileT> expected.
       FileT outputJar,
       Object outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<JavaInfoT> deps,
-      SkylarkList<JavaInfoT> exports,
-      SkylarkList<JavaInfoT> plugins,
-      SkylarkList<JavaInfoT> exportedPlugins,
-      SkylarkList<FileT> annotationProcessorAdditionalInputs,
-      SkylarkList<FileT> annotationProcessorAdditionalOutputs,
+      SkylarkList<?> javacOpts, // <String> expected.
+      SkylarkList<?> deps, // <JavaInfoT> expected.
+      SkylarkList<?> exports, // <JavaInfoT> expected.
+      SkylarkList<?> plugins, // <JavaInfoT> expected.
+      SkylarkList<?> exportedPlugins, // <JavaInfoT> expected.
+      SkylarkList<?> annotationProcessorAdditionalInputs, // <FileT> expected.
+      SkylarkList<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
-      SkylarkList<FileT> sourcepathEntries,
-      SkylarkList<FileT> resources,
+      SkylarkList<?> sourcepathEntries, // <FileT> expected.
+      SkylarkList<?> resources, // <FileT> expected.
       Boolean neverlink,
       Location loc,
       StarlarkThread thread)
@@ -380,8 +380,8 @@ public interface JavaCommonApi<
   public FileApi packSources(
       SkylarkActionFactoryT actions,
       FileT outputJar,
-      SkylarkList<FileT> sourceFiles,
-      SkylarkList<FileT> sourceJars,
+      SkylarkList<?> sourceFiles, // <FileT> expected.
+      SkylarkList<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
       Location location,
@@ -421,7 +421,8 @@ public interface JavaCommonApi<
             generic1 = JavaInfoApi.class,
             doc = "The list of providers to merge."),
       })
-  public JavaInfoT mergeJavaProviders(SkylarkList<JavaInfoT> providers);
+  public JavaInfoT mergeJavaProviders(SkylarkList<?> providers /* <JavaInfoT> expected. */)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "make_non_strict",
@@ -495,7 +496,8 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public JavaInfoT addConstraints(JavaInfoT javaInfo, SkylarkList<String> constraints);
+  public JavaInfoT addConstraints(
+      JavaInfoT javaInfo, SkylarkList<?> constraints /* <String> expected. */) throws EvalException;
 
   @SkylarkCallable(
       name = "experimental_disable_annotation_processing",
@@ -550,7 +552,8 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   public JavaInfoT addCompileTimeJavaDependencyArtifacts(
-      JavaInfoT javaInfo, SkylarkList<FileT> compileTimeJavaDependencyArtifacts);
+      JavaInfoT javaInfo, SkylarkList<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "java_toolchain_label",

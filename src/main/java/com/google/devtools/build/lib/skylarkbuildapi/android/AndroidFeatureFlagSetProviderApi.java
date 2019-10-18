@@ -71,6 +71,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
     @SkylarkConstructor(
         objectType = AndroidFeatureFlagSetProviderApi.class,
         receiverNameForDoc = NAME)
-    AndroidFeatureFlagSetProviderApi create(SkylarkDict<Label, String> flags) throws EvalException;
+    AndroidFeatureFlagSetProviderApi create(SkylarkDict<?, ?> flags /* <Label, String> */)
+        throws EvalException;
   }
 }
