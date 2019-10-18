@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.auto.value.AutoValue;
@@ -32,6 +33,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -709,6 +711,21 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
       }
       Preconditions.checkState(status instanceof FileInfo);
       return ((FileInfo) status).getInputStream();
+    }
+  }
+
+  @Override
+  protected ReadableByteChannel createChannel(Path path) throws IOException {
+    synchronized (this) {
+      InMemoryContentInfo status = inodeStat(path, true);
+      if (status.isDirectory()) {
+        throw Error.EISDIR.exception(path);
+      }
+      if (!path.isReadable()) {
+        throw Error.EACCES.exception(path);
+      }
+      Preconditions.checkState(status instanceof FileInfo);
+      return ((FileInfo) status).createChannel();
     }
   }
 

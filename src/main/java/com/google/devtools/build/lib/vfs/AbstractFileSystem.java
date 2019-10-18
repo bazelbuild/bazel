@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -23,6 +24,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.attribute.FileAttribute;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -53,6 +58,11 @@ public abstract class AbstractFileSystem extends FileSystem {
         }
       }
     }
+  }
+
+  @Override
+  protected ReadableByteChannel createChannel(Path path) throws IOException {
+    return Files.newByteChannel(java.nio.file.Paths.get(path.toString()));
   }
 
   /** Returns either normal or profiled FileInputStream. */
