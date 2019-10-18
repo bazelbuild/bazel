@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -13,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os
 import unittest
 import six
@@ -42,7 +46,7 @@ class RunfilesTest(test_base.TestBase):
                                                  "bar/bar-cc-data.txt", False)]:
       self.CopyFile(
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
-                         s), t, exe)
+                         six.ensure_str(s)), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -52,17 +56,17 @@ class RunfilesTest(test_base.TestBase):
     # toolchains. Blocked on the fact that there's no PY3 environment on our Mac
     # workers (bazelbuild/continuous-integration#578).
     exit_code, _, stderr = self.RunBazel([
-        "build",
-        "--verbose_failures",
+        "build", "--verbose_failures",
         "--incompatible_use_python_toolchains=false",
-        "//foo:runfiles-" + family
+        "//foo:runfiles-" + six.ensure_str(family)
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
     if test_base.TestBase.IsWindows():
       bin_path = os.path.join(bazel_bin, "foo/runfiles-%s.exe" % family)
     else:
-      bin_path = os.path.join(bazel_bin, "foo/runfiles-" + family)
+      bin_path = os.path.join(bazel_bin,
+                              "foo/runfiles-" + six.ensure_str(family))
 
     self.assertTrue(os.path.exists(bin_path))
 
@@ -77,7 +81,7 @@ class RunfilesTest(test_base.TestBase):
     six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     self.assertNotIn("__ignore_me__", stdout[1])
 
-    with open(stdout[1].split("=", 1)[1], "r") as f:
+    with open(six.ensure_str(stdout[1]).split("=", 1)[1], "r") as f:
       lines = [l.strip() for l in f.readlines()]
     if len(lines) != 1:
       self.fail("lines: %s" % lines)
@@ -91,7 +95,7 @@ class RunfilesTest(test_base.TestBase):
                       "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[i + 1])
 
-      with open(stdout[i + 1].split("=", 1)[1], "r") as f:
+      with open(six.ensure_str(stdout[i + 1]).split("=", 1)[1], "r") as f:
         lines = [l.strip() for l in f.readlines()]
       if len(lines) != 1:
         self.fail("lines(%s): %s" % (lang[0], lines))
@@ -126,7 +130,7 @@ class RunfilesTest(test_base.TestBase):
     ]:
       self.CopyFile(
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
-                         s), t, exe)
+                         six.ensure_str(s)), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -163,7 +167,7 @@ class RunfilesTest(test_base.TestBase):
       six.assertRegex(self, stdout[1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[1])
 
-      with open(stdout[1].split("=", 1)[1], "r") as f:
+      with open(six.ensure_str(stdout[1]).split("=", 1)[1], "r") as f:
         lines = [l.strip() for l in f.readlines()]
       if len(lines) != 1:
         self.fail("lines(%s): %s" % (lang[0], lines))
@@ -186,7 +190,7 @@ class RunfilesTest(test_base.TestBase):
     ]:
       self.CopyFile(
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
-                         s), t, exe)
+                         six.ensure_str(s)), t, exe)
 
     exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -215,9 +219,9 @@ class RunfilesTest(test_base.TestBase):
       if test_base.TestBase.IsWindows():
         # Runfiles manifests use forward slashes as path separators, even on
         # Windows.
-        mock_bar_dep = mock_bar_dep.replace("\\", "/")
+        mock_bar_dep = six.ensure_str(mock_bar_dep).replace("\\", "/")
       manifest_key = "foo_ws/bar/bar-%s-data.txt" % lang[0]
-      mock_manifest_line = manifest_key + " " + mock_bar_dep
+      mock_manifest_line = manifest_key + " " + six.ensure_str(mock_bar_dep)
       with open(manifest_path, "rt") as f:
         # Only rstrip newlines. Do not rstrip() completely, because that would
         # remove spaces too. This is necessary in order to have at least one
@@ -232,8 +236,8 @@ class RunfilesTest(test_base.TestBase):
         # aim to exercise what would happen in that case.
         mock_manifest_data = [
             mock_manifest_line
-            if line.split(" ", 1)[0] == manifest_key else line.rstrip("\n\r")
-            for line in f
+            if six.ensure_str(line).split(" ", 1)[0] == manifest_key else
+            six.ensure_str(line).rstrip("\n\r") for line in f
         ]
 
       substitute_manifest = self.ScratchFile(
@@ -258,10 +262,10 @@ class RunfilesTest(test_base.TestBase):
       if len(stdout) < 2:
         self.fail("stdout: %s" % stdout)
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[1], "^rloc=" + mock_bar_dep)
+      six.assertRegex(self, stdout[1], "^rloc=" + six.ensure_str(mock_bar_dep))
       self.assertNotIn("__ignore_me__", stdout[1])
 
-      with open(stdout[1].split("=", 1)[1], "r") as f:
+      with open(six.ensure_str(stdout[1]).split("=", 1)[1], "r") as f:
         lines = [l.strip() for l in f.readlines()]
       if len(lines) != 1:
         self.fail("lines: %s" % lines)

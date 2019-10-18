@@ -98,12 +98,15 @@ filegroup(
 py_library(
     name = "create_embedded_tools_lib",
     srcs = ["create_embedded_tools_lib.py"],
+    srcs_version = "PY3",
     visibility = ["//:__pkg__"],
 )
 
 py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":create_embedded_tools_lib"],
 )
 

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-bad-file-header
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -13,8 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os
 import unittest
+import six
 from src.test.py.bazel import test_base
 
 
@@ -38,7 +43,7 @@ class RunfilesSandboxedTest(test_base.TestBase):
     ]:
       self.CopyFile(
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
-                         s), t, exe)
+                         six.ensure_str(s)), t, exe)
     self.ScratchFile(
         "foo/BUILD",
         [

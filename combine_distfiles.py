@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-bad-file-header
 # pylint: disable=g-direct-third-party-import
 #
@@ -16,10 +17,16 @@
 # limitations under the License.
 """Creates the Bazel source distribution archive."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import contextlib
 import os.path
 import sys
 import zipfile
+
+import six
 
 from src.create_embedded_tools_lib import copy_tar_to_zip
 from src.create_embedded_tools_lib import copy_zip_to_zip
@@ -35,7 +42,7 @@ def main():
       zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED)) as output_zip:
 
     def _normalize(path):
-      return path[2:] if path.startswith("./") else path
+      return path[2:] if six.ensure_str(path).startswith("./") else path
 
     for input_file in input_files:
       if input_file.endswith(".tar"):

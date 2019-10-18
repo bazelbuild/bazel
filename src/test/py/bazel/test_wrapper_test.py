@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import unittest
 import zipfile
 
+import six
 from src.test.py.bazel import test_base
 
 
@@ -135,8 +141,10 @@ class TestWrapperTest(test_base.TestBase):
         0x27, 0xcd, 0x09, 0xf9
     ])
 
-    ico_file_path = self.ScratchFile('foo/dummy.ico').replace('/', '\\')
-    dat_file_path = self.ScratchFile('foo/dummy.dat').replace('/', '\\')
+    ico_file_path = six.ensure_str(self.ScratchFile('foo/dummy.ico')).replace(
+        '/', '\\')
+    dat_file_path = six.ensure_str(self.ScratchFile('foo/dummy.dat')).replace(
+        '/', '\\')
 
     with open(ico_file_path, 'wb') as f:
       f.write(ico_file)
@@ -234,15 +242,15 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     lorem = False
     for line in stderr + stdout:
-      if line.startswith('lorem ipsum'):
+      if six.ensure_str(line).startswith('lorem ipsum'):
         lorem = True
-      elif line.startswith('HOME='):
+      elif six.ensure_str(line).startswith('HOME='):
         home = line[len('HOME='):]
-      elif line.startswith('TEST_SRCDIR='):
+      elif six.ensure_str(line).startswith('TEST_SRCDIR='):
         srcdir = line[len('TEST_SRCDIR='):]
-      elif line.startswith('TEST_TMPDIR='):
+      elif six.ensure_str(line).startswith('TEST_TMPDIR='):
         tmpdir = line[len('TEST_TMPDIR='):]
-      elif line.startswith('USER='):
+      elif six.ensure_str(line).startswith('USER='):
         user = line[len('USER='):]
     if not lorem:
       self._FailWithOutput(stderr + stdout)
@@ -275,15 +283,15 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     mf = mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
-      if line.startswith('MF='):
+      if six.ensure_str(line).startswith('MF='):
         mf = line[len('MF='):]
-      elif line.startswith('ONLY='):
+      elif six.ensure_str(line).startswith('ONLY='):
         mf_only = line[len('ONLY='):]
-      elif line.startswith('DIR='):
+      elif six.ensure_str(line).startswith('DIR='):
         rf_dir = line[len('DIR='):]
-      elif line.startswith('data_path='):
+      elif six.ensure_str(line).startswith('data_path='):
         path = line[len('data_path='):]
-      elif line.startswith('data_exists='):
+      elif six.ensure_str(line).startswith('data_exists='):
         exists = line[len('data_exists='):]
 
     if mf_only != '1':
@@ -294,7 +302,7 @@ class TestWrapperTest(test_base.TestBase):
     mf_contents = TestWrapperTest._ReadFile(mf)
     # Assert that the data dependency is listed in the runfiles manifest.
     if not any(
-        line.split(' ', 1)[0].endswith('foo/dummy.dat')
+        six.ensure_str(line).split(' ', 1)[0].endswith('foo/dummy.dat')
         for line in mf_contents):
       self._FailWithOutput(mf_contents)
 
@@ -321,13 +329,13 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
-      if line.startswith('ONLY='):
+      if six.ensure_str(line).startswith('ONLY='):
         mf_only = line[len('ONLY='):]
-      elif line.startswith('DIR='):
+      elif six.ensure_str(line).startswith('DIR='):
         rf_dir = line[len('DIR='):]
-      elif line.startswith('data_path='):
+      elif six.ensure_str(line).startswith('data_path='):
         path = line[len('data_path='):]
-      elif line.startswith('data_exists='):
+      elif six.ensure_str(line).startswith('data_exists='):
         exists = line[len('data_exists='):]
 
     if mf_only == '1':
@@ -355,9 +363,9 @@ class TestWrapperTest(test_base.TestBase):
     status = None
     index_lines = []
     for line in stderr + stdout:
-      if line.startswith('STATUS='):
+      if six.ensure_str(line).startswith('STATUS='):
         status = line[len('STATUS='):]
-      elif line.startswith('INDEX='):
+      elif six.ensure_str(line).startswith('INDEX='):
         index_lines.append(line)
     if not status:
       self._FailWithOutput(stderr + stdout)
@@ -378,9 +386,9 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     good = bad = None
     for line in stderr + stdout:
-      if line.startswith('GOOD='):
+      if six.ensure_str(line).startswith('GOOD='):
         good = line[len('GOOD='):]
-      elif line.startswith('BAD='):
+      elif six.ensure_str(line).startswith('BAD='):
         bad = line[len('BAD='):]
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
@@ -404,7 +412,7 @@ class TestWrapperTest(test_base.TestBase):
 
     actual = []
     for line in stderr + stdout:
-      if line.startswith('arg='):
+      if six.ensure_str(line).startswith('arg='):
         actual.append(str(line[len('arg='):]))
     self.assertListEqual(
         [

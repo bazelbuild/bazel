@@ -10,5 +10,6 @@ py_library(
     name = "fibonacci",
     srcs = ["fib.py"],
     imports = ["."],
+    srcs_version = "PY3",
     visibility = ["//examples/py_native:__pkg__"],
 )

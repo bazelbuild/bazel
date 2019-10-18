@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
@@ -15,6 +16,10 @@
 # limitations under the License.
 """Creates the embedded_tools.zip that is part of the Bazel binary."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import contextlib
 import fnmatch
 import os
@@ -22,6 +27,8 @@ import os.path
 import re
 import sys
 import zipfile
+
+import six
 
 from src.create_embedded_tools_lib import copy_tar_to_zip
 from src.create_embedded_tools_lib import copy_zip_to_zip
@@ -64,7 +71,7 @@ def get_output_path(path):
   for pattern, transformer in output_paths:
     if fnmatch.fnmatch(path.replace('\\', '/'), pattern):
       # BUILD.tools are stored as BUILD files.
-      return transformer(path).replace('/BUILD.tools', '/BUILD')
+      return six.ensure_str(transformer(path)).replace('/BUILD.tools', '/BUILD')
 
 
 def get_input_files(argsfile):
@@ -106,7 +113,7 @@ def copy_jdk_into_archive(output_zip, archive_file, input_file):
   def _replace_dirname(filename):
     # Rename the first folder to 'jdk', because Bazel looks for a
     # bundled JDK in the embedded tools using that folder name.
-    return 'jdk/' + '/'.join(filename.split('/')[1:])
+    return 'jdk/' + '/'.join(six.ensure_str(filename).split('/')[1:])
 
   # The JDK is special - it's extracted instead of copied.
   if archive_file.endswith('.tar.gz'):

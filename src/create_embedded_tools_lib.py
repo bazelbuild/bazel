@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -45,7 +46,7 @@ def copy_tar_to_zip(output_zip, input_file, process_filename=None):
   """
   with tarfile.open(input_file, 'r', errorlevel=2) as tar_file:
     while True:
-      tar_entry = tar_file.next()
+      tar_entry = next(tar_file)
       if tar_entry is None:
         break
       filename = (process_filename(tar_entry.name)

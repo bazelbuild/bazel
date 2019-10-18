@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,22 +17,14 @@
 
 # pylint: disable=g-import-not-at-top,g-importing-member
 import base64
-try:
-  from http.server import BaseHTTPRequestHandler
-except ImportError:
-  # Python 2.x compatibility hack.
-  from BaseHTTPServer import BaseHTTPRequestHandler
 import os
 import os.path
-try:
-  from socketserver import TCPServer
-except ImportError:
-  # Python 2.x compatibility hack.
-  from SocketServer import TCPServer
 import random
 import socket
 import sys
 import time
+from six.moves.BaseHTTPServer import BaseHTTPRequestHandler
+from six.moves.socketserver import TCPServer
 
 
 class Handler(BaseHTTPRequestHandler):

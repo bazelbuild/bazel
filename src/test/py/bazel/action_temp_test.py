@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os
 import re
 import unittest
+import six
 from src.test.py.bazel import test_base
 
 
@@ -70,11 +75,11 @@ class ActionTempTest(test_base.TestBase):
           bazel_genfiles=bazel_genfiles,
           env_add=dict((k, tmp_dir) for k in self._TempEnvvars()))
 
-    _Impl(self.ScratchDir(strategy + '-temp-1'))
+    _Impl(self.ScratchDir(six.ensure_str(strategy) + '-temp-1'))
     # Assert that the actions pick up the current client environment.
     # Check this by invalidating the actions (update input.txt) and running
     # Bazel with a different environment.
-    _Impl(self.ScratchDir(strategy + '-temp-2'))
+    _Impl(self.ScratchDir(six.ensure_str(strategy) + '-temp-2'))
 
   def _AssertTempDir(self,
                      strategy,
@@ -204,9 +209,9 @@ class ActionTempTest(test_base.TestBase):
     pattern = re.compile(
         r'^ERROR:.*is an invalid value for.*Valid values are: (.*)$')
     for line in stderr:
-      m = pattern.match(line)
+      m = pattern.match(six.ensure_str(line))
       if m:
-        return set(e.strip() for e in m.groups()[0].split(','))
+        return set(e.strip() for e in six.ensure_str(m.groups()[0]).split(','))
     return []
 
   def _BuildRules(self,
@@ -244,8 +249,8 @@ class ActionTempTest(test_base.TestBase):
       if len(lines) != 5:
         self.fail('lines=%s' % lines)
       self.assertEqual(lines[0:3], [input_file_line, 'TMP:y', 'TEMP:y'])
-      tmp = lines[3].split('=', 1)[1]
-      temp = lines[4].split('=', 1)[1]
+      tmp = six.ensure_str(lines[3]).split('=', 1)[1]
+      temp = six.ensure_str(lines[4]).split('=', 1)[1]
       self.assertRegexpMatches(tmp, expected_tmpdir_regex)
       self.assertEqual(tmp, temp)
     else:
@@ -253,7 +258,7 @@ class ActionTempTest(test_base.TestBase):
       if len(lines) != 3:
         self.fail('lines=%s' % lines)
       self.assertEqual(lines[0:2], [input_file_line, 'foo'])
-      tmpdir = lines[2].split('=', 1)[1]
+      tmpdir = six.ensure_str(lines[2]).split('=', 1)[1]
       self.assertRegexpMatches(tmpdir, expected_tmpdir_regex)
 
 

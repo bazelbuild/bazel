@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,14 @@
 # limitations under the License.
 """Graphviz documentation converter library."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import fileinput
 import re
 import subprocess
 import sys
+import six
 
 
 class DotConverter(object):
@@ -32,10 +37,10 @@ class DotConverter(object):
     block_num = 0
 
     for line in fileinput.input():
-      if re.search(r"div class='graphviz dot'><!--", line):
+      if re.search(r"div class='graphviz dot'><!--", six.ensure_str(line)):
         collect = True
         continue
-      elif collect and re.search(r"--></div>", line):
+      elif collect and re.search(r"--></div>", six.ensure_str(line)):
         dot = subprocess.Popen(
             self.dot_command,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=self.dot_env)
@@ -53,4 +58,4 @@ class DotConverter(object):
       if collect:
         graph += str.encode(line)
       else:
-        sys.stdout.write(line)
+        sys.stdout.write(six.ensure_str(line))

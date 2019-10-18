@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os
 import unittest
+import six
 from src.test.py.bazel import test_base
 
 
@@ -565,7 +570,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
     exit_code, _, stderr = self.RunBazel(['build', '//:lib.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    def_file = bazel_bin + '/lib_B.gen.def'
+    def_file = six.ensure_str(bazel_bin) + '/lib_B.gen.def'
     self.assertTrue(os.path.exists(def_file))
     # hello_A should not be exported
     self.AssertFileContentNotContains(def_file, 'hello_A')
@@ -611,7 +616,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    filepath = bazel_bin + '/lib_dy.dll-2.params'
+    filepath = six.ensure_str(bazel_bin) + '/lib_dy.dll-2.params'
     with open(filepath, 'r', encoding='latin-1') as param_file:
       self.assertIn('/DEF:my_lib.def', param_file.read())
 
@@ -708,12 +713,15 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def createSimpleCppWorkspace(self, name):
     work_dir = self.ScratchDir(name)
-    self.ScratchFile(name + '/WORKSPACE', ['workspace(name = "%s")' % name])
     self.ScratchFile(
-        name + '/BUILD',
+        six.ensure_str(name) + '/WORKSPACE', ['workspace(name = "%s")' % name])
+    self.ScratchFile(
+        six.ensure_str(name) + '/BUILD',
         ['cc_library(name = "lib", srcs = ["lib.cc"], hdrs = ["lib.h"])'])
-    self.ScratchFile(name + '/lib.h', ['void hello();'])
-    self.ScratchFile(name + '/lib.cc', ['#include "lib.h"', 'void hello() {}'])
+    self.ScratchFile(six.ensure_str(name) + '/lib.h', ['void hello();'])
+    self.ScratchFile(
+        six.ensure_str(name) + '/lib.cc',
+        ['#include "lib.h"', 'void hello() {}'])
     return work_dir
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9172
@@ -722,10 +730,12 @@ class BazelWindowsCppTest(test_base.TestBase):
     dir_a = self.createSimpleCppWorkspace('A')
     dir_b = self.createSimpleCppWorkspace('B')
     exit_code, _, stderr = self.RunBazel(
-        ['build', '--disk_cache=' + cache_dir, ':lib'], cwd=dir_a)
+        ['build', '--disk_cache=' + six.ensure_str(cache_dir), ':lib'],
+        cwd=dir_a)
     self.AssertExitCode(exit_code, 0, stderr)
     exit_code, _, stderr = self.RunBazel(
-        ['build', '--disk_cache=' + cache_dir, ':lib'], cwd=dir_b)
+        ['build', '--disk_cache=' + six.ensure_str(cache_dir), ':lib'],
+        cwd=dir_b)
     self.AssertExitCode(exit_code, 0, stderr)
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9321

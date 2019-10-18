@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-bad-file-header
 # pylint: disable=superfluous-parens
 # Copyright 2017 The Bazel Authors. All rights reserved.
@@ -14,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import locale
 import os
 import shutil
@@ -22,6 +26,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+import six
 
 
 class Error(Exception):
@@ -119,12 +124,12 @@ class TestBase(unittest.TestCase):
 
   def AssertFileContentContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry not in f.read():
+      if six.ensure_str(entry) not in f.read():
         self.fail('File "%s" does not contain "%s"' % (file_path, entry))
 
   def AssertFileContentNotContains(self, file_path, entry):
     with open(file_path, 'r') as f:
-      if entry in f.read():
+      if six.ensure_str(entry) in f.read():
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
@@ -254,7 +259,7 @@ class TestBase(unittest.TestCase):
     with open(abspath, 'w') as f:
       if lines:
         for l in lines:
-          f.write(l)
+          f.write(six.ensure_str(l))
           f.write('\n')
     if executable:
       os.chmod(abspath, stat.S_IRWXU)
@@ -359,23 +364,23 @@ class TestBase(unittest.TestCase):
 
     self._worker_stdout.seek(0)
     stdout_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
+        six.ensure_text(l, locale.getpreferredencoding()).strip()
         for l in self._worker_stdout.readlines()
     ]
     if stdout_lines:
       print('Local remote worker stdout')
       print('--------------------------')
-      print('\n'.join(stdout_lines))
+      print(('\n'.join(stdout_lines)))
 
     self._worker_stderr.seek(0)
     stderr_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
+        six.ensure_text(l, locale.getpreferredencoding()).strip()
         for l in self._worker_stderr.readlines()
     ]
     if stderr_lines:
       print('Local remote worker stderr')
       print('--------------------------')
-      print('\n'.join(stderr_lines))
+      print(('\n'.join(stderr_lines)))
 
     shutil.rmtree(self._cas_path)
 
@@ -413,13 +418,13 @@ class TestBase(unittest.TestCase):
 
         stdout.seek(0)
         stdout_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            six.ensure_text(l, locale.getpreferredencoding()).strip()
             for l in stdout.readlines()
         ]
 
         stderr.seek(0)
         stderr_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            six.ensure_text(l, locale.getpreferredencoding()).strip()
             for l in stderr.readlines()
         ]
 

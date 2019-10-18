@@ -21,6 +21,7 @@ py_library(
     testonly = 1,
     srcs = ["test_base.py"],
     data = [":test-deps"],
+    srcs_version = "PY3",
     visibility = [
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
@@ -34,6 +35,8 @@ py_test(
     name = "action_temp_test",
     size = "medium",
     srcs = ["action_temp_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -41,6 +44,8 @@ py_test(
     name = "cc_import_test",
     size = "medium",
     srcs = ["cc_import_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -48,6 +53,8 @@ py_test(
     name = "py_test",
     size = "medium",
     srcs = ["py_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -55,6 +62,8 @@ py_test(
     name = "bazel_server_mode_test",
     size = "medium",
     srcs = ["bazel_server_mode_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -62,6 +71,8 @@ py_test(
     name = "bazel_clean_test",
     size = "medium",
     srcs = ["bazel_clean_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -70,6 +81,8 @@ py_test(
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -84,6 +97,8 @@ py_test(
         "//src/conditions:windows": "bazel_windows_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -101,6 +116,8 @@ py_test(
         "//src/conditions:windows": "bazel_windows_symlinks_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -118,6 +135,8 @@ py_test(
         "//src/conditions:windows": "windows_remote_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -128,6 +147,8 @@ py_test(
     name = "launcher_test",
     size = "medium",
     srcs = ["launcher_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -136,6 +157,8 @@ py_test(
     timeout = "long",
     srcs = ["runfiles_test.py"],
     data = glob(["testdata/runfiles_test/**"]),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [
         ":test_base",
         "//third_party/py/six",
@@ -147,6 +170,8 @@ py_test(
     timeout = "long",
     srcs = ["runfiles_sandboxed_test.py"],
     data = glob(["testdata/runfiles_test/**"]),
+    python_version = "PY3",
+    srcs_version = "PY3",
     tags = [
         # Windows does not support sandboxing yet.
         "no_windows",
@@ -165,6 +190,8 @@ py_test(
         "//src/conditions:windows": "bazel_windows_cpp_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -188,6 +215,8 @@ py_test(
         "//src/conditions:windows": "test_wrapper_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -203,6 +232,8 @@ cc_binary(
 py_test(
     name = "first_time_use_test",
     srcs = ["first_time_use_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -210,6 +241,8 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 
@@ -217,6 +250,8 @@ py_test(
     name = "genrule_test",
     size = "medium",
     srcs = ["genrule_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [":test_base"],
 )
 

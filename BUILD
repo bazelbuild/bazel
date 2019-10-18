@@ -94,6 +94,8 @@ pkg_tar(
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     visibility = ["//visibility:private"],
     deps = ["//src:create_embedded_tools_lib"],
 )
