@@ -1,22 +1,16 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
-package(
-    default_testonly = 1,
-    default_visibility = [
-        "//src/test/java/com/google/devtools/build/lib:__pkg__",
-    ],
-)
-
 licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
-    testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "Query2Tests_lib",
+    testonly = 1,
     srcs = glob(
         [
             "*.java",

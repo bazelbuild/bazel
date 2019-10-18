@@ -1239,21 +1239,6 @@ java_test(
 )
 
 java_test(
-    name = "query2-tests",
-    size = "large",
-    shard_count = 20,
-    tags = [
-        "no_windows",
-        "query2",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":test_runner",
-        "//src/test/java/com/google/devtools/build/lib/query2:Query2Tests_lib",
-    ],
-)
-
-java_test(
     name = "runtime-tests",
     srcs = glob([
         "runtime/*.java",
