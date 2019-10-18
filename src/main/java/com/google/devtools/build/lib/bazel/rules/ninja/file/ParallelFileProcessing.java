@@ -29,8 +29,6 @@ import java.util.stream.Collectors;
  * ListeningExecutorService, SeparatorPredicate)}.
  */
 public class ParallelFileProcessing {
-  private static final int BLOCK_SIZE = 25 * 1024 * 1024;
-  private static final int MIN_BLOCK_SIZE = 10 * 1024 * 1024;
   private final ReadableByteChannel channel;
   private final BlockParameters parameters;
   private final Supplier<TokenConsumer> tokenConsumerFactory;
