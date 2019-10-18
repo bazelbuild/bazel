@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
 import com.google.devtools.build.lib.syntax.ListExpression;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
@@ -144,11 +145,11 @@ public final class PackageFactory {
   // and should probably be renamed PackageFactory.RuntimeExtension, since really,
   // we're extending the Runtime with more classes.
   public interface EnvironmentExtension {
-    /** Update the global environment with the identifiers this extension contributes. */
-    void update(StarlarkThread thread);
+    /** Update the predeclared environment with the identifiers this extension contributes. */
+    void update(ImmutableMap.Builder<String, Object> env);
 
-    /** Update the global environment of WORKSPACE files. */
-    void updateWorkspace(StarlarkThread thread);
+    /** Update the predeclared environment of WORKSPACE files. */
+    void updateWorkspace(ImmutableMap.Builder<String, Object> env);
 
     /**
      * Returns the extra functions needed to be added to the Skylark native module.
@@ -1654,7 +1655,8 @@ public final class PackageFactory {
     return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
-  private void buildPkgThread(StarlarkThread pkgThread, PackageContext context) {
+  private void populateEnvironment(
+      ImmutableMap.Builder<String, Object> env, PackageContext context) {
     // TODO(bazel-team): remove the naked functions that are redundant with the nativeModule,
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common StarlarkThread.Frame for these common bindings
@@ -1670,30 +1672,24 @@ public final class PackageFactory {
           "error getting package_name or repository_name functions from the native module",
           exception);
     }
-    pkgThread
-        .setup("distribs", newDistribsFunction.apply(context))
-        .setup("glob", newGlobFunction.apply(context))
-        .setup("licenses", newLicensesFunction.apply(context))
-        .setup("exports_files", newExportsFilesFunction.apply())
-        .setup("package_group", newPackageGroupFunction.apply())
-        .setup("package", newPackageFunction(packageArguments))
-        .setup("package_name", packageNameFunction)
-        .setup("repository_name", repositoryNameFunction)
-        .setup("environment_group", newEnvironmentGroupFunction.apply(context))
-        .setup("existing_rule", newExistingRuleFunction.apply(context))
-        .setup("existing_rules", newExistingRulesFunction.apply(context));
 
-    for (Map.Entry<String, BuiltinRuleFunction> entry : ruleFunctions.entrySet()) {
-      pkgThread.setup(entry.getKey(), entry.getValue());
+    env.putAll(BazelLibrary.GLOBALS.getBindings());
+    env.put("distribs", newDistribsFunction.apply(context));
+    env.put("glob", newGlobFunction.apply(context));
+    env.put("licenses", newLicensesFunction.apply(context));
+    env.put("exports_files", newExportsFilesFunction.apply());
+    env.put("package_group", newPackageGroupFunction.apply());
+    env.put("package", newPackageFunction(packageArguments));
+    env.put("package_name", packageNameFunction);
+    env.put("repository_name", repositoryNameFunction);
+    env.put("environment_group", newEnvironmentGroupFunction.apply(context));
+    env.put("existing_rule", newExistingRuleFunction.apply(context));
+    env.put("existing_rules", newExistingRulesFunction.apply(context));
+    env.putAll(ruleFunctions);
+
+    for (EnvironmentExtension ext : environmentExtensions) {
+      ext.update(env);
     }
-
-    for (EnvironmentExtension extension : environmentExtensions) {
-      extension.update(pkgThread);
-    }
-
-    // TODO(adonovan): save this as a field in LOADING-phase BazelSkylarkContext.
-    // It needn't be a separate thread-local.
-    pkgThread.setThreadLocal(PackageContext.class, context);
   }
 
   /**
@@ -1739,15 +1735,36 @@ public final class PackageFactory {
         packageId, ruleClassProvider.getRunfilesPrefix()));
     StoredEventHandler eventHandler = new StoredEventHandler();
 
+    pkgBuilder
+        .setFilename(buildFilePath)
+        .setDefaultVisibility(defaultVisibility)
+        // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
+        // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
+        .setDefaultVisibilitySet(false)
+        .setSkylarkFileDependencies(skylarkFileDependencies)
+        .setWorkspaceName(workspaceName)
+        .setRepositoryMapping(repositoryMapping);
+
+    // Stuff that closes over the package context:
+    PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
+
+    // environment
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    populateEnvironment(env, context);
+
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
-      StarlarkThread pkgThread =
+      StarlarkThread thread =
           StarlarkThread.builder(mutability)
-              .setGlobals(BazelLibrary.GLOBALS)
+              .setGlobals(Module.createForBuiltins(env.build()))
               .setSemantics(starlarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .build();
-      SkylarkUtils.setPhase(pkgThread, Phase.LOADING);
+      SkylarkUtils.setPhase(thread, Phase.LOADING);
+
+      // TODO(adonovan): save this as a field in BazelSkylarkContext.
+      // It needn't be a third thread-local.
+      thread.setThreadLocal(PackageContext.class, context);
 
       new BazelStarlarkContext(
               ruleClassProvider.getToolsRepository(),
@@ -1755,25 +1772,12 @@ public final class PackageFactory {
               repositoryMapping,
               new SymbolGenerator<>(packageId),
               /*analysisRuleLabel=*/ null)
-          .storeInThread(pkgThread);
-
-      pkgBuilder.setFilename(buildFilePath)
-          .setDefaultVisibility(defaultVisibility)
-          // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
-          // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
-          .setDefaultVisibilitySet(false)
-          .setSkylarkFileDependencies(skylarkFileDependencies)
-          .setWorkspaceName(workspaceName)
-          .setRepositoryMapping(repositoryMapping);
+          .storeInThread(thread);
 
       Event.replayEventsOn(eventHandler, pastEvents);
       for (Postable post : pastPosts) {
         eventHandler.post(post);
       }
-
-      // Stuff that closes over the package context:
-      PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
-      buildPkgThread(pkgThread, context);
 
       if (!validatePackageIdentifier(packageId, file.getLocation(), eventHandler)) {
         pkgBuilder.setContainsErrors();
@@ -1811,7 +1815,7 @@ public final class PackageFactory {
       // Attempt validation only if the file parsed clean.
       if (file.ok()) {
         ValidationEnvironment.validateFile(
-            file, pkgThread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
+            file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
         if (!file.ok()) {
           Event.replayEventsOn(eventHandler, file.errors());
           ok = false;
@@ -1820,7 +1824,7 @@ public final class PackageFactory {
         // Attempt execution only if the file parsed, validated, and checked clean.
         if (ok) {
           try {
-            EvalUtils.exec(file, pkgThread);
+            EvalUtils.exec(file, thread);
           } catch (EvalException ex) {
             eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
             ok = false;

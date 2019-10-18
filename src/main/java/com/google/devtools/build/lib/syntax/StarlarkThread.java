@@ -789,7 +789,8 @@ public final class StarlarkThread implements Freezable {
    * @param value the value to bind to the variable
    * @return this StarlarkThread, in fluid style
    */
-  public StarlarkThread update(String varname, Object value) throws EvalException {
+  // TODO(adonovan): eliminate sole external call from EvaluationTestCase and make private.
+  public StarlarkThread update(String varname, Object value) {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
       lexicalFrame.put(varname, value);
@@ -826,7 +827,7 @@ public final class StarlarkThread implements Freezable {
    * @param value the value to bind to the variable
    * @return this StarlarkThread, in fluid style
    */
-  public StarlarkThread setup(String varname, Object value) {
+  StarlarkThread setup(String varname, Object value) {
     if (lookup(varname) != null) {
       throw new AssertionError(String.format("variable '%s' already bound", varname));
     }
@@ -841,12 +842,9 @@ public final class StarlarkThread implements Freezable {
    * @param value the value to bind to the variable
    * @return this StarlarkThread, in fluid style
    */
+  // TODO(adonovan): eliminate sole external use in SkylarkImportLookupFunction and make private.
   public StarlarkThread setupOverride(String varname, Object value) {
-    try {
-      return update(varname, value);
-    } catch (EvalException ee) {
-      throw new AssertionError(ee);
-    }
+    return update(varname, value);
   }
 
   /**
@@ -1077,11 +1075,7 @@ public final class StarlarkThread implements Freezable {
 
     Object value = bindings.get(nameInLoadedFile);
 
-    try {
-      update(symbol.getName(), value);
-    } catch (EvalException e) {
-      throw new LoadFailedException(importString);
-    }
+    update(symbol.getName(), value);
   }
 
   /**
