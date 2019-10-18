@@ -192,6 +192,7 @@ public final class RuleContext extends TargetContext
   private final RuleErrorConsumer reporter;
   @Nullable private final ResolvedToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
+  private final ImmutableSet<String> requiredConfigFragments;
 
   private ActionOwner actionOwner;
   private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
@@ -210,7 +211,8 @@ public final class RuleContext extends TargetContext
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ResolvedToolchainContext toolchainContext,
-      ConstraintSemantics constraintSemantics) {
+      ConstraintSemantics constraintSemantics,
+      ImmutableSet<String> requiredConfigFragments) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -242,6 +244,7 @@ public final class RuleContext extends TargetContext
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
+    this.requiredConfigFragments = requiredConfigFragments;
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -1219,6 +1222,10 @@ public final class RuleContext extends TargetContext
     return constraintSemantics;
   }
 
+  public ImmutableSet<String> getRequiredConfigFragments() {
+    return requiredConfigFragments;
+  }
+
   public Map<String, String> getTargetExecProperties() {
     if (isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
       return attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT);
@@ -1585,6 +1592,7 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Aspect> aspects;
     private ResolvedToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
+    private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
     @VisibleForTesting
     public Builder(
@@ -1636,7 +1644,8 @@ public final class RuleContext extends TargetContext
           actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
           toolchainContext,
-          constraintSemantics);
+          constraintSemantics,
+          requiredConfigFragments);
     }
 
     private void validateAttributes(AttributeMap attributes) {
@@ -1700,6 +1709,11 @@ public final class RuleContext extends TargetContext
 
     public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
+      return this;
+    }
+
+    public Builder setRequiredConfigFragments(ImmutableSet<String> requiredConfigFragments) {
+      this.requiredConfigFragments = requiredConfigFragments;
       return this;
     }
 

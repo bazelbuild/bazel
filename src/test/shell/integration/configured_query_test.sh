@@ -201,4 +201,198 @@ java_plugin(name = "plugin")
 EOF
 }
 
+function test_show_transitive_config_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+)
+
+cc_library(
+    name = "cclib_with_py_dep",
+    srcs = ["mylib2.cc"],
+    data = [":pylib"],
+)
+
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib .*CppConfiguration" output
+  assert_not_contains "//$pkg:cclib .*PythonConfiguration" output
+
+  assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+
+  assert_not_contains "//$pkg:pylib .*CppConfiguration" output
+  assert_contains "//$pkg:pylib .*PythonConfiguration" output
+}
+
+function test_show_transitive_config_fragments_select() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+    deps = [":cclib_with_select"]
+)
+
+config_setting(
+    name = "py_reading_condition",
+    values = {"build_python_zip": "1"})
+
+cc_library(
+    name = "cclib_with_select",
+    srcs = select({
+        ":py_reading_condition": ["version1.cc"],
+        "//conditions:default": ["version2.cc"],
+    })
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib .*CppConfiguration" output
+  assert_contains "//$pkg:cclib .*PythonOptions" output
+
+  assert_contains "//$pkg:py_reading_condition .*PythonOptions" output
+
+  assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
+}
+
+function test_show_transitive_config_fragments_alias() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib_with_py_dep",
+    srcs = ["mylib2.cc"],
+    data = [":myalias"],
+)
+
+alias(
+    name = "myalias",
+    actual = ":pylib"
+)
+
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+run_suite "${PRODUCT_NAME} configured query tests"
+
+function test_show_transitive_config_fragments_host_deps() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib_with_py_dep",
+    srcs = ["mylib2.cc"],
+    data = [":g.out"],
+)
+
+genrule(
+    name = "g",
+    srcs = [],
+    outs = ["g.out"],
+    cmd = "echo Hello! > $@",
+    tools = [":pylib"])
+
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:cclib_with_py_dep" --show_config_fragments=transitive > \
+    output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+function test_show_direct_config_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+)
+
+cc_library(
+    name = "cclib_with_py_dep",
+    srcs = ["mylib2.cc"],
+    data = [":pylib"],
+)
+
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib .*CppConfiguration" output
+  assert_not_contains "//$pkg:cclib .*PythonConfiguration" output
+
+  assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
+  assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+function test_show_direct_config_fragments_select() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib",
+    srcs = ["mylib.cc"],
+    deps = [":cclib_with_select"]
+)
+
+config_setting(
+    name = "py_reading_condition",
+    values = {"build_python_zip": "1"})
+
+cc_library(
+    name = "cclib_with_select",
+    srcs = select({
+        ":py_reading_condition": ["version1.cc"],
+        "//conditions:default": ["version2.cc"],
+    })
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib .*CppConfiguration" output
+  assert_not_contains "//$pkg:cclib .*PythonOptions" output
+
+  assert_contains "//$pkg:py_reading_condition .*PythonOptions" output
+
+  assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

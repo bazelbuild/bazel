@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -43,6 +44,8 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
@@ -113,9 +116,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     TransitiveOptionDetails optionDetails =
         BuildConfigurationOptionDetails.get(ruleContext.getConfiguration());
+    ImmutableSet.Builder<String> requiredFragmentOptions = ImmutableSet.builder();
 
     boolean nativeFlagsMatch =
-        matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
+        matchesConfig(
+            nativeFlagSettings.entries(), optionDetails, requiredFragmentOptions, ruleContext);
 
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
@@ -129,11 +134,21 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    // For config_setting, transitive and direct are the same (it has no transitive deps).
+    boolean includeRequiredFragments =
+        ruleContext
+                .getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .includeRequiredConfigFragmentsProvider
+            != IncludeConfigFragmentsEnum.OFF;
+
     ConfigMatchingProvider configMatcher =
         new ConfigMatchingProvider(
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
+            includeRequiredFragments ? requiredFragmentOptions.build() : ImmutableSet.<String>of(),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
@@ -244,10 +259,14 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   /**
    * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if flagName ==
    * flagValue for every item in the list under this configuration, false otherwise.
+   *
+   * <p>This also sets {@code requiredFragmentOptions} to the {@link FragmentOptions} that options
+   * read by this {@code config_setting} belong to.
    */
   private static boolean matchesConfig(
       Collection<Map.Entry<String, String>> expectedSettings,
       TransitiveOptionDetails options,
+      ImmutableSet.Builder<String> requiredFragmentOptions,
       RuleContext ruleContext) {
     // Rather than returning fast when we find a mismatch, continue looking at the other flags
     // to check they're indeed valid flag specifications.
@@ -271,6 +290,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         foundMismatch = true;
         continue;
       }
+      requiredFragmentOptions.add(optionClass.getSimpleName());
 
       SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
       if (selectRestriction != null) {

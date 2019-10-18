@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -103,6 +106,25 @@ public final class RuleConfiguredTargetBuilder {
     }
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
+    }
+
+    if (ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .includeRequiredConfigFragmentsProvider
+        != IncludeConfigFragmentsEnum.OFF) {
+      ImmutableSet.Builder<String> requiredFragments = ImmutableSet.builder();
+      requiredFragments.addAll(ruleContext.getRequiredConfigFragments());
+      if (providersBuilder.contains(ConfigMatchingProvider.class)) {
+        // config_setting discovers extra requirements through its "values = {'some_option': ...}"
+        // references. Make sure those are included here.
+        requiredFragments.addAll(
+            providersBuilder
+                .getProvider(ConfigMatchingProvider.class)
+                .getRequiredFragmentOptions());
+      }
+      addProvider(new RequiredConfigFragmentsProvider(requiredFragments.build()));
     }
 
     NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
