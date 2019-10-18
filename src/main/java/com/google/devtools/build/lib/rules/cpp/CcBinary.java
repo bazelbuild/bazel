@@ -502,8 +502,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             linkingMode,
             cppConfiguration,
             linkType,
-            generatedDefFile,
-            customDefFile);
+            winDefFile);
 
     CcLinkingOutputs ccLinkingOutputsBinary = ccLinkingOutputsAndCcLinkingInfo.first;
 
