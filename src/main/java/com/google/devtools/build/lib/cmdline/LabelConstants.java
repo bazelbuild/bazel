@@ -34,6 +34,6 @@ public class LabelConstants {
    * fails for "Foo/BUILD" and "FOO/build". But on a case-ignoring filesystem (e.g. APFS and NTFS),
    * all of these stat calls succeed, so apparently "//Foo" and "//FOO" also exist.
    */
-  public static final boolean CHECK_CASING =
-      "1".equals(System.getProperty("bazel.check_label_casing"));
+  public static final boolean CHECK_CASING = true;  // TODO(laszlocsomor): Undo this.
+      //"1".equals(System.getProperty("bazel.check_label_casing"));
 }
