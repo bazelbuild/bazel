@@ -23,4 +23,17 @@ public class LabelConstants {
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
+
+  /**
+   * Whether Bazel should check (true) or trust (false) the casing of Labels.
+   *
+   * <p>A Package "//foo" exists if its BUILD file "foo/BUILD" exists, i.e. if stat("foo/BUILD")
+   * succeeds.
+   *
+   * <p>On a case-sensitive filesystem (e.g. Ext4), this stat() call succeeds for "foo/BUILD" and
+   * fails for "Foo/BUILD" and "FOO/build". But on a case-ignoring filesystem (e.g. APFS and NTFS),
+   * all of these stat calls succeed, so apparently "//Foo" and "//FOO" also exist.
+   */
+  public static final boolean CHECK_CASING =
+      "1".equals(System.getProperty("bazel.check_label_casing"));
 }

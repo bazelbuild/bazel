@@ -44,7 +44,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    if (LabelSemantics.getCurrent().shouldCheckCasing()) {
+    if (LabelConstants.CHECK_CASING) {
       // Note: We rely on these being interned to fast-path Label#equals.
       return INTERNER.intern(new CaseCheckingPackageIdentifier(repository, pkgName));
     } else {

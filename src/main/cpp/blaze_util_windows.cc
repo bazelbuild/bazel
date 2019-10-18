@@ -1455,4 +1455,6 @@ void EnsurePythonPathOption(std::vector<string>* options) {
   }
 }
 
+bool IsFilesytemCaseSensitive() { return false; }
+
 }  // namespace blaze

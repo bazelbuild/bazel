@@ -144,6 +144,8 @@ class WithEnvVars {
   ~WithEnvVars();
 };
 
+bool IsFilesytemCaseSensitive();
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_

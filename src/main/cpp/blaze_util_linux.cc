@@ -257,4 +257,6 @@ int32_t GetExplicitSystemLimit(const int resource) {
   return -1;
 }
 
+bool IsFilesytemCaseSensitive() { return true; }
+
 }  // namespace blaze
