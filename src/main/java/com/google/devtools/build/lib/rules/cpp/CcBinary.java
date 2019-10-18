@@ -813,8 +813,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             isLinkShared(ruleContext)
                 && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                 && CppHelper.useInterfaceSharedLibraries(
-                    cppConfiguration, ccToolchain, featureConfiguration)) 
-                    
+                    cppConfiguration, ccToolchain, featureConfiguration))
         .setFake(fake);
 
     ccLinkingHelper.setDefFile(winDefFile);
