@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2;
+package com.google.devtools.build.lib.query2.testutil;
 
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
@@ -25,15 +25,15 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryHelper;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -95,7 +95,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     return analysisHelper.getMockToolsConfig();
   }
 
-  boolean isWholeTestUniverse() {
+  public boolean isWholeTestUniverse() {
     return wholeTestUniverse;
   }
 
@@ -271,7 +271,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return packageManager;
     }
 
-    protected MockToolsConfig getMockToolsConfig() {
+    public MockToolsConfig getMockToolsConfig() {
       return mockToolsConfig;
     }
 

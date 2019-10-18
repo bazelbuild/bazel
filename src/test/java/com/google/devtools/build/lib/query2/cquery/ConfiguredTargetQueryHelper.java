@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
-import com.google.devtools.build.lib.query2.PostAnalysisQueryHelper;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
+import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
 /**
