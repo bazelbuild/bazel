@@ -628,7 +628,7 @@ public class CppLinkActionBuilder {
 
     if (pdbFileOutput != null && fake) {
       throw new RuntimeException(
-              "Pdb file output output can only be used with non-fake targets");
+              "Pdb file output can only be used with non-fake targets");
     }
 
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {

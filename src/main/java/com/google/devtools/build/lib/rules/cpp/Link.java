@@ -156,7 +156,7 @@ public abstract class Link {
             ArtifactCategory.INTERFACE_LIBRARY,
             Executable.NOT_EXECUTABLE),
 
-    /** An pdb file for dynamic library. */
+    /** A pdb file for dynamic library. */
     PDB_FILE(
             LinkerOrArchiver.LINKER,
             CppActionNames.CPP_LINK_DYNAMIC_LIBRARY,

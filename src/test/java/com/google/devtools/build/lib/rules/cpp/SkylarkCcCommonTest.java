@@ -5393,7 +5393,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testWrongSrcExtensionGivesError() throws Exception {
-      createFiles(scratch, "tools/build_defs/foo");
+    createFiles(scratch, "tools/build_defs/foo");
 
     scratch.file(
         "bar/BUILD",
