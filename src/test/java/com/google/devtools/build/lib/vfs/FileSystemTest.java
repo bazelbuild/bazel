@@ -1051,7 +1051,7 @@ public abstract class FileSystemTest {
         throw new EOFException();
       }
       numRead += stepRead;
-      if (numRead == expected) {
+      if (numRead >= expected) {
         return numRead;
       }
     }
