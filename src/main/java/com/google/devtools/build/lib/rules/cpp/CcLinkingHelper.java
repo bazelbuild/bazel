@@ -477,7 +477,7 @@ public final class CcLinkingHelper {
     if (hasBuiltDynamicLibrary || shouldCreateStaticLibraries) {
       ccLinkingOutputsBuilder.setLibraryToLink(libraryToLinkBuilder.build());
     }
-
+    
     if (emitPdbFile) {
       ccLinkingOutputsBuilder.setPdbFile(pdbFile);
     }
@@ -691,7 +691,7 @@ public final class CcLinkingHelper {
 
     pdbFile = null;
     if (emitPdbFile) {
-      pdbFile = getLinkedArtifact(LinkTargetType.PDB_FILE);
+      pdbFile = actionConstructionContext.getRelatedArtifact(linkerOutput.getRootRelativePath(), ".pdb");
     }
 
     CppLinkActionBuilder dynamicLinkActionBuilder =
