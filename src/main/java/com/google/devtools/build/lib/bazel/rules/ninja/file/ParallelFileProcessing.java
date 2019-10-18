@@ -15,65 +15,39 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.channels.ReadableByteChannel;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Parallel file processing implementation.
- * See comment to {@link #processFile(Path, Supplier, SeparatorPredicate, int, int)}.
+ * See comment to {@link #processFile(ReadableByteChannel, BlockParameters, Supplier,
+ * ListeningExecutorService, SeparatorPredicate)}.
  */
 public class ParallelFileProcessing {
   private static final int BLOCK_SIZE = 25 * 1024 * 1024;
   private static final int MIN_BLOCK_SIZE = 10 * 1024 * 1024;
-  /**
-   * Number of threads to use in parallel tokenizing; during experiments, it did not help
-   * to increase the number of threads above 25 even when the actual number of cores was
-   * much higher: the limiting factor is probably merging of fragment bounds.
-   */
-  private static final int NUM_THREADS =
-      Math.min(25, Runtime.getRuntime().availableProcessors() - 1);
-  private final Path path;
+  private final ReadableByteChannel channel;
+  private final BlockParameters parameters;
   private final Supplier<TokenConsumer> tokenConsumerFactory;
+  private final ListeningExecutorService executorService;
   private final SeparatorPredicate predicate;
-  private final int blockSize;
-  private final int numThreads;
-  private final int minBlockSize;
 
-  private ParallelFileProcessing(Path path,
-      long fileSize,
+  private ParallelFileProcessing(
+      ReadableByteChannel channel,
+      BlockParameters parameters,
       Supplier<TokenConsumer> tokenConsumerFactory,
-      SeparatorPredicate predicate,
-      int blockSize,
-      int numThreads) throws IOException {
-    this.path = path;
+      ListeningExecutorService executorService,
+      SeparatorPredicate predicate) {
+    this.channel = channel;
+    this.parameters = parameters;
     this.tokenConsumerFactory = tokenConsumerFactory;
+    this.executorService = executorService;
     this.predicate = predicate;
-    if (blockSize <= 0) {
-      blockSize = (int) Math.min(BLOCK_SIZE, fileSize);
-    }
-    this.blockSize = blockSize;
-    minBlockSize = Math.min(blockSize, MIN_BLOCK_SIZE);
-    if (numThreads <= 0) {
-      numThreads = NUM_THREADS;
-    }
-    this.numThreads = numThreads;
   }
 
   /**
@@ -108,56 +82,56 @@ public class ParallelFileProcessing {
    * Please see a comment about performance test results:
    * {@link com.google.devtools.build.lib.bazel.rules.ninja.ParallelFileProcessingTest}.
    *
-   * @param path path to file to process
+   * @param channel open {@link ReadableByteChannel} to file to process.
+   * The lifetime of the channel is outside the scope of this method.
+   * Channel should not be closed by this method.
+   * @param parameters {@link BlockParameters} with sizes of read and tokenize blocks
    * @param tokenConsumerFactory factory of {@link TokenConsumer} for further processing / parsing
+   * @param executorService executorService to use for parallel tokenization tasks
    * @param predicate predicate for separating tokens
-   * @param blockSize size of the buffer for reading from channel, -1 for using the default value.
-   * @param numThreads number of threads for parallel tokenizing, -1 for default value.
    * @throws GenericParsingException thrown by further processing in <code>tokenConsumer</code>
    * @throws IOException thrown by file reading
    */
-  public static void processFile(Path path,
+  public static void processFile(
+      ReadableByteChannel channel,
+      BlockParameters parameters,
       Supplier<TokenConsumer> tokenConsumerFactory,
-      SeparatorPredicate predicate,
-      int blockSize,
-      int numThreads)
-      throws GenericParsingException, IOException, ExecutionException, InterruptedException {
-    long size = Files.size(path);
-    new ParallelFileProcessing(path, size, tokenConsumerFactory, predicate, blockSize, numThreads)
-        .processFileImpl();
+      ListeningExecutorService executorService,
+      SeparatorPredicate predicate)
+      throws GenericParsingException, IOException, InterruptedException {
+    new ParallelFileProcessing(channel, parameters, tokenConsumerFactory, executorService,
+        predicate).processFileImpl();
   }
 
   private void processFileImpl()
-      throws InterruptedException, ExecutionException, IOException, GenericParsingException {
+      throws InterruptedException, IOException, GenericParsingException {
     TokenAssembler assembler = new TokenAssembler(tokenConsumerFactory.get(), predicate);
 
-    List<List<Pair<Integer, ByteBufferFragment>>> listOfLists;
-    try (SeekableByteChannel ch = Files.newByteChannel(path);
-        ExecutorHelper<List<Pair<Integer, ByteBufferFragment>>> service =
-            new ExecutorHelper<>(numThreads)) {
+    CollectingListFuture<List<BufferEdge>, GenericParsingException> future =
+        new CollectingListFuture<>(GenericParsingException.class);
+    List<List<BufferEdge>> listOfLists;
       int offset = 0;
       boolean keepReading = true;
       while (keepReading) {
-        ByteBuffer bb = ByteBuffer.allocateDirect(blockSize);
-        keepReading = readFromChannel(ch, bb);
+        ByteBuffer bb = ByteBuffer.allocateDirect(parameters.getReadBlockSize());
+        keepReading = readFromChannel(channel, bb);
         if (bb.position() > 0) {
           bb.flip();
-          tokenizeFragments(bb.asReadOnlyBuffer(), offset, service);
+          tokenizeFragments(bb.asReadOnlyBuffer(), offset, future);
           offset += bb.limit();
         }
       }
-      listOfLists = service.getMergedResult();
-    }
-    List<Pair<Integer, ByteBufferFragment>> fragments = listOfLists.stream()
+      listOfLists = future.getResult();
+    List<BufferEdge> fragments = listOfLists.stream()
         .flatMap(List::stream)
         .collect(Collectors.toList());
 
     assembler.wrapUp(fragments);
   }
 
-  private boolean readFromChannel(SeekableByteChannel ch, ByteBuffer bb) throws IOException {
+  private boolean readFromChannel(ReadableByteChannel ch, ByteBuffer bb) throws IOException {
     // Continue reading until we filled the minimum buffer size.
-    while (bb.position() < minBlockSize) {
+    while (bb.position() < parameters.getMinReadBlockSize()) {
       // Stop if we reached the end of stream.
       if (ch.read(bb) < 0) {
         return false;
@@ -167,41 +141,86 @@ public class ParallelFileProcessing {
   }
 
   private void tokenizeFragments(ByteBuffer bb, int offset,
-      ExecutorHelper<List<Pair<Integer, ByteBufferFragment>>> service) {
-    int fragmentSize = (int) Math.ceil((double) bb.limit() / numThreads);
+      CollectingListFuture<List<BufferEdge>, GenericParsingException> future) {
     int from = 0;
+    int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
-      int to = Math.min(bb.limit(), from + fragmentSize);
+      int to = Math.min(bb.limit(), from + blockSize);
       TokenConsumer consumer = tokenConsumerFactory.get();
       ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
-      service.accept(new BufferTokenizer(fragment, consumer, predicate, offset));
-      from += fragmentSize;
+      BufferTokenizer tokenizer = new BufferTokenizer(fragment, consumer, predicate, offset);
+      future.add(executorService.submit(tokenizer));
+      from += blockSize;
     }
   }
 
-  private static class ExecutorHelper<T> implements AutoCloseable {
-    private final List<ListenableFuture<T>> futures;
-    private final ListeningExecutorService executorService;
+  /**
+   * Sizes of blocks for reading from file and parsing for {@link ParallelFileProcessing}.
+   */
+  public static class BlockParameters {
+    private static final int READ_BLOCK_SIZE = 25 * 1024 * 1024;
+    private static final int MIN_READ_BLOCK_SIZE = 10 * 1024 * 1024;
+    private static final int TOKENIZE_BLOCK_SIZE = 1024 * 1024;
 
-    private ExecutorHelper(int numThreads) {
-      // A separate pool works better then ForkJoinTask.commonPool().
-      executorService = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numThreads,
-          new ThreadFactoryBuilder().setNameFormat("file-indexer-thread-%d").build()));
-      futures = Lists.newArrayList();
+    /**
+     * Size of the reading buffer.
+     */
+    private int readBlockSize;
+    /**
+     * Minimum size of the reading buffer - read() calls will be repeated until the reading buffer
+     * has at least minReadBlockSize bytes, only after that the contents will be passed
+     * for tokenization.
+     */
+    private int minReadBlockSize;
+    /**
+     * Size of the piece for the tokenization task.
+     * The read buffer will be split into pieces of tokenizeBlockSize size, and passed for
+     * tokenization in parallel.
+     */
+    private int tokenizeBlockSize;
+
+    /**
+     * @param fileSize size of the file we are going to parse
+     */
+    public BlockParameters(long fileSize) {
+      readBlockSize = (int) Math.min(READ_BLOCK_SIZE, fileSize);
+      minReadBlockSize = Math.min(MIN_READ_BLOCK_SIZE, (int) Math.ceil((double) fileSize / 2));
+      tokenizeBlockSize = Math.min(TOKENIZE_BLOCK_SIZE, minReadBlockSize / 4);
     }
 
-    public void accept(Callable<T> callable) {
-      futures.add(executorService.submit(callable));
+    public int getReadBlockSize() {
+      return readBlockSize;
     }
 
-    public List<T> getMergedResult()
-        throws ExecutionException, InterruptedException {
-      return Futures.allAsList(futures).get();
+    /**
+     * Sets the size of readBlockSize and adjusts other block sizes so that they together make
+     * sense.
+     */
+    public BlockParameters setReadBlockSize(int readBlockSize) {
+      if (readBlockSize > 0) {
+        this.readBlockSize = readBlockSize;
+        minReadBlockSize = Math.min(minReadBlockSize, (int) Math.ceil((double) readBlockSize / 2));
+        tokenizeBlockSize = Math.min(tokenizeBlockSize, minReadBlockSize / 4);
+      }
+      return this;
     }
 
-    @Override
-    public void close() {
-      ExecutorUtil.interruptibleShutdown(executorService);
+    public int getTokenizeBlockSize() {
+      return tokenizeBlockSize;
+    }
+
+    /**
+     * Sets tokenizeBlockSize, if it is less than readBlockSize.
+     */
+    public BlockParameters setTokenizeBlockSize(int tokenizeBlockSize) {
+      if (tokenizeBlockSize > 0 && tokenizeBlockSize <= readBlockSize) {
+        this.tokenizeBlockSize = tokenizeBlockSize;
+      }
+      return this;
+    }
+
+    public int getMinReadBlockSize() {
+      return minReadBlockSize;
     }
   }
 }

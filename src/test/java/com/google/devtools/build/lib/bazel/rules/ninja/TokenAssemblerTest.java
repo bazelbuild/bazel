@@ -17,13 +17,12 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferEdge;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenAssembler;
-import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -67,8 +66,8 @@ public class TokenAssemblerTest {
 
     assembler.wrapUp(
         Lists.newArrayList(
-            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
-            createPair(chars1.length,
+            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
+            new BufferEdge(chars1.length,
                 new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length())))
     );
 
@@ -84,15 +83,10 @@ public class TokenAssemblerTest {
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     assembler.wrapUp(
         Lists.newArrayList(
-            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
-            createPair(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2)))
+            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
+            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2)))
     );
 
     assertThat(list).isEqualTo(Arrays.asList(expected));
-  }
-
-  private static Pair<Integer, ByteBufferFragment> createPair(int offset,
-      ByteBufferFragment fragment) {
-    return Pair.of(offset + fragment.getStartIncl(), fragment);
   }
 }

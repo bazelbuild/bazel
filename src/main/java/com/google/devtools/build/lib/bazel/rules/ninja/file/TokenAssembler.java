@@ -15,10 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.Comparator;
 import java.util.List;
 
@@ -46,19 +44,18 @@ public class TokenAssembler {
 
   /**
    * Should be called after all work for processing of individual buffer fragments is complete.
-   * @param fragments list of pairs (offset from the beginning of file, buffer fragment) of
-   * the pieces on the bounds of sub-fragments.
+   * @param fragments list of {@link BufferEdge} - pieces on the bounds of sub-fragments.
    * @throws GenericParsingException thrown by delegate {@link #tokenConsumer}
    */
-  public void wrapUp(List<Pair<Integer, ByteBufferFragment>> fragments)
+  public void wrapUp(List<BufferEdge> fragments)
       throws GenericParsingException {
-    fragments.sort(Comparator.comparingInt(Pair::getFirst));
+    fragments.sort(Comparator.comparingInt(BufferEdge::getRealStartOffset));
 
     List<ByteBufferFragment> list = Lists.newArrayList();
     int previous = -1;
-    for (Pair<Integer, ByteBufferFragment> pair : fragments) {
-      int start = Preconditions.checkNotNull(pair.getFirst());
-      ByteBufferFragment fragment = Preconditions.checkNotNull(pair.getSecond());
+    for (BufferEdge edge : fragments) {
+      int start = edge.getRealStartOffset();
+      ByteBufferFragment fragment = edge.getFragment();
       if (previous >= 0 && previous != start) {
         sendMerged(list);
         list.clear();

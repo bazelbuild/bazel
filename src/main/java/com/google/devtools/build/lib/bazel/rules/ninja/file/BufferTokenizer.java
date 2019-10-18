@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -29,12 +28,11 @@ import java.util.concurrent.Callable;
  *
  * {@link ParallelFileProcessing}
  */
-public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFragment>>> {
+public class BufferTokenizer implements Callable<List<BufferEdge>> {
   private final ByteBufferFragment bufferFragment;
   private final TokenConsumer consumer;
   private final SeparatorPredicate separatorPredicate;
   private final int offset;
-  private final List<Pair<Integer, ByteBufferFragment>> fragments;
 
   /**
    * @param bufferFragment {@link ByteBufferFragment}, fragment of which should be tokenized
@@ -50,18 +48,17 @@ public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFr
     this.consumer = consumer;
     this.separatorPredicate = separatorPredicate;
     this.offset = offset;
-    fragments = Lists.newArrayList();
   }
 
   /**
-   * Returns the list of pairs (offset from the beginning of the file, fragment) of the
-   * fragments on the bounds of the current fragment, which should be potentially merged with
-   * fragments from the neighbor buffer fragments.
+   * Returns the list of {@link BufferEdge} - fragments on the bounds of the current fragment,
+   * which should be potentially merged with fragments from the neighbor buffer fragments.
    *
-   * Combined list of such fragments is passed to {@link TokenAssembler} for merging.
+   * Combined list of {@link BufferEdge} is passed to {@link TokenAssembler} for merging.
    */
   @Override
-  public List<Pair<Integer, ByteBufferFragment>> call() throws Exception {
+  public List<BufferEdge> call() throws Exception {
+    List<BufferEdge> fragments = Lists.newArrayList();
     int start = 0;
     for (int i = 0; i < bufferFragment.length() - 2; i++) {
       byte previous = bufferFragment.byteAt(i);
@@ -75,16 +72,13 @@ public class BufferTokenizer implements Callable<List<Pair<Integer, ByteBufferFr
       if (start > 0) {
         consumer.token(fragment);
       } else {
-        addFragment(fragment);
+        fragments.add(new BufferEdge(offset, fragment));
       }
       start = i + 2;
     }
     // There is always at least one byte at the bounds of the fragment.
-    addFragment(bufferFragment.subFragment(start, bufferFragment.length()));
+    ByteBufferFragment lastFragment = bufferFragment.subFragment(start, bufferFragment.length());
+    fragments.add(new BufferEdge(offset, lastFragment));
     return fragments;
-  }
-
-  private void addFragment(ByteBufferFragment fragment) {
-    fragments.add(Pair.of(offset + fragment.getStartIncl(), fragment));
   }
 }

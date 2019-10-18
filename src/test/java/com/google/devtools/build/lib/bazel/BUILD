@@ -41,6 +41,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bazel-ninja",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
