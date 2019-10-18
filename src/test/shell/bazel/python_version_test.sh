@@ -201,6 +201,19 @@ EOF
   expect_log "I am mockpy!"
 }
 
+function test_get_python_zip_file_via_output_group() {
+  touch foo.py
+  cat > BUILD <<'EOF'
+py_binary(
+  name = 'foo',
+  srcs = ['foo.py'],
+)
+EOF
+  bazel build :foo --build_python_zip=false --output_groups=python_zip_file \
+      &> $TEST_log || fail "bazel build failed"
+  [[ -f "bazel-bin/foo.zip" ]] || fail "failed to build python zip file via output group"
+}
+
 function test_pybin_can_have_different_version_pybin_as_data_dep() {
   # TODO(#8503): Fix this test for windows.
   if "$is_windows"; then
