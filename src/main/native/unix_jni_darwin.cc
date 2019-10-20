@@ -26,7 +26,9 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-#include <atomic>
+// Linting disabled for this line because for google code we could use
+// absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
+#include <mutex>  // NOLINT
 #include <string>
 
 const int PATH_MAX2 = PATH_MAX * 2;
@@ -123,33 +125,43 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
 }
 
+// Protects all of the g_sleep_state_* statics.
+// value is "leaked" intentionally because std::mutex is not trivially
+// destructible at this time, g_sleep_state_mutex is a singleton, and
+// leaking it has no consequences.
+std::mutex *g_sleep_state_mutex = new std::mutex;
+
 // Keep track of our pushes and pops of sleep state.
-static std::atomic_int g_sleep_stack;
+static int g_sleep_state_stack = 0;
 
 // Our assertion for disabling sleep.
-static IOPMAssertionID g_sleep_assertion = kIOPMNullAssertionID;
+static IOPMAssertionID g_sleep_state_assertion = kIOPMNullAssertionID;
 
 int portable_push_disable_sleep() {
-  if (g_sleep_stack++ == 0) {
-    assert(g_sleep_assertion == kIOPMNullAssertionID);
+  std::lock_guard<std::mutex> lock(*g_sleep_state_mutex);
+  assert(g_sleep_state_stack >= 0);
+  if (g_sleep_state_stack == 0) {
+    assert(g_sleep_state_assertion == kIOPMNullAssertionID);
     CFStringRef reasonForActivity = CFSTR("build.bazel");
 
     IOReturn success = IOPMAssertionCreateWithName(
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
-        &g_sleep_assertion);
+        &g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
   }
+  g_sleep_state_stack += 1;
   return 0;
 }
 
 int portable_pop_disable_sleep() {
-  int stack_value = --g_sleep_stack;
-  assert(stack_value >= 0);
-  if (stack_value == 0) {
-    assert(g_sleep_assertion != kIOPMNullAssertionID);
-    IOReturn success = IOPMAssertionRelease(g_sleep_assertion);
+  std::lock_guard<std::mutex> lock(*g_sleep_state_mutex);
+  assert(g_sleep_state_stack > 0);
+  g_sleep_state_stack -= 1;
+  if (g_sleep_state_stack == 0) {
+    assert(g_sleep_state_assertion != kIOPMNullAssertionID);
+    IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
-    g_sleep_assertion = kIOPMNullAssertionID;
+    g_sleep_state_assertion = kIOPMNullAssertionID;
   }
   return 0;
 }
