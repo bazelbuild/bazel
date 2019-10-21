@@ -27,6 +27,6 @@ $aspectInfo.getDocString()
 | Name  | Description | Type | Mandatory | Default |
 | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
 #foreach ($attribute in $aspectInfo.getAttributeList())
-| $attribute.name | #if(!$attribute.docString.isEmpty()) ${util.markdownCellFormat($attribute.docString)} #else - #end  | ${util.attributeTypeString($attribute)} | ${util.mandatoryString($attribute)} |  $attribute.defaultValue |
+| <a name="${aspectName}-${attribute.name}"></a>$attribute.name | #if(!$attribute.docString.isEmpty()) ${util.markdownCellFormat($attribute.docString)} #else - #end  | ${util.attributeTypeString($attribute)} | ${util.mandatoryString($attribute)} |  $attribute.defaultValue |
 #end
 #end

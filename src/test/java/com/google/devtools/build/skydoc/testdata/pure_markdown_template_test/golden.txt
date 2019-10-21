@@ -15,9 +15,9 @@ Small example of rule using a markdown template.
 
 | Name  | Description | Type | Mandatory | Default |
 | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| first |  This is the first attribute   | String | optional | "" |
-| second |  -   | String | optional | "2" |
+| <a name="example_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
+| <a name="example_rule-first"></a>first |  This is the first attribute   | String | optional | "" |
+| <a name="example_rule-second"></a>second |  -   | String | optional | "2" |
 
 
 <a name="#ExampleProviderInfo"></a>
@@ -35,9 +35,9 @@ Small example of provider using a markdown template.
 
 | Name  | Description |
 | :-------------: | :-------------: |
-| foo |  A string representing foo    |
-| bar |  A string representing bar    |
-| baz |  A string representing baz    |
+| <a name="ExampleProviderInfo-foo"></a>foo |  A string representing foo    |
+| <a name="ExampleProviderInfo-bar"></a>bar |  A string representing bar    |
+| <a name="ExampleProviderInfo-baz"></a>baz |  A string representing baz    |
 
 
 <a name="#example_function"></a>
@@ -55,8 +55,8 @@ Small example of function using a markdown template.
 
 | Name  | Description | Default Value |
 | :-------------: | :-------------: | :-------------: |
-| foo |  This parameter does foo related things.   |  none |
-| bar |  This parameter does bar related things.   |  <code>"bar"</code> |
+| <a name="example_function-foo"></a>foo |  This parameter does foo related things.   |  none |
+| <a name="example_function-bar"></a>bar |  This parameter does bar related things.   |  <code>"bar"</code> |
 
 
 <a name="#example_aspect"></a>
@@ -83,8 +83,8 @@ Small example of aspect using a markdown template.
 
 | Name  | Description | Type | Mandatory | Default |
 | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
-| first |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |   |
-| second |  This is the second attribute.   | String | optional |  "" |
+| <a name="example_aspect-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
+| <a name="example_aspect-first"></a>first |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |   |
+| <a name="example_aspect-second"></a>second |  This is the second attribute.   | String | optional |  "" |
 
 
