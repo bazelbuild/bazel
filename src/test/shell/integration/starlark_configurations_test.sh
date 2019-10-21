@@ -61,8 +61,14 @@ add_to_bazelrc "build --package_path=%workspace%"
 #### HELPER FXNS #######################################################
 
 function write_build_setting_bzl() {
- cat > $pkg/build_setting.bzl <<EOF
+  declare -r at_workspace="${1:-}"
+
+  cat > $pkg/provider.bzl <<EOF
 BuildSettingInfo = provider(fields = ['name', 'value'])
+EOF
+
+  cat > $pkg/build_setting.bzl <<EOF
+load("@${WORKSPACE_NAME}//$pkg:provider.bzl", "BuildSettingInfo")
 
 def _build_setting_impl(ctx):
   return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]
@@ -74,7 +80,7 @@ drink_attribute = rule(
 EOF
 
   cat > $pkg/rules.bzl <<EOF
-load("//$pkg:build_setting.bzl", "BuildSettingInfo")
+load("@${WORKSPACE_NAME}//$pkg:provider.bzl", "BuildSettingInfo")
 
 def _impl(ctx):
   _type_name = ctx.attr._type[BuildSettingInfo].name
@@ -88,8 +94,8 @@ def _impl(ctx):
 drink = rule(
   implementation = _impl,
   attrs = {
-    "_type":attr.label(default = Label("//$pkg:type")),
-    "_temp":attr.label(default = Label("//$pkg:temp")),
+    "_type":attr.label(default = Label("$at_workspace//$pkg:type")),
+    "_temp":attr.label(default = Label("$at_workspace//$pkg:temp")),
   },
   fragments = ["java"],
 )
@@ -101,8 +107,16 @@ load("//$pkg:rules.bzl", "drink")
 
 drink(name = 'my_drink')
 
-drink_attribute(name = 'type', build_setting_default = 'unknown')
-drink_attribute(name = 'temp', build_setting_default = 'unknown')
+drink_attribute(
+  name = 'type',
+  build_setting_default = 'unknown',
+  visibility = ['//visibility:public'],
+)
+drink_attribute(
+  name = 'temp',
+  build_setting_default = 'unknown',
+  visibility = ['//visibility:public'],
+)
 EOF
 }
 
@@ -127,6 +141,19 @@ function test_set_flag() {
   write_build_setting_bzl
 
   bazel build //$pkg:my_drink --//$pkg:type="coffee" \
+    --experimental_build_setting_api > output 2>"$TEST_log" \
+    || fail "Expected success"
+
+  expect_log "type=coffee"
+}
+
+function test_set_flag_with_workspace_name() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  write_build_setting_bzl "@${WORKSPACE_NAME}"
+
+  bazel build //$pkg:my_drink --@"${WORKSPACE_NAME}"//$pkg:type="coffee" \
     --experimental_build_setting_api > output 2>"$TEST_log" \
     || fail "Expected success"
 
