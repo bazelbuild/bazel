@@ -236,7 +236,7 @@ _bazel__expand_rules_in_package() {
   # otherwise we won't expand "a" to "all" in the absence of rules
   # starting with "a".)
   if [ $index -ne 1 ] && expr all : "\\($rule_prefix\\)" >/dev/null; then
-    echo "all "
+    echo "$package_name:all "
   fi
 }
 

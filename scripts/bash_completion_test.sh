@@ -180,95 +180,95 @@ test_expand_rules_in_package() {
     make_packages
 
     assert_expansion_function "expand_rules_in_package" "" label \
-    "stuff " "//video/streamer2/stuff:"
+    "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
     assert_expansion_function "expand_rules_in_package" "" label \
-    'task_lib ' 'video/streamer2:ta'
+    'video/streamer2:task_lib ' 'video/streamer2:ta'
     assert_expansion_function "expand_rules_in_package" "" label \
-    'with_special+_,=-.@~chars ' 'video/streamer2:with_s'
+    'video/streamer2:with_special+_,=-.@~chars ' 'video/streamer2:with_s'
 
     # From a different directory
     assert_expansion_function "expand_rules_in_package" "video/" label \
-    'task_lib ' 'streamer2:ta'
+    'streamer2:task_lib ' 'streamer2:ta'
     assert_expansion_function "expand_rules_in_package" "video/" label \
     '' 'video/streamer2:ta'
     assert_expansion_function "expand_rules_in_package" "video/" label \
-    'with_special+_,=-.@~chars ' 'streamer2:with_s'
+    'streamer2:with_special+_,=-.@~chars ' 'streamer2:with_s'
 
     # label should match test and non-test rules
     assert_expansion_function "expand_rules_in_package" "" label \
-    'token_bucket_test \ntoken_bucket_binary ' \
+    'video/streamer2:token_bucket_test \nvideo/streamer2:token_bucket_binary ' \
     'video/streamer2:token_bucket_'
     assert_expansion_function "expand_rules_in_package" "" label \
-    'stuff ' 'video/streamer2/stuff:s'
+    'video/streamer2/stuff:stuff ' 'video/streamer2/stuff:s'
     # Test that label does not match commented-out rules.
     assert_expansion_function "expand_rules_in_package" "" label \
     '' 'video/streamer2:comment_build_target_1o'
     assert_expansion_function "expand_rules_in_package" "" label \
-    'comment_build_target_2new ' 'video/streamer2:comment_build_target_2'
+    'video/streamer2:comment_build_target_2new ' 'video/streamer2:comment_build_target_2'
 
     # Test that 'label-test' expands only test rules.
     assert_expansion_function "expand_rules_in_package" "" label-test \
-    'token_bucket_test ' 'video/streamer2:to'
+    'video/streamer2:token_bucket_test ' 'video/streamer2:to'
 
     # Test that 'label-test' does not match commented-out rules.
     assert_expansion_function "expand_rules_in_package" "" label-test \
     '' 'video/streamer2:token_bucket_t_1o'
     assert_expansion_function "expand_rules_in_package" "" label-test \
-    'token_bucket_test ' 'video/streamer2:token_bucket_t'
+    'video/streamer2:token_bucket_test ' 'video/streamer2:token_bucket_t'
 
     # Test that :all wildcard is expanded when there is more than one
     # match.
     #
     # One match => no :all.
     assert_expansion_function "expand_rules_in_package" "" label-test \
-    'token_bucket_test ' 'video/streamer2:'
+    'video/streamer2:token_bucket_test ' 'video/streamer2:'
     # Multiple matches => :all.
     assert_expansion_function "expand_rules_in_package" "" label-test \
-       'all ' 'video/streamer2:a'
+       'video/streamer2:all ' 'video/streamer2:a'
 
     # Test that label-bin expands only non-test binary rules.
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'token_bucket_binary ' 'video/streamer2:to'
+    'video/streamer2:token_bucket_binary ' 'video/streamer2:to'
 
     # Test that label-bin expands for binary and test rules, but not library
     # with BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
     BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=true \
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'token_bucket_test \ntoken_bucket_binary ' 'video/streamer2:to'
+    'video/streamer2:token_bucket_test \nvideo/streamer2:token_bucket_binary ' 'video/streamer2:to'
 
     # Test the label-bin expands for test rules, with
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
     BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=1 \
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'token_bucket_test ' 'video/streamer2:token_bucket_t'
+    'video/streamer2:token_bucket_test ' 'video/streamer2:token_bucket_t'
 
     # Test that 'label-bin' expands only non-test binary rules when the
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is false.
     BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=false \
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'token_bucket_binary ' 'video/streamer2:to'
+    'video/streamer2:token_bucket_binary ' 'video/streamer2:to'
 
     # Test that 'label-bin' does not match commented-out rules.
     assert_expansion_function "expand_rules_in_package" "" label-bin \
     '' 'video/streamer2:comment_run_target_1o'
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'comment_run_target_2new ' 'video/streamer2:comment_run_target_2'
+    'video/streamer2:comment_run_target_2new ' 'video/streamer2:comment_run_target_2'
 
     # Test that 'label-bin' expands binaries with spaces in the build rules
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'JavaBinary ' 'video/streamer2:J'
+    'video/streamer2:JavaBinary ' 'video/streamer2:J'
 
     # Test that 'label-bin' expands targets when the name attribute is not first
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'pybin ' 'video/streamer2:py'
+    'video/streamer2:pybin ' 'video/streamer2:py'
 
     # Test that 'label-bin' expands binaries with newlines in the build rules
     assert_expansion_function "expand_rules_in_package" "" label-bin \
-    'AnotherJavaBinary ' 'video/streamer2:A'
+    'video/streamer2:AnotherJavaBinary ' 'video/streamer2:A'
 
     # Test that the expansion of rules with 'name=...' strings isn't messed up.
     assert_expansion_function "expand_rules_in_package" "" label \
-    'foo ' 'video/streamer2/names:'
+    'video/streamer2/names:foo ' 'video/streamer2/names:'
 }
 
 test_expand_package_name() {
@@ -313,28 +313,28 @@ test_expand_package_name() {
 test_expand_target_pattern() {
     make_packages
     assert_expansion_function "expand_target_pattern" "" label \
-    "stuff " "//video/streamer2/stuff:"
+    "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
 
     assert_expansion_function "expand_target_pattern" "" label \
     "//video/streamer2/stuff/\n//video/streamer2/stuff:" \
     "//video/streamer2/stu"
 
     assert_expansion_function "expand_target_pattern" "" label \
-    "stuff " "video/streamer2/stuff:"
+    "video/streamer2/stuff:stuff " "video/streamer2/stuff:"
 
     assert_expansion_function "expand_target_pattern" "" label \
     "video/streamer2/stuff/\nvideo/streamer2/stuff:" \
     "video/streamer2/stu"
 
     assert_expansion_function "expand_target_pattern" "video/" label \
-    "stuff " "streamer2/stuff:"
+    "streamer2/stuff:stuff " "streamer2/stuff:"
 
     assert_expansion_function "expand_target_pattern" "video/" label \
     "streamer2/stuff/\nstreamer2/stuff:" \
     "streamer2/stu"
 
     assert_expansion_function "expand_target_pattern" "video/" label \
-    "stuff " "//video/streamer2/stuff:"
+    "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
 
     assert_expansion_function "expand_target_pattern" "video/" label \
     "//video/streamer2/stuff/\n//video/streamer2/stuff:" \
@@ -350,7 +350,7 @@ test_expand_target_pattern() {
 test_complete_pattern() {
   make_packages
   assert_expansion_function "complete_pattern" "" label \
-      "stuff " "//video/streamer2/stuff:"
+      "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
 
   assert_expansion_function "complete_pattern" "" label \
       "//video/streamer2/stuff/\n//video/streamer2/stuff:" \
@@ -377,21 +377,21 @@ test_complete_pattern() {
 
   # Assert label expansion
   assert_expansion_function "complete_pattern" "" label \
-      "stuff " "//video/streamer2/stuff:"
+      "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
   assert_expansion_function "complete_pattern" "" label \
-      'task_lib ' 'video/streamer2:ta'
+      'video/streamer2:task_lib ' 'video/streamer2:ta'
   assert_expansion_function "complete_pattern" "" label \
-      'with_special+_,=-.@~chars ' 'video/streamer2:with_s'
+      'video/streamer2:with_special+_,=-.@~chars ' 'video/streamer2:with_s'
 
   # From a different directory
   assert_expansion_function "complete_pattern" "video/" label \
-      "stuff " "//video/streamer2/stuff:"
+      "//video/streamer2/stuff:stuff " "//video/streamer2/stuff:"
   assert_expansion_function "complete_pattern" "video/" label \
-      'task_lib ' 'streamer2:ta'
+      'streamer2:task_lib ' 'streamer2:ta'
   assert_expansion_function "complete_pattern" "video/" label \
       '' 'video/streamer2:ta'
   assert_expansion_function "complete_pattern" "video/" label \
-      'with_special+_,=-.@~chars ' 'streamer2:with_s'
+      'streamer2:with_special+_,=-.@~chars ' 'streamer2:with_s'
 }
 
 #### TESTS #############################################################
@@ -432,11 +432,17 @@ test_query_options() {
                      'query --output='
 
     # Basic label expansion works for query, too.
+
+    # In actual bash, `complete` trims part of parameter before colon(:),
+    # but this kind of behavior could not be handled by our `expand` function.
+    # So in testcases the package names are repeated if there is a colon
+    # in the parameter to be expanded.
+
     make_packages
     assert_expansion 'query video/streamer2:ta' \
-                     'query video/streamer2:task_lib '
+                     'query video/streamer2:video/streamer2:task_lib '
     assert_expansion 'query //video/streamer2:ta'\
-                     'query //video/streamer2:task_lib '
+                     'query //video/streamer2://video/streamer2:task_lib '
 }
 
 test_run_options() {
@@ -538,40 +544,40 @@ test_target_expansion() {
     # beyond our ability right now.
 
     assert_expansion 'build video/streamer2:ta' \
-                     'build video/streamer2:task_lib '
+                     'build video/streamer2:video/streamer2:task_lib '
 
     # Special characters
     assert_expansion 'build video/streamer2:with_s' \
-                     'build video/streamer2:with_special+_,=-.@~chars '
+                     'build video/streamer2:video/streamer2:with_special+_,=-.@~chars '
 
     # Also, that 'bazel build' matches test and non-test rules (lack
     # of trailing space after match => not unique match).
     assert_expansion 'build video/streamer2:to' \
-                     'build video/streamer2:token_bucket'
+                     'build video/streamer2:video/streamer2:token_bucket'
 
     assert_expansion 'build video/streamer2/s' \
                      'build video/streamer2/stuff'
 
     assert_expansion 'build video/streamer2/stuff:s' \
-                     'build video/streamer2/stuff:stuff '
+                     'build video/streamer2/stuff:video/streamer2/stuff:stuff '
 
     # Test that 'bazel build' does not match commented-out rules.
     assert_expansion 'build video/streamer2:comment_build_target_1o' \
                      'build video/streamer2:comment_build_target_1o'
 
     assert_expansion 'build video/streamer2:comment_build_target_2' \
-                     'build video/streamer2:comment_build_target_2new '
+                     'build video/streamer2:video/streamer2:comment_build_target_2new '
 
     # Test that 'bazel test' expands only test rules.
     assert_expansion 'test video/streamer2:to' \
-                     'test video/streamer2:token_bucket_test '
+                     'test video/streamer2:video/streamer2:token_bucket_test '
 
     # Test that 'blaze test' does not match commented-out rules.
     assert_expansion 'test video/streamer2:token_bucket_t_1o' \
                      'test video/streamer2:token_bucket_t_1o'
 
     assert_expansion 'test video/streamer2:token_bucket_t' \
-                     'test video/streamer2:token_bucket_test '
+                     'test video/streamer2:video/streamer2:token_bucket_test '
 
     assert_expansion_error_not_contains 'test video/streamer2:match' \
                                         'syntax error'
@@ -581,49 +587,49 @@ test_target_expansion() {
     #
     # One match => no :all.
     assert_expansion 'test video/streamer2:' \
-                     'test video/streamer2:token_bucket_test '
+                     'test video/streamer2:video/streamer2:token_bucket_test '
     # Multiple matches => :all.
     assert_expansion 'build video/streamer2:a' \
-                     'build video/streamer2:all '
+                     'build video/streamer2:video/streamer2:all '
 
     # Test that 'bazel run' expands only non-test binary rules.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_binary '
+                     'run video/streamer2:video/streamer2:token_bucket_binary '
 
     # Test that 'bazel run' expands for binary and test rules, but not library
     # with BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_' \
+                     'run video/streamer2:video/streamer2:token_bucket_' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=true'
 
     # Test the 'bazel run' expands for test rules, with
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN set.
     assert_expansion 'run video/streamer2:token_bucket_t' \
-                     'run video/streamer2:token_bucket_test ' \
+                     'run video/streamer2:video/streamer2:token_bucket_test ' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=1'
 
     # Test that 'bazel run' expands only non-test binary rules when the
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is false.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_binary ' \
+                     'run video/streamer2:video/streamer2:token_bucket_binary ' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=false'
 
     # Test that 'bazel run' expands only non-test binary rules when the
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is false.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_binary ' \
+                     'run video/streamer2:video/streamer2:token_bucket_binary ' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=0'
 
     # Test that 'bazel run' expands only non-test binary rules when the
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is invalid.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_binary ' \
+                     'run video/streamer2:video/streamer2:token_bucket_binary ' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN=junk'
 
     # Test that 'bazel run' expands only non-test binary rules when the
     # BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is empty.
     assert_expansion 'run video/streamer2:to' \
-                     'run video/streamer2:token_bucket_binary ' \
+                     'run video/streamer2:video/streamer2:token_bucket_binary ' \
                      'BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN='
 
     # Test that 'bazel run' does not match commented-out rules.
@@ -631,28 +637,28 @@ test_target_expansion() {
                      'run video/streamer2:comment_run_target_1o'
 
     assert_expansion 'run video/streamer2:comment_run_target_2' \
-                     'run video/streamer2:comment_run_target_2new '
+                     'run video/streamer2:video/streamer2:comment_run_target_2new '
 
     # Test that 'bazel run' expands binaries with spaces in the build rules
     assert_expansion 'run video/streamer2:J' \
-                     'run video/streamer2:JavaBinary '
+                     'run video/streamer2:video/streamer2:JavaBinary '
 
     # Test that 'bazel run' expands targets when the name attribute is not first
     assert_expansion 'run video/streamer2:py' \
-                     'run video/streamer2:pybin '
+                     'run video/streamer2:video/streamer2:pybin '
 
     # Test that 'bazel run' expands binaries with newlines in the build rules
     assert_expansion 'run video/streamer2:A' \
-                     'run video/streamer2:AnotherJavaBinary '
+                     'run video/streamer2:video/streamer2:AnotherJavaBinary '
 
     # Test that the expansion of rules with 'name=...' strings isn't messed up.
     assert_expansion 'build video/streamer2/names:' \
-                     'build video/streamer2/names:foo '
+                     'build video/streamer2/names:video/streamer2/names:foo '
 
     # Test that dashes are matched even when locale isn't C.
     LC_ALL=en_US.UTF-8 \
     assert_expansion 'build dash:m' \
-                     'build dash:mia-bid-multiplier-mixer-module '
+                     'build dash:dash:mia-bid-multiplier-mixer-module '
 }
 
 test_target_expansion_in_subdir() {
@@ -663,16 +669,16 @@ test_target_expansion_in_subdir() {
 
     # Relative labels:
     assert_expansion 'build streamer2:ta' \
-                     'build streamer2:task_lib '
+                     'build streamer2:streamer2:task_lib '
 
     assert_expansion 'build streamer2:to' \
-                     'build streamer2:token_bucket'
+                     'build streamer2:streamer2:token_bucket'
 
     assert_expansion 'build streamer2/s' \
                      'build streamer2/stuff'
 
     assert_expansion 'build streamer2/stuff:s' \
-                     'build streamer2/stuff:stuff '
+                     'build streamer2/stuff:streamer2/stuff:stuff '
 
     # (no match)
     assert_expansion 'build video/streamer2:ta' \
@@ -680,7 +686,7 @@ test_target_expansion_in_subdir() {
 
     # Absolute labels work as usual:
     assert_expansion 'build //video/streamer2:ta' \
-                     'build //video/streamer2:task_lib '
+                     'build //video/streamer2://video/streamer2:task_lib '
 }
 
 test_target_expansion_in_package() {
@@ -690,14 +696,14 @@ test_target_expansion_in_package() {
     cd video/streamer2 2>/dev/null
 
     assert_expansion 'build :ta' \
-                     'build :task_lib '
+                     'build ::task_lib '
 
     assert_expansion 'build :to' \
-                     'build :token_bucket'
+                     'build ::token_bucket'
 
     # allow slashes in rule names
     assert_expansion 'build :checks/th' \
-                     'build :checks/thingy '
+                     'build ::checks/thingy '
 
     assert_expansion 'build s' \
                      'build stuff'
