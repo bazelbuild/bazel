@@ -706,7 +706,9 @@ public abstract class FileSystem {
    *
    * @throws IOException if there was an error opening the file for reading
    */
-  protected abstract ReadableByteChannel createChannel(Path path) throws IOException;
+  protected ReadableByteChannel createChannel(Path path) throws IOException {
+    throw new UnsupportedOperationException();
+  }
 
   /**
    * Creates an OutputStream accessing the file denoted by path.

@@ -999,14 +999,14 @@ public abstract class FileSystemTest {
   @Test
   public void testFileChannelEOF() throws Exception {
     try (OutputStream outStream = xFile.getOutputStream()) {
-      outStream.write(1);
+      outStream.write(new byte[]{1});
     }
 
     try (ReadableByteChannel channel = xFile.createChannel()) {
       ByteBuffer buffer = ByteBuffer.allocate(2);
       int numRead = readFromChannel(channel, buffer, 1);
       assertThat(numRead).isEqualTo(1);
-      assertThat(channel.read(buffer)).isEqualTo(-1);
+      assertThat(readFromChannel(channel, buffer, 1)).isEqualTo(-1);
     }
   }
 
@@ -1048,7 +1048,7 @@ public abstract class FileSystemTest {
     for (int i = 0; i < 100; i++) {
       int stepRead = channel.read(buffer);
       if (stepRead < 0) {
-        throw new EOFException();
+        return stepRead;
       }
       numRead += stepRead;
       if (numRead >= expected) {

@@ -72,10 +72,17 @@ public class InMemoryFileInfo extends FileInfo {
   @Override
   public ReadableByteChannel createChannel() {
     return new ReadableByteChannel() {
+      private int offset = 0;
+
       @Override
       public int read(ByteBuffer dst) {
-        dst.put(content);
-        return dst.limit();
+        if (offset >= content.length) {
+          return -1;
+        }
+        int length = Math.min(dst.remaining(), content.length - offset);
+        dst.put(content, offset, length);
+        offset += length;
+        return length;
       }
 
       @Override
