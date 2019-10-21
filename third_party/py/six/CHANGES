@@ -3,6 +3,38 @@ Changelog for six
 
 This file lists the changes in each six version.
 
+1.12.0
+------
+
+- Issue #259, pull request #260: `six.add_metaclass` now preserves
+  `__qualname__` from the original class.
+
+- Pull request #204: Add `six.ensure_binary`, `six.ensure_text`, and
+  `six.ensure_str`.
+
+1.11.0
+------
+
+- Pull request #178: `with_metaclass` now properly proxies `__prepare__` to the
+  underlying metaclass.
+
+- Pull request #191: Allow `with_metaclass` to work with metaclasses implemented
+  in C.
+
+- Pull request #203: Add parse_http_list and parse_keqv_list to moved
+  urllib.request.
+
+- Pull request #172 and issue #171: Add unquote_to_bytes to moved urllib.parse.
+
+- Pull request #167: Add `six.moves.getoutput`.
+
+- Pull request #80: Add `six.moves.urllib_parse.splitvalue`.
+
+- Pull request #75: Add `six.moves.email_mime_image`.
+
+- Pull request #72: Avoid creating reference cycles through tracebacks in
+  `reraise`.
+
 1.10.0
 ------
 
