@@ -54,6 +54,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/engine:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
