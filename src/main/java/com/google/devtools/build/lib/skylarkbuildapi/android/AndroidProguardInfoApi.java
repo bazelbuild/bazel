@@ -66,7 +66,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
-    AndroidProguardInfoApi<FileT> createInfo(SkylarkList<FileT> localProguardSpecs /* <FileT> */)
+    AndroidProguardInfoApi<FileT> createInfo(SkylarkList<?> localProguardSpecs /* <FileT> */)
         throws EvalException;
   }
 }

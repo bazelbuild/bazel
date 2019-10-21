@@ -327,7 +327,7 @@ public abstract class AndroidSkylarkData
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<String, String> manifestValues,
+      SkylarkDict<?, ?> manifestValues, // <String, String>
       SkylarkList<?> deps, // <ConfiguredTarget>
       SkylarkList<?> noCompressExtensions, // <String>
       Location location,
@@ -368,7 +368,7 @@ public abstract class AndroidSkylarkData
                   /* neverlink = */ false),
               AssetDependencies.fromProviders(
                   getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
-              manifestValues,
+              manifestValues.getContents(String.class, String.class, "manifest_values"),
               AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString),
               noCompressExtensions.getContents(String.class, "nocompress_extensions"));
 

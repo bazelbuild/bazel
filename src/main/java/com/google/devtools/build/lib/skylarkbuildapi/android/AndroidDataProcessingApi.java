@@ -651,7 +651,7 @@ public interface AndroidDataProcessingApi<
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<String, String> manifestValues,
+      SkylarkDict<?, ?> manifestValues, // <String, String>
       SkylarkList<?> deps, // <TransitiveInfoCollectionT>
       SkylarkList<?> noCompressExtensions, // <String>
       Location location,

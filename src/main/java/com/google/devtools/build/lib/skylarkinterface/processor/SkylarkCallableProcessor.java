@@ -33,7 +33,10 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import javax.tools.Diagnostic;
 
 /**
@@ -54,6 +57,8 @@ import javax.tools.Diagnostic;
  *       plus the number of interpreter-supplied parameters.
  *   <li>Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes', not
  *       both.
+ *   <li>Parameters may not specify their generic types (they must use the <code>?</code> wildcard
+ *       exclusively.
  *   <li>Each parameter must be positional or named (or both).
  *   <li>Positional-only parameters must be specified before any named parameters.
  *   <li>Positional parameters must be specified before any non-positional parameters.
@@ -121,6 +126,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         verifyNotStructFieldWithParams(methodElement, annotation);
         verifyParamSemantics(methodElement, annotation);
         verifyParamFlagSemantics(methodElement, annotation);
+        verifyParamGenericTypes(methodElement);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
         verifyIfSelfCall(methodElement, annotation);
@@ -364,6 +370,26 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
                     + "0 user-supplied parameters. Expected %d extra interpreter parameters, "
                     + "but found %d total parameters.",
                 numExtraInterpreterParams, methodSignatureParams.size()));
+      }
+    }
+  }
+
+  private static void verifyParamGenericTypes(ExecutableElement methodElement)
+      throws SkylarkCallableProcessorException {
+    for (VariableElement methodParam : methodElement.getParameters()) {
+      if (methodParam.asType() instanceof DeclaredType) {
+        DeclaredType declaredType = (DeclaredType) methodParam.asType();
+        for (TypeMirror typeArg : declaredType.getTypeArguments()) {
+          if (!(typeArg instanceof WildcardType)) {
+            throw new SkylarkCallableProcessorException(
+                methodElement,
+                String.format(
+                    "Parameter %s has generic type %s, but may only wildcard type parameters are "
+                        + "allowed. Type inference in a Starlark-exposed method is unsafe. See "
+                        + "@SkylarkCallable class documentation for details.",
+                    methodParam.getSimpleName(), methodParam.asType()));
+          }
+        }
       }
     }
   }

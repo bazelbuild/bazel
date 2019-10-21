@@ -712,7 +712,9 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expand(
-      @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
+      @Nullable String expression,
+      SkylarkList<?> artifacts, // <Artifact>
+      Label labelResolver)
       throws EvalException {
     checkMutable("expand");
     try {
@@ -796,7 +798,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
+  public boolean checkPlaceholders(String template, SkylarkList<?> allowedPlaceholders) // <String>
       throws EvalException {
     checkMutable("check_placeholders");
     List<String> actualPlaceHolders = new LinkedList<>();
@@ -813,9 +815,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expandMakeVariables(
-      String attributeName, String command, final Map<String, String> additionalSubstitutions)
+      String attributeName,
+      String command,
+      SkylarkDict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException {
     checkMutable("expand_make_variables");
+    final Map<String, String> additionalSubstitutionsMap =
+        additionalSubstitutions.getContents(String.class, String.class, "additional_substitutions");
+    return expandMakeVariables(attributeName, command, additionalSubstitutionsMap);
+  }
+
+  private String expandMakeVariables(
+      String attributeName, String command, final Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             this.getRuleContext(),
@@ -824,8 +835,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             ImmutableList.of()) {
           @Override
           public String lookupVariable(String variableName) throws ExpansionException {
-            if (additionalSubstitutions.containsKey(variableName)) {
-              return additionalSubstitutions.get(variableName);
+            if (additionalSubstitutionsMap.containsKey(variableName)) {
+              return additionalSubstitutionsMap.get(variableName);
             } else {
               return super.lookupVariable(variableName);
             }
@@ -833,7 +844,6 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         };
     return ruleContext.getExpander(makeVariableContext).expand(attributeName, command);
   }
-
 
   FilesToRunProvider getExecutableRunfiles(Artifact executable) {
     return attributesCollection.getExecutableRunfilesMap().get(executable);

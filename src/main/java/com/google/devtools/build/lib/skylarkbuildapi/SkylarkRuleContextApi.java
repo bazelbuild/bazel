@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Interface for a context object given to rule implementation functions. */
@@ -377,7 +376,9 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "The label resolver."),
       })
   public String expand(
-      @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
+      @Nullable String expression,
+      SkylarkList<?> artifacts, // <FileT>
+      Label labelResolver)
       throws EvalException;
 
   @SkylarkCallable(
@@ -453,26 +454,23 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public FileApi newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException;
 
   @SkylarkCallable(
-    name = "check_placeholders",
-    documented = false,
-    parameters = {
-      @Param(
-          name = "template",
-          positional = true,
-          named = false,
-          type = String.class,
-          doc = "The template."
-      ),
-      @Param(
-          name = "allowed_placeholders",
-          positional = true,
-          named = false,
-          type = SkylarkList.class,
-          doc = "The allowed placeholders."
-      ),
-    }
-  )
-  public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
+      name = "check_placeholders",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "template",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The template."),
+        @Param(
+            name = "allowed_placeholders",
+            positional = true,
+            named = false,
+            type = SkylarkList.class,
+            doc = "The allowed placeholders."),
+      })
+  public boolean checkPlaceholders(String template, SkylarkList<?> allowedPlaceholders) // <String>
       throws EvalException;
 
   @SkylarkCallable(
@@ -497,27 +495,25 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             positional = true,
             named = false,
             type = String.class,
-            doc = "The attribute name. Used for error reporting."
-        ),
+            doc = "The attribute name. Used for error reporting."),
         @Param(
             name = "command",
             positional = true,
             named = false,
             type = String.class,
-            doc = "The expression to expand. It can contain references to "
-              + "\"Make variables\"."
-        ),
+            doc =
+                "The expression to expand. It can contain references to " + "\"Make variables\"."),
         @Param(
             name = "additional_substitutions",
             positional = true,
             named = false,
             type = SkylarkDict.class,
-            doc = "Additional substitutions to make beyond the default make variables."
-        ),
-      }
-  )
+            doc = "Additional substitutions to make beyond the default make variables."),
+      })
   public String expandMakeVariables(
-      String attributeName, String command, final Map<String, String> additionalSubstitutions)
+      String attributeName,
+      String command,
+      final SkylarkDict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException;
 
   @SkylarkCallable(

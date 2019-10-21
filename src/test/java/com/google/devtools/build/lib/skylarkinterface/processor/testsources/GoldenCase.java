@@ -221,4 +221,15 @@ public class GoldenCase {
       Location location, StarlarkThread thread, StarlarkSemantics starlarkSemantics) {
     return "dragon";
   }
+
+  @SkylarkCallable(
+      name = "method_with_list_and_dict",
+      documented = false,
+      parameters = {
+        @Param(name = "one", type = SkylarkList.class, named = true),
+        @Param(name = "two", type = SkylarkDict.class, named = true),
+      })
+  public String methodWithListandDict(SkylarkList<?> one, SkylarkDict<?, ?> two) {
+    return "bar";
+  }
 }

@@ -365,4 +365,15 @@ public final class SkylarkCallableProcessorTest {
             "Parameter 'two' may be disabled by semantic flag, "
                 + "thus valueWhenDisabled must be set");
   }
+
+  @Test
+  public void testSpecifiedGenericType() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SpecifiedGenericType.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter one has generic type "
+                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,java.lang.String>");
+  }
 }
