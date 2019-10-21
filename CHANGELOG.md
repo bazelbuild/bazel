@@ -1,3 +1,33 @@
+## Release 1.1.0 (2019-10-21)
+
+```
+Baseline: d9fe1d4078c25912427c9b2e79e115f4ee9b7ab8
+
+Cherry picks:
+
+   + 0a8071af47223989e9ba335e63b8a9595fe6f10f:
+     Upgrade java_tools to javac11-v6.1
+```
+
+Important changes:
+
+  - The query flag "--host_deps" (commonly used as "--nohost_deps")
+    has been renamed to "--tool_deps", and now also removes
+    dependencies in any execution configuration from being reported
+    in the query output. The previous flag name is deprecated and
+    will be removed in a future release.
+  - The `cc_common.{compile,link}` APIs can now be used without
+    passing the `--experimental_cc_skylark_api_enabled_packages` flag.
+  - A list of log paths will be provided in build output.
+  - Improve runfiles documentation.
+  - Improve documentation on rule outputs.
+  - BUILD/.bzl execution errors cause execution to stop, even at
+    top-level
+  - Multiple Starlark validation errors are reported in a single pass.
+  - Introduce --experimental_nested_set_as_skykey_threshold
+
+This release contains contributions from many people at Google, as well as Andrew Suffield, Austin Schuh, Bor Kae Hwang, Brian Richardson, Christy Norman, Clint Harrison, Dan Halperin, Dave Lee, David Neil, David Ostrovsky, George Gensure, Greg Estren, Greg, Jacob Parker, Jakub Bujny, John Millikin, Keith Smiley, Laurent Le Brun, marcohu, Marwan Tammam, Mostyn Bramley-Moore, Stepan Koltsov, Thi Don, Thi, Tomasz Strejczek.
+
 ## Release 1.0.0 (2019-10-10)
 
 ```
