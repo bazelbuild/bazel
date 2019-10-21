@@ -60,11 +60,6 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  @Override
-  protected ReadableByteChannel createChannel(Path path) throws IOException {
-    return Files.newByteChannel(java.nio.file.Paths.get(path.toString()));
-  }
-
   /** Returns either normal or profiled FileInputStream. */
   private InputStream createFileInputStream(Path path) throws FileNotFoundException {
     final String name = path.toString();
@@ -81,6 +76,24 @@ public abstract class AbstractFileSystem extends FileSystem {
     } else {
       // Use normal FileInputStream instance if profiler is not enabled.
       return new FileInputStream(path.toString());
+    }
+  }
+
+  @Override
+  protected ReadableByteChannel createChannel(Path path) throws IOException {
+    final String name = path.toString();
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_READ)
+        || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        // Currently, we do not proxy ReadableByteChannel for profiling.
+        return Files.newByteChannel(java.nio.file.Paths.get(name));
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      }
+    } else {
+      return Files.newByteChannel(java.nio.file.Paths.get(name));
     }
   }
 
