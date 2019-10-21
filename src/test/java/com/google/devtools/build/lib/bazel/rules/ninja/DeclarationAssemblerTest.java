@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferEdge;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenAssembler;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -32,10 +32,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link TokenAssembler}.
+ * Tests for {@link DeclarationAssembler}.
  */
 @RunWith(JUnit4.class)
-public class TokenAssemblerTest {
+public class DeclarationAssemblerTest {
   @Test
   public void testAssembleLines() throws GenericParsingException {
     // Glue two parts of the same token together
@@ -58,7 +58,7 @@ public class TokenAssemblerTest {
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
       throws GenericParsingException {
     List<String> list = Lists.newArrayList();
-    TokenAssembler assembler = new TokenAssembler(item -> list.add(item.toString()),
+    DeclarationAssembler assembler = new DeclarationAssembler(item -> list.add(item.toString()),
         NinjaSeparatorPredicate.INSTANCE);
 
     final byte[] chars1 = s1.getBytes(StandardCharsets.ISO_8859_1);
@@ -77,7 +77,7 @@ public class TokenAssemblerTest {
   private static void doSameBufferTest(String s, int start1, int end1, int start2, int end2,
       String... expected) throws GenericParsingException {
     List<String> list = Lists.newArrayList();
-    TokenAssembler assembler = new TokenAssembler(item -> list.add(item.toString()),
+    DeclarationAssembler assembler = new DeclarationAssembler(item -> list.add(item.toString()),
         NinjaSeparatorPredicate.INSTANCE);
 
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);

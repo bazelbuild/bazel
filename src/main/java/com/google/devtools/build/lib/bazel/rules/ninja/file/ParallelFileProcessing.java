@@ -31,14 +31,14 @@ import java.util.stream.Collectors;
 public class ParallelFileProcessing {
   private final ReadableByteChannel channel;
   private final BlockParameters parameters;
-  private final Supplier<TokenConsumer> tokenConsumerFactory;
+  private final Supplier<DeclarationConsumer> tokenConsumerFactory;
   private final ListeningExecutorService executorService;
   private final SeparatorPredicate predicate;
 
   private ParallelFileProcessing(
       ReadableByteChannel channel,
       BlockParameters parameters,
-      Supplier<TokenConsumer> tokenConsumerFactory,
+      Supplier<DeclarationConsumer> tokenConsumerFactory,
       ListeningExecutorService executorService,
       SeparatorPredicate predicate) {
     this.channel = channel;
@@ -52,11 +52,11 @@ public class ParallelFileProcessing {
    * Processes file in parallel: {@link java.nio.channels.FileChannel} is used to read
    * contents into a sequence of buffers.
    * Each buffer is split into chunks, which are tokenized in parallel by
-   * {@link BufferTokenizer}, using the <code>predicate</code>.
+   * {@link BufferSplitter}, using the <code>predicate</code>.
    * Fragments of tokens (on the bounds of buffer fragments) are assembled by
-   * {@link TokenAssembler}.
+   * {@link DeclarationAssembler}.
    * The resulting tokens (each can be further parsed independently) are passed to
-   * {@link TokenConsumer}.
+   * {@link DeclarationConsumer}.
    *
    * The main ideas behind this implementation are:
    *
@@ -84,7 +84,7 @@ public class ParallelFileProcessing {
    * The lifetime of the channel is outside the scope of this method.
    * Channel should not be closed by this method.
    * @param parameters {@link BlockParameters} with sizes of read and tokenize blocks
-   * @param tokenConsumerFactory factory of {@link TokenConsumer} for further processing / parsing
+   * @param tokenConsumerFactory factory of {@link DeclarationConsumer} for further processing / parsing
    * @param executorService executorService to use for parallel tokenization tasks
    * @param predicate predicate for separating tokens
    * @throws GenericParsingException thrown by further processing in <code>tokenConsumer</code>
@@ -93,7 +93,7 @@ public class ParallelFileProcessing {
   public static void processFile(
       ReadableByteChannel channel,
       BlockParameters parameters,
-      Supplier<TokenConsumer> tokenConsumerFactory,
+      Supplier<DeclarationConsumer> tokenConsumerFactory,
       ListeningExecutorService executorService,
       SeparatorPredicate predicate)
       throws GenericParsingException, IOException, InterruptedException {
@@ -103,7 +103,7 @@ public class ParallelFileProcessing {
 
   private void processFileImpl()
       throws InterruptedException, IOException, GenericParsingException {
-    TokenAssembler assembler = new TokenAssembler(tokenConsumerFactory.get(), predicate);
+    DeclarationAssembler assembler = new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
 
     CollectingListFuture<List<BufferEdge>, GenericParsingException> future =
         new CollectingListFuture<>(GenericParsingException.class);
@@ -144,9 +144,9 @@ public class ParallelFileProcessing {
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + blockSize);
-      TokenConsumer consumer = tokenConsumerFactory.get();
+      DeclarationConsumer consumer = tokenConsumerFactory.get();
       ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
-      BufferTokenizer tokenizer = new BufferTokenizer(fragment, consumer, predicate, offset);
+      BufferSplitter tokenizer = new BufferSplitter(fragment, consumer, predicate, offset);
       future.add(executorService.submit(tokenizer));
       from += blockSize;
     }

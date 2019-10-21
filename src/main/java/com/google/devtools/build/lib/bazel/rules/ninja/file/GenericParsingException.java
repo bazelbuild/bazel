@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 /**
  * Exception to be used with parallel file fragments tokenizing/parsing
- * in {@link TokenConsumer}
+ * in {@link DeclarationConsumer}
  */
 public class GenericParsingException extends Exception {
   public GenericParsingException(String message) {

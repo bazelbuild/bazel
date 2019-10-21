@@ -16,14 +16,14 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 /**
- * Generic interface to accept tokens from {@link ParallelFileProcessing}
+ * Generic interface to accept declarations from {@link ParallelFileProcessing}
  */
-public interface TokenConsumer {
+public interface DeclarationConsumer {
 
   /**
-   * Accepts a token for further processing / parsing.
+   * Accepts a declaration for further processing / parsing.
    * @param fragment fragment of {@link java.nio.ByteBuffer}
-   * @throws GenericParsingException if token processing discovered the wrong syntax
+   * @throws GenericParsingException if declaration processing discovered the wrong syntax
    */
-  void token(ByteBufferFragment fragment) throws GenericParsingException;
+  void declaration(ByteBufferFragment fragment) throws GenericParsingException;
 }

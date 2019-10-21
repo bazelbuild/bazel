@@ -21,27 +21,27 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
- * Task for tokenizing the contents of the {@link }ByteBufferFragment}
+ * Task for splitting the contents of the {@link ByteBufferFragment}
  * (with underlying {@link ByteBuffer}).
  * Intended to be called in parallel for the fragments of the {@link ByteBuffer} for lexing the
- * contents into independent logical tokens.
+ * contents into independent logical declarations.
  *
  * {@link ParallelFileProcessing}
  */
-public class BufferTokenizer implements Callable<List<BufferEdge>> {
+public class BufferSplitter implements Callable<List<BufferEdge>> {
   private final ByteBufferFragment bufferFragment;
-  private final TokenConsumer consumer;
+  private final DeclarationConsumer consumer;
   private final SeparatorPredicate separatorPredicate;
   private final int offset;
 
   /**
-   * @param bufferFragment {@link ByteBufferFragment}, fragment of which should be tokenized
-   * @param consumer token consumer
-   * @param separatorPredicate predicate for separating tokens
+   * @param bufferFragment {@link ByteBufferFragment}, fragment of which should be splitted
+   * @param consumer declaration consumer
+   * @param separatorPredicate predicate for separating declarations
    * @param offset start offset of <code>buffer</code> from the beginning of the file
    */
-  public BufferTokenizer(ByteBufferFragment bufferFragment,
-      TokenConsumer consumer,
+  public BufferSplitter(ByteBufferFragment bufferFragment,
+      DeclarationConsumer consumer,
       SeparatorPredicate separatorPredicate,
       int offset) {
     this.bufferFragment = bufferFragment;
@@ -54,7 +54,7 @@ public class BufferTokenizer implements Callable<List<BufferEdge>> {
    * Returns the list of {@link BufferEdge} - fragments on the bounds of the current fragment,
    * which should be potentially merged with fragments from the neighbor buffer fragments.
    *
-   * Combined list of {@link BufferEdge} is passed to {@link TokenAssembler} for merging.
+   * Combined list of {@link BufferEdge} is passed to {@link DeclarationAssembler} for merging.
    */
   @Override
   public List<BufferEdge> call() throws Exception {
@@ -70,7 +70,7 @@ public class BufferTokenizer implements Callable<List<BufferEdge>> {
       }
       ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 2);
       if (start > 0) {
-        consumer.token(fragment);
+        consumer.declaration(fragment);
       } else {
         fragments.add(new BufferEdge(offset, fragment));
       }

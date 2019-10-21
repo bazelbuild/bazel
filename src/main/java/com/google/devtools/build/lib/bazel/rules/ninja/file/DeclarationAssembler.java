@@ -21,31 +21,31 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * A {@link BufferTokenizer} callback interface implementation, that assembles fragments of
- * tokens (that may occur on the edges of byte buffer fragments) together and passes all tokens to
- * delegate {@link TokenConsumer}, which does further processing / parsing.
+ * A {@link BufferSplitter} callback interface implementation, that assembles fragments of
+ * declarations (that may occur on the edges of byte buffer fragments) together and passes all
+ * declarations to delegate {@link DeclarationConsumer}, which does further processing / parsing.
  */
-public class TokenAssembler {
-  private final TokenConsumer tokenConsumer;
+public class DeclarationAssembler {
+  private final DeclarationConsumer declarationConsumer;
   private final SeparatorPredicate separatorPredicate;
 
   /**
-   * @param tokenConsumer delegate token consumer for actual processing / parsing
+   * @param declarationConsumer delegate declaration consumer for actual processing / parsing
    * @param separatorPredicate predicate used to determine if two fragments should be separate
-   * tokens (in the Ninja case, if the new line starts with a space, it should be treated as a part
-   * of the previous token, i.e. the separator is longer then one symbol).
+   * declarations (in the Ninja case, if the new line starts with a space, it should be treated as a part
+   * of the previous declaration, i.e. the separator is longer then one symbol).
    */
-  public TokenAssembler(
-      TokenConsumer tokenConsumer,
+  public DeclarationAssembler(
+      DeclarationConsumer declarationConsumer,
       SeparatorPredicate separatorPredicate) {
-    this.tokenConsumer = tokenConsumer;
+    this.declarationConsumer = declarationConsumer;
     this.separatorPredicate = separatorPredicate;
   }
 
   /**
    * Should be called after all work for processing of individual buffer fragments is complete.
    * @param fragments list of {@link BufferEdge} - pieces on the bounds of sub-fragments.
-   * @throws GenericParsingException thrown by delegate {@link #tokenConsumer}
+   * @throws GenericParsingException thrown by delegate {@link #declarationConsumer}
    */
   public void wrapUp(List<BufferEdge> fragments)
       throws GenericParsingException {
@@ -86,7 +86,7 @@ public class TokenAssembler {
         if (separatorPredicate.test(lastInOld, currentInNew, nextInNew)) {
           // Add separator to the end of the accumulated sequence
           leftPart.add(sequence.subFragment(0, 1));
-          tokenConsumer.token(ByteBufferFragment.merge(leftPart));
+          declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
           leftPart.clear();
           // Cutting out the separator in the beginning
           if (sequence.length() > 1) {
@@ -97,7 +97,7 @@ public class TokenAssembler {
 
         // <symbol>\n | <non-space>
         if (separatorPredicate.test(previousInOld, lastInOld, currentInNew)) {
-          tokenConsumer.token(ByteBufferFragment.merge(leftPart));
+          declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
           leftPart.clear();
         }
       }
@@ -105,7 +105,7 @@ public class TokenAssembler {
       leftPart.add(sequence);
     }
     if (!leftPart.isEmpty()) {
-      tokenConsumer.token(ByteBufferFragment.merge(leftPart));
+      declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
     }
   }
 }

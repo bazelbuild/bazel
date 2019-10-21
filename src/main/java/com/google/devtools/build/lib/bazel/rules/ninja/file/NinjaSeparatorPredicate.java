@@ -18,9 +18,9 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 /**
  * Implementation of {@link SeparatorPredicate} for Ninja files.
  *
- * The Ninja token consists of several text lines;
- * if the line is a part of the previous token, it starts with some amount of spaces or tabs.
- * If the line is the beginning of the new token, it starts with non-space symbol.
+ * The Ninja declaration consists of several text lines;
+ * if the line is a part of the previous declaration, it starts with some amount of spaces or tabs.
+ * If the line is the beginning of the new declaration, it starts with non-space symbol.
  * Dollar symbol '$' escapes the newline, i.e. "$\nsomething" does not contain a separator.
  */
 public class NinjaSeparatorPredicate implements SeparatorPredicate {

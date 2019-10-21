@@ -21,10 +21,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferEdge;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferTokenizer;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferSplitter;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenConsumer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -34,21 +34,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link BufferTokenizer}
+ * Tests for {@link BufferSplitter}
  */
 @RunWith(JUnit4.class)
-public class BufferTokenizerTest {
+public class BufferSplitterTest {
   @Test
   public void testTokenizeSimple() throws Exception {
     List<String> list = ImmutableList.of("one", "two", "three");
 
     List<String> result = Lists.newArrayList();
-    TokenConsumer consumer = fragment -> result.add(fragment.toString());
+    DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
-    BufferTokenizer tokenizer =
-        new BufferTokenizer(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
+    BufferSplitter tokenizer =
+        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
     List<BufferEdge> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(edges.stream()
@@ -64,11 +64,11 @@ public class BufferTokenizerTest {
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
 
     List<String> result = Lists.newArrayList();
-    TokenConsumer consumer = fragment -> result.add(fragment.toString());
+    DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
 
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
-    BufferTokenizer tokenizer =
-        new BufferTokenizer(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
+    BufferSplitter tokenizer =
+        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
     List<BufferEdge> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(edges.stream()

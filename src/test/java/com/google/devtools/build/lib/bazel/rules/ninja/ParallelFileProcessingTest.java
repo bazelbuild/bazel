@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingExcept
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.TokenConsumer;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import java.io.File;
 import java.io.IOException;
@@ -110,7 +110,7 @@ public class ParallelFileProcessingTest {
       // corresponding decoded parts from there)
       long[] parallel = nTimesAvg(() -> {
         List<List<ByteBufferFragment>> list = Lists.newArrayList();
-        Supplier<TokenConsumer> factory = () -> {
+        Supplier<DeclarationConsumer> factory = () -> {
           List<ByteBufferFragment> inner = Lists.newArrayList();
           list.add(inner);
           return inner::add;
@@ -128,7 +128,7 @@ public class ParallelFileProcessingTest {
     }
   }
 
-  private static void parseFile(File file, Supplier<TokenConsumer> factory,
+  private static void parseFile(File file, Supplier<DeclarationConsumer> factory,
       @Nullable ParallelFileProcessing.BlockParameters parameters)
       throws IOException, GenericParsingException, InterruptedException {
     ListeningExecutorService service = MoreExecutors.listeningDecorator(
