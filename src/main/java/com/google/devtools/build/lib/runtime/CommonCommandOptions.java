@@ -308,6 +308,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableJsonProfileDiet;
 
   @Option(
+      name = "experimental_announce_profile_path",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, adds the JSON profile path to the log.")
+  public boolean announceProfilePath;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
