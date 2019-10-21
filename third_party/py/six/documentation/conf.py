@@ -33,7 +33,7 @@ master_doc = "index"
 
 # General information about the project.
 project = u"six"
-copyright = u"2010-2015, Benjamin Peterson"
+copyright = u"2010-2018, Benjamin Peterson"
 
 sys.path.append(os.path.abspath(os.path.join(".", "..")))
 from six import __version__ as six_version
