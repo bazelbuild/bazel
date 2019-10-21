@@ -46,6 +46,8 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
@@ -776,6 +778,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 1 of 2)"));
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
@@ -786,6 +790,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.INCOMPLETE);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.CANCELLED, null, "//standalone:empty_test (run 2 of 2)"));
+    // Check that there are no ERROR events.
+    assertThat(
+            storedEvents.getEvents().stream()
+                .filter((e) -> e.getKind() == EventKind.ERROR)
+                .collect(Collectors.toList()))
+        .isEmpty();
   }
 
   @Test
@@ -844,6 +856,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
@@ -862,6 +877,17 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 2 of 2)"));
+  }
+
+  private static void assertContainsPrefixedEvent(Iterable<Event> events, Event event) {
+    for (Event e : events) {
+      if (e.getKind() == event.getKind() && e.getMessage().startsWith(event.getMessage())) {
+        return;
+      }
+    }
+    assertThat(events).contains(event);
   }
 
   @Test
@@ -920,6 +946,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
@@ -937,5 +966,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 2 of 2)"));
   }
 }

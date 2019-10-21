@@ -425,6 +425,7 @@ public class UiEventHandler implements EventHandler {
           case ERROR:
           case FAIL:
           case WARNING:
+          case CANCELLED:
           case INFO:
           case DEBUG:
           case SUBCOMMAND:
@@ -560,6 +561,7 @@ public class UiEventHandler implements EventHandler {
         terminal.textBold();
         break;
       case WARNING:
+      case CANCELLED:
         terminal.setTextColor(Color.MAGENTA);
         break;
       case INFO:
