@@ -1,32 +1,28 @@
-## Release 1.1.0 (2019-10-21)
+## Release 1.0.1 (2019-10-21)
 
 ```
-Baseline: d9fe1d4078c25912427c9b2e79e115f4ee9b7ab8
+Baseline: 97a82646dadd93bf52d47828bda42e3383b657c6
 
 Cherry picks:
 
-   + 0a8071af47223989e9ba335e63b8a9595fe6f10f:
-     Upgrade java_tools to javac11-v6.1
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+   + ada2c55dcc106cd55bafbbe5d9a966e21e4770e0:
+     Add explicit --sdk argument to xcrun calls
+   + 847df729528f6e5919ec8374247eadf792cba544:
+     toolchain_vanilla: Unset source and target language level
+     versions
+   + 5cfa0303d6ac3b5bd031ff60272ce80a704af8c2:
+     Update java_tools version to javac11-v5.1.
+   + 9c257df5b9b1de5459fc066e77c435ae085957a7:
+     Release 1.0.0 (2019-10-10)
+   + f7a31b30f5319639c36a6c6b1c14f358597d98d2:
+     Prevent action-cache duplicate suppression
+   + 618e5a28f7f735c37724377b15775a4975349c74:
+     Use FileSystemUtils.moveFile instead of renameTo function of Path
 ```
 
-Important changes:
-
-  - The query flag "--host_deps" (commonly used as "--nohost_deps")
-    has been renamed to "--tool_deps", and now also removes
-    dependencies in any execution configuration from being reported
-    in the query output. The previous flag name is deprecated and
-    will be removed in a future release.
-  - The `cc_common.{compile,link}` APIs can now be used without
-    passing the `--experimental_cc_skylark_api_enabled_packages` flag.
-  - A list of log paths will be provided in build output.
-  - Improve runfiles documentation.
-  - Improve documentation on rule outputs.
-  - BUILD/.bzl execution errors cause execution to stop, even at
-    top-level
-  - Multiple Starlark validation errors are reported in a single pass.
-  - Introduce --experimental_nested_set_as_skykey_threshold
-
-This release contains contributions from many people at Google, as well as Andrew Suffield, Austin Schuh, Bor Kae Hwang, Brian Richardson, Christy Norman, Clint Harrison, Dan Halperin, Dave Lee, David Neil, David Ostrovsky, George Gensure, Greg Estren, Greg, Jacob Parker, Jakub Bujny, John Millikin, Keith Smiley, Laurent Le Brun, marcohu, Marwan Tammam, Mostyn Bramley-Moore, Stepan Koltsov, Thi Don, Thi, Tomasz Strejczek.
+This release contains contributions from many people at Google, as well as David Ostrovsky, George Gensure, Keith Smiley.
 
 ## Release 1.0.0 (2019-10-10)
 
