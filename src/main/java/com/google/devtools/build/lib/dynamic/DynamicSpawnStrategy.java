@@ -172,7 +172,8 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    *     reference if this is the first time this method is called. If not null, we expect the value
    *     referenced by this to be different than {@code cancellingStrategy}, or else we have a bug.
    * @throws InterruptedException if we get interrupted for any reason trying to cancel the future
-   *     or if we lost a race against another strategy trying to cancel us
+   * @throws DynamicInterruptedException if we lost a race against another strategy trying to cancel
+   *     us
    */
   private static void stopBranch(
       Future<List<SpawnResult>> branch,
@@ -195,7 +196,8 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
         checkState(cancelled, "Failed to cancel other branch from %s", cancellingStrategy);
         branchDone.acquire();
       } else {
-        throw new InterruptedException("Execution stopped because other strategy finished first");
+        throw new DynamicInterruptedException(
+            "Execution stopped because other strategy finished first");
       }
     }
   }
