@@ -38,7 +38,7 @@ you don't have it installed already. Then, retrieve the sample project from
 Bazel's GitHub repository:
 
 ```
-git clone https://github.com/bazelbuild/examples/
+git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in the `examples/cpp-tutorial` directory
