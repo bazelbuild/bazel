@@ -171,7 +171,7 @@ genrule(
         --rewrite_core_library_prefix java/util/Objects \
         --rewrite_core_library_prefix java/util/Optional \
         --rewrite_core_library_prefix java/util/PrimitiveIterator \
-        --rewrite_core_library_prefix java/util/SortedSet\$$1 \
+        --rewrite_core_library_prefix java/util/SortedSet\\$$1 \
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
         --rewrite_core_library_prefix java/util/Tripwire \
@@ -182,7 +182,7 @@ genrule(
         --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
-        --emulate_core_library_interface java/util/Map\$$Entry \
+        --emulate_core_library_interface java/util/Map\\$$Entry \
         --emulate_core_library_interface java/util/Iterator \
         --emulate_core_library_interface java/util/Comparator \
         --dont_rewrite_core_library_invocation "java/util/Iterator#remove" """,
