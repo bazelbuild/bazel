@@ -16,33 +16,37 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
 /**
- * Parallel file processing implementation. See comment to {@link #processFile(ReadableByteChannel,
- * BlockParameters, Supplier, ListeningExecutorService, SeparatorPredicate)}.
+ * Parallel file processing implementation.
+ * See comment to {@link #processFile(Path, BlockParameters, AbstractDeclarationConsumerFactory,
+ * ListeningExecutorService, SeparatorPredicate)}.
  */
-public class ParallelFileProcessing {
-  private final ReadableByteChannel channel;
+public class ParallelFileProcessing<T extends DeclarationConsumer> implements Callable<Set<T>> {
+  private final Path path;
   private final BlockParameters parameters;
-  private final Supplier<DeclarationConsumer> tokenConsumerFactory;
+  private final AbstractDeclarationConsumerFactory<T> declarationParserFactory;
   private final ListeningExecutorService executorService;
   private final SeparatorPredicate predicate;
 
-  private ParallelFileProcessing(
-      ReadableByteChannel channel,
+  public ParallelFileProcessing(
+      Path path,
       BlockParameters parameters,
-      Supplier<DeclarationConsumer> tokenConsumerFactory,
+      AbstractDeclarationConsumerFactory<T> declarationParserFactory,
       ListeningExecutorService executorService,
       SeparatorPredicate predicate) {
-    this.channel = channel;
+    this.path = path;
     this.parameters = parameters;
-    this.tokenConsumerFactory = tokenConsumerFactory;
+    this.declarationParserFactory = declarationParserFactory;
     this.executorService = executorService;
     this.predicate = predicate;
   }
@@ -75,8 +79,7 @@ public class ParallelFileProcessing {
    * <p>Please see a comment about performance test results: {@link
    * com.google.devtools.build.lib.bazel.rules.ninja.ParallelFileProcessingTest}.
    *
-   * @param channel open {@link ReadableByteChannel} to file to process. The lifetime of the channel
-   *     is outside the scope of this method. Channel should not be closed by this method.
+   * @param path to the file to be processed
    * @param parameters {@link BlockParameters} with sizes of read and tokenize blocks
    * @param tokenConsumerFactory factory of {@link DeclarationConsumer} for further processing /
    *     parsing
@@ -85,41 +88,49 @@ public class ParallelFileProcessing {
    * @throws GenericParsingException thrown by further processing in <code>tokenConsumer</code>
    * @throws IOException thrown by file reading
    */
-  public static void processFile(
-      ReadableByteChannel channel,
+  public static <T extends DeclarationConsumer> void processFile(
+      Path path,
       BlockParameters parameters,
-      Supplier<DeclarationConsumer> tokenConsumerFactory,
+      AbstractDeclarationConsumerFactory<T> tokenConsumerFactory,
       ListeningExecutorService executorService,
       SeparatorPredicate predicate)
       throws GenericParsingException, IOException, InterruptedException {
-    new ParallelFileProcessing(
-            channel, parameters, tokenConsumerFactory, executorService, predicate)
-        .processFileImpl();
+    new ParallelFileProcessing<T>(
+            path, parameters, tokenConsumerFactory, executorService, predicate)
+        .call();
   }
 
-  private void processFileImpl() throws InterruptedException, IOException, GenericParsingException {
-    DeclarationAssembler assembler =
-        new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
-
-    CollectingListFuture<List<BufferEdge>, GenericParsingException> future =
-        new CollectingListFuture<>(GenericParsingException.class);
-    List<List<BufferEdge>> listOfLists;
-    int offset = 0;
-    boolean keepReading = true;
-    while (keepReading) {
-      ByteBuffer bb = ByteBuffer.allocateDirect(parameters.getReadBlockSize());
-      keepReading = readFromChannel(channel, bb);
-      if (bb.position() > 0) {
-        bb.flip();
-        tokenizeFragments(bb.asReadOnlyBuffer(), offset, future);
-        offset += bb.limit();
+  @Override
+  public Set<T> call() throws InterruptedException, IOException, GenericParsingException {
+    try (ReadableByteChannel channel = path.createChannel()) {
+      long fileSize = path.getFileSize();
+      if (fileSize < parameters.getReadBlockSize()) {
+        parameters.setReadBlockSize((int) fileSize);
       }
-    }
-    listOfLists = future.getResult();
-    List<BufferEdge> fragments =
-        listOfLists.stream().flatMap(List::stream).collect(Collectors.toList());
+      DeclarationAssembler assembler =
+          new DeclarationAssembler(declarationParserFactory.createParser(), predicate);
 
-    assembler.wrapUp(fragments);
+      CollectingListFuture<List<BufferEdge>, GenericParsingException> future =
+          new CollectingListFuture<>(GenericParsingException.class);
+      List<List<BufferEdge>> listOfLists;
+      int offset = 0;
+      boolean keepReading = true;
+      while (keepReading) {
+        ByteBuffer bb = ByteBuffer.allocateDirect(parameters.getReadBlockSize());
+        keepReading = readFromChannel(channel, bb);
+        if (bb.position() > 0) {
+          bb.flip();
+          tokenizeFragments(bb.asReadOnlyBuffer(), offset, future);
+          offset += bb.limit();
+        }
+      }
+      listOfLists = future.getResult();
+      List<BufferEdge> fragments =
+          listOfLists.stream().flatMap(List::stream).collect(Collectors.toList());
+
+      assembler.wrapUp(fragments);
+      return declarationParserFactory.getParsers();
+    }
   }
 
   private boolean readFromChannel(ReadableByteChannel ch, ByteBuffer bb) throws IOException {
@@ -141,7 +152,7 @@ public class ParallelFileProcessing {
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + blockSize);
-      DeclarationConsumer consumer = tokenConsumerFactory.get();
+      DeclarationConsumer consumer = declarationParserFactory.createParser();
       ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
       BufferSplitter tokenizer = new BufferSplitter(fragment, consumer, predicate, offset);
       future.add(executorService.submit(tokenizer));
@@ -169,11 +180,10 @@ public class ParallelFileProcessing {
      */
     private int tokenizeBlockSize;
 
-    /** @param fileSize size of the file we are going to parse */
-    public BlockParameters(long fileSize) {
-      readBlockSize = (int) Math.min(READ_BLOCK_SIZE, fileSize);
-      minReadBlockSize = Math.min(MIN_READ_BLOCK_SIZE, (int) Math.ceil((double) fileSize / 2));
-      tokenizeBlockSize = Math.min(TOKENIZE_BLOCK_SIZE, minReadBlockSize / 4);
+    public BlockParameters() {
+      readBlockSize = READ_BLOCK_SIZE;
+      minReadBlockSize = MIN_READ_BLOCK_SIZE;
+      tokenizeBlockSize = TOKENIZE_BLOCK_SIZE;
     }
 
     public int getReadBlockSize() {

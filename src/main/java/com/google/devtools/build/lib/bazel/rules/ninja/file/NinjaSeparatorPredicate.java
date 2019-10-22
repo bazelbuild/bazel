@@ -37,7 +37,10 @@ public class NinjaSeparatorPredicate implements SeparatorPredicate {
   public boolean test(byte previous, byte current, byte next) {
     return NEWLINE_BYTE == current
         && DOLLAR_BYTE != previous
-        && SPACE_BYTE != next
-        && TAB_BYTE != next;
+        && isNotSpace(next);
+  }
+
+  public static boolean isNotSpace(byte b) {
+    return SPACE_BYTE != b && TAB_BYTE != b;
   }
 }

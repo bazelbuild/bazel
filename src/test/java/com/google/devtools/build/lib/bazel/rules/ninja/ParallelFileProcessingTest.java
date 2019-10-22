@@ -24,6 +24,7 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.AbstractDeclarationConsumerFactory;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -31,16 +32,18 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredic
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.File;
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -67,6 +70,17 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ParallelFileProcessingTest {
+  private final JavaIoFileSystem fs;
+
+  public ParallelFileProcessingTest() throws DefaultHashFunctionNotSetException {
+    try {
+      DigestHashFunction.setDefault(DigestHashFunction.SHA256);
+    } catch (DigestHashFunction.DefaultAlreadySetException e) {
+      // Do nothing.
+    }
+    fs = new JavaIoFileSystem();
+  }
+
   @Test
   public void testVariant1() throws Exception {
     int limit = 2000;
@@ -98,7 +112,7 @@ public class ParallelFileProcessingTest {
     doPerformanceTest(randomFile(new Random(), 2000));
   }
 
-  private static void doPerformanceTest(File file) throws Exception {
+  private void doPerformanceTest(File file) throws Exception {
     try {
       // Currently we do not call toString() method, as it reduces performance in X times;
       // However, further parsing / conversion to string can be done differently
@@ -108,11 +122,14 @@ public class ParallelFileProcessingTest {
           nTimesAvg(
               () -> {
                 List<List<ByteBufferFragment>> list = Lists.newArrayList();
-                Supplier<DeclarationConsumer> factory =
-                    () -> {
-                      List<ByteBufferFragment> inner = Lists.newArrayList();
-                      list.add(inner);
-                      return inner::add;
+                AbstractDeclarationConsumerFactory<DeclarationConsumer> factory =
+                    new AbstractDeclarationConsumerFactory<DeclarationConsumer>() {
+                      @Override
+                      protected DeclarationConsumer createParserImpl() {
+                        ArrayList<ByteBufferFragment> inner = Lists.newArrayList();
+                        list.add(inner);
+                        return inner::add;
+                      }
                     };
                 parseFile(file, factory, null);
                 assertThat(list).isNotEmpty();
@@ -131,9 +148,9 @@ public class ParallelFileProcessingTest {
     }
   }
 
-  private static void parseFile(
+  private void parseFile(
       File file,
-      Supplier<DeclarationConsumer> factory,
+      AbstractDeclarationConsumerFactory<DeclarationConsumer> factory,
       @Nullable ParallelFileProcessing.BlockParameters parameters)
       throws IOException, GenericParsingException, InterruptedException {
     ListeningExecutorService service =
@@ -143,10 +160,10 @@ public class ParallelFileProcessingTest {
                 new ThreadFactoryBuilder()
                     .setNameFormat(ParallelFileProcessingTest.class.getSimpleName() + "-%d")
                     .build()));
-    try (SeekableByteChannel channel = java.nio.file.Files.newByteChannel(file.toPath())) {
+    try {
       ParallelFileProcessing.processFile(
-          channel,
-          parameters != null ? parameters : new BlockParameters(file.length()),
+          fs.getPath(file.getPath()),
+          parameters != null ? parameters : new BlockParameters(),
           factory,
           service,
           NinjaSeparatorPredicate.INSTANCE);
@@ -184,7 +201,7 @@ public class ParallelFileProcessingTest {
     return result;
   }
 
-  private static void doTestNumbers(int limit, int blockSize)
+  private void doTestNumbers(int limit, int blockSize)
       throws IOException, GenericParsingException, InterruptedException {
     File file = writeTestFile(limit);
     try {
@@ -192,8 +209,13 @@ public class ParallelFileProcessingTest {
       List<String> lines = Collections.synchronizedList(Lists.newArrayListWithCapacity(limit));
       parseFile(
           file,
-          () -> s -> lines.add(s.toString()),
-          new BlockParameters(file.length()).setReadBlockSize(blockSize));
+          new AbstractDeclarationConsumerFactory<DeclarationConsumer>() {
+            @Override
+            protected DeclarationConsumer createParserImpl() {
+              return s -> lines.add(s.toString());
+            }
+          },
+          new BlockParameters().setReadBlockSize(blockSize));
       // Copy to non-synchronized list for check
       assertNumbers(limit, Lists.newArrayList(lines));
     } finally {

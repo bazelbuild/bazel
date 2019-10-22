@@ -46,6 +46,11 @@ public class CollectingListFuture<T, E extends Exception> {
 
   /** Returns the list of combined results of all futures, registered with {@link #add}. */
   public List<T> getResult() throws E, InterruptedException {
+    return getListOfFuturesResult(futures, exceptionClazz);
+  }
+
+  public static <T, E extends Exception> List<T> getListOfFuturesResult(
+      List<ListenableFuture<T>> futures, Class<E> exceptionClazz) throws E, InterruptedException {
     try {
       return Futures.allAsList(futures).get();
     } catch (InterruptedException | ExecutionException e) {

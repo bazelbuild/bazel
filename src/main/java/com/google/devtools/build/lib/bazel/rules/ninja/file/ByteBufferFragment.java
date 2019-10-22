@@ -55,6 +55,18 @@ public class ByteBufferFragment {
    * @param to end index, exclusive, or the size of the buffer, if the last symbol is included
    */
   public ByteBufferFragment subFragment(int from, int to) {
+    checkSubFragmentIndexes(from, to);
+    return new ByteBufferFragment(buffer, startIncl + from, startIncl + to);
+  }
+
+  public void getBytes(byte[] dst, int from, int to) {
+    checkSubFragmentIndexes(from, to);
+    ByteBuffer copy = buffer.duplicate();
+    copy.position(startIncl + from);
+    copy.get(dst, 0, (to - from));
+  }
+
+  private void checkSubFragmentIndexes(int from, int to) {
     if (from < 0) {
       throw new IndexOutOfBoundsException(String.format("Index out of bounds: %d.", from));
     }
@@ -66,10 +78,9 @@ public class ByteBufferFragment {
       throw new IndexOutOfBoundsException(
           String.format("Start index is greater than end index: %d, %d.", from, to));
     }
-    return new ByteBufferFragment(buffer, startIncl + from, startIncl + to);
   }
 
-  byte byteAt(int index) {
+  public byte byteAt(int index) {
     if (index < 0 || index >= length()) {
       throw new IndexOutOfBoundsException(
           String.format("Index out of bounds: %d (%d, %d).", index, 0, length()));
