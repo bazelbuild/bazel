@@ -54,7 +54,7 @@ public abstract class FileInfo extends InMemoryContentInfo {
 
   public abstract InputStream getInputStream() throws IOException;
 
-  public ReadableByteChannel createChannel() throws IOException {
+  public ReadableByteChannel createReadableByteChannel() throws IOException {
     throw new UnsupportedOperationException();
   }
 

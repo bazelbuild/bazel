@@ -717,7 +717,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected ReadableByteChannel createChannel(Path path) throws IOException {
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
     synchronized (this) {
       InMemoryContentInfo status = inodeStat(path, true);
       if (status.isDirectory()) {
@@ -727,7 +727,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
         throw Error.EACCES.exception(path);
       }
       Preconditions.checkState(status instanceof FileInfo);
-      return ((FileInfo) status).createChannel();
+      return ((FileInfo) status).createReadableByteChannel();
     }
   }
 

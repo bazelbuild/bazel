@@ -175,8 +175,8 @@ public abstract class DelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected ReadableByteChannel createChannel(Path path) throws IOException {
-    return delegateFs.createChannel(toDelegatePath(path));
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+    return delegateFs.createReadableByteChannel(toDelegatePath(path));
   }
 
   @Override

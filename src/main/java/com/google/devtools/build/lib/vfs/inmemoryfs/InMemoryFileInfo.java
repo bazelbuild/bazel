@@ -69,7 +69,7 @@ public class InMemoryFileInfo extends FileInfo {
   }
 
   @Override
-  public ReadableByteChannel createChannel() {
+  public ReadableByteChannel createReadableByteChannel() {
     return new ReadableByteChannel() {
       private int offset = 0;
 
