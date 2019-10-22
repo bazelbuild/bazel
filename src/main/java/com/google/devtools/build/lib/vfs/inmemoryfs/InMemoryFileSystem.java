@@ -672,9 +672,11 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     if (isRootDirectory(path)) {
       throw Error.EBUSY.exception(path);
     }
-    if (!exists(path, false)) { return false; }
 
     synchronized (this) {
+      if (!exists(path, /*followSymlinks=*/ false)) {
+        return false;
+      }
       InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
       InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
       if (child.isDirectory() && child.getSize() > 2) {

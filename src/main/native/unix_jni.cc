@@ -14,7 +14,6 @@
 
 #include "src/main/native/unix_jni.h"
 
-#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -764,17 +763,23 @@ static void PostDeleteTreesBelowException(
     JNIEnv* env, int error, const char* function,
     const std::vector<std::string>& dir_path, const char* entry) {
   std::vector<std::string>::const_iterator iter = dir_path.begin();
-  assert(iter != dir_path.end());
-  std::string path = *iter;
-  while (++iter != dir_path.end()) {
-    path += "/";
-    path += *iter;
+  std::string path;
+  if (iter != dir_path.end()) {
+    path = *iter;
+    while (++iter != dir_path.end()) {
+      path += "/";
+      path += *iter;
+    }
+    if (entry != NULL) {
+      path += "/";
+      path += entry;
+    }
+  } else {
+    // When scanning the top-level directory given to DeleteTreesBelow, the
+    // dir_path buffer is still empty but we have the full path in entry.
+    path = entry;
   }
-  if (entry != NULL) {
-    path += "/";
-    path += entry;
-  }
-  assert(!env->ExceptionOccurred());
+  CHECK(!env->ExceptionOccurred());
   PostSystemException(env, errno, function, path.c_str());
 }
 
@@ -895,7 +900,7 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
                             const int dir_fd, const char* entry) {
   DIR *dir = ForceOpendir(env, *dir_path, dir_fd, entry);
   if (dir == NULL) {
-    assert(env->ExceptionOccurred() != NULL);
+    CHECK(env->ExceptionOccurred() != NULL);
     return -1;
   }
 
@@ -916,18 +921,18 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
 
     bool is_dir;
     if (IsSubdir(env, *dir_path, dirfd(dir), de, &is_dir) == -1) {
-      assert(env->ExceptionOccurred() != NULL);
+      CHECK(env->ExceptionOccurred() != NULL);
       break;
     }
     if (is_dir) {
       if (DeleteTreesBelow(env, dir_path, dirfd(dir), de->d_name) == -1) {
-        assert(env->ExceptionOccurred() != NULL);
+        CHECK(env->ExceptionOccurred() != NULL);
         break;
       }
     }
 
     if (ForceDelete(env, *dir_path, dirfd(dir), de->d_name, is_dir) == -1) {
-      assert(env->ExceptionOccurred() != NULL);
+      CHECK(env->ExceptionOccurred() != NULL);
       break;
     }
   }
@@ -954,9 +959,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_deleteTreesBelow(
   const char *path_chars = GetStringLatin1Chars(env, path);
   std::vector<std::string> dir_path;
   if (DeleteTreesBelow(env, &dir_path, AT_FDCWD, path_chars) == -1) {
-    assert(env->ExceptionOccurred() != NULL);
+    CHECK(env->ExceptionOccurred() != NULL);
   }
-  assert(dir_path.empty());
+  CHECK(dir_path.empty());
   ReleaseStringLatin1Chars(path_chars);
 }
 
