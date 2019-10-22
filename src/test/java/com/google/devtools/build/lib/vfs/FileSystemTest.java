@@ -32,6 +32,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.After;
@@ -857,7 +859,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowDeletesContentsOnly() throws IOException {
+  public void testDeleteTreesBelowDeletesContentsOnly() throws IOException {
     Path topDir = absolutize("top-dir");
     Path file = absolutize("top-dir/file");
     Path subdir = absolutize("top-dir/subdir");
@@ -873,7 +875,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowIgnoresMissingTopDir() throws IOException {
+  public void testDeleteTreesBelowIgnoresMissingTopDir() throws IOException {
     Path topDir = absolutize("top-dir");
 
     assertThat(topDir.exists()).isFalse();
@@ -882,7 +884,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testTreesDeletesBelowIgnoresNonDirectories() throws IOException {
+  public void testDeleteTreesBelowIgnoresNonDirectories() throws IOException {
     Path topFile = absolutize("top-file");
 
     FileSystemUtils.createEmptyFile(topFile);
@@ -890,6 +892,66 @@ public abstract class FileSystemTest {
     assertThat(topFile.exists()).isTrue();
     topFile.deleteTreesBelow(); // Expect no exception.
     assertThat(topFile.exists()).isTrue();
+  }
+
+  /**
+   * Executes {@link FileSystem#deleteTreesBelow} on {@code topDir} and tries to race its execution
+   * by deleting {@code fileToDelete} concurrently.
+   */
+  private static void deleteTreesBelowRaceTest(Path topDir, Path fileToDelete) throws Exception {
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicBoolean wonRace = new AtomicBoolean(false);
+    Thread t =
+        new Thread(
+            () -> {
+              try {
+                latch.countDown();
+                latch.await();
+                wonRace.compareAndSet(false, fileToDelete.delete());
+              } catch (IOException | InterruptedException e) {
+                // Don't care.
+              }
+            });
+    t.start();
+    try {
+      try {
+        latch.countDown();
+        latch.await();
+        topDir.deleteTreesBelow();
+      } finally {
+        t.join();
+      }
+      if (!wonRace.get()) {
+        assertThat(topDir.exists()).isTrue();
+      }
+    } catch (IOException e) {
+      if (wonRace.get()) {
+        assertThat(e).hasMessageThat().contains(fileToDelete.toString());
+        assertThat(e).hasMessageThat().contains("No such file");
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  @Test
+  public void testDeleteTreesBelowFailsGracefullyIfTreeGoesMissing() throws Exception {
+    Path topDir = absolutize("maybe-missing-dir");
+    for (int i = 0; i < 1000; i++) {
+      topDir.createDirectory();
+      deleteTreesBelowRaceTest(topDir, topDir);
+    }
+  }
+
+  @Test
+  public void testDeleteTreesBelowFailsGracefullyIfContentsGoMissing() throws Exception {
+    Path topDir = absolutize("top-dir");
+    Path file = absolutize("top-dir/maybe-missing-file");
+    for (int i = 0; i < 1000; i++) {
+      topDir.createDirectory();
+      FileSystemUtils.createEmptyFile(file);
+      deleteTreesBelowRaceTest(topDir, file);
+    }
   }
 
   // Test the date functions
