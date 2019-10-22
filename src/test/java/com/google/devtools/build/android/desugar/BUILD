@@ -2057,7 +2057,7 @@ java_library(
 genrule(
     name = "mock_bad_entry_jar",
     outs = ["mock_bad_entry.jar"],
-    cmd = """$(location //tools/zip:zipper) c $@ "j\$$/hello=" """,
+    cmd = """$(location //tools/zip:zipper) c $@ "j\\$$/hello=" """,
     tools = ["//tools/zip:zipper"],
 )
 
