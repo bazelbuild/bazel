@@ -258,6 +258,26 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_configurations_test",
+    size = "medium",
+    srcs = ["starlark_configurations_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "starlark_configurations_external_workspaces_test",
+    size = "medium",
+    srcs = ["starlark_configurations_external_workspaces_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "analysis_test_test",
     size = "medium",
     srcs = ["analysis_test_test.sh"],

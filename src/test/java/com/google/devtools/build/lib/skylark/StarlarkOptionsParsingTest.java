@@ -161,6 +161,21 @@ public class StarlarkOptionsParsingTest extends SkylarkTestCase {
     assertThat(result.getResidue()).isEmpty();
   }
 
+  // test --@workspace//flag=value
+  @Test
+  public void testFlagNameWithWorkspace() throws Exception {
+    writeBasicIntFlag();
+    rewriteWorkspace("workspace(name = 'starlark_options_test')");
+
+    OptionsParsingResult result =
+        parseStarlarkOptions("--@starlark_options_test//test:my_int_setting=666");
+
+    assertThat(result.getStarlarkOptions()).hasSize(1);
+    assertThat(result.getStarlarkOptions().get("@starlark_options_test//test:my_int_setting"))
+        .isEqualTo(666);
+    assertThat(result.getResidue()).isEmpty();
+  }
+
   // test --fake_flag=value
   @Test
   public void testBadFlag_equalsForm() throws Exception {
