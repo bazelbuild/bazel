@@ -1063,7 +1063,7 @@ public abstract class FileSystemTest {
       outStream.write(new byte[] {1});
     }
 
-    try (ReadableByteChannel channel = xFile.createChannel()) {
+    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
       ByteBuffer buffer = ByteBuffer.allocate(2);
       int numRead = readFromChannel(channel, buffer, 1);
       assertThat(numRead).isEqualTo(1);
@@ -1094,7 +1094,7 @@ public abstract class FileSystemTest {
       outStream.write(bytes);
     }
 
-    try (ReadableByteChannel channel = xFile.createChannel()) {
+    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
       ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
       int numRead = readFromChannel(channel, buffer, bytes.length);
       assertThat(numRead).isEqualTo(bytes.length);

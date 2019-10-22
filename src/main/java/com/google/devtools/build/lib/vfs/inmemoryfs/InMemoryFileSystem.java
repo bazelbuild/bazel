@@ -725,7 +725,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
         throw Error.EACCES.exception(path);
       }
       Preconditions.checkState(status instanceof FileInfo);
-      return ((FileInfo) status).createChannel();
+      return ((FileInfo) status).createReadableByteChannel();
     }
   }
 
