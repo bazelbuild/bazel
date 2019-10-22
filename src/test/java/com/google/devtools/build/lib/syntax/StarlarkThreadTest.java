@@ -175,9 +175,9 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions().setup("special_var", 42);
-    EvalUtils.exec(ParserInput.fromLines("special_var = 41"), thread);
-    assertThat(thread.moduleLookup("special_var")).isEqualTo(41);
+    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions();
+    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
+    assertThat(thread.moduleLookup("True")).isEqualTo(123);
   }
 
   @Test

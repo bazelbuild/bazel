@@ -59,12 +59,11 @@ import javax.annotation.Nullable;
  * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
  * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
  *
- * <p>One creates an StarlarkThread using the {@link #builder} function, then populates it with
- * {@link #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
- * StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained by passing a
- * {@link ValidationEnvironment} constructed from the StarlarkThread to {@link StarlarkFile#parse}.
- * When the computation is over, the frozen StarlarkThread can still be queried with {@link
- * #lookup}.
+ * <p>One creates an StarlarkThread using the {@link #builder} function, before evaluating code in
+ * it with {@link StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained
+ * by passing a {@link ValidationEnvironment} constructed from the StarlarkThread to {@link
+ * StarlarkFile#parse}. When the computation is over, the frozen StarlarkThread can still be queried
+ * with {@link #lookup}.
  */
 // TODO(adonovan): further steps for StarlarkThread remediation:
 // Its API should expose the following concepts, and no more:
@@ -817,34 +816,6 @@ public final class StarlarkThread implements Freezable {
     } catch (MutabilityException ex) {
       throw new IllegalStateException(ex);
     }
-  }
-
-  /**
-   * Initializes a binding in this StarlarkThread. It is an error if the variable is already bound.
-   * This is not for end-users, and will throw an AssertionError in case of conflict.
-   *
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this StarlarkThread, in fluid style
-   */
-  StarlarkThread setup(String varname, Object value) {
-    if (lookup(varname) != null) {
-      throw new AssertionError(String.format("variable '%s' already bound", varname));
-    }
-    return setupOverride(varname, value);
-  }
-
-  /**
-   * Initializes a binding in this environment. Overrides any previous binding. This is not for
-   * end-users, and will throw an AssertionError in case of conflict.
-   *
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this StarlarkThread, in fluid style
-   */
-  // TODO(adonovan): eliminate sole external use in SkylarkImportLookupFunction and make private.
-  public StarlarkThread setupOverride(String varname, Object value) {
-    return update(varname, value);
   }
 
   /**
