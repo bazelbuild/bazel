@@ -209,7 +209,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
     try {
       sandboxfs.reconfigure("[]\n\n");
     } catch (IOException e) {
-      destroyProcess(process);
+      process.destroyAndWait();
       throw new IOException("sandboxfs failed to start", e);
     }
     return sandboxfs;
@@ -223,17 +223,6 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   @Override
   public boolean isAlive() {
     return process != null && !process.finished();
-  }
-
-  /**
-   * Destroys a process and waits for it to exit.
-   *
-   * @param process the process to destroy
-   */
-  // TODO(jmmv): This is adapted from Worker.java. Should probably replace both with a new variant
-  // of Uninterruptibles.callUninterruptibly that takes a lambda instead of a callable.
-  private static void destroyProcess(Subprocess process) {
-    process.destroyAndWait();
   }
 
   @Override
@@ -262,7 +251,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
     }
 
     if (process != null) {
-      destroyProcess(process);
+      process.destroyAndWait();
       process = null;
     }
   }
