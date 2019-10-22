@@ -58,7 +58,7 @@ you don't have it installed already.
 Retrieve the sample project from Bazel's GitHub repository:
 
 ```sh
-git clone https://github.com/bazelbuild/examples/
+git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in the `examples/java-tutorial`
