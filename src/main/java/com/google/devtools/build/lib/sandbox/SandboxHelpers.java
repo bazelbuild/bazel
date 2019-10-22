@@ -22,12 +22,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
-import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -176,7 +174,8 @@ public final class SandboxHelpers {
 
   /**
    * Returns true if the build options are set in a way that requires network access for all
-   * actions. This is separate from {@link Spawns#requiresNetwork} to avoid having to keep a
+   * actions. This is separate from {@link
+   * com.google.devtools.build.lib.actions.Spawns#requiresNetwork} to avoid having to keep a
    * reference to the full set of build options (and also for performance, since this only needs to
    * be checked once-per-build).
    */
@@ -188,30 +187,5 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
-  }
-
-  /**
-   * Waits for a process to terminate.
-   *
-   * @param process the process to wait for
-   * @return the exit code of the terminated process
-   */
-  static int waitForProcess(Subprocess process) {
-    boolean interrupted = false;
-    try {
-      while (true) {
-        try {
-          process.waitFor();
-          break;
-        } catch (InterruptedException ie) {
-          interrupted = true;
-        }
-      }
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
-    return process.exitValue();
   }
 }

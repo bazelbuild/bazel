@@ -127,7 +127,8 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
     }
     String outErr = outErrBytes.toString().replaceFirst("\n$", "");
 
-    int exitCode = SandboxHelpers.waitForProcess(process);
+    process.waitForUninterruptibly();
+    int exitCode = process.exitValue();
     if (exitCode == 0) {
       // TODO(jmmv): Validate the version number and ensure we support it. Would be nice to reuse
       // the DottedVersion logic from the Apple rules.
