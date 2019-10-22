@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -23,6 +24,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -71,6 +74,24 @@ public abstract class AbstractFileSystem extends FileSystem {
     } else {
       // Use normal FileInputStream instance if profiler is not enabled.
       return new FileInputStream(path.toString());
+    }
+  }
+
+  @Override
+  protected ReadableByteChannel createChannel(Path path) throws IOException {
+    final String name = path.toString();
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_READ)
+            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        // Currently, we do not proxy ReadableByteChannel for profiling.
+        return Files.newByteChannel(java.nio.file.Paths.get(name));
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      }
+    } else {
+      return Files.newByteChannel(java.nio.file.Paths.get(name));
     }
   }
 
