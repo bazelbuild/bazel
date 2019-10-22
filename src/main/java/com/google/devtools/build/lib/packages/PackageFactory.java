@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -80,6 +81,7 @@ import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
@@ -1507,7 +1509,8 @@ public final class PackageFactory {
     }
 
     Globber globber =
-        createLegacyGlobber(buildFile.asPath().getParentDirectory(), packageId, locator);
+        createLegacyGlobber(
+            buildFile.asPath().getParentDirectory(), packageId, ImmutableSet.of(), locator);
     ParserInput input =
         ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().asFragment());
@@ -1536,11 +1539,13 @@ public final class PackageFactory {
   public LegacyGlobber createLegacyGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
+      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
       CachingPackageLocator locator) {
     return createLegacyGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
+            blacklistedGlobPrefixes,
             locator,
             syscalls,
             executor,
@@ -1550,26 +1555,6 @@ public final class PackageFactory {
   /** Returns a new {@link LegacyGlobber}. */
   public static LegacyGlobber createLegacyGlobber(GlobCache globCache) {
     return new LegacyGlobber(globCache, /*sort=*/ true);
-  }
-
-  /**
-   * Returns a new {@link LegacyGlobber}, the same as in {@link #createLegacyGlobber}, except that
-   * the implementation of {@link Globber#fetch} intentionally breaks the contract and doesn't
-   * return sorted results.
-   */
-  public LegacyGlobber createLegacyGlobberThatDoesntSort(
-      Path packageDirectory,
-      PackageIdentifier packageId,
-      CachingPackageLocator locator) {
-    return new LegacyGlobber(
-        new GlobCache(
-            packageDirectory,
-            packageId,
-            locator,
-            syscalls,
-            executor,
-            maxDirectoriesToEagerlyVisitInGlobbing),
-        /*sort=*/ false);
   }
 
   @Nullable

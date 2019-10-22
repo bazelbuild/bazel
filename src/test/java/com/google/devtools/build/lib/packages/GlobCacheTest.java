@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -86,10 +88,15 @@ public class GlobCacheTest {
     scratch.file("isolated/sub/sub.js",
         "# this is sub/sub.js");
 
+    createCache();
+  }
+
+  private void createCache(PathFragment... blacklistedDirectories) {
     cache =
         new GlobCache(
             packageDirectory,
             PackageIdentifier.createInMainRepo("isolated"),
+            ImmutableSet.copyOf(blacklistedDirectories),
             new CachingPackageLocator() {
               @Override
               public Path getBuildFileForPackage(PackageIdentifier packageId) {
@@ -111,6 +118,18 @@ public class GlobCacheTest {
   @After
   public final void deleteFiles() throws Exception  {
     scratch.getFileSystem().getPath("/").deleteTreesBelow();
+  }
+
+  @Test
+  public void testBlacklistedDirectory() throws Exception {
+    createCache(PathFragment.create("isolated/foo"));
+    List<Path> paths = cache.safeGlobUnsorted("**/*.js", true).get();
+    assertPathsAre(
+        paths,
+        "/workspace/isolated/first.js",
+        "/workspace/isolated/second.js",
+        "/workspace/isolated/bar/first.js",
+        "/workspace/isolated/bar/second.js");
   }
 
   @Test

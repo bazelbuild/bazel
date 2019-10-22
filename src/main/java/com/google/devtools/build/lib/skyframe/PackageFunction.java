@@ -380,36 +380,24 @@ public class PackageFunction implements SkyFunction {
     }
     WorkspaceNameValue workspaceNameValue =
         (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-    String workspaceName = workspaceNameValue.getName();
 
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
-    if (repositoryMappingValue == null) {
-      return null;
-    }
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
-        repositoryMappingValue.getRepositoryMapping();
-
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
 
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
-    if (buildFileValue == null) {
-      return null;
-    }
-
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
-    if (defaultVisibility == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    if (env.valuesMissing()) {
       return null;
     }
 
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
+    String workspaceName = workspaceNameValue.getName();
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+        repositoryMappingValue.getRepositoryMapping();
 
     // Load the prelude from the same repository as the package being loaded.  Can't use
     // Label.resolveRepositoryRelative because preludeLabel is in the main repository, not the
@@ -452,6 +440,7 @@ public class PackageFunction implements SkyFunction {
           loadPackage(
               workspaceName,
               repositoryMapping,
+              blacklistedPackagePrefixes.getPatterns(),
               packageId,
               buildFileRootedPath,
               buildFileValue,
@@ -1102,10 +1091,12 @@ public class PackageFunction implements SkyFunction {
   private GlobberWithSkyframeGlobDeps makeGlobber(
       Path buildFilePath,
       PackageIdentifier packageId,
+      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
       Root packageRoot,
       SkyFunction.Environment env) {
-    LegacyGlobber legacyGlobber = packageFactory.createLegacyGlobber(
-        buildFilePath.getParentDirectory(), packageId, packageLocator);
+    LegacyGlobber legacyGlobber =
+        packageFactory.createLegacyGlobber(
+            buildFilePath.getParentDirectory(), packageId, blacklistedGlobPrefixes, packageLocator);
     switch (incrementalityIntent) {
       case INCREMENTAL:
         return new SkyframeHybridGlobber(packageId, packageRoot, env, legacyGlobber);
@@ -1133,6 +1124,7 @@ public class PackageFunction implements SkyFunction {
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
       PackageIdentifier packageId,
       RootedPath buildFilePath,
       @Nullable FileValue buildFileValue,
@@ -1212,7 +1204,7 @@ public class PackageFunction implements SkyFunction {
       // Therefore, it is safe to invalidate the astCache entry for this packageId here.
       astCache.invalidate(packageId);
       GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
-          makeGlobber(inputFile, packageId, packageRoot, env);
+          makeGlobber(inputFile, packageId, blacklistedGlobPrefixes, packageRoot, env);
       long startTimeNanos = BlazeClock.nanoTime();
       Package.Builder pkgBuilder =
           packageFactory.createPackageFromAst(

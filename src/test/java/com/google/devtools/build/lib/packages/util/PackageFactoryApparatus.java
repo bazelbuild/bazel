@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -152,6 +153,7 @@ public class PackageFactoryApparatus {
         new GlobCache(
             buildFile.asPath().getParentDirectory(),
             packageId,
+            ImmutableSet.of(),
             getPackageLocator(),
             null,
             TestUtils.getPool(),

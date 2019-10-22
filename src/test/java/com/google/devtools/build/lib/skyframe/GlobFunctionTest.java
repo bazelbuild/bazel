@@ -170,10 +170,11 @@ public abstract class GlobFunctionTest {
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+    skyFunctions.put(
+        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
             /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-            /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+            BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE));
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -226,6 +227,27 @@ public abstract class GlobFunctionTest {
   @Test
   public void testSimple() throws Exception {
     assertGlobMatches("food", /* => */ "food");
+  }
+
+  @Test
+  public void testBlacklist() throws Exception {
+    FileSystemUtils.writeContentAsLatin1(root.getRelative(".bazelignore"), "pkg/foo/bar");
+    assertGlobMatches("foo/**", "foo/barnacle/wiz", "foo/barnacle", "foo");
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(
+                RootedPath.toRootedPath(
+                    Root.fromPath(root), PathFragment.create(".bazelignore")))));
+
+    FileSystemUtils.createEmptyFile(root.getRelative(".bazelignore"));
+    assertGlobMatches(
+        "foo/**",
+        "foo/bar/wiz",
+        "foo/bar/wiz/file",
+        "foo/bar",
+        "foo/barnacle/wiz",
+        "foo/barnacle",
+        "foo");
   }
 
   @Test
