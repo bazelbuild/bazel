@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
  */
 @SkylarkModule(
     name = "AnalysisTestResultInfo",
-    doc = "<b>Experimental. This API is experimental and subject to change at any time</b><p> "
-        + "Encapsulates the result of analyis-phase testing. Build targets which return an "
-        + "instance of this provider signal to the build system that it should generate a "
-        + "'stub' test executable which generates the equivalent test result. Analysis-phase "
-        + "('in-build') test rules <b>must</b> return an instance of this provider, and "
-        + "non-analysis-phase test rules <b>cannot</b> return this provider.",
-    documented = false)
+    doc =
+        "Encapsulates the result of analyis-phase testing. Build targets which return an instance"
+            + " of this provider signal to the build system that it should generate a 'stub' test"
+            + " executable which generates the equivalent test result. Analysis test rules (rules"
+            + " created with <code>analysis_test=True</code> <b>must</b> return an instance of"
+            + " this provider, and non-analysis-phase test rules <b>cannot</b> return this "
+            + "provider.")
 public interface AnalysisTestResultInfoApi extends SkylarkValue {
 
   @SkylarkCallable(
@@ -40,14 +40,12 @@ public interface AnalysisTestResultInfoApi extends SkylarkValue {
       doc =
           "If true, then the analysis-phase test represented by this target passed. If "
               + "false, the test failed.",
-      documented = false,
       structField = true)
   public Boolean getSuccess();
 
   @SkylarkCallable(
       name = "message",
       doc = "A descriptive message containing information about the test and its success/failure.",
-      documented = false,
       structField = true)
   public String getMessage();
 
