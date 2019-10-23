@@ -467,8 +467,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     @Override
     public synchronized void close() throws IOException {
       if (!closed) {
-        closed = true;
         NativePosixFiles.close(fd, this);
+        closed = true;
       }
       super.close();
     }
@@ -484,7 +484,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
       if (closed) {
         throw new IOException("attempt to write to a closed Outputstream backed by a native file");
       }
