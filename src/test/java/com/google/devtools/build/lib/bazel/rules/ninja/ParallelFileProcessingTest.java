@@ -93,11 +93,6 @@ public class ParallelFileProcessingTest {
     doPerformanceTest(randomFile(new Random(), 500));
   }
 
-  @Test
-  public void testPerformanceLarge() throws Exception {
-    doPerformanceTest(randomFile(new Random(), 2000));
-  }
-
   private static void doPerformanceTest(File file) throws Exception {
     try {
       // Currently we do not call toString() method, as it reduces performance in X times;
