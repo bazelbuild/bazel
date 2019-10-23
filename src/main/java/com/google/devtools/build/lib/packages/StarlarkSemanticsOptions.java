@@ -537,7 +537,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_remove_native_maven_jar",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -545,8 +545,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If set to true, the native maven_jar rule is disabled; only the Starlark version "
-              + "will be available")
+          "If set to true, the native maven_jar rule is disabled.")
   public boolean incompatibleRemoveNativeMavenJar;
 
   @Option(
