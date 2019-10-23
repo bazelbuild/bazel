@@ -2431,7 +2431,10 @@ a user-friendly way.
 <p>
   <code>bazel --version</code>, with no other args, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
-  a Bazel server.
+  a Bazel server or unpacking the server archive.
+</p>
+<p>
+  <code>bazel --version</code> can be run from anywhere - it does not require a workspace directory.
 </p>
 
 <h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
