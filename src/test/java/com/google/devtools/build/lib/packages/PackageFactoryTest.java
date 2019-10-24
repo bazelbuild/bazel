@@ -661,9 +661,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "argument 'include' has type 'int', but should be 'sequence'\n"
-            + "in call to builtin function glob(include, *, exclude, exclude_directories, "
-            + "allow_empty)");
+        "expected sequence of strings for 'include' while calling glob but got int instead: 1");
   }
 
   @Test
