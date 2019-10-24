@@ -58,10 +58,9 @@ import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Functionality specific to the Python rules in Bazel.
- */
+/** Functionality specific to the Python rules in Bazel. */
 public class BazelPythonSemantics implements PythonSemantics {
+
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
@@ -69,6 +68,12 @@ public class BazelPythonSemantics implements PythonSemantics {
       "srcs", "deps", "data");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
+
+  @Override
+  public String getSrcsVersionDocURL() {
+    // TODO(#8996): Update URL to point to rules_python's docs instead of the Bazel site.
+    return "https://docs.bazel.build/versions/master/be/python.html#py_binary.srcs_version";
+  }
 
   @Override
   public void validate(RuleContext ruleContext, PyCommon common) {
