@@ -58,6 +58,8 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   // TODO(brandjon): Remove this once migration for native rule access is complete.
   private final boolean loadPythonRulesFromBzl;
 
+  private final boolean defaultToExplicitInitPy;
+
   PythonConfiguration(
       PythonVersion version,
       PythonVersion defaultVersion,
@@ -68,7 +70,8 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
-      boolean loadPythonRulesFromBzl) {
+      boolean loadPythonRulesFromBzl,
+      boolean defaultToExplicitInitPy) {
     this.version = version;
     this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
@@ -79,6 +82,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
     this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
+    this.defaultToExplicitInitPy = defaultToExplicitInitPy;
   }
 
   /**
@@ -203,5 +207,13 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean loadPythonRulesFromBzl() {
     return loadPythonRulesFromBzl;
+  }
+
+  /**
+   * Returns true if executable Python rules should only write out empty __init__ files to their
+   * runfiles tree when explicitly requested via {@code legacy_create_init}.
+   */
+  public boolean defaultToExplicitInitPy() {
+    return defaultToExplicitInitPy;
   }
 }
