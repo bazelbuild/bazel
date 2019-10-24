@@ -30,13 +30,17 @@ public interface CcLinkingOutputsApi<FileT extends FileApi> {
       name = "library_to_link",
       structField = true,
       allowReturnNones = true,
-      documented = false)
+      doc =
+          "<a href='LibraryToLink.html'><code>LibraryToLink</code></a> for including these outputs "
+              + "in further linking.",
+      documented = true)
   LibraryToLinkApi<FileT> getLibraryToLink();
 
   @SkylarkCallable(
       name = "executable",
       structField = true,
       allowReturnNones = true,
-      documented = false)
+      doc = "<a href='File.html'><code>File</code></a> object representing the linked executable.",
+      documented = true)
   FileT getExecutable();
 }
