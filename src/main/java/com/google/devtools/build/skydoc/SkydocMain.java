@@ -632,6 +632,7 @@ public class SkydocMain {
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
     JsModuleInfoApi.NAME,
+    "JsInfo",
     "PintoModuleProvider"
   };
 
