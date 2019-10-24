@@ -24,7 +24,6 @@ load(
 load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
     "configure_unix_toolchain",
-    "find_cc",
     "get_env",
     "get_escaped_cxx_inc_directories",
 )
