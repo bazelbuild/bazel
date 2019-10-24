@@ -705,7 +705,7 @@ final class Eval {
     // new scope (e.g. FuncallExpression).
     if (original instanceof EvalExceptionWithStackTrace) {
       EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      if (node.isNewScope()) {
+      if (node instanceof FuncallExpression) {
         real.registerNode(node);
       }
       return real;

@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
-import com.google.devtools.build.lib.syntax.Node;
-import com.google.devtools.build.lib.syntax.NodeVisitor;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -47,16 +47,13 @@ public class AllocationTrackerTest {
 
   private AllocationTracker allocationTracker;
 
-  static class TestNode extends Node {
-    TestNode(String file, int line) {
-      setLocation(location(file, line));
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {}
-
-    @Override
-    public void accept(NodeVisitor visitor) {}
+  // makeExpr returns an expression located at the specified file and line.
+  private static Expression makeExpr(String file, int line) throws SyntaxError {
+    ParserInput input =
+        ParserInput.create(
+            new String(new char[line - 1]).replace('\u0000', '\n') + "None",
+            PathFragment.create(file));
+    return Expression.parse(input);
   }
 
   static class TestFunction extends BaseFunction {
@@ -97,10 +94,10 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testSimpleMemoryProfile() {
+  public void testSimpleMemoryProfile() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileA", "fn", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     allocationTracker.sampleAllocation(1, "", allocation, 12);
     Callstack.pop();
     Callstack.pop();
@@ -117,15 +114,15 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testLongerCallstack() {
+  public void testLongerCallstack() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(new TestNode("fileB", 10));
-    Callstack.push(new TestNode("fileB", 12));
-    Callstack.push(new TestNode("fileB", 14));
-    Callstack.push(new TestNode("fileB", 18));
+    Callstack.push(makeExpr("fileB", 10));
+    Callstack.push(makeExpr("fileB", 12));
+    Callstack.push(makeExpr("fileB", 14));
+    Callstack.push(makeExpr("fileB", 18));
     Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     allocationTracker.sampleAllocation(1, "", allocation, 12);
     for (int i = 0; i < 7; ++i) {
       Callstack.pop();
@@ -138,7 +135,7 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testConfiguredTargetsMemoryAllocation() {
+  public void testConfiguredTargetsMemoryAllocation() throws Exception {
     RuleClass ruleClass = mock(RuleClass.class);
     when(ruleClass.getName()).thenReturn("rule");
     when(ruleClass.getKey()).thenReturn("rule");
@@ -165,12 +162,12 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testLoadingPhaseRuleAllocations() {
+  public void testLoadingPhaseRuleAllocations() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(new TestNode("fileB", 18));
+    Callstack.push(makeExpr("fileB", 18));
     Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     Callstack.push(new TestRuleFunction("<native>", "proto_library", -1));
     allocationTracker.sampleAllocation(1, "", allocation, 128);
     for (int i = 0; i < 5; ++i) {
