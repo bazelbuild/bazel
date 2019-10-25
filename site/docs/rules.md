@@ -31,6 +31,7 @@ Here is a selection of recommended rules:
 * [Package building and fetching rules](https://github.com/bazelbuild/rules_pkg)
 * [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel)
 * [Python](https://github.com/bazelbuild/rules_python)
+* [Rust](https://github.com/bazelbuild/rules_rust)
 * [Scala](https://github.com/bazelbuild/rules_scala)
 * [Shell](be/shell.html)
 * [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
