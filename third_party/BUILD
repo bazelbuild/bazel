@@ -32,7 +32,6 @@ filegroup(
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
