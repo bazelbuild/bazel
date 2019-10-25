@@ -60,6 +60,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean persistentBusyboxToolsEnabled;
   private final boolean compatibleForResourcePathShortening;
   private final boolean compatibleForResourceNameObfuscation;
+  private final boolean compatibleForResourceShrinking;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -80,6 +81,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         AndroidSdkProvider.fromRuleContext(ruleContext),
         lacksAllowlistExemptions(ruleContext, "allow_raw_access_to_resource_paths", true),
         lacksAllowlistExemptions(ruleContext, "allow_resource_name_obfuscation_opt_out", true),
+        lacksAllowlistExemptions(ruleContext, "allow_resource_shrinking_opt_out", true),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_dictionary", false),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_mapping", false),
         lacksAllowlistExemptions(ruleContext, "allow_resource_conflicts", false),
@@ -100,6 +102,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       AndroidSdkProvider sdk,
       boolean compatibleForResourcePathShortening,
       boolean compatibleForResourceNameObfuscation,
+      boolean compatibleForResourceShrinking,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -110,6 +113,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.sdk = sdk;
     this.compatibleForResourcePathShortening = compatibleForResourcePathShortening;
     this.compatibleForResourceNameObfuscation = compatibleForResourceNameObfuscation;
+    this.compatibleForResourceShrinking = compatibleForResourceShrinking;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -196,6 +200,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return compatibleForResourceNameObfuscation;
   }
 
+  public boolean compatibleForResourceShrinking() {
+    return compatibleForResourceShrinking;
+  }
+
   public boolean throwOnProguardApplyDictionary() {
     return throwOnProguardApplyDictionary;
   }
@@ -240,7 +248,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
     }
 
-    return state == TriState.YES;
+    return state == TriState.YES && compatibleForResourceShrinking;
   }
 
   boolean useResourcePathShortening() {
