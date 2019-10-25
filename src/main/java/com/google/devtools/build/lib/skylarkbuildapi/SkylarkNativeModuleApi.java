@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -85,14 +86,14 @@ public interface SkylarkNativeModuleApi {
                     + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
   public SkylarkList<?> glob(
       SkylarkList<?> include,
       SkylarkList<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      Location loc,
+      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -112,9 +113,9 @@ public interface SkylarkNativeModuleApi {
             legacyNamed = true,
             doc = "The name of the target.")
       },
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
-  public Object existingRule(String name, Location loc, StarlarkThread thread)
+  public Object existingRule(String name, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -126,10 +127,10 @@ public interface SkylarkNativeModuleApi {
               + ""
               + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
               + "and order-dependent.</i>",
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      Location loc, StarlarkThread thread) throws EvalException, InterruptedException;
+      FuncallExpression ast, StarlarkThread thread) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "package_group",
@@ -160,13 +161,13 @@ public interface SkylarkNativeModuleApi {
             positional = false,
             doc = "Other package groups that are included in this one.")
       },
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
   public Runtime.NoneType packageGroup(
       String name,
       SkylarkList<?> packages,
       SkylarkList<?> includes,
-      Location loc,
+      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
 
@@ -202,10 +203,14 @@ public interface SkylarkNativeModuleApi {
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
   public Runtime.NoneType exportsFiles(
-      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
+      SkylarkList<?> srcs,
+      Object visibility,
+      Object licenses,
+      FuncallExpression ast,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -218,9 +223,9 @@ public interface SkylarkNativeModuleApi {
               + "<code>package_name()</code> will match the caller BUILD file package. "
               + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
       parameters = {},
-      useLocation = true,
+      useAst = true,
       useStarlarkThread = true)
-  public String packageName(Location loc, StarlarkThread thread) throws EvalException;
+  public String packageName(FuncallExpression ast, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "repository_name",

@@ -86,9 +86,19 @@ public class BuiltinFunction extends BaseFunction {
     configure();
   }
 
+  /** Creates a BuiltinFunction from the given name and a Factory */
+  protected BuiltinFunction(String name, Factory factory) {
+    super(name);
+    configure(factory);
+  }
+
   @Override
   protected int getArgArraySize() {
     return innerArgumentCount;
+  }
+
+  ExtraArgKind[] getExtraArgs() {
+    return extraArgs;
   }
 
   @Override
@@ -188,7 +198,7 @@ public class BuiltinFunction extends BaseFunction {
             stacktraceToString(e.getStackTrace()),
             this,
             Arrays.asList(invokeMethod.getParameterTypes()),
-            getEnforcedArgumentTypes()),
+            enforcedArgumentTypes),
         e);
   }
 
@@ -234,9 +244,7 @@ public class BuiltinFunction extends BaseFunction {
                   parameterType);
           if (enforcedType instanceof SkylarkType.Simple
               || enforcedType instanceof SkylarkFunctionType) {
-            Preconditions.checkArgument(
-                parameterType.isAssignableFrom(enforcedType.getType()), msg);
-
+            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
             // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
             enforcedArgumentTypes.set(i, null);
           } else if (enforcedType instanceof SkylarkType.Combination) {
@@ -261,6 +269,24 @@ public class BuiltinFunction extends BaseFunction {
           returnType,
           methodReturnType);
     }
+  }
+
+  /** Configure by copying another function's configuration */
+  // Alternatively, we could have an extension BuiltinFunctionSignature of FunctionSignature,
+  // and use *that* instead of a Factory.
+  private void configure(BuiltinFunction.Factory factory) {
+    // this function must not be configured yet, but the factory must be
+    Preconditions.checkState(!isConfigured());
+    Preconditions.checkState(
+        factory.isConfigured(), "function factory is not configured for %s", getName());
+
+    this.paramDoc = factory.getParamDoc();
+    this.signature = factory.getSignature();
+    this.defaultValues = factory.getDefaultValues();
+    this.paramTypes = factory.getEnforcedArgumentTypes();
+    this.extraArgs = factory.getExtraArgs();
+    this.objectType = factory.getObjectType();
+    configure();
   }
 
   /** Returns list, or null if all its elements are null. */
@@ -294,6 +320,50 @@ public class BuiltinFunction extends BaseFunction {
           String.format("function %s doesn't have a method named %s", getName(), name));
     }
     return found;
+  }
+
+  /**
+   * A Factory allows for a @SkylarkSignature annotation to be provided and processed in advance
+   * for a function that will be defined later as a closure (see e.g. in PackageFactory).
+   *
+   * <p>Each instance of this class must define a method create that closes over some (final)
+   * variables and returns a BuiltinFunction.
+   */
+  public abstract static class Factory extends BuiltinFunction {
+    @Nullable private Method createMethod;
+
+    /** Create unconfigured function Factory from its name */
+    public Factory(String name) {
+      super(name);
+    }
+
+    @Override
+    public void configure() {
+      if (createMethod != null) {
+        return;
+      }
+      createMethod = findMethod("create");
+    }
+
+    @Override
+    public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
+        throws EvalException {
+      throw new EvalException(null, "tried to invoke a Factory for function " + this);
+    }
+
+    /** Instantiate the Factory
+     * @param args arguments to pass to the create method
+     * @return a new BuiltinFunction that closes over the arguments
+     */
+    public BuiltinFunction apply(Object... args) {
+      try {
+        return (BuiltinFunction) createMethod.invoke(this, args);
+      } catch (InvocationTargetException | IllegalArgumentException | IllegalAccessException e) {
+        throw new RuntimeException(String.format(
+            "Exception while applying BuiltinFunction.Factory %s: %s",
+            this, e.getMessage()), e);
+      }
+    }
   }
 
   @Override
