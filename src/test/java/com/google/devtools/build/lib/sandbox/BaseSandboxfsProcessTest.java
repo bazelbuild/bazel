@@ -93,37 +93,31 @@ abstract class BaseSandboxfsProcessTest {
       // Create a file outside of the mount point to ensure it's not touched.
       mountPoint.getRelative("../unrelated").createDirectory();
 
-      // Create twp mappings: one to be deleted and one to be kept around throughout the test.
-      Path keepMeFile = tmpDir.getRelative("one");
-      FileSystemUtils.createEmptyFile(keepMeFile);
+      // Create first sandbox.
       Path oneFile = tmpDir.getRelative("one");
       FileSystemUtils.writeContent(oneFile, UTF_8, "One test data");
-      process.map(
+      process.createSandbox(
+          "first",
           ImmutableList.of(
-              Mapping.builder()
-                  .setPath(PathFragment.create("/keep-me"))
-                  .setTarget(keepMeFile.asFragment())
-                  .setWritable(false)
-                  .build(),
               Mapping.builder()
                   .setPath(PathFragment.create("/foo"))
                   .setTarget(oneFile.asFragment())
                   .setWritable(false)
                   .build()));
-      assertThat(
-          mountPoint.getDirectoryEntries())
-          .containsExactly(mountPoint.getRelative("foo"), mountPoint.getRelative("keep-me"));
-      assertThat(
-          FileSystemUtils.readContent(mountPoint.getRelative("foo"), UTF_8))
+      Path first = mountPoint.getRelative("first");
+      assertThat(mountPoint.getDirectoryEntries()).containsExactly(first);
+      assertThat(first.getDirectoryEntries()).containsExactly(first.getRelative("foo"));
+      assertThat(FileSystemUtils.readContent(first.getRelative("foo"), UTF_8))
           .isEqualTo("One test data");
 
-      // Replace the previous mapping and create a new one.
+      // Create second sandbox, which is expected to be fully disjoint from the first one.
       Path twoFile = tmpDir.getRelative("two");
       FileSystemUtils.writeContent(twoFile, UTF_8, "Two test data");
-      Path bazFile = tmpDir.getRelative("baz");
-      FileSystemUtils.writeContent(bazFile, UTF_8, "Baz test data");
-      process.unmap(PathFragment.create("/foo"));
-      process.map(
+      Path longLink = tmpDir.getRelative("long/link");
+      longLink.getParentDirectory().createDirectoryAndParents();
+      longLink.createSymbolicLink(oneFile); // The target is irrelevant but must exist.
+      process.createSandbox(
+          "second",
           ImmutableList.of(
               Mapping.builder()
                   .setPath(PathFragment.create("/foo"))
@@ -131,43 +125,26 @@ abstract class BaseSandboxfsProcessTest {
                   .setWritable(false)
                   .build(),
               Mapping.builder()
-                  .setPath(PathFragment.create("/bar"))
-                  .setTarget(bazFile.asFragment())
-                  .setWritable(true)
-                  .build()));
-      assertThat(
-          mountPoint.getDirectoryEntries())
-          .containsExactly(mountPoint.getRelative("foo"), mountPoint.getRelative("bar"),
-              mountPoint.getRelative("keep-me"));
-      assertThat(
-          FileSystemUtils.readContent(mountPoint.getRelative("foo"), UTF_8))
-          .isEqualTo("Two test data");
-      assertThat(
-          FileSystemUtils.readContent(mountPoint.getRelative("bar"), UTF_8))
-          .isEqualTo("Baz test data");
-
-      // Replace all existing mappings, and try with a nested one.
-      Path longLink = tmpDir.getRelative("long/link");
-      longLink.getParentDirectory().createDirectoryAndParents();
-      longLink.createSymbolicLink(oneFile);  // The target is irrelevant but must exist.
-      process.unmap(PathFragment.create("/foo"));
-      process.unmap(PathFragment.create("/bar"));
-      process.map(
-          ImmutableList.of(
-              Mapping.builder()
                   .setPath(PathFragment.create("/something/complex"))
                   .setTarget(longLink.asFragment())
                   .setWritable(false)
                   .build()));
-      assertThat(
-          mountPoint.getDirectoryEntries())
-          .containsExactly(mountPoint.getRelative("keep-me"), mountPoint.getRelative("something"));
-      assertThat(
-          FileSystemUtils.readContent(mountPoint.getRelative("something/complex"), UTF_8))
+      Path second = mountPoint.getRelative("second");
+      assertThat(mountPoint.getDirectoryEntries()).containsExactly(first, second);
+      assertThat(second.getDirectoryEntries())
+          .containsExactly(second.getRelative("foo"), second.getRelative("something"));
+      assertThat(FileSystemUtils.readContent(first.getRelative("foo"), UTF_8))
+          .isEqualTo("One test data");
+      assertThat(FileSystemUtils.readContent(second.getRelative("foo"), UTF_8))
+          .isEqualTo("Two test data");
+      assertThat(FileSystemUtils.readContent(second.getRelative("something/complex"), UTF_8))
           .isEqualTo("One test data");
 
+      // Destroy one sandbox and ensure the other remains.
+      process.destroySandbox("first");
+      assertThat(mountPoint.getDirectoryEntries()).containsExactly(second);
+
       // Ensure that files that should not have been touched throughout the test are still there.
-      assertThat(mountPoint.getRelative("keep-me").exists()).isTrue();
       assertThat(mountPoint.getRelative("../unrelated").exists()).isTrue();
     } finally {
       process.destroy();

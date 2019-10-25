@@ -107,22 +107,22 @@ interface SandboxfsProcess {
   void destroy();
 
   /**
-   * Adds new mappings to the sandboxfs instance.
+   * Creates a top-level directory with the given name and adds all given mappings inside it.
    *
+   * @param name basename of the top-level directory to create
    * @param mappings the collection of mappings to add, which must not have yet been previously
-   *     mapped
+   *     mapped and which will be contained within the given top-level directory
    * @throws IOException if sandboxfs cannot be reconfigured either because of an error in the
    *     configuration or because we failed to communicate with the subprocess
    */
-  void map(List<Mapping> mappings) throws IOException;
+  void createSandbox(String name, List<Mapping> mappings) throws IOException;
 
   /**
-   * Removes a mapping from the sandboxfs instance.
+   * Destroys a top-level directory and all of its contents.
    *
-   * @param mapping the mapping to remove, which must have been previously mapped.  This looks like
-   *     an absolute path but is treated as relative to the sandbox's root.
+   * @param name basename of the top-level directory to destroy
    * @throws IOException if sandboxfs cannot be reconfigured either because of an error in the
    *     configuration or because we failed to communicate with the subprocess
    */
-  void unmap(PathFragment mapping) throws IOException;
+  void destroySandbox(String name) throws IOException;
 }

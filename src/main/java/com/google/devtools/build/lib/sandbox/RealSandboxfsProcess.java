@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -99,12 +100,12 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
    * Mounts a new sandboxfs instance.
    *
    * <p>The root of the file system instance is left unmapped which means that it remains as
-   * read-only throughout the lifetime of this instance.  Writable subdirectories can later be
-   * mapped via {@link #map(List)}.
+   * read-only throughout the lifetime of this instance. Writable subdirectories can later be mapped
+   * via {@link #createSandbox}.
    *
-   * @param binary path to the sandboxfs binary.  This is a {@link PathFragment} and not a
-   *     {@link Path} because we want to support "bare" (non-absolute) names for the location of
-   *     the sandboxfs binary; such names are automatically looked for in the {@code PATH}.
+   * @param binary path to the sandboxfs binary. This is a {@link PathFragment} and not a {@link
+   *     Path} because we want to support "bare" (non-absolute) names for the location of the
+   *     sandboxfs binary; such names are automatically looked for in the {@code PATH}.
    * @param mountPoint directory on which to mount the sandboxfs instance
    * @param logFile path to the file that will receive all sandboxfs logging output
    * @return a new handle that represents the running process
@@ -224,11 +225,17 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   }
 
   @Override
-  public void map(List<Mapping> mappings) throws IOException {
+  public void createSandbox(String name, List<Mapping> mappings) throws IOException {
+    checkArgument(!PathFragment.containsSeparator(name));
+    PathFragment root = PathFragment.create("/").getRelative(name);
+
     Function<Mapping, String> formatMapping =
-        (mapping) -> String.format(
-            "{\"Map\": {\"Mapping\": \"%s\", \"Target\": \"%s\", \"Writable\": %s}}",
-            mapping.path(), mapping.target(), mapping.writable() ? "true" : "false");
+        (mapping) ->
+            String.format(
+                "{\"Map\": {\"Mapping\": \"%s\", \"Target\": \"%s\", \"Writable\": %s}}",
+                root.getRelative(mapping.path().toRelative()),
+                mapping.target(),
+                mapping.writable() ? "true" : "false");
 
     StringBuilder sb = new StringBuilder();
     sb.append("[\n");
@@ -238,7 +245,10 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   }
 
   @Override
-  public void unmap(PathFragment mapping) throws IOException {
-    reconfigure(String.format("[{\"Unmap\": \"%s\"}]\n\n", mapping));
+  public void destroySandbox(String name) throws IOException {
+    checkArgument(!PathFragment.containsSeparator(name));
+    PathFragment root = PathFragment.create("/").getRelative(name);
+
+    reconfigure(String.format("[{\"Unmap\": \"%s\"}]\n\n", root.getPathString()));
   }
 }
