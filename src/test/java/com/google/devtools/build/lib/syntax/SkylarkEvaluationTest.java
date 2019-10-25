@@ -1298,7 +1298,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessAsFuncall() throws Exception {
-    foobar.configure(getClass().getDeclaredField("foobar").getAnnotation(SkylarkSignature.class));
+    foobar.configureFromAnnotation(
+        getClass().getDeclaredField("foobar").getAnnotation(SkylarkSignature.class));
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_callable()")
@@ -1313,7 +1314,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    interruptedFunction.configure(
+    interruptedFunction.configureFromAnnotation(
         getClass().getDeclaredField("interruptedFunction").getAnnotation(SkylarkSignature.class));
     update("interrupted_function", interruptedFunction);
     assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));

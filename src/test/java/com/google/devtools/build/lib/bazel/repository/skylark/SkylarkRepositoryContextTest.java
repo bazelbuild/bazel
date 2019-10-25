@@ -103,7 +103,7 @@ public class SkylarkRepositoryContextTest {
     FuncallExpression ast = (FuncallExpression) Expression.parse(input);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
+            packageBuilder, buildRuleClass(attributes), null, kwargs, ast.getLocation());
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(environment.getListener()).thenReturn(listener);
