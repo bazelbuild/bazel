@@ -21,6 +21,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,11 +150,11 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   protected BaseFunction(
       @Nullable String name,
-      FunctionSignature signature,
+      @Nullable FunctionSignature signature,
       @Nullable List<Object> defaultValues,
       @Nullable Location location) {
     this(name);
-    this.signature = Preconditions.checkNotNull(signature);
+    this.signature = signature;
     this.defaultValues = defaultValues;
     this.location = location;
 
@@ -364,7 +365,11 @@ public abstract class BaseFunction implements StarlarkCallable {
   }
 
   /** check types and convert as required */
-  private void canonicalizeArguments(Object[] arguments, Location loc) throws EvalException {
+  protected void canonicalizeArguments(Object[] arguments, Location loc) throws EvalException {
+    // TODO(bazel-team): maybe link syntax.SkylarkType and package.Type,
+    // so we can simultaneously typecheck and convert?
+    // Note that a BuiltinFunction already does typechecking of simple types.
+
     List<SkylarkType> types = getEnforcedArgumentTypes();
 
     // Check types, if supplied
@@ -434,7 +439,6 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @return the value resulting from evaluating the function with the given arguments
    * @throws EvalException-s containing source information.
    */
-  // TODO(adonovan): make this private. The sole external caller has a location but no ast.
   public Object callWithArgArray(
       Object[] arguments, @Nullable FuncallExpression ast, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
@@ -479,16 +483,31 @@ public abstract class BaseFunction implements StarlarkCallable {
     return t != null ? t.toString() : null;
   }
 
+  /** Configure a BaseFunction from a @SkylarkSignature annotation */
+  // TODO(adonovan): this does not belong here. Move down into BuiltinFunction.
+  public void configure(SkylarkSignature annotation) {
+    Preconditions.checkState(!isConfigured()); // must not be configured yet
+
+    // side effect: appends to getEnforcedArgumentTypes()
+    SkylarkSignatureProcessor.SignatureInfo info =
+        SkylarkSignatureProcessor.getSignatureForCallable(
+            getName(), annotation, /*paramDoc=*/ new ArrayList<>(), getEnforcedArgumentTypes());
+    this.signature = info.signature;
+    this.paramTypes = info.types;
+    this.defaultValues = info.defaultValues;
+
+    this.objectType = annotation.objectType().equals(Object.class)
+        ? null : annotation.objectType();
+    configure();
+  }
+
   /** Configure a function based on its signature */
   // This function is called after the signature is initialized.
-  void configure() {
+  protected void configure() {
     Preconditions.checkState(signature != null);
 
-    // BuiltinFunction overrides this method without calling this
-    // implementation, so this statement does not clobber the
-    // enforcedArgumentTypes computed by getSignatureForCallable.
-    // Still it is hard to explain what the configure method does.
-    // TODO(adonovan): eliminate SkylarkSignature then simplify.
+    // TODO(adonovan): this looks fishy. It clobbers this.enforcedArgumentTypes, populated as a
+    // side-effect of the getSignatureForCallable call in configure.
     this.enforcedArgumentTypes = this.paramTypes;
   }
 

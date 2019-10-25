@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -64,19 +65,19 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public NoneType workspace(
       String name,
       SkylarkDict<?, ?> managedDirectories, // <String, Object>
-      Location loc,
+      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (allowOverride) {
       if (!isLegalWorkspaceName(name)) {
-        throw new EvalException(loc, name + " is not a legal workspace name");
+        throw new EvalException(ast.getLocation(), name + " is not a legal workspace name");
       }
       String errorMessage = LabelValidator.validateTargetName(name);
       if (errorMessage != null) {
-        throw new EvalException(loc, errorMessage);
+        throw new EvalException(ast.getLocation(), errorMessage);
       }
-      PackageFactory.getContext(thread, loc).pkgBuilder.setWorkspaceName(name);
-      Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+      PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder.setWorkspaceName(name);
+      Package.Builder builder = PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder;
       RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
       RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
       Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
@@ -84,9 +85,9 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         // This effectively adds a "local_repository(name = "<ws>", path = ".")"
         // definition to the WORKSPACE file.
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            builder, localRepositoryRuleClass, bindRuleClass, kwargs, loc);
+            builder, localRepositoryRuleClass, bindRuleClass, kwargs, ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-        throw new EvalException(loc, e.getMessage());
+        throw new EvalException(ast.getLocation(), e.getMessage());
       }
       // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
       // treats references to @name as a separate external repo
@@ -97,28 +98,29 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
             RepositoryName.MAIN);
       }
       parseManagedDirectories(
-          managedDirectories.getContents(String.class, Object.class, "managed_directories"), loc);
+          managedDirectories.getContents(String.class, Object.class, "managed_directories"), ast);
       return NONE;
     } else {
       throw new EvalException(
-          loc, "workspace() function should be used only at the top of the WORKSPACE file");
+          ast.getLocation(),
+          "workspace() function should be used only at the top of the WORKSPACE file");
     }
   }
 
   private void parseManagedDirectories(
       Map<String, ?> managedDirectories, // <String, SkylarkList<String>>
-      Location loc)
+      FuncallExpression ast)
       throws EvalException {
     Map<PathFragment, String> nonNormalizedPathsMap = Maps.newHashMap();
     for (Map.Entry<String, ?> entry : managedDirectories.entrySet()) {
-      RepositoryName repositoryName = createRepositoryName(entry.getKey(), loc);
+      RepositoryName repositoryName = createRepositoryName(entry.getKey(), ast.getLocation());
       List<PathFragment> paths =
-          getManagedDirectoriesPaths(entry.getValue(), loc, nonNormalizedPathsMap);
+          getManagedDirectoriesPaths(entry.getValue(), ast.getLocation(), nonNormalizedPathsMap);
       for (PathFragment dir : paths) {
         PathFragment floorKey = managedDirectoriesMap.floorKey(dir);
         if (dir.equals(floorKey)) {
           throw new EvalException(
-              loc,
+              ast.getLocation(),
               String.format(
                   "managed_directories attribute should not contain multiple"
                       + " (or duplicate) repository mappings for the same directory ('%s').",
@@ -128,7 +130,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         boolean isDescendant = floorKey != null && dir.startsWith(floorKey);
         if (isDescendant || (ceilingKey != null && ceilingKey.startsWith(dir))) {
           throw new EvalException(
-              loc,
+              ast.getLocation(),
               String.format(
                   "managed_directories attribute value can not contain nested mappings."
                       + " '%s' is a descendant of '%s'.",
@@ -242,29 +244,29 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
+  public NoneType bind(String name, Object actual, FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Label nameLabel;
     try {
       nameLabel = Label.parseAbsolute("//external:" + name, ImmutableMap.of());
       try {
-        Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+        Package.Builder builder = PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder;
         RuleClass ruleClass = ruleFactory.getRuleClass("bind");
         WorkspaceFactoryHelper.addBindRule(
             builder,
             ruleClass,
             nameLabel,
             actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
-            loc,
+            ast.getLocation(),
             new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException
           | Package.NameConflictException
           | LabelSyntaxException e) {
-        throw new EvalException(loc, e.getMessage());
+        throw new EvalException(ast.getLocation(), e.getMessage());
       }
 
     } catch (LabelSyntaxException e) {
-      throw new EvalException(loc, e.getMessage());
+      throw new EvalException(ast.getLocation(), e.getMessage());
     }
     return NONE;
   }

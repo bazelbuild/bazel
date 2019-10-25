@@ -1289,7 +1289,7 @@ public final class PackageFactory {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(String ruleClassName, RuleFactory ruleFactory) {
-      super(ruleClassName, FunctionSignature.KWARGS);
+      super(ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_LOC_ENV);
       this.ruleClassName = ruleClassName;
       Preconditions.checkNotNull(ruleFactory, "ruleFactory was null");
       this.ruleClass = Preconditions.checkNotNull(

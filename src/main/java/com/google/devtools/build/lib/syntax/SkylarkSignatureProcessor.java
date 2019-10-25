@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -343,21 +345,43 @@ public class SkylarkSignatureProcessor {
     }
   }
 
+  /** Extract additional signature information for BuiltinFunction-s */
+  static ExtraArgKind[] getExtraArgs(SkylarkSignature annotation) {
+    final int numExtraArgs =
+        Booleans.countTrue(
+            annotation.useLocation(), annotation.useAst(), annotation.useStarlarkThread());
+    if (numExtraArgs == 0) {
+      return null;
+    }
+    final ExtraArgKind[] extraArgs = new ExtraArgKind[numExtraArgs];
+    int i = 0;
+    if (annotation.useLocation()) {
+      extraArgs[i++] = ExtraArgKind.LOCATION;
+    }
+    if (annotation.useAst()) {
+      extraArgs[i++] = ExtraArgKind.SYNTAX_TREE;
+    }
+    if (annotation.useStarlarkThread()) {
+      extraArgs[i++] = ExtraArgKind.ENVIRONMENT;
+    }
+    return extraArgs;
+  }
+
   /**
    * Processes all {@link SkylarkSignature}-annotated fields in a class.
    *
    * <p>This includes registering these fields as builtins using {@link Runtime}, and for {@link
-   * BuiltinFunction} instances, calling {@link BuiltinFunction#configure(SkylarkSignature)}. The
-   * fields will be picked up by reflection even if they are not public.
+   * BaseFunction} instances, calling {@link BaseFunction#configure(SkylarkSignature)}. The fields
+   * will be picked up by reflection even if they are not public.
    *
    * <p>This function should be called once per class, before the builtins registry is frozen. In
    * practice, this is usually called from the class's own static initializer block. E.g., a class
-   * {@code Foo} containing {@code @SkylarkSignature} annotations would end with {@code static {
-   * SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class); }}.
+   * {@code Foo} containing {@code @SkylarkSignature} annotations would end with
+   * {@code static { SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class); }}.
    *
    * <p><b>If you see exceptions from {@link Runtime.BuiltinRegistry} here:</b> Be sure the class's
-   * static initializer has in fact been called before the registry was frozen. In Bazel, see {@link
-   * com.google.devtools.build.lib.runtime.BlazeRuntime#initSkylarkBuiltinsRegistry}.
+   * static initializer has in fact been called before the registry was frozen. In Bazel, see
+   * {@link com.google.devtools.build.lib.runtime.BlazeRuntime#initSkylarkBuiltinsRegistry}.
    */
   public static void configureSkylarkFunctions(Class<?> type) {
     Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();
@@ -375,10 +399,10 @@ public class SkylarkSignatureProcessor {
                   type,
                   field);
           builtins.registerBuiltin(type, field.getName(), value);
-          if (BuiltinFunction.class.isAssignableFrom(field.getType())) {
-            BuiltinFunction function = (BuiltinFunction) value;
+          if (BaseFunction.class.isAssignableFrom(field.getType())) {
+            BaseFunction function = (BaseFunction) value;
             if (!function.isConfigured()) {
-              function.configureFromAnnotation(annotation);
+              function.configure(annotation);
             }
             Class<?> nameSpace = function.getObjectType();
             if (nameSpace != null) {

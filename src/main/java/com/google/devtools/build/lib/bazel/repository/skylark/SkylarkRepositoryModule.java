@@ -187,7 +187,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 ruleClass,
                 null,
                 WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
-                ast.getLocation(),
+                ast,
                 callStack.toString());
         return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {

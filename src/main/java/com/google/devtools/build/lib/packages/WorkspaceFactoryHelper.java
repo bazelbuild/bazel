@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Map;
@@ -39,10 +40,10 @@ public class WorkspaceFactoryHelper {
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
-      Location loc)
+      FuncallExpression ast)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
           InterruptedException {
-    return createAndAddRepositoryRule(pkg, ruleClass, bindRuleClass, kwargs, loc, null);
+    return createAndAddRepositoryRule(pkg, ruleClass, bindRuleClass, kwargs, ast, null);
   }
 
   public static Rule createAndAddRepositoryRule(
@@ -50,7 +51,7 @@ public class WorkspaceFactoryHelper {
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
-      Location loc,
+      FuncallExpression ast, // just for getLocation(); TODO(adonovan): simplify
       String definitionInfo)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
           InterruptedException {
@@ -63,7 +64,7 @@ public class WorkspaceFactoryHelper {
             ruleClass,
             attributeValues,
             eventHandler,
-            loc,
+            ast.getLocation(),
             /* thread= */ null,
             new AttributeContainer(ruleClass));
     pkg.addEvents(eventHandler.getEvents());
