@@ -28,15 +28,15 @@ import com.google.devtools.build.lib.versioning.ParseException;
 import com.google.devtools.build.lib.versioning.SemVer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 import java.util.List;
-import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** A sandboxfs implementation that uses an external sandboxfs binary to manage the mount point. */
@@ -149,11 +149,9 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
 
     Subprocess process = processBuilder.start();
     RealSandboxfsProcess sandboxfs = new RealSandboxfsProcess(mountPoint, process);
-    // TODO(jmmv): We should have a better mechanism to wait for sandboxfs to start successfully but
-    // sandboxfs currently provides no interface to do so.  Just try to push an empty configuration
-    // and see if it works.
     try {
-      sandboxfs.reconfigure("[]\n\n");
+      // Create an empty sandbox to ensure sandboxfs is successfully serving.
+      sandboxfs.createSandbox("empty", ImmutableList.of());
     } catch (IOException e) {
       process.destroyAndWait();
       throw new IOException("sandboxfs failed to start", e);
@@ -212,6 +210,7 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
   private synchronized void reconfigure(String config) throws IOException {
     checkNotNull(processStdIn, "sandboxfs already has been destroyed");
     processStdIn.write(config);
+    processStdIn.write("\n\n");
     processStdIn.flush();
 
     checkNotNull(processStdOut, "sandboxfs has already been destroyed");
@@ -224,31 +223,63 @@ final class RealSandboxfsProcess implements SandboxfsProcess {
     }
   }
 
+  /** Encodes a mapping into JSON. */
+  @SuppressWarnings("UnnecessaryParentheses")
+  private static void writeMapping(JsonWriter writer, PathFragment root, Mapping mapping)
+      throws IOException {
+    writer.beginObject();
+    {
+      writer.name("Mapping");
+      writer.value((root.getRelative(mapping.path().toRelative())).getPathString());
+      writer.name("Target");
+      writer.value(mapping.target().getPathString());
+      writer.name("Writable");
+      writer.value(mapping.writable());
+    }
+    writer.endObject();
+  }
+
   @Override
+  @SuppressWarnings("UnnecessaryParentheses")
   public void createSandbox(String name, List<Mapping> mappings) throws IOException {
     checkArgument(!PathFragment.containsSeparator(name));
     PathFragment root = PathFragment.create("/").getRelative(name);
 
-    Function<Mapping, String> formatMapping =
-        (mapping) ->
-            String.format(
-                "{\"Map\": {\"Mapping\": \"%s\", \"Target\": \"%s\", \"Writable\": %s}}",
-                root.getRelative(mapping.path().toRelative()),
-                mapping.target(),
-                mapping.writable() ? "true" : "false");
-
-    StringBuilder sb = new StringBuilder();
-    sb.append("[\n");
-    sb.append(mappings.stream().map(formatMapping).collect(Collectors.joining(",\n")));
-    sb.append("]\n\n");
-    reconfigure(sb.toString());
+    StringWriter stringWriter = new StringWriter();
+    try (JsonWriter writer = new JsonWriter(stringWriter)) {
+      writer.beginArray();
+      for (Mapping mapping : mappings) {
+        writer.beginObject();
+        {
+          writer.name("Map");
+          writeMapping(writer, root, mapping);
+        }
+        writer.endObject();
+      }
+      writer.endArray();
+    }
+    reconfigure(stringWriter.toString());
   }
 
   @Override
+  @SuppressWarnings("UnnecessaryParentheses")
   public void destroySandbox(String name) throws IOException {
     checkArgument(!PathFragment.containsSeparator(name));
     PathFragment root = PathFragment.create("/").getRelative(name);
 
-    reconfigure(String.format("[{\"Unmap\": \"%s\"}]\n\n", root.getPathString()));
+    StringWriter stringWriter = new StringWriter();
+    try (JsonWriter writer = new JsonWriter(stringWriter)) {
+      writer.beginArray();
+      {
+        writer.beginObject();
+        {
+          writer.name("Unmap");
+          writer.value(root.getPathString());
+        }
+        writer.endObject();
+      }
+      writer.endArray();
+    }
+    reconfigure(stringWriter.toString());
   }
 }
