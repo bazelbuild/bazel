@@ -76,7 +76,7 @@ def _ls_srcs(ctx):
     inputs = ctx.files.srcs,
     outputs = [out],
     executable = "bash",
-    arguments = ["-c", "find . > " + out.path],
+    arguments = ["-c", "find -L . > " + out.path],
   )
   return DefaultInfo(
     files = depset(direct = [out]),
