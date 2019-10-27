@@ -235,7 +235,7 @@ team dynamics, you can add flags to a `.bazelrc` file that is:
 * In your project's workspace, shared with the team
 * On the CI system
 
-### Read from or write to the remote cache
+### Read from and write to the remote cache
 
 Take care in who has the ability to write to the remote cache. You may want
 only your CI system to be able to write to the remote cache.
