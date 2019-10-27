@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
+import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -49,17 +51,39 @@ public abstract class AbstractFileSystem extends FileSystem {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
+    InputStream stream = null;
     for (; ; ) {
       try {
-        return createFileInputStream(path);
+        stream = createFileInputStream(path);
       } catch (FileNotFoundException e) {
         if (e.getMessage().endsWith("(Interrupted system call)")) {
           continue;
         } else {
           throw e;
         }
+      } catch (AccessDeniedException e) {
+        throw new IOException(e.getMessage() + " (Permission denied)", e);
       }
+      break;
     }
+
+    // On some platforms, whether an opened input stream can be read won't be checked
+    // until the first read. The underlying stream might not be seekable, so we need
+    // to wrap a buffer around it.
+    //
+    // http://mail.openjdk.java.net/pipermail/nio-dev/2014-December/002877.html
+    BufferedInputStream buffered = new BufferedInputStream(stream);
+    try {
+      buffered.mark(1);
+      buffered.read();
+      buffered.reset();
+    } catch (IOException e) {
+      if (e.getMessage().equals("Is a directory")) {
+        throw new IOException(path.toString() + " (Is a directory)", e);
+      }
+      throw e;
+    }
+    return buffered;
   }
 
   /** Allows the mapping of Path to NIO Path to be overridden in subclasses. */
@@ -68,7 +92,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   /** Returns either normal or profiled InputStream for a file. */
-  private InputStream createFileInputStream(Path path) throws FileNotFoundException {
+  private InputStream createFileInputStream(Path path) throws FileNotFoundException, IOException {
     final java.nio.file.Path nioPath = createJavaNioPath(path);
     final String name = path.toString();
     if (profiler.isActive()
@@ -78,18 +102,12 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         // Replace default InputStream instance with the custom one that does profiling.
         return new ProfiledInputStream(Files.newInputStream(nioPath), name);
-      } catch (IOException e) {
-        throw new FileNotFoundException(name);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
       // Use normal InputStream instance if profiler is not enabled.
-      try {
-        return Files.newInputStream(nioPath);
-      } catch (IOException e) {
-        throw new FileNotFoundException(name);
-      }
+      return Files.newInputStream(nioPath, java.nio.file.StandardOpenOption.READ);
     }
   }
 
