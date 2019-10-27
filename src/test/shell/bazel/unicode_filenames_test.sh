@@ -1,0 +1,131 @@
+#!/bin/bash
+#
+# Copyright 2019 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Verify handling of Unicode filenames.
+
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+#### SETUP #############################################################
+
+function unicode_filenames_test_setup() {
+  touch WORKSPACE
+  mkdir -p pkg/srcs
+
+  cat >pkg/BUILD <<'EOF'
+load(":rules.bzl", "ls_srcs")
+ls_srcs(
+  name = "ls_srcs",
+  srcs = glob(["srcs/**/*"]),
+)
+EOF
+
+  cat >pkg/rules.bzl <<'EOF'
+def _ls_srcs(ctx):
+  out = ctx.actions.declare_file(ctx.attr.name)
+  ctx.actions.run(
+    inputs = ctx.files.srcs,
+    outputs = [out],
+    executable = "bash",
+    arguments = ["-c", "find . > " + out.path],
+  )
+  return DefaultInfo(
+    files = depset(direct = [out]),
+  )
+
+ls_srcs = rule(
+  _ls_srcs,
+  attrs = {"srcs": attr.label_list(allow_files = True)},
+)
+EOF
+}
+
+function test_utf8_source_artifact() {
+  unicode_filenames_test_setup
+
+  python -c 'open(b"pkg/srcs/regular file.txt", "wb").close()'
+
+  mkdir pkg/srcs/subdir
+  python -c 'open(b"pkg/srcs/subdir/file.txt", "wb").close()'
+
+  # >>> u"pkg/srcs/ünïcödë fïlë.txt".encode("utf8")
+  # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
+  python -c 'open(b"pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt", "wb").close()'
+
+  bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
+  assert_contains "pkg/srcs/regular file.txt" bazel-bin/pkg/ls_srcs
+  assert_contains "pkg/srcs/subdir/file.txt" bazel-bin/pkg/ls_srcs
+  assert_contains "pkg/srcs/ünïcödë fïlë.txt" bazel-bin/pkg/ls_srcs
+}
+
+function test_traditional_encoding_source_artifact() {
+  # Windows and macOS both validate filesystem paths. Linux and the traditional BSDs
+  # typically don't, so their paths can contain arbitrary non-NUL bytes.
+  case "$(uname -s | tr [:upper:] [:lower:])" in
+  linux|freebsd)
+    ;;
+  *)
+    echo "Skipping test." && return
+    ;;
+  esac
+
+  unicode_filenames_test_setup
+
+  # >>> u"pkg/srcs/TRADITIONAL ünïcödë fïlë.txt".encode("iso-8859-1")
+  # 'pkg/srcs/TRADITIONAL \xfcn\xefc\xf6d\xeb f\xefl\xeb.txt'
+  python -c 'open(b"pkg/srcs/TRADITIONAL \xfcn\xefc\xf6d\xeb f\xefl\xeb.txt", "wb").close()'
+
+  bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
+  assert_contains "pkg/srcs/TRADITIONAL " bazel-bin/pkg/ls_srcs
+}
+
+run_suite "Tests for handling of Unicode filenames"

@@ -32,6 +32,10 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -429,6 +433,39 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
       }
+    }
+  }
+
+  @Override
+  protected java.nio.file.Path createJavaNioPath(Path path) throws FileNotFoundException {
+    final String pathStr = path.getPathString();
+    if (pathStr.chars().allMatch(c -> c < 128)) {
+      return Paths.get(pathStr);
+    }
+
+    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem,
+    // but Java's IO subsystem expects paths to be encoded in the current locale. We can avoid this
+    // assumption by converting the path to a URI, which permits percent-encoding of any octet.
+    final byte[] pathBytes = path.getPathString().getBytes(StandardCharsets.ISO_8859_1);
+    final StringBuilder builder = new StringBuilder(pathBytes.length * 3);
+    builder.append("file://");
+    for (byte b : pathBytes) {
+      // Keep a few known-safe bytes unescaped for debugging.
+      if (b == 0x2F // '/'
+          || (b >= 0x30 && b <= 0x39) // '0' - '9'
+          || (b >= 0x41 && b <= 0x5A) // 'A' - 'Z'
+          || (b >= 0x61 && b <= 0x7A) // 'a' - 'z'
+          ) {
+        builder.append((char)b);
+      } else {
+        builder.append(String.format("%%%02X", b));
+      }
+    }
+
+    try {
+      return Paths.get(new URI(builder.toString()));
+    } catch (URISyntaxException e){
+      throw new FileNotFoundException(pathStr);
     }
   }
 
