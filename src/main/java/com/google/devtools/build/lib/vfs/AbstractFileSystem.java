@@ -20,13 +20,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
-import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.SequenceInputStream;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
@@ -67,23 +68,25 @@ public abstract class AbstractFileSystem extends FileSystem {
       break;
     }
 
-    // On some platforms, whether an opened input stream can be read won't be checked
-    // until the first read. The underlying stream might not be seekable, so we need
-    // to wrap a buffer around it.
+    // On some platforms, whether a path can be read as a file won't be checked until
+    // the first read().
     //
     // http://mail.openjdk.java.net/pipermail/nio-dev/2014-December/002877.html
-    BufferedInputStream buffered = new BufferedInputStream(stream);
+    //
+    // The underlying stream might not be seekable, and wrapping in a BufferedInputStream
+    // causes test failures in the integration suite, so create our own little one-byte
+    // buffer here.
+    byte[] buf = new byte[1];
+    int buflen = 0;
     try {
-      buffered.mark(1);
-      buffered.read();
-      buffered.reset();
+      buflen = stream.read(buf, 0, 1);
     } catch (IOException e) {
       if (e.getMessage().equals("Is a directory")) {
         throw new IOException(path.toString() + " (Is a directory)", e);
       }
       throw e;
     }
-    return buffered;
+    return new SequenceInputStream(new ByteArrayInputStream(buf, 0, buflen), stream);
   }
 
   /** Allows the mapping of Path to NIO Path to be overridden in subclasses. */
