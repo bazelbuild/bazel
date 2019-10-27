@@ -539,12 +539,26 @@ genrule(
 )
 EOF
 
-  cat >pkg/rules.bzl <<'EOF'
+  # On Windows this file needs to be acceptable by CreateProcessW(), rather
+  # than a Bourne script.
+  if "$is_windows"; then
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".bat"
+_SCRIPT_CONTENT = "@ECHO OFF\necho hello world > %1"
+EOF
+  else
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".sh"
+_SCRIPT_CONTENT = "#!/bin/sh\necho 'hello world' > $@"
+EOF
+  fi
+
+  cat >>pkg/rules.bzl <<'EOF'
 def _bin_rule(ctx):
-    out_sh = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    out_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
     ctx.actions.write(
         output = out_sh,
-        content = "#!/bin/sh\necho 'hello world' > $@",
+        content = _SCRIPT_CONTENT,
         is_executable = True,
     )
     return DefaultInfo(
