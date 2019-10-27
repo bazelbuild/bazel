@@ -250,6 +250,7 @@ Use the following flag to read from and write to the remote cache:
 ```
 build --remote_cache=http://replace-with-your.host:port
 ```
+Besides http, the following protocols are also supported: https, grpc, grpcs.
 
 Use the following flag in addition to the one above to only read from the
 remote cache:
