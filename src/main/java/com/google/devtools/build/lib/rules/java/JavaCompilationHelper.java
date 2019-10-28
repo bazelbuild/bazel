@@ -185,14 +185,21 @@ public final class JavaCompilationHelper {
    * @param manifestProtoOutput the output artifact for the manifest proto emitted from JavaBuilder
    * @param gensrcOutputJar the generated sources jar Artifact to create with the Action (null if no
    *     sources will be generated).
+   * @param genClassOutputJar the generated class jar, or {@code null} if no annotation processing
+   *     is expected.
    * @param nativeHeaderOutput an archive of generated native header files.
    */
   public JavaCompileAction createCompileAction(
       Artifact outputJar,
       Artifact manifestProtoOutput,
       @Nullable Artifact gensrcOutputJar,
+      @Nullable Artifact genClassOutputJar,
       @Nullable Artifact nativeHeaderOutput)
       throws InterruptedException {
+
+    if (genClassOutputJar != null) {
+      createGenJarAction(outputJar, manifestProtoOutput, genClassOutputJar, hostJavabase);
+    }
 
     JavaTargetAttributes attributes = getAttributes();
 

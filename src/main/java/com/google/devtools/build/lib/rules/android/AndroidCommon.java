@@ -617,7 +617,6 @@ public class AndroidCommon {
     if (helper.usesAnnotationProcessing()) {
       genClassJar = helper.createGenJar(classJar);
       genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
@@ -629,7 +628,8 @@ public class AndroidCommon {
     nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
     JavaCompileAction javaCompileAction =
-        helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, nativeHeaderOutput);
+        helper.createCompileAction(
+            classJar, manifestProtoOutput, genSourceJar, genClassJar, nativeHeaderOutput);
     outputDepsProto = javaCompileAction.getOutputDepsProto();
 
     if (generateExtensionRegistry) {

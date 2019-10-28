@@ -115,13 +115,13 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     if (helper.usesAnnotationProcessing()) {
       genClassJar = helper.createGenJar(classJar);
       genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
     JavaCompileAction javaCompileAction =
-        helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, nativeHeaderOutput);
+        helper.createCompileAction(
+            classJar, manifestProtoOutput, genSourceJar, genClassJar, nativeHeaderOutput);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;

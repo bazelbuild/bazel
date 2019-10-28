@@ -242,7 +242,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (helper.usesAnnotationProcessing()) {
       genClassJar = helper.createGenJar(classJar);
       genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
     JavaCompileAction javaCompileAction =
@@ -250,6 +249,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             classJar,
             manifestProtoOutput,
             genSourceJar,
+            genClassJar,
             /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
     javaRuleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());

@@ -233,7 +233,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (helper.usesAnnotationProcessing()) {
       genClassJar = helper.createGenJar(classJar);
       genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
     }
 
     JavaCompileAction javaCompileAction =
@@ -241,6 +240,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             classJar,
             manifestProtoOutput,
             genSourceJar,
+            genClassJar,
             /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
     ruleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());

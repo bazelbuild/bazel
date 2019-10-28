@@ -250,17 +250,13 @@ public final class JavaLibraryHelper {
     if (helper.usesAnnotationProcessing()) {
       genClassJar = helper.createGenJar(output);
       genSourceJar = helper.createGensrcJar(output);
-      helper.createGenJarAction(output, manifestProtoOutput, genClassJar, hostJavabase);
     }
 
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(output);
 
     JavaCompileAction javaCompileAction =
         helper.createCompileAction(
-            output,
-            manifestProtoOutput,
-            genSourceJar,
-            nativeHeaderOutput);
+            output, manifestProtoOutput, genSourceJar, genClassJar, nativeHeaderOutput);
 
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
