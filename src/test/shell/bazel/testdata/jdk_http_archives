@@ -24,7 +24,7 @@ http_archive(
 ################### Remote java_tools with embedded javac 10 ###################
 http_archive(
     name = "remote_java_tools_javac10_test_linux",
-    sha256 = "52e03d400d978e9af6321786cdf477694c3838d7e78c2e5b926d0244670b6d3c",
+    sha256 = "d4fbed2bb22634835e42568c2d26df34fdd7281d9a7061c537f32c9970316e38",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac10/v5.0/java_tools_javac10_linux-v5.0.zip",
     ],
