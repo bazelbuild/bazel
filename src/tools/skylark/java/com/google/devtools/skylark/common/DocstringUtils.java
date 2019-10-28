@@ -96,8 +96,9 @@ public final class DocstringUtils {
   @Nullable
   public static String getAssignedVariableName(@Nullable Statement stmt) {
     if (stmt instanceof AssignmentStatement) {
-      Expression lhs = ((AssignmentStatement) stmt).getLHS();
-      if (lhs instanceof Identifier) {
+      AssignmentStatement assign = (AssignmentStatement) stmt;
+      Expression lhs = assign.getLHS();
+      if (lhs instanceof Identifier && !assign.isAugmented()) {
         return ((Identifier) lhs).getName();
       }
     }

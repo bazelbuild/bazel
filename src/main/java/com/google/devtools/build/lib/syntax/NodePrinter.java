@@ -148,18 +148,10 @@ final class NodePrinter {
         {
           AssignmentStatement stmt = (AssignmentStatement) s;
           printExpr(stmt.getLHS());
-          buf.append(" = ");
-          printExpr(stmt.getRHS());
-          buf.append('\n');
-          break;
-        }
-
-      case AUGMENTED_ASSIGNMENT:
-        {
-          AugmentedAssignmentStatement stmt = (AugmentedAssignmentStatement) s;
-          printExpr(stmt.getLHS());
           buf.append(' ');
-          buf.append(stmt.getOperator());
+          if (stmt.isAugmented()) {
+            buf.append(stmt.getOperator());
+          }
           buf.append("= ");
           printExpr(stmt.getRHS());
           buf.append('\n');

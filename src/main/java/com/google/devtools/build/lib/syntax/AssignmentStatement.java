@@ -14,25 +14,44 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import javax.annotation.Nullable;
 
-/** Syntax node for an assignment statement. */
+/**
+ * Syntax node for an assignment statement ({@code lhs = rhs}) or augmented assignment statement
+ * ({@code lhs op= rhs}).
+ */
 public final class AssignmentStatement extends Statement {
 
   private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_EXPR
+  @Nullable private final TokenKind op;
   private final Expression rhs;
 
   /**
-   * Constructs an assignment: "lhs = rhs". The LHS must be of the form id, x.y, x[i], [e, ...], or
-   * (e, ...).
+   * Constructs an assignment statement. For an ordinary assignment ({@code op == null}), the LHS
+   * expression must be of the form {@code id}, {@code x.y}, {@code x[i]}, {@code [e, ...]}, or
+   * {@code (e, ...)}, where x, i, and e are arbitrary expressions. For an augmented assignment, the
+   * list and tuple forms are disallowed.
    */
-  AssignmentStatement(Expression lhs, Expression rhs) {
+  AssignmentStatement(Expression lhs, @Nullable TokenKind op, Expression rhs) {
     this.lhs = lhs;
+    this.op = op;
     this.rhs = rhs;
   }
 
   /** Returns the LHS of the assignment. */
   public Expression getLHS() {
     return lhs;
+  }
+
+  /** Returns the operator of an augmented assignment, or null for an ordinary assignment. */
+  @Nullable
+  public TokenKind getOperator() {
+    return op;
+  }
+
+  /** Reports whether this is an augmented assignment ({@code getOperator() != null}). */
+  public boolean isAugmented() {
+    return op != null;
   }
 
   /** Returns the RHS of the assignment. */

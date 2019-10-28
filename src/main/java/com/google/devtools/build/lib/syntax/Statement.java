@@ -22,7 +22,6 @@ public abstract class Statement extends Node {
    */
   public enum Kind {
     ASSIGNMENT,
-    AUGMENTED_ASSIGNMENT,
     EXPRESSION,
     FLOW,
     FOR,

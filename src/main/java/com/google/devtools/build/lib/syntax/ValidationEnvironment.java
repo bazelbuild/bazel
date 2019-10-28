@@ -142,9 +142,6 @@ public final class ValidationEnvironment extends NodeVisitor {
       case ASSIGNMENT:
         collectDefinitions(((AssignmentStatement) stmt).getLHS());
         break;
-      case AUGMENTED_ASSIGNMENT:
-        collectDefinitions(((AugmentedAssignmentStatement) stmt).getLHS());
-        break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
         collectDefinitions(ifStmt.getThenBlock());
@@ -371,17 +368,14 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(AssignmentStatement node) {
     visit(node.getRHS());
-    assign(node.getLHS());
-  }
 
-  @Override
-  public void visit(AugmentedAssignmentStatement node) {
-    if (node.getLHS() instanceof ListExpression) {
+    // Disallow: [e, ...] += rhs
+    // Other bad cases are handled in assign.
+    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
       addError(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }
-    // Other bad cases are handled in assign.
-    visit(node.getRHS());
+
     assign(node.getLHS());
   }
 

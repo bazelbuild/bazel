@@ -31,7 +31,6 @@ java_library(
     srcs = [
         "Argument.java",
         "AssignmentStatement.java",
-        "AugmentedAssignmentStatement.java",
         "BinaryOperatorExpression.java",
         "Comment.java",
         "Comprehension.java",

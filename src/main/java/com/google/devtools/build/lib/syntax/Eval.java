@@ -86,8 +86,12 @@ final class Eval {
   }
 
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
-    Object rvalue = eval(thread, node.getRHS());
-    assign(node.getLHS(), rvalue, thread, node.getLocation());
+    if (node.isAugmented()) {
+      execAugmentedAssignment(node);
+    } else {
+      Object rvalue = eval(thread, node.getRHS());
+      assign(node.getLHS(), rvalue, thread, node.getLocation());
+    }
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
@@ -201,9 +205,6 @@ final class Eval {
     switch (st.kind()) {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
-        return TokenKind.PASS;
-      case AUGMENTED_ASSIGNMENT:
-        execAugmentedAssignment((AugmentedAssignmentStatement) st);
         return TokenKind.PASS;
       case EXPRESSION:
         eval(thread, ((ExpressionStatement) st).getExpression());
@@ -322,16 +323,7 @@ final class Eval {
     }
   }
 
-  /**
-   * Evaluates an augmented assignment that mutates this {@code LValue} with the given right-hand
-   * side's value.
-   *
-   * <p>The left-hand side expression is evaluated only once, even when it is an {@link
-   * IndexExpression}. The left-hand side is evaluated before the right-hand side to match Python's
-   * behavior (hence why the right-hand side is passed as an expression rather than as an evaluated
-   * value).
-   */
-  private void execAugmentedAssignment(AugmentedAssignmentStatement stmt)
+  private void execAugmentedAssignment(AssignmentStatement stmt)
       throws EvalException, InterruptedException {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();

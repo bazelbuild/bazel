@@ -113,11 +113,6 @@ public class NodeVisitor {
     visit(node.getLHS());
   }
 
-  public void visit(AugmentedAssignmentStatement node) {
-    visit(node.getRHS());
-    visit(node.getLHS());
-  }
-
   public void visit(ExpressionStatement node) {
     visit(node.getExpression());
   }
