@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
@@ -858,9 +859,30 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  /** @return An artifact next to the executable file with ".zip" suffix */
+  /** @return an artifact next to the executable file with a given suffix. */
+  private Artifact getArtifactWithExtension(Artifact executable, String extension) {
+    // On Windows, the Python executable has .exe extension on Windows,
+    // On Linux, the Python executable has no extension.
+    PathFragment pathFragment = executable.getRootRelativePath();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      pathFragment = FileSystemUtils.replaceExtension(pathFragment, extension, ".exe");
+    } else {
+      pathFragment = pathFragment.replaceName(pathFragment.getBaseName() + extension);
+    }
+    return ruleContext.getDerivedArtifact(pathFragment, executable.getRoot());
+  }
+
+  /** @return an artifact next to the executable file with ".zip" suffix */
   public Artifact getPythonZipArtifact(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+    return getArtifactWithExtension(executable, ".zip");
+  }
+
+  /**
+   * @return an artifact next to the executable file with ".temp" suffix. Used only if we're
+   * building a zip.
+   */
+  public Artifact getPythonIntermediateStubArtifact(Artifact executable) {
+    return getArtifactWithExtension(executable, ".temp");
   }
 
   /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */

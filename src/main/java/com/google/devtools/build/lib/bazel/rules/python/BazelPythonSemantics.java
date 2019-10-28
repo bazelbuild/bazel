@@ -131,14 +131,6 @@ public class BazelPythonSemantics implements PythonSemantics {
     return result;
   }
 
-  /**
-   * Returns an artifact next to the executable file with ".temp" suffix. Used only if we're
-   * building a zip.
-   */
-  public Artifact getPythonIntermediateStubArtifact(RuleContext ruleContext, Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".temp");
-  }
-
   private static String boolToLiteral(boolean value) {
     return value ? "True" : "False";
   }
@@ -308,7 +300,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     if (!ruleContext.hasErrors()) {
       // Create the stub file that's needed by the python zip file.
-      Artifact stubFileForZipFile = getPythonIntermediateStubArtifact(ruleContext, executable);
+      Artifact stubFileForZipFile = common.getPythonIntermediateStubArtifact(executable);
       createStubFile(ruleContext, stubFileForZipFile, common, /* isForZipFile= */ true);
 
       createPythonZipAction(

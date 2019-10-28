@@ -139,4 +139,20 @@ EOF
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
+function test_building_zip_file_with_target_name_with_dot() {
+  touch bin.py
+  chmod u+x bin.py
+  cat > BUILD <<'EOF'
+py_binary(
+  name = "bin.v1",  # .v1 should not be treated as extension and removed accidentally
+  srcs = ["bin.py"],
+  main = "bin.py",
+)
+EOF
+
+  bazel build --build_python_zip :bin.v1
+  [ -d "bazel-bin/bin.v1.temp" ] || fail "Stub file for python zip file not built"
+  [ -d "bazel-bin/bin.v1.zip" ] || fail "Python zip file not built"
+}
+
 run_suite "Tests for the Python rules"
