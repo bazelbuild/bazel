@@ -389,6 +389,17 @@ sh_test(
 )
 
 sh_test(
+    name = "action_aspect_test",
+    size = "large",
+    srcs = ["action_aspect_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "action_env_test",
     size = "large",
     srcs = ["action_env_test.sh"],

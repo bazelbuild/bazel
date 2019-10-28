@@ -46,9 +46,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory.Args;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine;
+import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -2913,7 +2911,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testSkylarkCustomCommandLineKeyComputation() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
-    ImmutableList.Builder<SkylarkCustomCommandLine> commandLines = ImmutableList.builder();
+    ImmutableList.Builder<CommandLine> commandLines = ImmutableList.builder();
 
     commandLines.add(getCommandLine("args = ruleContext.actions.args()"));
     commandLines.add(getCommandLine("args = ruleContext.actions.args()", "args.add('foo')"));
@@ -2976,12 +2974,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     // Ensure all these command lines have distinct keys
     ActionKeyContext actionKeyContext = new ActionKeyContext();
-    Map<String, SkylarkCustomCommandLine> digests = new HashMap<>();
-    for (SkylarkCustomCommandLine commandLine : commandLines.build()) {
+    Map<String, CommandLine> digests = new HashMap<>();
+    for (CommandLine commandLine : commandLines.build()) {
       Fingerprint fingerprint = new Fingerprint();
       commandLine.addToFingerprint(actionKeyContext, fingerprint);
       String digest = fingerprint.hexDigestAndReset();
-      SkylarkCustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
+      CommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {
         fail(
             String.format(
@@ -2993,7 +2991,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
 
     // Ensure errors are handled
-    SkylarkCustomCommandLine commandLine =
+    CommandLine commandLine =
         getCommandLine(
             "args = ruleContext.actions.args()",
             "def _bad_fn(s): return s.doesnotexist()",
@@ -3004,9 +3002,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         () -> commandLine.addToFingerprint(actionKeyContext, new Fingerprint()));
   }
 
-  private SkylarkCustomCommandLine getCommandLine(String... lines) throws Exception {
+  private CommandLine getCommandLine(String... lines) throws Exception {
     exec(lines);
-    return ((SkylarkActionFactory.Args) eval("args")).build();
+    return ((Args) eval("args")).build();
   }
 
   @Test
