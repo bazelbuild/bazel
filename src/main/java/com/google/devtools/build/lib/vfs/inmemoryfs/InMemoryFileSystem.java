@@ -104,23 +104,6 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   /**
-   * Given a path that's normalized (no ".." or "." segments), except for a possible prefix sequence
-   * of contiguous ".." segments, returns the size of that prefix sequence.
-   *
-   * <p>Example allowed inputs: "/absolute/path", "relative/path", "../../relative/path". Example
-   * disallowed inputs: "/absolute/path/../path2", "relative/../path", "../relative/../p".
-   */
-  private int leadingParentReferences(PathFragment normalizedPath) {
-    int leadingParentReferences = 0;
-    for (int i = 0;
-        i < normalizedPath.segmentCount() && normalizedPath.getSegment(i).equals("..");
-        i++) {
-      leadingParentReferences++;
-    }
-    return leadingParentReferences;
-  }
-
-  /**
    * The errors that {@link InMemoryFileSystem} might issue for different sorts of IO failures.
    */
   public enum Error {
