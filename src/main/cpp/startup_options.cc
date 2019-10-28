@@ -82,6 +82,7 @@ StartupOptions::StartupOptions(const string &product_name,
       fatal_event_bus_exceptions(false),
       command_port(0),
       connect_timeout_secs(30),
+      local_startup_timeout_secs(120),
       have_invocation_policy_(false),
       client_debug(false),
       java_logging_formatter(
@@ -147,6 +148,7 @@ StartupOptions::StartupOptions(const string &product_name,
                              &windows_enable_symlinks);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
+  RegisterUnaryStartupFlag("local_startup_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
   RegisterUnaryStartupFlag("unix_digest_hash_attribute_name");
   RegisterUnaryStartupFlag("server_javabase");
@@ -354,6 +356,17 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["connect_timeout_secs"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+                                     "--local_startup_timeout_secs")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &local_startup_timeout_secs) ||
+        local_startup_timeout_secs < 1) {
+      blaze_util::StringPrintf(error,
+          "Invalid argument to --local_startup_timeout_secs: '%s'.\n"
+          "Must be a positive integer.\n",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["local_startup_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--digest_function")) !=
              NULL) {
     digest_function = value;

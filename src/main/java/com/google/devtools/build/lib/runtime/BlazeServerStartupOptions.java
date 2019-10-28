@@ -383,6 +383,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
 
+  @Option(
+      name = "local_startup_timeout_secs",
+      defaultValue = "120", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum amount of time the client waits to connect to the server")
+  public int localStartupTimeoutSecs;
+
   // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
   // experimental tag once this has been tested and is ready for use.
   @Option(

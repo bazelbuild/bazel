@@ -234,6 +234,9 @@ class StartupOptions {
   // Connection timeout for each gRPC connection attempt.
   int connect_timeout_secs;
 
+  // Local server startup timeout duration.
+  int local_startup_timeout_secs;
+
   // Invocation policy proto, or an empty string.
   std::string invocation_policy;
   // Invocation policy can only be specified once.
