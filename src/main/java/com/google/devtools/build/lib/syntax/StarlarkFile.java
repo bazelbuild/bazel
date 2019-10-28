@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -54,7 +53,7 @@ public final class StarlarkFile extends Node {
 
   private static StarlarkFile create(
       List<Statement> preludeStatements,
-      ParseResult result,
+      Parser.ParseResult result,
       String contentHashCode,
       boolean allowImportInternal) {
     ImmutableList.Builder<Statement> statementsbuilder =
