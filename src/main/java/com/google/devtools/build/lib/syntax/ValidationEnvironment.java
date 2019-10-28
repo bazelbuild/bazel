@@ -157,7 +157,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         collectDefinitions(forStmt.getLHS());
         collectDefinitions(forStmt.getBlock());
         break;
-      case FUNCTION_DEF:
+      case DEF:
         DefStatement def = (DefStatement) stmt;
         declare(def.getIdentifier());
         break;

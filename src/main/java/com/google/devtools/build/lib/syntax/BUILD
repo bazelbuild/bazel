@@ -54,6 +54,7 @@ java_library(
         "ListExpression.java",
         "LoadStatement.java",
         "Node.java",
+        "NodePrinter.java",
         "NodeVisitor.java",
         "Parameter.java",
         "Parser.java",
@@ -72,10 +73,8 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:string_util",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

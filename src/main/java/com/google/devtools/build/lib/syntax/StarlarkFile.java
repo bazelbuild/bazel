@@ -132,14 +132,6 @@ public final class StarlarkFile extends Node {
   }
 
   @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    // Only statements are printed, not comments.
-    for (Statement stmt : statements) {
-      stmt.prettyPrint(buffer, indentLevel);
-    }
-  }
-
-  @Override
   public String toString() {
     return "<StarlarkFile with " + statements.size() + " statements>";
   }

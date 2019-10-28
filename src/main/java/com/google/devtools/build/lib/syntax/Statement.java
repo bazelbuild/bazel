@@ -26,7 +26,7 @@ public abstract class Statement extends Node {
     EXPRESSION,
     FLOW,
     FOR,
-    FUNCTION_DEF,
+    DEF,
     IF,
     LOAD,
     RETURN,

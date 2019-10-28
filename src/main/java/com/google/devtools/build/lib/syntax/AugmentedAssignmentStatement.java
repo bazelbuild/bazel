@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for an augmented assignment statement. */
 // TODO(adonovan): merge with AssignmentStatement.
@@ -44,17 +43,6 @@ public final class AugmentedAssignmentStatement extends Statement {
   /** Returns the RHS of the assignment. */
   public Expression getRHS() {
     return rhs;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    lhs.prettyPrint(buffer);
-    buffer.append(' ');
-    buffer.append(op.toString());
-    buffer.append("= ");
-    rhs.prettyPrint(buffer);
-    buffer.append('\n');
   }
 
   @Override

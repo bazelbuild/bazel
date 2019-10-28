@@ -33,8 +33,6 @@ import javax.annotation.Nullable;
 /** (Pretty) Printing of Skylark values */
 public class Printer {
 
-  public static final char SKYLARK_QUOTATION_MARK = '"';
-
   /**
    * Creates an instance of {@link BasePrinter} that wraps an existing buffer.
    *
@@ -328,13 +326,13 @@ public class Printer {
      * @return this printer.
      */
     protected BasePrinter writeString(String s) {
-      this.append(SKYLARK_QUOTATION_MARK);
+      this.append('"');
       int len = s.length();
       for (int i = 0; i < len; i++) {
         char c = s.charAt(i);
         escapeCharacter(c);
       }
-      return this.append(SKYLARK_QUOTATION_MARK);
+      return this.append('"');
     }
 
     private BasePrinter backslashChar(char c) {
@@ -342,7 +340,7 @@ public class Printer {
     }
 
     private BasePrinter escapeCharacter(char c) {
-      if (c == SKYLARK_QUOTATION_MARK) {
+      if (c == '"') {
         return backslashChar(c);
       }
       switch (c) {

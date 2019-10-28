@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
 public final class UnaryOperatorExpression extends Expression {
@@ -34,16 +33,6 @@ public final class UnaryOperatorExpression extends Expression {
   /** Returns the operand. */
   public Expression getX() {
     return x;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-    // conservatively emit them here.
-    buffer.append(op == TokenKind.NOT ? "not " : op.toString());
-    buffer.append('(');
-    x.prettyPrint(buffer);
-    buffer.append(')');
   }
 
   @Override

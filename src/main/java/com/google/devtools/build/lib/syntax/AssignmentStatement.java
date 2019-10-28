@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for an assignment statement. */
 public final class AssignmentStatement extends Statement {
@@ -39,15 +38,6 @@ public final class AssignmentStatement extends Statement {
   /** Returns the RHS of the assignment. */
   public Expression getRHS() {
     return rhs;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    lhs.prettyPrint(buffer, indentLevel);
-    buffer.append(" = ");
-    rhs.prettyPrint(buffer, indentLevel);
-    buffer.append('\n');
   }
 
   @Override

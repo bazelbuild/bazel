@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for list and tuple expressions. */
@@ -35,21 +34,6 @@ public final class ListExpression extends Expression {
   /** Reports whether this is a tuple expression. */
   public boolean isTuple() {
     return isTuple;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(isTuple() ? '(' : '[');
-    String sep = "";
-    for (Expression e : elements) {
-      buffer.append(sep);
-      e.prettyPrint(buffer);
-      sep = ", ";
-    }
-    if (isTuple() && elements.size() == 1) {
-      buffer.append(',');
-    }
-    buffer.append(isTuple() ? ')' : ']');
   }
 
   @Override

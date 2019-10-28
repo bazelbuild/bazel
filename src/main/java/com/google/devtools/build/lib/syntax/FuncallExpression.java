@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -67,19 +66,6 @@ public final class FuncallExpression extends Expression {
    */
   public int getNumPositionalArguments() {
     return numPositionalArgs;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    function.prettyPrint(buffer);
-    buffer.append('(');
-    String sep = "";
-    for (Argument arg : arguments) {
-      buffer.append(sep);
-      arg.prettyPrint(buffer);
-      sep = ", ";
-    }
-    buffer.append(')');
   }
 
   @Override

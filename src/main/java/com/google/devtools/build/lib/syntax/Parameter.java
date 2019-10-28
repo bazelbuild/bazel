@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -51,27 +50,13 @@ public abstract class Parameter extends Node {
     return null;
   }
 
-  @Override
-  public final void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    prettyPrint(buffer);
-  }
-
-  @Override
-  public abstract void prettyPrint(Appendable buffer) throws IOException;
-
   /**
    * Syntax node for a mandatory parameter, {@code f(id)}. It may be positional or keyword-only
    * depending on its position.
    */
   public static final class Mandatory extends Parameter {
-
     Mandatory(Identifier identifier) {
       super(identifier);
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append(getName());
     }
   }
 
@@ -95,13 +80,6 @@ public abstract class Parameter extends Node {
     }
 
     @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append(getName());
-      buffer.append('=');
-      defaultValue.prettyPrint(buffer);
-    }
-
-    @Override
     public String toString() {
       return getName() + "=" + defaultValue;
     }
@@ -109,31 +87,15 @@ public abstract class Parameter extends Node {
 
   /** Syntax node for a star parameter, {@code f(*identifier)} or or {@code f(..., *, ...)}. */
   public static final class Star extends Parameter {
-
     Star(@Nullable Identifier identifier) {
       super(identifier);
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append('*');
-      if (getName() != null) {
-        buffer.append(getName());
-      }
     }
   }
 
   /** Syntax node for a parameter of the form {@code f(**identifier)}. */
   public static final class StarStar extends Parameter {
-
     StarStar(Identifier identifier) {
       super(identifier);
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append("**");
-      buffer.append(getName());
     }
   }
 

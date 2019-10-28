@@ -212,7 +212,7 @@ final class Eval {
         return ((FlowStatement) st).getKind();
       case FOR:
         return execFor((ForStatement) st);
-      case FUNCTION_DEF:
+      case DEF:
         execDef((DefStatement) st);
         return TokenKind.PASS;
       case IF:

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -43,14 +42,8 @@ public abstract class Argument extends Node {
 
   /** Syntax node for a positional argument, {@code f(expr)}. */
   public static final class Positional extends Argument {
-
     Positional(Expression value) {
       super(value);
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      getValue().prettyPrint(buffer);
     }
   }
 
@@ -75,50 +68,21 @@ public abstract class Argument extends Node {
     public String getName() {
       return identifier.getName();
     }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append(identifier.getName());
-      buffer.append(" = ");
-      getValue().prettyPrint(buffer);
-    }
   }
 
   /** Syntax node for an argument of the form {@code f(*expr)}. */
   public static final class Star extends Argument {
-
     Star(Expression value) {
       super(value);
-    }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append('*');
-      getValue().prettyPrint(buffer);
     }
   }
 
   /** Syntax node for an argument of the form {@code f(**expr)}. */
   public static final class StarStar extends Argument {
-
     StarStar(Expression value) {
       super(value);
     }
-
-    @Override
-    public void prettyPrint(Appendable buffer) throws IOException {
-      buffer.append("**");
-      getValue().prettyPrint(buffer);
-    }
   }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    prettyPrint(buffer);
-  }
-
-  @Override
-  public abstract void prettyPrint(Appendable buffer) throws IOException;
 
   @Override
   public void accept(NodeVisitor visitor) {
