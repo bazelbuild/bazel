@@ -106,6 +106,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     filesBuilder.add(classJar);
 
+    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
+
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     // The gensrc jar is created only if the target uses annotation processing.
@@ -119,9 +121,13 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
 
-    JavaCompileAction javaCompileAction =
-        helper.createCompileAction(
-            classJar, manifestProtoOutput, genSourceJar, genClassJar, nativeHeaderOutput);
+    helper.createCompileAction(
+        classJar,
+        manifestProtoOutput,
+        outputDepsProto,
+        genSourceJar,
+        genClassJar,
+        nativeHeaderOutput);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     Artifact iJar = null;
@@ -131,7 +137,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
-            .setJdeps(javaCompileAction.getOutputDepsProto())
+            .setJdeps(outputDepsProto)
             .setNativeHeaders(nativeHeaderOutput);
 
     GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider = null;

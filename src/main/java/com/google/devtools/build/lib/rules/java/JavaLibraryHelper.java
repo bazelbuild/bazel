@@ -243,6 +243,8 @@ public final class JavaLibraryHelper {
             javaToolchainProvider,
             hostJavabase,
             additionalJavaBaseInputs);
+    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
+
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
 
     Artifact genSourceJar = null;
@@ -254,9 +256,13 @@ public final class JavaLibraryHelper {
 
     Artifact nativeHeaderOutput = helper.createNativeHeaderJar(output);
 
-    JavaCompileAction javaCompileAction =
-        helper.createCompileAction(
-            output, manifestProtoOutput, genSourceJar, genClassJar, nativeHeaderOutput);
+    helper.createCompileAction(
+        output,
+        manifestProtoOutput,
+        outputDepsProto,
+        genSourceJar,
+        genClassJar,
+        nativeHeaderOutput);
 
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
@@ -272,7 +278,7 @@ public final class JavaLibraryHelper {
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
     outputJarsBuilder
         .addOutputJar(new OutputJar(output, iJar, manifestProtoOutput, outputSourceJars))
-        .setJdeps(javaCompileAction.getOutputDepsProto())
+        .setJdeps(outputDepsProto)
         .setNativeHeaders(nativeHeaderOutput);
 
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();

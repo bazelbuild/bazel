@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -144,7 +143,7 @@ public final class JavaCompileActionBuilder {
   private Artifact nativeHeaderOutput;
   private Artifact gensrcOutputJar;
   private Artifact manifestProtoOutput;
-  private PathFragment outputDepsProto;
+  private Artifact outputDepsProto;
   private Collection<Artifact> additionalOutputs;
   private Artifact metadata;
   private Artifact artifactForExperimentalCoverage;
@@ -279,13 +278,7 @@ public final class JavaCompileActionBuilder {
       classpathMode = JavaClasspathMode.OFF;
     }
 
-    Artifact outputDepsProto = null;
-    if (this.outputDepsProto != null) {
-      outputDepsProto =
-          ruleContext.getDerivedArtifact(
-              FileSystemUtils.replaceExtension(
-                  this.outputDepsProto.relativeTo(outputJar.getRoot().getExecPath()), ".jdeps"),
-              outputJar.getRoot());
+    if (outputDepsProto != null) {
       outputs.add(outputDepsProto);
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
@@ -300,33 +293,30 @@ public final class JavaCompileActionBuilder {
 
     NestedSet<Artifact> tools = toolsBuilder.build();
     mandatoryInputs.addTransitive(tools);
-    JavaCompileAction javaCompileAction =
-        new JavaCompileAction(
-            /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-            /* owner= */ ruleContext.getActionOwner(),
-            /* env= */ actionEnvironment,
-            /* tools= */ tools,
-            /* runfilesSupplier= */ runfilesSupplier,
-            /* progressMessage= */ new ProgressMessage(
-                /* prefix= */ "Building",
-                /* output= */ outputJar,
-                /* sourceFiles= */ sourceFiles,
-                /* sourceJars= */ sourceJars,
-                /* plugins= */ plugins),
-            /* mandatoryInputs= */ mandatoryInputs.build(),
-            /* transitiveInputs= */ classpathEntries,
-            /* directJars= */ directJars,
-            /* outputs= */ outputs.build(),
-            /* executionInfo= */ executionInfo,
-            /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-            /* executableLine= */ executableLine.build(),
-            /* flagLine= */ buildParamFileContents(ruleContext.getConfiguration(), internedJcopts),
-            /* configuration= */ ruleContext.getConfiguration(),
-            /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
-            /* outputDepsProto= */ outputDepsProto,
-            /* classpathMode= */ classpathMode);
-    ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
-    return javaCompileAction;
+    return new JavaCompileAction(
+        /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
+        /* owner= */ ruleContext.getActionOwner(),
+        /* env= */ actionEnvironment,
+        /* tools= */ tools,
+        /* runfilesSupplier= */ runfilesSupplier,
+        /* progressMessage= */ new ProgressMessage(
+            /* prefix= */ "Building",
+            /* output= */ outputJar,
+            /* sourceFiles= */ sourceFiles,
+            /* sourceJars= */ sourceJars,
+            /* plugins= */ plugins),
+        /* mandatoryInputs= */ mandatoryInputs.build(),
+        /* transitiveInputs= */ classpathEntries,
+        /* directJars= */ directJars,
+        /* outputs= */ outputs.build(),
+        /* executionInfo= */ executionInfo,
+        /* extraActionInfoSupplier= */ extraActionInfoSupplier,
+        /* executableLine= */ executableLine.build(),
+        /* flagLine= */ buildParamFileContents(ruleContext.getConfiguration(), internedJcopts),
+        /* configuration= */ ruleContext.getConfiguration(),
+        /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+        /* outputDepsProto= */ outputDepsProto,
+        /* classpathMode= */ classpathMode);
   }
 
   private CustomCommandLine buildParamFileContents(
@@ -346,7 +336,7 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addPath("--output_deps_proto", outputDepsProto);
+    result.addExecPath("--output_deps_proto", outputDepsProto);
     result.addExecPaths("--extclasspath", extdirInputs);
     result.addExecPaths("--bootclasspath", bootclasspathEntries);
     result.addExecPaths("--sourcepath", sourcePathEntries);
@@ -428,7 +418,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setOutputDepsProto(PathFragment outputDepsProto) {
+  public JavaCompileActionBuilder setOutputDepsProto(Artifact outputDepsProto) {
     this.outputDepsProto = outputDepsProto;
     return this;
   }

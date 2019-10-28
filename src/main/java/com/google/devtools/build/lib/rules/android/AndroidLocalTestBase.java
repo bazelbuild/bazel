@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
-import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
@@ -244,15 +243,17 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       genSourceJar = helper.createGensrcJar(classJar);
     }
 
-    JavaCompileAction javaCompileAction =
-        helper.createCompileAction(
-            classJar,
-            manifestProtoOutput,
-            genSourceJar,
-            genClassJar,
-            /* nativeHeaderOutput= */ null);
+    Artifact outputDepsProtoArtifact =
+        helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
+    javaRuleOutputJarsProviderBuilder.setJdeps(outputDepsProtoArtifact);
+    helper.createCompileAction(
+        classJar,
+        manifestProtoOutput,
+        outputDepsProtoArtifact,
+        genSourceJar,
+        genClassJar,
+        /* nativeHeaderOutput= */ null);
     helper.createSourceJarAction(srcJar, genSourceJar);
-    javaRuleOutputJarsProviderBuilder.setJdeps(javaCompileAction.getOutputDepsProto());
 
     setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
 
