@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
@@ -44,15 +43,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
- * An implementation of the ActionCache interface that uses
- * {@link CompactStringIndexer} to reduce memory footprint and saves
- * cached actions using the {@link PersistentMap}.
- *
- * <p>This cache is not fully correct: as hashes are xor'd together, a permutation of input
- * file contents will erroneously be considered up to date.
+ * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
+ * footprint and saves cached actions using the {@link PersistentMap}.
  */
 @ConditionallyThreadSafe // condition: each instance must instantiated with
-                         // different cache root
+// different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final int SAVE_INTERVAL_SECONDS = 3;
   // Log if periodically saving the action cache incurs more than 5% overhead.
