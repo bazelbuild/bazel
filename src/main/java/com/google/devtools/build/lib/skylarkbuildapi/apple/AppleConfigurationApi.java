@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
 @SkylarkModule(
@@ -29,8 +30,10 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
 
   @SkylarkCallable(
       name = "ios_cpu",
-      doc = "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
-          + "The value of ios_cpu for this configuration.")
+      doc =
+          "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
+              + "The value of ios_cpu for this configuration.")
+  @StarlarkDeprecated
   public String getIosCpu();
 
   @SkylarkCallable(

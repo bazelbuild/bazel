@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.List;
 
-/**
- * A class representing a Skylark built-in object or method.
- */
+/** A class representing a Skylark built-in object or method. */
+@Deprecated
 public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
   private final SkylarkModuleDoc module;
   private final SkylarkSignature annotation;
@@ -38,6 +37,11 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
             withoutSelfParam(annotation),
             annotation.extraPositionals(),
             annotation.extraKeywords());
+  }
+
+  @Override
+  public boolean isDeprecated() {
+    return false;
   }
 
   public SkylarkSignature getAnnotation() {

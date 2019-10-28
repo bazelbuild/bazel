@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     namespace = true,
     category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
+@StarlarkDeprecated
 public interface SkylarkCommandLineApi {
 
   @SkylarkCallable(

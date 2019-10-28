@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 
 /**
  * Provides access to information about Java rules. Every Java-related target provides this struct,
@@ -30,4 +31,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
         "Deprecated. Use <a"
             + " href=\"https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html\">JavaInfo</a>"
             + " instead.")
+@StarlarkDeprecated
 public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {}

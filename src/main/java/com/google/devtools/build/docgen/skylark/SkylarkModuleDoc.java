@@ -21,6 +21,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import java.text.Collator;
 import java.util.Collection;
 import java.util.Locale;
@@ -40,6 +41,7 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
   private final Multimap<String, SkylarkJavaMethodDoc> javaMethods;
   private TreeMap<String, SkylarkMethodDoc> methodMap;
   private final String title;
+  private final boolean deprecated;
   @Nullable private SkylarkConstructorMethodDoc javaConstructor;
 
   public SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
@@ -49,6 +51,7 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     this.builtinMethodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, SkylarkJavaMethodDoc>create();
+    this.deprecated = classObject.isAnnotationPresent(StarlarkDeprecated.class);
     if (module.title().isEmpty()) {
       this.title = module.name();
     } else {
@@ -68,6 +71,11 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
 
   public String getTitle() {
     return title;
+  }
+
+  @Override
+  public boolean isDeprecated() {
+    return deprecated;
   }
 
   public SkylarkModule getAnnotation() {
