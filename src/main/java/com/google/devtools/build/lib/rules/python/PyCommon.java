@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.ArrayList;
@@ -864,12 +863,14 @@ public final class PyCommon {
     // On Windows, the Python executable has .exe extension on Windows,
     // On Linux, the Python executable has no extension.
     PathFragment pathFragment = executable.getRootRelativePath();
+    String fileName = executable.getFilename();
     if (OS.getCurrent() == OS.WINDOWS) {
-      pathFragment = FileSystemUtils.replaceExtension(pathFragment, extension, ".exe");
+      Preconditions.checkArgument(fileName.endsWith(".exe"));
+      fileName = fileName.substring(0, fileName.length() - 4) + extension;
     } else {
-      pathFragment = pathFragment.replaceName(pathFragment.getBaseName() + extension);
+      fileName = fileName + extension;
     }
-    return ruleContext.getDerivedArtifact(pathFragment, executable.getRoot());
+    return ruleContext.getDerivedArtifact(pathFragment.replaceName(fileName), executable.getRoot());
   }
 
   /** @return an artifact next to the executable file with ".zip" suffix */
