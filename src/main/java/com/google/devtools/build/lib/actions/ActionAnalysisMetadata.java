@@ -194,14 +194,6 @@ public interface ActionAnalysisMetadata {
    */
   Iterable<Artifact> getMandatoryInputs();
 
-  /**
-   * @return true iff path prefix conflict (conflict where two actions generate
-   *         two output artifacts with one of the artifact's path being the
-   *         prefix for another) between this action and another action should
-   *         be reported.
-   */
-  boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action);
-
   /** Returns the action type. Must not be {@code null}. */
   MiddlemanType getActionType();
 

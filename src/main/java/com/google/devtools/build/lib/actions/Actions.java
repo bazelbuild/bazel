@@ -363,12 +363,11 @@ public final class Actions {
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          if (actionI.shouldReportPathPrefixConflict(actionJ)) {
-            ArtifactPrefixConflictException exception = new ArtifactPrefixConflictException(pathI,
-                pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
-            badActions.put(actionI, exception);
-            badActions.put(actionJ, exception);
-          }
+          ArtifactPrefixConflictException exception =
+              new ArtifactPrefixConflictException(
+                  pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+          badActions.put(actionI, exception);
+          badActions.put(actionJ, exception);
         } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
           break;
         }

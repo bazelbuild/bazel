@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.exec.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -181,11 +179,6 @@ public final class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public MiddlemanType getActionType() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     throw new UnsupportedOperationException();
   }
 
