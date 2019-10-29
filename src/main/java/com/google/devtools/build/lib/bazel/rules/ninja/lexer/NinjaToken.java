@@ -22,27 +22,27 @@ import javax.annotation.Nullable;
  * Token types for {@link NinjaLexer}.
  */
 public enum NinjaToken {
-  error(null),
-  build("build"),
-  rule("rule"),
-  text(null),
-  identifier(null),
-  variable(null),
-  default_("default"),
-  pool("pool"),
-  subninja("subninja"),
-  include("include"),
+  ERROR(null),
+  BUILD("build"),
+  RULE("rule"),
+  TEXT(null),
+  IDENTIFIER(null),
+  VARIABLE(null),
+  DEFAULT("default"),
+  POOL("pool"),
+  SUBNINJA("subninja"),
+  INCLUDE("include"),
 
-  colon(null),
-  equals(null),
-  pipe(null),
-  pipe2(null),
+  COLON(null),
+  EQUALS(null),
+  PIPE(null),
+  PIPE2(null),
 
-  indent(null),
-  newline(null),
+  INDENT(null),
+  NEWLINE(null),
 
-  zero(null),
-  eof(null);
+  ZERO(null),
+  EOF(null);
 
   private final byte[] bytes;
 

@@ -33,79 +33,71 @@ public class NinjaLexerTest {
 
   @Test
   public void testReadIdentifiersAndVariables() {
-    String text = "abc efg    $fg ${ghf}\ntext one ${ more.1-d_f } $abc.def";
-    NinjaLexer lexer = createLexer(text);
-    assertTokenBytes(lexer, NinjaToken.identifier, "abc");
-    assertTokenBytes(lexer, NinjaToken.identifier, "efg");
-    assertTokenBytes(lexer, NinjaToken.variable, "$fg");
-    assertTokenBytes(lexer, NinjaToken.variable, "${ghf}");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "text");
-    assertTokenBytes(lexer, NinjaToken.identifier, "one");
-    assertTokenBytes(lexer, NinjaToken.variable, "${ more.1-d_f }");
-    assertTokenBytes(lexer, NinjaToken.variable, "$abc");
-    assertTokenBytes(lexer, NinjaToken.identifier, ".def");
+    String TEXT = "abc efg    $fg ${ghf}\ntext one ${ more.1-d_f } $abc.def";
+    NinjaLexer lexer = createLexer(TEXT);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "efg");
+    assertTokenBytes(lexer, NinjaToken.VARIABLE, "$fg");
+    assertTokenBytes(lexer, NinjaToken.VARIABLE, "${ghf}");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "text");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "one");
+    assertTokenBytes(lexer, NinjaToken.VARIABLE, "${ more.1-d_f }");
+    assertTokenBytes(lexer, NinjaToken.VARIABLE, "$abc");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, ".def");
   }
 
   @Test
-  public void testNewLines() {
-    String text = "a\nb $\nnot-newline$$\nnewline\n\nand\r\none";
-    NinjaLexer lexer = createLexer(text);
-    assertTokenBytes(lexer, NinjaToken.identifier, "a");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "b");
-    assertTokenBytes(lexer, NinjaToken.identifier, "not-newline");
-    assertTokenBytes(lexer, NinjaToken.text, "$");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "newline");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "and");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "one");
+  public void testNewlines() {
+    String TEXT = "a\nb $\nnot-newline$$\nnewline\n\nand\r\none";
+    NinjaLexer lexer = createLexer(TEXT);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "a");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "b");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "not-newline");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "$");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "newline");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "and");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "one");
     assertThat(lexer.hasNextToken()).isFalse();
   }
 
   @Test
   public void testDisallowedSymbols() {
-    String text = "abc\n\tcde";
-    NinjaLexer lexer = createLexer(text);
-    assertTokenBytes(lexer, NinjaToken.identifier, "abc");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
+    String TEXT = "abc\n\tcde";
+    NinjaLexer lexer = createLexer(TEXT);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertError(lexer, "Tabs are not allowed, use spaces.", "\t");
 
     assertError(createLexer("^"), "Symbol is not allowed in the identifier.", "^");
   }
 
-  private void assertError(NinjaLexer lexer, String errorText, String errorHolder) {
-    assertThat(lexer.hasNextToken()).isTrue();
-    assertThat(lexer.nextToken()).isEqualTo(NinjaToken.error);
-    assertThat(lexer.getError()).isEqualTo(errorText);
-    assertThat(lexer.getTokenBytes()).isEqualTo(errorHolder.getBytes(StandardCharsets.ISO_8859_1));
-    assertThat(lexer.hasNextToken()).isFalse();
-  }
-
   @Test
   public void testComments() {
-    String text = "abc#immediately after\n#Start of the line $ not escaped in comment $" +
+    String TEXT = "abc#immediately after\n#Start of the line $ not escaped in comment $" +
         "\nNot-comment# Finishing : = $ | ||";
-    NinjaLexer lexer = createLexer(text);
-    assertTokenBytes(lexer, NinjaToken.identifier, "abc");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "Not-comment");
+    NinjaLexer lexer = createLexer(TEXT);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "Not-comment");
   }
 
   @Test
   public void testBadEscape() {
     NinjaLexer lexer = createLexer("abc\nbad $");
-    assertTokenBytes(lexer, NinjaToken.identifier, "abc");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "bad");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "bad");
     assertError(lexer, "Bad $-escape (literal $ must be written as $$)", "$");
 
     NinjaLexer lexer2 = createLexer("$$$");
-    assertTokenBytes(lexer2, NinjaToken.text, "$");
+    assertTokenBytes(lexer2, NinjaToken.TEXT, "$");
     assertError(lexer2, "Bad $-escape (literal $ must be written as $$)", "$");
   }
 
@@ -119,103 +111,103 @@ public class NinjaLexerTest {
 
   @Test
   public void testKeywords() {
-    assertTokenBytes(createLexer("build"), NinjaToken.build, null);
-    assertTokenBytes(createLexer("rule"), NinjaToken.rule, null);
-    assertTokenBytes(createLexer("default "), NinjaToken.default_, null);
-    assertTokenBytes(createLexer("include"), NinjaToken.include, null);
-    assertTokenBytes(createLexer("subninja\n"), NinjaToken.subninja, null);
-    assertTokenBytes(createLexer("pool "), NinjaToken.pool, null);
+    assertTokenBytes(createLexer("build"), NinjaToken.BUILD, null);
+    assertTokenBytes(createLexer("rule"), NinjaToken.RULE, null);
+    assertTokenBytes(createLexer("default "), NinjaToken.DEFAULT, null);
+    assertTokenBytes(createLexer("include"), NinjaToken.INCLUDE, null);
+    assertTokenBytes(createLexer("subninja\n"), NinjaToken.SUBNINJA, null);
+    assertTokenBytes(createLexer("pool "), NinjaToken.POOL, null);
   }
 
   @Test
   public void testIndent() {
     NinjaLexer lexer = createLexer(" a\nb\n  c   d   e\n ");
-    // We want to know if there was a starting indent
-    // (though we suppose to start with a line without indent)
-    assertTokenBytes(lexer, NinjaToken.indent, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "a");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "b");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.indent, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "c");
-    assertTokenBytes(lexer, NinjaToken.identifier, "d");
-    assertTokenBytes(lexer, NinjaToken.identifier, "e");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.indent, null);
+    // We want to know if there was a starting INDENT
+    // (though we suppose to start with a line without INDENT)
+    assertTokenBytes(lexer, NinjaToken.INDENT, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "a");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "b");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.INDENT, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "c");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "d");
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "e");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.INDENT, null);
   }
 
   @Test
   public void testReadText() {
     NinjaLexer lexer = createLexer("my.var=Any text ^&%$@&!*: $:symbols$\n aa\nmy.var2");
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var");
-    assertTokenBytes(lexer, NinjaToken.equals, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
     lexer.setExpectTextUntilEol(true);
-    assertTokenBytes(lexer, NinjaToken.text, "Any");
-    assertTokenBytes(lexer, NinjaToken.text, "text");
-    assertTokenBytes(lexer, NinjaToken.text, "^&%");
-    assertTokenBytes(lexer, NinjaToken.text, "$");
-    assertTokenBytes(lexer, NinjaToken.text, "@&!*");
-    assertTokenBytes(lexer, NinjaToken.colon, null);
-    assertTokenBytes(lexer, NinjaToken.text, ":");
-    assertTokenBytes(lexer, NinjaToken.text, "symbols");
-    assertTokenBytes(lexer, NinjaToken.text, "aa");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var2");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "Any");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "text");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "^&%");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "$");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "@&!*");
+    assertTokenBytes(lexer, NinjaToken.COLON, null);
+    assertTokenBytes(lexer, NinjaToken.TEXT, ":");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "symbols");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "aa");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var2");
   }
 
   @Test
   public void testReadTextFragment() {
     NinjaLexer lexer = createLexer("my.var=Any text ^&%$@&!* $:symbols$\n aa\nmy.var2");
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var");
-    assertTokenBytes(lexer, NinjaToken.equals, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
 
     assertThat(lexer.readTextFragment()).isEqualTo("Any text ^&%$@&!* $:symbols$\n aa"
         .getBytes(StandardCharsets.ISO_8859_1));
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var2");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var2");
   }
 
   @Test
   public void testUndo() {
     NinjaLexer lexer = createLexer("my.var=Any\n");
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var");
-    assertTokenBytes(lexer, NinjaToken.equals, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "Any");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "Any");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
 
     lexer.undo();
-    assertTokenBytes(lexer, NinjaToken.newline, null);
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     lexer.undo();
     lexer.undo();
-    assertTokenBytes(lexer, NinjaToken.identifier, "Any");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
-    lexer.undo();
-    lexer.undo();
-    lexer.undo();
-    assertTokenBytes(lexer, NinjaToken.equals, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "Any");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "Any");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     lexer.undo();
     lexer.undo();
     lexer.undo();
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "Any");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     lexer.undo();
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var");
     lexer.undo();
-    assertTokenBytes(lexer, NinjaToken.identifier, "my.var");
-    assertTokenBytes(lexer, NinjaToken.equals, null);
-    assertTokenBytes(lexer, NinjaToken.identifier, "Any");
-    assertTokenBytes(lexer, NinjaToken.newline, null);
+    lexer.undo();
+    lexer.undo();
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
+    lexer.undo();
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "Any");
+    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
   }
 
   @Test
   public void testSpecialSymbols() {
     NinjaLexer lexer = createLexer("| || : = ");
-    assertTokenBytes(lexer, NinjaToken.pipe, null);
-    assertTokenBytes(lexer, NinjaToken.pipe2, null);
-    assertTokenBytes(lexer, NinjaToken.colon, null);
-    assertTokenBytes(lexer, NinjaToken.equals, null);
-    assertTokenBytes(lexer, NinjaToken.eof, null);
+    assertTokenBytes(lexer, NinjaToken.PIPE, null);
+    assertTokenBytes(lexer, NinjaToken.PIPE2, null);
+    assertTokenBytes(lexer, NinjaToken.COLON, null);
+    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
+    assertTokenBytes(lexer, NinjaToken.EOF, null);
     assertThat(lexer.hasNextToken()).isFalse();
   }
 
@@ -224,20 +216,28 @@ public class NinjaLexerTest {
     byte[] bytes = {'a', 0, 'b'};
     NinjaLexer lexer = new NinjaLexer(
         new ByteBufferFragment(ByteBuffer.wrap(bytes), 0, bytes.length));
-    assertTokenBytes(lexer, NinjaToken.identifier, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, null);
     assertThat(lexer.hasNextToken()).isFalse();
   }
 
-  private void assertTokenBytes(NinjaLexer lexer, NinjaToken token, @Nullable String text) {
+  private static void assertError(NinjaLexer lexer, String errorTEXT, String errorHolder) {
+    assertThat(lexer.hasNextToken()).isTrue();
+    assertThat(lexer.nextToken()).isEqualTo(NinjaToken.ERROR);
+    assertThat(lexer.getError()).isEqualTo(errorTEXT);
+    assertThat(lexer.getTokenBytes()).isEqualTo(errorHolder.getBytes(StandardCharsets.ISO_8859_1));
+    assertThat(lexer.hasNextToken()).isFalse();
+  }
+
+  private static void assertTokenBytes(NinjaLexer lexer, NinjaToken token, @Nullable String TEXT) {
     assertThat(lexer.hasNextToken()).isTrue();
     assertThat(lexer.nextToken()).isEqualTo(token);
-    if (text != null) {
-      assertThat(lexer.getTokenBytes()).isEqualTo(text.getBytes(StandardCharsets.ISO_8859_1));
+    if (TEXT != null) {
+      assertThat(lexer.getTokenBytes()).isEqualTo(TEXT.getBytes(StandardCharsets.ISO_8859_1));
     }
   }
 
-  private NinjaLexer createLexer(String text) {
-    ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
+  private static NinjaLexer createLexer(String TEXT) {
+    ByteBuffer buffer = ByteBuffer.wrap(TEXT.getBytes(StandardCharsets.ISO_8859_1));
     return new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
   }
 }

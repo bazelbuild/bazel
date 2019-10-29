@@ -122,11 +122,11 @@ public class NinjaLexerStepTest {
     doTest("one word", NinjaLexerStep::readText, "one", true);
   }
 
-  private void doTest(String text, Consumer<NinjaLexerStep> callback) {
+  private static void doTest(String text, Consumer<NinjaLexerStep> callback) {
     doTest(text, callback, text, false);
   }
 
-  private void doTest(String text, Consumer<NinjaLexerStep> callback,
+  private static void doTest(String text, Consumer<NinjaLexerStep> callback,
       String expected, boolean haveMore) {
     NinjaLexerStep step = step(text);
     assertThat(step.canAdvance()).isTrue();
@@ -138,7 +138,7 @@ public class NinjaLexerStepTest {
     assertThat(step.canAdvance()).isEqualTo(haveMore);
   }
 
-  private void doTestError(String text, Consumer<NinjaLexerStep> callback,
+  private static void doTestError(String text, Consumer<NinjaLexerStep> callback,
       String expected, boolean haveMore, String errorText) {
     NinjaLexerStep step = step(text);
     assertThat(step.canAdvance()).isTrue();
@@ -148,7 +148,7 @@ public class NinjaLexerStepTest {
     assertThat(step.getFragment().length() > step.getEnd()).isEqualTo(haveMore);
   }
 
-  private NinjaLexerStep step(String text) {
+  private static NinjaLexerStep step(String text) {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     return new NinjaLexerStep(new ByteBufferFragment(bb, 0, bb.limit()), 0);
   }

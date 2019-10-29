@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -32,17 +31,16 @@ import java.util.stream.Stream;
  */
 public class NinjaLexer {
   // They all are having different first letter, let's use it.
-  private final static ImmutableMap<Byte, NinjaToken> keywordMap =
+  private final static ImmutableMap<Byte, NinjaToken> KEYWORD_MAP =
       // There is no #of() method for 6 key-value pairs.
-      ImmutableMap.copyOf(
-          Stream.of(
-              NinjaToken.build,
-              NinjaToken.rule,
-              NinjaToken.default_,
-              NinjaToken.subninja,
-              NinjaToken.include,
-              NinjaToken.pool
-          ).collect(Collectors.toMap((NinjaToken token) -> token.getBytes()[0], nt -> nt)));
+      Stream.of(
+          NinjaToken.BUILD,
+          NinjaToken.RULE,
+          NinjaToken.DEFAULT,
+          NinjaToken.SUBNINJA,
+          NinjaToken.INCLUDE,
+          NinjaToken.POOL)
+          .collect(ImmutableMap.toImmutableMap(token -> token.getBytes()[0], nt -> nt));
 
   private final ByteBufferFragment fragment;
   private NinjaLexerStep step;
@@ -62,8 +60,8 @@ public class NinjaLexer {
 
   /**
    * Returns true if following nextToken() call may produce meaningful token.
-   * However, it may happen that nextToken() will only produce {@link NinjaToken#eof},
-   * {@link NinjaToken#zero} or {@link NinjaToken#error}.
+   * However, it may happen that nextToken() will only produce {@link NinjaToken#EOF},
+   * {@link NinjaToken#ZERO} or {@link NinjaToken#ERROR}.
    *
    * It is an optimization here to check for 'seen' flags: nextToken() may return
    * some meaningful token, and at the same time already discover the end of file or zero byte.
@@ -81,69 +79,69 @@ public class NinjaLexer {
     while (step.canAdvance()) {
       // First byte is checked right in constructor.
       if (step.isSeenZero()) {
-        return push(NinjaToken.zero);
+        return push(NinjaToken.ZERO);
       }
       byte b = step.startByte();
       switch (b) {
         case ' ':
           step.skipSpaces();
           if (step.getPosition() == 0
-              || NinjaToken.newline.equals(Iterables.getLast(tokens, null))) {
-            return push(NinjaToken.indent);
+              || NinjaToken.NEWLINE.equals(Iterables.getLast(tokens, null))) {
+            return push(NinjaToken.INDENT);
           }
           break;
         case '\t':
           step.forceError("Tabs are not allowed, use spaces.");
-          return push(NinjaToken.error);
+          return push(NinjaToken.ERROR);
         case '\r':
           expectTextUntilEol = false;
           step.processLineFeedNewLine();
-          return push(NinjaToken.newline);
+          return push(NinjaToken.NEWLINE);
         case '\n':
           expectTextUntilEol = false;
-          return push(NinjaToken.newline);
+          return push(NinjaToken.NEWLINE);
         case '#':
           step.skipComment();
           break;
         case '=':
-          return push(NinjaToken.equals);
+          return push(NinjaToken.EQUALS);
         case ':':
-          return push(NinjaToken.colon);
+          return push(NinjaToken.COLON);
         case '|':
           if (step.tryReadDoublePipe()) {
-            return push(NinjaToken.pipe2);
+            return push(NinjaToken.PIPE2);
           }
-          return push(NinjaToken.pipe);
+          return push(NinjaToken.PIPE);
         case '$':
           if (step.trySkipEscapedNewline()) {
             break;
           }
           if (step.tryReadVariableInBrackets()
             || step.tryReadSimpleVariable()) {
-            return push(NinjaToken.variable);
+            return push(NinjaToken.VARIABLE);
           }
           if (step.tryReadEscapedLiteral()) {
-            return push(NinjaToken.text);
+            return push(NinjaToken.TEXT);
           }
           if (expectTextUntilEol) {
-            return push(NinjaToken.text);
+            return push(NinjaToken.TEXT);
           }
           step.forceError("Bad $-escape (literal $ must be written as $$)");
-          return push(NinjaToken.error);
+          return push(NinjaToken.ERROR);
         default:
           if (expectTextUntilEol) {
             step.readText();
-            return push(NinjaToken.text);
+            return push(NinjaToken.TEXT);
           } else {
             step.tryReadIdentifier();
             if (step.getError() == null) {
               byte[] bytes = step.getBytes();
-              NinjaToken keywordToken = keywordMap.get(bytes[0]);
+              NinjaToken keywordToken = KEYWORD_MAP.get(bytes[0]);
               if (keywordToken != null && Arrays.equals(keywordToken.getBytes(), bytes)) {
                 return push(keywordToken);
               }
             }
-            return push(NinjaToken.identifier);
+            return push(NinjaToken.IDENTIFIER);
           }
       }
       if (step.canAdvance()) {
@@ -152,7 +150,7 @@ public class NinjaLexer {
         step = step.nextStep();
       }
     }
-    return push(NinjaToken.eof);
+    return push(NinjaToken.EOF);
   }
 
   /**
@@ -178,7 +176,7 @@ public class NinjaLexer {
     tokens.add(token);
     if (step.getError() != null) {
       // Do not move in case of error.
-      return NinjaToken.error;
+      return NinjaToken.ERROR;
     }
     if (step.canAdvance()) {
       step = step.nextStep();
@@ -208,7 +206,7 @@ public class NinjaLexer {
     int firstStart = -1;
     while (hasNextToken()) {
       NinjaToken token = nextToken();
-      if (!NinjaToken.text.equals(token)) {
+      if (!NinjaToken.TEXT.equals(token)) {
         undo();
         break;
       }

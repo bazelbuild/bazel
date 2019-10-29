@@ -47,9 +47,9 @@ import java.util.function.Predicate;
  * </code>
  */
 public class NinjaLexerStep {
-  private static final ImmutableSortedSet<Byte> identifierSymbols = createByteSet(
+  private static final ImmutableSortedSet<Byte> IDENTIFIER_SYMBOLS = createByteSet(
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-  private static final ImmutableSortedSet<Byte> textStoppers = createByteSet("\n\r \t#$=:|\u0000");
+  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t#$=:|\u0000");
 
   private static ImmutableSortedSet<Byte> createByteSet(String variants) {
     ImmutableSortedSet.Builder<Byte> builder = ImmutableSortedSet.naturalOrder();
@@ -208,7 +208,7 @@ public class NinjaLexerStep {
   public boolean tryReadSimpleVariable() {
     Preconditions.checkState('$' == fragment.byteAt(position));
     if (position + 1 < fragment.length()
-        && identifierSymbols.contains(fragment.byteAt(position + 1))) {
+        && IDENTIFIER_SYMBOLS.contains(fragment.byteAt(position + 1))) {
       end = readIdentifier(position + 1, false);
       return true;
     }
@@ -243,16 +243,16 @@ public class NinjaLexerStep {
   }
 
   public void readText() {
-    end = eatSequence(position, textStoppers::contains);
+    end = eatSequence(position, TEXT_STOPPERS::contains);
   }
 
   private int readIdentifier(
       int startFrom,
       boolean withDot) {
     if (withDot) {
-      return eatSequence(startFrom, b -> !identifierSymbols.contains(b) && '.' != b);
+      return eatSequence(startFrom, b -> !IDENTIFIER_SYMBOLS.contains(b) && '.' != b);
     } else {
-      return eatSequence(startFrom, b -> !identifierSymbols.contains(b));
+      return eatSequence(startFrom, b -> !IDENTIFIER_SYMBOLS.contains(b));
     }
   }
 

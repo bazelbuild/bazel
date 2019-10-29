@@ -67,16 +67,6 @@ public class ByteBufferFragment {
     return buffer.get(startIncl + index);
   }
 
-  public byte[] getBytes(int from, int to) {
-    checkSubBounds(from, to);
-    int length = to - from;
-    byte[] bytes = new byte[length];
-    ByteBuffer copy = buffer.duplicate();
-    copy.position(startIncl + from);
-    copy.get(bytes, 0, length);
-    return bytes;
-  }
-
   private void checkSubBounds(int from, int to) {
     if (from < 0) {
       throw new IndexOutOfBoundsException(String.format("Index out of bounds: %d.", from));
@@ -89,6 +79,16 @@ public class ByteBufferFragment {
       throw new IndexOutOfBoundsException(
           String.format("Start index is greater than end index: %d, %d.", from, to));
     }
+  }
+
+  public byte[] getBytes(int from, int to) {
+    checkSubBounds(from, to);
+    int length = to - from;
+    byte[] bytes = new byte[length];
+    ByteBuffer copy = buffer.duplicate();
+    copy.position(startIncl + from);
+    copy.get(bytes, 0, length);
+    return bytes;
   }
 
   private void getBytes(byte[] dst, int offset) {
