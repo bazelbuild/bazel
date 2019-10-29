@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -32,9 +33,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -137,6 +136,9 @@ public final class JavaCompileActionBuilder {
     }
   }
 
+  private final ActionOwner owner;
+  private final BuildConfiguration configuration;
+  private final JavaToolchainProvider toolchain;
   private PathFragment javaExecutable;
   private List<Artifact> javabaseInputs = ImmutableList.of();
   private Artifact outputJar;
@@ -173,8 +175,14 @@ public final class JavaCompileActionBuilder {
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
 
-  public JavaCompileAction build(
-      RuleContext ruleContext, JavaToolchainProvider javaToolchain, JavaSemantics javaSemantics) {
+  public JavaCompileActionBuilder(
+      ActionOwner owner, BuildConfiguration configuration, JavaToolchainProvider toolchain) {
+    this.owner = owner;
+    this.configuration = configuration;
+    this.toolchain = toolchain;
+  }
+
+  public JavaCompileAction build() {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
     ImmutableList<String> internedJcopts =
@@ -188,19 +196,18 @@ public final class JavaCompileActionBuilder {
     }
 
     // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
-    JavaConfiguration javaConfiguration =
-        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
+    JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
     JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (!Collections.disjoint(
         plugins.processorClasses().toSet(),
-        javaToolchain.getReducedClasspathIncompatibleProcessors())) {
+        toolchain.getReducedClasspathIncompatibleProcessors())) {
       classpathMode = JavaClasspathMode.OFF;
     }
     if (classpathMode == JavaClasspathMode.OFF) {
       compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    Preconditions.checkState(javaExecutable != null, ruleContext.getActionOwner());
+    Preconditions.checkState(javaExecutable != null, owner);
 
     NestedSetBuilder<Artifact> outputs = NestedSetBuilder.stableOrder();
     Stream.of(
@@ -238,13 +245,7 @@ public final class JavaCompileActionBuilder {
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
-        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
-
-    if (artifactForExperimentalCoverage != null) {
-      ruleContext.registerAction(
-          new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(), artifactForExperimentalCoverage, sourceFiles, false));
-    }
+        configuration.getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
 
     NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
     mandatoryInputs
@@ -295,7 +296,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputs.addTransitive(tools);
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-        /* owner= */ ruleContext.getActionOwner(),
+        /* owner= */ owner,
         /* env= */ actionEnvironment,
         /* tools= */ tools,
         /* runfilesSupplier= */ runfilesSupplier,
@@ -312,15 +313,14 @@ public final class JavaCompileActionBuilder {
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine.build(),
-        /* flagLine= */ buildParamFileContents(ruleContext.getConfiguration(), internedJcopts),
-        /* configuration= */ ruleContext.getConfiguration(),
+        /* flagLine= */ buildParamFileContents(internedJcopts),
+        /* configuration= */ configuration,
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputDepsProto,
         /* classpathMode= */ classpathMode);
   }
 
-  private CustomCommandLine buildParamFileContents(
-      BuildConfiguration configuration, Collection<String> javacOpts) {
+  private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
     checkNotNull(classDirectory, "classDirectory should not be null");
     checkNotNull(tempDirectory, "tempDirectory should not be null");
 

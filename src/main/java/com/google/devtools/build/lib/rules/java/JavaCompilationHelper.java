@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
@@ -220,7 +222,9 @@ public final class JavaCompilationHelper {
       createResourceJarAction(outputJar, ImmutableList.of(classJar));
     }
 
-    JavaCompileActionBuilder builder = new JavaCompileActionBuilder();
+    JavaCompileActionBuilder builder =
+        new JavaCompileActionBuilder(
+            ruleContext.getActionOwner(), ruleContext.getConfiguration(), javaToolchain);
     builder.setJavaExecutable(hostJavabase.javaBinaryExecPath());
     builder.setJavaBaseInputs(
         NestedSetBuilder.fromNestedSet(hostJavabase.javaBaseInputsMiddleman())
@@ -228,7 +232,8 @@ public final class JavaCompilationHelper {
             .build());
     Label label = ruleContext.getLabel();
     builder.setTargetLabel(label);
-    builder.setArtifactForExperimentalCoverage(maybeCreateExperimentalCoverageArtifact(outputJar));
+    Artifact artifactForExperimentalCoverage = maybeCreateExperimentalCoverageArtifact(outputJar);
+    builder.setArtifactForExperimentalCoverage(artifactForExperimentalCoverage);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
@@ -242,7 +247,8 @@ public final class JavaCompilationHelper {
 
     builder.setOutputDepsProto(outputDepsProto);
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
-    builder.setSourceFiles(attributes.getSourceFiles());
+    ImmutableSet<Artifact> sourceFiles = attributes.getSourceFiles();
+    builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(attributes.getSourceJars());
     builder.setJavacOpts(customJavacOpts);
     builder.setJavacJvmOpts(customJavacJvmOpts);
@@ -261,7 +267,14 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    JavaCompileAction javaCompileAction = builder.build(ruleContext, javaToolchain, semantics);
+
+    if (artifactForExperimentalCoverage != null) {
+      ruleContext.registerAction(
+          new LazyWritePathsFileAction(
+              ruleContext.getActionOwner(), artifactForExperimentalCoverage, sourceFiles, false));
+    }
+
+    JavaCompileAction javaCompileAction = builder.build();
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
   }
 
