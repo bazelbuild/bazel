@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -1952,6 +1953,14 @@ public final class RuleContext extends TargetContext
 
     public Rule getRule() {
       return target.getAssociatedRule();
+    }
+
+    /**
+     * Expose the Starlark semantics that governs the building of this rule (and the rest of the
+     * build)
+     */
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+      return env.getSkylarkSemantics();
     }
 
     /**
