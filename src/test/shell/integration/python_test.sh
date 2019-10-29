@@ -151,8 +151,8 @@ py_binary(
 EOF
 
   bazel build --build_python_zip :bin.v1
-  [ -d "bazel-bin/bin.v1.temp" ] || fail "Stub file for python zip file not built"
-  [ -d "bazel-bin/bin.v1.zip" ] || fail "Python zip file not built"
+  [ -e "bazel-bin/bin.v1.temp" ] || fail "Stub file for python zip file not built"
+  [ -e "bazel-bin/bin.v1.zip" ] || fail "Python zip file not built"
 }
 
 run_suite "Tests for the Python rules"
