@@ -52,6 +52,8 @@ The remote cache stores two types of data:
 * The action cache, which is a map of action hashes to action result metadata.
 * A content-addressable store (CAS) of output files.
 
+**Note:** The remote cache also stores the output of actions (i.e. the `stdout`/`stderr`); so when a cache hit occurs during a build, you may see the exact outputs as without having any cache hit. Keep in mind that just seeing expected std outputs doesn't mean it's really running, when using remote cache.
+
 ### How a build uses remote caching
 
 Once a server is set up as the remote cache, you use the cache in multiple
