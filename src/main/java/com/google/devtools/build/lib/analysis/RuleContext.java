@@ -1532,22 +1532,33 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * @return true if {@code rule} is visible from {@code prerequisite}.
+   * Returns true if {@code label} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by
-   * {@link ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link
+   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
    */
-  public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
+  public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
     for (PackageGroupContents specification :
         prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
-      if (specification.containsPackage(rule.getLabel().getPackageIdentifier())) {
+      if (specification.containsPackage(label.getPackageIdentifier())) {
         return true;
       }
     }
 
     return false;
+  }
+
+  /**
+   * Returns true if {@code rule} is visible from {@code prerequisite}.
+   *
+   * <p>This only computes the logic as implemented by the visibility system. The final decision
+   * whether a dependency is allowed is made by {@link
+   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   */
+  public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
+    return isVisible(rule.getLabel(), prerequisite);
   }
 
   /**
