@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link FakeSandboxfsProcess}. */
 @RunWith(JUnit4.class)
-public class FakeSandboxfsProcessTest extends BaseSandboxfsProcessTest {
+public class FakeSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessIntegrationTest {
 
   @Override
   Path newTmpDir() throws IOException {

@@ -31,12 +31,12 @@ import org.junit.Test;
 /**
  * Common tests for all implementations of {@link SandboxfsProcess}.
  *
- * <p>Subclasses must define the provided hooks to configure the file system the tests run in
- * (which can be real or virtual), and a mechanism to "mount" a sandboxfs instance.
+ * <p>Subclasses must define the provided hooks to configure the file system the tests run in (which
+ * can be real or virtual), and a mechanism to "mount" a sandboxfs instance.
  *
  * <p>Subclasses inherit and run all the tests in this class.
  */
-abstract class BaseSandboxfsProcessTest {
+abstract class BaseSandboxfsProcessIntegrationTest {
 
   /** Test-specific temporary directory and file system. */
   protected Path tmpDir;

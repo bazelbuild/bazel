@@ -1291,7 +1291,7 @@ java_test(
 java_library(
     name = "sandboxfs-base-tests",
     testonly = 1,
-    srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
+    srcs = ["sandbox/BaseSandboxfsProcessIntegrationTest.java"],
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
@@ -1307,8 +1307,8 @@ java_test(
     srcs = glob(
         ["sandbox/*.java"],
         exclude = [
-            "sandbox/BaseSandboxfsProcessTest.java",
-            "sandbox/RealSandboxfsProcessTest.java",
+            "sandbox/BaseSandboxfsProcessIntegrationTest.java",
+            "sandbox/RealSandboxfsProcessIntegrationTest.java",
         ],
     ),
     data = [":embedded_scripts"],
@@ -1335,7 +1335,7 @@ java_test(
 
 java_test(
     name = "sandboxfs-integration-tests",
-    srcs = ["sandbox/RealSandboxfsProcessTest.java"],
+    srcs = ["sandbox/RealSandboxfsProcessIntegrationTest.java"],
     data = [":embedded_scripts"],
     local = 1,
     tags = [

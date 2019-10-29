@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RealSandboxfsProcess}. */
 @RunWith(JUnit4.class)
-public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
+public class RealSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessIntegrationTest {
 
   @Override
   Path newTmpDir() {
