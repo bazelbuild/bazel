@@ -33,8 +33,8 @@ public class NinjaLexerTest {
 
   @Test
   public void testReadIdentifiersAndVariables() {
-    String TEXT = "abc efg    $fg ${ghf}\ntext one ${ more.1-d_f } $abc.def";
-    NinjaLexer lexer = createLexer(TEXT);
+    String text = "abc efg    $fg ${ghf}\ntext one ${ more.1-d_f } $abc.def";
+    NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "efg");
     assertTokenBytes(lexer, NinjaToken.VARIABLE, "$fg");
@@ -49,8 +49,8 @@ public class NinjaLexerTest {
 
   @Test
   public void testNewlines() {
-    String TEXT = "a\nb $\nnot-newline$$\nnewline\n\nand\r\none";
-    NinjaLexer lexer = createLexer(TEXT);
+    String text = "a\nb $\nnot-newline$$\nnewline\n\nand\r\none";
+    NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "a");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "b");
@@ -68,8 +68,8 @@ public class NinjaLexerTest {
 
   @Test
   public void testDisallowedSymbols() {
-    String TEXT = "abc\n\tcde";
-    NinjaLexer lexer = createLexer(TEXT);
+    String text = "abc\n\tcde";
+    NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertError(lexer, "Tabs are not allowed, use spaces.", "\t");
@@ -79,9 +79,9 @@ public class NinjaLexerTest {
 
   @Test
   public void testComments() {
-    String TEXT = "abc#immediately after\n#Start of the line $ not escaped in comment $" +
+    String text = "abc#immediately after\n#Start of the line $ not escaped in comment $" +
         "\nNot-comment# Finishing : = $ | ||";
-    NinjaLexer lexer = createLexer(TEXT);
+    NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
