@@ -506,6 +506,28 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void failureWhileLoadingTestsForTestSuiteKeepGoing() throws Exception {
+    tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
+    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    TargetPatternPhaseValue loadingResult = tester.loadKeepGoing("//ts:tests");
+    assertThat(loadingResult.hasError()).isFalse();
+    assertThat(loadingResult.hasPostExpansionError()).isTrue();
+    tester.assertContainsError("test_suite rule has no 'name' attribute");
+  }
+
+  @Test
+  public void failureWhileLoadingTestsForTestSuiteNoKeepGoing() throws Exception {
+    tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
+    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//ts:tests"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("error loading package 'pkg': Package 'pkg' contains errors");
+    tester.assertContainsError("test_suite rule has no 'name' attribute");
+  }
+
+  @Test
   public void testTestSuiteExpansionFailsMissingTarget() throws Exception {
     tester.addFile("other/BUILD", "");
     tester.addFile("ts/BUILD",
