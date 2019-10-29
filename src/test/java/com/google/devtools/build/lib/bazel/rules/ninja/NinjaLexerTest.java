@@ -220,24 +220,24 @@ public class NinjaLexerTest {
     assertThat(lexer.hasNextToken()).isFalse();
   }
 
-  private static void assertError(NinjaLexer lexer, String errorTEXT, String errorHolder) {
+  private static void assertError(NinjaLexer lexer, String errorText, String errorHolder) {
     assertThat(lexer.hasNextToken()).isTrue();
     assertThat(lexer.nextToken()).isEqualTo(NinjaToken.ERROR);
-    assertThat(lexer.getError()).isEqualTo(errorTEXT);
+    assertThat(lexer.getError()).isEqualTo(errorText);
     assertThat(lexer.getTokenBytes()).isEqualTo(errorHolder.getBytes(StandardCharsets.ISO_8859_1));
     assertThat(lexer.hasNextToken()).isFalse();
   }
 
-  private static void assertTokenBytes(NinjaLexer lexer, NinjaToken token, @Nullable String TEXT) {
+  private static void assertTokenBytes(NinjaLexer lexer, NinjaToken token, @Nullable String text) {
     assertThat(lexer.hasNextToken()).isTrue();
     assertThat(lexer.nextToken()).isEqualTo(token);
-    if (TEXT != null) {
-      assertThat(lexer.getTokenBytes()).isEqualTo(TEXT.getBytes(StandardCharsets.ISO_8859_1));
+    if (text != null) {
+      assertThat(lexer.getTokenBytes()).isEqualTo(text.getBytes(StandardCharsets.ISO_8859_1));
     }
   }
 
-  private static NinjaLexer createLexer(String TEXT) {
-    ByteBuffer buffer = ByteBuffer.wrap(TEXT.getBytes(StandardCharsets.ISO_8859_1));
+  private static NinjaLexer createLexer(String text) {
+    ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     return new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
   }
 }
