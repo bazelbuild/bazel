@@ -70,7 +70,8 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
               .attributes()
               .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
       providers.put(
-          BuildSettingProvider.class, new BuildSettingProvider(buildSetting, defaultValue));
+          BuildSettingProvider.class,
+          new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
     }
 
     return new AliasConfiguredTarget(ruleContext, actual, providers.build());

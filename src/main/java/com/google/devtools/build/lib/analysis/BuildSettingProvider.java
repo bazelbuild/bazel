@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Type;
 
 /**
- * A native provider to allow select()s to know the type and default value when selecting on build
- * settings
+ * A native provider to allow select()s to know the type, default value, and label when selecting on
+ * build settings
  */
 public class BuildSettingProvider implements TransitiveInfoProvider {
 
@@ -32,10 +33,12 @@ public class BuildSettingProvider implements TransitiveInfoProvider {
 
   private final BuildSetting buildSetting;
   private final Object defaultValue;
+  private final Label label;
 
-  public BuildSettingProvider(BuildSetting buildSetting, Object defaultValue) {
+  public BuildSettingProvider(BuildSetting buildSetting, Object defaultValue, Label label) {
     this.buildSetting = buildSetting;
     this.defaultValue = defaultValue;
+    this.label = label;
   }
 
   public Type<?> getType() {
@@ -44,5 +47,9 @@ public class BuildSettingProvider implements TransitiveInfoProvider {
 
   public Object getDefaultValue() {
     return defaultValue;
+  }
+
+  public Label getLabel() {
+    return label;
   }
 }

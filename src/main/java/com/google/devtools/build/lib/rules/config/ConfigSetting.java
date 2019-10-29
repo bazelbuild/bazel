@@ -124,9 +124,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
-            userDefinedFlagSettings,
-            optionDetails,
-            ruleContext);
+            userDefinedFlagSettings, optionDetails, requiredFragmentOptions, ruleContext);
 
     boolean constraintValuesMatch = constraintValuesMatch(ruleContext);
 
@@ -431,11 +429,14 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
      * @param attributeValue map of user-defined flag labels to their values as set in the
      *     'flag_values' attribute
      * @param optionDetails information about the configuration to match against
+     * @param requiredFragmentOptions set of config fragments this config_setting requires. This
+     *     method adds feature flag and Starlark-defined setting requirements to this set.
      * @param ruleContext this rule's RuleContext
      */
     static UserDefinedFlagMatch fromAttributeValueAndPrerequisites(
         Map<Label, String> attributeValue,
         TransitiveOptionDetails optionDetails,
+        ImmutableSet.Builder<String> requiredFragmentOptions,
         RuleContext ruleContext) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
       boolean matches = true;
@@ -457,6 +458,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
         if (target.satisfies(ConfigFeatureFlagProvider.REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER)) {
           // config_feature_flag
+          requiredFragmentOptions.add(target.getLabel().toString());
           ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
           if (!provider.isValidValue(specifiedValue)) {
             ruleContext.attributeError(
@@ -473,6 +475,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           }
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
           // build setting
+          requiredFragmentOptions.add(target.getLabel().toString());
           BuildSettingProvider provider = target.getProvider(BuildSettingProvider.class);
           Object configurationValue =
               optionDetails.getOptionValue(specifiedLabel) != null

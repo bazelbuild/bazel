@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
@@ -52,6 +53,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       @Nullable InstrumentedFilesInfo instrumentedFilesInfo,
+      @Nullable RequiredConfigFragmentsProvider configFragmentsProvider,
       @Nullable OutputGroupInfo generatingRuleOutputGroupInfo) {
 
     super(label, configurationKey, visibility);
@@ -79,6 +81,10 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
             new OutputGroupInfo(ImmutableMap.of(OutputGroupInfo.VALIDATION, validationOutputs));
         providerBuilder.put(validationOutputGroup);
       }
+    }
+
+    if (configFragmentsProvider != null) {
+      providerBuilder.add(configFragmentsProvider);
     }
 
     this.providers = providerBuilder.build();

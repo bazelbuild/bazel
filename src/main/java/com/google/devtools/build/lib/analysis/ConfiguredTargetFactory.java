@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -262,26 +261,30 @@ public final class ConfiguredTargetFactory {
   }
 
   /**
-   * Returns, depending on the configuration, the {@link BuildConfiguration.Fragment}s and {@link
-   * FragmentOptions} required by this rule and its transitive dependencies. This includes {@code
-   * select}s and toolchain dependencies.
+   * Returns a set of user-friendly strings identifying <i>almost</i> all of the pieces of config
+   * state that are required by this rule.
    *
-   * <p>If {@code configuration} == {@link IncludeConfigFragmentsEnum#TRANSITIVE}, this includes
-   * fragments required by the transitive dependencies. If {@code configuration} == {@link
-   * IncludeConfigFragmentsEnum#DIRECT}, this only includes the rule's directly required fragments.
-   * If {@code configuration} == {@link IncludeConfigFragmentsEnum#OFF}, this returns an empty list.
+   * <p>The returned config state includes things that are known to be required at the time when the
+   * rule's dependencies have already been analyzed but before the rule itself has been analyzed.
+   * See {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the
+   * remaining pieces of config state.
    *
-   * <p>Returned values are user-friendly string representations of the classes.
+   * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
+   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
+   * flags.
    *
-   * <p>This doesn't yet support the following fragment dependencies:
+   * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
+   * result includes only the config state considered to be directly required by this rule. If it's
+   * {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state needed
+   * by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentEnum#OFF}, this
+   * method just returns an empty set.
    *
-   * <ul>
-   *   <li>TODO: options read by Starlark or native transitions
-   *   <li>TODO: Starlark options. Note that these don't belong to fragments like native options do.
-   *       Figure out how to integrate them.
-   *   <li>TODO: Android feature flags. These also don't belong to fragments.
-   * </ul>
+   * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
+   * state is required.
    *
+   * <p>TODO: This doesn't yet support fragments required by either native or Starlark transitions.
+   *
+   * @param rule The rule this is for
    * @param configuration the configuration for this rule
    * @param universallyRequiredFragments fragments that are always required even if not explicitly
    *     specified for this rule
@@ -293,9 +296,11 @@ public final class ConfiguredTargetFactory {
    *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
    *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
    * @param prerequisites all prerequisties of this rule
-   * @return an alphabetically ordered set of required fragments and options
+   * @return An alphabetically ordered set of required fragments, options, and labels of
+   *     user-defined options.
    */
   private static ImmutableSet<String> getRequiredConfigFragments(
+      Rule rule,
       BuildConfiguration configuration,
       Collection<Class<? extends BuildConfiguration.Fragment>> universallyRequiredFragments,
       Collection<Class<?>> directlyRequiredFragments,
@@ -304,19 +309,37 @@ public final class ConfiguredTargetFactory {
     TreeSet<String> requiredFragments = new TreeSet<>();
 
     CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
-    if (coreOptions.includeRequiredConfigFragmentsProvider == IncludeConfigFragmentsEnum.OFF) {
+    if (coreOptions.includeRequiredConfigFragmentsProvider
+        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
       return ImmutableSet.of();
     }
 
+    // Add directly required fragments:
+
+    // Fragments explicitly required by this rule:
+    directlyRequiredFragments.forEach(fragment -> requiredFragments.add(fragment.getSimpleName()));
+    // Fragments universally required by all rules:
     universallyRequiredFragments.forEach(
         fragment -> requiredFragments.add(fragment.getSimpleName()));
-    directlyRequiredFragments.forEach(fragment -> requiredFragments.add(fragment.getSimpleName()));
+    // Fragments required by config_conditions this rule select()s on:
     configConditions.forEach(
         configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
+    // We consider build settings (which are both rules and configuration) to require themselves:
+    if (rule.isBuildSetting()) {
+      requiredFragments.add(rule.getLabel().toString());
+    }
 
-    if (coreOptions.includeRequiredConfigFragmentsProvider
-        == IncludeConfigFragmentsEnum.TRANSITIVE) {
-      for (ConfiguredTargetAndData prereq : prerequisites) {
+    for (ConfiguredTargetAndData prereq : prerequisites) {
+      // If the rule depends on a Starlark build setting, conceptually that means the rule directly
+      // requires that as an option (even though it's technically a dependency).
+      BuildSettingProvider buildSettingProvider =
+          prereq.getConfiguredTarget().getProvider(BuildSettingProvider.class);
+      if (buildSettingProvider != null) {
+        requiredFragments.add(buildSettingProvider.getLabel().toString());
+      }
+      if (coreOptions.includeRequiredConfigFragmentsProvider
+          == CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE) {
+        // Add fragments only required because the rule's transitive deps need them.
         RequiredConfigFragmentsProvider depProvider =
             prereq.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class);
         if (depProvider != null) {
@@ -327,6 +350,7 @@ public final class ConfiguredTargetFactory {
 
     return ImmutableSet.copyOf(requiredFragments);
   }
+
   /**
    * Factory method: constructs a RuleConfiguredTarget of the appropriate class, based on the rule
    * class. May return null if an error occurred.
@@ -363,6 +387,7 @@ public final class ConfiguredTargetFactory {
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 getRequiredConfigFragments(
+                    rule,
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
                     configurationFragmentPolicy.getRequiredConfigurationFragments(),

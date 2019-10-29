@@ -298,8 +298,6 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
-run_suite "${PRODUCT_NAME} configured query tests"
-
 function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -307,7 +305,36 @@ function test_show_transitive_config_fragments_host_deps() {
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
-    data = [":g.out"],
+    data = [":g"],
+)
+
+genrule(
+    name = "g",
+    srcs = [],
+    outs = ["g.out"],
+    cmd = "echo Hello! > $@",
+    tools = [":pylib"])
+
+py_library(
+    name = "pylib",
+    srcs = ["pylib.py"],
+)
+EOF
+
+  bazel cquery "//$pkg:cclib_with_py_dep" --show_config_fragments=transitive > \
+    output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+}
+
+function test_show_transitive_config_fragments_through_output_file() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+cc_library(
+    name = "cclib_with_py_dep",
+    srcs = ["mylib2.cc"],
+    data = [":g.out"],    # Output file dependency declared here.
 )
 
 genrule(
@@ -372,7 +399,8 @@ cc_library(
 
 config_setting(
     name = "py_reading_condition",
-    values = {"build_python_zip": "1"})
+    values = {"build_python_zip": "1"}
+)
 
 cc_library(
     name = "cclib_with_select",
@@ -393,6 +421,154 @@ EOF
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
   assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
+}
+
+function test_show_config_fragments_select_on_starlark_option() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _string_flag_impl(ctx):
+    pass
+
+string_flag = rule(
+    implementation = _string_flag_impl,
+    build_setting = config.string()
+)
+EOF
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "string_flag")
+string_flag(
+    name = "my_flag",
+    build_setting_default = "default_value"
+)
+config_setting(
+    name = "is_my_flag_foo",
+    flag_values = {":my_flag": "foo"}
+)
+cc_library(
+    name = "cclib_with_select",
+    srcs = select({
+        ":is_my_flag_foo": ["version_foo.cc"],
+        "//conditions:default": ["version_default.cc"],
+    })
+)
+cc_library(
+    name = "cclib_plain",
+    srcs = ["version_plain.cc"]
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:my_flag .*//$pkg:my_flag" output
+  assert_contains "//$pkg:is_my_flag_foo .*//$pkg:my_flag" output
+  assert_contains "//$pkg:cclib_with_select .*//$pkg:my_flag" output
+
+  assert_not_contains "//$pkg:cclib_plain .*//$pkg:my_flag" output
+}
+
+function test_show_config_fragments_starlark_rule_requires_starlark_option() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _string_flag_impl(ctx):
+    pass
+
+string_flag = rule(
+    implementation = _string_flag_impl,
+    build_setting = config.string()
+)
+
+def _rule_with_flag_dep_impl(ctx):
+    pass
+
+rule_with_flag_dep = rule(
+    implementation = _rule_with_flag_dep_impl,
+    attrs = {
+        "_flagdep": attr.label(default = "//$pkg:my_flag")
+    }
+)
+EOF
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "rule_with_flag_dep", "string_flag")
+string_flag(
+    name = "my_flag",
+    build_setting_default = "default_value"
+)
+rule_with_flag_dep(
+    name = "my_rule"
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:my_rule .*//$pkg:my_flag" output
+}
+
+function test_show_config_fragments_select_on_feature_flag_info_provider() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _feature_flag_provider_rule_impl(ctx):
+    return [config_common.FeatureFlagInfo(value = "foo")]
+
+feature_flag_provider_rule = rule(
+    implementation = _feature_flag_provider_rule_impl,
+)
+EOF
+  cat > $pkg/BUILD <<EOF
+load(":defs.bzl", "feature_flag_provider_rule")
+feature_flag_provider_rule(name = "foo_feature")
+
+config_setting(
+    name = "is_foo_feature",
+    flag_values = {":foo_feature": "foo"},
+)
+
+cc_library(
+    name = "cclib_select_on_foo_feature",
+    srcs = ["hi.cc"],
+    deps = select({
+        ":is_foo_feature": [],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "cclib_no_select",
+    srcs = ["heya.cc"]
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:is_foo_feature .*//$pkg:foo_feature" output
+  assert_contains "//$pkg:cclib_select_on_foo_feature .*//$pkg:foo_feature" output
+  assert_not_contains "//$pkg:cclib_no_select .*//$pkg:foo_feature" output
+
+  # Starlark rules exposing FeatureFlagInfo aren't really part of the
+  # configuration. You can't "set" them as part of the configuration like you
+  # can Starlark flags or Android feature flags. All they do is provide a new
+  # interface for rules to select() over the existing configuration.
+  #
+  # Nevertheless, since you can select() on them as this test illustrates, it's
+  # reasonable to "pretend" for the purposes of --show_config_fragments. At best
+  # they still show interesting dependencies. At worst they provide a bit more
+  # conceptual clutter to wade through when analyzing a build graph.
+  #
+  # If we're going to support them, it conceptually makes sense to consider
+  # //$pkg:foo_feature a config dependency on itself. That doesn't currently
+  # work. The only reason is because the most natural place to encode this
+  # is to have lib.analysis.RuleConfiguredTargetBuilder check if the rule
+  # provides lib.rules.config.ConfigFeatureFlagProvider. But that adds an
+  # unwanted dependency from lib.analysis onto lib.rules.
+  #
+  # Given this use case's unimportance, we just leave things as-is for the sake
+  # of simplicity in the wider code base. We can always re-evaluate if needed.
+  assert_not_contains "//$pkg:foo_feature .*//$pkg:foo_feature" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"
