@@ -232,8 +232,8 @@ public final class JavaCompilationHelper {
             .build());
     Label label = ruleContext.getLabel();
     builder.setTargetLabel(label);
-    Artifact artifactForExperimentalCoverage = maybeCreateExperimentalCoverageArtifact(outputJar);
-    builder.setArtifactForExperimentalCoverage(artifactForExperimentalCoverage);
+    Artifact coverageArtifact = maybeCreateCoverageArtifact(outputJar);
+    builder.setCoverageArtifact(coverageArtifact);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
@@ -268,10 +268,10 @@ public final class JavaCompilationHelper {
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
 
-    if (artifactForExperimentalCoverage != null) {
+    if (coverageArtifact != null) {
       ruleContext.registerAction(
           new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(), artifactForExperimentalCoverage, sourceFiles, false));
+              ruleContext.getActionOwner(), coverageArtifact, sourceFiles, false));
     }
 
     JavaCompileAction javaCompileAction = builder.build();
@@ -325,7 +325,7 @@ public final class JavaCompilationHelper {
    *
    * <p>Returns {@code null} if {@code compileJar} should not be instrumented.
    */
-  private Artifact maybeCreateExperimentalCoverageArtifact(Artifact compileJar) {
+  private Artifact maybeCreateCoverageArtifact(Artifact compileJar) {
     if (!shouldInstrumentJar()) {
       return null;
     }
