@@ -1558,6 +1558,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           EvaluationContext.newBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
+              .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(

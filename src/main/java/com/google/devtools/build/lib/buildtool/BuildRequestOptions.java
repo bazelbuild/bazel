@@ -364,6 +364,15 @@ public class BuildRequestOptions extends OptionsBase {
               + " will be evaluated as a unit on Skyframe.")
   public int nestedSetAsSkyKeyThreshold;
 
+  @Option(
+      name = "experimental_use_fork_join_pool",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
+  public boolean useForkJoinPool;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
