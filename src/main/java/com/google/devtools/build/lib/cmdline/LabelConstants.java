@@ -27,12 +27,11 @@ public class LabelConstants {
   /**
    * Whether Bazel should check (true) or trust (false) the casing of Labels.
    *
-   * <p>A Package "//foo" exists if its BUILD file "foo/BUILD" exists, i.e. if stat("foo/BUILD")
-   * succeeds.
+   * <p>Package "//foo" exists if "foo/BUILD" exists, i.e. stat("foo/BUILD") succeeds.
    *
-   * <p>On a case-sensitive filesystem (e.g. Ext4), this stat() call succeeds for "foo/BUILD" and
-   * fails for "Foo/BUILD" and "FOO/build". But on a case-ignoring filesystem (e.g. APFS and NTFS),
-   * all of these stat calls succeed, so apparently "//Foo" and "//FOO" also exist.
+   * <p>If "foo/BUILD" exists on a case-sensitive filesystem (e.g. Ext4), stat("foo/BUILD") succeeds
+   * while stat("Foo/BUILD") and stat("FOO/build") fail. But on a case-ignoring filesystem (e.g.
+   * APFS and NTFS), all three calls succeed, so "//Foo" and "//FOO" also appear to exist (falsely).
    */
   public static final boolean CHECK_CASING = true;  // TODO(laszlocsomor): Undo this.
       //"1".equals(System.getProperty("bazel.check_label_casing"));
