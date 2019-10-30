@@ -234,7 +234,7 @@ platforms:
     - "-//src/test/shell/bazel:maven_test"
     - "-//src/test/shell/bazel:bazel_repository_cache_test"
     - "-//src/test/shell/integration:java_integration_test"
-    - "-//src/test/java/com/google/devtools/build/lib:sandbox-tests"
+    - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
     # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."

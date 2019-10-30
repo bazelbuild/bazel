@@ -66,6 +66,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
@@ -1285,75 +1286,6 @@ java_test(
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:apache_commons_lang",
         "//third_party:mockito",
-    ],
-)
-
-java_library(
-    name = "sandboxfs-base-tests",
-    testonly = 1,
-    srcs = ["sandbox/BaseSandboxfsProcessIntegrationTest.java"],
-    deps = [
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "sandbox-tests",
-    srcs = glob(
-        ["sandbox/*.java"],
-        exclude = [
-            "sandbox/BaseSandboxfsProcessIntegrationTest.java",
-            "sandbox/RealSandboxfsProcessIntegrationTest.java",
-        ],
-    ),
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = ["no_windows"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":sandboxfs-base-tests",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_test(
-    name = "sandboxfs-integration-tests",
-    srcs = ["sandbox/RealSandboxfsProcessIntegrationTest.java"],
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = [
-        # On macOS:
-        #   sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
-        # Test requires:
-        #   --test_env=SANDBOXFS=/path/to/sandboxfs
-        "manual",
-        "no-sandbox",
-        "no_windows",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":sandboxfs-base-tests",
-        ":test_runner",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:junit4",
     ],
 )
 
