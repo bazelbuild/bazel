@@ -175,6 +175,10 @@ public final class MethodDescriptor {
     return name;
   }
 
+  Method getMethod() {
+    return method;
+  }
+
   /** @see SkylarkCallable#structField() */
   public boolean isStructField() {
     return structField;

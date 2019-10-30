@@ -117,10 +117,11 @@ public class ApiExporter {
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          if (CallUtils.hasSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
-            MethodDescriptor descriptor =
-                CallUtils.getSelfCallMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS, obj);
-            value = valueFromMethodDescriptor(descriptor);
+          MethodDescriptor selfCall =
+              CallUtils.getSelfCallMethodDescriptor(
+                  StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+          if (selfCall != null) {
+            value = valueFromMethodDescriptor(selfCall);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());
