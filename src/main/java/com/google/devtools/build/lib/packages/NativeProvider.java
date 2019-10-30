@@ -65,17 +65,12 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
     String getSkylarkName();
   }
 
-  protected NativeProvider(Class<V> clazz, String name) {
-    this(clazz, name, FunctionSignature.KWARGS);
-  }
-
-  @SuppressWarnings("unchecked")
-  private NativeProvider(Class<V> valueClass, String name, FunctionSignature signature) {
-    super(name, signature, Location.BUILTIN);
-    Class<? extends NativeProvider<?>> clazz = (Class<? extends NativeProvider<?>>) getClass();
-    key = new NativeKey(name, clazz);
+  protected NativeProvider(Class<V> valueClass, String name) {
+    super(name, FunctionSignature.KWARGS, Location.BUILTIN);
+    this.key = new NativeKey(name, getClass());
     this.valueClass = valueClass;
-    errorMessageFormatForUnknownField = String.format("'%s' object has no attribute '%%s'", name);
+    this.errorMessageFormatForUnknownField =
+        String.format("'%s' object has no attribute '%%s'", name);
   }
 
   /**

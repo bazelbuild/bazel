@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -262,18 +262,17 @@ public class WorkspaceFactory {
    */
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BuiltinFunction(
-        ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
-      public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, StarlarkThread thread)
+    return new BuiltinFunction(ruleClassName, FunctionSignature.KWARGS) {
+      public Object invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
           throws EvalException, InterruptedException {
         try {
-          Package.Builder builder = PackageFactory.getContext(thread, ast.getLocation()).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null
               && builder.getTarget(externalRepoName) != null) {
             throw new EvalException(
-                ast.getLocation(),
+                loc,
                 "Cannot redefine repository after any load statement in the WORKSPACE file"
                     + " (for repository '"
                     + kwargs.get("name")
@@ -283,8 +282,7 @@ public class WorkspaceFactory {
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
-          WorkspaceFactoryHelper.addRepoMappings(
-              builder, kwargs, externalRepoName, ast.getLocation());
+          WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, loc);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
@@ -293,10 +291,10 @@ public class WorkspaceFactory {
                   ruleClass,
                   bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                  ast);
+                  loc);
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
-                ast.getLocation(),
+                loc,
                 rule
                     + "'s name field must be a legal workspace name;"
                     + " workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
@@ -304,7 +302,7 @@ public class WorkspaceFactory {
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {
-          throw new EvalException(ast.getLocation(), e.getMessage());
+          throw new EvalException(loc, e.getMessage());
         }
         return NONE;
       }
