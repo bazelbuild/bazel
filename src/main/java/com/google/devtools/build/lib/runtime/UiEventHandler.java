@@ -874,7 +874,8 @@ public class UiEventHandler implements EventHandler {
       try {
         clearProgressBar();
         crlf();
-        setEventKindColor(EventKind.ERROR);
+        setEventKindColor(
+            summary.getStatus() == BlazeTestStatus.FLAKY ? EventKind.WARNING : EventKind.ERROR);
         terminal.writeString("" + summary.getStatus() + ": ");
         terminal.resetTerminal();
         terminal.writeString(summary.getLabel().toString());
