@@ -102,7 +102,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return null;
   }
 
-
   /**
    * Index used to resolve remote files.
    *
@@ -277,6 +276,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return isShareable
         ? new RegularFileArtifactValue(digest, proxy, size)
         : new UnshareableRegularFileArtifactValue(digest, proxy, size);
+  }
+
+  /**
+   * Create a FileArtifactValue using the {@link Path} and size. FileArtifactValue#create will
+   * handle getting the digest using the Path and size values.
+   */
+  public static FileArtifactValue createForNormalFileUsingPath(Path path, long size)
+      throws IOException {
+    return create(path, true, size, null, null, true);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {

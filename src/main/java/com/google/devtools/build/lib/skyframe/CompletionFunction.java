@@ -373,6 +373,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
     Map<Artifact, Collection<Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     int missingCount = 0;
     ActionExecutionException firstActionExecutionException = null;
@@ -395,11 +396,13 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
             }
           } else {
             ActionInputMapHelper.addToMap(
-                inputMap, expandedArtifacts, expandedFilesets, input, artifactValue, env);
-            if (input.isFileset()) {
-              expandedFilesets.put(
-                  input, ActionInputMapHelper.getFilesets(env, (Artifact.SpecialArtifact) input));
-            }
+                inputMap,
+                expandedArtifacts,
+                expandedFilesets,
+                topLevelFilesets,
+                input,
+                artifactValue,
+                env);
           }
         }
       } catch (ActionExecutionException e) {
@@ -411,6 +414,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         }
       }
     }
+    expandedFilesets.putAll(topLevelFilesets);
 
     if (missingCount > 0) {
       missingInputException = completor.getMissingFilesException(value, missingCount, env);
