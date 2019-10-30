@@ -476,9 +476,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         },
         useLocation = true,
         useStarlarkThread = true)
-    public Runtime.NoneType append(E item, Location loc, StarlarkThread thread)
+    @SuppressWarnings("unchecked") // Cast of Object item to E
+    public Runtime.NoneType append(Object item, Location loc, StarlarkThread thread)
         throws EvalException {
-      add(item, loc, thread.mutability());
+      add((E) item, loc, thread.mutability());
       return Runtime.NONE;
     }
 
@@ -502,9 +503,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         },
         useLocation = true,
         useStarlarkThread = true)
-    public Runtime.NoneType insert(Integer index, E item, Location loc, StarlarkThread thread)
+    @SuppressWarnings("unchecked") // Cast of Object item to E
+    public Runtime.NoneType insert(Integer index, Object item, Location loc, StarlarkThread thread)
         throws EvalException {
-      add(EvalUtils.clampRangeEndpoint(index, size()), item, loc, thread.mutability());
+      add(EvalUtils.clampRangeEndpoint(index, size()), (E) item, loc, thread.mutability());
       return Runtime.NONE;
     }
 

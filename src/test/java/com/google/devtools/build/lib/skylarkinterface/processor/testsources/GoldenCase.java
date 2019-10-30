@@ -76,16 +76,21 @@ public class GoldenCase {
     return 0;
   }
 
-  @SkylarkCallable(name = "three_arg_method_with_ast",
+  @SkylarkCallable(
+      name = "three_arg_method_with_ast",
       documented = false,
       parameters = {
-          @Param(name = "one", type = String.class, named = true),
-          @Param(name = "two", type = Integer.class, named = true),
-          @Param(name = "three", type = String.class, named = true,
-              defaultValue = "None", noneable = true),
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
+        @Param(
+            name = "three",
+            type = String.class,
+            named = true,
+            defaultValue = "None",
+            noneable = true),
       },
       useAst = true)
-  public String threeArgMethod(String one, Integer two, String three, FuncallExpression ast) {
+  public String threeArgMethod(String one, Integer two, Object three, FuncallExpression ast) {
     return "bar";
   }
 

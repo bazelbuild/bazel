@@ -194,8 +194,6 @@ public interface GoWrapCcHelperApi<
             name = "gopkg",
             positional = false,
             named = true,
-            defaultValue = "None",
-            noneable = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
         @Param(name = "export", positional = false, named = true, type = FileApi.class),
         @Param(name = "swig_out_go", positional = false, named = true, type = FileApi.class),
@@ -213,8 +211,6 @@ public interface GoWrapCcHelperApi<
             name = "gopkg",
             positional = false,
             named = true,
-            defaultValue = "None",
-            noneable = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
       })
   public NestedSet<FileT> getGopackageFiles(

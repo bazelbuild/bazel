@@ -189,8 +189,7 @@ public class MethodLibrary {
             doc = "Return results in descending order.",
             named = true,
             defaultValue = "False",
-            positional = false,
-            noneable = true)
+            positional = false)
       },
       useLocation = true,
       useStarlarkThread = true)

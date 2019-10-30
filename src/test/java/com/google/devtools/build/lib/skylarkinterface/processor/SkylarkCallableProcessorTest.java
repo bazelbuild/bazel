@@ -376,4 +376,15 @@ public final class SkylarkCallableProcessorTest {
             "Parameter one has generic type "
                 + "com.google.devtools.build.lib.syntax.SkylarkDict<?,java.lang.String>");
   }
+
+  @Test
+  public void testInvalidNoneableParameter() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("InvalidNoneableParameter.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected type 'Object' but got type 'java.lang.String' "
+                + "for noneable parameter 'aParameter'.");
+  }
 }

@@ -59,6 +59,9 @@ import javax.tools.Diagnostic;
  *       both.
  *   <li>Parameters may not specify their generic types (they must use the <code>?</code> wildcard
  *       exclusively.
+ *   <li>Noneable parameters must have java parameter type Object (as the actual value may be either
+ *       {@code None} or a value of a non-{@code None} type, which do not share a superclass other
+ *       than Object (or SkylarkValue, which is typically no more descriptive than Object).
  *   <li>Each parameter must be positional or named (or both).
  *   <li>Positional-only parameters must be specified before any named parameters.
  *   <li>Positional parameters must be specified before any non-positional parameters.
@@ -224,19 +227,36 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     boolean allowPositionalOnlyNext = true;
     boolean allowNonDefaultPositionalNext = true;
 
+    int paramIndex = 0;
     for (Param parameter : annotation.parameters()) {
+      if (parameter.noneable()) {
+        VariableElement methodParam = methodElement.getParameters().get(paramIndex);
+        if (!"java.lang.Object".equals(methodParam.asType().toString())) {
+          throw new SkylarkCallableProcessorException(
+              methodElement,
+              String.format(
+                  "Expected type 'Object' but got type '%s' for noneable parameter '%s'. The "
+                      + "argument for a noneable parameter may be None, so the java parameter "
+                      + "must be compatible with the type of None as well as possible non-None "
+                      + "values.",
+                  methodParam.asType(), methodParam.getSimpleName()));
+        }
+      } else { // !parameter.noneable()
+        if ("None".equals(parameter.defaultValue())) {
+          throw new SkylarkCallableProcessorException(
+              methodElement,
+              String.format(
+                  "Parameter '%s' has 'None' default value but is not noneable. "
+                      + "(If this is intended as a mandatory parameter, leave the defaultValue "
+                      + "field empty)",
+                  parameter.name()));
+        }
+      }
+
       if (!parameter.positional() && !parameter.named()) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format("Parameter '%s' must be either positional or named",
-                parameter.name()));
-      }
-      if ("None".equals(parameter.defaultValue()) && !parameter.noneable()) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            String.format("Parameter '%s' has 'None' default value but is not noneable. "
-                    + "(If this is intended as a mandatory parameter, leave the defaultValue field "
-                    + "empty)",
                 parameter.name()));
       }
       if ((parameter.allowedTypes().length > 0)
@@ -286,6 +306,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         // No positional-only parameters can come after this parameter.
         allowPositionalOnlyNext = false;
       }
+      paramIndex++;
     }
   }
 
