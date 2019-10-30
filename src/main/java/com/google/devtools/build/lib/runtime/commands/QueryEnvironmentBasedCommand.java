@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -143,7 +144,10 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
-    if (queryOptions.useGraphlessQuery && !streamResults) {
+    boolean useGraphlessQuery =
+        queryOptions.useGraphlessQuery == TriState.YES
+            || (queryOptions.useGraphlessQuery == TriState.AUTO && streamResults);
+    if (useGraphlessQuery && !streamResults) {
       env.getReporter()
           .handle(
               Event.error(
@@ -165,7 +169,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               queryOptions.universeScope,
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
-              queryOptions.useGraphlessQuery)) {
+              useGraphlessQuery)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
