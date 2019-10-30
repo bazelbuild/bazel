@@ -140,6 +140,21 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testExportsFilesVisibilityMustBeSequence() throws Exception {
+    expectEvalError(
+        "expected sequence or NoneType for 'visibility' while calling exports_files but got depset",
+        "exports_files(srcs=[], visibility=depset(['notice']))");
+  }
+
+  @Test
+  public void testExportsFilesLicensesMustBeSequence() throws Exception {
+    expectEvalError(
+        "expected sequence of strings or NoneType for 'licenses' while calling exports_files but"
+            + " got depset",
+        "exports_files(srcs=[], licenses=depset(['notice']))");
+  }
+
+  @Test
   public void testPackageNameWithPROTECTEDIsOk() throws Exception {
     events.setFailFast(false);
     // One "PROTECTED":
@@ -661,9 +676,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "argument 'include' has type 'int', but should be 'sequence'\n"
-            + "in call to builtin function glob(include, *, exclude, exclude_directories, "
-            + "allow_empty)");
+        "expected sequence of strings for 'include' while calling glob but got int instead: 1");
   }
 
   @Test

@@ -55,7 +55,7 @@ public abstract class BaseFunction implements StarlarkCallable {
   // TODO(adonovan): this class has too many fields and relies too heavily on side effects and the
   // class hierarchy (the configure methods are the worse offenders). Turn fields into abstract
   // methods. Make processArguments a static function with multiple parameters, instead of a
-  // "mix-in" that accesses instance fields. And get rid of BuiltinFunction.Factory.
+  // "mix-in" that accesses instance fields.
 
   /**
    * The name of the function.
@@ -92,12 +92,9 @@ public abstract class BaseFunction implements StarlarkCallable {
   // Some functions are also Namespaces or other Skylark entities.
   @Nullable protected Class<?> objectType;
 
-  // Documentation for variables, if any
-  @Nullable protected List<String> paramDoc;
-
   // The types actually enforced by the Skylark runtime, as opposed to those enforced by the JVM,
   // or those displayed to the user in the documentation.
-  @Nullable protected List<SkylarkType> enforcedArgumentTypes;
+  @Nullable List<SkylarkType> enforcedArgumentTypes;
 
   /**
    * Returns the name of this function.
@@ -177,11 +174,6 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   protected BaseFunction(@Nullable String name, FunctionSignature signature) {
     this(name, signature, /*defaultValues=*/ null, /*location=*/ null);
-  }
-
-  /** Get parameter documentation as a list corresponding to each parameter */
-  List<String> getParamDoc() {
-    return paramDoc;
   }
 
   /**
@@ -496,12 +488,10 @@ public abstract class BaseFunction implements StarlarkCallable {
   public void configure(SkylarkSignature annotation) {
     Preconditions.checkState(!isConfigured()); // must not be configured yet
 
-    this.paramDoc = new ArrayList<>();
-
     // side effect: appends to getEnforcedArgumentTypes()
     SkylarkSignatureProcessor.SignatureInfo info =
         SkylarkSignatureProcessor.getSignatureForCallable(
-            getName(), annotation, paramDoc, getEnforcedArgumentTypes());
+            getName(), annotation, /*paramDoc=*/ new ArrayList<>(), getEnforcedArgumentTypes());
     this.signature = info.signature;
     this.paramTypes = info.types;
     this.defaultValues = info.defaultValues;

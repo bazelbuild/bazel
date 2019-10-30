@@ -540,47 +540,43 @@ public final class PackageFactory {
                     + " excluded).")
       },
       documented = false,
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  private static final BuiltinFunction.Factory newGlobFunction =
-      new BuiltinFunction.Factory("glob") {
-        public BuiltinFunction create(final PackageContext originalContext) {
-          return new BuiltinFunction("glob", this) {
-            public SkylarkList invoke(
-                SkylarkList include,
-                SkylarkList exclude,
-                Integer excludeDirectories,
-                Object allowEmpty,
-                FuncallExpression ast,
-                StarlarkThread thread)
-                throws EvalException, ConversionException, InterruptedException {
-              return callGlob(
-                  originalContext,
-                  include,
-                  exclude,
-                  excludeDirectories != 0,
-                  allowEmpty,
-                  ast,
-                  thread);
-            }
-          };
+  private static final BuiltinFunction globFunction =
+      new BuiltinFunction("glob") {
+        public SkylarkList<String> invoke(
+            SkylarkList<?> include, // <String>
+            SkylarkList<?> exclude, // <String>
+            Integer excludeDirectories,
+            Object allowEmpty,
+            Location loc,
+            StarlarkThread thread)
+            throws EvalException, InterruptedException {
+          return callGlob(
+              getContext(thread, loc),
+              include,
+              exclude,
+              excludeDirectories != 0,
+              allowEmpty,
+              loc,
+              thread);
         }
       };
 
-  static SkylarkList<Object> callGlob(
+  static SkylarkList<String> callGlob(
       @Nullable PackageContext originalContext,
-      Object include,
-      Object exclude,
+      SkylarkList<?> include, // <String>
+      SkylarkList<?> exclude, // <String>
       boolean excludeDirs,
       Object allowEmptyArgument,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
     // Skylark build extensions need to get the PackageContext from the StarlarkThread;
     // async glob functions cannot do the same because the StarlarkThread is not thread safe.
     PackageContext context;
     if (originalContext == null) {
-      context = getContext(thread, ast.getLocation());
+      context = getContext(thread, loc);
     } else {
       context = originalContext;
     }
@@ -596,8 +592,7 @@ public final class PackageFactory {
       allowEmpty = (Boolean) allowEmptyArgument;
     } else {
       throw new EvalException(
-          ast.getLocation(),
-          "expected boolean for argument `allow_empty`, got `" + allowEmptyArgument + "`");
+          loc, "expected boolean for argument `allow_empty`, got `" + allowEmptyArgument + "`");
     }
 
     try {
@@ -610,11 +605,11 @@ public final class PackageFactory {
           Joiner.on(", ").join(includes),
           excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
           e.getMessage());
-      context.eventHandler.handle(Event.error(ast.getLocation(), errorMessage));
+      context.eventHandler.handle(Event.error(loc, errorMessage));
       context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      throw new EvalException(loc, e.getMessage());
     }
 
     return MutableList.copyOf(thread, matches);
@@ -638,32 +633,22 @@ public final class PackageFactory {
         @Param(name = "name", type = String.class, doc = "The name of the target."),
       },
       documented = false,
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  private static final BuiltinFunction.Factory newExistingRuleFunction =
-      new BuiltinFunction.Factory("existing_rule") {
-        public BuiltinFunction create(final PackageContext originalContext) {
-          return new BuiltinFunction("existing_rule", this) {
-            public Object invoke(String name, FuncallExpression ast, StarlarkThread thread)
-                throws EvalException {
-              return callExistingRule(name, ast, thread);
-            }
-          };
+  private static final BuiltinFunction existingRuleFunction =
+      new BuiltinFunction("existing_rule") {
+        public Object invoke(String name, Location loc, StarlarkThread thread)
+            throws EvalException {
+          return callExistingRule(name, loc, thread);
         }
       };
 
-  static Object callExistingRule(String name, FuncallExpression ast, StarlarkThread thread)
+  static Object callExistingRule(String name, Location loc, StarlarkThread thread)
       throws EvalException {
-
-    PackageContext context = getContext(thread, ast.getLocation());
+    PackageContext context = getContext(thread, loc);
     Target target = context.pkgBuilder.getTarget(name);
-    SkylarkDict<String, Object> rule = targetDict(target, ast.getLocation(), thread);
-
-    if (rule != null) {
-      return rule;
-    }
-
-    return Runtime.NONE;
+    SkylarkDict<String, Object> rule = targetDict(target, loc, thread);
+    return rule != null ? rule : Runtime.NONE;
   }
 
   /**
@@ -672,6 +657,7 @@ public final class PackageFactory {
    */
   @SkylarkSignature(
       name = "existing_rules",
+      returnType = SkylarkDict.class,
       doc =
           "Returns a dictionary containing all the targets instantiated so far. The map key is the "
               + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
@@ -679,26 +665,20 @@ public final class PackageFactory {
               + ""
               + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
               + "and order-dependent.</i>",
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  private static final BuiltinFunction.Factory newExistingRulesFunction =
-      new BuiltinFunction.Factory("existing_rules") {
-        public BuiltinFunction create(final PackageContext originalContext) {
-          return new BuiltinFunction("existing_rules", this) {
-            public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
-                FuncallExpression ast, StarlarkThread thread) throws EvalException {
-              return callExistingRules(ast, thread);
-            }
-          };
+  private static final BuiltinFunction existingRulesFunction =
+      new BuiltinFunction("existing_rules") {
+        public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
+            Location loc, StarlarkThread thread) throws EvalException {
+          return callExistingRules(loc, thread);
         }
       };
 
   static SkylarkDict<String, SkylarkDict<String, Object>> callExistingRules(
-      FuncallExpression ast, StarlarkThread thread) throws EvalException {
-    PackageContext context = getContext(thread, ast.getLocation());
+      Location loc, StarlarkThread thread) throws EvalException {
+    PackageContext context = getContext(thread, loc);
     Collection<Target> targets = context.pkgBuilder.getTargets();
-    Location loc = ast.getLocation();
-
     SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(thread);
     for (Target t : targets) {
       if (t instanceof Rule) {
@@ -712,8 +692,8 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns a function value implementing "environment_group" in the specified package context.
-   * Syntax is as follows:
+   * Function value implementing "environment_group" in the specified package context. Syntax is as
+   * follows:
    *
    * <pre>{@code
    * environment_group(
@@ -756,42 +736,43 @@ public final class PackageFactory {
             doc = "A list of Labels.")
       }, // TODO(bazel-team): document what that is
       documented = false,
-      useLocation = true)
-  private static final BuiltinFunction.Factory newEnvironmentGroupFunction =
-      new BuiltinFunction.Factory("environment_group") {
-        public BuiltinFunction create(final PackageContext context) {
-          return new BuiltinFunction("environment_group", this) {
-            public Runtime.NoneType invoke(
-                String name, SkylarkList environmentsList, SkylarkList defaultsList, Location loc)
-                throws EvalException, ConversionException {
-              List<Label> environments =
-                  BuildType.LABEL_LIST.convert(
-                      environmentsList,
-                      "'environment_group argument'",
-                      context.pkgBuilder.getBuildFileLabel());
-              List<Label> defaults =
-                  BuildType.LABEL_LIST.convert(
-                      defaultsList,
-                      "'environment_group argument'",
-                      context.pkgBuilder.getBuildFileLabel());
+      useLocation = true,
+      useStarlarkThread = true)
+  private static final BuiltinFunction environmentGroupFunction =
+      new BuiltinFunction("environment_group") {
+        public Runtime.NoneType invoke(
+            String name,
+            SkylarkList<?> environmentsList, // <Label>
+            SkylarkList<?> defaultsList, // <Label>
+            Location loc,
+            StarlarkThread thread)
+            throws EvalException {
+          PackageContext context = getContext(thread, loc);
+          List<Label> environments =
+              BuildType.LABEL_LIST.convert(
+                  environmentsList,
+                  "'environment_group argument'",
+                  context.pkgBuilder.getBuildFileLabel());
+          List<Label> defaults =
+              BuildType.LABEL_LIST.convert(
+                  defaultsList,
+                  "'environment_group argument'",
+                  context.pkgBuilder.getBuildFileLabel());
 
-              if (environments.isEmpty()) {
-                throw new EvalException(
-                    location,
-                    "environment group " + name + " must contain at least one environment");
-              }
-              try {
-                context.pkgBuilder.addEnvironmentGroup(
-                    name, environments, defaults, context.eventHandler, loc);
-                return Runtime.NONE;
-              } catch (LabelSyntaxException e) {
-                throw new EvalException(
-                    loc, "environment group has invalid name: " + name + ": " + e.getMessage());
-              } catch (Package.NameConflictException e) {
-                throw new EvalException(loc, e.getMessage());
-              }
-            }
-          };
+          if (environments.isEmpty()) {
+            throw new EvalException(
+                location, "environment group " + name + " must contain at least one environment");
+          }
+          try {
+            context.pkgBuilder.addEnvironmentGroup(
+                name, environments, defaults, context.eventHandler, loc);
+            return Runtime.NONE;
+          } catch (LabelSyntaxException e) {
+            throw new EvalException(
+                loc, "environment group has invalid name: " + name + ": " + e.getMessage());
+          } catch (Package.NameConflictException e) {
+            throw new EvalException(loc, e.getMessage());
+          }
         }
       };
 
@@ -825,33 +806,25 @@ public final class PackageFactory {
             doc = "A list of strings specifying the licenses used in the exported code.")
       },
       documented = false,
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  private static final BuiltinFunction.Factory newExportsFilesFunction =
-      new BuiltinFunction.Factory("exports_files") {
-        public BuiltinFunction create() {
-          return new BuiltinFunction("exports_files", this) {
-            public Runtime.NoneType invoke(
-                SkylarkList srcs,
-                Object visibility,
-                Object licenses,
-                FuncallExpression ast,
-                StarlarkThread thread)
-                throws EvalException, ConversionException {
-              return callExportsFiles(srcs, visibility, licenses, ast, thread);
-            }
-          };
+  private static final BuiltinFunction exportsFilesFunction =
+      new BuiltinFunction("exports_files") {
+        public Runtime.NoneType invoke(
+            SkylarkList<?> srcs, // <String>
+            Object visibility,
+            Object licenses,
+            Location loc,
+            StarlarkThread thread)
+            throws EvalException {
+          return callExportsFiles(srcs, visibility, licenses, loc, thread);
         }
       };
 
   static Runtime.NoneType callExportsFiles(
-      Object srcs,
-      Object visibilityO,
-      Object licensesO,
-      FuncallExpression ast,
-      StarlarkThread thread)
+      Object srcs, Object visibilityO, Object licensesO, Location loc, StarlarkThread thread)
       throws EvalException, ConversionException {
-    Package.Builder pkgBuilder = getContext(thread, ast.getLocation()).pkgBuilder;
+    Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility;
@@ -863,7 +836,7 @@ public final class PackageFactory {
               "'exports_files' operand",
               pkgBuilder.getBuildFileLabel()));
     } catch (EvalException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      throw new EvalException(loc, e.getMessage());
     }
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -871,20 +844,21 @@ public final class PackageFactory {
     for (String file : files) {
       String errorMessage = LabelValidator.validateTargetName(file);
       if (errorMessage != null) {
-        throw new EvalException(ast.getLocation(), errorMessage);
+        throw new EvalException(loc, errorMessage);
       }
       try {
-        InputFile inputFile = pkgBuilder.createInputFile(file, ast.getLocation());
+        InputFile inputFile = pkgBuilder.createInputFile(file, loc);
         if (inputFile.isVisibilitySpecified()
             && inputFile.getVisibility() != visibility) {
-          throw new EvalException(ast.getLocation(),
-              String.format("visibility for exported file '%s' declared twice",
-                  inputFile.getName()));
+          throw new EvalException(
+              loc,
+              String.format(
+                  "visibility for exported file '%s' declared twice", inputFile.getName()));
         }
         if (license != null && inputFile.isLicenseSpecified()) {
-          throw new EvalException(ast.getLocation(),
-              String.format("licenses for exported file '%s' declared twice",
-                  inputFile.getName()));
+          throw new EvalException(
+              loc,
+              String.format("licenses for exported file '%s' declared twice", inputFile.getName()));
         }
 
         // See if we should check third-party licenses: first checking for any hard-coded policy,
@@ -904,54 +878,63 @@ public final class PackageFactory {
             && license == null
             && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
-          throw new EvalException(ast.getLocation(),
-              "third-party file '" + inputFile.getName() + "' lacks a license declaration "
-              + "with one of the following types: notice, reciprocal, permissive, "
-              + "restricted, unencumbered, by_exception_only");
+          throw new EvalException(
+              loc,
+              "third-party file '"
+                  + inputFile.getName()
+                  + "' lacks a license declaration "
+                  + "with one of the following types: notice, reciprocal, permissive, "
+                  + "restricted, unencumbered, by_exception_only");
         }
 
         pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
       } catch (Package.Builder.GeneratedLabelConflict e) {
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(loc, e.getMessage());
       }
     }
     return Runtime.NONE;
   }
 
   /**
-   * Returns a function-value implementing "licenses" in the specified package
-   * context.
+   * Returns a function-value implementing "licenses" in the specified package context.
    * TODO(bazel-team): Remove in favor of package.licenses.
    */
-  @SkylarkSignature(name = "licenses", returnType = Runtime.NoneType.class,
+  @SkylarkSignature(
+      name = "licenses",
+      returnType = Runtime.NoneType.class,
       doc = "Declare the license(s) for the code in the current package.",
       parameters = {
-        @Param(name = "license_strings", type = SkylarkList.class, generic1 = String.class,
-            doc = "A list of strings, the names of the licenses used.")},
-      documented = false, useLocation = true)
-  private static final BuiltinFunction.Factory newLicensesFunction =
-      new BuiltinFunction.Factory("licenses") {
-        public BuiltinFunction create(final PackageContext context) {
-          return new BuiltinFunction("licenses", this) {
-            public Runtime.NoneType invoke(SkylarkList licensesList, Location loc) {
-              try {
-                License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-                context.pkgBuilder.setDefaultLicense(license);
-              } catch (ConversionException e) {
-                context.eventHandler.handle(Event.error(loc, e.getMessage()));
-                context.pkgBuilder.setContainsErrors();
-              }
-              return Runtime.NONE;
-            }
-          };
+        @Param(
+            name = "license_strings",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            doc = "A list of strings, the names of the licenses used.")
+      },
+      documented = false,
+      useStarlarkThread = true,
+      useLocation = true)
+  private static final BuiltinFunction licensesFunction =
+      new BuiltinFunction("licenses") {
+        public Runtime.NoneType invoke(
+            SkylarkList<?> licensesList, // list of license strings
+            Location loc,
+            StarlarkThread thread)
+            throws EvalException {
+          PackageContext context = getContext(thread, loc);
+          try {
+            License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
+            context.pkgBuilder.setDefaultLicense(license);
+          } catch (ConversionException e) {
+            context.eventHandler.handle(Event.error(loc, e.getMessage()));
+            context.pkgBuilder.setContainsErrors();
+          }
+          return Runtime.NONE;
         }
       };
 
   /** Returns a function-value implementing "distribs" in the specified package context. */
   // TODO(bazel-team): Remove in favor of package.distribs.
-  // TODO(bazel-team): Remove all these new*Function-s and/or have static functions
-  // that consult the context dynamically via getContext(thread, loc) since we have that,
-  // and share the functions with the native package... which requires unifying the List types.
+  // TODO(bazel-team): share functions with the native package. Requires unifying the List types.
   @SkylarkSignature(
       name = "distribs",
       returnType = Runtime.NoneType.class,
@@ -960,23 +943,23 @@ public final class PackageFactory {
         @Param(name = "distribution_strings", type = Object.class, doc = "The distributions.")
       },
       documented = false,
+      useStarlarkThread = true,
       useLocation = true)
-  private static final BuiltinFunction.Factory newDistribsFunction =
-      new BuiltinFunction.Factory("distribs") {
-        public BuiltinFunction create(final PackageContext context) {
-          return new BuiltinFunction("distribs", this) {
-            public Runtime.NoneType invoke(Object object, Location loc) {
-              try {
-                Set<DistributionType> distribs =
-                    BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
-                context.pkgBuilder.setDefaultDistribs(distribs);
-              } catch (ConversionException e) {
-                context.eventHandler.handle(Event.error(loc, e.getMessage()));
-                context.pkgBuilder.setContainsErrors();
-              }
-              return Runtime.NONE;
-            }
-          };
+  private static final BuiltinFunction distribsFunction =
+      new BuiltinFunction("distribs") {
+        public Runtime.NoneType invoke(Object object, Location loc, StarlarkThread thread)
+            throws EvalException {
+          PackageContext context = getContext(thread, loc);
+
+          try {
+            Set<DistributionType> distribs =
+                BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
+            context.pkgBuilder.setDefaultDistribs(distribs);
+          } catch (ConversionException e) {
+            context.eventHandler.handle(Event.error(loc, e.getMessage()));
+            context.pkgBuilder.setContainsErrors();
+          }
+          return Runtime.NONE;
         }
       };
 
@@ -1010,22 +993,18 @@ public final class PackageFactory {
             doc = "A list of Label specifiers for the files to include.")
       },
       documented = false,
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  private static final BuiltinFunction.Factory newPackageGroupFunction =
-      new BuiltinFunction.Factory("package_group") {
-        public BuiltinFunction create() {
-          return new BuiltinFunction("package_group", this) {
-            public Runtime.NoneType invoke(
-                String name,
-                SkylarkList packages,
-                SkylarkList includes,
-                FuncallExpression ast,
-                StarlarkThread thread)
-                throws EvalException, ConversionException {
-              return callPackageFunction(name, packages, includes, ast, thread);
-            }
-          };
+  private static final BuiltinFunction packageGroupFunction =
+      new BuiltinFunction("package_group") {
+        public Runtime.NoneType invoke(
+            String name,
+            SkylarkList<?> packages, // <String>
+            SkylarkList<?> includes, // <Label>
+            Location loc,
+            StarlarkThread thread)
+            throws EvalException {
+          return callPackageFunction(name, packages, includes, loc, thread);
         }
       };
 
@@ -1186,9 +1165,9 @@ public final class PackageFactory {
   }
 
   static Runtime.NoneType callPackageFunction(
-      String name, Object packagesO, Object includesO, FuncallExpression ast, StarlarkThread thread)
+      String name, Object packagesO, Object includesO, Location loc, StarlarkThread thread)
       throws EvalException, ConversionException {
-    PackageContext context = getContext(thread, ast.getLocation());
+    PackageContext context = getContext(thread, loc);
 
     List<String> packages = Type.STRING_LIST.convert(
         packagesO, "'package_group.packages argument'");
@@ -1196,14 +1175,13 @@ public final class PackageFactory {
         "'package_group.includes argument'", context.pkgBuilder.getBuildFileLabel());
 
     try {
-      context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
-          ast.getLocation());
+      context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler, loc);
       return Runtime.NONE;
     } catch (LabelSyntaxException e) {
-      throw new EvalException(ast.getLocation(),
-          "package group has invalid name: " + name + ": " + e.getMessage());
+      throw new EvalException(
+          loc, "package group has invalid name: " + name + ": " + e.getMessage());
     } catch (Package.NameConflictException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      throw new EvalException(loc, e.getMessage());
     }
   }
 
@@ -1243,13 +1221,13 @@ public final class PackageFactory {
       @Override
       public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
           throws EvalException {
+        Location loc = ast.getLocation();
 
-        Package.Builder pkgBuilder = getContext(thread, ast.getLocation()).pkgBuilder;
+        Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException(
-              ast.getLocation(), "'package' can only be used once per BUILD file");
+          throw new EvalException(loc, "'package' can only be used once per BUILD file");
         }
         pkgBuilder.setPackageFunctionUsed();
 
@@ -1260,13 +1238,13 @@ public final class PackageFactory {
           Object value = arguments[i];
           if (value != null) {
             foundParameter = true;
-            argumentSpecifiers[i].convertAndProcess(pkgBuilder, ast.getLocation(), value);
+            argumentSpecifiers[i].convertAndProcess(pkgBuilder, loc, value);
           }
         }
 
         if (!foundParameter) {
           throw new EvalException(
-              ast.getLocation(), "at least one argument must be given to the 'package' function");
+              loc, "at least one argument must be given to the 'package' function");
         }
 
         return Runtime.NONE;
@@ -1640,8 +1618,7 @@ public final class PackageFactory {
     return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
-  private void populateEnvironment(
-      ImmutableMap.Builder<String, Object> env, PackageContext context) {
+  private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
     // TODO(bazel-team): remove the naked functions that are redundant with the nativeModule,
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common StarlarkThread.Frame for these common bindings
@@ -1659,17 +1636,17 @@ public final class PackageFactory {
     }
 
     env.putAll(BazelLibrary.GLOBALS.getBindings());
-    env.put("distribs", newDistribsFunction.apply(context));
-    env.put("glob", newGlobFunction.apply(context));
-    env.put("licenses", newLicensesFunction.apply(context));
-    env.put("exports_files", newExportsFilesFunction.apply());
-    env.put("package_group", newPackageGroupFunction.apply());
+    env.put("distribs", distribsFunction);
+    env.put("glob", globFunction);
+    env.put("licenses", licensesFunction);
+    env.put("exports_files", exportsFilesFunction);
+    env.put("package_group", packageGroupFunction);
     env.put("package", newPackageFunction(packageArguments));
     env.put("package_name", packageNameFunction);
     env.put("repository_name", repositoryNameFunction);
-    env.put("environment_group", newEnvironmentGroupFunction.apply(context));
-    env.put("existing_rule", newExistingRuleFunction.apply(context));
-    env.put("existing_rules", newExistingRulesFunction.apply(context));
+    env.put("environment_group", environmentGroupFunction);
+    env.put("existing_rule", existingRuleFunction);
+    env.put("existing_rules", existingRulesFunction);
     env.putAll(ruleFunctions);
 
     for (EnvironmentExtension ext : environmentExtensions) {
@@ -1730,12 +1707,9 @@ public final class PackageFactory {
         .setWorkspaceName(workspaceName)
         .setRepositoryMapping(repositoryMapping);
 
-    // Stuff that closes over the package context:
-    PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
-
     // environment
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    populateEnvironment(env, context);
+    populateEnvironment(env);
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
       StarlarkThread thread =
@@ -1749,7 +1723,8 @@ public final class PackageFactory {
 
       // TODO(adonovan): save this as a field in BazelSkylarkContext.
       // It needn't be a third thread-local.
-      thread.setThreadLocal(PackageContext.class, context);
+      thread.setThreadLocal(
+          PackageContext.class, new PackageContext(pkgBuilder, globber, eventHandler));
 
       new BazelStarlarkContext(
               ruleClassProvider.getToolsRepository(),
