@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.platform;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
 import org.junit.Test;
@@ -26,39 +25,35 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SleepPreventionModuleTest {
 
-  private static void sleepPreventionSupportedTesting() {
-    // Assert standard push pop works.
-    assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-    assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
-
-    // Assert that nested push pop works, and that re-enabling after disabling (above)
-    // works.
-    assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-    assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
-    assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
-    assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
-  }
-
-  private static void sleepPreventionUnsupportedTesting() {
-    // Assert that unsupported platforms return -1 (not supported).
-    assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(-1);
-    assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(-1);
+  private static boolean haveSleepPreventionSupport() throws Exception {
+    switch (OS.getCurrent()) {
+      case DARWIN:
+      case WINDOWS:
+        return true;
+      case LINUX:
+      case FREEBSD:
+      case UNKNOWN:
+        return false;
+    }
+    throw new AssertionError("switch statement out of sync with OS values");
   }
 
   @Test
   public void testSleepPrevention() throws Exception {
-    // We need JNI for this test to work.
-    assumeTrue("0".equals(System.getProperty("io.bazel.EnableJni")));
-    switch (OS.getCurrent()) {
-      case DARWIN:
-      case WINDOWS:
-        sleepPreventionSupportedTesting();
-        break;
-      case LINUX:
-      case FREEBSD:
-      case UNKNOWN:
-        sleepPreventionUnsupportedTesting();
-        break;
+    if (haveSleepPreventionSupport()) {
+      // Assert standard push pop works.
+      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
+
+      // Assert that nested push pop works, and that re-enabling after disabling (above)
+      // works.
+      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(0);
+    } else {
+      assertThat(SleepPreventionModule.SleepPrevention.pushDisableSleep()).isEqualTo(-1);
+      assertThat(SleepPreventionModule.SleepPrevention.popDisableSleep()).isEqualTo(-1);
     }
   }
 }
