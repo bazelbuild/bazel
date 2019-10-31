@@ -114,6 +114,23 @@ class TestInitPyFiles(test_base.TestBase):
     self.assertFalse(
         os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
 
+  # Regression test for https://github.com/bazelbuild/bazel/pull/10119
+  def testBuildingZipFileWithTargetNameWithDot(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'py_binary(',
+        '  name = "bin.v1",  # .v1 should not be treated as extension and removed accidentally',
+        '  srcs = ["bin.py"],',
+        '  main = "bin.py",',
+        ')',
+    ])
+    self.ScratchFile('bin.py', 'print("Hello, world")')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--build_python_zip', '//:bin.v1'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertTrue(os.path.exists('bazel-bin/bin.v1.temp'))
+    self.assertTrue(os.path.exists('bazel-bin/bin.v1.zip'))
+
 
 if __name__ == '__main__':
   unittest.main()

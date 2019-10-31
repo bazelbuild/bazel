@@ -858,9 +858,34 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  /** @return An artifact next to the executable file with ".zip" suffix */
+  /** @return an artifact next to the executable file with a given suffix. */
+  private Artifact getArtifactWithExtension(Artifact executable, String extension) {
+    // On Windows, the Python executable has .exe extension on Windows,
+    // On Linux, the Python executable has no extension.
+    // We can't use ruleContext#getRelatedArtifact because it would mangle files with dots in the
+    // name on non-Windows platforms.
+    PathFragment pathFragment = executable.getRootRelativePath();
+    String fileName = executable.getFilename();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      Preconditions.checkArgument(fileName.endsWith(".exe"));
+      fileName = fileName.substring(0, fileName.length() - 4) + extension;
+    } else {
+      fileName = fileName + extension;
+    }
+    return ruleContext.getDerivedArtifact(pathFragment.replaceName(fileName), executable.getRoot());
+  }
+
+  /** Returns an artifact next to the executable file with ".zip" suffix. */
   public Artifact getPythonZipArtifact(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+    return getArtifactWithExtension(executable, ".zip");
+  }
+
+  /**
+   * Returns an artifact next to the executable file with ".temp" suffix. Used only if we're
+   * building a zip.
+   */
+  public Artifact getPythonIntermediateStubArtifact(Artifact executable) {
+    return getArtifactWithExtension(executable, ".temp");
   }
 
   /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */
