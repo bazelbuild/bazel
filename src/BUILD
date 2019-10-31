@@ -7,7 +7,7 @@ load(":rule_size_test.bzl", "rule_size_test")
 exports_files(["jdeps_modules.golden"])
 
 # Keep only the first 32 chars (a hex md5sum) and no trailing newline.
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs cat | %s | head -c 32 > $@"
+md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | head -c 32 > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(
@@ -37,10 +37,10 @@ filegroup(
     ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
-        "//src/conditions:darwin": md5_cmd % "/sbin/md5",
-        "//src/conditions:darwin_x86_64": md5_cmd % "/sbin/md5",
-        "//src/conditions:freebsd": md5_cmd % "/sbin/md5",
-        "//conditions:default": md5_cmd % "md5sum",
+        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//conditions:default": md5_cmd % ("md5sum", "md5sum"),
     }),
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
