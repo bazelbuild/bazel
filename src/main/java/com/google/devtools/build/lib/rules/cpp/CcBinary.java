@@ -472,7 +472,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
     }
 
-    NestedSetBuilder<LibraryToLink> extraLinkTimeLibrariesNestedSet = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<CcLinkingContext.LinkerInput> extraLinkTimeLibrariesNestedSet =
+        NestedSetBuilder.linkOrder();
     NestedSetBuilder<Artifact> extraLinkTimeRuntimeLibraries = NestedSetBuilder.linkOrder();
 
     ExtraLinkTimeLibraries extraLinkTimeLibraries =
@@ -481,8 +482,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ExtraLinkTimeLibrary.BuildLibraryOutput extraLinkBuildLibraryOutput =
           extraLinkTimeLibraries.buildLibraries(
               ruleContext, linkingMode != LinkingMode.DYNAMIC, isLinkShared(ruleContext));
-      extraLinkTimeLibrariesNestedSet.addTransitive(
-          extraLinkBuildLibraryOutput.getLibrariesToLink());
+      extraLinkTimeLibrariesNestedSet.addTransitive(extraLinkBuildLibraryOutput.getLinkerInputs());
       extraLinkTimeRuntimeLibraries.addTransitive(
           extraLinkBuildLibraryOutput.getRuntimeLibraries());
     }
@@ -691,7 +691,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean fake,
       Artifact binary,
       CcLinkingContext depsCcLinkingContext,
-      NestedSet<LibraryToLink> extraLinkTimeLibraries,
+      NestedSet<CcLinkingContext.LinkerInput> extraLinkTimeLibraries,
       boolean linkCompileOutputSeparately,
       CppSemantics cppSemantics,
       LinkingMode linkingMode,
@@ -732,10 +732,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     if (linkCompileOutputSeparately) {
       if (!ccLinkingOutputs.isEmpty()) {
-        currentCcLinkingContextBuilder.addLibraries(
-            NestedSetBuilder.<LibraryToLink>linkOrder()
-                .add(ccLinkingOutputs.getLibraryToLink())
-                .build());
+        currentCcLinkingContextBuilder.addLibrary(ccLinkingOutputs.getLibraryToLink());
       }
       ccCompilationOutputsWithOnlyObjects = CcCompilationOutputs.builder().build();
     }
@@ -774,21 +771,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         throw new IllegalStateException();
       }
     }
-    currentCcLinkingContextBuilder.addLibraries(
-        NestedSetBuilder.wrap(Order.LINK_ORDER, precompiledLibraries.build()));
+    currentCcLinkingContextBuilder.addLibraries(precompiledLibraries.build());
 
     ImmutableList.Builder<String> userLinkflags = ImmutableList.builder();
     userLinkflags.addAll(common.getLinkopts());
     currentCcLinkingContextBuilder
         .addNonCodeInputs(
-            NestedSetBuilder.<Artifact>linkOrder()
+            ImmutableList.<Artifact>builder()
                 .addAll(ccCompilationContext.getTransitiveCompilationPrerequisites())
                 .addAll(common.getLinkerScripts())
                 .build())
         .addUserLinkFlags(
-            NestedSetBuilder.<LinkOptions>linkOrder()
-                .add(LinkOptions.of(userLinkflags.build(), ruleContext.getSymbolGenerator()))
-                .build());
+            ImmutableList.of(
+                LinkOptions.of(userLinkflags.build(), ruleContext.getSymbolGenerator())));
 
     CcInfo ccInfoWithoutExtraLinkTimeLibraries =
         CcInfo.merge(
@@ -801,7 +796,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcInfo extraLinkTimeLibrariesCcInfo =
         CcInfo.builder()
             .setCcLinkingContext(
-                CcLinkingContext.builder().addLibraries(extraLinkTimeLibraries).build())
+                CcLinkingContext.builder()
+                    .addTransitiveLinkerInputs(extraLinkTimeLibraries)
+                    .build())
             .build();
     CcInfo ccInfo =
         CcInfo.merge(

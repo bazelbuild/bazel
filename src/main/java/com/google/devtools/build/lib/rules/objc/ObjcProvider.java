@@ -695,12 +695,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
-    NestedSetBuilder<LibraryToLink> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
-    for (LibraryToLink libraryToLink : get(CC_LIBRARY)) {
-      libraryToLinkListBuilder.add(libraryToLink);
-    }
     CcLinkingContext ccLinkingContext =
-        CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
+        CcLinkingContext.builder().addLibraries(get(CC_LIBRARY).toList()).build();
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 

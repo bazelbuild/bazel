@@ -841,10 +841,7 @@ public class AndroidCommon {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
-            .addUserLinkFlags(
-                NestedSetBuilder.<LinkOptions>linkOrder()
-                    .add(LinkOptions.of(linkOpts, symbolGenerator))
-                    .build())
+            .addUserLinkFlags(ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator)))
             .build();
 
     CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();
