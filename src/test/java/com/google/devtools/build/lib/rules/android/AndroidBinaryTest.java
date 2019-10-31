@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -247,6 +248,125 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "shard1.jar.dex.zip");
     Iterable<Artifact> shardInputs = getGeneratingAction(jarShard).getInputs();
     assertThat(getFirstArtifactEndingWith(shardInputs, ".txt")).isNull();
+  }
+
+  @Test
+  public void testCcInfoDeps() throws Exception {
+    scratch.file(
+        "java/a/cc_info.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = cc_toolchain,",
+        "    requested_features = ctx.features,",
+        "    unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  library_to_link = cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = cc_toolchain, ",
+        "    static_library=ctx.file.static_library)",
+        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
+        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  return [CcInfo(linking_context=linking_context)]",
+        "cc_info = rule(",
+        "  implementation=_impl,",
+        "  fragments = [\"cpp\"],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    '_cc_toolchain': attr.label(default=Label('//java/a:alias'))",
+        "  },",
+        ");");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:cc_info.bzl', 'cc_info')",
+        "cc_toolchain_alias(name='alias')",
+        "android_binary(",
+        "    name = 'a',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'native',",
+        "    deps = [':cc_info'],",
+        ")",
+        "cc_info(",
+        "    name = 'cc_info',",
+        "    user_link_flags = ['-first_flag', '-second_flag'],",
+        "    static_library = 'cc_info.a',",
+        ")");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+
+    Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
+    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+
+    assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
+
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
+  }
+
+  @Test
+  public void testCcInfoDepsViaAndroidLibrary() throws Exception {
+    scratch.file(
+        "java/a/cc_info.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = cc_toolchain,",
+        "    requested_features = ctx.features,",
+        "    unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  library_to_link = cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = cc_toolchain, ",
+        "    static_library=ctx.file.static_library)",
+        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
+        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  return [CcInfo(linking_context=linking_context)]",
+        "cc_info = rule(",
+        "  implementation=_impl,",
+        "  fragments = [\"cpp\"],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    '_cc_toolchain': attr.label(default=Label('//java/a:alias'))",
+        "  },",
+        ");");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:cc_info.bzl', 'cc_info')",
+        "cc_toolchain_alias(name='alias')",
+        "android_binary(",
+        "    name = 'a',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'native',",
+        "    deps = [':liba'],",
+        ")",
+        "android_library(",
+        "    name = 'liba',",
+        "    srcs = ['a.java'],",
+        "    deps = [':cc_info'],",
+        ")",
+        "cc_info(",
+        "    name = 'cc_info',",
+        "    user_link_flags = ['-first_flag', '-second_flag'],",
+        "    static_library = 'cc_info.a',",
+        ")");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+
+    Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
+    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+
+    assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
+
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
   }
 
   @Test
