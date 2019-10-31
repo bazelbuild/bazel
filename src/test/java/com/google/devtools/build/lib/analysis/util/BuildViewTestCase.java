@@ -475,6 +475,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getPackageManager();
   }
 
+  protected void invalidateRootPackage() throws InterruptedException {
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, root);
+  }
+
   protected void invalidatePackages() throws InterruptedException {
     invalidatePackages(true);
   }
@@ -1051,10 +1056,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       scratch.file(buildFilePathString, lines);
     }
-    skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter,
-        new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
-        Root.fromPath(rootDirectory));
+    invalidatePackages();
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
   }
 
@@ -1941,6 +1943,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler);
     scratch.file("" + packageName + "/BUILD", lines);
+    invalidatePackages();
     return getPackageManager()
         .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }

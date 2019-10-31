@@ -83,6 +83,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("a/BUILD",
         "genrule(name='gr', srcs=[], outs=['out'], cmd='JAVABASE=$(JAVABASE)', toolchains=[':v'])",
         "make_variable_tester(name='v', variables={'JAVABASE': 'REPLACED'})");
+    invalidateRootPackage();
 
     String cmd = getCommand("//a:gr");
     assertThat(cmd).endsWith("JAVABASE=REPLACED");
@@ -91,6 +92,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testD() throws Exception {
     createFiles();
+    invalidateRootPackage();
     ConfiguredTarget z = getConfiguredTarget("//hello:z");
     Artifact y = getOnlyElement(getFilesToBuild(z));
     assertThat(y.getRootRelativePath()).isEqualTo(PathFragment.create("hello/x/y"));
@@ -99,6 +101,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testDMultiOutput() throws Exception {
     createFiles();
+    invalidateRootPackage();
     ConfiguredTarget z = getConfiguredTarget("//hello:w");
     List<Artifact> files = getFilesToBuild(z).toList();
     assertThat(files).hasSize(2);
@@ -128,6 +131,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "srcs = ['ignore_me.txt'],",
         "outs = ['message.txt'],",
         "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+    invalidateRootPackage();
+
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     assertThat(getFilesToBuild(getConfiguredTarget("//genrule1:hello_world")))
         .containsExactly(messageArtifact);
@@ -141,6 +146,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "srcs = ['ignore_me.txt'],",
         "outs = ['message.txt'],",
         "cmd  = 'echo \"Hello, world.\" >$(location message.txt)')");
+    invalidateRootPackage();
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -173,6 +179,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "srcs = ['goodbye.txt', '//genrule1:hello_world'],",
         "outs = ['farewell.txt'],",
         "cmd  = 'echo $(SRCS) >$(location farewell.txt)')");
+    invalidateRootPackage();
 
     getConfiguredTarget("//genrule2:goodbye_world");
 
@@ -216,6 +223,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        srcs = ['bar_out.txt'],",
         "        cmd = 'touch $(OUTS)',",
         "        outs = ['baz_out.txt'])");
+    invalidateRootPackage();
 
     FileConfiguredTarget bazOutTarget = getFileConfiguredTarget("//foo:baz_out.txt");
     Action bazAction = getGeneratingAction(bazOutTarget.getArtifact());
@@ -239,6 +247,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        srcs = ['bar/bar_out.txt'],",
         "        cmd = 'touch $(@D)',",
         "        outs = ['logs/baz_out.txt', 'logs/baz.log'])");
+    invalidateRootPackage();
 
     getConfiguredTarget("//foo:bar");
 
@@ -283,6 +292,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        srcs = ['bar/bar_out.txt'],",
         "        cmd = 'touch $(RULEDIR)',",
         "        outs = ['baz/baz_out.txt', 'logs/baz.log'])");
+    invalidateRootPackage();
 
     // Make sure the expansion for $(RULE_DIR) results in the directory of the BUILD file ("foo")
     String expectedRegex = "touch b.{4}-out.*foo";
@@ -314,6 +324,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "    outs = ['goodbye.txt'],",
         "    message = 'Generating message',",
         "    cmd  = 'echo \"Goodbye, world.\" >goodbye.txt')");
+    invalidateRootPackage();
+
     assertThat(getSpawnAction("//genrule3:hello_world").getProgressMessage())
         .isEqualTo("Executing genrule //genrule3:hello_world");
     assertThat(getSpawnAction("//genrule3:goodbye_world").getProgressMessage())
@@ -332,6 +344,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "    cmd  = '$(location :echo) \"Hello, world.\" >message.txt')",
         "cc_binary(name = 'echo',",
         "    srcs = ['echo.cc'])");
+    invalidateRootPackage();
+
     String regex = "b.{4}-out/.*/bin/genrule3/echo(\\.exe)? \"Hello, world.\" >message.txt";
     assertThat(getCommand("//genrule3:hello_world")).containsMatch(regex);
   }
@@ -348,6 +362,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        outs=['genfiles.out'],",
         "        cmd=':',",
         "        output_to_bindir=0)");
+    invalidateRootPackage();
 
     assertThat(getFileConfiguredTarget("//x:bin.out").getArtifact())
         .isEqualTo(getBinArtifact("bin.out", getConfiguredTarget("//x:bin")));
@@ -367,6 +382,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        outs=['genfiles_a.out', 'genfiles_b.out'],",
         "        cmd=':',",
         "        output_to_bindir=0)");
+    invalidateRootPackage();
 
     ConfiguredTarget binCt = getConfiguredTarget("//x:bin");
     ConfiguredTarget genCt = getConfiguredTarget("//x:genfiles");
@@ -387,6 +403,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "genrule(name='test', ",
         "        outs=['file1.out', 'file2.out'],",
         "        cmd='touch $(OUTS)')");
+    invalidateRootPackage();
+
     String regex =
         "touch b.{4}-out/.*/multiple/outs/file1.out "
             + "b.{4}-out/.*/multiple/outs/file2.out";
@@ -402,6 +420,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "genrule(name='config', ",
         "        srcs=[':src'], tools=[':tool'], outs=['out'],",
         "        cmd='$(location :tool)')");
+    invalidateRootPackage();
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 
@@ -444,6 +463,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "        tools=['puck'],",
         "        outs=['out'],",
         "        cmd='echo $(@D)')");
+    invalidateRootPackage();
+
     String regex = "echo b.{4}-out/.*/puck";
     assertThat(getCommand("//puck:gen")).containsMatch(regex);
   }
@@ -520,6 +541,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "genrule(name = 'foo_sh',",
         "        outs = [ 'foo.sh' ],", // Shell script files are known to be executable.
         "        cmd = 'touch $@')");
+    invalidateRootPackage();
 
     assertThat(getCommand("//foo:foo_sh")).contains(GENRULE_SETUP_PATH);
   }
@@ -530,6 +552,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "genrule(name='foo_stamp', srcs=[], outs=['uu'], stamp=1, cmd='')",
         "genrule(name='foo_nostamp', srcs=[], outs=['vv'], stamp=0, cmd='')",
         "genrule(name='foo_default', srcs=[], outs=['xx'], cmd='')");
+    invalidateRootPackage();
   }
 
   private void assertStamped(String target) throws Exception {
@@ -580,6 +603,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "genrule(name='darwin', srcs=[], outs=['macout'], cmd='', tags=['requires-darwin'])");
+    invalidateRootPackage();
 
     SpawnAction action = getSpawnAction("//foo:darwin");
     assertThat(action.getExecutionInfo().keySet()).contains("requires-darwin");
@@ -611,6 +635,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
             + "      cmd ='echo g',"
             + "      local = 1,"
             + "      tags = ['local'])");
+    invalidateRootPackage();
+
     getConfiguredTarget("//foo:g");
     assertNoEvents();
   }
@@ -624,6 +650,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
         "genrule(name='config', ",
         "        srcs=[':src'], exec_tools=[':exec_tool'], outs=['out'],",
         "        cmd='$(location :exec_tool)')");
+    invalidateRootPackage();
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 

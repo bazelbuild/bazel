@@ -42,6 +42,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "    name = 'foo',",
         "    srcs = [':foo.py'],",
         ")");
+    invalidateRootPackage();
     assertThat(getConfiguredTarget("//pkg:foo").get(PyRuntimeInfo.PROVIDER)).isNull();
   }
 
@@ -57,6 +58,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "    name = 'foo',",
         "    srcs = [':foo.py'],",
         "    srcs_version = 'PY2ONLY')");
+    invalidateRootPackage();
     // Under the new semantics, errors are only reported at the binary target, not the library, and
     // even then they'd be deferred to execution time, so there should be nothing wrong here.
     assertThat(view.hasErrors(getConfiguredTarget("//pkg:foo"))).isFalse();
@@ -74,6 +76,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
+    invalidateRootPackage();
     assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
@@ -83,6 +86,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
+    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
     assertThat(getFilesToBuild(target))

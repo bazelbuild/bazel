@@ -68,6 +68,7 @@ public final class PyStarlarkTransitionsTest extends BuildViewTestCase {
         "my_rule(name = 'invalid', wrapped = ':wrapped', python_version = 'invalid')",
         "missing_attr_rule(name = 'missing_attr', wrapped = ':wrapped')");
     setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    invalidateRootPackage();
   }
 
   @Test

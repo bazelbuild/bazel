@@ -105,6 +105,7 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",
         ")");
+    invalidateRootPackage();
   }
 
   @Override

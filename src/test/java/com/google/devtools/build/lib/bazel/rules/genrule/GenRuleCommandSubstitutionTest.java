@@ -39,6 +39,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
       Pattern.compile(".*/genrule-setup.sh;\\s+(?<command>.*)");
 
   private String getGenruleCommand(String genrule) throws Exception {
+    invalidateRootPackage();
     return ((SpawnAction)
             getGeneratingAction(getFilesToBuild(getConfiguredTarget(genrule)).iterator().next()))
         .getArguments()
@@ -63,6 +64,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   }
 
   private void assertExpansionFails(String expectedErrorSuffix, String genrule) throws Exception {
+    invalidateRootPackage();
     reporter.removeHandler(failFastHandler); // we expect errors
     eventCollector.clear();
     getConfiguredTarget(genrule);
@@ -79,7 +81,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         "        cmd = '" + command + "')");
 
     // Since we're probably re-defining "//test":
-    invalidatePackages();
+    invalidateRootPackage();
   }
 
   @Test

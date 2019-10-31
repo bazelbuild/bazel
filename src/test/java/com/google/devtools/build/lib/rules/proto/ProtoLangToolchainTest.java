@@ -35,7 +35,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
+    invalidateRootPackage();
   }
 
   @Test
@@ -57,6 +57,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    runtime = '//x:runtime',",
         "    blacklisted_protos = ['//x:descriptors', '//x:any']",
         ")");
+    invalidateRootPackage();
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
@@ -84,6 +85,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
         ")");
+    invalidateRootPackage();
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
@@ -107,6 +109,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         // so we don't accidentally change it without breaking a local test.
         "    tags = ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
+    invalidateRootPackage();
 
     getConfiguredTarget("//a:toolchain");
   }
@@ -120,6 +123,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
         ")");
+    invalidateRootPackage();
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:toolchain");
@@ -135,6 +139,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    name = 'toolchain',",
         "    command_line = 'cmd-line',",
         ")");
+    invalidateRootPackage();
 
     getConfiguredTarget("//a:toolchain");
   }

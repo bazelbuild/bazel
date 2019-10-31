@@ -47,6 +47,7 @@ public class AndroidCommonTest extends BuildViewTestCase {
         "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
         "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.properties'], cmd = '')",
         "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')");
+    invalidateRootPackage();
     assertSrcsValidityForRuleType("android_library", ".java or .srcjar");
   }
 
@@ -65,6 +66,7 @@ public class AndroidCommonTest extends BuildViewTestCase {
         "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
         "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.properties'], cmd = '')",
         "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')");
+    invalidateRootPackage();
     assertSrcsValidityForRuleType("android_binary", ".java or .srcjar");
   }
 

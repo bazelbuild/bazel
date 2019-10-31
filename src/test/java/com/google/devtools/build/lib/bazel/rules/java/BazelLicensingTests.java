@@ -41,6 +41,7 @@ public class BazelLicensingTests extends BuildViewTestCase {
         "java_library(name = 'library',",
         "             srcs = ['library.java'],",
         "             plugins = ['//ise:plugin'])");
+    invalidateRootPackage();
 
     assertThat(getConfiguredTarget("//gsa:library")).isNotNull();
     assertNoEvents();

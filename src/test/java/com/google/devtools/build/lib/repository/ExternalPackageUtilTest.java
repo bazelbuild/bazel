@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
+import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PathCasingLookupFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction;
@@ -143,6 +146,13 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+
+    skyFunctions.put(
+        SkyFunctions.DIRECTORY_LISTING_STATE,
+        new DirectoryListingStateFunction(
+            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+    skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    skyFunctions.put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction());
 
     // Helper Skyfunctions to call ExternalPackageUtil.
     skyFunctions.put(GET_RULE_BY_NAME_FUNCTION, new GetRuleByNameFunction());
