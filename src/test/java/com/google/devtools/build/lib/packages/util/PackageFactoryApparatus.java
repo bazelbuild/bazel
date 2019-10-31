@@ -118,7 +118,8 @@ public class PackageFactoryApparatus {
                       buildFile
                           .getRootRelativePath()
                           .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
-                  "TESTING")
+                  "TESTING",
+                  semantics)
               .build();
       Package pkg =
           factory.createPackageForTesting(
@@ -165,7 +166,8 @@ public class PackageFactoryApparatus {
                 RootedPath.toRootedPath(
                     buildFile.getRoot(),
                     buildFile.getRootRelativePath().getParentDirectory().getRelative("WORKSPACE")),
-                "TESTING")
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .build();
     Package.Builder resultBuilder =
         factory.evaluateBuildFile(

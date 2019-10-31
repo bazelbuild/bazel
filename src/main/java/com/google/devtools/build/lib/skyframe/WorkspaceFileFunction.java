@@ -80,8 +80,9 @@ public class WorkspaceFileFunction implements SkyFunction {
 
     RootedPath repoWorkspace =
         RootedPath.toRootedPath(workspaceRoot.getRoot(), workspaceRoot.getRootRelativePath());
-    Package.Builder builder = packageFactory.newExternalPackageBuilder(
-        repoWorkspace, ruleClassProvider.getRunfilesPrefix());
+    Package.Builder builder =
+        packageFactory.newExternalPackageBuilder(
+            repoWorkspace, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
     if (workspaceASTValue.getASTs().isEmpty()) {
       try {

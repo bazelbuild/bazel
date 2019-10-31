@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -97,7 +98,8 @@ public class SkylarkRepositoryContextTest {
         Package.newExternalPackageBuilder(
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
-            "runfiles");
+            "runfiles",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     ParserInput input = ParserInput.fromLines("test()");
     FuncallExpression ast = (FuncallExpression) Expression.parse(input);

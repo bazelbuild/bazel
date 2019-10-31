@@ -480,6 +480,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoAttrLicense;
 
   @Option(
+      name = "incompatible_no_implicit_file_export",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set, (used) source files are are package private unless exported explicitly. See "
+              + "https://github.com/bazelbuild/proposals/blob/master/designs/"
+              + "2019-10-24-file-visibility.md")
+  public boolean incompatibleNoImplicitFileExport;
+
+  @Option(
       name = "incompatible_no_output_attr_default",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -693,6 +708,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleExpandDirectories(incompatibleExpandDirectories)
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
+            .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)
             .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
             .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)

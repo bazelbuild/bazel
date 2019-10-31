@@ -752,10 +752,14 @@ public class Package {
   }
 
   public static Builder newExternalPackageBuilder(
-      Builder.Helper helper, RootedPath workspacePath, String runfilesPrefix) {
+      Builder.Helper helper,
+      RootedPath workspacePath,
+      String runfilesPrefix,
+      StarlarkSemantics starlarkSemantics) {
     Builder b =
         new Builder(
-            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix),
+            starlarkSemantics);
     b.setFilename(workspacePath);
     return b;
   }
@@ -812,6 +816,8 @@ public class Package {
      * and {@link Package#finishInit} for details.
      */
     private final Package pkg;
+
+    private final StarlarkSemantics starlarkSemantics;
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -893,15 +899,20 @@ public class Package {
       }
     };
 
-    Builder(Package pkg) {
+    Builder(Package pkg, StarlarkSemantics starlarkSemantics) {
+      this.starlarkSemantics = starlarkSemantics;
       this.pkg = pkg;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
     }
 
-    Builder(Helper helper, PackageIdentifier id, String runfilesPrefix) {
-      this(helper.createFreshPackage(id, runfilesPrefix));
+    Builder(
+        Helper helper,
+        PackageIdentifier id,
+        String runfilesPrefix,
+        StarlarkSemantics starlarkSemantics) {
+      this(helper.createFreshPackage(id, runfilesPrefix), starlarkSemantics);
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1564,7 +1575,12 @@ public class Package {
     private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          return new InputFile(pkg, label, location);
+          if (starlarkSemantics.incompatibleNoImplicitFileExport()) {
+            return new InputFile(
+                pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE);
+          } else {
+            return new InputFile(pkg, label, location);
+          }
         }
       }
       return null;

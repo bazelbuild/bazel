@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstra
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -258,7 +259,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   private Package.Builder createDummyPackageBuilder() {
     return packageFactory
-        .newPackageBuilder(PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
+        .newPackageBuilder(
+            PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
+            "TESTING",
+            StarlarkSemantics.DEFAULT_SEMANTICS)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 

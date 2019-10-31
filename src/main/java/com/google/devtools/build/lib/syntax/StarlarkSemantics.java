@@ -181,6 +181,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoAttrLicense();
 
+  public abstract boolean incompatibleNoImplicitFileExport();
+
   public abstract boolean incompatibleNoOutputAttrDefault();
 
   public abstract boolean incompatibleNoRuleOutputsParam();
@@ -277,6 +279,7 @@ public abstract class StarlarkSemantics {
           .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
+          .incompatibleNoImplicitFileExport(false)
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
@@ -355,6 +358,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleNoAttrLicense(boolean value);
+
+    public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 

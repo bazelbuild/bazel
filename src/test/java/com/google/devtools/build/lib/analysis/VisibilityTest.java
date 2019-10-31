@@ -165,4 +165,142 @@ public class VisibilityTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
   }
+
+  void setupFilesScenario(String wantRead) throws Exception {
+    scratch.file("src/source.txt", "source");
+    scratch.file("src/BUILD", "exports_files(['source.txt'], visibility=['//pkg:__pkg__'])");
+    scratch.file("pkg/foo.txt", "foo");
+    scratch.file("pkg/bar.txt", "bar");
+    scratch.file("pkg/groupfile.txt", "groupfile");
+    scratch.file("pkg/unused.txt", "unused");
+    scratch.file("pkg/exported.txt", "exported");
+    scratch.file(
+        "pkg/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "exports_files(['exported.txt'])",
+        "",
+        "genrule(",
+        "  name = 'foobar',",
+        "  outs = ['foobar.txt'],",
+        "  srcs = ['foo.txt', 'bar.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "",
+        "filegroup(",
+        "  name = 'remotegroup',",
+        "  srcs = ['//src:source.txt'],",
+        ")",
+        "",
+        "filegroup(",
+        "  name = 'localgroup',",
+        "  srcs = [':groupfile.txt'],",
+        ")");
+    scratch.file(
+        "otherpkg/BUILD",
+        "genrule(",
+        "  name = 'it',",
+        "  srcs = ['//pkg:" + wantRead + "'],",
+        "  outs = ['it.xt'],",
+        "  cmd = 'cp $< $@',",
+        ")");
+  }
+
+  @Test
+  public void testTargetImplicitExport() throws Exception {
+    setupFilesScenario("foobar");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testTargetNoImplicitExport() throws Exception {
+    setupFilesScenario("foobar");
+    useConfiguration("--incompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testLocalFilegroupImplicitExport() throws Exception {
+    setupFilesScenario("localgroup");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testLocalFilegroupNoImplicitExport() throws Exception {
+    setupFilesScenario("localgroup");
+    useConfiguration("--incompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testRemoteFilegroupImplicitExport() throws Exception {
+    setupFilesScenario("remotegroup");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testRemoteFilegroupNoImplicitExport() throws Exception {
+    setupFilesScenario("remotegroup");
+    useConfiguration("--incompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testExportedImplicitExport() throws Exception {
+    setupFilesScenario("exported.txt");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testExportedNoImplicitExport() throws Exception {
+    setupFilesScenario("exported.txt");
+    useConfiguration("--incompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testUnusedImplicitExport() throws Exception {
+    setupFilesScenario("unused.txt");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//otherpkg:it"));
+  }
+
+  @Test
+  public void testUnusedNoImplicitExport() throws Exception {
+    setupFilesScenario("unused.txt");
+    useConfiguration("--incompatible_no_implicit_file_export");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//otherpkg:it"));
+  }
+
+  @Test
+  public void testSourcefileImplicitExport() throws Exception {
+    setupFilesScenario("foo.txt");
+    useConfiguration("--noincompatible_no_implicit_file_export");
+    update("//otherpkg:it");
+    assertThat(hasErrors(getConfiguredTarget("//otherpkg:it"))).isFalse();
+  }
+
+  @Test
+  public void testSourcefileNoImplicitExport() throws Exception {
+    setupFilesScenario("foo.txt");
+    useConfiguration("--incompatible_no_implicit_file_export");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//otherpkg:it"));
+  }
 }
