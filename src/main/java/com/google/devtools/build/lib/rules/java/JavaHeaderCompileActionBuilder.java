@@ -294,7 +294,7 @@ public class JavaHeaderCompileActionBuilder {
           .add(headerCompiler.getExecutable());
       executableLine =
           CustomCommandLine.builder()
-              .addPath(hostJavabase.javaBinaryExecPath())
+              .addPath(hostJavabase.javaBinaryExecPathFragment())
               .add("-Xverify:none")
               .addAll(javaToolchain.getTurbineJvmOptions())
               .add("-jar")

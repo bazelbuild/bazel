@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -113,20 +112,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString()).isEqualTo("/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString()).startsWith("/foo/bar/bin/java");
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("/foo/bar/bin/java");
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath).isEqualTo("/foo/bar");
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath).startsWith("/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("/foo/bar/bin/java");
   }
 
   @Test
@@ -176,20 +169,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString()).startsWith("a/foo/bar/bin/java");
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath).isEqualTo("a/foo/bar");
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath).startsWith("a/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("a/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("a/foo/bar/bin/java");
   }
 
   @Test
@@ -242,22 +229,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString())
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath)
         .isEqualTo(getGenfilesArtifact("foo/bar", genrule).getExecPathString());
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString())
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath)
         .startsWith(getGenfilesArtifact("foo/bar/bin/java", genrule).getExecPathString());
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("a/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("a/foo/bar/bin/java");
   }
 
   @Test

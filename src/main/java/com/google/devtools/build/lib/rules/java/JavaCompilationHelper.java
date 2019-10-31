@@ -225,7 +225,7 @@ public final class JavaCompilationHelper {
     JavaCompileActionBuilder builder =
         new JavaCompileActionBuilder(
             ruleContext.getActionOwner(), ruleContext.getConfiguration(), javaToolchain);
-    builder.setJavaExecutable(hostJavabase.javaBinaryExecPath());
+    builder.setJavaExecutable(hostJavabase.javaBinaryExecPathFragment());
     builder.setJavaBaseInputs(
         NestedSetBuilder.fromNestedSet(hostJavabase.javaBaseInputsMiddleman())
             .addAll(additionalJavaBaseInputs)

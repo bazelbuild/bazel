@@ -577,7 +577,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (javaRuntime != null) {
       builder.addTransitiveArtifacts(javaRuntime.javaBaseInputs());
 
-      if (!javaRuntime.javaHome().isAbsolute()) {
+      if (!javaRuntime.javaHomePathFragment().isAbsolute()) {
         // Add symlinks to the C++ runtime libraries under a path that can be built
         // into the Java binary without having to embed the crosstool, gcc, and grte
         // version information contained within the libraries' package paths.

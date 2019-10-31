@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
 @SkylarkModule(
@@ -54,7 +53,7 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
             named = false,
             type = FileApi.class)
       })
-  PathFragment getSourceDirectoryRelativePathFromResource(FileT resource);
+  String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @SkylarkCallable(
       name = "multi_cpu_configuration",
