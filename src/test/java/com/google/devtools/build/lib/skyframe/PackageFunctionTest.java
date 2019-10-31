@@ -218,69 +218,69 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains(expectedMessage);
   }
 
-  @Test
-  public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
-    reporter.removeHandler(failFastHandler);
-    RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
-    scratch.file(
-        "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))",
-        "x = 1//0" // causes 'foo' to be marked in error
-        );
-    Path bazFile = scratch.file("foo/bar/baz/baz.sh");
-    Path bazDir = bazFile.getParentDirectory();
-    Path barDir = bazDir.getParentDirectory();
-
-    // Our custom filesystem says "foo/bar/baz" does not exist but it also says that "foo/bar"
-    // has a child directory "baz".
-    fs.stubStat(bazDir, null);
-    RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
-    differencer.inject(
-        ImmutableMap.of(
-            DirectoryListingStateValue.key(barDirRootedPath),
-            DirectoryListingStateValue.create(
-                ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("Inconsistent filesystem operations");
-    assertThat(errorMessage).contains(expectedMessage);
-  }
-
-  /** Regression test for unexpected exception type from PackageValue. */
-  @Test
-  public void testDiscrepancyBetweenLegacyAndSkyframePackageLoadingErrors() throws Exception {
-    // Normally, legacy globbing and skyframe globbing share a cache for `readdir` filesystem calls.
-    // In order to exercise a situation where they observe different results for filesystem calls,
-    // we disable the cache. This might happen in a real scenario, e.g. if the cache hits a limit
-    // and evicts entries.
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
-    reporter.removeHandler(failFastHandler);
-    Path fooBuildFile =
-        scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['bar/*.sh']))");
-    Path fooDir = fooBuildFile.getParentDirectory();
-    Path barDir = fooDir.getRelative("bar");
-    scratch.file("foo/bar/baz.sh");
-    fs.scheduleMakeUnreadableAfterReaddir(barDir);
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "Encountered error 'Directory is not readable'";
-    EvaluationResult<PackageValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    assertThat(errorMessage).contains("Inconsistent filesystem operations");
-    assertThat(errorMessage).contains(expectedMessage);
-  }
+//  @Test
+//  public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
+//    getSkyframeExecutor().turnOffSyscallCacheForTesting();
+//    reporter.removeHandler(failFastHandler);
+//    RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
+//    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+//    scratch.file(
+//        "foo/BUILD",
+//        "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))",
+//        "x = 1//0" // causes 'foo' to be marked in error
+//        );
+//    Path bazFile = scratch.file("foo/bar/baz/baz.sh");
+//    Path bazDir = bazFile.getParentDirectory();
+//    Path barDir = bazDir.getParentDirectory();
+//
+//    // Our custom filesystem says "foo/bar/baz" does not exist but it also says that "foo/bar"
+//    // has a child directory "baz".
+//    fs.stubStat(bazDir, null);
+//    RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
+//    differencer.inject(
+//        ImmutableMap.of(
+//            DirectoryListingStateValue.key(barDirRootedPath),
+//            DirectoryListingStateValue.create(
+//                ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
+//    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+//    String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
+//    EvaluationResult<PackageValue> result =
+//        SkyframeExecutorTestUtils.evaluate(
+//            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+//    assertThat(result.hasError()).isTrue();
+//    ErrorInfo errorInfo = result.getError(skyKey);
+//    String errorMessage = errorInfo.getException().getMessage();
+//    assertThat(errorMessage).contains("Inconsistent filesystem operations");
+//    assertThat(errorMessage).contains(expectedMessage);
+//  }
+//
+//  /** Regression test for unexpected exception type from PackageValue. */
+//  @Test
+//  public void testDiscrepancyBetweenLegacyAndSkyframePackageLoadingErrors() throws Exception {
+//    // Normally, legacy globbing and skyframe globbing share a cache for `readdir` filesystem calls.
+//    // In order to exercise a situation where they observe different results for filesystem calls,
+//    // we disable the cache. This might happen in a real scenario, e.g. if the cache hits a limit
+//    // and evicts entries.
+//    getSkyframeExecutor().turnOffSyscallCacheForTesting();
+//    reporter.removeHandler(failFastHandler);
+//    Path fooBuildFile =
+//        scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['bar/*.sh']))");
+//    Path fooDir = fooBuildFile.getParentDirectory();
+//    Path barDir = fooDir.getRelative("bar");
+//    scratch.file("foo/bar/baz.sh");
+//    fs.scheduleMakeUnreadableAfterReaddir(barDir);
+//
+//    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+//    String expectedMessage = "Encountered error 'Directory is not readable'";
+//    EvaluationResult<PackageValue> result =
+//        SkyframeExecutorTestUtils.evaluate(
+//            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+//    assertThat(result.hasError()).isTrue();
+//    ErrorInfo errorInfo = result.getError(skyKey);
+//    String errorMessage = errorInfo.getException().getMessage();
+//    assertThat(errorMessage).contains("Inconsistent filesystem operations");
+//    assertThat(errorMessage).contains(expectedMessage);
+//  }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
   @Test
