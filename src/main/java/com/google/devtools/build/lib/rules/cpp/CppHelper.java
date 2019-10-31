@@ -539,8 +539,7 @@ public class CppHelper {
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
-        || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            && cppConfiguration.getCompilationMode() != CompilationMode.OPT);
+        || toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
   }
 
   /**
