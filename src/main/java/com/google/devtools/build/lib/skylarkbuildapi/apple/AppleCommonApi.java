@@ -344,7 +344,7 @@ public interface AppleCommonApi<
                 "The full set of artifacts that should be included as inputs to link against the "
                     + "dynamic framework")
       })
-  public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(
+  public AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,

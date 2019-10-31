@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -57,7 +57,7 @@ public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFail
               + "occurred in this target or its dependencies.",
       documented = false,
       structField = true)
-  public NestedSet<AnalysisFailureApiT> getCauses();
+  public SkylarkNestedSet /*<AnalysisFailureApiT>*/ getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")

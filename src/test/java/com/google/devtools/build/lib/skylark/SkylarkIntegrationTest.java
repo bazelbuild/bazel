@@ -2062,7 +2062,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2085,7 +2085,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2108,7 +2108,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2159,7 +2159,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         new AnalysisFailure(
             Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
 
-    assertThat(info.getCauses().toList())
+    assertThat(info.getCauses().getSet(AnalysisFailure.class).toList())
         .comparingElementsUsing(correspondence)
         .containsExactly(expectedOne, expectedTwo);
   }

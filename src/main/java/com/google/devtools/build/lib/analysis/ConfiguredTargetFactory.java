@@ -458,7 +458,7 @@ public final class ConfiguredTargetFactory {
         AnalysisFailureInfo failureInfo =
             infoCollection.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR);
         if (failureInfo != null) {
-          analysisFailures.add(failureInfo.getCauses());
+          analysisFailures.add(failureInfo.getCausesNestedSet());
         }
       }
       return analysisFailures.build();

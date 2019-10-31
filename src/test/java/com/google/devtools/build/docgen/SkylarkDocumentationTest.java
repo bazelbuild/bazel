@@ -22,7 +22,6 @@ import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,7 +56,6 @@ public class SkylarkDocumentationTest {
     checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
-  @SuppressWarnings("unchecked")
   private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
@@ -194,6 +193,7 @@ public class SkylarkDocumentationTest {
    * shows up.
    */
   @SkylarkGlobalLibrary
+  @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @SkylarkCallable(
         name = "MockGlobalCallable",
@@ -219,7 +219,7 @@ public class SkylarkDocumentationTest {
   private static class MockClassWithContainerReturnValues {
 
     @SkylarkCallable(name = "depset", doc = "depset")
-    public NestedSet<Integer> getNestedSet() {
+    public SkylarkNestedSet /*<Integer>*/ getNestedSet() {
       return null;
     }
 

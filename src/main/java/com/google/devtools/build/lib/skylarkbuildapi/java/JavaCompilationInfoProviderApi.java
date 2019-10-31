@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Info object for compilation information for java rules. */
 @SkylarkModule(
@@ -32,23 +32,20 @@ public interface JavaCompilationInfoProviderApi<FileT extends FileApi> {
   public ImmutableList<String> getJavacOpts();
 
   @SkylarkCallable(
-    name = "runtime_classpath",
-    structField = true,
-    doc = "Run-time classpath for this Java target."
-  )
-  public NestedSet<FileT> getRuntimeClasspath();
+      name = "runtime_classpath",
+      structField = true,
+      doc = "Run-time classpath for this Java target.")
+  public SkylarkNestedSet /*<FileT>*/ getRuntimeClasspath();
 
   @SkylarkCallable(
-    name = "compilation_classpath",
-    structField = true,
-    doc = "Compilation classpath for this Java target."
-  )
-  public NestedSet<FileT> getCompilationClasspath();
+      name = "compilation_classpath",
+      structField = true,
+      doc = "Compilation classpath for this Java target.")
+  public SkylarkNestedSet /*<FileT>*/ getCompilationClasspath();
 
   @SkylarkCallable(
-    name = "boot_classpath",
-    structField = true,
-    doc = "Boot classpath for this Java target."
-  )
+      name = "boot_classpath",
+      structField = true,
+      doc = "Boot classpath for this Java target.")
   public ImmutableList<FileT> getBootClasspath();
 }

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.ArrayList;
 import java.util.List;
@@ -259,22 +260,22 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveRuntimeJars() {
-    return SkylarkNestedSet.of(Artifact.class, getTransitiveRuntimeDeps());
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveRuntimeJars() {
+    return getTransitiveRuntimeDeps();
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveCompileTimeJars() {
-    return SkylarkNestedSet.of(Artifact.class, getTransitiveDeps());
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveCompileTimeJars() {
+    return getTransitiveDeps();
   }
 
   @Override
-  public SkylarkNestedSet getCompileTimeJars() {
+  public SkylarkNestedSet /*<Artifact>*/ getCompileTimeJars() {
     NestedSet<Artifact> compileTimeJars =
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider::getDirectCompileTimeJars);
-    return SkylarkNestedSet.of(Artifact.class, compileTimeJars);
+    return SkylarkNestedSet.of(Artifact.TYPE, compileTimeJars);
   }
 
   @Override
@@ -283,7 +284,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider::getDirectFullCompileTimeJars);
-    return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
+    return SkylarkNestedSet.of(Artifact.TYPE, fullCompileTimeJars);
   }
 
   @Override
@@ -320,28 +321,36 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveDeps() {
-    return getProviderAsNestedSet(
-        JavaCompilationArgsProvider.class,
-        JavaCompilationArgsProvider::getTransitiveCompileTimeJars);
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveDeps() {
+    return SkylarkNestedSet.of(
+        Artifact.TYPE,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getTransitiveCompileTimeJars));
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveRuntimeDeps() {
-    return getProviderAsNestedSet(
-        JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars);
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveRuntimeDeps() {
+    return SkylarkNestedSet.of(
+        Artifact.TYPE,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars));
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveSourceJars() {
-    return getProviderAsNestedSet(
-        JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars);
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveSourceJars() {
+    return SkylarkNestedSet.of(
+        Artifact.TYPE,
+        getProviderAsNestedSet(
+            JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
   }
 
   @Override
-  public NestedSet<Label> getTransitiveExports() {
-    return getProviderAsNestedSet(
-        JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports);
+  public SkylarkNestedSet /*<Label>*/ getTransitiveExports() {
+    return SkylarkNestedSet.of(
+        SkylarkType.of(Label.class),
+        getProviderAsNestedSet(
+            JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
 
   /** Returns all constraints set on the associated target. */

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
@@ -34,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public class FakeJavaInfo implements JavaInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet getTransitiveRuntimeJars() {
+  public SkylarkNestedSet /*<File>*/ getTransitiveRuntimeJars() {
     return null;
   }
 
@@ -79,22 +77,22 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveDeps() {
+  public SkylarkNestedSet /*<File>*/ getTransitiveDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveRuntimeDeps() {
+  public SkylarkNestedSet /*<File>*/ getTransitiveRuntimeDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveSourceJars() {
+  public SkylarkNestedSet /*<File>*/ getTransitiveSourceJars() {
     return null;
   }
 
   @Override
-  public NestedSet<Label> getTransitiveExports() {
+  public SkylarkNestedSet /*<Label>*/ getTransitiveExports() {
     return null;
   }
 

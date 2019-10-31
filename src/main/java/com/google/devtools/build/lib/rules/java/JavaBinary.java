@@ -123,7 +123,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       for (JavaRuntimeClasspathProvider envTarget :
           ruleContext.getPrerequisites(
               "deploy_env", Mode.TARGET, JavaRuntimeClasspathProvider.class)) {
-        attributesBuilder.addExcludedArtifacts(envTarget.getRuntimeClasspath());
+        attributesBuilder.addExcludedArtifacts(envTarget.getRuntimeClasspathNestedSet());
       }
     }
 
