@@ -215,6 +215,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowHashingFrozenMutables();
 
+  public abstract boolean incompatibleUseCcConfigureFromRulesCc();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -291,6 +293,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleDisallowHashingFrozenMutables(true)
+          .incompatibleUseCcConfigureFromRulesCc(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -384,6 +387,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
 
     public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
+
+    public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract StarlarkSemantics build();
   }

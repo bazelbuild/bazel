@@ -586,4 +586,13 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
+
+  @SkylarkCallable(
+      name = "__do_not_use_fail_wwith_incompatible_use_cc_configure_from_rules_cc",
+      doc = "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
+          + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
+          + "details and migration instructions.",
+      useLocation = true)
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(Location location)
+      throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 }

@@ -1047,4 +1047,16 @@ public class SkylarkRepositoryContext
     }
     return headers.build();
   }
+
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(Location location)
+      throws InterruptedException, EvalException {
+    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (semantics.incompatibleUseCcConfigureFromRulesCc()) {
+      throw new EvalException(location, "Incompatible flag "
+          + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
+          + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "
+          + "See https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
+          + "instructions.");
+    }
+  }
 }
