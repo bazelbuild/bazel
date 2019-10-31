@@ -63,20 +63,20 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       + "rule.";
   public static final String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in <a "
-          + "href='attr.$DOC_EXT#label'>label type attributes</a> marked as <a "
-          + "href='attr.$DOC_EXT#label.executable'><code>executable=True</code><a>. The struct "
+          + "href='attr.html#label'>label type attributes</a> marked as <a "
+          + "href='attr.html#label.executable'><code>executable=True</code><a>. The struct "
           + "fields correspond to the attribute names. Each value in the struct is either a <a "
-          + "href='File.$DOC_EXT'><code>File</code></a> or <code>None</code>. If an optional "
+          + "href='File.html'><code>File</code></a> or <code>None</code>. If an optional "
           + "attribute is not specified in the rule then the corresponding struct value is "
           + "<code>None</code>. If a label type is not marked as <code>executable=True</code>, no "
           + "corresponding struct field is generated. <a "
           + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
           + "execute.bzl\">See example of use</a>.";
   public static final String FILES_DOC =
-      "A <code>struct</code> containing files defined in <a href='attr.$DOC_EXT#label'>label</a>"
-          + " or <a href='attr.$DOC_EXT#label_list'>label list</a> type attributes. The struct"
+      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label</a>"
+          + " or <a href='attr.html#label_list'>label list</a> type attributes. The struct"
           + " fields correspond to the attribute names. The struct values are <code>list</code> of"
-          + " <a href='File.$DOC_EXT'><code>File</code></a>s.  It is a shortcut for:<pre"
+          + " <a href='File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
           + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
           + " other words, use <code>files</code> to access the <a"
           + " href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a"
@@ -84,11 +84,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
           + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">See"
           + " example of use</a>.";
   public static final String FILE_DOC =
-      "A <code>struct</code> containing files defined in <a href='attr.$DOC_EXT#label'>label type"
+      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label type"
           + " attributes</a> marked as <a"
-          + " href='attr.$DOC_EXT#label.allow_single_file'><code>allow_single_file</code></a>. The"
+          + " href='attr.html#label.allow_single_file'><code>allow_single_file</code></a>. The"
           + " struct fields correspond to the attribute names. The struct value is always a <a"
-          + " href='File.$DOC_EXT'><code>File</code></a> or <code>None</code>. If an optional"
+          + " href='File.html'><code>File</code></a> or <code>None</code>. If an optional"
           + " attribute is not specified in the rule then the corresponding struct value is"
           + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
@@ -102,8 +102,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       "A struct to access the values of the <a href='../rules.$DOC_EXT#attributes'>attributes</a>. "
           + "The values are provided by the user (if not, a default value is used). The attributes "
           + "of the struct and the types of their values correspond to the keys and values of the "
-          + "<a href='globals.$DOC_EXT#rule.attrs'><code>attrs</code> dict</a> provided to the <a "
-          + "href='globals.$DOC_EXT#rule'><code>rule</code> function</a>. <a "
+          + "<a href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a "
+          + "href='globals.html#rule'><code>rule</code> function</a>. <a "
           + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
           + "printer.bzl\">See example of use</a>.";
   public static final String SPLIT_ATTR_DOC =
