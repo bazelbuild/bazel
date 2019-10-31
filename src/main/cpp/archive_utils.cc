@@ -93,7 +93,6 @@ class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
                const devtools_ijar::u1 *data,
                const size_t size) override {
     string str(reinterpret_cast<const char *>(data), size);
-    blaze_util::StripWhitespace(&str);
     if (str.size() != 32) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "Failed to extract install_base_key: file size mismatch "
@@ -182,7 +181,6 @@ class GetBuildLabelFileProcessor
                const devtools_ijar::u1 *data,
                const size_t size) override {
     string contents(reinterpret_cast<const char *>(data), size);
-    blaze_util::StripWhitespace(&contents);
     *build_label_ = contents;
   }
 

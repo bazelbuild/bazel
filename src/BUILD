@@ -6,7 +6,8 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 exports_files(["jdeps_modules.golden"])
 
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs cat | %s | awk '{ print $$1; }' > $@"
+# Keep only the first 32 chars (a hex md5sum) and no trailing newline.
+md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs cat | %s | head -c 32 > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(
