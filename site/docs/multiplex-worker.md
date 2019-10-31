@@ -22,7 +22,7 @@ Each worker has a key. Bazel uses the hash code (composed of environment variabl
 
 ## A Guide to Write a Multiplex-Compatible Ruleset
 
-The rule's worker process should be multi-threaded to take advantage of Multiplex Workers. Protobuf allows a ruleset to parse a single request even though there might be multiple requests piling up in the stream. Whenever the worker process parses a request from the stream, it should handle the request in a new thread. Since different thread could complete and write to the stream at the same time, the ruleset needs to make sure the responses are written atomically (i.e. messages don't overlap). Responses must contain the `request_id` of the request they're handling.
+The rule's worker process should be multi-threaded to take advantage of Multiplex Workers. Protobuf allows a ruleset to parse a single request even though there might be multiple requests piling up in the stream. Whenever the worker process parses a request from the stream, it should handle the request in a new thread. Since different thread could complete and write to the stream at the same time, the worker process needs to make sure the responses are written atomically (i.e. messages don't overlap). Responses must contain the `request_id` of the request they're handling.
 
 ## Enable Multiplex Workers
 
