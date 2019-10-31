@@ -30,7 +30,7 @@ import java.util.Collection;
 /**
  * Allow tests to easily manage scratch files in a FileSystem.
  */
-public final class Scratch {
+public class Scratch {
 
   private static final Charset DEFAULT_CHARSET = StandardCharsets.ISO_8859_1;
 

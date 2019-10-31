@@ -147,9 +147,11 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -165,6 +167,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -964,6 +967,73 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build());
 
     invalidatePackages();
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return new Scratch(fileSystem, workingDir) {
+      private Path invalidateParentDirectoryOf(Path path) {
+        if (skyframeExecutor != null) {
+          Path parent = path.getParentDirectory();
+          try {
+            skyframeExecutor.invalidateFilesUnderPathForTesting(
+                reporter,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                parent == null ? Root.absoluteRoot(fileSystem) : Root.fromPath(parent));
+          } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+          }
+        }
+        return path;
+      }
+
+      public Path dir(String pathName) throws IOException {
+        return invalidateParentDirectoryOf(super.dir(pathName));
+      }
+
+      public Path file(String pathName, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.file(pathName, lines));
+      }
+
+      public Path file(String pathName, Charset charset, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.file(pathName, charset, lines));
+      }
+
+      public Path file(String pathName, byte[] content) throws IOException {
+        return invalidateParentDirectoryOf(super.file(pathName, content));
+      }
+
+      public Path appendFile(String pathName, Collection<String> lines) throws IOException {
+        return invalidateParentDirectoryOf(super.appendFile(pathName, lines));
+      }
+
+      public Path appendFile(String pathName, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.appendFile(pathName, lines));
+      }
+
+      public Path appendFile(String pathName, Charset charset, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.appendFile(pathName, charset, lines));
+      }
+
+      public Path overwriteFile(String pathName, Collection<String> lines)  throws IOException {
+        return invalidateParentDirectoryOf(super.overwriteFile(pathName, lines));
+      }
+
+      public Path overwriteFile(String pathName, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.overwriteFile(pathName, lines));
+      }
+
+      public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
+        return invalidateParentDirectoryOf(super.overwriteFile(pathName, charset, lines));
+      }
+
+      public boolean deleteFile(String pathName) throws IOException {
+        Path p = resolve(pathName);
+        boolean result = super.deleteFile(pathName);
+        invalidateParentDirectoryOf(p);
+        return result;
+      }
+    };
   }
 
   /**
