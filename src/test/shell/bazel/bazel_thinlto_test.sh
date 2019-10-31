@@ -95,8 +95,8 @@ function test_bazel_thinlto() {
   grep -q "action 'LTO Backend Compile" $TEST_log \
     || fail "LTO Actions missing"
 
-  if [[ ! -e bazel-bin/hello/hello.lto/hello/_objs/hello/hello.o.thinlto.bc ]] \
-    || [[ ! -e bazel-bin/hello/hello.lto/hello/_objs/hello_lib/hellolib.o.thinlto.bc ]]; then
+  if [[ ! -e bazel-bin/hello/hello.lto/hello/_objs/hello/hello.pic.o.thinlto.bc ]] \
+    || [[ ! -e bazel-bin/hello/hello.lto/hello/_objs/hello_lib/hellolib.pic.o.thinlto.bc ]]; then
     fail "bitcode files were not generated"
   fi
 }

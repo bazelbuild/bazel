@@ -24,3 +24,4 @@
 # User-specific .bazelrc
 user.bazelrc
 
+/third_party
