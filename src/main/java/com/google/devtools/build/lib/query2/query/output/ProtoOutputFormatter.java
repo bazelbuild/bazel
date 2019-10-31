@@ -365,7 +365,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
     return (includeDefaultValues || rule.isAttributeValueExplicitlySpecified(attr))
-        && includeAttribute(rule, attr);
+        && ruleAttributePredicate.apply(attr.getName());
   }
 
   private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
@@ -390,11 +390,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Build.Rule.Builder rulePb,
       Map<Attribute, Build.Attribute> serializedAttributes,
       Object extraDataForPostProcess) {}
-
-  /** Filter out some attributes */
-  protected boolean includeAttribute(Rule rule, Attribute attr) {
-    return ruleAttributePredicate.apply(attr.getName());
-  }
 
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
