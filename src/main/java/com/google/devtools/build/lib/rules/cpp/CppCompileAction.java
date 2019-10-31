@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -1688,24 +1687,6 @@ public class CppCompileAction extends AbstractAction
     return transitivelyUsedModules.build();
   }
 
-  private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(
-      ActionExecutionContext actionExecutionContext, IOException e) {
-    // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-    // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-    String stackTrace = Throwables.getStackTraceAsString(e);
-    actionExecutionContext
-        .getEventHandler()
-        .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
-    return toActionExecutionException(
-        new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
-  }
-
-  private ActionExecutionException toActionExecutionException(
-      ExecException e, boolean verboseFailures) {
-    String failMessage = getRawProgressMessage();
-    return e.toActionExecutionException(failMessage, verboseFailures, this);
-  }
-
   private final class CppCompileActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final ActionExecutionContext spawnExecutionContext;
@@ -1835,7 +1816,11 @@ public class CppCompileAction extends AbstractAction
             }
           }
         } catch (IOException e) {
-          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+          throw new EnvironmentalExecException(e)
+              .toActionExecutionException(
+                  getRawProgressMessage(),
+                  actionExecutionContext.getVerboseFailures(),
+                  CppCompileAction.this);
         }
       }
     }
