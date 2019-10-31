@@ -369,25 +369,4 @@ public class WindowsFileSystemTest {
 
     assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
   }
-
-  private static String invertCharacterCasing(String s) {
-    char[] a = s.toCharArray();
-    for (int i = 0; i < a.length; ++i) {
-      char c = a[i];
-      a[i] = Character.isUpperCase(c) ? Character.toLowerCase(c) : Character.toUpperCase(c);
-    }
-    return new String(a);
-  }
-
-  @Test
-  public void testGetCorrectCasing() throws Exception {
-    String rootStr = scratchRoot.getPathString();
-    String inverseRootStr = invertCharacterCasing(rootStr);
-    Path inverseRoot = fs.getPath(inverseRootStr);
-    assertThat(inverseRootStr).isNotEqualTo(rootStr);
-    assertThat(inverseRoot).isEqualTo(scratchRoot);
-    Path correctCasing = fs.getCorrectCasingForTesting(inverseRoot);
-    assertThat(correctCasing).isEqualTo(scratchRoot);
-    assertThat(correctCasing.getPathString()).isNotEqualTo(inverseRootStr);
-  }
 }

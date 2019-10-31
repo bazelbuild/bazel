@@ -241,9 +241,4 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return Files.readAttributes(
         file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
-
-  @VisibleForTesting
-  Path getCorrectCasingForTesting(Path p) throws IOException {
-    return getPath(WindowsFileOperations.getCorrectCasing(p.getPathString()));
-  }
 }
