@@ -5111,7 +5111,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreatePicAndNoPic() throws Exception {
+  public void testCreateOnlyPicWithOpt() throws Exception {
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -5121,7 +5121,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(getFilenamesToBuild(target)).contains("skylark_lib.pic.o");
-    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.o");
+    assertThat(getFilenamesToBuild(target)).doesNotContain("skylark_lib.o");
   }
 
   @Test
@@ -5532,7 +5532,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     SkylarkInfo fooInfo =
         (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
 
-    assertThat(fooLibrary.getObjectFiles()).isEqualTo(fooInfo.getValue("objects"));
+    assertThat(fooLibrary.getObjectFiles()).isNull();
     assertThat(fooLibrary.getPicObjectFiles()).isEqualTo(fooInfo.getValue("pic_objects"));
   }
 

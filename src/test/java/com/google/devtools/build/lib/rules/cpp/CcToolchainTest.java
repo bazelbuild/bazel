@@ -178,7 +178,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     invalidatePackages();
     assertThat(usePicForBinariesWithConfiguration("--cpu=k8")).isTrue();
-    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isFalse();
+    assertThat(usePicForBinariesWithConfiguration("--cpu=k8", "-c", "opt")).isTrue();
   }
 
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
