@@ -142,15 +142,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testExportsFilesVisibilityMustBeSequence() throws Exception {
     expectEvalError(
-        "expected sequence or NoneType for 'visibility' while calling exports_files but got depset",
+        "expected value of type 'sequence or NoneType' for parameter 'visibility', "
+            + "for call to method exports_files",
         "exports_files(srcs=[], visibility=depset(['notice']))");
   }
 
   @Test
   public void testExportsFilesLicensesMustBeSequence() throws Exception {
     expectEvalError(
-        "expected sequence of strings or NoneType for 'licenses' while calling exports_files but"
-            + " got depset",
+        "expected value of type 'sequence of strings or NoneType' for parameter 'licenses', "
+            + "for call to method exports_files",
         "exports_files(srcs=[], licenses=depset(['notice']))");
   }
 
@@ -642,33 +643,11 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testInsufficientArgumentGlobErrors() throws Exception {
-    events.setFailFast(false);
-    assertGlobFails(
-        "glob()",
-        "insufficient arguments received by glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = <unbound>) (got 0, expected at least 1)");
-  }
-
-  @Test
-  public void testGlobUnamedExclude() throws Exception {
-    events.setFailFast(false);
-    assertGlobFails(
-        "glob(['a'], ['b'])",
-        "too many (2) positional arguments in call to glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = <unbound>)");
-  }
-
-  @Test
   public void testTooManyArgumentsGlobErrors() throws Exception {
     events.setFailFast(false);
     assertGlobFails(
-        "glob(1,2,3,4)",
-        "too many (4) positional arguments in call to glob(include: sequence of strings, "
-            + "*, exclude: sequence of strings = [], exclude_directories: int = 1, "
-            + "allow_empty: bool = <unbound>)");
+        "glob(['incl'],['excl'],3,True,'extraarg')",
+        "expected no more than 4 positional arguments, but got 5, for call to method glob");
   }
 
   @Test
@@ -676,7 +655,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "expected sequence of strings for 'include' while calling glob but got int instead: 1");
+        "expected value of type 'sequence of strings' for parameter 'include', "
+            + "for call to method glob");
   }
 
   @Test
@@ -839,7 +819,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   @Test
   public void testPackageGroupNamedArguments() throws Exception {
-    expectEvalError("does not accept positional arguments", "package_group('skin')");
+    expectEvalError(
+        "expected no more than 0 positional arguments, but got 1,",
+        "package_group('skin', name = 'x')");
   }
 
   @Test
@@ -1060,8 +1042,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testIncompleteEnvironmentGroup() throws Exception {
     expectEvalError(
-        "missing mandatory named-only argument 'defaults' while calling "
-            + "environment_group(*, name: string, ",
+        "parameter 'defaults' has no default value, for call to function environment_group",
         "environment(name = 'foo')",
         "environment_group(name='group', environments = [':foo'])");
   }
