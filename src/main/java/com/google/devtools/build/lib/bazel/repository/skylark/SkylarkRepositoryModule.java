@@ -195,4 +195,15 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       }
     }
   }
+
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(Location location, StarlarkThread thread)
+      throws EvalException {
+    if (thread.getSemantics().incompatibleUseCcConfigureFromRulesCc()) {
+      throw new EvalException(location, "Incompatible flag "
+          + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
+          + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "
+          + "See https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
+          + "instructions.");
+    }
+  }
 }

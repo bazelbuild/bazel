@@ -23,6 +23,8 @@ load(
 )
 load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
 
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _generate_cpp_only_build_file(repository_ctx, cpu_value, paths):
     repository_ctx.template(
         "BUILD",
