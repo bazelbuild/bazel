@@ -20,6 +20,9 @@ load(
     "tool_path",
 )
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _impl(ctx):
     toolchain_identifier = "stub_armeabi-v7a"
     host_system_name = "armeabi-v7a"

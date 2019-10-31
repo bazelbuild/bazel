@@ -14,6 +14,9 @@
 # limitations under the License.
 """Base library for configuring the C++ toolchain."""
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def resolve_labels(repository_ctx, labels):
     """Resolves a collection of labels to their paths.
 

@@ -13,6 +13,9 @@
 # limitations under the License.
 """Library of functions that provide the CC_FLAGS Make variable."""
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 # This should match the logic in CcCommon.computeCcFlags:
 def build_cc_flags(ctx, cc_toolchain, action_name):
     """Determine the value for CC_FLAGS based on the given toolchain."""

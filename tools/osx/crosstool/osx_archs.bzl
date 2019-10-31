@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 # List of architectures supported by osx crosstool.
 OSX_TOOLS_NON_DEVICE_ARCHS = [
     "darwin_x86_64",

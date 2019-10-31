@@ -28,6 +28,9 @@ load(
     "get_escaped_cxx_inc_directories",
 )
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
     """Compute the list of default C++ include paths on Xcode-enabled darwin.
 

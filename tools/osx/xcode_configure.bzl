@@ -17,6 +17,9 @@
    installed on the local host.
 """
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 _EXECUTE_TIMEOUT = 120
 
 def _search_string(fullstring, prefix, suffix):

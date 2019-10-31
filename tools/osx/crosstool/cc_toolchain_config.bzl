@@ -30,6 +30,9 @@ load(
 )
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _impl(ctx):
     if (ctx.attr.cpu == "darwin_x86_64"):
         toolchain_identifier = "darwin_x86_64"

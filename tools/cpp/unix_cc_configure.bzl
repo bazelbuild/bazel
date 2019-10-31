@@ -28,6 +28,9 @@ load(
     "write_builtin_include_directory_paths",
 )
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _field(name, value):
     """Returns properly indented top level crosstool field."""
     if type(value) == "list":

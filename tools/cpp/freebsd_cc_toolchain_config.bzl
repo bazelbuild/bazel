@@ -26,6 +26,9 @@ load(
 )
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 all_compile_actions = [
     ACTION_NAMES.c_compile,
     ACTION_NAMES.cpp_compile,

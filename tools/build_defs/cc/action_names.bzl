@@ -13,6 +13,9 @@
 # limitations under the License.
 """Constants for action names used for C++ rules."""
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc
+
 # Name for the C compilation action.
 C_COMPILE_ACTION_NAME = "c-compile"
 

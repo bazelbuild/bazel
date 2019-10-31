@@ -14,6 +14,9 @@
 
 """Rules that allows select() to differentiate between Apple OS versions."""
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _strip_version(version):
     """Strip trailing characters that aren't digits or '.' from version names.
 
