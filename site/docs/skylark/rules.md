@@ -683,13 +683,18 @@ separate fields of your provider.
 
 ## Code coverage instrumentation
 
-A rule can use the `instrumented_files` provider to provide information about
-which files should be measured when code coverage data collection is enabled:
+A rule can use the `InstrumentedFilesInfo` provider to provide information about
+which files should be measured when code coverage data collection is enabled.
+That provider can be created with
+[`coverage_common.instrumented_files_info`](lib/coverage_common.html#instrumented_files_info)
+and included in the list of providers returned by the rule's implementation
+function:
 
 ```python
 def _rule_implementation(ctx):
   ...
-  return struct(instrumented_files = struct(
+  instrumented_files_info = coverage_common.instrumented_files_info(
+      ctx,
       # Optional: File extensions used to filter files from source_attributes.
       # If not provided, then all files from source_attributes will be
       # added to instrumented files, if an empty list is provided, then
@@ -699,7 +704,8 @@ def _rule_implementation(ctx):
       source_attributes = ["srcs"],
       # Optional: Attributes for dependencies that could include instrumented
       # files.
-      dependency_attributes = ["data", "deps"]))
+      dependency_attributes = ["data", "deps"])
+  return [..., instrumented_files_info]
 ```
 
 [ctx.configuration.coverage_enabled](lib/configuration.html#coverage_enabled) notes
