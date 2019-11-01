@@ -188,7 +188,6 @@ public final class EvalUtils {
         // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
         || SkylarkInterfaceUtils.getSkylarkModule(c) != null
         || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
-        || NestedSet.class.isAssignableFrom(c) // will be converted to SkylarkNestedSet
         || PathFragment.class.isAssignableFrom(c); // other known class
   }
 
@@ -289,9 +288,6 @@ public final class EvalUtils {
       return "function";
     } else if (c.equals(SelectorValue.class)) {
       return "select";
-    } else if (NestedSet.class.isAssignableFrom(c)) {
-      // TODO(bazel-team): no one should be seeing naked NestedSet at all.
-      return "depset";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -317,7 +313,8 @@ public final class EvalUtils {
    * Returns the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
-  // TODO(adonovan): rename 'truth'.
+  // TODO(adonovan): rename 'Skylark.truth', make it a default-true method of SkylarkValue,
+  // and delete most of the cases.
   public static boolean toBoolean(Object o) {
     if (o == null || o == Runtime.NONE) {
       return false;
@@ -331,8 +328,6 @@ public final class EvalUtils {
       return !((Collection<?>) o).isEmpty();
     } else if (o instanceof Map<?, ?>) {
       return !((Map<?, ?>) o).isEmpty();
-    } else if (o instanceof NestedSet<?>) {
-      return !((NestedSet<?>) o).isEmpty();
     } else if (o instanceof SkylarkNestedSet) {
       return !((SkylarkNestedSet) o).isEmpty();
     } else if (o instanceof Iterable<?>) {
@@ -648,7 +643,20 @@ public final class EvalUtils {
         result = SkylarkType.convertToSkylark(result, thread);
         // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
         // so we have to disable it. This should not happen.
-        SkylarkType.checkTypeAllowedInSkylark(result, loc);
+
+        // TODO(bazel-team): Unify this check with the logic in getSkylarkType. Might
+        // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
+        // SkylarkList, etc.
+        // TODO(adonovan): this is still far too permissive. Replace with isSkylarkAcceptable.
+        if (result instanceof NestedSet
+            || (result instanceof List && !(result instanceof SkylarkList))) {
+          throw new EvalException(
+              loc,
+              "internal error: type '"
+                  + result.getClass().getSimpleName()
+                  + "' is not allowed as a "
+                  + "Starlark value");
+        }
         return result;
       }
     }

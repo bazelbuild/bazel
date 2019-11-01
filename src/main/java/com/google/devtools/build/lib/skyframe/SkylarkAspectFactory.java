@@ -108,9 +108,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             && !(aspectSkylarkObject instanceof Iterable)
             && !(aspectSkylarkObject instanceof InfoInterface)) {
           ruleContext.ruleError(
-              String.format("Aspect implementation should return a struct, a list, or a provider "
+              String.format(
+                  "Aspect implementation should return a struct, a list, or a provider "
                       + "instance, but got %s",
-                  SkylarkType.typeOf(aspectSkylarkObject)));
+                  EvalUtils.getDataTypeName(aspectSkylarkObject)));
           return null;
         }
         return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
