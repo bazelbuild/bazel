@@ -1,4 +1,5 @@
 package(default_visibility = ["//visibility:public"])
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 
 java_import(
   name = "all_lcov_merger_lib",
