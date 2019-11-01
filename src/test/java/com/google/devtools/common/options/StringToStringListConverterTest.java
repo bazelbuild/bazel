@@ -26,10 +26,10 @@ import org.junit.runners.JUnit4;
 
 /** Test for {@link Converters.AssignmentToListOfValuesConverter}. */
 @RunWith(JUnit4.class)
-public class AssignmentToListOfValuesConverterTest {
+public class StringToStringListConverterTest {
 
   protected Converter<Map.Entry<String, List<String>>> converter =
-      new Converters.AssignmentToListOfValuesConverter();
+      new Converters.StringToStringListConverter();
 
   @Test
   public void nameEqualsValue() throws Exception {
