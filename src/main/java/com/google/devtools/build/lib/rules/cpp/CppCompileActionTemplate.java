@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -312,6 +313,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     return CppCompileAction.hasLooseHeaders(
         cppCompileActionBuilder.getCcCompilationContext(),
         cppCompileActionBuilder.getFeatureConfiguration());
+  }
+
+  @Override
+  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
+    return this != action;
   }
 
   @Override

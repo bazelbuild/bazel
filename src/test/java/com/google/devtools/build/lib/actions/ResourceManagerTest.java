@@ -494,6 +494,11 @@ public class ResourceManagerTest {
     }
 
     @Override
+    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
+      throw new IllegalStateException();
+    }
+
+    @Override
     public MiddlemanType getActionType() {
       throw new IllegalStateException();
     }
