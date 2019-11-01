@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.SpellChecker;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.IllegalFormatException;
 import java.util.List;
@@ -187,8 +186,7 @@ public final class EvalUtils {
         || c.equals(Boolean.class)
         // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
         || SkylarkInterfaceUtils.getSkylarkModule(c) != null
-        || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
-        || PathFragment.class.isAssignableFrom(c); // other known class
+        || ImmutableMap.class.isAssignableFrom(c); // will be converted to SkylarkDict
   }
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType

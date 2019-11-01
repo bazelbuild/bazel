@@ -18,8 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -58,8 +56,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @AutoCodec
-public class Path
-    implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
+public class Path implements Comparable<Path>, Serializable, FileType.HasFileType {
   private static FileSystem fileSystemForSerialization;
 
   /**
@@ -341,16 +338,6 @@ public class Path
       }
     }
     return OS.compare(this.path, o.path);
-  }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.append(path);
-  }
-
-  @Override
-  public void str(SkylarkPrinter printer) {
-    repr(printer);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
