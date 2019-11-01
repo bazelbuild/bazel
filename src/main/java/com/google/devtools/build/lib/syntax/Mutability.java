@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
-import java.util.Formattable;
 import java.util.IdentityHashMap;
 import java.util.List;
 
@@ -69,7 +69,7 @@ import java.util.List;
  * <p>Second, {@code Mutability}s are created using the try-with-resource style:
  *
  * <pre>{@code
- * try (Mutability mutability = Mutability.create(fmt, ...)) { ... }
+ * try (Mutability mutability = Mutability.create(name, ...)) { ... }
  * }</pre>
  *
  * The general pattern is to create a {@code Mutability}, build an {@code StarlarkThread}, mutate
@@ -120,50 +120,49 @@ public final class Mutability implements AutoCloseable {
    */
   private IdentityHashMap<Freezable, List<Location>> lockedItems;
 
-  /** For error reporting; a name for the context in which this {@code Mutability} is used. */
-  private final Formattable annotation;
+  // An optional list of values that are formatted with toString and joined with spaces to yield the
+  // "annotation", an internal name describing the purpose of this Mutability.
+  private final Object[] annotation;
 
   /** Controls access to {@link Freezable#unsafeShallowFreeze}. */
   private final boolean allowsUnsafeShallowFreeze;
 
-  private Mutability(Formattable annotation, boolean allowsUnsafeShallowFreeze) {
+  private Mutability(Object[] annotation, boolean allowsUnsafeShallowFreeze) {
     this.isFrozen = false;
     // Seems unlikely that we'll often lock more than 10 things at once.
     this.lockedItems = new IdentityHashMap<>(10);
-    this.annotation = Preconditions.checkNotNull(annotation);
+    this.annotation = annotation;
     this.allowsUnsafeShallowFreeze = allowsUnsafeShallowFreeze;
   }
 
   /**
    * Creates a {@code Mutability}.
    *
-   * @param pattern is a {@link Printer#format} pattern used to lazily produce a string name
-   *     for error reporting
-   * @param arguments are the optional {@link Printer#format} arguments to produce that string
+   * @param annotation a list of objects whose toString representations are joined with spaces to
+   *     yield the annotation, an internal name describing the purpose of this Mutability.
    */
-  public static Mutability create(String pattern, Object... arguments) {
-    return new Mutability(
-        Printer.formattable(pattern, arguments),
-        /*allowsUnsafeShallowFreeze=*/ false);
+  public static Mutability create(Object... annotation) {
+    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ false);
   }
 
   /**
    * Creates a {@code Mutability} whose objects can be individually frozen; see docstrings for
    * {@link Mutability} and {@link Freezable#unsafeShallowFreeze}.
    */
-  public static Mutability createAllowingShallowFreeze(String pattern, Object... arguments) {
-    return new Mutability(
-        Printer.formattable(pattern, arguments),
-        /*allowsUnsafeShallowFreeze=*/ true);
+  public static Mutability createAllowingShallowFreeze(Object... annotation) {
+    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ true);
   }
 
+  /** Returns the Mutability's "annotation", an internal name describing its purpose. */
   public String getAnnotation() {
-    return annotation.toString();
+    // The annotation string is computed when needed, typically never,
+    // to avoid the performance penalty of materializing it eagerly.
+    return Joiner.on(" ").join(annotation);
   }
 
   @Override
   public String toString() {
-    return String.format(isFrozen ? "(%s)" : "[%s]", annotation);
+    return (isFrozen ? "(" : "[") + getAnnotation() + (isFrozen ? ")" : "]");
   }
 
   public boolean isFrozen() {

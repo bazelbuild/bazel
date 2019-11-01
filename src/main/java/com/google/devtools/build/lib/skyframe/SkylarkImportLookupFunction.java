@@ -587,7 +587,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // Any change to an input file may affect program behavior,
     // even if only by changing line numbers in error messages.
     PathFragment extensionFile = extensionLabel.toPathFragment();
-    try (Mutability mutability = Mutability.create("importing %s", extensionFile)) {
+    try (Mutability mutability = Mutability.create("importing", extensionFile)) {
       StarlarkThread thread =
           ruleClassProvider.createRuleClassStarlarkThread(
               extensionLabel,

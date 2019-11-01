@@ -73,7 +73,7 @@ public class ResolvedFileFunction implements SkyFunction {
           throw resolvedValueError("Failed to parse file resolved file " + key.getPath());
         }
         StarlarkThread resolvedThread;
-        try (Mutability mutability = Mutability.create("resolved file %s", key.getPath())) {
+        try (Mutability mutability = Mutability.create("resolved file", key.getPath())) {
           resolvedThread =
               StarlarkThread.builder(mutability)
                   .setSemantics(starlarkSemantics)

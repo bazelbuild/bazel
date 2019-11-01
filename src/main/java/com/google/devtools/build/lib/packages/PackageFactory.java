@@ -592,7 +592,7 @@ public final class PackageFactory {
           ruleClassName);
     }
 
-    @SuppressWarnings({"unchecked", "unused"})
+    @SuppressWarnings("unused")
     public Runtime.NoneType invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
         throws EvalException, InterruptedException {
       SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClassName, loc);
@@ -983,7 +983,7 @@ public final class PackageFactory {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     populateEnvironment(env);
 
-    try (Mutability mutability = Mutability.create("package %s", packageId)) {
+    try (Mutability mutability = Mutability.create("package", packageId)) {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setGlobals(Module.createForBuiltins(env.build()))
