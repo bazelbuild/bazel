@@ -52,6 +52,11 @@ class AutoCodecUtil {
   static TypeSpec.Builder initializeCodecClassBuilder(
       TypeElement encodedType, ProcessingEnvironment env) {
     TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
+    builder.addAnnotation(
+        AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
+            .addMember("value", "$S", "unchecked")
+            .addMember("value", "$S", "rawtypes")
+            .build());
     return builder.addSuperinterface(
         ParameterizedTypeName.get(
             ClassName.get(ObjectCodec.class),

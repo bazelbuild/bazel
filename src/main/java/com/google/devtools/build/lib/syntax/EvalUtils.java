@@ -65,7 +65,7 @@ public final class EvalUtils {
    */
   public static final Ordering<Object> SKYLARK_COMPARATOR =
       new Ordering<Object>() {
-        private int compareLists(SkylarkList o1, SkylarkList o2) {
+        private int compareLists(SkylarkList<?> o1, SkylarkList<?> o2) {
           if (o1 instanceof RangeList || o2 instanceof RangeList) {
             throw new ComparisonException("Cannot compare range objects");
           }

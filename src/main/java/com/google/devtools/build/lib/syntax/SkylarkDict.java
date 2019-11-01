@@ -223,6 +223,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useLocation = true,
       useStarlarkThread = true)
+  @SuppressWarnings("unchecked")
   public Runtime.NoneType update(
       Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
       throws EvalException {
@@ -542,6 +543,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return result;
   }
 
+  @SuppressWarnings("unchecked")
   static <K, V> SkylarkDict<K, V> getDictFromArgs(
       String funcname, Object args, Location loc, @Nullable StarlarkThread thread)
       throws EvalException {

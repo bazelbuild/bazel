@@ -201,7 +201,7 @@ public class MethodLibrary {
       final StarlarkThread thread)
       throws EvalException, InterruptedException {
 
-    ArrayList list = new ArrayList(EvalUtils.toCollection(self, loc, thread));
+    ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(self, loc, thread));
     if (key == Runtime.NONE) {
       try {
         Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);

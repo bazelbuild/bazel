@@ -518,6 +518,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         },
         useLocation = true,
         useStarlarkThread = true)
+    @SuppressWarnings("unchecked")
     public Runtime.NoneType extend(Object items, Location loc, StarlarkThread thread)
         throws EvalException {
       addAll(
