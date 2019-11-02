@@ -72,11 +72,11 @@ EOF
   cat >pkg/rules.bzl <<'EOF'
 def _ls_srcs(ctx):
   out = ctx.actions.declare_file(ctx.attr.name)
-  ctx.actions.run(
+  ctx.actions.run_shell(
     inputs = ctx.files.srcs,
     outputs = [out],
-    executable = "bash",
-    arguments = ["-c", "find -L . > " + out.path],
+    command = 'find -L . > "$1"',
+    arguments = [out.path],
   )
   return DefaultInfo(
     files = depset(direct = [out]),
@@ -92,14 +92,14 @@ EOF
 function test_utf8_source_artifact() {
   unicode_filenames_test_setup
 
-  python -c 'open(b"pkg/srcs/regular file.txt", "wb").close()'
+  touch 'pkg/srcs/regular file.txt'
 
   mkdir pkg/srcs/subdir
-  python -c 'open(b"pkg/srcs/subdir/file.txt", "wb").close()'
+  touch 'pkg/srcs/subdir/file.txt'
 
   # >>> u"pkg/srcs/ünïcödë fïlë.txt".encode("utf8")
   # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
-  python -c 'open(b"pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt", "wb").close()'
+  touch "$(printf '%b' 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt')"
 
   bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
   assert_contains "pkg/srcs/regular file.txt" bazel-bin/pkg/ls_srcs
@@ -108,8 +108,9 @@ function test_utf8_source_artifact() {
 }
 
 function test_traditional_encoding_source_artifact() {
-  # Windows and macOS both validate filesystem paths. Linux and the traditional BSDs
-  # typically don't, so their paths can contain arbitrary non-NUL bytes.
+  # Windows and macOS require filesystem paths to be valid Unicode. Linux and
+  # the traditional BSDs typically don't, so their paths can contain arbitrary
+  # non-NUL bytes.
   case "$(uname -s | tr [:upper:] [:lower:])" in
   linux|freebsd)
     ;;
@@ -122,7 +123,7 @@ function test_traditional_encoding_source_artifact() {
 
   # >>> u"pkg/srcs/TRADITIONAL ünïcödë fïlë.txt".encode("iso-8859-1")
   # 'pkg/srcs/TRADITIONAL \xfcn\xefc\xf6d\xeb f\xefl\xeb.txt'
-  python -c 'open(b"pkg/srcs/TRADITIONAL \xfcn\xefc\xf6d\xeb f\xefl\xeb.txt", "wb").close()'
+  touch "$(printf '%b' 'pkg/srcs/TRADITIONAL \xfcn\xefc\xf6d\xeb f\xefl\xeb.txt')"
 
   bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
   assert_contains "pkg/srcs/TRADITIONAL " bazel-bin/pkg/ls_srcs
