@@ -799,10 +799,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * source code).
      */
     public Builder addTool(FilesToRunProvider tool) {
-      Artifact executable = tool.getExecutable();
-      if (executable != null) {
-        addTool(executable);
-      }
       addTransitiveTools(tool.getFilesToRun());
       addRunfilesSupplier(tool.getRunfilesSupplier());
       return this;

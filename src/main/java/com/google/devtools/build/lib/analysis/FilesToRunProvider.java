@@ -44,6 +44,9 @@ public final class FilesToRunProvider
       NestedSet<Artifact> filesToRun,
       @Nullable RunfilesSupport runfilesSupport,
       @Nullable Artifact executable) {
+    if (executable != null) {
+      filesToRun = NestedSetBuilder.fromNestedSet(filesToRun).add(executable).build();
+    }
     this.filesToRun = filesToRun;
     this.runfilesSupport = runfilesSupport;
     this.executable  = executable;

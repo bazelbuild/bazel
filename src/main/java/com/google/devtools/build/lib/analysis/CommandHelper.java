@@ -197,7 +197,6 @@ public final class CommandHelper {
         Artifact executableArtifact = tool.getExecutable();
         // If the label has an executable artifact add that to the multimaps.
         if (executableArtifact != null) {
-          resolvedToolsBuilder.add(executableArtifact);
           mapGet(tempLabelMap, label).add(executableArtifact);
           // Also send the runfiles when running remotely.
           toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
