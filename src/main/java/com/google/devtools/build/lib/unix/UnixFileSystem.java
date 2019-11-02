@@ -29,12 +29,17 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.SequenceInputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -436,8 +441,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  @Override
-  protected java.nio.file.Path createJavaNioPath(Path path) throws FileNotFoundException {
+  private java.nio.file.Path createJavaNioPath(Path path) throws FileNotFoundException {
     final String pathStr = path.getPathString();
     if (pathStr.chars().allMatch(c -> c < 128)) {
       return Paths.get(pathStr);
@@ -452,6 +456,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     for (byte b : pathBytes) {
       // Keep a few known-safe bytes unescaped for debugging.
       if (b == 0x2F // '/'
+          || b == 0x2D // '-'
+          || b == 0x5F // '_'
+          || b == 0x2E // '.'
           || (b >= 0x30 && b <= 0x39) // '0' - '9'
           || (b >= 0x41 && b <= 0x5A) // 'A' - 'Z'
           || (b >= 0x61 && b <= 0x7A) // 'a' - 'z'
@@ -467,6 +474,41 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (URISyntaxException e){
       throw new FileNotFoundException(pathStr);
     }
+  }
+
+  @Override
+  protected InputStream createFileInputStream(Path path)
+      throws FileNotFoundException, IOException {
+    final java.nio.file.Path nioPath = createJavaNioPath(path);
+    InputStream stream = null;
+    try {
+      stream = Files.newInputStream(nioPath, java.nio.file.StandardOpenOption.READ);
+    } catch (AccessDeniedException e) {
+      throw new IOException(e.getMessage() + " (Permission denied)", e);
+    }
+
+    // On some platforms, whether a path can be read as a file won't be checked until
+    // the first read().
+    //
+    // http://mail.openjdk.java.net/pipermail/nio-dev/2014-December/002877.html
+    //
+    // The underlying stream might not be seekable, and wrapping in a BufferedInputStream
+    // causes test failures in the integration suite, so create our own little one-byte
+    // buffer here.
+    byte[] buf = new byte[1];
+    int buflen = 0;
+    try {
+      buflen = stream.read(buf, 0, 1);
+    } catch (IOException e) {
+      if (e.getMessage().equals("Is a directory")) {
+        throw new IOException(path.toString() + " (Is a directory)", e);
+      }
+      throw e;
+    }
+    if (buflen == -1 /* EOF */) {
+      return stream;
+    }
+    return new SequenceInputStream(new ByteArrayInputStream(buf, 0, buflen), stream);
   }
 
   @Override

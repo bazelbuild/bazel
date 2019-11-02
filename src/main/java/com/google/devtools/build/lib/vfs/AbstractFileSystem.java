@@ -20,18 +20,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
-import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.SequenceInputStream;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.EnumSet;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
@@ -52,65 +49,42 @@ public abstract class AbstractFileSystem extends FileSystem {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
-    InputStream stream = null;
     for (; ; ) {
       try {
-        stream = createFileInputStream(path);
+        return createMaybeProfiledInputStream(path);
       } catch (FileNotFoundException e) {
         if (e.getMessage().endsWith("(Interrupted system call)")) {
           continue;
         } else {
           throw e;
         }
-      } catch (AccessDeniedException e) {
-        throw new IOException(e.getMessage() + " (Permission denied)", e);
       }
-      break;
     }
-
-    // On some platforms, whether a path can be read as a file won't be checked until
-    // the first read().
-    //
-    // http://mail.openjdk.java.net/pipermail/nio-dev/2014-December/002877.html
-    //
-    // The underlying stream might not be seekable, and wrapping in a BufferedInputStream
-    // causes test failures in the integration suite, so create our own little one-byte
-    // buffer here.
-    byte[] buf = new byte[1];
-    int buflen = 0;
-    try {
-      buflen = stream.read(buf, 0, 1);
-    } catch (IOException e) {
-      if (e.getMessage().equals("Is a directory")) {
-        throw new IOException(path.toString() + " (Is a directory)", e);
-      }
-      throw e;
-    }
-    return new SequenceInputStream(new ByteArrayInputStream(buf, 0, buflen), stream);
   }
 
-  /** Allows the mapping of Path to NIO Path to be overridden in subclasses. */
-  protected java.nio.file.Path createJavaNioPath(Path path) throws FileNotFoundException {
-    return Paths.get(path.getPathString());
+  /** Allows the mapping of Path to InputStream to be overridden in subclasses. */
+  protected InputStream createFileInputStream(Path path)
+      throws FileNotFoundException, IOException {
+    return new FileInputStream(path.toString());
   }
 
-  /** Returns either normal or profiled InputStream for a file. */
-  private InputStream createFileInputStream(Path path) throws FileNotFoundException, IOException {
-    final java.nio.file.Path nioPath = createJavaNioPath(path);
+  /** Returns either normal or profiled FileInputStream. */
+  private InputStream createMaybeProfiledInputStream(Path path)
+      throws FileNotFoundException, IOException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        // Replace default InputStream instance with the custom one that does profiling.
-        return new ProfiledInputStream(Files.newInputStream(nioPath), name);
+        // Replace default FileInputStream instance with the custom one that does profiling.
+        return new ProfiledInputStream(createFileInputStream(path), name);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      // Use normal InputStream instance if profiler is not enabled.
-      return Files.newInputStream(nioPath, java.nio.file.StandardOpenOption.READ);
+      // Use normal FileInputStream instance if profiler is not enabled.
+      return createFileInputStream(path);
     }
   }
 
