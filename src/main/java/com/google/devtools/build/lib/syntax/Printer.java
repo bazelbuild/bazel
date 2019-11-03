@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -126,7 +125,7 @@ public class Printer {
    * @param arguments positional arguments.
    * @return the formatted string.
    */
-  public static Formattable formattable(final String pattern, Object... arguments) {
+  static Formattable formattable(final String pattern, Object... arguments) {
     final List<Object> args = Arrays.asList(arguments);
     return new Formattable() {
       @Override
@@ -147,7 +146,7 @@ public class Printer {
    *
    * @return buffer
    */
-  public static Appendable append(Appendable buffer, char c) {
+  private static Appendable append(Appendable buffer, char c) {
     try {
       return buffer.append(c);
     } catch (IOException e) {
@@ -156,12 +155,12 @@ public class Printer {
   }
 
   /**
-   * Append a char sequence to a buffer. In case of {@link IOException} throw an
-   * {@link AssertionError} instead
+   * Append a char sequence to a buffer. In case of {@link IOException} throw an {@link
+   * AssertionError} instead
    *
    * @return buffer
    */
-  public static Appendable append(Appendable buffer, CharSequence s) {
+  private static Appendable append(Appendable buffer, CharSequence s) {
     try {
       return buffer.append(s);
     } catch (IOException e) {
@@ -273,8 +272,8 @@ public class Printer {
         // values such as Locations or ASTs.
         this.append("null");
 
-      } else if (o instanceof SkylarkPrintable) {
-        ((SkylarkPrintable) o).repr(this);
+      } else if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).repr(this);
 
       } else if (o instanceof String) {
         writeString((String) o);
@@ -310,6 +309,15 @@ public class Printer {
         this.append(o.toString());
 
       } else {
+        // Assertion to catch latent uses of Path/PathFragment in format operations.
+        // But what is the harm of using Java toString for all non-Starlark values?
+        // We implicitly trust the native rules in so many other ways.
+        // TODO(adonovan): replace this entire case with this.append(o).
+        String classname = o.getClass().getName();
+        if (classname.endsWith("vfs.PathFragment") || classname.endsWith("Path")) {
+          throw new IllegalStateException("invalid argument: " + o + " (" + classname + ")");
+        }
+
         // Other types of objects shouldn't be leaked to Skylark, but if happens, their
         // .toString method shouldn't be used because their return values are likely to contain
         // memory addresses or other nondeterministic information.

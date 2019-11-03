@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -273,11 +272,8 @@ public class MethodLibrary {
       useStarlarkThread = true)
   public MutableList<?> reversed(Object sequence, Location loc, StarlarkThread thread)
       throws EvalException {
-    // We only allow lists and strings.
     if (sequence instanceof SkylarkDict) {
       throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
-    } else if (sequence instanceof NestedSet || sequence instanceof SkylarkNestedSet) {
-      throw new EvalException(loc, "Argument to reversed() must be a sequence, not a depset.");
     }
     ArrayDeque<Object> tmpList = new ArrayDeque<>();
     for (Object element : EvalUtils.toIterable(sequence, loc, thread)) {

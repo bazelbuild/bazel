@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
-import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -69,7 +69,7 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "dynamic_local_strategy",
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
@@ -82,7 +82,7 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "dynamic_remote_strategy",
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "",

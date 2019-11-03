@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -266,6 +267,11 @@ public class SpawnIncludeScanner {
 
     @Override
     public MiddlemanType getActionType() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
       throw new UnsupportedOperationException();
     }
   }

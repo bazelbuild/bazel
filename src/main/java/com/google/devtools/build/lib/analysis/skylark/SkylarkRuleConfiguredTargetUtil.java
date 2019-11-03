@@ -143,7 +143,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
           && !(target instanceof Iterable)) {
         ruleContext.ruleError(
             String.format(
-                "Rule should return a struct or a list, but got %s", SkylarkType.typeOf(target)));
+                "Rule should return a struct or a list, but got %s",
+                EvalUtils.getDataTypeName(target)));
         return null;
       } else if (!expectFailure.isEmpty()) {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);

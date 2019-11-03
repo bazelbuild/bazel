@@ -197,7 +197,8 @@ public abstract class SkylarkType {
   /** The INT_LIST type, a MutableList of integers */
   @AutoCodec public static final SkylarkType INT_LIST = Combination.of(LIST, INT);
 
-  /** The SET type, that contains all SkylarkNestedSet-s, and the generic combinator for them */
+  /** The SET type, that contains all SkylarkNestedSets, and the generic combinator for them */
+  // TODO(adonovan): eliminate? It appears to be only an optimization.
   @AutoCodec public static final Simple SET = Simple.forClass(SkylarkNestedSet.class);
 
   private static class StringPairType extends SkylarkType {
@@ -559,7 +560,10 @@ public abstract class SkylarkType {
     }
   }
 
-  public static SkylarkType of(Object object) {
+  // TODO(adonovan): eliminate this function: a value may belong to many types.
+  // This function is used to infer the type to use for a SkylarkNestedSet from its first
+  // element, but this may be unsound in general (e.g. in the presence of sum types).
+  static SkylarkType of(Object object) {
     SkylarkType type = of(object.getClass());
     if (type.canBeCastTo(Tuple.class)) {
       if (STRING_PAIR.contains(object)) {
@@ -570,7 +574,7 @@ public abstract class SkylarkType {
   }
 
   public static SkylarkType of(Class<?> type) {
-    if (SkylarkNestedSet.class.isAssignableFrom(type)) {
+    if (SkylarkNestedSet.class.isAssignableFrom(type)) { // just an optimization
       return SET;
     } else if (BaseFunction.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
@@ -578,6 +582,9 @@ public abstract class SkylarkType {
       return Simple.forClass(type);
     }
   }
+
+  // TODO(adonovan): these functions abuse overloading and look like sum type constructors.
+  // Give them better names such as genericOf(generic, argument)? Or rethink the API.
 
   public static SkylarkType of(SkylarkType t1, SkylarkType t2) {
     return Combination.of(t1, t2);
@@ -637,47 +644,11 @@ public abstract class SkylarkType {
 
   // Utility functions regarding types
 
-  public static SkylarkType typeOf(Object value) {
-    if (value == null) {
-      return BOTTOM;
-    } else if (value instanceof SkylarkNestedSet) {
-      return of(SET, ((SkylarkNestedSet) value).getContentType());
-    } else {
-      return Simple.forClass(value.getClass());
-    }
-  }
-
   public static SkylarkType getGenericArgType(Object value) {
     if (value instanceof SkylarkNestedSet) {
       return ((SkylarkNestedSet) value).getContentType();
     } else {
       return TOP;
-    }
-  }
-
-  private static boolean isTypeAllowedInSkylark(Object object) {
-    if (object instanceof NestedSet<?>) {
-      return false;
-    } else if (object instanceof List<?> && !(object instanceof SkylarkList)) {
-      return false;
-    }
-    return true;
-  }
-
-  /**
-   * Throws EvalException if the type of the object is not allowed to be present in Skylark.
-   */
-  static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
-    // TODO(bazel-team): Unify this check with the logic in EvalUtils.getSkylarkType(). Might
-    // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
-    // SkylarkList, etc.
-    if (!isTypeAllowedInSkylark(object)) {
-      throw new EvalException(
-          loc,
-          "internal error: type '"
-              + object.getClass().getSimpleName()
-              + "' is not allowed as a "
-              + "Starlark value (checkTypeAllowedInSkylark() failed)");
     }
   }
 

@@ -23,6 +23,9 @@ import javax.annotation.Nullable;
  * <p>Allows passing Printer.BasePrinter instances to classes that can't import Printer directly
  * because of circular dependencies.
  */
+// TODO(adonovan): eliminate, replacing all references by syntax.BasePrinter,
+// which should be renamed Printer. The printList methods can be expressed as static helpers,
+// but they are so trivial they should just be inlined.
 public interface SkylarkPrinter {
   /** Append a char to the printer's buffer */
   SkylarkPrinter append(char c);
