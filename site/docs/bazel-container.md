@@ -64,10 +64,17 @@ docker run \
 ## Build Abseil project from inside the container
 
 The instructions in this section allow you to build using the Bazel container
-with the sources checked out inside the container. A container is started up at
-the beginning of your dev workflow, and all changes to sources must be done
-inside the container. Build results are cached only inside the container and
-will be lost once container is stopped.
+with the sources inside the container. By starting a container at the beginning
+of your developement workflow and doing changes in the worskpace within the
+container, build results will be cached.
+
+Start a shell in the Bazel container:
+
+```bash
+docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:0.17.1
+```
+
+Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
 
 Clone the project.
 
@@ -81,7 +88,7 @@ Do a regular build.
 root@5a99103747c6:~/abseil-cpp# bazel build //absl/...
 ```
 
-Build the project with sanitizers by adding the --config=<asan/tsan/msan> build
+Build the project with sanitizers by adding the `--config=<asan/tsan/msan>` build
 flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -91,7 +98,7 @@ root@5a99103747c6:~/abseil-cpp# bazel build --config=<asan/tsan/msan> -- //absl/
 
 ## Explore the Bazel container
 
-Start an interactive shell inside the Bazel container.
+If you haven't already, start an interactive shell inside the Bazel container.
 
 ```bash
 docker run -it --entrypoint=/bin/bash l.gcr.io/google/bazel:0.17.1
