@@ -643,13 +643,11 @@ function assert_bzl_file_forbidden() {
 load("@bazel_tools${bzl_label}", "${bzl_symbol}")
 EOF
 
-  bazel build --strategy=local //... || \
-    fail "expected the build without the incompatible flag to pass"
-  bazel build --strategy=local //... --incompatible_use_cc_configure_from_rules_cc && \
-    fail "expected the build with the incompatible flag to fail"
-  expect_log "Incompatible flag --incompatible_use_cc_configure_from_rules_cc "\
-    "has been flipped. Please use cc_configure and related logic from "\
-    "https://github.com/bazelbuild/rules_cc."
+  bazel build //... || \
+    fail "expected the build without the incompatible flag to pass for ${bzl_label}"
+  bazel build //... --incompatible_use_cc_configure_from_rules_cc &>"$TEST_log" && \
+    fail "expected the build with the incompatible flag to fail for ${bzl_label}"
+  expect_log "--incompatible_use_cc_configure_from_rules_cc has been flipped."
   cd ..
 }
 
@@ -657,7 +655,24 @@ function test_incompatible_use_cc_configure_from_rules_cc() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"
   cd "${workspace}"
+  assert_bzl_file_forbidden "//tools/cpp:armeabi_cc_toolchain_config.bzl" "armeabi_cc_toolchain_config"
+  assert_bzl_file_forbidden "//tools/cpp:cc_configure.bzl" "cc_configure"
+  assert_bzl_file_forbidden "//tools/cpp:cc_flags_supplier.bzl" "cc_flags_supplier"
+  assert_bzl_file_forbidden "//tools/cpp:cc_flags_supplier_lib.bzl" "build_cc_flags"
+  assert_bzl_file_forbidden "//tools/cpp:cc_toolchain_config.bzl" "cc_toolchain_config"
   assert_bzl_file_forbidden "//tools/cpp:cc_toolchain_config_lib.bzl" "feature"
+  assert_bzl_file_forbidden "//tools/cpp:compiler_flag.bzl" "compiler_flag"
+  assert_bzl_file_forbidden "//tools/cpp:empty_cc_toolchain_config.bzl" "cc_toolchain_config"
+  assert_bzl_file_forbidden "//tools/cpp:freebsd_cc_toolchain_config.bzl" "cc_toolchain_config"
+  assert_bzl_file_forbidden "//tools/cpp:lib_cc_configure.bzl" "resolve_labels"
+  assert_bzl_file_forbidden "//tools/cpp:toolchain_utils.bzl" "find_cpp_toolchain"
+  assert_bzl_file_forbidden "//tools/cpp:unix_cc_configure.bzl" "configure_unix_toolchain"
+  assert_bzl_file_forbidden "//tools/cpp:unix_cc_toolchain_config.bzl" "cc_toolchain_config"
+  assert_bzl_file_forbidden "//tools/cpp:windows_cc_configure.bzl" "configure_windows_toolchain"
+  assert_bzl_file_forbidden "//tools/cpp:windows_cc_toolchain_config.bzl" "cc_toolchain_config"
+
+  assert_bzl_file_forbidden "//tools/build_defs/cc:action_names.bzl" "C_COMPILE_ACTION_NAME"
+
 }
 
 run_suite "cc_integration_test"

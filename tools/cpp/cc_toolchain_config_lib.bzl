@@ -14,6 +14,9 @@
 
 """ A library of functions creating structs for CcToolchainConfigInfo."""
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _check_is_none_or_right_type(obj, obj_of_right_type, parameter_name, method_name):
     if obj != None:
         _check_right_type(obj, obj_of_right_type, parameter_name, method_name)

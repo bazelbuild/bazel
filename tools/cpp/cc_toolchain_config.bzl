@@ -41,6 +41,9 @@ load(
     _PREPROCESS_ASSEMBLE_ACTION_NAME = "PREPROCESS_ASSEMBLE_ACTION_NAME",
 )
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 all_compile_actions = [
     _C_COMPILE_ACTION_NAME,
     _CPP_COMPILE_ACTION_NAME,

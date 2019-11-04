@@ -16,6 +16,9 @@
 
 load("//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
+# TODO(#10134): Remove when the flag is flipped
+__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
 def _compiler_flag_impl(ctx):
     toolchain = find_cpp_toolchain(ctx)
     return [config_common.FeatureFlagInfo(value = toolchain.compiler)]
