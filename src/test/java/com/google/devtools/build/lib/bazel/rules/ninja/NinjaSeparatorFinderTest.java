@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class NinjaSeparatorFinderTest {
   @Test
-  public void testIsSeparator() {
+  public void testIsSeparator() throws Exception {
     doTestIsSeparator(" \na", 1);
     doTestIsSeparator("b\na", 1);
     doTestIsSeparator(" \na", 1);
@@ -66,16 +66,11 @@ public class NinjaSeparatorFinderTest {
         () -> NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0));
   }
 
-  private static void doTestIsSeparator(String s, int expected) {
+  private static void doTestIsSeparator(String s, int expected) throws IncorrectSeparatorException {
     byte[] bytes = s.getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     ByteBufferFragment fragment = new ByteBufferFragment(buffer, 0, buffer.limit());
-    int result = 0;
-    try {
-      result = NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0);
-    } catch (com.google.devtools.build.lib.bazel.rules.ninja.file.IncorrectSeparatorException e) {
-      e.printStackTrace();
-    }
+    int result = NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0);
     assertThat(result).isEqualTo(expected);
   }
 }

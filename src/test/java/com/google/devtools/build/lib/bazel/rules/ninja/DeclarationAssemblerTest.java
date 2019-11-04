@@ -36,17 +36,17 @@ import org.junit.runners.JUnit4;
 public class DeclarationAssemblerTest {
   @Test
   public void testAssembleLines() throws GenericParsingException {
-    // // Glue two parts of the same token together
-    // doSameBufferTest("0123456789", 1, 3, 3, 5, "1234");
-    // // The '\n' symbol happened to be the last in the buffer, we should correctly
-    // // not merge two parts, but create two separate tokens
-    // doSameBufferTest("01\n3456789", 1, 3, 3, 5, "1\n", "34");
-    // // The "\n " sequence does not separate a new token, because of the starting space
-    // doSameBufferTest("01\n 3456789", 1, 4, 4, 6, "1\n 34");
-    //
-    // doTwoBuffersTest("abc", "def", "abcdef");
-    // doTwoBuffersTest("abc\n", "def", "abc\n", "def");
-    // doTwoBuffersTest("abc\n", " def", "abc\n def");
+    // Glue two parts of the same token together
+    doSameBufferTest("0123456789", 1, 3, 3, 5, "1234");
+    // The '\n' symbol happened to be the last in the buffer, we should correctly
+    // not merge two parts, but create two separate tokens
+    doSameBufferTest("01\n3456789", 1, 3, 3, 5, "1\n", "34");
+    // The "\n " sequence does not separate a new token, because of the starting space
+    doSameBufferTest("01\n 3456789", 1, 4, 4, 6, "1\n 34");
+
+    doTwoBuffersTest("abc", "def", "abcdef");
+    doTwoBuffersTest("abc\n", "def", "abc\n", "def");
+    doTwoBuffersTest("abc\n", " def", "abc\n def");
     doTwoBuffersTest("abc", "\ndef", "abc\n", "def");
 
     doTwoBuffersTest("abc$\n", "def", "abc$\ndef");
