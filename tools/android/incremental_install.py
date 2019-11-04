@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # pylint: disable=g-bad-file-header
 # Copyright 2015 The Bazel Authors. All rights reserved.
@@ -17,12 +16,7 @@
 
 """Installs an Android application, possibly in an incremental way."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
-from concurrent import futures
 import hashlib
 import logging
 import os
@@ -35,40 +29,38 @@ import tempfile
 import time
 import zipfile
 
-from absl import app
-from absl import flags
-import six
+from third_party.py import gflags
+from third_party.py.concurrent import futures
 
-flags.DEFINE_string("split_main_apk", None, "The main APK for split install")
-flags.DEFINE_multi_string("split_apk", [], "Split APKs to install")
-flags.DEFINE_string("dexmanifest", None, "The .dex manifest")
-flags.DEFINE_multi_string("native_lib", None, "Native libraries to install")
-flags.DEFINE_string("resource_apk", None, "The resource .apk")
-flags.DEFINE_string(
-    "apk", None, "The app .apk. If not specified, "
-    "do incremental deployment")
-flags.DEFINE_string("adb", None, "ADB to use")
-flags.DEFINE_string("stub_datafile", None, "The stub data file")
-flags.DEFINE_string("output_marker", None, "The output marker file")
-flags.DEFINE_multi_string("extra_adb_arg", [], "Extra arguments to adb")
-flags.DEFINE_string("execroot", ".", "The exec root")
-flags.DEFINE_integer(
-    "adb_jobs",
-    2, "The number of instances of adb to use in parallel to "
-    "update files on the device",
-    lower_bound=1)
-flags.DEFINE_enum(
-    "start", "no", ["no", "cold", "warm", "debug"],
-    "Whether/how to start the app after installing it. 'cold' "
-    "and 'warm' will both cause the app to be started, 'warm' "
-    "will start it with previously saved application state, "
-    "'debug' will wait for the debugger before a clean start.")
-flags.DEFINE_boolean("start_app", False, "Deprecated, use 'start'.")
-flags.DEFINE_string("user_home_dir", None, "Path to the user's home directory")
-flags.DEFINE_string("flagfile", None,
-                    "Path to a file to read additional flags from")
 
-FLAGS = flags.FLAGS
+gflags.DEFINE_string("split_main_apk", None, "The main APK for split install")
+gflags.DEFINE_multistring("split_apk", [], "Split APKs to install")
+gflags.DEFINE_string("dexmanifest", None, "The .dex manifest")
+gflags.DEFINE_multistring("native_lib", None, "Native libraries to install")
+gflags.DEFINE_string("resource_apk", None, "The resource .apk")
+gflags.DEFINE_string("apk", None, "The app .apk. If not specified, "
+                     "do incremental deployment")
+gflags.DEFINE_string("adb", None, "ADB to use")
+gflags.DEFINE_string("stub_datafile", None, "The stub data file")
+gflags.DEFINE_string("output_marker", None, "The output marker file")
+gflags.DEFINE_multistring("extra_adb_arg", [], "Extra arguments to adb")
+gflags.DEFINE_string("execroot", ".", "The exec root")
+gflags.DEFINE_integer("adb_jobs", 2,
+                      "The number of instances of adb to use in parallel to "
+                      "update files on the device",
+                      lower_bound=1)
+gflags.DEFINE_enum("start", "no", ["no", "cold", "warm", "debug"],
+                   "Whether/how to start the app after installing it. 'cold' "
+                   "and 'warm' will both cause the app to be started, 'warm' "
+                   "will start it with previously saved application state, "
+                   "'debug' will wait for the debugger before a clean start.")
+gflags.DEFINE_boolean("start_app", False, "Deprecated, use 'start'.")
+gflags.DEFINE_string("user_home_dir", None, "Path to the user's home directory")
+gflags.DEFINE_string("flagfile", None,
+                     "Path to a file to read additional flags from")
+gflags.DEFINE_string("verbosity", None, "Logging verbosity")
+
+FLAGS = gflags.FLAGS
 
 DEVICE_DIRECTORY = "/data/local/tmp/incrementaldeployment"
 
@@ -181,8 +173,8 @@ class Adb(object):
 
     # Check these first so that the more specific error gets raised instead of
     # the more generic AdbError.
-    stdout = six.ensure_str(stdout)
-    stderr = six.ensure_str(stderr)
+    stdout = stdout.decode()
+    stderr = stderr.decode()
     if "device not found" in stderr:
       raise DeviceNotFoundError()
     elif "device unauthorized" in stderr:
@@ -212,8 +204,7 @@ class Adb(object):
   def GetInstallTime(self, package):
     """Get the installation time of a package."""
     _, stdout, _, _ = self._Shell("dumpsys package %s" % package)
-    match = re.search("firstInstallTime=(.*)$", six.ensure_str(stdout),
-                      re.MULTILINE)
+    match = re.search("firstInstallTime=(.*)$", stdout, re.MULTILINE)
     if match:
       return match.group(1)
     else:
@@ -248,7 +239,7 @@ class Adb(object):
     try:
       self._Exec(["pull", remote, local])
       with open(local, "rb") as f:
-        return six.ensure_str(f.read(), "utf-8")
+        return f.read().decode("utf-8")
     except (AdbError, IOError):
       return None
 
@@ -350,7 +341,7 @@ def ParseManifest(contents):
 def GetAppPackage(stub_datafile):
   """Returns the app package specified in a stub data file."""
   with open(stub_datafile, "rb") as f:
-    return six.ensure_str(f.readlines()[1], "utf-8").strip()
+    return f.readlines()[1].decode("utf-8").strip()
 
 
 def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
@@ -516,7 +507,7 @@ def ConvertNativeLibs(args):
   native_libs = {}
   if args is not None:
     for native_lib in args:
-      abi, path = six.ensure_str(native_lib).split(":")
+      abi, path = native_lib.split(":")
       if abi not in native_libs:
         native_libs[abi] = set()
 
@@ -548,7 +539,7 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   native_libs = ConvertNativeLibs(native_lib_args)
   libs = set()
   if native_libs:
-    abi = FindAbi(adb.GetAbi(), list(native_libs.keys()))
+    abi = FindAbi(adb.GetAbi(), native_libs.keys())
     if abi:
       libs = native_libs[abi]
 
@@ -622,9 +613,7 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
     f.result()
 
   install_manifest = [
-      six.ensure_str(name) + " " + checksum
-      for name, checksum in install_checksums.items()
-  ]
+      name + " " + checksum for name, checksum in install_checksums.items()]
   adb.PushString("\n".join(install_manifest),
                  targetpath.join(app_dir, "native",
                                  "native_manifest")).result()
@@ -712,9 +701,7 @@ def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
     adb.InstallMultiple(targetpath.join(execroot, apk), app_package)
 
   install_manifest = [
-      six.ensure_str(name) + " " + checksum
-      for name, checksum in install_checksums.items()
-  ]
+      name + " " + checksum for name, checksum in install_checksums.items()]
   adb.PushString("\n".join(install_manifest),
                  targetpath.join(app_dir, "split_manifest")).result()
 
@@ -765,7 +752,7 @@ def IncrementalInstall(adb_path,
         VerifyInstallTimestamp(adb, app_package)
 
       with open(hostpath.join(execroot, dexmanifest), "rb") as f:
-        dexmanifest = six.ensure_str(f.read(), "utf-8")
+        dexmanifest = f.read().decode("utf-8")
       UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, bool(apk))
       # TODO(ahumesky): UploadDexes waits for all the dexes to be uploaded, and
       # then UploadResources is called. We could instead enqueue everything
@@ -811,8 +798,8 @@ def IncrementalInstall(adb_path,
     shutil.rmtree(temp_dir, True)
 
 
-def main(unused_argv):
-  if FLAGS.verbosity == "1":  # 'verbosity' flag is defined in absl.logging
+def main():
+  if FLAGS.verbosity == "1":
     level = logging.DEBUG
     fmt = "%(levelname)-5s %(asctime)s %(module)s:%(lineno)3d] %(message)s"
   else:
@@ -849,4 +836,4 @@ if __name__ == "__main__":
       FLAGS.Reset()
       FLAGS(sys.argv + [line.strip() for line in flagsfile.readlines()])
 
-  app.run(main)
+  main()

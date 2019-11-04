@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -23,27 +22,20 @@ empty.xml file that defines no resources.
 In the future, this script may be extended to also extract assets.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import sys
 import zipfile
 
-from absl import app
-from absl import flags
-import six
-
 from tools.android import junction
+from third_party.py import gflags
 
-FLAGS = flags.FLAGS
+FLAGS = gflags.FLAGS
 
-flags.DEFINE_string("input_aar", None, "Input AAR")
-flags.mark_flag_as_required("input_aar")
-flags.DEFINE_string("output_res_dir", None, "Output resources directory")
-flags.mark_flag_as_required("output_res_dir")
-flags.DEFINE_string("output_assets_dir", None, "Output assets directory")
+gflags.DEFINE_string("input_aar", None, "Input AAR")
+gflags.MarkFlagAsRequired("input_aar")
+gflags.DEFINE_string("output_res_dir", None, "Output resources directory")
+gflags.MarkFlagAsRequired("output_res_dir")
+gflags.DEFINE_string("output_assets_dir", None, "Output assets directory")
 
 
 def ExtractResources(aar, output_res_dir):
@@ -55,8 +47,7 @@ def ExtractResources(aar, output_res_dir):
       ExtractOneFile(aar, name, output_res_dir_abs)
       aar_contains_no_resources = False
   if aar_contains_no_resources:
-    empty_xml_filename = six.ensure_str(
-        output_res_dir) + "/res/values/empty.xml"
+    empty_xml_filename = output_res_dir + "/res/values/empty.xml"
     WriteFileWithJunctions(empty_xml_filename, b"<resources/>")
 
 
@@ -72,9 +63,8 @@ def ExtractAssets(aar, output_assets_dir):
     # aapt will ignore this file and not print an error message, because it
     # thinks that it is a swap file. We need to create at least one file so that
     # Bazel does not complain that the output tree artifact was not created.
-    empty_asset_filename = (
-        six.ensure_str(output_assets_dir) +
-        "/assets/empty_asset_generated_by_bazel~")
+    empty_asset_filename = (output_assets_dir +
+                            "/assets/empty_asset_generated_by_bazel~")
     WriteFileWithJunctions(empty_asset_filename, b"")
 
 
@@ -126,7 +116,7 @@ def ExtractOneFile(aar, name, abs_output_dir):
     aar.extract(name, abs_output_dir)
 
 
-def main(unused_argv):
+def main():
   with zipfile.ZipFile(FLAGS.input_aar, "r") as aar:
     ExtractResources(aar, FLAGS.output_res_dir)
     if FLAGS.output_assets_dir is not None:
@@ -134,4 +124,4 @@ def main(unused_argv):
 
 if __name__ == "__main__":
   FLAGS(sys.argv)
-  app.run(main)
+  main()

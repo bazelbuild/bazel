@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -21,18 +20,17 @@ the correct target package name.
 
 import os
 import sys
+
 import xml.etree.ElementTree as ET
+from third_party.py import gflags
 
-from absl import app
-from absl import flags
+gflags.DEFINE_string("instrumentation_manifest", None,
+                     "AndroidManifest.xml of the instrumentation APK")
+gflags.DEFINE_string("target_manifest", None,
+                     "AndroidManifest.xml of the target APK")
+gflags.DEFINE_string("output", None, "Output of the check")
 
-flags.DEFINE_string("instrumentation_manifest", None,
-                    "AndroidManifest.xml of the instrumentation APK")
-flags.DEFINE_string("target_manifest", None,
-                    "AndroidManifest.xml of the target APK")
-flags.DEFINE_string("output", None, "Output of the check")
-
-FLAGS = flags.FLAGS
+FLAGS = gflags.FLAGS
 
 
 class ManifestError(Exception):
@@ -102,7 +100,7 @@ def _ValidateManifestPackageNames(instr_manifest_content, instr_manifest_path,
   return target_package_to_instrument, target_package_name
 
 
-def main(unused_argv):
+def main():
   FLAGS(sys.argv)
 
   instr_manifest_path = FLAGS.instrumentation_manifest
@@ -123,7 +121,7 @@ def main(unused_argv):
         instr_manifest, instr_manifest_path, target_manifest,
         target_manifest_path)
   except ManifestError as e:
-    sys.exit(str(e))
+    sys.exit(e.message)
 
   with open(output_path, "w") as f:
     f.write("target_package={0}\n".format(package_to_instrument))
@@ -131,4 +129,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  app.run(main)
+  main()

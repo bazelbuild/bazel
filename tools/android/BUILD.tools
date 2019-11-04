@@ -216,15 +216,13 @@ alias(
 py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
-    deps = ["//third_party/py/abseil"],
+    deps = ["//third_party/py/gflags"],
 )
 
 py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [],
 )
@@ -232,31 +230,28 @@ py_binary(
 py_binary(
     name = "build_split_manifest",
     srcs = ["build_split_manifest.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "incremental_install",
     srcs = ["incremental_install.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
         "//third_party/py/concurrent:futures",
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
@@ -265,58 +260,51 @@ py_binary(
     srcs = [
         "aar_native_libs_zip_creator.py",
     ],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
         ":junction_lib",
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
         ":junction_lib",
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "aar_resources_extractor",
     srcs = ["aar_resources_extractor.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
     deps = [
         ":junction_lib",
-        "//third_party/py/abseil",
+        "//third_party/py/gflags",
     ],
 )
 
 py_binary(
     name = "resource_extractor",
     srcs = ["resource_extractor.py"],
-    # TODO(bazel-team): remove python_version = "PY2" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     python_version = "PY2",
 )
 
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
-    # TODO(bazel-team): remove srcs_version = "PY2AND3" while fixing https://github.com/bazelbuild/bazel/issues/10127.
-    srcs_version = "PY2AND3",
     visibility = ["//visibility:private"],
 )
 

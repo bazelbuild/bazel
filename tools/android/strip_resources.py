@@ -21,19 +21,20 @@ Thus, in order to build the AndroidManifest.xml for an incremental .apk, we
 invoke aapt, then extract AndroidManifest.xml from its output.
 """
 
+import sys
 import zipfile
 
-from absl import app
-from absl import flags
+from third_party.py import gflags
 
-flags.DEFINE_string("input_resource_apk", None, "The input resource .apk")
-flags.DEFINE_string("output_resource_apk", None, "The output resource .apk")
 
-FLAGS = flags.FLAGS
+gflags.DEFINE_string("input_resource_apk", None, "The input resource .apk")
+gflags.DEFINE_string("output_resource_apk", None, "The output resource .apk")
+
+FLAGS = gflags.FLAGS
 HERMETIC_TIMESTAMP = (2001, 1, 1, 0, 0, 0)
 
 
-def main(unused_argv):
+def main():
   with zipfile.ZipFile(FLAGS.input_resource_apk) as input_zip:
     with input_zip.open("AndroidManifest.xml") as android_manifest_entry:
       android_manifest = android_manifest_entry.read()
@@ -47,4 +48,5 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  app.run(main)
+  FLAGS(sys.argv)
+  main()

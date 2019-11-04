@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +13,9 @@
 # limitations under the License.
 """Tests for TempJunction."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import unittest
 
-import six
 from src.test.py.bazel import test_base
 from tools.android import junction
 
@@ -49,8 +43,7 @@ class JunctionTest(test_base.TestBase):
       # Ensure that `j` created the junction.
       self.assertTrue(os.path.exists(target))
       self.assertTrue(os.path.exists(juncpath))
-      self.assertTrue(
-          six.ensure_str(juncpath).endswith(os.path.join("junc temp", "j")))
+      self.assertTrue(juncpath.endswith(os.path.join("junc temp", "j")))
       self.assertTrue(os.path.isabs(juncpath))
       # Create a file under the junction.
       filepath = os.path.join(juncpath, "some file.txt")
@@ -80,7 +73,7 @@ class JunctionTest(test_base.TestBase):
     target = self.ScratchDir("junc target")
     # Make the `target` path a non-normalized Windows path with a space in it.
     # TempJunction should still work.
-    target = six.ensure_str(os.path.dirname(target)) + "/junc target"
+    target = os.path.dirname(target) + "/junc target"
     with junction.TempJunction(target, testonly_mkdtemp=tempdir) as j:
       self.assertTrue(os.path.exists(j))
       try:

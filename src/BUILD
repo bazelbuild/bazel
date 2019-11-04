@@ -127,10 +127,7 @@ JAVA_TOOLS = [
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
-               "//third_party/py/abseil:srcs",
                "//third_party/py/concurrent:srcs",
-               # TODO(laszlocsomor): delete "//third_party/py/gflags:srcs" after
-               # every script in @bazel_tools was migrated to use Abseil.
                "//third_party/py/gflags:srcs",
                "//third_party/py/six:srcs",
                "//src/conditions:embedded_tools",
