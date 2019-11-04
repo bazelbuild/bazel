@@ -20,6 +20,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -98,6 +99,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -327,6 +329,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     QueryEvalResult queryResult;
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
+    boolean graphlessQuery = queryOptions.useGraphlessQuery == TriState.YES;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -363,7 +366,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ queryOptions.useGraphlessQuery == TriState.YES);
+              /*useGraphlessQuery=*/ graphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
@@ -384,8 +387,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     GenQueryOutputStream outputStream =
         new GenQueryOutputStream(genQueryConfig.inMemoryCompressionEnabled());
     try {
-      QueryOutputUtils
-          .output(queryOptions, queryResult, targets.getResult(), formatter, outputStream,
+      Set<Target> result = targets.getResult();
+      if (graphlessQuery) {
+        Comparator<Target> comparator =
+            (Target t1, Target t2) -> t1.getName().compareTo(t2.getName());
+        result = ImmutableSortedSet.copyOf(comparator, targets.getResult());
+      }
+      QueryOutputUtils.output(
+          queryOptions,
+          queryResult,
+          result,
+          formatter,
+          outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
       outputStream.close();
     } catch (ClosedByInterruptException e) {
