@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -20,17 +21,19 @@ the correct target package name.
 
 import os
 import sys
-
 import xml.etree.ElementTree as ET
-from third_party.py import gflags
 
-gflags.DEFINE_string("instrumentation_manifest", None,
-                     "AndroidManifest.xml of the instrumentation APK")
-gflags.DEFINE_string("target_manifest", None,
-                     "AndroidManifest.xml of the target APK")
-gflags.DEFINE_string("output", None, "Output of the check")
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
 
-FLAGS = gflags.FLAGS
+flags.DEFINE_string("instrumentation_manifest", None,
+                    "AndroidManifest.xml of the instrumentation APK")
+flags.DEFINE_string("target_manifest", None,
+                    "AndroidManifest.xml of the target APK")
+flags.DEFINE_string("output", None, "Output of the check")
+
+FLAGS = flags.FLAGS
 
 
 class ManifestError(Exception):
@@ -100,7 +103,7 @@ def _ValidateManifestPackageNames(instr_manifest_content, instr_manifest_path,
   return target_package_to_instrument, target_package_name
 
 
-def main():
+def main(unused_argv):
   FLAGS(sys.argv)
 
   instr_manifest_path = FLAGS.instrumentation_manifest
@@ -121,7 +124,7 @@ def main():
         instr_manifest, instr_manifest_path, target_manifest,
         target_manifest_path)
   except ManifestError as e:
-    sys.exit(e.message)
+    sys.exit(str(e))
 
   with open(output_path, "w") as f:
     f.write("target_package={0}\n".format(package_to_instrument))
@@ -129,4 +132,4 @@ def main():
 
 
 if __name__ == "__main__":
-  main()
+  app.run(main)
