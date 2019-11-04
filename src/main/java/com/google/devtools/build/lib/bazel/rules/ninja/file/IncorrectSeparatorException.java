@@ -15,6 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+/**
+ * Thrown by {@link BufferSplitter} when incorrect file separators are used ('\r').
+ */
 public class IncorrectSeparatorException extends GenericParsingException {
   public IncorrectSeparatorException(String message) {
     super(message);
