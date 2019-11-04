@@ -395,7 +395,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Set<Target> result = targets.getResult();
       if (graphlessQuery) {
         Comparator<Target> comparator =
-            (Target t1, Target t2) -> t1.getName().compareTo(t2.getName());
+            (Target t1, Target t2) -> t1.getLabel().compareTo(t2.getLabel());
         result = ImmutableSortedSet.copyOf(comparator, targets.getResult());
       }
       QueryOutputUtils.output(
