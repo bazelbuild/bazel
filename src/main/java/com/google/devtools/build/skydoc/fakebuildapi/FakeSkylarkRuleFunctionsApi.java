@@ -139,7 +139,6 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,

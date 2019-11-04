@@ -198,7 +198,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
-        .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(rand.nextBoolean())
         .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleDisallowUnverifiedHttpDownloads(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())

@@ -394,6 +394,20 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean experimentalUi;
+
+    @Deprecated
+    @Option(
+        name = "incompatible_disallow_rule_execution_platform_constraints_allowed",
+        defaultValue = "True",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed;
   }
 
   @Override

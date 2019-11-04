@@ -272,23 +272,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
-            name = "execution_platform_constraints_allowed",
-            type = Boolean.class,
-            named = true,
-            positional = false,
-            defaultValue = "True",
-            disableWithFlag =
-                FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
-            valueWhenDisabled = "True",
-            doc =
-                "If true, a special attribute named <code>exec_compatible_with</code> of "
-                    + "label-list type is added, which must not already exist in "
-                    + "<code>attrs</code>. Targets may use this attribute to specify additional "
-                    + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
-                    + "This will be deprecated and removed in the near future, and all rules will "
-                    + "be able to use <code>exec_compatible_with</code>."),
-        @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
             generic1 = String.class,
@@ -362,7 +345,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
