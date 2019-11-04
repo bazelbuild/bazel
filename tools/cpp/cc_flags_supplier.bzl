@@ -17,9 +17,6 @@ load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "CC_FLAGS_MAKE_VARIAB
 load("@bazel_tools//tools/cpp:cc_flags_supplier_lib.bzl", "build_cc_flags")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
-# TODO(#10134): Remove when the flag is flipped
-__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
-
 def _cc_flags_supplier_impl(ctx):
     cc_toolchain = find_cpp_toolchain(ctx)
     cc_flags = build_cc_flags(ctx, cc_toolchain, CC_FLAGS_MAKE_VARIABLE_ACTION_NAME)
