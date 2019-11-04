@@ -134,19 +134,6 @@ skylark_breaks1(
 )
 
 genrule(
-  name = "breaks2",
-  srcs = [ "a.txt" ],
-  outs = [ "breaks2.txt" ],
-  # The point of this test is to attempt to read something from the filesystem
-  # that is blocked via --sandbox_block_path= and thus should't be accessible.
-  #
-  # /var/log is an arbitrary choice of directory that should exist on all Linux
-  # systems.
-  #
-  cmd = "ls /var/log &> $@",
-)
-
-genrule(
   name = "breaks3",
   srcs = [ "cyclic1", "cyclic2" ],
   outs = [ "breaks3.txt" ],
@@ -296,19 +283,50 @@ function test_sandbox_undeclared_deps_skylark_with_local_tag() {
 }
 
 function test_sandbox_block_filesystem() {
-  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
+  # The point of this test is to attempt to read something from the filesystem
+  # that is blocked via --sandbox_block_path= and thus should't be accessible.
+  #
+  # /var/log is an arbitrary choice of directory that should exist on all
+  # Unix-like systems.
+  local block_path
+  case "$(uname -s)" in
+    Darwin)
+      # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
+      # to block /var/log does not work. Unsure if we should make this work
+      # by resolving symlinks or documenting the expected behavior.
+      block_path=/private/var/log
+      ;;
+    *)
+      block_path=/var/log
+      ;;
+  esac
 
-  bazel build --sandbox_block_path=/var/log examples/genrule:breaks2 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(
+  name = "breaks",
+  srcs = [ "a.txt" ],
+  outs = [ "breaks.txt" ],
+  cmd = "ls ${block_path} &> \$@",
+)
+EOF
+  touch pkg/a.txt
+
+  local output_file="${BAZEL_GENFILES_DIR}/pkg/breaks.txt"
+
+  bazel build --sandbox_block_path="${block_path}" pkg:breaks \
+    &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks" || true
 
   [ -f "$output_file" ] ||
     fail "Action did not produce output: $output_file"
+  cat "${output_file}" >$TEST_log
 
-  if [ $(wc -l $output_file) -gt 1 ]; then
+  if [ "$(wc -l $output_file | awk '{print $1}')" -gt 1 ]; then
     fail "Output contained more than one line: $output_file"
   fi
 
-  fgrep "Permission denied" $output_file ||
+  grep -E "(Operation not permitted|Permission denied)" $output_file ||
     fail "Output did not contain expected error message: $output_file"
 }
 
@@ -396,6 +414,13 @@ EOF
 }
 
 function test_sandbox_network_access_with_block_network() {
+  if [[ "$(uname -s)" = Darwin ]]; then
+    # TODO(https://github.com/bazelbuild/bazel/issues/10068): Network blocking
+    # currently broken on macOS.
+    echo "Skipping test: functionality known to be broken on macOS"
+    return 0
+  fi
+
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
 
@@ -446,6 +471,11 @@ EOF
 }
 
 function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: fake hostnames not supported in this system" 1>&2
+    return 0
+  fi
+
   setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
@@ -461,7 +491,7 @@ public class HostNameIsLocalhostTest {
   @Test
   public void testHostNameIsLocalhost() throws Exception {
     // This will throw an exception, if the local hostname cannot be resolved via DNS.
-    assertEquals(InetAddress.getLocalHost().getHostName(), "localhost");
+    assertEquals("localhost", InetAddress.getLocalHost().getHostName());
   }
 }
 EOF
@@ -493,6 +523,11 @@ EOF
 }
 
 function test_requires_root() {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: fake usernames not supported in this system" 1>&2
+    return 0
+  fi
+
   cat > test.sh <<'EOF'
 #!/bin/sh
 ([ $(id -u) = "0" ] && [ $(id -g) = "0" ]) || exit 1
@@ -511,6 +546,11 @@ EOF
 
 # Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
 function test_sandbox_proc_self() {
+  if [[ ! -d /proc/self ]]; then
+    echo "Skipping tests: requires /proc" 1>&2
+    return 0
+  fi
+
   bazel build examples/genrule:check_proc_works >& $TEST_log || fail "build should have succeeded"
 
   (
@@ -681,7 +721,6 @@ EOF
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_supported_platform || exit 0
 check_sandbox_allowed || exit 0
 
 run_suite "sandbox"
