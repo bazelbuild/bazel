@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -97,5 +98,10 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     public RepositoryRuleDefinitionIdentifier() {
       super("RepositoryRuleDefinitionIdentifier" + idCounter++);
     }
+  }
+
+  @Override
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(Location location, StarlarkThread thread) {
+    // NOOP
   }
 }
