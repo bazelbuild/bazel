@@ -164,13 +164,6 @@ public class NinjaLexer {
     return fragment.getBytes(getLastStart(), getLastEnd());
   }
 
-  /**
-   * Give a hint that letters should be interpreted as text, not as identifier.
-   */
-  private void expectTextUntilEol() {
-    this.expectTextUntilEol = true;
-  }
-
   private NinjaToken push(NinjaToken token) {
     step.ensureEnd();
     ranges.add(Pair.of(step.getStart(), step.getEnd()));
