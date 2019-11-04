@@ -46,6 +46,7 @@ public class NinjaLexer {
   private NinjaLexerStep step;
   private final List<Pair<Integer, Integer>> ranges;
   private final List<NinjaToken> tokens;
+  /** Flag to give a hint that letters should be interpreted as text, not as identifier. */
   private boolean expectTextUntilEol;
 
   /**
@@ -71,7 +72,7 @@ public class NinjaLexer {
   }
 
   /**
-   * Returns {@link NinjaToken} type of the token for the next non-space and on-comment token
+   * Returns {@link NinjaToken} type of the token for the next non-space and non-comment token
    * at/after current <code>position</code> position.
    */
   public NinjaToken nextToken() {
@@ -166,8 +167,8 @@ public class NinjaLexer {
   /**
    * Give a hint that letters should be interpreted as text, not as identifier.
    */
-  public void setExpectTextUntilEol(boolean expectTextUntilEol) {
-    this.expectTextUntilEol = expectTextUntilEol;
+  private void expectTextUntilEol() {
+    this.expectTextUntilEol = true;
   }
 
   private NinjaToken push(NinjaToken token) {
@@ -199,10 +200,10 @@ public class NinjaLexer {
   }
 
   /**
-   * Read the sequence of text tokens until end of line or end of file.
+   * Read the sequence of text tokens until end of line, end of file, separator or comment symbol.
    */
   public byte[] readTextFragment() {
-    setExpectTextUntilEol(true);
+    this.expectTextUntilEol = true;
     int firstStart = -1;
     while (hasNextToken()) {
       NinjaToken token = nextToken();
