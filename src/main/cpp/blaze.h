@@ -27,7 +27,7 @@ namespace blaze {
 void PrintVersionInfo(const std::string& self_path,
                       const std::string& product_name);
 
-int Main(int argc, const char* argv[], WorkspaceLayout* workspace_layout,
+int Main(int argc, const char *const *argv, WorkspaceLayout* workspace_layout,
          OptionProcessor* option_processor, uint64_t start_time);
 
 }  // namespace blaze

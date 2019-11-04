@@ -1299,7 +1299,7 @@ static void ParseOptionsOrDie(
     const string &workspace,
     OptionProcessor &option_processor,
     int argc,
-    const char *argv[]) {
+    const char *const *argv) {
   std::string error;
   std::vector<std::string> args;
   args.insert(args.end(), argv, argv + argc);
@@ -1561,7 +1561,7 @@ static void RunLauncher(const string &self_path,
   }
 }
 
-int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
+int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
   // Logging must be set first to assure no log statements are missed.
   std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
