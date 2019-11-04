@@ -50,6 +50,7 @@
 #include <sstream>
 #include <string>
 #include <thread>  // NOLINT
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -378,11 +379,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   result.push_back("-Xverify:none");
 
-  vector<string> user_options;
-
-  user_options.insert(user_options.begin(),
-                      startup_options.host_jvm_args.begin(),
-                      startup_options.host_jvm_args.end());
+  vector<string> user_options = startup_options.host_jvm_args;
 
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
@@ -401,18 +398,15 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   blaze_util::Path real_install_dir =
       blaze_util::Path(GetEmbeddedBinariesRoot(startup_options.install_base));
 
-  bool first = true;
   for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
       string libpath(real_install_dir.GetRelative(blaze_util::Dirname(it))
                          .AsJvmArgument());
       // Only add the library path if it's not added yet.
-      if (java_library_paths.find(libpath) == java_library_paths.end()) {
-        java_library_paths.insert(libpath);
-        if (!first) {
+      if (java_library_paths.insert(libpath).second) {
+        if (java_library_paths.size() > 1) {
           java_library_path << kListSeparator;
         }
-        first = false;
         java_library_path << libpath;
       }
     }
@@ -567,7 +561,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // The option sources are transmitted in the following format:
   // --option_sources=option1:source1:option2:source2:...
   string option_sources = "--option_sources=";
-  first = true;
+  bool first = true;
   for (const auto &it : startup_options.option_sources) {
     if (!first) {
       option_sources += ":";
@@ -715,9 +709,7 @@ static void RunBatchMode(
         << " shutdown\" from the directory where\nit was started.";
   }
 
-  vector<string> jvm_args_vector;
-  jvm_args_vector.insert(
-      jvm_args_vector.end(), server_exe_args.begin(), server_exe_args.end());
+  vector<string> jvm_args_vector = server_exe_args;
 
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
@@ -947,11 +939,10 @@ static void MoveFiles(const string &embedded_binaries) {
     // conditions are not strictly needed, but it makes this loop more robust,
     // because otherwise, if due to some glitch, directory was not under
     // embedded_binaries, it would get into an infinite loop.
-    while (directory != embedded_binaries_ &&
-           synced_directories.count(directory) == 0 && !directory.IsEmpty() &&
-           !blaze_util::IsRootDirectory(directory)) {
+    while (directory != embedded_binaries_ && !directory.IsEmpty() &&
+           !blaze_util::IsRootDirectory(directory) &&
+           synced_directories.insert(directory).second) {
       blaze_util::SyncFile(directory);
-      synced_directories.insert(directory);
       directory = directory.GetParent();
     }
   }
@@ -1047,7 +1038,7 @@ static bool IsVolatileArg(const string& arg) {
   // gRPC message is always set, there is no reason for client options that are
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
-  static const std::vector<string> volatile_startup_options = {
+  static const std::set<string> volatile_startup_options = {
       "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
       "--client_debug="};
 
@@ -1056,40 +1047,7 @@ static bool IsVolatileArg(const string& arg) {
   const string stripped_arg =
       (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
 
-  return std::find(volatile_startup_options.begin(),
-                   volatile_startup_options.end(),
-                   stripped_arg) != volatile_startup_options.end();
-}
-
-static inline void IncreaseValueInMap(std::unordered_map<string, int>* map,
-                                      const string& key) {
-  // If 'key' was missing, operator[] adds it with value 0.
-  (*map)[key] += 1;
-}
-
-static bool DecreaseValueInMap(std::unordered_map<string, int>* map,
-                               const string& key) {
-  auto i = map->find(key);
-  if (i == map->end()) {
-    return false;
-  } else if (i->second == 1) {
-    map->erase(i);
-    return true;
-  } else {
-    i->second -= 1;
-    return true;
-  }
-}
-
-static void PrintArgsInMap(const char* message,
-                           const std::unordered_map<string, int>& map) {
-  if (!map.empty()) {
-    BAZEL_LOG(INFO) << message;
-    for (const auto& i : map) {
-      BAZEL_LOG(INFO) << "  " << i.first << " (" << i.second
-                      << " extra instance(s))";
-    }
-  }
+  return volatile_startup_options.count(stripped_arg);
 }
 
 // Returns true if the server needs to be restarted to accommodate changes
@@ -1122,21 +1080,38 @@ static bool AreStartupOptionsDifferent(
   // (d) Because of (b), some flags may have repeated values (e.g
   //     --host_jvm_args="foo" twice) so we cannot simply use two sets and take
   //     the set difference, but must consider the occurrences of each flag.
-  std::unordered_map<string, int> old_args, new_args;
+  std::unordered_multiset<string> old_args, new_args;
   for (const string& a : running_server_args) {
     if (!IsVolatileArg(a)) {
-      IncreaseValueInMap(&old_args, a);
+      old_args.insert(a);
     }
   }
   for (const string& a : requested_args) {
-    if (!IsVolatileArg(a) && !DecreaseValueInMap(&old_args, a)) {
-      IncreaseValueInMap(&new_args, a);
+    if (!IsVolatileArg(a)) {
+      auto it = old_args.find(a);
+      if (it != old_args.end()) {
+        old_args.erase(it);  // remove one instance
+      } else {
+        new_args.insert(a);
+      }
     }
   }
-  PrintArgsInMap("Args from the running server that are not "
-                 "included in the current request:", old_args);
-  PrintArgsInMap("Args from the current request that were not "
-                 "included when creating the server:", new_args);
+
+  if (!old_args.empty()) {
+    BAZEL_LOG(INFO) << "Args from the running server that are not "
+                       "included in the current request:";
+    for (const string &a : old_args) {
+      BAZEL_LOG(INFO) << "  " << a;
+    }
+  }
+  if (!new_args.empty()) {
+    BAZEL_LOG(INFO) << "Args from the current request that were not "
+                       "included when creating the server:";
+    for (const string &a : new_args) {
+      BAZEL_LOG(INFO) << "  " << a;
+    }
+  }
+
   return options_different || !old_args.empty() || !new_args.empty();
 }
 
@@ -1301,8 +1276,7 @@ static void ParseOptionsOrDie(
     int argc,
     const char *const *argv) {
   std::string error;
-  std::vector<std::string> args;
-  args.insert(args.end(), argv, argv + argc);
+  std::vector<std::string> args(argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
       option_processor.ParseOptions(args, workspace, cwd, &error);
 
@@ -1932,11 +1906,7 @@ unsigned int BlazeServer::Communicate(
                    command_wait_duration_ms, &arg_vector);
   }
 
-  if (!command_args.empty()) {
-    arg_vector.insert(arg_vector.end(),
-                      command_args.begin(),
-                      command_args.end());
-  }
+  arg_vector.insert(arg_vector.end(), command_args.begin(), command_args.end());
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
@@ -2059,8 +2029,7 @@ unsigned int BlazeServer::Communicate(
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
-    vector<string> argv;
-    argv.insert(argv.begin(), request.argv().begin(), request.argv().end());
+    vector<string> argv(request.argv().begin(), request.argv().end());
     for (const auto& variable : request.environment_variable()) {
       SetEnv(variable.name(), variable.value());
     }
