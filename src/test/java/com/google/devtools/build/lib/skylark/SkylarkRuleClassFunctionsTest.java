@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
@@ -1731,19 +1730,6 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
-  }
-
-  @Test
-  public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
-    registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
-    evalAndExport(
-        "r1 = rule(impl, ",
-        "  toolchains=['//test:my_toolchain_type'],",
-        ")");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.executionPlatformConstraintsAllowed())
-        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
   }
 
   @Test
