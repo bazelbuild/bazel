@@ -240,11 +240,11 @@ public class Printer {
     }
 
     /**
-     * Print an informal representation of object x. Currently only differs from repr in the
-     * behavior for strings and labels at top-level, that are returned as is rather than quoted.
+     * Prints the informal representation of value {@code o}. Unlike {@code repr(x)}, it does not
+     * quote strings at top level, though strings and other values appearing as elements of other
+     * structures are quoted as if by {@code repr}.
      *
-     * @param o the object
-     * @return the buffer, in fluent style
+     * <p>Implementations of SkylarkValue may define their own behavior of {@code str}.
      */
     public BasePrinter str(Object o) {
       if (o instanceof SkylarkValue) {
@@ -259,11 +259,14 @@ public class Printer {
     }
 
     /**
-     * Print an official representation of object x. For regular data structures, the value should
-     * be parsable back into an equal data structure.
+     * Prints the quoted representation of Starlark value {@code o}. The quoted form is often a
+     * Starlark expression that evaluates to {@code o}.
      *
-     * @param o the string a representation of which to repr.
-     * @return BasePrinter.
+     * <p>Implementations of SkylarkValue may define their own behavior of {@code repr}.
+     *
+     * <p>In addition to Starlark values, {@code repr} also prints instances of classes Map, List,
+     * Map.Entry, Class, Node, or Location. To avoid nondeterminism, all other values are printed
+     * opaquely.
      */
     @Override
     public BasePrinter repr(Object o) {
@@ -287,6 +290,8 @@ public class Printer {
       } else if (Boolean.FALSE.equals(o)) {
         this.append("False");
 
+        // -- non-Starlark values --
+
       } else if (o instanceof Map<?, ?>) {
         Map<?, ?> dict = (Map<?, ?>) o;
         this.printList(dict.entrySet(), "{", ", ", "}", null);
@@ -300,6 +305,7 @@ public class Printer {
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
+
       } else if (o instanceof Class<?>) {
         this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
 
@@ -309,18 +315,13 @@ public class Printer {
         this.append(o.toString());
 
       } else {
-        // Assertion to catch latent uses of Path/PathFragment in format operations.
-        // But what is the harm of using Java toString for all non-Starlark values?
-        // We implicitly trust the native rules in so many other ways.
-        // TODO(adonovan): replace this entire case with this.append(o).
-        String classname = o.getClass().getName();
-        if (classname.endsWith("vfs.PathFragment") || classname.endsWith("Path")) {
-          throw new IllegalStateException("invalid argument: " + o + " (" + classname + ")");
-        }
-
-        // Other types of objects shouldn't be leaked to Skylark, but if happens, their
-        // .toString method shouldn't be used because their return values are likely to contain
-        // memory addresses or other nondeterministic information.
+        // For now, we print all unknown values opaquely.
+        // Historically this was a defense against accidental nondeterminism,
+        // but Starlark code cannot access values of o that would reach here,
+        // and native code is already trusted to be deterministic.
+        // TODO(adonovan): replace this with a default behavior of this.append(o),
+        // once we require that all @Skylark-annotated classes implement SkylarkValue.
+        // (After all, Java code can call String.format, which also calls toString.)
         this.append("<unknown object " + o.getClass().getName() + ">");
       }
 

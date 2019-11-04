@@ -81,7 +81,7 @@ public interface CommandLineItem {
     //
     // The ideal refactoring is to make SkylarkValue implement CommandLineItem (or a slimmer version
     // thereof). Then the default behavior can be that SkylarkValue#expandToCommandLine calls
-    // SkylarkPrintable#str. This default behavior is inefficient but rare; Artifacts and the like
+    // SkylarkValue#str. This default behavior is inefficient but rare; Artifacts and the like
     // would continue to override expandToCommandLine to take the fast code path that doesn't
     // involve a Printer.
     //
