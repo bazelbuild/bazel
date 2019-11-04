@@ -751,7 +751,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "Whether to use graphless query and disable output ordering.")
-  public boolean useGraphlessQuery;
+  public TriState useGraphlessQuery;
 
   @Option(
       name = "experimental_inmemory_unused_inputs_list",
