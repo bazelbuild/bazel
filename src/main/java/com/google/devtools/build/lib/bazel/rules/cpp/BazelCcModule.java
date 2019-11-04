@@ -124,6 +124,7 @@ public class BazelCcModule extends CcModule
       String outputType,
       boolean linkDepsStatically,
       SkylarkList<?> additionalInputs, // <Artifact> expected
+      Object grepIncludes,
       Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {

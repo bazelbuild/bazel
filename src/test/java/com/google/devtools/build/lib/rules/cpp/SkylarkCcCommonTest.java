@@ -5475,6 +5475,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPassGrepIncludesToApiEvenThoughItDoesntDoAnything() throws Exception {
+    setupTestTransitiveLink(scratch, "grep_includes = ctx.executable._grep_includes");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+  }
+
+  @Test
   public void testTransitiveLinkWithCompilationOutputs() throws Exception {
     setupTestTransitiveLink(scratch, "compilation_outputs=objects");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -5844,6 +5851,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       fragments = "    fragments = ['cpp'],";
     }
     scratch.overwriteFile("tools/build_defs/BUILD");
+    /*scratch.overwriteFile("tools/cpp/grep-includes");*/
+    scratch.overwriteFile("tools/cpp/grep_includes/grep-includes.sh");
+    scratch.appendFile(
+        "tools/cpp/grep_includes/BUILD",
+        "sh_binary(",
+        "    name = 'grep-includes',",
+        "    srcs = ['grep-includes.sh'],",
+        ")");
     scratch.file(
         "tools/build_defs/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -5878,7 +5893,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      'pic_objects': attr.label_list(allow_files=True),",
         "      'deps': attr.label_list(),",
         "      '_cc_toolchain': attr.label(default =",
-        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
+        "      '_grep_includes': attr.label(",
+        "             executable = True,",
+        "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
+        "             cfg = 'host'",
+        "       ),",
         "    },",
         fragments,
         ")");
