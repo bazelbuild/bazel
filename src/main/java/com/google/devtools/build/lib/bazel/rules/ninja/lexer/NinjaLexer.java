@@ -193,23 +193,10 @@ public class NinjaLexer {
   }
 
   /**
-   * Read the sequence of text tokens until end of line, end of file, separator or comment symbol.
+   * Give a hint that letters should be interpreted as text, not as identifier.
    */
-  public byte[] readTextFragment() {
+  public void expectTextUntilEol() {
     this.expectTextUntilEol = true;
-    int firstStart = -1;
-    while (hasNextToken()) {
-      NinjaToken token = nextToken();
-      if (!NinjaToken.TEXT.equals(token)) {
-        undo();
-        break;
-      }
-      // The start of the token that we just read with nextToken().
-      if (firstStart == -1) {
-        firstStart = getLastStart();
-      }
-    }
-    return fragment.getBytes(firstStart, getLastEnd());
   }
 
   /**

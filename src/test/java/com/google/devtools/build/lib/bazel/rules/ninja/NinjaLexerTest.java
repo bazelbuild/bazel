@@ -143,24 +143,16 @@ public class NinjaLexerTest {
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
     assertTokenBytes(lexer, NinjaToken.EQUALS, null);
 
-    assertThat(lexer.readTextFragment()).isEqualTo("Any text ^&%$@&!*"
-        .getBytes(StandardCharsets.ISO_8859_1));
+    lexer.expectTextUntilEol();
+    assertTokenBytes(lexer, NinjaToken.TEXT, "Any");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "text");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "^&%");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "$");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "@&!*");
     assertTokenBytes(lexer, NinjaToken.COLON, null);
     assertTokenBytes(lexer, NinjaToken.TEXT, ":");
-    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "symbols");
-    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "aa");
-    assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
-    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var2");
-  }
-
-  @Test
-  public void testReadTextFragment2() {
-    NinjaLexer lexer = createLexer("my.var=Any text ^&%$@&!* $:symbols$\n aa\nmy.var2");
-    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
-    assertTokenBytes(lexer, NinjaToken.EQUALS, null);
-
-    assertThat(lexer.readTextFragment()).isEqualTo("Any text ^&%$@&!* $:symbols$\n aa"
-        .getBytes(StandardCharsets.ISO_8859_1));
+    assertTokenBytes(lexer, NinjaToken.TEXT, "symbols");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "aa");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var2");
   }
