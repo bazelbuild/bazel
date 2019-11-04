@@ -281,7 +281,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
   @Override
   public void run(
-      SkylarkList outputs,
+      SkylarkList<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object executableUnchecked,
@@ -298,7 +298,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.run");
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
 
-    SkylarkList argumentsList = ((SkylarkList) arguments);
+    SkylarkList<?> argumentsList = ((SkylarkList) arguments);
     buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
@@ -367,7 +367,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
   @Override
   public void runShell(
-      SkylarkList outputs,
+      SkylarkList<?> outputs,
       Object inputs,
       Object toolsUnchecked,
       Object arguments,
@@ -383,7 +383,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
-    SkylarkList argumentList = (SkylarkList) arguments;
+    SkylarkList<?> argumentList = (SkylarkList) arguments;
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, argumentList);
 
@@ -416,12 +416,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
                 + " is deprecated. To temporarily disable this check,"
                 + " set --incompatible_objc_framework_cleanup=false.");
       }
-      SkylarkList commandList = (SkylarkList) commandUnchecked;
+      SkylarkList<?> commandList = (SkylarkList) commandUnchecked;
       if (argumentList.size() > 0) {
         throw new EvalException(location,
             "'arguments' must be empty if 'command' is a sequence of strings");
       }
-      @SuppressWarnings("unchecked")
       List<String> command = commandList.getContents(String.class, "command");
       builder.setShellCommand(command);
     } else {
@@ -452,7 +451,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         builder);
   }
 
-  private void buildCommandLine(SpawnAction.Builder builder, SkylarkList argumentsList)
+  private static void buildCommandLine(SpawnAction.Builder builder, SkylarkList<?> argumentsList)
       throws EvalException {
     List<String> stringArgs = new ArrayList<>();
     for (Object value : argumentsList) {
@@ -484,7 +483,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
    * <p>{@code builder} should have either executable or a command set.
    */
   private void registerStarlarkAction(
-      SkylarkList outputs,
+      SkylarkList<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object toolsUnchecked,
@@ -499,7 +498,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
     if (inputs instanceof SkylarkList) {
-      inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
+      inputArtifacts = ((SkylarkList<?>) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
       NestedSet<Artifact> inputSet =
@@ -508,7 +507,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       inputArtifacts = inputSet;
     }
 
-    @SuppressWarnings("unchecked")
     List<Artifact> outputArtifacts = outputs.getContents(Artifact.class, "outputs");
     if (outputArtifacts.isEmpty()) {
       throw new EvalException(location, "param 'outputs' may not be empty");

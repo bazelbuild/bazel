@@ -89,10 +89,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Variation of {@link #get} that throws an informative exception if the attribute
-   * can't be resolved due to intrinsic contradictions in the configuration.
+   * Variation of {@link #get} that throws an informative exception if the attribute can't be
+   * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException  {
+  @SuppressWarnings("unchecked")
+  private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -109,7 +110,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // do that anyway, so that isn't a loss.
         Attribute attr = getAttributeDefinition(attributeName);
         Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
-        resolvedList.add((T) attr.getDefaultValue(null));
+        resolvedList.add((T) attr.getDefaultValue(null)); // unchecked cast
       } else {
         resolvedList.add(resolvedPath.value);
       }

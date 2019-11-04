@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -116,6 +117,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     return createAttribute(type, doc, arguments, ast, thread, name).buildPartial();
   }
 
+  @SuppressWarnings("unchecked")
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
       String doc,
@@ -144,7 +146,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
             new SkylarkComputedDefaultTemplate(
                 type, callback.getParameterNames(), callback, ast.getLocation()));
       } else if (defaultValue instanceof SkylarkLateBoundDefault) {
-        builder.value((SkylarkLateBoundDefault) defaultValue);
+        builder.value((SkylarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
         builder.defaultValue(
             defaultValue,
@@ -271,7 +273,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
-        builder.cfg((TransitionFactory) trans);
+        builder.cfg((TransitionFactory<AttributeTransitionData>) trans); // unchecked cast
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;

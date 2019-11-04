@@ -726,7 +726,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // We evaluate in keepGoing mode because in the case that the graph does not store its
       // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
       // permitted.
-      EvaluationResult result =
+      EvaluationResult<?> result =
           evaluate(
               ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
       if (!result.hasError()) {
@@ -1409,7 +1409,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
-  @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
@@ -3023,4 +3022,3 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver.evaluate(roots, evaluationContext);
   }
 }
-

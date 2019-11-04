@@ -349,7 +349,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         oldStyleProviders = struct;
 
         if (struct.hasField("providers")) {
-          Iterable iterable = cast("providers", struct, Iterable.class, loc);
+          Iterable<?> iterable = cast("providers", struct, Iterable.class, loc);
           for (Object o : iterable) {
             InfoInterface declaredProvider =
                 SkylarkType.cast(

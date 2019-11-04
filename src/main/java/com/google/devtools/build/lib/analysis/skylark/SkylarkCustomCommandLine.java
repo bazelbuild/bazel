@@ -192,6 +192,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
+        @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
         originalValues = nestedSet.toList();
       } else {
@@ -218,7 +219,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
                   location,
                   null));
         }
-        List resultAsList = (List) result;
+        List<?> resultAsList = (List) result;
         if (resultAsList.size() != expandedValues.size()) {
           throw new CommandLineExpansionException(
               errorMessage(
@@ -382,7 +383,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
-        NestedSet<Object> values = (NestedSet<Object>) arguments.get(argi++);
+        NestedSet<?> values = (NestedSet) arguments.get(argi++);
         if (mapEach != null) {
           CommandLineItem.MapFn<Object> commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(mapEach, location, starlarkSemantics);

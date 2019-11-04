@@ -179,7 +179,7 @@ public class WorkspaceASTFunction implements SkyFunction {
               .append(symbol)
               .append("\")\n");
           builder.append(symbol).append("(\n");
-          for (Map.Entry<Object, Object> arg : ((Map<Object, Object>) args).entrySet()) {
+          for (Map.Entry<?, ?> arg : ((Map<?, ?>) args).entrySet()) {
             Object key = arg.getKey();
             if (!(key instanceof String)) {
               throw resolvedValueError(

@@ -146,6 +146,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       this.context = ruleContext;
     }
 
+    @SuppressWarnings("unchecked")
     public void addAttribute(Attribute a, Object val) {
       Type<?> type = a.getType();
       String skyname = a.getPublicName();

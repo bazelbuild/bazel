@@ -74,7 +74,7 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
 
   private static <T> TransitionFactory<T> create(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
-    return new AutoValue_ComposingTransitionFactory(transitionFactory1, transitionFactory2);
+    return new AutoValue_ComposingTransitionFactory<T>(transitionFactory1, transitionFactory2);
   }
 
   abstract TransitionFactory<T> transitionFactory1();

@@ -783,7 +783,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private static <T> T assertTypeForNewFile(Object obj, Class<T> type, Location loc,
       String errorMessage) throws EvalException {
     if (type.isInstance(obj)) {
-      return (T) obj;
+      return type.cast(obj);
     } else {
       throw new EvalException(loc, errorMessage);
     }
@@ -876,7 +876,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    */
   @Override
   public Runtime.NoneType action(
-      SkylarkList outputs,
+      SkylarkList<?> outputs,
       Object inputs,
       Object executableUnchecked,
       Object toolsUnchecked,
@@ -937,7 +937,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expandLocation(
-      String input, SkylarkList targets, Location loc, StarlarkThread thread) throws EvalException {
+      String input, SkylarkList<?> targets, Location loc, StarlarkThread thread)
+      throws EvalException {
     checkMutable("expand_location");
     try {
       return LocationExpander.withExecPaths(
@@ -986,7 +987,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public Runfiles runfiles(
-      SkylarkList files,
+      SkylarkList<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
@@ -1040,7 +1041,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       Object attributeUnchecked,
       Boolean expandLocations,
       Object makeVariablesUnchecked,
-      SkylarkList tools,
+      SkylarkList<?> tools,
       SkylarkDict<?, ?> labelDictUnchecked,
       SkylarkDict<?, ?> executionRequirementsUnchecked,
       Location loc,
@@ -1095,7 +1096,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Tuple<Object> resolveTools(SkylarkList tools) throws ConversionException, EvalException {
+  public Tuple<Object> resolveTools(SkylarkList<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
@@ -1116,7 +1117,6 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    * Returns a corresponding map where any sets are replaced by iterables.
    */
   // TODO(bazel-team): find a better way to typecheck this argument.
-  @SuppressWarnings("unchecked")
   private static Map<Label, Iterable<Artifact>> checkLabelDict(
       Map<?, ?> labelDict, Location loc, StarlarkThread thread) throws EvalException {
     Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();

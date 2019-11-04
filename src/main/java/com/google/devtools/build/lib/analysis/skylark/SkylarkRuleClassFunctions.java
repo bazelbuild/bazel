@@ -270,8 +270,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
-  @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
-  // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
   public BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
@@ -663,6 +661,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
       }
 
+      @SuppressWarnings("unchecked")
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {

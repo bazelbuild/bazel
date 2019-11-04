@@ -563,6 +563,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   }
 
   @Override
+  @SuppressWarnings("unchecked") // keys/values only contains Ks/Vs
   public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
     checkNotNull(function);
     for (int i = 0; i < size; i++) {
@@ -641,6 +642,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
   }
 
   @Override
+  @SuppressWarnings("unchecked") // keys/values contains only Ks/Vs
   public void forEach(BiConsumer<? super K, ? super V> action) {
     checkNotNull(action);
     for (int i = firstEntryIndex(); i >= 0; i = getSuccessor(i)) {
@@ -817,6 +819,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
 
     @Override
+    @SuppressWarnings("unchecked") // values contains only Vs
     public void forEach(Consumer<? super V> action) {
       checkNotNull(action);
       for (int i = firstEntryIndex(); i >= 0; i = getSuccessor(i)) {

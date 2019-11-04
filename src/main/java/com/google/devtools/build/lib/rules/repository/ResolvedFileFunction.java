@@ -106,7 +106,7 @@ public class ResolvedFileFunction implements SkyFunction {
           }
           ImmutableMap.Builder<String, Object> entryBuilder
               = new ImmutableMap.Builder<String, Object>();
-          for (Map.Entry<Object, Object> keyValue : ((Map<Object, Object>) entry).entrySet()) {
+          for (Map.Entry<?, ?> keyValue : ((Map<?, ?>) entry).entrySet()) {
             Object attribute = keyValue.getKey();
             if (!(attribute instanceof String)) {
               throw resolvedValueError(

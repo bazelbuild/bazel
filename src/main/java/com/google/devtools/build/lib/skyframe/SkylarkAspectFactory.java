@@ -147,7 +147,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             addOutputGroups(struct.getValue(field), loc, builder);
           } else if (field.equals("providers")) {
             Object value = struct.getValue(field);
-            Iterable providers =
+            Iterable<?> providers =
                 SkylarkType.cast(
                     value,
                     Iterable.class,
@@ -170,8 +170,8 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     return configuredAspect;
   }
 
-  private void addDeclaredProviders(ConfiguredAspect.Builder builder, Iterable aspectSkylarkObject)
-      throws EvalException {
+  private void addDeclaredProviders(
+      ConfiguredAspect.Builder builder, Iterable<?> aspectSkylarkObject) throws EvalException {
     int i = 0;
     for (Object o : aspectSkylarkObject) {
       Location loc = skylarkAspect.getImplementation().getLocation();
