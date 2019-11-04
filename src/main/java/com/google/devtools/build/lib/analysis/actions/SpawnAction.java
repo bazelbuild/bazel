@@ -309,7 +309,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException {}
+      throws IOException, ExecException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(

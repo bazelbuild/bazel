@@ -280,6 +280,19 @@ function test_experiment_flag_required() {
   expect_log "Use --experimental_starlark_unused_inputs_list"
 }
 
+function test_missing_unused_inputs_list() {
+  cat > pkg/cat_unused.sh << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod +x pkg/cat_unused.sh
+  bazel build --experimental_starlark_unused_inputs_list \
+      //pkg:output >& $TEST_log && fail "Expected failure"
+  exitcode=$?
+  assert_equals 1 "$exitcode"
+  expect_log "Action did not create expected output file listing unused inputs"
+}
+
 # Test with orphaned artifacts features.
 # This requires --experimental_inmemory_unused_inputs_list flag.
 function test_orphaned_artifacts() {
@@ -294,7 +307,7 @@ function test_orphaned_artifacts() {
       //pkg:output >& $TEST_log && fail "Expected failure"
   exitcode=$?
   assert_equals 1 "$exitcode"
-  expect_log "bin/pkg/output.unused (No such file or directory)"
+  expect_log "Action did not create expected output file listing unused inputs"
 }
 
 # Test with orphaned artifacts features with host config.
@@ -312,7 +325,7 @@ function test_orphaned_artifacts_host_config() {
       //pkg:output2 >& $TEST_log && fail "Expected failure"
   exitcode=$?
   assert_equals 1 "$exitcode"
-  expect_log "bin/pkg/output.unused (No such file or directory)"
+  expect_log "Action did not create expected output file listing unused inputs"
 }
 
 run_suite "Tests Skylark dependency pruning"
