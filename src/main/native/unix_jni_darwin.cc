@@ -31,6 +31,8 @@
 #include <mutex>  // NOLINT
 #include <string>
 
+namespace blaze_jni {
+
 const int PATH_MAX2 = PATH_MAX * 2;
 
 using std::string;
@@ -165,3 +167,5 @@ int portable_pop_disable_sleep() {
   }
   return 0;
 }
+
+}  // namespace blaze_jni

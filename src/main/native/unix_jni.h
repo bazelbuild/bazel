@@ -22,6 +22,8 @@
 
 #include <string>
 
+namespace blaze_jni {
+
 #define CHECK(condition) \
     do { \
       if (!(condition)) { \
@@ -107,5 +109,7 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
 // Returns -1 if sleep is not supported.
 int portable_push_disable_sleep();
 int portable_pop_disable_sleep();
+
+}  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

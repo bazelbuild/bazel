@@ -27,6 +27,8 @@
 
 #include <string>
 
+namespace blaze_jni {
+
 using std::string;
 
 // See unix_jni.h.
@@ -101,3 +103,5 @@ int portable_pop_disable_sleep() {
   // https://wiki.freebsd.org/SuspendResume
   return -1;
 }
+
+}  // namespace blaze_jni

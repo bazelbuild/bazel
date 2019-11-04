@@ -42,6 +42,8 @@
 #define PORTABLE_O_DIRECTORY 0
 #endif
 
+namespace blaze_jni {
+
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
   // Keep consistent with package-info.html!
@@ -154,17 +156,17 @@ static bool PostRuntimeException(JNIEnv *env, int error_number,
 
 // See unix_jni.h.
 void PostFileException(JNIEnv *env, int error_number, const char *filename) {
-  ::PostException(env, error_number,
-                  std::string(filename) + " (" + ErrorMessage(error_number)
-                  + ")");
+  PostException(
+      env, error_number,
+      std::string(filename) + " (" + ErrorMessage(error_number) + ")");
 }
 
 // See unix_jni.h.
 void PostSystemException(JNIEnv *env, int error_number, const char *function,
                          const char *name) {
-  ::PostException(env, error_number, std::string(function) + "(" +
-                                         std::string(name) + ")" + " (" +
-                                         ErrorMessage(error_number) + ")");
+  PostException(env, error_number,
+                std::string(function) + "(" + std::string(name) + ")" + " (" +
+                    ErrorMessage(error_number) + ")");
 }
 
 // TODO(bazel-team): split out all the FileSystem class's native methods
@@ -178,7 +180,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
   char target[PATH_MAX] = "";
   jstring r = NULL;
   if (readlink(path_chars, target, arraysize(target)) == -1) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   } else {
     r = NewStringLatin1(env, target);
   }
@@ -193,7 +195,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_chmod(JNIEnv *env,
                                                   jint mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   if (chmod(path_chars, static_cast<int>(mode)) == -1) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
 }
@@ -205,7 +207,7 @@ static void link_common(JNIEnv *env,
   const char *oldpath_chars = GetStringLatin1Chars(env, oldpath);
   const char *newpath_chars = GetStringLatin1Chars(env, newpath);
   if (link_function(oldpath_chars, newpath_chars) == -1) {
-    ::PostFileException(env, errno, newpath_chars);
+    PostFileException(env, errno, newpath_chars);
   }
   ReleaseStringLatin1Chars(oldpath_chars);
   ReleaseStringLatin1Chars(newpath_chars);
@@ -327,15 +329,15 @@ static jobject StatCommon(JNIEnv *env, jstring path,
     // ENOMEM                      -> OutOfMemoryError
 
     if (PostRuntimeException(env, saved_errno, path_chars)) {
-      ::ReleaseStringLatin1Chars(path_chars);
+      ReleaseStringLatin1Chars(path_chars);
       return NULL;
     } else if (should_throw) {
-      ::PostFileException(env, saved_errno, path_chars);
-      ::ReleaseStringLatin1Chars(path_chars);
+      PostFileException(env, saved_errno, path_chars);
+      ReleaseStringLatin1Chars(path_chars);
       return NULL;
     }
   }
-  ::ReleaseStringLatin1Chars(path_chars);
+  ReleaseStringLatin1Chars(path_chars);
 
   return should_throw
     ? NewFileStatus(env, statbuf)
@@ -352,7 +354,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_stat(JNIEnv *env,
                                                  jclass clazz,
                                                  jstring path) {
-  return ::StatCommon(env, path, portable_stat, true);
+  return StatCommon(env, path, portable_stat, true);
 }
 
 /*
@@ -365,7 +367,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_lstat(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path) {
-  return ::StatCommon(env, path, portable_lstat, true);
+  return StatCommon(env, path, portable_lstat, true);
 }
 
 /*
@@ -377,7 +379,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoStat(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path) {
-  return ::StatCommon(env, path, portable_stat, false);
+  return StatCommon(env, path, portable_stat, false);
 }
 
 /*
@@ -389,7 +391,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoLstat(JNIEnv *env,
                                                        jclass clazz,
                                                        jstring path) {
-  return ::StatCommon(env, path, portable_lstat, false);
+  return StatCommon(env, path, portable_lstat, false);
 }
 
 /*
@@ -408,7 +410,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
 #ifdef __linux
   struct timespec spec[2] = {{0, UTIME_OMIT}, {modtime, now ? UTIME_NOW : 0}};
   if (::utimensat(AT_FDCWD, path_chars, spec, 0) == -1) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   }
 #else
   struct utimbuf buf = { modtime, modtime };
@@ -417,7 +419,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
     // EACCES ENOENT EMULTIHOP ELOOP EINTR
     // ENOTDIR ENOLINK EPERM EROFS   -> IOException
     // EFAULT ENAMETOOLONG           -> RuntimeException
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   }
 #endif
   ReleaseStringLatin1Chars(path_chars);
@@ -457,7 +459,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
     if (errno == EEXIST) {
       result = false;
     } else {
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
     }
   }
   ReleaseStringLatin1Chars(path_chars);
@@ -484,11 +486,11 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirs(JNIEnv *env,
   if (portable_stat(path_chars, &statbuf) == 0) {
     if (!S_ISDIR(statbuf.st_mode)) {
       // Exists but is not a directory.
-      ::PostFileException(env, ENOTDIR, path_chars);
+      PostFileException(env, ENOTDIR, path_chars);
     }
     goto cleanup;
   } else if (errno != ENOENT) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
     goto cleanup;
   }
 
@@ -506,7 +508,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirs(JNIEnv *env,
         // with ENOTDIR.
         break;
       } else if (errno != ENOENT) {
-        ::PostFileException(env, errno, path_chars);
+        PostFileException(env, errno, path_chars);
         goto cleanup;
       }
     }
@@ -522,23 +524,23 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirs(JNIEnv *env,
       // Note that somebody could have raced to create a file here, but that
       // will get handled by a ENOTDIR by a subsequent mkdir call.
       if (res != 0 && errno != EEXIST) {
-        ::PostFileException(env, errno, path_chars);
+        PostFileException(env, errno, path_chars);
         goto cleanup;
       }
     }
   }
   if (::mkdir(path_chars, mode) != 0) {
     if (errno != EEXIST) {
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
       goto cleanup;
     }
     if (portable_stat(path_chars, &statbuf) != 0) {
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
       goto cleanup;
     }
     if (!S_ISDIR(statbuf.st_mode)) {
       // Exists but is not a directory.
-      ::PostFileException(env, ENOTDIR, path_chars);
+      PostFileException(env, ENOTDIR, path_chars);
       goto cleanup;
     }
   }
@@ -610,7 +612,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
   if (dirh == NULL) {
     // EACCES EMFILE ENFILE ENOENT ENOTDIR -> IOException
     // ENOMEM                              -> OutOfMemoryError
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
   if (dirh == NULL) {
@@ -632,7 +634,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
       if (errno == EINTR) continue;  // interrupted by a signal
       if (errno == EIO) continue;  // glibc returns this on transient errors
       // Otherwise, this is a real error we should report.
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
       ::closedir(dirh);
       return NULL;
     }
@@ -648,7 +650,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
   }
 
   if (::closedir(dirh) < 0 && errno != EINTR) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
     return NULL;
   }
 
@@ -700,7 +702,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
     // EFAULT ENAMETOOLONG                 -> RuntimeException
     // ENOMEM                              -> OutOfMemoryError
     std::string filename(std::string(oldpath_chars) + " -> " + newpath_chars);
-    ::PostFileException(env, errno, filename.c_str());
+    PostFileException(env, errno, filename.c_str());
   }
   ReleaseStringLatin1Chars(oldpath_chars);
   ReleaseStringLatin1Chars(newpath_chars);
@@ -723,7 +725,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
   bool ok = remove(path_chars) != -1;
   if (!ok) {
     if (errno != ENOENT && errno != ENOTDIR) {
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
     }
   }
   ReleaseStringLatin1Chars(path_chars);
@@ -743,7 +745,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
                                                    jint mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   if (mkfifo(path_chars, mode) == -1) {
-    ::PostFileException(env, errno, path_chars);
+    PostFileException(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
 }
@@ -986,7 +988,7 @@ static jbyteArray getxattr_common(JNIEnv *env,
                           &attr_not_found);
   if (size == -1) {
     if (!attr_not_found) {
-      ::PostFileException(env, errno, path_chars);
+      PostFileException(env, errno, path_chars);
     }
   } else {
     result = env->NewByteArray(size);
@@ -1002,7 +1004,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_getxattr(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path,
                                                      jstring name) {
-  return ::getxattr_common(env, path, name, ::portable_getxattr);
+  return getxattr_common(env, path, name, portable_getxattr);
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
@@ -1010,7 +1012,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path,
                                                       jstring name) {
-  return ::getxattr_common(env, path, name, ::portable_lgetxattr);
+  return getxattr_common(env, path, name, portable_lgetxattr);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -1023,8 +1025,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_openWrite(
   }
   if (fd == -1) {
     // The interface only allows FileNotFoundException.
-    ::PostException(env, ENOENT,
-                    std::string(path_chars) + " (" + ErrorMessage(errno) + ")");
+    PostException(env, ENOENT,
+                  std::string(path_chars) + " (" + ErrorMessage(errno) + ")");
   }
   ReleaseStringLatin1Chars(path_chars);
   return fd;
@@ -1036,7 +1038,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_close(JNIEnv *env,
                                                                jint fd,
                                                                jobject ingore) {
   if (close(fd) == -1) {
-    ::PostException(env, errno, "error when closing file");
+    PostException(env, errno, "error when closing file");
   }
 }
 
@@ -1053,7 +1055,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
   }
   jbyte *buf = static_cast<jbyte *>(malloc(len));
   if (buf == nullptr) {
-    ::PostException(env, ENOMEM, "out of memory");
+    PostException(env, ENOMEM, "out of memory");
     return;
   }
   env->GetByteArrayRegion(data, off, len, buf);
@@ -1066,7 +1068,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
       ssize_t res = write(fd, p, len);
       if (res == -1) {
         if (errno != EINTR) {
-          ::PostException(env, errno, "writing file failed");
+          PostException(env, errno, "writing file failed");
           break;
         }
       } else {
@@ -1085,7 +1087,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
   long r;
   size_t len = sizeof(r);
   if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
-    ::PostSystemException(env, errno, "sysctlbyname", name_chars);
+    PostSystemException(env, errno, "sysctlbyname", name_chars);
   }
   ReleaseStringLatin1Chars(name_chars);
   return (jlong)r;
@@ -1099,7 +1101,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_pushDisableSleep(
     JNIEnv *, jclass) {
-  return ::portable_push_disable_sleep();
+  return portable_push_disable_sleep();
 }
 
 /*
@@ -1110,5 +1112,7 @@ Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrev
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrevention_popDisableSleep(
     JNIEnv *, jclass) {
-  return ::portable_pop_disable_sleep();
+  return portable_pop_disable_sleep();
 }
+
+}  // namespace blaze_jni
