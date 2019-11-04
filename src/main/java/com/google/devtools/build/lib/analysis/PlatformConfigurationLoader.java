@@ -33,12 +33,14 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
   public PlatformConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+
     return new PlatformConfiguration(
         platformOptions.computeHostPlatform(),
         ImmutableList.copyOf(platformOptions.extraExecutionPlatforms),
         platformOptions.computeTargetPlatform(),
         ImmutableList.copyOf(platformOptions.extraToolchains),
-        ImmutableList.copyOf(platformOptions.enabledToolchainTypes));
+        ImmutableList.copyOf(platformOptions.enabledToolchainTypes),
+        platformOptions.targetFilterToAdditionalExecConstraints);
   }
 
   @Override

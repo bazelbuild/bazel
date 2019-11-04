@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.getExecutionPlatformConstraints;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -97,9 +101,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     if (configuredTargetAndData == null) {
       return null;
     }
-    TargetAndConfiguration ctgValue =
-        new TargetAndConfiguration(
-            configuredTargetAndData.getTarget(), configuredTargetAndData.getConfiguration());
+    Target target = configuredTargetAndData.getTarget();
+    BuildConfiguration configuration = configuredTargetAndData.getConfiguration();
+    TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
 
     ImmutableMap<Label, ConfigMatchingProvider> configConditions =
         getConfigurableAttributeConditions(ctgValue, env);
@@ -110,22 +114,21 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     // Determine what toolchains are needed by this target.
     UnloadedToolchainContext unloadedToolchainContext = null;
     try {
-      if (configuredTargetAndData.getTarget() instanceof Rule) {
-        Rule rule = ((Rule) configuredTargetAndData.getTarget());
+      if (target instanceof Rule) {
+        Rule rule = ((Rule) target);
         if (rule.getRuleClassObject().useToolchainResolution()) {
           ImmutableSet<Label> requiredToolchains =
               rule.getRuleClassObject().getRequiredToolchains();
 
           // Collect local (target, rule) constraints for filtering out execution platforms.
           ImmutableSet<Label> execConstraintLabels =
-              ConfiguredTargetFunction.getExecutionPlatformConstraints(rule);
+              getExecutionPlatformConstraints(
+                  rule, configuration.getFragment(PlatformConfiguration.class));
           unloadedToolchainContext =
               (UnloadedToolchainContext)
                   env.getValueOrThrow(
                       UnloadedToolchainContext.key()
-                          .configurationKey(
-                              BuildConfigurationValue.key(
-                                  configuredTargetAndData.getConfiguration()))
+                          .configurationKey(BuildConfigurationValue.key(configuration))
                           .requiredToolchainTypeLabels(requiredToolchains)
                           .execConstraintLabels(execConstraintLabels)
                           .build(),
@@ -142,9 +145,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     OrderedSetMultimap<DependencyKind, Dependency> deps;
     try {
       BuildConfiguration hostConfiguration =
-          buildViewProvider
-              .getSkyframeBuildView()
-              .getHostConfiguration(configuredTargetAndData.getConfiguration());
+          buildViewProvider.getSkyframeBuildView().getHostConfiguration(configuration);
       SkyframeDependencyResolver resolver =
           buildViewProvider.getSkyframeBuildView().createDependencyResolver(env);
       // We don't track root causes here - this function is only invoked for successfully analyzed
