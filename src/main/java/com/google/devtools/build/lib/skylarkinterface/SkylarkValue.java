@@ -26,7 +26,9 @@ public interface SkylarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  void repr(SkylarkPrinter printer);
+  default void repr(SkylarkPrinter printer) {
+    printer.append("<unknown object ").append(getClass().getName()).append(">");
+  }
 
   /**
    * Prints an informal, human-readable representation of the value.
