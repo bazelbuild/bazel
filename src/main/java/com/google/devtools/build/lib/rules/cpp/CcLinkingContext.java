@@ -22,6 +22,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -152,20 +153,29 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
    */
   public static class LinkerInput {
+    // Identifier which target created the LinkerInput. It doesn't have to be unique between
+    // LinkerInputs.
+    private final Label owner;
     private final ImmutableList<LibraryToLink> libraries;
     private final ImmutableList<LinkOptions> userLinkFlags;
     private final ImmutableList<Artifact> nonCodeInputs;
     private final ImmutableList<Linkstamp> linkstamps;
 
     private LinkerInput(
+        Label owner,
         ImmutableList<LibraryToLink> libraries,
         ImmutableList<LinkOptions> userLinkFlags,
         ImmutableList<Artifact> nonCodeInputs,
         ImmutableList<Linkstamp> linkstamps) {
+      this.owner = owner;
       this.libraries = libraries;
       this.userLinkFlags = userLinkFlags;
       this.nonCodeInputs = nonCodeInputs;
       this.linkstamps = linkstamps;
+    }
+
+    public Label getOwner() {
+      return owner;
     }
 
     public static Builder builder() {
@@ -174,6 +184,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     /** Builder for {@link LinkerInput} */
     public static class Builder {
+      private Label owner;
       private final ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
       private final ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
@@ -204,9 +215,18 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         return this;
       }
 
+      public Builder setOwner(Label owner) {
+        this.owner = owner;
+        return this;
+      }
+
       public LinkerInput build() {
         return new LinkerInput(
-            libraries.build(), userLinkFlags.build(), nonCodeInputs.build(), linkstamps.build());
+            owner,
+            libraries.build(),
+            userLinkFlags.build(),
+            nonCodeInputs.build(),
+            linkstamps.build());
       }
     }
 
@@ -219,7 +239,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == other) {
         return true;
       }
-      return this.libraries.equals(other.libraries)
+      return ((this.owner == null && other.owner == null) || this.owner.equals(other.owner))
+          && this.libraries.equals(other.libraries)
           && this.userLinkFlags.equals(other.userLinkFlags)
           && this.linkstamps.equals(other.linkstamps)
           && this.nonCodeInputs.equals(other.nonCodeInputs);
@@ -377,31 +398,42 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   /** Builder for {@link CcLinkingContext}. */
   public static class Builder {
+    boolean hasDirectLinkerInput;
     LinkerInput.Builder linkerInputBuilder = LinkerInput.builder();
     private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
+    public Builder setOwner(Label owner) {
+      linkerInputBuilder.setOwner(owner);
+      return this;
+    }
+
     public Builder addLibrary(LibraryToLink library) {
+      hasDirectLinkerInput = true;
       linkerInputBuilder.addLibrary(library);
       return this;
     }
 
     public Builder addLibraries(List<LibraryToLink> libraries) {
+      hasDirectLinkerInput = true;
       linkerInputBuilder.addLibraries(libraries);
       return this;
     }
 
     public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
+      hasDirectLinkerInput = true;
       linkerInputBuilder.addUserLinkFlags(userLinkFlags);
       return this;
     }
 
     Builder addLinkstamps(List<Linkstamp> linkstamps) {
+      hasDirectLinkerInput = true;
       linkerInputBuilder.addLinkstamps(linkstamps);
       return this;
     }
 
     Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
+      hasDirectLinkerInput = true;
       linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
       return this;
     }
@@ -418,7 +450,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     public CcLinkingContext build() {
-      linkerInputs.add(linkerInputBuilder.build());
+      if (hasDirectLinkerInput) {
+        linkerInputs.add(linkerInputBuilder.build());
+      }
       return new CcLinkingContext(linkerInputs.build(), extraLinkTimeLibraries);
     }
   }

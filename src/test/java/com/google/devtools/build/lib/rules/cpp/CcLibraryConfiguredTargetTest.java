@@ -1537,4 +1537,31 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//a:foo");
     assertNoEvents();
   }
+
+  @Test
+  public void testLinkerInputsHasRightLabels() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.cc'],",
+        "    deps = [':baz'],",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    deps = [':bar'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo");
+    assertThat(
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+                .map(x -> x.getOwner().toString())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
+        .inOrder();
+  }
 }

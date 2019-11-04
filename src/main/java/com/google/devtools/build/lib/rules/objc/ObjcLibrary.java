@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
@@ -100,7 +101,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .build();
 
     CcLinkingContext ccLinkingContext =
-        buildCcLinkingContext(common, ruleContext.getSymbolGenerator());
+        buildCcLinkingContext(ruleContext.getLabel(), common, ruleContext.getSymbolGenerator());
 
     ObjcProvider objcProvider = common.getObjcProvider();
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
@@ -120,7 +121,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private CcLinkingContext buildCcLinkingContext(
-      ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
+      Label label, ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
     ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
     ObjcProvider objcProvider = common.getObjcProvider();
     for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
@@ -135,7 +136,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     libraries.addAll(convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY)));
 
     CcLinkingContext.Builder ccLinkingContext =
-        CcLinkingContext.builder().addLibraries(ImmutableList.copyOf(libraries.build()));
+        CcLinkingContext.builder()
+            .setOwner(label)
+            .addLibraries(ImmutableList.copyOf(libraries.build()));
 
     ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
     for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {

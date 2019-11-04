@@ -143,7 +143,11 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .setAlwayslink(alwaysLink)
               .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactToLink))
               .build();
-      ccLinkingContext = CcLinkingContext.builder().addLibrary(libraryToLink).build();
+      ccLinkingContext =
+          CcLinkingContext.builder()
+              .setOwner(ruleContext.getLabel())
+              .addLibrary(libraryToLink)
+              .build();
     }
 
     final CcCommon common = new CcCommon(ruleContext);

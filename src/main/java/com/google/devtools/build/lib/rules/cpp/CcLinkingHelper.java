@@ -376,6 +376,7 @@ public final class CcLinkingHelper {
       // create a LinkOptions instance that contains an empty list.
       ccLinkingContext =
           CcLinkingContext.builder()
+              .setOwner(label)
               .addUserLinkFlags(
                   linkopts.isEmpty()
                       ? ImmutableList.of()

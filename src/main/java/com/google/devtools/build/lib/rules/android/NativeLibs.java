@@ -72,6 +72,7 @@ public final class NativeLibs {
           AndroidCommon.getCcInfo(
               entry.getValue(),
               ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()),
+              ruleContext.getLabel(),
               ruleContext.getSymbolGenerator());
 
       Artifact nativeDepsLibrary =

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -831,16 +832,19 @@ public class AndroidCommon {
     return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
         ImmutableList.of(),
+        ruleContext.getLabel(),
         ruleContext.getSymbolGenerator());
   }
 
   static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps,
       final Collection<String> linkOpts,
+      Label label,
       SymbolGenerator<?> symbolGenerator) {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
+            .setOwner(label)
             .addUserLinkFlags(ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator)))
             .build();
 
