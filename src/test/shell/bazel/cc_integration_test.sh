@@ -643,7 +643,7 @@ function assert_bzl_file_forbidden() {
 load("@bazel_tools${bzl_label}", "${bzl_symbol}")
 EOF
 
-  bazel build //... || \
+  bazel build //... --noincompatible_use_cc_configure_from_rules_cc || \
     fail "expected the build without the incompatible flag to pass for ${bzl_label}"
   bazel build //... --incompatible_use_cc_configure_from_rules_cc &>"$TEST_log" && \
     fail "expected the build with the incompatible flag to fail for ${bzl_label}"
@@ -670,9 +670,23 @@ function test_incompatible_use_cc_configure_from_rules_cc() {
   assert_bzl_file_forbidden "//tools/cpp:unix_cc_toolchain_config.bzl" "cc_toolchain_config"
   assert_bzl_file_forbidden "//tools/cpp:windows_cc_configure.bzl" "configure_windows_toolchain"
   assert_bzl_file_forbidden "//tools/cpp:windows_cc_toolchain_config.bzl" "cc_toolchain_config"
-
-  assert_bzl_file_forbidden "//tools/build_defs/cc:action_names.bzl" "C_COMPILE_ACTION_NAME"
-
 }
+
+# TODO(#8546): Uncomment once @bazel_tools//tools/cpp/BUILD doesn't load cc_toolchain_config.bzl
+#function test_incompatible_use_cc_configure_from_rules_cc_shows_nice_error_message_on_missing_toolchains() {
+#  local workspace="${FUNCNAME[0]}"
+#  mkdir -p "${workspace}"
+#  cd "${workspace}"
+#  touch WORKSPACE
+#  echo "cc_library(name = 'foo')" > BUILD
+#
+#  bazel build //:foo --noincompatible_use_cc_configure_from_rules_cc --incompatible_disable_static_cc_toolchains || \
+#    fail "expected the build to pass without the incompatible flag flipped"
+#
+#  bazel build //:foo --incompatible_use_cc_configure_from_rules_cc --incompatible_disable_static_cc_toolchains &>"$TEST_log" && \
+#    fail "expected the build to fail with the incompatible flag flipped"
+#
+#  expect_log "Maybe --incompatible_use_cc_configure_from_rules_cc has been flipped"
+#}
 
 run_suite "cc_integration_test"
