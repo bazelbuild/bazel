@@ -36,9 +36,9 @@ java_library(
     ],
 )
 
-java_library(
-    name = "SandboxTests_lib",
-    testonly = 1,
+java_test(
+    name = "SandboxTests",
+    size = "medium",
     srcs = glob(
         ["*.java"],
         exclude = [
@@ -47,6 +47,11 @@ java_library(
             "RealSandboxfsProcessIntegrationTest.java",
         ],
     ),
+    data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
         ":sandboxfs-base-tests",
         ":testutil",
@@ -59,17 +64,6 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "SandboxTests",
-    size = "medium",
-    data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":SandboxTests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
 
