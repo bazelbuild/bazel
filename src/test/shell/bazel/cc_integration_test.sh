@@ -633,4 +633,31 @@ EOF
     "following files included by 'foo.cc'"
 }
 
+function assert_bzl_file_forbidden() {
+  local bzl_label="${1}"
+  local bzl_symbol="${2}"
+  mkdir -p "${bzl_symbol}"
+  cd "${bzl_symbol}"
+  touch WORKSPACE
+  cat >> BUILD << EOF
+load("@bazel_tools${bzl_label}", "${bzl_symbol}")
+EOF
+
+  bazel build --strategy=local //... || \
+    fail "expected the build without the incompatible flag to pass"
+  bazel build --strategy=local //... --incompatible_use_cc_configure_from_rules_cc && \
+    fail "expected the build with the incompatible flag to fail"
+  expect_log "Incompatible flag --incompatible_use_cc_configure_from_rules_cc "\
+    "has been flipped. Please use cc_configure and related logic from "\
+    "https://github.com/bazelbuild/rules_cc."
+  cd ..
+}
+
+function test_incompatible_use_cc_configure_from_rules_cc() {
+  local workspace="${FUNCNAME[0]}"
+  mkdir -p "${workspace}"
+  cd "${workspace}"
+  assert_bzl_file_forbidden "//tools/cpp:cc_toolchain_config_lib.bzl" "feature"
+}
+
 run_suite "cc_integration_test"

@@ -89,9 +89,6 @@ all_link_actions = [
     _CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
 ]
 
-# TODO(#10134): Remove when the flag is flipped
-__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
-
 def _impl(ctx):
     if ctx.attr.disable_static_cc_toolchains:
         fail("@bazel_tools//tools/cpp:default-toolchain, as well as the cc_toolchains it points " +

@@ -14,7 +14,8 @@
 # limitations under the License.
 
 # TODO(#10134): Remove when the flag is flipped
-__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+# TODO(scentini): Uncomment when osx toolchain is usable from rules_cc please.
+# __do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
 
 # List of architectures supported by osx crosstool.
 OSX_TOOLS_NON_DEVICE_ARCHS = [
