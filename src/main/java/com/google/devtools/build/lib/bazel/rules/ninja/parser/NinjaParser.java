@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -71,6 +72,37 @@ public class NinjaParser {
     }
     String text = asString(lexer.getFragment().getBytes(valueStart, lexer.getLastEnd()));
     return new NinjaVariableValue(text, builder.build());
+  }
+
+  /**
+   * Parses Ninja rule at the current lexer position.
+   */
+  public NinjaRule parseNinjaRule() throws GenericParsingException {
+    parseExpected(NinjaToken.RULE);
+    String name = asString(parseExpected(NinjaToken.IDENTIFIER));
+
+    ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
+        ImmutableSortedMap.naturalOrder();
+    variablesBuilder.put(NinjaRuleVariable.NAME,
+        new NinjaVariableValue(name, ImmutableSortedKeyListMultimap.of()));
+
+    parseExpected(NinjaToken.NEWLINE);
+    while (lexer.hasNextToken()) {
+      parseExpected(NinjaToken.INDENT);
+      String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
+      parseExpected(NinjaToken.EQUALS);
+      NinjaVariableValue value = parseVariableValue(variableName);
+
+      NinjaRuleVariable ninjaRuleVariable = NinjaRuleVariable.nullOrValue(variableName);
+      if (ninjaRuleVariable == null) {
+        throw new GenericParsingException(String.format("Unexpected variable '%s'", variableName));
+      }
+      variablesBuilder.put(ninjaRuleVariable, value);
+      if (lexer.hasNextToken()) {
+        parseExpected(NinjaToken.NEWLINE);
+      }
+    }
+    return new NinjaRule(variablesBuilder.build());
   }
 
   @VisibleForTesting
