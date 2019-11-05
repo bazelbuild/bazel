@@ -67,16 +67,26 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * available in the map.
    *
    * <p>Keeping the map in between builds introduces a potential memory leak: if an Artifact is no
-   * longer valid, it would still exist in the map. TODO(leba): Address this memory leak if it
-   * causes serious regression.
+   * longer valid, it would still exist in the map. TODO(leba): Address this memory leak.
    */
   private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
       artifactToSkyValueMap;
+
+  /**
+   * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
+   * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
+   *
+   * <p>Keeping the map in between builds introduces a potential memory leak: if a NestedSet is no
+   * longer valid, it would still exist in the map.
+   */
+  // TODO(leba): Address this memory leak.
+  private final ConcurrentMap<Object, SkyKey> knownNestedSetToKey;
 
   private static ArtifactNestedSetFunction singleton = null;
 
   private ArtifactNestedSetFunction() {
     artifactToSkyValueMap = new ConcurrentHashMap<>();
+    knownNestedSetToKey = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -93,7 +103,10 @@ class ArtifactNestedSetFunction implements SkyFunction {
     }
 
     // Evaluate all children.
-    env.getValues(artifactNestedSetKey.transitiveKeys());
+    for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
+      knownNestedSetToKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
+      env.getValue(knownNestedSetToKey.get(transitive));
+    }
 
     if (env.valuesMissing()) {
       return null;

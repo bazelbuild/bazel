@@ -327,8 +327,9 @@ public final class NestedSet<E> implements Iterable<E> {
    */
   public int memoizedFlattenAndGetSize() {
     if (orderAndSize >> 2 == 0) {
-      // toList() implicitly updates orderAndSize.
-      return toList().size();
+      // toList() only implicitly updates orderAndSize if this is a NestedSet with transitives.
+      // Therefore we need to explicitly set it here.
+      orderAndSize |= toList().size() << 2;
     }
     return orderAndSize >> 2;
   }
