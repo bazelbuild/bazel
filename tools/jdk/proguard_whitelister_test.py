@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import unittest
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.jdk import proguard_whitelister
 
@@ -37,7 +45,7 @@ class ProguardConfigValidatorTest(unittest.TestCase):
     tmpdir = os.environ["TEST_TMPDIR"]
     input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.pgcfg")
     with open(input_path, "w") as f:
-      f.write(config)
+      f.write(six.ensure_str(config))
     output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     validator = self._CreateValidator(input_path, output_path)
     try:
@@ -45,7 +53,7 @@ class ProguardConfigValidatorTest(unittest.TestCase):
       self.fail()
     except RuntimeError as e:
       for invalid_arg in invalid_args:
-        self.assertTrue(invalid_arg in str(e))
+        self.assertTrue(six.ensure_str(invalid_arg) in str(e))
 
   def testInvalidNoteConfig(self):
     self._TestInvalidConfig(["-dontnote"], """\

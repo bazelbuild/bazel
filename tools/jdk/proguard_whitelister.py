@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,15 +22,21 @@ Limiting libraries to using these flags prevents drastic, sweeping effects
 binary through a library dependency.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import re
-import sys
 
-from third_party.py import gflags
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
+import six
 
-gflags.DEFINE_string('path', None, 'Path to the proguard config to validate')
-gflags.DEFINE_string('output', None, 'Where to put the validated config')
+flags.DEFINE_string('path', None, 'Path to the proguard config to validate')
+flags.DEFINE_string('output', None, 'Where to put the validated config')
 
-FLAGS = gflags.FLAGS
+FLAGS = flags.FLAGS
 PROGUARD_COMMENTS_PATTERN = '#.*(\n|$)'
 
 
@@ -60,7 +67,7 @@ class ProguardConfigValidator(object):
 
   def _Validate(self, config):
     """Checks the config for illegal arguments."""
-    config = re.sub(PROGUARD_COMMENTS_PATTERN, '', config)
+    config = re.sub(PROGUARD_COMMENTS_PATTERN, '', six.ensure_str(config))
     args = re.compile('(?:^-|\n-)').split(config)
 
     invalid_configs = []
@@ -81,11 +88,10 @@ class ProguardConfigValidator(object):
     return False
 
 
-def main():
+def main(unused_argv):
   validator = ProguardConfigValidator(FLAGS.path, FLAGS.output)
   validator.ValidateAndWriteOutput()
 
 
 if __name__ == '__main__':
-  FLAGS(sys.argv)
-  main()
+  app.run(main)

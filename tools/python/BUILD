@@ -12,7 +12,10 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["**"]) + [
+    srcs = glob(
+        ["**"],
+        exclude = ["private/version.bzl"],
+    ) + [
         "//tools/python/runfiles:embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],
@@ -43,6 +46,5 @@ py_test(
         ":py2wrapper.sh",
         ":py2wrapper_nonstrict.sh",
     ],
-    python_version = "PY2",
     deps = ["//src/test/py/bazel:test_base"],
 )
