@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.Objects;
 
 /**
  * Ninja variable value.
@@ -50,5 +51,23 @@ public class NinjaVariableValue {
         "text='" + text + '\'' +
         ", variables=" + variables +
         '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    NinjaVariableValue that = (NinjaVariableValue) o;
+    return Objects.equals(text, that.text) &&
+        Objects.equals(variables, that.variables);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(text, variables);
   }
 }

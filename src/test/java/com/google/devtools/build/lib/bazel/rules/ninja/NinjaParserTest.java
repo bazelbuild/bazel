@@ -22,7 +22,10 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
+import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
@@ -85,6 +88,45 @@ public class NinjaParserTest {
     assertThat(NinjaParser.normalizeVariableName("${abc_de-7}")).isEqualTo("abc_de-7");
     assertThat(NinjaParser.normalizeVariableName("${ a1.5}")).isEqualTo("a1.5");
     assertThat(NinjaParser.normalizeVariableName("${a1.5  }")).isEqualTo("a1.5");
+  }
+
+  @Test
+  public void testNinjaRule() throws Exception {
+    NinjaParser parser = createParser("rule testRule  \n"
+        + " command = executable --flag $TARGET $out && $POST_BUILD\n"
+        + " description = Test rule for $TARGET\n"
+        + " rspfile = $TARGET.in\n"
+        + " deps = ${abc} $\n"
+        + " ${cde}\n"
+        + " custom_var = 123");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet()).containsExactly(
+        NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION,
+        NinjaRuleVariable.RSPFILE, NinjaRuleVariable.DEPS
+    );
+    assertThat(variables.get(NinjaRuleVariable.NAME).getText()).isEqualTo("testRule");
+    assertThat(variables.get(NinjaRuleVariable.DEPS).getText()).isEqualTo("${abc} $\n ${cde}");
+    assertThat(ninjaRule.getCustomVariables()).containsExactly("custom_var",
+        new NinjaVariableValue("123", ImmutableSortedMap.of()));
+  }
+
+  @Test
+  public void testNinjaRuleParsingException() {
+    doTestNinjaRuleParsingException("rule testRule extra-word\n",
+        "Expected newline, but got identifier");
+    doTestNinjaRuleParsingException("rule testRule\n command =",
+        "Variable 'command' has no value.");
+    doTestNinjaRuleParsingException("rule testRule\ncommand =",
+        "Expected indent, but got identifier");
+    doTestNinjaRuleParsingException("rule testRule\n ^custom = a",
+        "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
+  }
+
+  private void doTestNinjaRuleParsingException(String text, String message) {
+    GenericParsingException exception = assertThrows(GenericParsingException.class,
+        () -> createParser(text).parseNinjaRule());
+    assertThat(exception).hasMessageThat().isEqualTo(message);
   }
 
   private static void doTestSimpleVariable(String text, String name, String value)
