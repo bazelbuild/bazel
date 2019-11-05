@@ -188,6 +188,26 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateTmpDirForTest() throws Exception {
+    // setup a test action
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        ")");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    String tmpDirName = TestStrategy.getTmpDirName(testRunnerAction);
+    // Make sure the length of tmpDirName doesn't change unexpectedy: it cannot be too long
+    // because Windows and macOS have limitations on file path length.
+    // Note: It's OK to update 32 to a smaller number if tmpDirName gets shorter.
+    assertThat(tmpDirName.length()).isEqualTo(32);
+  }
+
+  @Test
   public void testRunTestOnce() throws Exception {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
