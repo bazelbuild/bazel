@@ -325,6 +325,9 @@ public final class RuleConfiguredTargetBuilder {
       NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
     filesToRunBuilder.addTransitive(filesToBuild);
     filesToRunBuilder.addTransitive(runfilesMiddlemen);
+    if (executable != null) {
+      filesToRunBuilder.add(executable);
+    }
     return filesToRunBuilder.build();
   }
 
