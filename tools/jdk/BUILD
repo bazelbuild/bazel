@@ -428,7 +428,7 @@ py_binary(
         "proguard_whitelister.py",
     ],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
