@@ -126,7 +126,7 @@ public class NinjaParserTest {
         "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
   }
 
-  private void doTestNinjaRuleParsingException(String text, String message) {
+  private static void doTestNinjaRuleParsingException(String text, String message) {
     GenericParsingException exception = assertThrows(GenericParsingException.class,
         () -> createParser(text).parseNinjaRule());
     assertThat(exception).hasMessageThat().isEqualTo(message);

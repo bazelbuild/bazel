@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
+import com.google.common.base.Ascii;
 /**
  * Enum to represent {@link NinjaRule} variables with the special value, like name or command.
  */
@@ -33,7 +34,7 @@ public enum NinjaRuleVariable {
 
   public static NinjaRuleVariable nullOrValue(String name) {
     try {
-      return valueOf(name.toUpperCase());
+      return valueOf(Ascii.toUpperCase(name));
     } catch (IllegalArgumentException e) {
       return null;
     }
