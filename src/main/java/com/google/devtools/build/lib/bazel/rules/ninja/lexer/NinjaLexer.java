@@ -170,14 +170,14 @@ public class NinjaLexer {
     return token;
   }
 
-  private int getLastStart() {
+  public int getLastStart() {
     if (ranges.isEmpty()) {
       throw new IllegalStateException();
     }
     return Preconditions.checkNotNull(Iterables.getLast(ranges).getFirst());
   }
 
-  private int getLastEnd() {
+  public int getLastEnd() {
     if (ranges.isEmpty()) {
       throw new IllegalStateException();
     }
@@ -200,5 +200,9 @@ public class NinjaLexer {
 
   public String getError() {
     return step.getError();
+  }
+
+  public ByteBufferFragment getFragment() {
+    return fragment;
   }
 }
