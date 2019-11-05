@@ -185,12 +185,26 @@ public abstract class ConstraintCollection
       return true;
     }
 
-    // Then, check the parent, directly to ignore defaults.
+    // Then, check the parent.
     if (parent() != null) {
       return parent().has(constraint);
     }
 
     return constraint.hasDefaultConstraintValue();
+  }
+
+  public boolean hasWithoutDefault(ConstraintSettingInfo constraint) {
+    // First, check locally.
+    if (constraints().containsKey(constraint)) {
+      return true;
+    }
+
+    // Then, check the parent, directly to ignore defaults.
+    if (parent() != null) {
+      return parent().hasWithoutDefault(constraint);
+    }
+
+    return false;
   }
 
   /**
