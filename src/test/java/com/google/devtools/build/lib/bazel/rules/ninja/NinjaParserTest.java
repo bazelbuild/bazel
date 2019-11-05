@@ -72,7 +72,7 @@ public class NinjaParserTest {
     assertThat(NinjaParser.normalizeVariableName("${a1.5  }")).isEqualTo("a1.5");
   }
 
-  private void doTestSimpleVariable(String text, String name, String value)
+  private static void doTestSimpleVariable(String text, String name, String value)
       throws GenericParsingException {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
@@ -82,7 +82,7 @@ public class NinjaParserTest {
     assertThat(variable.getSecond().getVariables()).isEmpty();
   }
 
-  private void doTestNoValue(String text) {
+  private static void doTestNoValue(String text) {
     NinjaParser parser = createParser(text);
     GenericParsingException exception = assertThrows(GenericParsingException.class,
         parser::parseVariable);
@@ -90,22 +90,19 @@ public class NinjaParserTest {
         .isEqualTo(String.format("Variable has no value: '%s'", text));
   }
 
-  private ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
       String name, int start, int end) {
-    return ImmutableSortedMap.<String, Pair<Integer, Integer>>naturalOrder()
-        .put(name, Pair.of(start, end))
-        .build();
+    return ImmutableSortedMap.of(name, Pair.of(start, end));
   }
 
-  private ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
       String name1, int start1, int end1, String name2, int start2, int end2) {
-    return ImmutableSortedMap.<String, Pair<Integer, Integer>>naturalOrder()
-        .put(name1, Pair.of(start1, end1))
-        .put(name2, Pair.of(start2, end2))
-        .build();
+    return ImmutableSortedMap.of(
+        name1, Pair.of(start1, end1),
+        name2, Pair.of(start2, end2));
   }
 
-  private void doTestWithVariablesInValue(String text,
+  private static void doTestWithVariablesInValue(String text,
       String name,
       String value,
       ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVars)

@@ -72,7 +72,7 @@ public class NinjaParser {
     if (valueStart == -1) {
       // We read no value.
       throw new GenericParsingException(String.format("Variable has no value: '%s'",
-          lexer.getFragment().toString()));
+          lexer.getFragment()));
     }
     String text = asString(lexer.getFragment().getBytes(valueStart, lexer.getLastEnd()));
     return new NinjaVariableValue(text, builder.build());
@@ -98,7 +98,7 @@ public class NinjaParser {
     return raw.substring(start, end + 1);
   }
 
-  private String asString(byte[] value) {
+  private static String asString(byte[] value) {
     return new String(value, StandardCharsets.ISO_8859_1);
   }
 
