@@ -623,10 +623,11 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> implements Serializa
     }
 
     @Override
+    @SuppressWarnings("unchecked") // keys contains only Ks
     public void forEach(Consumer<? super K> action) {
       checkNotNull(action);
       for (int i = firstEntryIndex(); i >= 0; i = getSuccessor(i)) {
-        action.accept((K) keys[i]);
+        action.accept((K) keys[i]); // unchecked
       }
     }
   }

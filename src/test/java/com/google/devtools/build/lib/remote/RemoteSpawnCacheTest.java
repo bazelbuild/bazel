@@ -108,7 +108,7 @@ public class RemoteSpawnCacheTest {
   @Mock private AbstractRemoteActionCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
-  private final List<Pair<ProgressStatus, String>> progressUpdates = new ArrayList();
+  private final List<Pair<ProgressStatus, String>> progressUpdates = new ArrayList<>();
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 

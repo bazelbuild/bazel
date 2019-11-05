@@ -312,18 +312,22 @@ public abstract class CcModule
   /**
    * Converts an object that can be the NoneType to the actual object if it is not or returns the
    * default value if none.
+   *
+   * <p>This operation is wildly unsound. It performs no dymamic checks (casts), it simply lies
+   * about the type.
    */
   @SuppressWarnings("unchecked")
   protected static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
     if (EvalUtils.isNullOrNone(obj)) {
       return defaultValue;
     }
-    return (T) obj;
+    return (T) obj; // totally unsafe
   }
 
   /** Converts an object that can be ether SkylarkNestedSet or None into NestedSet. */
   protected NestedSet<String> asStringNestedSet(Object o) throws SkylarkNestedSet.TypeException {
-    SkylarkNestedSet skylarkNestedSet = convertFromNoneable(o, /* defaultValue= */ null);
+    SkylarkNestedSet skylarkNestedSet =
+        convertFromNoneable(o, /* defaultValue= */ (SkylarkNestedSet) null);
     if (skylarkNestedSet != null) {
       return skylarkNestedSet.getSet(String.class);
     } else {
@@ -333,7 +337,8 @@ public abstract class CcModule
 
   /** Converts an object that can be either SkylarkList, or None into ImmutableList. */
   protected ImmutableList<String> asStringImmutableList(Object o) {
-    SkylarkList skylarkList = convertFromNoneable(o, /* defaultValue= */ null);
+    SkylarkList<String> skylarkList =
+        convertFromNoneable(o, /* defaultValue= */ (SkylarkList<String>) null);
     if (skylarkList != null) {
       return skylarkList.getImmutableList();
     } else {

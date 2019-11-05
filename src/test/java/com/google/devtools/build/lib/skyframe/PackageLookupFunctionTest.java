@@ -126,7 +126,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference(UnixGlob.DEFAULT_SYSCALLS),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());

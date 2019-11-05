@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
             + "you will be broken when it is removed."
             + "Common utilities and functionality related to Android rules.",
     documented = false)
-public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi> {
+public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>> {
 
   @SkylarkCallable(
       name = "create_device_broker_info",

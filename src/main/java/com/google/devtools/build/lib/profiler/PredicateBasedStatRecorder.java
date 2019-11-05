@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 
 /**
@@ -27,11 +26,12 @@ import java.util.List;
  */
 public class PredicateBasedStatRecorder implements StatRecorder {
 
-  private final Predicate[] predicates;
+  private final Predicate<? super String>[] predicates;
   private final StatRecorder[] recorders;
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public PredicateBasedStatRecorder(List<RecorderAndPredicate> stats) {
-    predicates = new Predicate[stats.size()];
+    predicates = (Predicate<? super String>[]) new Predicate[stats.size()]; // unchecked, rawtypes
     recorders = new StatRecorder[stats.size()];
     for (int i = 0; i < stats.size(); i++) {
       RecorderAndPredicate stat = stats.get(i);
@@ -40,7 +40,6 @@ public class PredicateBasedStatRecorder implements StatRecorder {
     }
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public void addStat(int duration, Object obj) {
     String description = obj.toString();

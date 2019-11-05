@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface CompilationInfoApi {
   @SkylarkCallable(name = "cc_compilation_outputs", structField = true, documented = false)
-  CcCompilationOutputsApi getCcCompilationOutputs();
+  CcCompilationOutputsApi<?> getCcCompilationOutputs();
 
   @SkylarkCallable(name = "compilation_context", structField = true, documented = false)
   CcCompilationContextApi getCcCompilationContext();
