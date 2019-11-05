@@ -1105,12 +1105,21 @@ constraint_setting(name = 'setting1', default_constraint_value = ':value_foo')
 constraint_value(name = 'value_foo', constraint_setting = ':setting1')
 constraint_value(name = 'value_bar', constraint_setting = ':setting1')
 
+# Default constraint values don't block toolchain resolution.
+constraint_setting(name = 'setting2', default_constraint_value = ':value_unused')
+constraint_value(name = 'value_unused', constraint_setting = ':setting2')
+
 platform(
     name = 'platform_default',
-    constraint_values = [])
+    constraint_values = [
+      ':value_unused',
+    ])
 platform(
     name = 'platform_no_default',
-    constraint_values = [':value_bar'])
+    constraint_values = [
+      ':value_bar',
+      ':value_unused',
+    ])
 EOF
 
   # Add test toolchains using the constraints.
@@ -1135,7 +1144,7 @@ toolchain(
     toolchain_type = '//toolchain:test_toolchain',
     exec_compatible_with = [],
     target_compatible_with = [
-      # No constraint set, takes the default.
+      '//platforms:value_foo',
     ],
     toolchain = ':test_toolchain_impl_foo',
     visibility = ['//visibility:public'])
@@ -1144,7 +1153,6 @@ toolchain(
     toolchain_type = '//toolchain:test_toolchain',
     exec_compatible_with = [],
     target_compatible_with = [
-      # Explicitly sets a non-default value.
       '//platforms:value_bar',
     ],
     toolchain = ':test_toolchain_impl_bar',
