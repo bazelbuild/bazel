@@ -117,7 +117,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet allFiles = (SkylarkNestedSet) getMyInfoFromTarget(r).getValue("all_files");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
@@ -162,7 +161,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
     SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
     SkylarkNestedSet dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
 
@@ -221,7 +219,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
     String actionToolPath = (String) getMyInfoFromTarget(r).getValue("action_tool_path");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
@@ -314,7 +311,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
     boolean fooFeatureEnabled = (boolean) getMyInfoFromTarget(r).getValue("foo_feature_enabled");
     assertThat(fooFeatureEnabled).isTrue();
   }
@@ -354,7 +350,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
     boolean fooFeatureEnabled = (boolean) getMyInfoFromTarget(r).getValue("foo_feature_enabled");
     assertThat(fooFeatureEnabled).isFalse();
   }
@@ -491,9 +486,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     StructImpl myInfo = getMyInfoFromTarget(getConfiguredTarget("//a:r"));
-    @SuppressWarnings("unchecked")
     boolean enabledActionIsEnabled = (boolean) myInfo.getValue("enabled_action");
-    @SuppressWarnings("unchecked")
     boolean disabledActionIsDisabled = (boolean) myInfo.getValue("disabled_action");
     assertThat(enabledActionIsEnabled).isTrue();
     assertThat(disabledActionIsDisabled).isFalse();
@@ -533,9 +526,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     StructImpl myInfo = getMyInfoFromTarget(getConfiguredTarget("//a:r"));
 
-    @SuppressWarnings("unchecked")
     boolean enabledFeatureIsEnabled = (boolean) myInfo.getValue("enabled_feature");
-    @SuppressWarnings("unchecked")
     boolean disabledFeatureIsDisabled = (boolean) myInfo.getValue("disabled_feature");
     assertThat(enabledFeatureIsEnabled).isTrue();
     assertThat(disabledFeatureIsDisabled).isFalse();
@@ -1119,7 +1110,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget lib = getConfiguredTarget("//a:lib");
-    @SuppressWarnings("unchecked")
     CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(
             ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
@@ -1308,7 +1298,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet librariesToLink = info.getValue("libraries_to_link", SkylarkNestedSet.class);
     assertThat(
             librariesToLink.toCollection(LibraryToLink.class).stream()
@@ -1351,14 +1340,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (SkylarkList<String>) info.getValue("user_link_flags", SkylarkList.class);
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet additionalInputs = info.getValue("additional_inputs", SkylarkNestedSet.class);
     assertThat(
             additionalInputs.toCollection(Artifact.class).stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("b.lds", "d.lds");
-    @SuppressWarnings("unchecked")
     Collection<LibraryToLink> librariesToLink =
         info.getValue("libraries_to_link", SkylarkNestedSet.class)
             .toCollection(LibraryToLink.class);
@@ -4813,7 +4800,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                                             features = ['f1', 'f2'],",
         "                                             not_features = ['nf1', 'nf2'])]),",
         "                             env_set(actions = ['a1', 'a2'])]",
-        "                )],",
+        "                    ),",
+        "                ],",
         "                action_configs = [",
         "                    action_config(action_name = 'action_one', enabled=True),",
         "                    action_config(",
@@ -4888,10 +4876,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             toolchain.getFeatureList().stream()
                 .map(feature -> feature.getName())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("featureone", "sysroot")
+        .containsAtLeast("featureone", "sysroot")
         .inOrder();
-
-    CToolchain.Feature feature = toolchain.getFeature(1);
+    // check for legacy features
+    assertThat(toolchain.getFeatureCount()).isGreaterThan(2);
+    CToolchain.Feature feature =
+        toolchain.getFeatureList().stream()
+            .filter(f -> f.getName().equals("sysroot"))
+            .findFirst()
+            .get();
     assertThat(feature.getName()).isEqualTo("sysroot");
     assertThat(feature.getImpliesList()).containsExactly("imply2", "imply1").inOrder();
     assertThat(feature.getProvidesList()).containsExactly("provides2", "provides1").inOrder();
@@ -4926,9 +4919,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             toolchain.getActionConfigList().stream()
                 .map(actionConfig -> actionConfig.getActionName())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("action_one", "action_two")
+        .containsAtLeast("action_one", "action_two")
         .inOrder();
-    CToolchain.ActionConfig actionConfig = toolchain.getActionConfig(1);
+
+    // legacy crosstool patching adds the missing action_configs as well
+    assertThat(toolchain.getActionConfigCount()).isGreaterThan(2);
+
+    CToolchain.ActionConfig actionConfig =
+        toolchain.getActionConfigList().stream()
+            .filter(config -> config.getConfigName().equals("action_two"))
+            .findFirst()
+            .get();
     assertThat(actionConfig.getImpliesList())
         .containsExactly("compiler_input_flags", "compiler_output_flags")
         .inOrder();
@@ -4951,7 +4952,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     CToolchain.FlagSet actionConfigFlagSet =
         Iterables.getOnlyElement(actionConfig.getFlagSetList());
     assertThat(actionConfigFlagSet.getActionCount()).isEqualTo(0);
-    assertThat(Iterables.getOnlyElement(toolchain.getArtifactNamePatternList()))
+
+    // Missing artifact name patterns are filled in too
+    assertThat(toolchain.getArtifactNamePatternCount()).isGreaterThan(1);
+    assertThat(toolchain.getArtifactNamePattern(0))
         .isEqualTo(
             CToolchain.ArtifactNamePattern.newBuilder()
                 .setCategoryName("static_library")
@@ -5115,7 +5119,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_flags(name='r')");
 
-    @SuppressWarnings("unchecked")
     String ccFlags =
         (String) getMyInfoFromTarget(getConfiguredTarget("//a:r")).getValue("cc_flags");
 
@@ -5141,7 +5144,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "toolchain_resolution_enabled(name='r')");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
+    // Use an extra variable in order to suppress the warning.
     boolean toolchainResolutionEnabled =
         (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
     return toolchainResolutionEnabled;
@@ -5205,7 +5208,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    pic_object2 = 'pic_object2.o',",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    @SuppressWarnings("unchecked")
     CcCompilationOutputs compilationOutputs =
         (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(

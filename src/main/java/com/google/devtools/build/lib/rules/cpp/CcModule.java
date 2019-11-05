@@ -70,9 +70,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -718,7 +716,7 @@ public abstract class CcModule
     List<String> cxxBuiltInIncludeDirectories =
         cxxBuiltInIncludeDirectoriesUnchecked.getContents(
             String.class, "cxx_builtin_include_directories");
-    CToolchain.Builder cToolchain = CToolchain.newBuilder();
+
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
@@ -726,10 +724,6 @@ public abstract class CcModule
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
     ImmutableList<Feature> featureList = featureBuilder.build();
-    cToolchain.addAllFeature(
-        featureList.stream()
-            .map(feature -> CcToolchainConfigInfo.featureToProto(feature))
-            .collect(ImmutableList.toImmutableList()));
 
     ImmutableSet<String> featureNames =
         featureList.stream()
@@ -742,10 +736,6 @@ public abstract class CcModule
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
-    cToolchain.addAllActionConfig(
-        actionConfigList.stream()
-            .map(actionConfig -> CcToolchainConfigInfo.actionConfigToProto(actionConfig))
-            .collect(ImmutableList.toImmutableList()));
 
     ImmutableSet<String> actionConfigNames =
         actionConfigList.stream()
@@ -759,17 +749,7 @@ public abstract class CcModule
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
-    cToolchain.addAllArtifactNamePattern(
-        artifactNamePatternBuilder.build().stream()
-            .map(
-                artifactNamePattern ->
-                    CToolchain.ArtifactNamePattern.newBuilder()
-                        .setCategoryName(
-                            artifactNamePattern.getArtifactCategory().getCategoryName())
-                        .setPrefix(artifactNamePattern.getPrefix())
-                        .setExtension(artifactNamePattern.getExtension())
-                        .build())
-            .collect(ImmutableList.toImmutableList()));
+
     getLegacyArtifactNamePatterns(artifactNamePatternBuilder);
 
     // Pairs (toolName, toolPath)
@@ -778,11 +758,6 @@ public abstract class CcModule
       checkRightSkylarkInfoProvider(toolPath, "tool_paths", "ToolPathInfo");
       Pair<String, String> toolPathPair = toolPathFromSkylark((SkylarkInfo) toolPath);
       toolPathPairs.add(toolPathPair);
-      cToolchain.addToolPath(
-          ToolPath.newBuilder()
-              .setName(toolPathPair.getFirst())
-              .setPath(toolPathPair.getSecond())
-              .build());
     }
     ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
 
@@ -886,29 +861,6 @@ public abstract class CcModule
       checkRightSkylarkInfoProvider(makeVariable, "make_variables", "MakeVariableInfo");
       Pair<String, String> makeVariablePair = makeVariableFromSkylark((SkylarkInfo) makeVariable);
       makeVariablePairs.add(makeVariablePair);
-      cToolchain.addMakeVariable(
-          CrosstoolConfig.MakeVariable.newBuilder()
-              .setName(makeVariablePair.getFirst())
-              .setValue(makeVariablePair.getSecond())
-              .build());
-    }
-
-    cToolchain
-        .addAllCxxBuiltinIncludeDirectory(cxxBuiltInIncludeDirectories)
-        .setToolchainIdentifier(toolchainIdentifier)
-        .setHostSystemName(hostSystemName)
-        .setTargetSystemName(targetSystemName)
-        .setTargetCpu(targetCpu)
-        .setTargetLibc(targetLibc)
-        .setCompiler(compiler)
-        .setAbiVersion(abiVersion)
-        .setAbiLibcVersion(abiLibcVersion);
-
-    if (convertFromNoneable(ccTargetOs, /* defaultValue= */ null) != null) {
-      cToolchain.setCcTargetOs((String) ccTargetOs);
-    }
-    if (convertFromNoneable(builtinSysroot, /* defaultValue= */ null) != null) {
-      cToolchain.setBuiltinSysroot((String) builtinSysroot);
     }
 
     return new CcToolchainConfigInfo(
@@ -927,8 +879,7 @@ public abstract class CcModule
         toolPathList,
         makeVariablePairs.build(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
-        convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        cToolchain.build().toString());
+        convertFromNoneable(ccTargetOs, /* defaultValue= */ ""));
   }
 
   private static void checkRightSkylarkInfoProvider(
