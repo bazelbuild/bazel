@@ -1249,6 +1249,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.TARGETS_WINDOWS,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
+        /* experimentalCcSharedLibrary= */ false,
         ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
         ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
@@ -1266,6 +1267,25 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
+        /* experimentalCcSharedLibrary= */ false,
+        ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
+        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
+  }
+
+  @Test
+  public void testCcLinkingContextForExperimentalCcSharedLibrary() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.PIC,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    doTestCcLinkingContext(
+        /* experimentalCcSharedLibrary= */ true,
         ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
         ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
@@ -1310,15 +1330,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
   }
 
-  @Deprecated
   private void doTestCcLinkingContext(
+      boolean experimentalCcSharedLibrary,
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
     setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest();
+    if (experimentalCcSharedLibrary) {
+      setUpCcLinkingContextTestForExperimentalCcSharedLibrary();
+    } else {
+      setUpCcLinkingContextTest();
+    }
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1469,6 +1493,134 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "             user_link_flags = merged_cc_info.linking_context.user_link_flags,",
         "             additional_inputs = merged_cc_info.linking_context.additional_inputs,",
         "             libraries_to_link = merged_cc_info.linking_context.libraries_to_link,",
+        "             static_library = library_to_link.static_library,",
+        "             pic_static_library = library_to_link.pic_static_library,",
+        "             dynamic_library = library_to_link.dynamic_library,",
+        "             interface_library = library_to_link.interface_library,",
+        "             alwayslink = library_to_link.alwayslink),",
+        "      ),",
+        "      merged_cc_info]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'additional_inputs': attr.label_list(allow_files=True),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    'pic_static_library': attr.label(allow_single_file=True),",
+        "    'dynamic_library': attr.label(allow_single_file=True),",
+        "    'interface_library': attr.label(allow_single_file=True),",
+        "    'alwayslink': attr.bool(),",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias')),",
+        "    'deps': attr.label_list(),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+  }
+
+  // This test should replace the old linking context test when the old API is deprecated.
+  private void setUpCcLinkingContextTestForExperimentalCcSharedLibrary() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   static_library = 'a.a',",
+        "   pic_static_library = 'a.pic.a',",
+        "   dynamic_library = 'a.so',",
+        "   interface_library = 'a.ifso',",
+        "   user_link_flags = ['-la', '-lc2'],",
+        "   alwayslink = True,",
+        "   deps = [':c', ':dep2', ':b'],",
+        ")",
+        "crule(name='b',",
+        "   static_library = 'b.a',",
+        "   pic_static_library = 'b.pic.a',",
+        "   dynamic_library = 'b.so',",
+        "   deps = [':c', ':d'],",
+        "   additional_inputs = ['b.lds'],",
+        ")",
+        "crule(name='c',",
+        "   static_library = 'c.a',",
+        "   pic_static_library = 'c.pic.a',",
+        "   user_link_flags = ['-lc1', '-lc2'],",
+        ")",
+        "crule(name='d',",
+        "   static_library = 'd.a',",
+        "   alwayslink = True,",
+        "   deps = [':e'],",
+        "   additional_inputs = ['d.lds'],",
+        ")",
+        "crule(name='e',",
+        "   pic_static_library = 'e.pic.a',",
+        "   dynamic_library = 'e.so',",
+        "   deps = [':dep1'],",
+        ")",
+        "cc_toolchain_alias(name='alias')",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    linkopts = ['-DEP1_LINKOPT'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    linkopts = ['-DEP2_LINKOPT'],",
+        ")");
+    scratch.file("a/lib.a", "");
+    scratch.file("a/lib.so", "");
+    scratch.overwriteFile("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "top_linking_context_smoke = cc_common.create_linking_context(linker_inputs=depset([]))",
+        "def _create(ctx, feature_configuration, static_library, pic_static_library,",
+        "  dynamic_library, interface_library, alwayslink):",
+        "  return cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo], ",
+        "    static_library=static_library, pic_static_library=pic_static_library,",
+        "    dynamic_library=dynamic_library, interface_library=interface_library,",
+        "    alwayslink=alwayslink)",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = toolchain,",
+        "  )",
+        "  library_to_link = _create(ctx, feature_configuration, ctx.file.static_library, ",
+        "     ctx.file.pic_static_library, ctx.file.dynamic_library, ctx.file.interface_library,",
+        "     ctx.attr.alwayslink)",
+        "  linker_input = cc_common.create_linker_input(",
+        "                   owner=ctx.label,",
+        "                   libraries=depset([library_to_link]),",
+        "                   user_link_flags=depset(ctx.attr.user_link_flags),",
+        "                   additional_inputs=depset(ctx.files.additional_inputs))",
+        "  linking_context = cc_common.create_linking_context(",
+        "     linker_inputs=depset([linker_input]))",
+        "  cc_infos = [CcInfo(linking_context=linking_context)]",
+        "  for dep in ctx.attr.deps:",
+        "      cc_infos.append(dep[CcInfo])",
+        "  merged_cc_info = cc_common.merge_cc_infos(cc_infos=cc_infos)",
+        "  result_linker_input = merged_cc_info.linking_context.linker_inputs.to_list()[0]",
+        "  user_link_flags= []",
+        "  additional_inputs = []",
+        "  libraries = []",
+        "  for linker_input in merged_cc_info.linking_context.linker_inputs.to_list():",
+        "      user_link_flags.extend(linker_input.user_link_flags)",
+        "      additional_inputs.extend(linker_input.additional_inputs)",
+        "      libraries.extend(linker_input.libraries)",
+        "  return [",
+        "     MyInfo(",
+        "         info = struct(",
+        "             cc_info = merged_cc_info,",
+        "             user_link_flags = user_link_flags,",
+        "             additional_inputs = depset(direct=additional_inputs),",
+        "             libraries_to_link = depset(direct=libraries),",
         "             static_library = library_to_link.static_library,",
         "             pic_static_library = library_to_link.pic_static_library,",
         "             dynamic_library = library_to_link.dynamic_library,",

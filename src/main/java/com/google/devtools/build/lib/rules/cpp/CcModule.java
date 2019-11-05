@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -87,6 +88,7 @@ public abstract class CcModule
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
+        CcLinkingContext.LinkerInput,
         CcLinkingContext,
         LibraryToLink,
         CcToolchainVariables,
@@ -564,37 +566,99 @@ public abstract class CcModule
   }
 
   @Override
-  public CcLinkingContext createCcLinkingInfo(
+  public CcLinkingContext.LinkerInput createLinkerInput(
+      Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<?> nonCodeInputs,
+      Object nonCodeInputs, // <FileT> expected
+      Location location,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+
+    LinkOptions options =
+        LinkOptions.of(
+            SkylarkNestedSet.getSetFromNoneableParam(
+                    userLinkFlagsObject, String.class, "user_link_flags")
+                .toList(),
+            BazelStarlarkContext.from(thread).getSymbolGenerator());
+
+    return CcLinkingContext.LinkerInput.builder()
+        .setOwner(owner)
+        .addLibraries(
+            SkylarkNestedSet.getSetFromNoneableParam(
+                    librariesToLinkObject, LibraryToLink.class, "libraries")
+                .toList())
+        .addUserLinkFlags(ImmutableList.of(options))
+        .addNonCodeInputs(
+            SkylarkNestedSet.getSetFromNoneableParam(
+                    nonCodeInputs, Artifact.class, "additional_inputs")
+                .toList())
+        .build();
+  }
+
+  @Override
+  public CcLinkingContext createCcLinkingInfo(
+      Object linkerInputs,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Object nonCodeInputsObject,
       Location location,
       StarlarkThread thread)
       throws EvalException {
-    @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> librariesToLink =
-        nullIfNone(librariesToLinkObject, SkylarkList.class);
-    @SuppressWarnings("unchecked")
-    SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
+    if (EvalUtils.isNullOrNone(linkerInputs)) {
+      @SuppressWarnings("unchecked")
+      SkylarkList<LibraryToLink> librariesToLink =
+          nullIfNone(librariesToLinkObject, SkylarkList.class);
+      @SuppressWarnings("unchecked")
+      SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
 
-    if (librariesToLink != null || userLinkFlags != null) {
+      if (librariesToLink != null || userLinkFlags != null) {
+        CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
+        // TODO(b/135146460): Old API, no support for shared library, linker input won't have
+        //  labels.
+        if (librariesToLink != null) {
+          ccLinkingContextBuilder.addLibraries(librariesToLink.getImmutableList());
+        }
+        if (userLinkFlags != null) {
+          ccLinkingContextBuilder.addUserLinkFlags(
+              ImmutableList.of(
+                  CcLinkingContext.LinkOptions.of(
+                      userLinkFlags.getImmutableList(),
+                      BazelStarlarkContext.from(thread).getSymbolGenerator())));
+        }
+        @SuppressWarnings("unchecked")
+        SkylarkList<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, SkylarkList.class);
+        if (nonCodeInputs != null) {
+          ccLinkingContextBuilder.addNonCodeInputs(
+              nonCodeInputs.getContents(Artifact.class, "additional_inputs"));
+        }
+        return ccLinkingContextBuilder.build();
+      }
+
+      throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
+    } else {
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-      if (librariesToLink != null) {
-        ccLinkingContextBuilder.addLibraries(librariesToLink.getImmutableList());
+      ccLinkingContextBuilder.addTransitiveLinkerInputs(
+          SkylarkNestedSet.getSetFromNoneableParam(
+              linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
+
+      @SuppressWarnings("unchecked")
+      SkylarkList<LibraryToLink> librariesToLink =
+          nullIfNone(librariesToLinkObject, SkylarkList.class);
+      @SuppressWarnings("unchecked")
+      SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
+      @SuppressWarnings("unchecked")
+      SkylarkList<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, SkylarkList.class);
+
+      if (librariesToLink != null || userLinkFlags != null || nonCodeInputs != null) {
+        throw new EvalException(
+            location,
+            "If you pass linker_inputs you are using the new API. "
+                + "Just pass linker_inputs. Do not mix old and new API parameters.");
       }
-      if (userLinkFlags != null) {
-        ccLinkingContextBuilder.addUserLinkFlags(
-            ImmutableList.of(
-                CcLinkingContext.LinkOptions.of(
-                    userLinkFlags.getImmutableList(),
-                    BazelStarlarkContext.from(thread).getSymbolGenerator())));
-      }
-      ccLinkingContextBuilder.addNonCodeInputs(
-          nonCodeInputs.getContents(Artifact.class, "additional_inputs"));
+
       return ccLinkingContextBuilder.build();
     }
-
-    throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
   }
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.

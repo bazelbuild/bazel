@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Utilites related to C++ support. */
@@ -41,8 +43,9 @@ public interface CcModuleApi<
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
+    LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
     LinkingContextT extends CcLinkingContextApi,
-    LibraryToLinkT extends LibraryToLinkApi,
+    LibraryToLinkT extends LibraryToLinkApi<FileT>,
     CcToolchainVariablesT extends CcToolchainVariablesApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
     CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
@@ -600,19 +603,29 @@ public interface CcModuleApi<
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-      name = "create_linking_context",
+      name = "create_linker_input",
       doc = "Creates a <code>LinkingContext</code>.",
       useLocation = true,
       useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       parameters = {
         @Param(
-            name = "libraries_to_link",
+            name = "owner",
+            doc = "List of <code>LibraryToLink</code>.",
+            positional = false,
+            named = true,
+            type = Label.class),
+        @Param(
+            name = "libraries",
             doc = "List of <code>LibraryToLink</code>.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class),
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
@@ -620,19 +633,87 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class),
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
             named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
       })
-  LinkingContextT createCcLinkingInfo(
+  LinkerInputT createLinkerInput(
+      Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<?> nonCodeInputs, // <FileT> expected
+      Object nonCodeInputs,
+      Location location,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "create_linking_context",
+      doc = "Creates a <code>LinkingContext</code>.",
+      useLocation = true,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "linker_inputs",
+            doc = "Depset of <code>LinkerInput</code>.",
+            positional = false,
+            named = true,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
+            valueWhenDisabled = "None",
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkNestedSet.class)
+            }),
+        @Param(
+            name = "libraries_to_link",
+            doc = "List of <code>LibraryToLink</code>.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkList.class)
+            }),
+        @Param(
+            name = "user_link_flags",
+            doc = "List of user link flags passed as strings.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkList.class)
+            }),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = NoneType.class),
+              @ParamType(type = SkylarkList.class)
+            }),
+      })
+  LinkingContextT createCcLinkingInfo(
+      Object linkerInputs,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Object nonCodeInputs, // <FileT> expected
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

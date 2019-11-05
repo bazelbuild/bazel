@@ -15,6 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -50,6 +52,7 @@ public class FakeCcModule
         CcCompilationContextApi,
         CcCompilationOutputsApi<FileApi>,
         CcLinkingOutputsApi<FileApi>,
+        LinkerInputApi<LibraryToLinkApi<FileApi>, FileApi>,
         LibraryToLinkApi<FileApi>,
         CcLinkingContextApi<FileApi>,
         CcToolchainVariablesApi,
@@ -153,10 +156,22 @@ public class FakeCcModule
   }
 
   @Override
-  public CcLinkingContextApi createCcLinkingInfo(
+  public LinkerInputApi<LibraryToLinkApi<FileApi>, FileApi> createLinkerInput(
+      Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<?> nonCodeInputs,
+      Object nonCodeInputs,
+      Location location,
+      StarlarkThread thread) {
+    return null;
+  }
+
+  @Override
+  public CcLinkingContextApi createCcLinkingInfo(
+      Object linkerInputs,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Object nonCodeInputs,
       Location location,
       StarlarkThread thread) {
     return null;

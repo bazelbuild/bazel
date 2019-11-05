@@ -59,6 +59,7 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
     EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
+    EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
     INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
@@ -148,6 +149,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalStarlarkConfigTransitions();
 
   public abstract boolean experimentalStarlarkUnusedInputsList();
+
+  public abstract boolean experimentalCcSharedLibrary();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -263,6 +266,7 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
+          .experimentalCcSharedLibrary(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
@@ -325,6 +329,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
+
+    public abstract Builder experimentalCcSharedLibrary(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
