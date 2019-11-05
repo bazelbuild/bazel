@@ -2,6 +2,14 @@
 
 from __future__ import print_function
 
+import sys
+
+# The Python interpreter unconditionally prepends the directory containing this
+# script (following symlinks) to the import path. This is the cause of #9239,
+# and is a special case of #7091. We therefore explicitly delete that entry.
+# TODO(#7091): Remove this hack when no longer necessary.
+del sys.path[0]
+
 import os
 import re
 import tempfile
