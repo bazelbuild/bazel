@@ -16,6 +16,8 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -47,6 +49,11 @@ public class NinjaParser {
   }
 
   private NinjaVariableValue parseVariableValue(String name) throws GenericParsingException {
+    return parseVariableImpl(() -> String.format("Variable '%s' has no value.", name));
+  }
+
+  private NinjaVariableValue parseVariableImpl(Supplier<String> messageForNoValue)
+      throws GenericParsingException {
     // We are skipping starting spaces.
     int valueStart = -1;
     ImmutableSortedMap.Builder<String, Pair<Integer, Integer>> builder =
@@ -71,10 +78,30 @@ public class NinjaParser {
     }
     if (valueStart == -1) {
       // We read no value.
-      throw new GenericParsingException(String.format("Variable '%s' has no value.", name));
+      throw new GenericParsingException(messageForNoValue.get());
     }
     String text = asString(lexer.getFragment().getBytes(valueStart, lexer.getLastEnd()));
     return new NinjaVariableValue(text, builder.build());
+  }
+
+  public NinjaVariableValue parseIncludeStatement() throws GenericParsingException {
+    return parseIncludeOrSubNinja(NinjaToken.INCLUDE);
+  }
+
+  public NinjaVariableValue parseSubNinjaStatement() throws GenericParsingException {
+    return parseIncludeOrSubNinja(NinjaToken.SUBNINJA);
+  }
+
+  private NinjaVariableValue parseIncludeOrSubNinja(NinjaToken token)
+      throws GenericParsingException {
+    parseExpected(token);
+    NinjaVariableValue value = parseVariableImpl(
+        () -> String.format("%s statement has no path.", Ascii.toLowerCase(token.name())));
+    if (lexer.hasNextToken()) {
+      parseExpected(NinjaToken.NEWLINE);
+      lexer.undo();
+    }
+    return value;
   }
 
   /**
