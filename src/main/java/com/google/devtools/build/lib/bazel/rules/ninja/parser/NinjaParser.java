@@ -102,13 +102,23 @@ public class NinjaParser {
     return new String(value, StandardCharsets.ISO_8859_1);
   }
 
-  private byte[] parseExpected(NinjaToken expectedToken) {
+  private byte[] parseExpected(NinjaToken expectedToken) throws GenericParsingException {
     if (!lexer.hasNextToken()) {
-      throw new IllegalStateException();
+      String message;
+      if (lexer.haveReadAnyTokens()) {
+        message = String.format("Expected %s after '%s'",
+            asString(expectedToken.getBytes()), asString(lexer.getTokenBytes()));
+      } else {
+        message = String.format("Expected %s, but found no text to parse",
+            asString(expectedToken.getBytes()));
+      }
+      throw new GenericParsingException(message);
     }
     NinjaToken token = lexer.nextToken();
     if (!expectedToken.equals(token)) {
-      throw new IllegalStateException();
+      throw new GenericParsingException(
+          String.format("Expected %s, but got %s",
+              asString(expectedToken.getBytes()), asString(token.getBytes())));
     }
     return lexer.getTokenBytes();
   }

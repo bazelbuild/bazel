@@ -44,6 +44,19 @@ public class NinjaParserTest {
   }
 
   @Test
+  public void testVariableParsingException() {
+    doTestVariableParsingException(" ", "Expected identifier, but got indent");
+    doTestVariableParsingException("a", "Expected = after 'a'");
+    doTestVariableParsingException("a=:", "Variable has no value: 'a=:'");
+  }
+
+  private void doTestVariableParsingException(String text, String message) {
+    GenericParsingException exception = assertThrows(GenericParsingException.class,
+        () -> createParser(text).parseVariable());
+    assertThat(exception).hasMessageThat().isEqualTo(message);
+  }
+
+  @Test
   public void testNoValue() {
     doTestNoValue("a=");
     doTestNoValue("a=\u000018");

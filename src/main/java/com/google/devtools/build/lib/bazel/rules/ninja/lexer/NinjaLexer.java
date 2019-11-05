@@ -170,6 +170,10 @@ public class NinjaLexer {
     return token;
   }
 
+  public boolean haveReadAnyTokens() {
+    return !ranges.isEmpty();
+  }
+
   public int getLastStart() {
     if (ranges.isEmpty()) {
       throw new IllegalStateException();
