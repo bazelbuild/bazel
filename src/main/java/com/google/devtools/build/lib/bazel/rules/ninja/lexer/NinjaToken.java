@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
 
 /** Token types for {@link NinjaLexer}. */
 public enum NinjaToken {
-  ERROR(null),
+  ERROR("error"),
   BUILD("build"),
   RULE("rule"),
   TEXT("text"),
