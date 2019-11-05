@@ -73,6 +73,40 @@ public class NinjaParser {
     return new NinjaVariableValue(text, builder.build());
   }
 
+  /**
+   * Parses Ninja rule at the current lexer position.
+   */
+  public NinjaRule parseNinjaRule() throws GenericParsingException {
+    parseExpected(NinjaToken.RULE);
+    String name = asString(parseExpected(NinjaToken.IDENTIFIER));
+
+    ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
+        ImmutableSortedMap.naturalOrder();
+    ImmutableSortedMap.Builder<String, NinjaVariableValue> customVariablesBuilder =
+        ImmutableSortedMap.naturalOrder();
+    variablesBuilder.put(NinjaRuleVariable.NAME,
+        new NinjaVariableValue(name, ImmutableSortedMap.of()));
+
+    parseExpected(NinjaToken.NEWLINE);
+    while (lexer.hasNextToken()) {
+      parseExpected(NinjaToken.INDENT);
+      String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
+      parseExpected(NinjaToken.EQUALS);
+      NinjaVariableValue value = parseVariableValue(variableName);
+
+      NinjaRuleVariable ninjaRuleVariable = NinjaRuleVariable.nullOrValue(variableName);
+      if (ninjaRuleVariable != null) {
+        variablesBuilder.put(ninjaRuleVariable, value);
+      } else {
+        customVariablesBuilder.put(variableName, value);
+      }
+      if (lexer.hasNextToken()) {
+        parseExpected(NinjaToken.NEWLINE);
+      }
+    }
+    return new NinjaRule(variablesBuilder.build(), customVariablesBuilder.build());
+  }
+
   @VisibleForTesting
   public static String normalizeVariableName(String raw) {
     // We start from 1 because it is always at least $ marker symbol in the beginning
