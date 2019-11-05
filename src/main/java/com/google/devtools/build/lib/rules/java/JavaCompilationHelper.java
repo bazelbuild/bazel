@@ -484,18 +484,6 @@ public final class JavaCompilationHelper {
             outputJar.getRoot());
   }
 
-  /**
-   * Creates the action for creating the gen jar.
-   *
-   * @param classJar The artifact for the class jar emitted from JavaBuilder
-   * @param manifestProto The artifact for the manifest proto emitted from JavaBuilder
-   * @param genClassJar The artifact for the gen jar to output
-   */
-  public void createGenJarAction(Artifact classJar, Artifact manifestProto, Artifact genClassJar) {
-    createGenJarAction(
-        classJar, manifestProto, genClassJar, JavaRuntimeInfo.forHost(getRuleContext()));
-  }
-
   public void createGenJarAction(
       Artifact classJar,
       Artifact manifestProto,
