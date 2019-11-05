@@ -72,7 +72,6 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/protobuf/command_server.grpc.pb.h"
-#include "third_party/ijar/zip.h"
 
 using blaze_util::GetLastErrorString;
 
@@ -1463,7 +1462,7 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
 
 void PrintVersionInfo(const string &self_path, const string &product_name) {
   string build_label;
-  ExtractBuildLabel(self_path, product_name, &build_label);
+  ExtractBuildLabel(self_path, &build_label);
   printf("%s %s\n", product_name.c_str(), build_label.c_str());
 }
 
@@ -1601,7 +1600,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   string install_md5;
   DetermineArchiveContents(
       self_path,
-      startup_options->product_name,
       &archive_contents,
       &install_md5);
 
