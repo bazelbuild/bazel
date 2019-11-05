@@ -237,16 +237,14 @@ struct LoggingInfo {
 
 class BlazeServer final {
  public:
-  BlazeServer(const int connect_timeout_secs, const bool batch,
-              const bool block_for_lock, const blaze_util::Path &output_base,
-              const blaze_util::Path &server_jvm_out);
+  explicit BlazeServer(const StartupOptions &startup_options);
 
   // Acquire a lock for the server running in this output base. Returns the
   // number of milliseconds spent waiting for the lock.
   uint64_t AcquireLock();
 
   // Whether there is an active connection to a server.
-  bool Connected() const { return connected_; }
+  bool Connected() const { return client_.get(); }
 
   // Connect to the server. Returns if the connection was successful. Only
   // call this when this object is in disconnected state. If it returns true,
@@ -279,7 +277,6 @@ class BlazeServer final {
 
  private:
   BlazeLock blaze_lock_;
-  bool connected_;
 
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
@@ -1473,10 +1470,7 @@ static void RunLauncher(const string &self_path,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
                         const string &workspace, LoggingInfo *logging_info) {
-  blaze_server = new BlazeServer(
-      startup_options.connect_timeout_secs, startup_options.batch,
-      startup_options.block_for_lock, startup_options.output_base,
-      startup_options.server_jvm_out);
+  blaze_server = new BlazeServer(startup_options);
 
   const DurationMillis command_wait_duration_ms(blaze_server->AcquireLock());
   BAZEL_LOG(INFO) << "Acquired the client lock, waited "
@@ -1627,17 +1621,16 @@ static bool ProtoStringEqual(const StringTypeA &cookieA,
   return memcmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
 }
 
-BlazeServer::BlazeServer(const int connect_timeout_secs, const bool batch,
-                         const bool block_for_lock,
-                         const blaze_util::Path &output_base,
-                         const blaze_util::Path &server_jvm_out)
-    : connected_(false),
-      process_info_(output_base, server_jvm_out),
-      connect_timeout_secs_(connect_timeout_secs),
-      batch_(batch),
-      block_for_lock_(block_for_lock),
-      output_base_(output_base) {
-  gpr_set_log_function(null_grpc_log_function);
+BlazeServer::BlazeServer(const StartupOptions &startup_options)
+    : process_info_(startup_options.output_base,
+                    startup_options.server_jvm_out),
+      connect_timeout_secs_(startup_options.connect_timeout_secs),
+      batch_(startup_options.batch),
+      block_for_lock_(startup_options.block_for_lock),
+      output_base_(startup_options.output_base) {
+  if (!startup_options.client_debug) {
+    gpr_set_log_function(null_grpc_log_function);
+  }
 
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
@@ -1671,7 +1664,7 @@ bool BlazeServer::TryConnect(
 }
 
 bool BlazeServer::Connect() {
-  assert(!connected_);
+  assert(!Connected());
 
   blaze_util::Path server_dir = output_base_.GetRelative("server");
   std::string port;
@@ -1724,7 +1717,6 @@ bool BlazeServer::Connect() {
   }
 
   this->client_ = std::move(client);
-  connected_ = true;
   process_info_.server_pid_ = server_pid;
   return true;
 }
@@ -1823,9 +1815,9 @@ void BlazeServer::SendCancelMessage() {
 
 // This will wait indefinitely until the server shuts down
 void BlazeServer::KillRunningServer() {
-  assert(connected_);
+  assert(Connected());
 
-  grpc::ClientContext context;
+  std::unique_ptr<grpc::ClientContext> context(new grpc::ClientContext);
   command_server::RunRequest request;
   command_server::RunResponse response;
   request.set_cookie(request_cookie_);
@@ -1835,7 +1827,7 @@ void BlazeServer::KillRunningServer() {
   request.add_arg("shutdown");
   BAZEL_LOG(INFO) << "Shutting running server with RPC request";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
-      client_->Run(&context, request));
+      client_->Run(context.get(), request));
 
   // TODO(b/111179585): Swallowing these responses loses potential messages from
   // the server, which may be useful in understanding why a shutdown failed.
@@ -1849,6 +1841,8 @@ void BlazeServer::KillRunningServer() {
   }
 
   grpc::Status status = reader->Finish();
+  reader.reset();
+  context.reset();  // necessary for destroying client_ below to be effective
   if (status.ok()) {
     // Check the final message from the server to see if it exited because
     // another command holds the client lock.
@@ -1867,6 +1861,11 @@ void BlazeServer::KillRunningServer() {
     assert(response.termination_expected());
   }
 
+  // Eagerly disconnect to let the server stop promptly.  Otherwise it may
+  // wait $GRPC_CLIENT_CHANNEL_BACKUP_POLL_INTERVAL_MS until we go away.
+  // See http://b/143860035.
+  client_.reset();
+
   // Wait for the server process to terminate (if we know the server PID).
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (process_info_.server_pid_ > 0 &&
@@ -1882,8 +1881,6 @@ void BlazeServer::KillRunningServer() {
     }
     KillServerProcess(process_info_.server_pid_, output_base_);
   }
-
-  connected_ = false;
 }
 
 unsigned int BlazeServer::Communicate(
@@ -1894,7 +1891,7 @@ unsigned int BlazeServer::Communicate(
     const DurationMillis client_startup_duration,
     const DurationMillis extract_data_duration,
     const DurationMillis command_wait_duration_ms) {
-  assert(connected_);
+  assert(Connected());
   assert(process_info_.server_pid_ > 0);
 
   vector<string> arg_vector;
@@ -1925,10 +1922,10 @@ unsigned int BlazeServer::Communicate(
     proto_option_field->set_option(startup_option.value);
   }
 
-  grpc::ClientContext context;
+  std::unique_ptr<grpc::ClientContext> context(new grpc::ClientContext);
   command_server::RunResponse response;
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
-      client_->Run(&context, request));
+      client_->Run(context.get(), request));
 
   // Release the server lock because the gRPC handles concurrent clients just
   // fine. Note that this may result in two "waiting for other client" messages
@@ -1995,19 +1992,26 @@ unsigned int BlazeServer::Communicate(
     }
   }
 
-  // If the server has shut down, but does not terminate itself within a 1m
-  // grace period, terminate it.
-  if (final_response.termination_expected() &&
-      !AwaitServerProcessTermination(process_info_.server_pid_,
-                                     output_base_,
-                                     kPostShutdownGracePeriodSeconds)) {
-    KillServerProcess(process_info_.server_pid_, output_base_);
+  grpc::Status status = reader->Finish();
+  reader.reset();
+  context.reset();  // necessary for destroying client_ below to be effective
+
+  // If the server claims it is shutting down (eg the command was "shutdown"),
+  // wait for it to exit.
+  if (final_response.termination_expected()) {
+    // Eagerly disconnect to let the server stop promptly.  Otherwise it may
+    // wait $GRPC_CLIENT_CHANNEL_BACKUP_POLL_INTERVAL_MS until we go away.
+    // See http://b/143860035.
+    client_.reset();
+    if (!AwaitServerProcessTermination(process_info_.server_pid_, output_base_,
+                                       kPostShutdownGracePeriodSeconds)) {
+      KillServerProcess(process_info_.server_pid_, output_base_);
+    }
   }
 
   SendAction(CancelThreadAction::JOIN);
   cancel_thread.join();
 
-  grpc::Status status = reader->Finish();
   if (!status.ok()) {
     BAZEL_LOG(USER) << "\nServer terminated abruptly (error code: "
                     << status.error_code() << ", error message: '"
@@ -2059,7 +2063,7 @@ void BlazeServer::SendAction(CancelThreadAction action) {
 }
 
 void BlazeServer::Cancel() {
-  assert(connected_);
+  assert(Connected());
   SendAction(CancelThreadAction::CANCEL);
 }
 
