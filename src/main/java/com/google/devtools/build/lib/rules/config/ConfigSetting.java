@@ -377,7 +377,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       // The config_setting's expected value *must* be a single map entry (see method comments).
       Object expectedListValue = Iterables.getOnlyElement(expectedList);
       Map.Entry<?, ?> expectedEntry = (Map.Entry<?, ?>) expectedListValue;
-      for (Map.Entry<?, ?> actualEntry : Lists.reverse((List<Map.Entry<?, ?>>) actualList)) {
+      for (Object elem : Lists.reverse(actualList)) {
+        Map.Entry<?, ?> actualEntry = (Map.Entry<?, ?>) elem;
         if (actualEntry.getKey().equals(expectedEntry.getKey())) {
           // Found a key match!
           return actualEntry.getValue().equals(expectedEntry.getValue());

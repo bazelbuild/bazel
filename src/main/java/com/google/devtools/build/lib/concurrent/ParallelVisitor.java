@@ -301,7 +301,7 @@ public abstract class ParallelVisitor<
 
           Collection<VisitKeyT> pendingKeysToVisit = new ArrayList<>(visitQueue.size());
           visitQueue.drainTo(pendingKeysToVisit);
-          for (Task task : getVisitTasks(pendingKeysToVisit)) {
+          for (Task<?> task : getVisitTasks(pendingKeysToVisit)) {
             execute(task);
           }
         }

@@ -49,7 +49,7 @@ public interface CcInfoApi extends StructApi {
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingContextApi getCcLinkingContext();
+  CcLinkingContextApi<?> getCcLinkingContext();
 
   /** The provider implementing this can construct CcInfo objects. */
   @SkylarkModule(

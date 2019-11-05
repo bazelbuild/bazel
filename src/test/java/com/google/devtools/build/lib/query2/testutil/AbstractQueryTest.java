@@ -1095,6 +1095,7 @@ public abstract class AbstractQueryTest<T> {
     helper.setOrderedResults(true); // This query needs a graph.
 
     ResultAndTargets<T> resultAndTargets = helper.evaluateQuery("//x:*");
+    @SuppressWarnings("unchecked")
     DigraphQueryEvalResult<T> digraphResult =
         (DigraphQueryEvalResult<T>) resultAndTargets.getQueryEvalResult();
     Set<T> results = resultAndTargets.getResultSet();

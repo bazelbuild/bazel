@@ -40,11 +40,11 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public interface CcModuleApi<
     SkylarkActionFactoryT extends SkylarkActionFactoryApi,
     FileT extends FileApi,
-    CcToolchainProviderT extends CcToolchainProviderApi,
+    CcToolchainProviderT extends CcToolchainProviderApi<?>,
     FeatureConfigurationT extends FeatureConfigurationApi,
     CompilationContextT extends CcCompilationContextApi,
     LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
-    LinkingContextT extends CcLinkingContextApi,
+    LinkingContextT extends CcLinkingContextApi<?>,
     LibraryToLinkT extends LibraryToLinkApi<FileT>,
     CcToolchainVariablesT extends CcToolchainVariablesApi,
     SkylarkRuleContextT extends SkylarkRuleContextApi,

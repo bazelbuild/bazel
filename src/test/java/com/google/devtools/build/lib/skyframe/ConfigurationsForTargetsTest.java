@@ -232,6 +232,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     Object evalResult = SkyframeExecutorTestUtils.evaluate(
         skyframeExecutor, key, /*keepGoing=*/false, reporter);
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
+    @SuppressWarnings("unchecked")
     SkyValue value = ((EvaluationResult<ComputeDependenciesFunction.Value>) evalResult).get(key);
     return ((ComputeDependenciesFunction.Value) value).depMap;
   }

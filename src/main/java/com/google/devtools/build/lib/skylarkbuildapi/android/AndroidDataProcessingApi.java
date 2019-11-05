@@ -42,12 +42,12 @@ public interface AndroidDataProcessingApi<
     TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
     FileT extends FileApi,
     SpecialFileT extends FileApi,
-    AndroidAssetsInfoT extends AndroidAssetsInfoApi,
-    AndroidResourcesInfoT extends AndroidResourcesInfoApi,
-    AndroidManifestInfoT extends AndroidManifestInfoApi,
-    AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi,
-    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi,
-    ValidatedAndroidDataT extends ValidatedAndroidDataApi> {
+    AndroidAssetsInfoT extends AndroidAssetsInfoApi<?, ?>,
+    AndroidResourcesInfoT extends AndroidResourcesInfoApi<?, ?, ?>,
+    AndroidManifestInfoT extends AndroidManifestInfoApi<?>,
+    AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi<?>,
+    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi<?>,
+    ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>> {
 
   @SkylarkCallable(
       name = "assets_from_deps",

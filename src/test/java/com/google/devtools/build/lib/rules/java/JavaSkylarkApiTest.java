@@ -321,6 +321,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         ((SkylarkNestedSet) info.getValue("transitive_compile_time_jars"));
     SkylarkNestedSet compileJars = ((SkylarkNestedSet) info.getValue("compile_jars"));
     SkylarkNestedSet fullCompileJars = ((SkylarkNestedSet) info.getValue("full_compile_jars"));
+    @SuppressWarnings("unchecked")
     SkylarkList<Artifact> sourceJars = ((SkylarkList<Artifact>) info.getValue("source_jars"));
     JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
 
@@ -1378,7 +1379,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
@@ -1412,7 +1412,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
@@ -1446,7 +1445,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
@@ -1480,7 +1478,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet exports = (SkylarkNestedSet) (info.getValue("property"));
 
     assertThat(exports.getSet(Label.class))
@@ -2220,10 +2217,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "toolchain_resolution_enabled(name='r')");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
-    boolean toolchainResolutionEnabled =
-        (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
-    return toolchainResolutionEnabled;
+    return (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
   }
 
   @Test
@@ -2283,7 +2277,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     useConfiguration(
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
     SkylarkNestedSet files = (SkylarkNestedSet) ct.get("files");
     assertThat(prettyArtifactNames(files.toCollection(Artifact.class))).containsExactly("a/a.txt");
   }

@@ -37,8 +37,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
 
   private final Class<C> ruleClass;
 
-  public static <C extends JavaToolchain> JavaToolchainRule create(Class<C> ruleClass) {
-    return new JavaToolchainRule(ruleClass);
+  public static <C extends JavaToolchain> JavaToolchainRule<C> create(Class<C> ruleClass) {
+    return new JavaToolchainRule<C>(ruleClass);
   }
 
   private JavaToolchainRule(Class<C> ruleClass) {

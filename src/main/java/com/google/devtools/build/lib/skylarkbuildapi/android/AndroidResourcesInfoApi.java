@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidResourcesInfoApi<
         FileT extends FileApi,
-        ValidatedAndroidDataT extends ValidatedAndroidDataApi,
+        ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
         AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
@@ -130,7 +130,7 @@ public interface AndroidResourcesInfoApi<
       documented = false)
   public interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
-          ValidatedAndroidDataT extends ValidatedAndroidDataApi,
+          ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
           AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
       extends ProviderApi {
 
