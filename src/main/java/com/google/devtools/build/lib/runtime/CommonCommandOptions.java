@@ -309,7 +309,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_announce_profile_path",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, adds the JSON profile path to the log.")
