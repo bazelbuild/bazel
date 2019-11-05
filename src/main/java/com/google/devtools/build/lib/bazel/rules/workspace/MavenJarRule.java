@@ -104,6 +104,10 @@ public class MavenJarRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_jar, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<p><b>This rule is DEPRECATED. Instead, use
+[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) to manage your Maven
+dependencies.</b></p>
+
 <p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
 
 <h4 id="maven_jar_name">Naming</h4>

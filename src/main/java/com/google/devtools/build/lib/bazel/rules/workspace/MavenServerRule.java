@@ -63,6 +63,10 @@ public class MavenServerRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_server, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<p><b>This rule is DEPRECATED. Instead, use
+[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) to manage your Maven
+dependencies.</b></p>
+
 <p>How to access a Maven repository.</p>
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
