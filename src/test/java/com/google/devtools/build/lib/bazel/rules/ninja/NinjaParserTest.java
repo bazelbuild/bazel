@@ -47,7 +47,9 @@ public class NinjaParserTest {
   public void testVariableParsingException() {
     doTestVariableParsingException(" ", "Expected identifier, but got indent");
     doTestVariableParsingException("a", "Expected = after 'a'");
-    doTestVariableParsingException("a=:", "Variable has no value: 'a=:'");
+    doTestVariableParsingException("a=:", "Variable 'a' has no value.");
+    doTestVariableParsingException("^a=",
+        "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
   }
 
   private void doTestVariableParsingException(String text, String message) {
@@ -99,8 +101,7 @@ public class NinjaParserTest {
     NinjaParser parser = createParser(text);
     GenericParsingException exception = assertThrows(GenericParsingException.class,
         parser::parseVariable);
-    assertThat(exception).hasMessageThat()
-        .isEqualTo(String.format("Variable has no value: '%s'", text));
+    assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
   }
 
   private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(

@@ -42,11 +42,11 @@ public class NinjaParser {
     String name = asString(parseExpected(NinjaToken.IDENTIFIER));
     parseExpected(NinjaToken.EQUALS);
 
-    NinjaVariableValue value = parseVariableValue();
+    NinjaVariableValue value = parseVariableValue(name);
     return Pair.of(name, value);
   }
 
-  private NinjaVariableValue parseVariableValue() throws GenericParsingException {
+  private NinjaVariableValue parseVariableValue(String name) throws GenericParsingException {
     // We are skipping starting spaces.
     int valueStart = -1;
     ImmutableSortedMap.Builder<String, Pair<Integer, Integer>> builder =
@@ -71,8 +71,7 @@ public class NinjaParser {
     }
     if (valueStart == -1) {
       // We read no value.
-      throw new GenericParsingException(String.format("Variable has no value: '%s'",
-          lexer.getFragment()));
+      throw new GenericParsingException(String.format("Variable '%s' has no value.", name));
     }
     String text = asString(lexer.getFragment().getBytes(valueStart, lexer.getLastEnd()));
     return new NinjaVariableValue(text, builder.build());
@@ -116,9 +115,12 @@ public class NinjaParser {
     }
     NinjaToken token = lexer.nextToken();
     if (!expectedToken.equals(token)) {
+      String actual = NinjaToken.ERROR.equals(token)
+          ? String.format("error: '%s'", lexer.getError())
+          : asString(token.getBytes());
       throw new GenericParsingException(
           String.format("Expected %s, but got %s",
-              asString(expectedToken.getBytes()), asString(token.getBytes())));
+              asString(expectedToken.getBytes()), actual));
     }
     return lexer.getTokenBytes();
   }
