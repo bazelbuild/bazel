@@ -53,7 +53,7 @@ public class NinjaRule {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (! (o instanceof NinjaRule)) {
       return false;
     }
     NinjaRule ninjaRule = (NinjaRule) o;
@@ -62,6 +62,6 @@ public class NinjaRule {
 
   @Override
   public int hashCode() {
-    return Objects.hash(variables);
+    return Objects.hashCode(variables);
   }
 }

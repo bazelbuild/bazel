@@ -58,7 +58,7 @@ public class NinjaVariableValue {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof NinjaVariableValue)) {
       return false;
     }
     NinjaVariableValue that = (NinjaVariableValue) o;
