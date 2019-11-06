@@ -292,7 +292,10 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
     RootedPath workspacePath =
-        RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_FILE_NAME);
+        RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME);
+    if (!workspacePath.asPath().exists()) {
+      workspacePath = RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_FILE_NAME);
+    }
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -565,7 +568,9 @@ public class PackageFunction implements SkyFunction {
     // Load imported modules in parallel.
     List<SkylarkImportLookupKey> importLookupKeys =
         Lists.newArrayListWithExpectedSize(loadMap.size());
-    boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
+
+    boolean inWorkspace = buildFilePath.getRootRelativePath().endsWith(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)
+        || buildFilePath.getRootRelativePath().endsWith(LabelConstants.WORKSPACE_FILE_NAME);
     for (Label importLabel : loadMap.values()) {
       int originalChunk =
           getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);

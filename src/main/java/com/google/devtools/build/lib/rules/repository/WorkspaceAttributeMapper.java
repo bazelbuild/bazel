@@ -63,10 +63,9 @@ public class WorkspaceAttributeMapper {
     Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
       String message;
-      if (rule.getLocation()
-          .getPath()
-          .getBaseName()
-          .equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString())) {
+      String baseName = rule.getLocation().getPath().getBaseName();
+      if (baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString()) ||
+          baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString())) {
         message = "select() cannot be used in WORKSPACE files";
       } else {
         message = "select() cannot be used in macros called from WORKSPACE files";

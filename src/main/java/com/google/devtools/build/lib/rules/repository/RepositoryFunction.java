@@ -417,7 +417,7 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, String ruleKind, String ruleName)
       throws RepositoryFunctionException {
     try {
-      Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
+      Path workspaceFile = repositoryDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME);
       FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
           String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
               + "workspace(name = \"%s\")\n", ruleKind, ruleName));
@@ -581,7 +581,8 @@ public abstract class RepositoryFunction {
       if (isDirectory || repositoryPath.segmentCount() > 1) {
         if (!isDirectory
             && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
-            && repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())) {
+            && (repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())
+                || repositoryPath.endsWith(BuildFileName.WORKSPACE_DOT_BAZEL.getFilenameFragment()))) {
           // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
           return;
         }

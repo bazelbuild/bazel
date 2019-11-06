@@ -232,7 +232,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()) {
+    if (!(outputDirectory.getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME).exists() ||
+          outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists())) {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 

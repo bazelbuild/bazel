@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -47,10 +48,15 @@ public class RepositoryLoaderFunction implements SkyFunction {
       return RepositoryValue.notFound(nameFromRule);
     }
 
+    RootedPath workspaceFilePath = RootedPath.toRootedPath(
+        Root.fromPath(repository.getPath()), LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME);
+    if (!workspaceFilePath.asPath().exists()) {
+      workspaceFilePath = RootedPath.toRootedPath(
+          Root.fromPath(repository.getPath()), LabelConstants.WORKSPACE_FILE_NAME);
+    }
+
     SkyKey workspaceKey =
-        WorkspaceFileValue.key(
-            RootedPath.toRootedPath(
-                Root.fromPath(repository.getPath()), PathFragment.create("WORKSPACE")));
+        WorkspaceFileValue.key(workspaceFilePath);
     WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
     if (workspacePackage == null) {
       return null;

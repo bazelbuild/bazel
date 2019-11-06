@@ -96,7 +96,15 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               directory.getRoot(),
               directory
                   .getRootRelativePath()
-                  .getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
+                  .getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME));
+      if (!workspaceRootedFile.asPath().exists()) {
+        workspaceRootedFile =
+            RootedPath.toRootedPath(
+                directory.getRoot(),
+                directory
+                    .getRootRelativePath()
+                    .getRelative(LabelConstants.WORKSPACE_FILE_NAME));
+      }
       FileValue workspaceFileValue =
           (FileValue) env.getValueOrThrow(FileValue.key(workspaceRootedFile), IOException.class);
       if (workspaceFileValue == null) {

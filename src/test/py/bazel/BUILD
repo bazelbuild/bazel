@@ -220,6 +220,12 @@ py_test(
     deps = [":test_base"],
 )
 
+py_test(
+    name = "bazel_workspace_test",
+    srcs = ["bazel_workspace_test.py"],
+    deps = [":test_base"],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [

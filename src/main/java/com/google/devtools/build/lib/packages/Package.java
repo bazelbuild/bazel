@@ -381,9 +381,11 @@ public class Package {
     this.packageDirectory = filename.asPath().getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
+    String baseName = filename.getRootRelativePath().getBaseName();
     if ((sourceRoot.asPath() == null
             || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !filename.getRootRelativePath().getBaseName().equals("WORKSPACE")) {
+        && !(baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
+             || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString()))) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '"
               + packageIdentifier

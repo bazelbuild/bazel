@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
-import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
@@ -122,7 +122,15 @@ public class LocalRepositoryFunction extends RepositoryFunction {
             directory.getRoot(),
             directory
                 .getRootRelativePath()
-                .getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
+                .getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME));
+
+    if (!workspaceRootedFile.asPath().exists()) {
+      workspaceRootedFile = RootedPath.toRootedPath(
+          directory.getRoot(),
+          directory
+              .getRootRelativePath()
+              .getRelative(LabelConstants.WORKSPACE_FILE_NAME));
+    }
 
     SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
     FileValue value;
