@@ -30,7 +30,7 @@ import java.util.Collection;
 /**
  * Allow tests to easily manage scratch files in a FileSystem.
  */
-public final class Scratch {
+public class Scratch {
 
   private static final Charset DEFAULT_CHARSET = StandardCharsets.ISO_8859_1;
 
@@ -77,11 +77,11 @@ public final class Scratch {
   /**
    * Returns the FileSystem in use.
    */
-  public FileSystem getFileSystem() {
+  public final FileSystem getFileSystem() {
     return fileSystem;
   }
 
-  public void setWorkingDir(String workingDir) {
+  public final void setWorkingDir(String workingDir) {
     this.workingDir = fileSystem.getPath(workingDir);
   }
 
@@ -90,7 +90,7 @@ public final class Scratch {
    * entity in the filesystem; i.e., the file that the object is describing may not exist in the
    * filesystem.
    */
-  public Path resolve(String pathName) {
+  public final Path resolve(String pathName) {
     return workingDir.getRelative(pathName);
   }
 
@@ -99,7 +99,7 @@ public final class Scratch {
    * entity in the filesystem; i.e., the file that the object is describing may not exist in the
    * filesystem.
    */
-  public Path resolve(PathFragment pathName) {
+  public final Path resolve(PathFragment pathName) {
     return workingDir.getRelative(pathName);
   }
 

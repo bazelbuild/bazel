@@ -70,10 +70,14 @@ public abstract class FoundationTestCase {
       }
     };
 
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return new Scratch(fileSystem, workingDir);
+  }
+
   @Before
   public final void initializeFileSystemAndDirectories() throws Exception {
     fileSystem = createFileSystem();
-    scratch = new Scratch(fileSystem, "/workspace");
+    scratch = createScratch(fileSystem, "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
     scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
