@@ -64,7 +64,7 @@ public class ToolchainRule implements RuleDefinition {
         A list of <code>constraint_value</code>s that must be satisfied by an execution platform in
         order for this toolchain to be selected for a target building on that platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
+        .override(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .allowedFileTypes()

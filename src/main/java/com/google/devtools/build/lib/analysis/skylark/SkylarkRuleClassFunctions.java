@@ -138,11 +138,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
                   .dontCheckConstraints())
           .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
-          .add(
-              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
-                  .allowedFileTypes()
-                  .nonconfigurable("Used in toolchain resolution")
-                  .value(ImmutableList.of()))
           .build();
 
   /** Parent rule class for executable non-test Skylark rules. */

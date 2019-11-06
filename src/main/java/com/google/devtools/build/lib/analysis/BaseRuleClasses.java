@@ -329,7 +329,12 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
-                .nonconfigurable("stores configurability keys"));
+                .nonconfigurable("stores configurability keys"))
+        .add(
+            attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                .allowedFileTypes()
+                .nonconfigurable("Used in toolchain resolution")
+                .value(ImmutableList.of()));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
@@ -424,11 +429,6 @@ public class BaseRuleClasses {
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
           .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
-          .add(
-              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
-                  .allowedFileTypes()
-                  .nonconfigurable("Used in toolchain resolution")
-                  .value(ImmutableList.of()))
           .build();
     }
 
