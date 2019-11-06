@@ -185,7 +185,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object beforeEach,
         Boolean omitIfEmpty,
         Boolean uniquify,
-        Object expandDirectories,
+        Boolean expandDirectories,
         Object terminateWith,
         Location loc)
         throws EvalException {
@@ -202,7 +202,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object formatJoined,
         Boolean omitIfEmpty,
         Boolean uniquify,
-        Object expandDirectories,
+        Boolean expandDirectories,
         Location loc)
         throws EvalException {
       throw new EvalException(null, "cannot modify frozen value");
@@ -299,7 +299,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
             /* formatJoined= */ null,
             /* omitIfEmpty= */ false,
             /* uniquify= */ false,
-            starlarkSemantics.incompatibleExpandDirectories(),
+            /* expandDirectories= */ true,
             /* terminateWith= */ null,
             loc);
 
@@ -335,7 +335,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object beforeEach,
         Boolean omitIfEmpty,
         Boolean uniquify,
-        Object expandDirectories,
+        Boolean expandDirectories,
         Object terminateWith,
         Location loc)
         throws EvalException {
@@ -362,9 +362,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
           /* formatJoined= */ null,
           omitIfEmpty,
           uniquify,
-          expandDirectories == Runtime.UNBOUND
-              ? starlarkSemantics.incompatibleExpandDirectories()
-              : (Boolean) expandDirectories,
+          expandDirectories,
           terminateWith != Runtime.NONE ? (String) terminateWith : null,
           loc);
       return this;
@@ -380,7 +378,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object formatJoined,
         Boolean omitIfEmpty,
         Boolean uniquify,
-        Object expandDirectories,
+        Boolean expandDirectories,
         Location loc)
         throws EvalException {
       if (isImmutable()) {
@@ -406,9 +404,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
           formatJoined != Runtime.NONE ? (String) formatJoined : null,
           omitIfEmpty,
           uniquify,
-          expandDirectories == Runtime.UNBOUND
-              ? starlarkSemantics.incompatibleExpandDirectories()
-              : (Boolean) expandDirectories,
+          expandDirectories,
           /* terminateWith= */ null,
           loc);
       return this;
@@ -528,7 +524,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     }
 
     private void validateNoDirectory(Object value, Location loc) throws EvalException {
-      if (starlarkSemantics.incompatibleExpandDirectories() && isDirectory(value)) {
+      if (isDirectory(value)) {
         throw new EvalException(
             loc,
             "Cannot add directories to Args#add since they may expand to multiple values. "

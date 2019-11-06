@@ -440,21 +440,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowUnverifiedHttpDownloads;
 
   @Option(
-      name = "incompatible_expand_directories",
-      defaultValue = "true",
-      category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Controls whether directories are expanded to the list of files under that directory "
-              + "when added to Args, instead of replaced by the path of the directory.")
-  public boolean incompatibleExpandDirectories;
-
-  @Option(
       name = "incompatible_new_actions_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -707,7 +692,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
                 incompatibleDisallowRuleExecutionPlatformConstraintsAllowed)
             .incompatibleDisallowUnverifiedHttpDownloads(
                 incompatibleDisallowUnverifiedHttpDownloads)
-            .incompatibleExpandDirectories(incompatibleExpandDirectories)
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
             .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)

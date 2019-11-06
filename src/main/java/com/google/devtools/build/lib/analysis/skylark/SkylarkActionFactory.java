@@ -266,9 +266,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
-              starlarkSemantics.incompatibleExpandDirectories()
-                  ? args.getDirectoryArtifacts()
-                  : ImmutableList.of(),
+              args.getDirectoryArtifacts(),
               (Artifact) output,
               args.build(),
               args.getParameterFileType(),
