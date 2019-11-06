@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import java.io.OutputStream;
 import java.net.URI;
@@ -22,13 +23,13 @@ final class DownloadCommand {
 
   private final URI uri;
   private final boolean casDownload;
-  private final String hash;
+  private final Digest digest;
   private final OutputStream out;
 
-  protected DownloadCommand(URI uri, boolean casDownload, String hash, OutputStream out) {
+  protected DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out) {
     this.uri = Preconditions.checkNotNull(uri);
     this.casDownload = casDownload;
-    this.hash = Preconditions.checkNotNull(hash);
+    this.digest = Preconditions.checkNotNull(digest);
     this.out = Preconditions.checkNotNull(out);
   }
 
@@ -40,8 +41,8 @@ final class DownloadCommand {
     return casDownload;
   }
 
-  public String hash() {
-    return hash;
+  public Digest digest() {
+    return digest;
   }
 
   public OutputStream out() {

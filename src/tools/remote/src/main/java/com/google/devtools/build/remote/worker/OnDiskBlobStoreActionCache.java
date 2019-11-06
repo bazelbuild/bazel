@@ -28,6 +28,6 @@ class OnDiskBlobStoreActionCache extends SimpleBlobStoreActionCache {
   }
 
   public boolean containsKey(Digest digest) {
-    return ((OnDiskBlobStore) blobStore).contains(digest.getHash());
+    return ((OnDiskBlobStore) blobStore).contains(digest);
   }
 }

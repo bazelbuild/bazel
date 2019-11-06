@@ -97,6 +97,7 @@ import org.mockito.Mockito;
 public class HttpBlobStoreTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
 
   private static ServerChannel createServer(
       Class<? extends ServerChannel> serverChannelClass,
@@ -308,7 +309,7 @@ public class HttpBlobStoreTest {
 
     Credentials credentials = newCredentials();
     HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-    getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+    getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
 
     fail("Exception expected");
   }
@@ -353,7 +354,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+      getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
       fail("Exception expected");
     } finally {
       testServer.stop(server);
@@ -415,7 +416,7 @@ public class HttpBlobStoreTest {
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-      getFromFuture(blobStore.get("key", out));
+      getFromFuture(blobStore.downloadBlob(DIGEST, out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
@@ -471,7 +472,7 @@ public class HttpBlobStoreTest {
 
       Credentials credentials = newCredentials();
       HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
-      getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
+      getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
       fail("Exception expected.");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(HttpException.class);
