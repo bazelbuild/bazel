@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -285,11 +284,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);
-      }
-
-      Optional<Artifact> classpathsFile = semantics.createClasspathsFile(ruleContext, common);
-      if (classpathsFile.isPresent()) {
-        filesBuilder.add(classpathsFile.get());
       }
     }
 
