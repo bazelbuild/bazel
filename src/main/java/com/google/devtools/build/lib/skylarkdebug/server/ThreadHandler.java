@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -383,7 +384,7 @@ final class ThreadHandler {
       return true;
     }
     try {
-      return EvalUtils.toBoolean(doEvaluate(thread, condition));
+      return Starlark.truth(doEvaluate(thread, condition));
     } catch (SyntaxError | EvalException | InterruptedException e) {
       throw new ConditionalBreakpointException(e.getMessage());
     }

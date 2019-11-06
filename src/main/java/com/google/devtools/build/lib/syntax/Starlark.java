@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import java.util.Set;
@@ -23,11 +24,29 @@ import javax.annotation.Nullable;
  * all clients of the Starlark interpreter.
  */
 // TODO(adonovan): move these here:
-// UNIVERSE, None, len, truth, str, iterate, equal, compare, getattr, index,
+// UNIVERSE, None, len, str, iterate, equal, compare, getattr, index,
 // slice, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
+
+  /**
+   * Returns the truth value of a valid Starlark value, as if by the Starlark expression {@code
+   * bool(x)}.
+   */
+  public static boolean truth(Object x) {
+    if (x instanceof Boolean) {
+      return (Boolean) x;
+    } else if (x instanceof SkylarkValue) {
+      return ((SkylarkValue) x).truth();
+    } else if (x instanceof String) {
+      return !((String) x).isEmpty();
+    } else if (x instanceof Integer) {
+      return (Integer) x != 0;
+    } else {
+      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+    }
+  }
 
   // TODO(adonovan):
   //

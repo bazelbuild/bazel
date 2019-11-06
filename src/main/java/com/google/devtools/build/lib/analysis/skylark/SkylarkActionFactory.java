@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -613,7 +614,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     if (progressMessage != Runtime.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
     }
-    if (EvalUtils.toBoolean(useDefaultShellEnv)) {
+    if (Starlark.truth(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment();
     }
 
