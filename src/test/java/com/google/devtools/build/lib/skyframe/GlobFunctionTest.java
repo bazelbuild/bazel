@@ -156,13 +156,14 @@ public abstract class GlobFunctionTest {
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(SkyFunctions.GLOB, new GlobFunction(alwaysUseDirListing()));
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, syscalls));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -179,14 +180,9 @@ public abstract class GlobFunctionTest {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            syscalls,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
-    skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
-    skyFunctions.put(
-        SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
 
     AnalysisMock analysisMock = AnalysisMock.get();
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();

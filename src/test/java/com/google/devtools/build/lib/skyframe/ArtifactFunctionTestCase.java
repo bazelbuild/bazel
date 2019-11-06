@@ -92,6 +92,8 @@ abstract class ArtifactFunctionTestCase {
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);
     differencer = new SequencedRecordingDifferencer();
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -99,7 +101,7 @@ abstract class ArtifactFunctionTestCase {
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        syscalls,
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true))
@@ -130,6 +132,10 @@ abstract class ArtifactFunctionTestCase {
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))
                 .put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction())
+                .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
+                .put(
+                    SkyFunctions.DIRECTORY_LISTING_STATE,
+                    new DirectoryListingStateFunction(externalFilesHelper, syscalls))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

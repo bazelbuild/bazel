@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
+import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
@@ -158,6 +160,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             pkgFactoryBuilder.build(ruleClassProvider, fileSystem),
             /*starlarkImportLookupValueCacheSize=*/ 2);
     skylarkImportLookupFunction.resetCache();
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
 
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -166,7 +170,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        syscalls,
                         externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)
@@ -202,6 +206,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction())
+                .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
+                .put(
+                    SkyFunctions.DIRECTORY_LISTING_STATE,
+                    new DirectoryListingStateFunction(externalFilesHelper, syscalls))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

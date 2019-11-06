@@ -207,6 +207,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         pkgLocator,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         directories);
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
@@ -231,10 +233,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
                     FileStateValue.FILE_STATE,
-                    new FileStateFunction(
-                        tsgmRef,
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
-                        externalFilesHelper))
+                    new FileStateFunction(tsgmRef, syscalls, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
                 .put(Artifact.ARTIFACT, new ArtifactFunction(() -> true))
                 .put(
@@ -267,6 +266,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new DelegatingActionTemplateExpansionFunction())
                 .put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext))
                 .put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction())
+                .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
+                .put(
+                    SkyFunctions.DIRECTORY_LISTING_STATE,
+                    new DirectoryListingStateFunction(externalFilesHelper, syscalls))
                 .build(),
             differencer,
             evaluationProgressReceiver);

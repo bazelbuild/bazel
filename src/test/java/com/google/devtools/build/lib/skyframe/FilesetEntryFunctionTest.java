@@ -102,6 +102,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                 rootDirectory,
                 /* defaultSystemJavabase= */ null,
                 TestConstants.PRODUCT_NAME));
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
@@ -109,14 +111,13 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            syscalls,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, syscalls));
     skyFunctions.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
     skyFunctions.put(

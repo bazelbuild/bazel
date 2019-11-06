@@ -153,6 +153,8 @@ public class FileFunctionTest {
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
     differencer = new SequencedRecordingDifferencer();
     ConfiguredRuleClassProvider ruleClassProvider =
         TestRuleClassProvider.getRuleClassProvider(true);
@@ -163,7 +165,7 @@ public class FileFunctionTest {
                     FileStateValue.FILE_STATE,
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        syscalls,
                         externalFilesHelper))
                 .put(
                     SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
@@ -194,6 +196,10 @@ public class FileFunctionTest {
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction())
+                .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
+                .put(
+                    SkyFunctions.DIRECTORY_LISTING_STATE,
+                    new DirectoryListingStateFunction(externalFilesHelper, syscalls))
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());

@@ -135,11 +135,13 @@ public class FilesystemValueCheckerTest {
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
+    AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            syscalls,
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(
@@ -168,6 +170,10 @@ public class FilesystemValueCheckerTest {
             /*skylarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction());
+    skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    skyFunctions.put(
+        SkyFunctions.DIRECTORY_LISTING_STATE,
+        new DirectoryListingStateFunction(externalFilesHelper, syscalls));
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.build(), differencer);
