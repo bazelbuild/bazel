@@ -53,7 +53,7 @@ public class NinjaRule {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (! (o instanceof NinjaRule)) {
       return false;
     }
     NinjaRule ninjaRule = (NinjaRule) o;

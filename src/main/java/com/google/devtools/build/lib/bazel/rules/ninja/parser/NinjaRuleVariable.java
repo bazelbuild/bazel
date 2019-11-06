@@ -35,7 +35,7 @@ public enum NinjaRuleVariable {
 
   public static NinjaRuleVariable nullOrValue(String name) {
     try {
-      return valueOf(Ascii.toUpperCase(name.toUpperCase()));
+      return valueOf(Ascii.toUpperCase(name));
     } catch (IllegalArgumentException e) {
       return null;
     }
