@@ -239,6 +239,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
+    if (ruleContext.attributes().get("always_create_virtual_includes", Type.BOOLEAN)) {
+      compilationHelper.setAlwaysCreateVirtualIncludes();
+    }
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       compilationHelper.addPublicTextualHeaders(
           ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());

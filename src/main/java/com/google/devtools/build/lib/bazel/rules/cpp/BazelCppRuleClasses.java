@@ -449,6 +449,19 @@ public class BazelCppRuleClasses {
           prefix is added.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
+          /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(always_create_virtual_includes) -->
+          Set to ensure that include_prefix behaves the same when it mirrors the
+          workspace directory tree as when it does not.
+
+          <p>Without this, if include_prefix is the relative path from the workspace
+          root to the library directory, it is treated differently. Specifically
+          its public headers aren't in a place findable by <code>\<include_prefix/header\></code>
+
+          <p>When this is set, -isystem is always set in such a way that dependent
+          code can find this library's headers, prefixed with <code>include_prefix</code>
+
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("always_create_virtual_includes", BOOLEAN))
           /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(textual_hdrs) -->
            The list of header files published by
            this library to be textually included by sources in dependent rules.

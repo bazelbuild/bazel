@@ -266,6 +266,7 @@ public final class CcCompilationHelper {
   private boolean isCodeCoverageEnabled = true;
   private String stripIncludePrefix = null;
   private String includePrefix = null;
+  private boolean alwaysCreateVirtualIncludes = false;
 
   private CcCompilationContext ccCompilationContext;
 
@@ -903,7 +904,8 @@ public final class CcCompilationHelper {
         includePath = prefix.getRelative(includePath);
       }
 
-      if (!originalHeader.getExecPath().equals(includePath)) {
+      if (alwaysCreateVirtualIncludes ||
+          !originalHeader.getExecPath().equals(includePath)) {
         Artifact virtualHeader =
             actionConstructionContext.getUniqueDirectoryArtifact(
                 "_virtual_includes",
@@ -1097,6 +1099,14 @@ public final class CcCompilationHelper {
   /** Don't generate a module map for this target if a custom module map is provided. */
   public CcCompilationHelper doNotGenerateModuleMap() {
     generateModuleMap = false;
+    return this;
+  }
+
+  /** Ensure that include_prefix works the same for paths that mirror the workspace
+   *  directory and those that don't.
+   */
+  public CcCompilationHelper setAlwaysCreateVirtualIncludes() {
+    alwaysCreateVirtualIncludes = true;
     return this;
   }
 
