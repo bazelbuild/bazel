@@ -64,7 +64,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs_version = 'PY2',",
         "    srcs = ['foo.py'])");
-    invalidateRootPackage();
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();
   }
@@ -98,7 +97,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    invalidateRootPackage();
     assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY2);
   }
 
@@ -117,7 +115,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    invalidateRootPackage();
     assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
@@ -154,7 +151,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
     assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNotNull();
@@ -168,7 +164,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
     assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNull();
@@ -195,7 +190,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'],",
         "    deps = [':dep'],",
         ")");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target).isNotNull();
     assertNoEvents();
@@ -248,7 +242,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'],",
         "    deps = [':dep'],",
         ")");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target).isNotNull();
     assertNoEvents();
@@ -290,7 +283,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
         ")");
-    invalidateRootPackage();
     assertThat(getConfiguredTarget("//pkg:foo")).isNotNull();
     assertNoEvents();
   }
@@ -319,7 +311,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
         ")");
-    invalidateRootPackage();
     assertThat(getConfiguredTarget("//pkg:foo")).isNotNull();
     assertNoEvents();
   }

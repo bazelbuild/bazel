@@ -54,7 +54,6 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
         "    target = '" + label + "',",
         "    out = 'out',",
         ")");
-    invalidateRootPackage();
     ConfiguredTarget ct = getConfiguredTarget("//asp");
     assertThat(ct).isNotNull();
     Artifact out = getBinArtifact("out", ct);

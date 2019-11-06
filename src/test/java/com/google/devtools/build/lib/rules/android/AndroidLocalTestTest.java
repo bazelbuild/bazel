@@ -47,7 +47,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
   }
@@ -60,7 +59,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
 
     Artifact resourcesZip =
@@ -76,7 +74,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
@@ -93,7 +90,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
@@ -109,7 +105,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
@@ -126,7 +121,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps",
         "    manifest = 'NotAndroidManifest.xml')");
-    invalidateRootPackage();
     assertNoEvents();
   }
 
@@ -140,7 +134,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    custom_package = 'custom.pkg',",
         "    test_class = 'test',",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//a:dummyTest");
     Artifact resourcesClassJar =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
@@ -156,7 +149,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
 
     boolean noCrashFlag = false;
     try {
@@ -176,7 +168,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     useConfiguration("--experimental_android_local_test_binary_resources");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
@@ -194,7 +185,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "android_local_test(name = 'dummyTest',",
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
-    invalidateRootPackage();
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
@@ -230,7 +220,6 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "  resource_files = ['res/raw/foo.apk'],",
         "  nocompress_extensions = ['.apk', '.so'],",
         ")");
-    invalidateRootPackage();
     ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
     ValidatedAndroidResources resource = getValidatedResources(binary);
     List<String> args = getGeneratingSpawnActionArgs(resource.getApk());
@@ -267,12 +256,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   @Override
   protected void writeFile(String path, String... lines) throws Exception {
     scratch.file(path, lines);
-    invalidateRootPackage();
   }
 
   @Override
   protected void overwriteFile(String path, String... lines) throws Exception {
     scratch.overwriteFile(path, lines);
-    invalidateRootPackage();
   }
 }

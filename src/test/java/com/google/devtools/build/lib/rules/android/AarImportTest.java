@@ -136,7 +136,6 @@ public class AarImportTest extends BuildViewTestCase {
         "    constraints = ['android'],",
         ")");
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
-    invalidateRootPackage();
   }
 
   @Test

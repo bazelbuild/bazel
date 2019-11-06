@@ -101,8 +101,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
-    invalidateRootPackage();
-
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
   }
@@ -116,8 +114,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['pybin.py'],",
         ")");
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_path=/system/python2");
-    invalidateRootPackage();
-
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
   }
@@ -131,8 +127,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['pybin.py'],",
         ")");
     useConfiguration("--incompatible_use_python_toolchains=false");
-    invalidateRootPackage();
-
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("python");
   }
@@ -156,8 +150,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "--incompatible_use_python_toolchains=false",
         "--python_top=" + pythonTop,
         "--python_path=/better/not/be/this/one");
-    invalidateRootPackage();
-
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
   }
@@ -221,7 +213,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain");
-    invalidateRootPackage();
 
     String py2Path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
     String py3Path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
@@ -242,7 +233,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
-    invalidateRootPackage();
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
     assertThat(path).isEqualTo("/system/python2");
@@ -262,7 +252,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain",
         "--python_path=/better/not/be/this/one");
-    invalidateRootPackage();
 
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
     assertThat(path).isEqualTo("/system/python2");
@@ -282,7 +271,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
-    invalidateRootPackage();
 
     getConfiguredTarget("//pkg:py3_bin");
     assertContainsEvent("The Python toolchain does not provide a runtime for Python version PY3");
@@ -334,7 +322,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:custom_toolchain");
-    invalidateRootPackage();
     getConfiguredTarget("//pkg:pybin");
   }
 
@@ -347,8 +334,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "        interpreter_path = '/system/python2',",
         "        python_version = 'PY2')",
         ")");
-    invalidateRootPackage();
-
     // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
     analyzePy2BinaryTargetUsingCustomToolchain();
     assertContainsEvent(
@@ -365,8 +350,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "        python_version = 'PY2'),",
         "    py3_runtime = 'abc',",
         ")");
-    invalidateRootPackage();
-
     // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
     analyzePy2BinaryTargetUsingCustomToolchain();
     assertContainsEvent(
@@ -387,8 +370,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         // python_version is erroneously set to PY2 for the PY3 field.
         "        python_version = 'PY2'),",
         ")");
-    invalidateRootPackage();
-
     // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
     analyzePy2BinaryTargetUsingCustomToolchain();
     assertContainsEvent(
@@ -406,7 +387,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    invalidateRootPackage();
     assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 
@@ -421,7 +401,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = True,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    invalidateRootPackage();
     assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
         .containsExactly("pkg/__init__.py");
   }
@@ -436,7 +415,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    invalidateRootPackage();
     assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
         .containsExactly("pkg/__init__.py");
   }
@@ -452,7 +430,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = False,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    invalidateRootPackage();
     assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 }

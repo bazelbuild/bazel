@@ -28,7 +28,6 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testCoverageOutputGenerator() throws Exception {
     scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
-    invalidateRootPackage();
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)).isNull();
@@ -38,7 +37,6 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
   public void testCoverageOutputGeneratorCoverageMode() throws Exception {
     useConfiguration("--collect_code_coverage");
     scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
-    invalidateRootPackage();
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST).getLabel().toString())
