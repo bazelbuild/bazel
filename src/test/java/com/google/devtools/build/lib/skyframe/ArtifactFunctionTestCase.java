@@ -129,6 +129,7 @@ abstract class ArtifactFunctionTestCase {
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))
+                .put(SkyFunctions.PATH_CASING_LOOKUP, new PathCasingLookupFunction())
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
