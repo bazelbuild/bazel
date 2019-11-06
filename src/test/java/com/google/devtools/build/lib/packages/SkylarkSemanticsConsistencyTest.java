@@ -165,7 +165,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_lookup_unhashable_keys=" + rand.nextBoolean(),
-        "--incompatible_disallow_hashing_frozen_mutables=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
@@ -221,7 +220,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleVisibilityPrivateAttributesAtDefinition(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleDisallowDictLookupUnhashableKeys(rand.nextBoolean())
-        .incompatibleDisallowHashingFrozenMutables(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .build();
   }

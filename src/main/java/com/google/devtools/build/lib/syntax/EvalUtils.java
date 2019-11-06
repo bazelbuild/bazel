@@ -123,11 +123,7 @@ public final class EvalUtils {
    */
   public static void checkValidDictKey(Object o, StarlarkThread thread) throws EvalException {
     // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.
-    if (thread != null && thread.getSemantics().incompatibleDisallowHashingFrozenMutables()) {
-      if (isHashable(o)) {
-        return;
-      }
-    } else if (isImmutable(o)) {
+    if (isHashable(o)) {
       return;
     }
     // Same error message as Python (that makes it a TypeError).
@@ -149,11 +145,11 @@ public final class EvalUtils {
 
   /**
    * Is this object known or assumed to be recursively immutable by Skylark?
+   *
    * @param o an Object
    * @return true if the object is known to be an immutable value.
    */
-  // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s,
-  // as well as for accepting objects as keys for Skylark dict-s.
+  // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s.
   public static boolean isImmutable(Object o) {
     if (o instanceof SkylarkValue) {
       return ((SkylarkValue) o).isImmutable();
