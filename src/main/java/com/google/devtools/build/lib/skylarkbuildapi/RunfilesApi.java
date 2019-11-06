@@ -19,13 +19,14 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** An interface for a set of runfiles. */
 @SkylarkModule(
     name = "runfiles",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "An interface for a set of runfiles.")
-public interface RunfilesApi {
+public interface RunfilesApi extends SkylarkValue {
 
   @SkylarkCallable(
     name = "files",

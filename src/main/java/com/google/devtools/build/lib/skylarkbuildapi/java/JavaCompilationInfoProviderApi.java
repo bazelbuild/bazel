@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Info object for compilation information for java rules. */
@@ -26,7 +27,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     name = "java_compilation_info",
     category = SkylarkModuleCategory.PROVIDER,
     doc = "Provides access to compilation information for Java rules.")
-public interface JavaCompilationInfoProviderApi<FileT extends FileApi> {
+public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends SkylarkValue {
 
   @SkylarkCallable(name = "javac_options", structField = true, doc = "Options to java compiler.")
   public ImmutableList<String> getJavacOpts();

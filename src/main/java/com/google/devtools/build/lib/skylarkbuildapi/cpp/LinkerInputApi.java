@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -31,7 +32,8 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Either libraries, flags or other files that may be passed to the linker as inputs.")
 public interface LinkerInputApi<
-    LibraryToLinkT extends LibraryToLinkApi<FileT>, FileT extends FileApi> {
+        LibraryToLinkT extends LibraryToLinkApi<FileT>, FileT extends FileApi>
+    extends SkylarkValue {
   @SkylarkCallable(
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",

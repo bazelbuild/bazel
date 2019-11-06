@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-/**
- * Test case which verifies a method annotated with SkylarkCallable cannot be static.
- */
-public class StaticMethod {
+/** Test case which verifies a method annotated with SkylarkCallable cannot be static. */
+public class StaticMethod implements SkylarkValue {
 
   @SkylarkCallable(name = "private_method", doc = "A private method")
   public static String staticMethod() {

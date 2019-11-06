@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -95,7 +96,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  private static class MockClassA {
+  private static class MockClassA implements SkylarkValue {
     @SkylarkCallable(name = "get", doc = "MockClassA#get")
     public Integer get() {
       return 0;
@@ -104,7 +105,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassD */
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
-  private static class MockClassD {
+  private static class MockClassD implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassD#test",
@@ -131,7 +132,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassF */
   @SkylarkModule(name = "MockClassF", doc = "MockClassF")
-  private static class MockClassF {
+  private static class MockClassF implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassF#test",
@@ -150,7 +151,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassG */
   @SkylarkModule(name = "MockClassG", doc = "MockClassG")
-  private static class MockClassG {
+  private static class MockClassG implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassG#test",
@@ -169,7 +170,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassH */
   @SkylarkModule(name = "MockClassH", doc = "MockClassH")
-  private static class MockClassH {
+  private static class MockClassH implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassH#test",
@@ -216,7 +217,7 @@ public class SkylarkDocumentationTest {
   @SkylarkModule(
       name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
-  private static class MockClassWithContainerReturnValues {
+  private static class MockClassWithContainerReturnValues implements SkylarkValue {
 
     @SkylarkCallable(name = "depset", doc = "depset")
     public SkylarkNestedSet /*<Integer>*/ getNestedSet() {
@@ -245,9 +246,8 @@ public class SkylarkDocumentationTest {
   }
 
   /** MockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
-  private static class MockClassCommonNameOne {
+  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  private static class MockClassCommonNameOne implements SkylarkValue {
 
     @SkylarkCallable(name = "one", doc = "one")
     public Integer one() {
@@ -267,9 +267,10 @@ public class SkylarkDocumentationTest {
   }
 
   /** PointsToCommonNameOneWithSubclass */
-  @SkylarkModule(name = "PointsToCommonNameOneWithSubclass",
+  @SkylarkModule(
+      name = "PointsToCommonNameOneWithSubclass",
       doc = "PointsToCommonNameOneWithSubclass")
-  private static class PointsToCommonNameOneWithSubclass {
+  private static class PointsToCommonNameOneWithSubclass implements SkylarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
@@ -282,10 +283,8 @@ public class SkylarkDocumentationTest {
   }
 
   /** MockClassCommonNameOneUndocumented */
-  @SkylarkModule(name = "MockClassCommonName",
-      documented = false,
-      doc = "")
-  private static class MockClassCommonNameUndocumented {
+  @SkylarkModule(name = "MockClassCommonName", documented = false, doc = "")
+  private static class MockClassCommonNameUndocumented implements SkylarkValue {
 
     @SkylarkCallable(name = "two", doc = "two")
     public Integer two() {
@@ -294,9 +293,10 @@ public class SkylarkDocumentationTest {
   }
 
   /** PointsToCommonNameAndUndocumentedModule */
-  @SkylarkModule(name = "PointsToCommonNameAndUndocumentedModule",
+  @SkylarkModule(
+      name = "PointsToCommonNameAndUndocumentedModule",
       doc = "PointsToCommonNameAndUndocumentedModule")
-  private static class PointsToCommonNameAndUndocumentedModule {
+  private static class PointsToCommonNameAndUndocumentedModule implements SkylarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;

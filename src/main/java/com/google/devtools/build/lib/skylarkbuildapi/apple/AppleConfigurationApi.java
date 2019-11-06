@@ -18,15 +18,16 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
 @SkylarkModule(
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi> {
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "ios_cpu",

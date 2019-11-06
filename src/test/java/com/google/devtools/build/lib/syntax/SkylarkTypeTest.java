@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,11 +26,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SkylarkTypeTest {
 
-  @SkylarkModule(
-      name = "ParentType",
-      doc = "A parent class annotated with @SkylarkModule."
-  )
-  private static class ParentClassWithSkylarkModule {}
+  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
+  private static class ParentClassWithSkylarkModule implements SkylarkValue {}
 
   private static class ChildClass extends ParentClassWithSkylarkModule {}
 

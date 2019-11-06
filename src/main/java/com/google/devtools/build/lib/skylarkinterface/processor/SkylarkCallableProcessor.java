@@ -18,6 +18,8 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.HashSet;
 import java.util.List;
@@ -49,19 +51,19 @@ import javax.tools.Diagnostic;
  *   <li>The method must be non-static.
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>Method parameters must be supplied in the following order:
- *       <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Environment))
+ *       <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(StarlarkThread))
  *       </pre>
- *       where Location, FuncallExpression, and Environment are supplied by the interpreter if and
- *       only if useLocation, useAst, and useStarlarkThread are specified, respectively.
+ *       where Location, FuncallExpression, and StarlarkThread are supplied by the interpreter if
+ *       and only if useLocation, useAst, and useStarlarkThread are specified, respectively.
  *   <li>The number of method parameters must match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  *   <li>Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes', not
  *       both.
  *   <li>Parameters may not specify their generic types (they must use the <code>?</code> wildcard
  *       exclusively.
- *   <li>Noneable parameters must have java parameter type Object (as the actual value may be either
- *       {@code None} or a value of a non-{@code None} type, which do not share a superclass other
- *       than Object (or SkylarkValue, which is typically no more descriptive than Object).
+ *   <li>Noneable parameters must have Java parameter type Object, as the actual value may be either
+ *       {@code None} or some other value, which do not share a superclass other than Object (or
+ *       SkylarkValue, which is typically no more descriptive than Object).
  *   <li>Each parameter must be positional or named (or both).
  *   <li>Positional-only parameters must be specified before any named parameters.
  *   <li>Positional parameters must be specified before any non-positional parameters.
@@ -71,12 +73,18 @@ import javax.tools.Diagnostic;
  *   <li>Each class may only have one annotated method with selfCall=true.
  *   <li>A method annotated with selfCall=true must have a non-empty name.
  *   <li>A method annotated with selfCall=true must have structField=false.
+ *   <li>The method's class must implement SkylarkValue.
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
  */
-@SupportedAnnotationTypes({"com.google.devtools.build.lib.skylarkinterface.SkylarkCallable"})
+@SupportedAnnotationTypes({
+  "com.google.devtools.build.lib.skylarkinterface.SkylarkCallable",
+  "com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary",
+  "com.google.devtools.build.lib.skylarkinterface.SkylarkModule"
+})
 public final class SkylarkCallableProcessor extends AbstractProcessor {
+  private ProcessingEnvironment env;
   private Messager messager;
 
   // A set containing the names of all classes which have a method with @SkylarkCallable.selfCall.
@@ -90,9 +98,12 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       "com.google.devtools.build.lib.syntax.SkylarkDict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
-  private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.StarlarkThread";
+  private static final String STARLARK_THREAD =
+      "com.google.devtools.build.lib.syntax.StarlarkThread";
   private static final String STARLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.StarlarkSemantics";
+  private static final String SKYLARK_VALUE =
+      "com.google.devtools.build.lib.skylarkinterface.SkylarkValue";
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -100,17 +111,41 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   }
 
   @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
-    messager = processingEnv.getMessager();
+  public synchronized void init(ProcessingEnvironment env) {
+    super.init(env);
+    this.env = env;
+    messager = env.getMessager();
     classesWithSelfcall = new HashSet<>();
     processedClassMethods = LinkedHashMultimap.create();
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    for (Element element : roundEnv.getElementsAnnotatedWith(SkylarkCallable.class)) {
+    // Ensure SkylarkModule-annotated classes implement SkylarkValue.
+    TypeElement skylarkValueType = env.getElementUtils().getTypeElement(SKYLARK_VALUE);
+    if (skylarkValueType == null) {
+      messager.printMessage(Diagnostic.Kind.ERROR, "no SkylarkValue type in compilation unit");
+      return true;
+    }
+    for (Element cls : roundEnv.getElementsAnnotatedWith(SkylarkModule.class)) {
+      if (!env.getTypeUtils().isAssignable(cls.asType(), skylarkValueType.asType())) {
+        error(
+            cls,
+            String.format(
+                "class %s has @SkylarkModule annotation but does not implement SkylarkValue",
+                cls.getSimpleName()));
+      }
+    }
 
+    // TODO(adonovan): reject a SkylarkCallable-annotated method whose class doesn't have (or
+    // inherit) a SkylarkModule documentation annotation.
+
+    // Only SkylarkGlobalLibrary-annotated classes, and those that implement SkylarkValue,
+    // are allowed SkylarkCallable-annotated methods.
+    Set<Element> okClasses =
+        new HashSet<>(roundEnv.getElementsAnnotatedWith(SkylarkGlobalLibrary.class));
+
+    for (Element element : roundEnv.getElementsAnnotatedWith(SkylarkCallable.class)) {
       // Only methods are annotated with SkylarkCallable. This is verified by the
       // @Target(ElementType.METHOD) annotation.
       ExecutableElement methodElement = (ExecutableElement) element;
@@ -136,7 +171,22 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         verifyFlagToggles(methodElement, annotation);
         verifyNoNameConflict(methodElement, annotation);
       } catch (SkylarkCallableProcessorException exception) {
+        // TODO(adonovan): don't use exceptions; report multiple errors per pass
+        // as this saves time in compiler-driven refactoring.
         error(exception.methodElement, exception.errorMessage);
+      }
+
+      // Check that the method's class is SkylarkGlobalLibrary-annotated,
+      // or implements SkylarkValue, or an error has already been reported.
+      Element cls = methodElement.getEnclosingElement();
+      if (okClasses.add(cls)
+          && !env.getTypeUtils().isAssignable(cls.asType(), skylarkValueType.asType())) {
+        error(
+            cls,
+            String.format(
+                "method %s has @SkylarkCallable annotation but enclosing class %s does not"
+                    + " implement SkylarkValue nor has @SkylarkGlobalLibrary annotation",
+                methodElement.getSimpleName(), cls.getSimpleName()));
       }
     }
 
@@ -472,14 +522,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       currentIndex++;
     }
     if (annotation.useStarlarkThread()) {
-      if (!ENVIRONMENT.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+      if (!STARLARK_THREAD.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
             methodElement,
             String.format(
                 "Expected parameter index %d to be the %s type, matching useStarlarkThread, "
                     + "but was %s",
                 currentIndex,
-                ENVIRONMENT,
+                STARLARK_THREAD,
                 methodSignatureParams.get(currentIndex).asType().toString()));
       }
       currentIndex++;

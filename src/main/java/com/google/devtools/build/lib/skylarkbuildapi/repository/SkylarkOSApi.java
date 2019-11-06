@@ -18,13 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** A Skylark structure to deliver information about the system we are running on. */
 @SkylarkModule(
     name = "repository_os",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Various data about the current platform Bazel is running on.")
-public interface SkylarkOSApi {
+public interface SkylarkOSApi extends SkylarkValue {
   @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
   public ImmutableMap<String, String> getEnvironmentVariables();
 

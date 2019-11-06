@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 
-/** Test case which verifies a struct field method cannot specify extraArgs. */
-public class StructFieldWithExtraArgs implements SkylarkValue {
-
-  @SkylarkCallable(
-    name = "struct_field_method_with_extra_args",
-    documented = false,
-    structField = true,
-    extraPositionals = @Param(name = "args")
-  )
-  public String structFieldMethodWithExtraArgs(SkylarkList<?> args) {
-    return "Cat.";
+/** A SkylarkCallable-annotated method whose class doesn't implement SkylarkValue. */
+class DoesntImplementSkylarkValue {
+  @SkylarkCallable(name = "x", documented = false)
+  public Object x() {
+    return null;
   }
 }

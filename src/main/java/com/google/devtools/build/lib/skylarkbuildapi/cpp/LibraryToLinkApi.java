@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /**
@@ -28,7 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
     name = "LibraryToLink",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A library the user can link against.")
-public interface LibraryToLinkApi<FileT extends FileApi> {
+public interface LibraryToLinkApi<FileT extends FileApi> extends SkylarkValue {
   @SkylarkCallable(
       name = "objects",
       allowReturnNones = true,

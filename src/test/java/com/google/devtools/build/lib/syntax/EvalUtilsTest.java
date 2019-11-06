@@ -48,8 +48,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  public static class MockClassA {
-  }
+  public static class MockClassA implements SkylarkValue {}
 
   /** MockClassB */
   public static class MockClassB extends MockClassA {
@@ -127,11 +126,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
         () -> EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE));
   }
 
-  @SkylarkModule(
-      name = "ParentType",
-      doc = "A parent class annotated with @SkylarkModule."
-  )
-  private static class ParentClassWithSkylarkModule {}
+  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
+  private static class ParentClassWithSkylarkModule implements SkylarkValue {}
 
   private static class ChildClass extends ParentClassWithSkylarkModule {}
 

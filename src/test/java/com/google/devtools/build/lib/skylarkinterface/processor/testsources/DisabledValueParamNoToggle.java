@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has a parameter which has a "disabled value" set but
  * is always-on.
  */
-public class DisabledValueParamNoToggle {
+public class DisabledValueParamNoToggle implements SkylarkValue {
 
   @SkylarkCallable(
       name = "no_toggle_method",

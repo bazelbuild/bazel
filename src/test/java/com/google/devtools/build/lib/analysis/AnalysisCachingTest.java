@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -601,7 +602,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @SkylarkModule(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
-  private static final class DiffResetFragment extends BuildConfiguration.Fragment {}
+  private static final class DiffResetFragment extends BuildConfiguration.Fragment
+      implements SkylarkValue {}
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {
     @Override

@@ -19,15 +19,14 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/**
- * Interface for a module with native rule and package helper functions.
- */
+/** Interface for a module with native rule and package helper functions. */
 @SkylarkModule(
     name = "native",
     category = SkylarkModuleCategory.BUILTIN,
@@ -38,9 +37,8 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "Note that the native module is only available in the loading phase "
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
-            + "The following functions are also available:"
-)
-public interface SkylarkNativeModuleApi {
+            + "The following functions are also available:")
+public interface SkylarkNativeModuleApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "glob",

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 @SkylarkModule(
     name = "testing",
     doc = "Helper methods for Starlark to access testing infrastructure.")
-public interface TestingModuleApi {
+public interface TestingModuleApi extends SkylarkValue {
 
   // TODO(bazel-team): Change this function to be the actual ExecutionInfo.PROVIDER.
   @SkylarkCallable(

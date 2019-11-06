@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skylarkinterface;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface SkylarkValue {
 
@@ -63,8 +65,14 @@ public interface SkylarkValue {
    * <p>Immutability is deep, i.e. in order for a value to be immutable, all values it is composed
    * of must be immutable, too.
    */
+  // TODO(adonovan): eliminate this concept. All uses really need to know is, is it hashable?,
+  // because Starlark values must have stable hashes: a hashable value must either be immutable or
+  // its hash must be part of its identity.
+  // But this must wait until --incompatible_disallow_hashing_frozen_mutables=true is removed.
+  // (see github.com/bazelbuild/bazel/issues/7800)
   default boolean isImmutable() {
-      return false;
+    // TODO(adonovan): this is an abuse of an unrelated annotation.
+    return getClass().isAnnotationPresent(ThreadSafety.Immutable.class);
   }
 
   /**

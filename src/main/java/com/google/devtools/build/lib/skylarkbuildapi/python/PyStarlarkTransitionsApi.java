@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
         "DO NOT USE. This is intended for Python 2 to 3 migration purposes only. If you depend"
             + " on it, you will be broken when it is removed.",
     documented = false)
-public interface PyStarlarkTransitionsApi {
+public interface PyStarlarkTransitionsApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "cfg",

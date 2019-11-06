@@ -126,7 +126,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "Mock", doc = "")
-  static class Mock {
+  static class Mock implements SkylarkValue {
     @SkylarkCallable(
         name = "MockFn",
         selfCall = true,
@@ -513,7 +513,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "MockInterface", doc = "")
-  static interface MockInterface {
+  static interface MockInterface extends SkylarkValue {
     @SkylarkCallable(name = "is_empty_interface",
         parameters = { @Param(name = "str", type = String.class) },
         documented = false)
@@ -533,7 +533,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "MockClassObject", documented = false, doc = "")
-  static final class MockClassObject implements ClassObject {
+  static final class MockClassObject implements ClassObject, SkylarkValue {
     @Override
     public Object getValue(String name) {
       switch (name) {
@@ -555,7 +555,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "ParamterizedMock", doc = "")
-  static interface ParameterizedApi<ObjectT> {
+  static interface ParameterizedApi<ObjectT> extends SkylarkValue {
     @SkylarkCallable(
         name = "method",
         documented = false,

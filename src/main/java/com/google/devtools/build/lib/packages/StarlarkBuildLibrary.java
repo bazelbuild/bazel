@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 /** A global library of Starlark functions which are available only when evaluating BUILD files. */
-@SkylarkGlobalLibrary()
+@SkylarkGlobalLibrary
 class StarlarkBuildLibrary {
 
   /**
