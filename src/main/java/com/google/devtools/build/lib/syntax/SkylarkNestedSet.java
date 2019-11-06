@@ -363,6 +363,11 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     return set.isEmpty();
   }
 
+  @Override
+  public boolean truth() {
+    return !set.isEmpty();
+  }
+
   public SkylarkType getContentType() {
     return contentType;
   }

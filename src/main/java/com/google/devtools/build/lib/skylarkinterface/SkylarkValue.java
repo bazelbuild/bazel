@@ -59,6 +59,11 @@ public interface SkylarkValue {
     str(printer);
   }
 
+  /** Returns the truth-value of this Starlark value. */
+  default boolean truth() {
+    return true;
+  }
+
   /**
    * Returns if the value is immutable.
    *

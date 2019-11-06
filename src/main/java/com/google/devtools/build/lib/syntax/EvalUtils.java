@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -303,34 +302,6 @@ public final class EvalUtils {
               + "'");
     }
     return obj;
-  }
-
-  /**
-   * Returns the truth value of an object, according to Python rules.
-   * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
-   */
-  // TODO(adonovan): rename 'Skylark.truth', make it a default-true method of SkylarkValue,
-  // and delete most of the cases.
-  public static boolean toBoolean(Object o) {
-    if (o == null || o == Runtime.NONE) {
-      return false;
-    } else if (o instanceof Boolean) {
-      return (Boolean) o;
-    } else if (o instanceof String) {
-      return !((String) o).isEmpty();
-    } else if (o instanceof Integer) {
-      return (Integer) o != 0;
-    } else if (o instanceof Collection<?>) {
-      return !((Collection<?>) o).isEmpty();
-    } else if (o instanceof Map<?, ?>) {
-      return !((Map<?, ?>) o).isEmpty();
-    } else if (o instanceof SkylarkNestedSet) {
-      return !((SkylarkNestedSet) o).isEmpty();
-    } else if (o instanceof Iterable<?>) {
-      return !Iterables.isEmpty((Iterable<?>) o);
-    } else {
-      return true;
-    }
   }
 
   public static Collection<?> toCollection(Object o, Location loc, @Nullable StarlarkThread thread)
@@ -1056,7 +1027,7 @@ public final class EvalUtils {
       throws EvalException, InterruptedException {
     switch (op) {
       case NOT:
-        return !toBoolean(x);
+        return !Starlark.truth(x);
 
       case MINUS:
         if (x instanceof Integer) {

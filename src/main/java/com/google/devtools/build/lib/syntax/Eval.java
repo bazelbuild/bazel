@@ -152,7 +152,7 @@ final class Eval {
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
-    boolean cond = EvalUtils.toBoolean(eval(thread, node.getCondition()));
+    boolean cond = Starlark.truth(eval(thread, node.getCondition()));
     if (cond) {
       return execStatementsInternal(node.getThenBlock());
     } else if (node.getElseBlock() != null) {
@@ -422,9 +422,9 @@ final class Eval {
           // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              return EvalUtils.toBoolean(x) ? eval(thread, binop.getY()) : x;
+              return Starlark.truth(x) ? eval(thread, binop.getY()) : x;
             case OR:
-              return EvalUtils.toBoolean(x) ? x : eval(thread, binop.getY());
+              return Starlark.truth(x) ? x : eval(thread, binop.getY());
             default:
               Object y = eval(thread, binop.getY());
               return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
@@ -438,7 +438,7 @@ final class Eval {
         {
           ConditionalExpression cond = (ConditionalExpression) expr;
           Object v = eval(thread, cond.getCondition());
-          return eval(thread, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
+          return eval(thread, Starlark.truth(v) ? cond.getThenCase() : cond.getElseCase());
         }
 
       case DICT_EXPR:
@@ -659,7 +659,7 @@ final class Eval {
 
           } else {
             Comprehension.If ifClause = (Comprehension.If) clause;
-            if (EvalUtils.toBoolean(eval(thread, ifClause.getCondition()))) {
+            if (Starlark.truth(eval(thread, ifClause.getCondition()))) {
               execClauses(index + 1);
             }
           }

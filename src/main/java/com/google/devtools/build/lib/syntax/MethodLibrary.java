@@ -155,7 +155,7 @@ public class MethodLibrary {
       Object collection, boolean value, Location loc, StarlarkThread thread) throws EvalException {
     Iterable<?> iterable = EvalUtils.toIterable(collection, loc, thread);
     for (Object obj : iterable) {
-      if (EvalUtils.toBoolean(obj) == value) {
+      if (Starlark.truth(obj) == value) {
         return true;
       }
     }
@@ -427,7 +427,7 @@ public class MethodLibrary {
             noneable = true)
       })
   public Boolean bool(Object x) throws EvalException {
-    return EvalUtils.toBoolean(x);
+    return Starlark.truth(x);
   }
 
   private final ImmutableMap<String, Integer> intPrefixes =

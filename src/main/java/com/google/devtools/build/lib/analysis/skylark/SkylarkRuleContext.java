@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1000,10 +1001,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         new Runfiles.Builder(
             getRuleContext().getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
     boolean checkConflicts = false;
-    if (EvalUtils.toBoolean(collectData)) {
+    if (Starlark.truth(collectData)) {
       builder.addRunfiles(getRuleContext(), RunfilesProvider.DATA_RUNFILES);
     }
-    if (EvalUtils.toBoolean(collectDefault)) {
+    if (Starlark.truth(collectDefault)) {
       builder.addRunfiles(getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {

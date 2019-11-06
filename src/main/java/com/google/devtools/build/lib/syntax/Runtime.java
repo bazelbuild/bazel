@@ -65,6 +65,11 @@ public final class Runtime {
     }
 
     @Override
+    public boolean truth() {
+      return false;
+    }
+
+    @Override
     public void repr(SkylarkPrinter printer) {
       printer.append("None");
     }
