@@ -344,18 +344,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowEmptyGlob;
 
   @Option(
-      name = "incompatible_disallow_hashing_frozen_mutables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, freezing a mutable object will not make it hashable.")
-  public boolean incompatibleDisallowHashingFrozenMutables;
-
-  @Option(
       name = "incompatible_disallow_legacy_javainfo",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -741,7 +729,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleDisallowDictLookupUnhashableKeys(
                 incompatibleDisallowDictLookupUnhashableKeys)
-            .incompatibleDisallowHashingFrozenMutables(incompatibleDisallowHashingFrozenMutables)
             .build();
     return INTERNER.intern(semantics);
   }
