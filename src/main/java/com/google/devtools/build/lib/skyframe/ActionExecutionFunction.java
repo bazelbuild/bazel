@@ -366,9 +366,9 @@ public class ActionExecutionFunction implements SkyFunction {
       }
 
       ArtifactNestedSetFunction.getInstance()
-          .getArtifactToSkyValueMap()
+          .getArtifactSkyKeyToValueOrException()
           .putAll(directArtifactValuesOrExceptions);
-      return ArtifactNestedSetFunction.getInstance().getArtifactToSkyValueMap();
+      return ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
     }
 
     return env.getValuesOrThrow(

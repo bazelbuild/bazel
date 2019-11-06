@@ -40,6 +40,6 @@ public class ArtifactNestedSetValue implements SkyValue {
   }
 
   Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getArtifactToSkyValueMap() {
-    return ArtifactNestedSetFunction.getInstance().getArtifactToSkyValueMap();
+    return ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
   }
 }
