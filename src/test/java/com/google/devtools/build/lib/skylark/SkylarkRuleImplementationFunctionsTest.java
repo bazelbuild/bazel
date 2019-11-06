@@ -3008,7 +3008,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDirectoryInArgs() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_expand_directories");
     setRuleContext(createRuleContext("//foo:foo"));
     exec(
         "args = ruleContext.actions.args()",
@@ -3034,31 +3033,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testDirectoryInArgsIncompatibleFlagOff() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_expand_directories");
-    setRuleContext(createRuleContext("//foo:foo"));
-    exec(
-        "args = ruleContext.actions.args()",
-        "directory = ruleContext.actions.declare_directory('dir')",
-        "def _short_path(f): return f.short_path", // For easier assertions
-        "args.add_all([directory], map_each=_short_path)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("args, directory");
-    Args args = (Args) result.get(0);
-    Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build();
-
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
-    ArtifactExpanderImpl artifactExpander =
-        new ArtifactExpanderImpl(
-            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
-    // Do not expand the directory, incompatible flag is off
-    assertThat(commandLine.arguments(artifactExpander)).containsExactly("foo/dir");
-  }
-
-  @Test
   public void testDirectoryInArgsExpandDirectories() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_expand_directories");
     setRuleContext(createRuleContext("//foo:foo"));
     exec(
         "args = ruleContext.actions.args()",
@@ -3083,7 +3058,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDirectoryInScalarArgsFails() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_expand_directories");
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
         "Cannot add directories to Args#add",
@@ -3093,20 +3067,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testDirectoryInScalarArgsIsOkWithoutIncompatibleFlag() throws Exception {
-    setSkylarkSemanticsOptions("--noincompatible_expand_directories");
-    setRuleContext(createRuleContext("//foo:foo"));
-    exec(
-        "args = ruleContext.actions.args()",
-        "directory = ruleContext.actions.declare_directory('dir')",
-        "args.add(directory)");
-    Args args = (Args) eval("args");
-    assertThat(Iterables.getOnlyElement(args.build().arguments())).endsWith("foo/dir");
-  }
-
-  @Test
   public void testParamFileHasDirectoryAsInput() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_expand_directories");
     SkylarkRuleContext ctx = createRuleContext("//foo:foo");
     setRuleContext(ctx);
     exec(
