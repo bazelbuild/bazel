@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -79,6 +81,8 @@ public class NinjaParserTest {
     doTestWithVariablesInValue("a=a_${b.d}c", "a", "a_${b.d}c", expectedVariables("b.d", 4, 10));
     doTestWithVariablesInValue("e=a$b*c${ d }*18", "e", "a$b*c${ d }*18",
         expectedVariables("b", 3, 5, "d", 7, 13));
+    doTestWithVariablesInValue("e=a$b*${ b }", "e", "a$b*${ b }",
+        expectedVariables("b", 3, 5, "b", 6, 12));
   }
 
   @Test
@@ -108,7 +112,7 @@ public class NinjaParserTest {
     assertThat(variables.get(NinjaRuleVariable.NAME).getText()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getText()).isEqualTo("${abc} $\n ${cde}");
     assertThat(ninjaRule.getCustomVariables()).containsExactly("custom_var",
-        new NinjaVariableValue("123", ImmutableSortedMap.of()));
+        new NinjaVariableValue("123", ImmutableSortedKeyListMultimap.of()));
   }
 
   @Test
@@ -146,22 +150,24 @@ public class NinjaParserTest {
     assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
   }
 
-  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
       String name, int start, int end) {
-    return ImmutableSortedMap.of(name, Pair.of(start, end));
+    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+        .put(name, Range.openClosed(start, end)).build();
   }
 
-  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
       String name1, int start1, int end1, String name2, int start2, int end2) {
-    return ImmutableSortedMap.of(
-        name1, Pair.of(start1, end1),
-        name2, Pair.of(start2, end2));
+    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+        .put(name1, Range.openClosed(start1, end1))
+        .put(name2, Range.openClosed(start2, end2))
+        .build();
   }
 
   private static void doTestWithVariablesInValue(String text,
       String name,
       String value,
-      ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVars)
+      ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVars)
       throws GenericParsingException {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
@@ -169,7 +175,7 @@ public class NinjaParserTest {
     assertThat(variable.getSecond()).isNotNull();
     assertThat(variable.getSecond().getText()).isEqualTo(value);
 
-    ImmutableSortedMap<String, Pair<Integer, Integer>> variables =
+    ImmutableSortedKeyListMultimap<String, Range<Integer>> variables =
         variable.getSecond().getVariables();
     assertThat(variables).containsExactlyEntriesIn(expectedVars);
   }

@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.charset.StandardCharsets;
 
@@ -49,8 +51,8 @@ public class NinjaParser {
   private NinjaVariableValue parseVariableValue(String name) throws GenericParsingException {
     // We are skipping starting spaces.
     int valueStart = -1;
-    ImmutableSortedMap.Builder<String, Pair<Integer, Integer>> builder =
-        ImmutableSortedMap.naturalOrder();
+    ImmutableSortedKeyListMultimap.Builder<String, Range<Integer>> builder =
+        ImmutableSortedKeyListMultimap.builder();
     while (lexer.hasNextToken()) {
       lexer.expectTextUntilEol();
       NinjaToken token = lexer.nextToken();
@@ -59,7 +61,7 @@ public class NinjaParser {
           valueStart = lexer.getLastStart();
         }
         builder.put(normalizeVariableName(asString(lexer.getTokenBytes())),
-            Pair.of(lexer.getLastStart(), lexer.getLastEnd()));
+            Range.openClosed(lexer.getLastStart(), lexer.getLastEnd()));
       } else if (NinjaToken.TEXT.equals(token)) {
         if (valueStart == -1) {
           valueStart = lexer.getLastStart();
@@ -89,7 +91,7 @@ public class NinjaParser {
     ImmutableSortedMap.Builder<String, NinjaVariableValue> customVariablesBuilder =
         ImmutableSortedMap.naturalOrder();
     variablesBuilder.put(NinjaRuleVariable.NAME,
-        new NinjaVariableValue(name, ImmutableSortedMap.of()));
+        new NinjaVariableValue(name, ImmutableSortedKeyListMultimap.of()));
 
     parseExpected(NinjaToken.NEWLINE);
     while (lexer.hasNextToken()) {
