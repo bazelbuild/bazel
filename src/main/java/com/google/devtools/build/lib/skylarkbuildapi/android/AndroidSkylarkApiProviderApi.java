@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -85,7 +86,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends Sky
               + "to a set of the native library files, or the empty dictionary if there are no "
               + "native libraries.",
       documented = false)
-  ImmutableMap<String, NestedSet<FileT>> getNativeLibs();
+  ImmutableMap<String, SkylarkNestedSet> getNativeLibs();
 
   @SkylarkCallable(
       name = "resource_apk",

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -5242,6 +5243,43 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(resourceApks).hasSize(1);
     assertThat(resourceApks.get(0).getExecPathString())
         .endsWith("java/com/app/application_resources/injected_resource.ap_");
+  }
+
+  @Test
+  public void testAndroidSkylarkApiNativeLibs() throws Exception {
+    scratch.file(
+        "java/a/fetch_native_libs.bzl",
+        "def _impl(ctx):",
+        "  libs = ctx.attr.android_binary.android.native_libs",
+        "  return [DefaultInfo(files = libs.values()[0])]",
+        "fetch_native_libs = rule(implementation = _impl,",
+        "    attrs = {",
+        "        'android_binary': attr.label(),",
+        "    },",
+        ")");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:fetch_native_libs.bzl', 'fetch_native_libs')",
+        "android_binary(",
+        "    name = 'app',",
+        "    srcs=['Main.java'],",
+        "    manifest='AndroidManifest.xml',",
+        "    deps=[':cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'cc',",
+        "    srcs = ['cc.cc'],",
+        ")",
+        "fetch_native_libs(",
+        "    name = 'clibs',",
+        "    android_binary = 'app',",
+        ")");
+    ConfiguredTarget clibs = getConfiguredTarget("//java/a:clibs");
+
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                clibs.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("libapp.so");
   }
 
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
