@@ -407,6 +407,7 @@ public class FileFunctionTest {
     assertThat(seenFiles)
         .containsExactly(
             rootedPath("WORKSPACE"),
+            rootedPath("WORKSPACE.bazel"),
             rootedPath("a"),
             rootedPath(""),
             RootedPath.toRootedPath(root, PathFragment.create("/")),
