@@ -838,7 +838,7 @@ public class ActionExecutionFunction implements SkyFunction {
           /*catastrophe=*/ false);
     }
 
-    try (ActionExecutionContext actionExecutionContext =
+    ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             metadataHandler,
             metadataHandler,
@@ -849,20 +849,36 @@ public class ActionExecutionFunction implements SkyFunction {
             expandedFilesets,
             ImmutableMap.copyOf(state.topLevelFilesets),
             state.actionFileSystem,
-            skyframeDepsResult)) {
-      return skyframeActionExecutor.executeAction(
-          env,
-          action,
-          metadataHandler,
-          actionStartTime,
-          actionExecutionContext,
-          actionLookupData,
-          new ActionPostprocessingImpl(state),
-          state.discoveredInputs != null);
-    } catch (IOException e) {
-      throw new ActionExecutionException(
-          "Failed to close action output: " + e.getMessage(), e, action, /*catastrophe=*/ false);
+            skyframeDepsResult);
+    ActionExecutionValue result;
+    try {
+      result =
+          skyframeActionExecutor.executeAction(
+              env,
+              action,
+              metadataHandler,
+              actionStartTime,
+              actionExecutionContext,
+              actionLookupData,
+              new ActionPostprocessingImpl(state),
+              state.discoveredInputs != null);
+    } catch (ActionExecutionException e) {
+      try {
+        actionExecutionContext.close();
+      } catch (IOException | RuntimeException e2) {
+        e.addSuppressed(e2);
+      }
+      throw e;
     }
+    if (result != null) {
+      try {
+        actionExecutionContext.close();
+      } catch (IOException e) {
+        throw new ActionExecutionException(
+            "Failed to close action output: " + e.getMessage(), e, action, /*catastrophe=*/ false);
+      }
+    }
+    return result;
   }
 
   private OutputStore newOutputStore(ContinuationState state) {
