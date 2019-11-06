@@ -144,7 +144,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
-        "--incompatible_disallow_rule_execution_platform_constraints_allowed=" + rand.nextBoolean(),
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_disallow_unverified_http_downloads=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
@@ -198,7 +197,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
-        .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(rand.nextBoolean())
         .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleDisallowUnverifiedHttpDownloads(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())

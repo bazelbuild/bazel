@@ -1734,56 +1734,16 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testTargetsCanAddExecutionPlatformConstraints_enabled() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_rule_execution_platform_constraints_allowed=false");
-    reset();
-
+  public void testTargetsCanAddExecutionPlatformConstraints() throws Exception {
     registerDummyStarlarkFunction();
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "r1 = rule(impl, ",
         "  toolchains=['//test:my_toolchain_type'],",
-        "  execution_platform_constraints_allowed=True,",
         ")");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
-  }
-
-  @Test
-  public void testTargetsCanAddExecutionPlatformConstraints_notEnabled() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_rule_execution_platform_constraints_allowed=false");
-    reset();
-
-    registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
-    evalAndExport(
-        "r1 = rule(impl, ",
-        "  toolchains=['//test:my_toolchain_type'],",
-        "  execution_platform_constraints_allowed=False,",
-        ")");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.executionPlatformConstraintsAllowed())
-        .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
-  }
-
-  @Test
-  public void testTargetsCanAddExecutionPlatformConstraints_disallowed() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--incompatible_disallow_rule_execution_platform_constraints_allowed=true");
-    reset();
-
-    ev.setFailFast(false);
-    registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
-    evalAndExport(
-        "r1 = rule(impl, ",
-        "  toolchains=['//test:my_toolchain_type'],",
-        "  execution_platform_constraints_allowed=True,",
-        ")");
-    ev.assertContainsError("parameter 'execution_platform_constraints_allowed' is deprecated");
   }
 
   @Test
