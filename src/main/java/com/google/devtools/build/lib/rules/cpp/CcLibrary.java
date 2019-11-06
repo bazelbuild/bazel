@@ -216,6 +216,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
+    if (ruleContext.attributes().get("always_create_virtual_includes", Type.BOOLEAN)) {
+      compilationHelper.setAlwaysCreateVirtualIncludes();
+    }
+
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       ruleContext.checkSrcsSamePackage(true);
     }
