@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,16 +38,43 @@ import javax.annotation.Nullable;
 /** A merkle tree representation as defined by the remote execution api. */
 public class MerkleTree {
 
+  /** A path or contents */
+  public static class PathOrBytes {
+
+    private final Path path;
+    private final ByteString bytes;
+
+    public PathOrBytes(Path path) {
+      this.path = Preconditions.checkNotNull(path, "path");
+      this.bytes = null;
+    }
+
+    public PathOrBytes(ByteString bytes) {
+      this.bytes = Preconditions.checkNotNull(bytes, "bytes");
+      this.path = null;
+    }
+
+    @Nullable
+    public Path getPath() {
+      return path;
+    }
+
+    @Nullable
+    public ByteString getBytes() {
+      return bytes;
+    }
+  }
+
   private final Map<Digest, Directory> digestDirectoryMap;
-  private final Map<Digest, ActionInput> digestActionInputMap;
+  private final Map<Digest, PathOrBytes> digestFileMap;
   private final Digest rootDigest;
 
   private MerkleTree(
       Map<Digest, Directory> digestDirectoryMap,
-      Map<Digest, ActionInput> digestActionInputMap,
+      Map<Digest, PathOrBytes> digestFileMap,
       Digest rootDigest) {
     this.digestDirectoryMap = digestDirectoryMap;
-    this.digestActionInputMap = digestActionInputMap;
+    this.digestFileMap = digestFileMap;
     this.rootDigest = rootDigest;
   }
 
@@ -61,8 +89,8 @@ public class MerkleTree {
   }
 
   @Nullable
-  public ActionInput getInputByDigest(Digest digest) {
-    return digestActionInputMap.get(digest);
+  public PathOrBytes getFileByDigest(Digest digest) {
+    return digestFileMap.get(digest);
   }
 
   /**
@@ -70,7 +98,7 @@ public class MerkleTree {
    * Directory} protobufs and {@link ActionInput} files.
    */
   public Iterable<Digest> getAllDigests() {
-    return Iterables.concat(digestDirectoryMap.keySet(), digestActionInputMap.keySet());
+    return Iterables.concat(digestDirectoryMap.keySet(), digestFileMap.keySet());
   }
 
   /**
@@ -91,29 +119,29 @@ public class MerkleTree {
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build")) {
-      InputTree tree = InputTree.build(inputs, metadataProvider, execRoot, digestUtil);
+      DirectoryTree tree =
+          DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
       return build(tree, digestUtil);
     }
   }
 
-  private static MerkleTree build(InputTree tree, DigestUtil digestUtil) {
+  private static MerkleTree build(DirectoryTree tree, DigestUtil digestUtil) {
     Preconditions.checkNotNull(tree);
     if (tree.isEmpty()) {
       return new MerkleTree(ImmutableMap.of(), ImmutableMap.of(), digestUtil.compute(new byte[0]));
     }
     Map<Digest, Directory> digestDirectoryMap =
         Maps.newHashMapWithExpectedSize(tree.numDirectories());
-    Map<Digest, ActionInput> digestActionInputMap =
-        Maps.newHashMapWithExpectedSize(tree.numFiles());
+    Map<Digest, PathOrBytes> digestPathMap = Maps.newHashMapWithExpectedSize(tree.numFiles());
     Map<PathFragment, Digest> m = new HashMap<>();
     tree.visit(
         (dirname, files, dirs) -> {
           Directory.Builder b = Directory.newBuilder();
-          for (InputTree.FileNode file : files) {
+          for (DirectoryTree.FileNode file : files) {
             b.addFiles(buildProto(file));
-            digestActionInputMap.put(file.getDigest(), file.getActionInput());
+            digestPathMap.put(file.getDigest(), toPathOrBytes(file));
           }
-          for (InputTree.DirectoryNode dir : dirs) {
+          for (DirectoryTree.DirectoryNode dir : dirs) {
             PathFragment subDirname = dirname.getRelative(dir.getPathSegment());
             Digest protoDirDigest =
                 Preconditions.checkNotNull(m.remove(subDirname), "protoDirDigest was null");
@@ -124,11 +152,10 @@ public class MerkleTree {
           digestDirectoryMap.put(protoDirDigest, protoDir);
           m.put(dirname, protoDirDigest);
         });
-    return new MerkleTree(
-        digestDirectoryMap, digestActionInputMap, m.get(PathFragment.EMPTY_FRAGMENT));
+    return new MerkleTree(digestDirectoryMap, digestPathMap, m.get(PathFragment.EMPTY_FRAGMENT));
   }
 
-  private static FileNode buildProto(InputTree.FileNode file) {
+  private static FileNode buildProto(DirectoryTree.FileNode file) {
     return FileNode.newBuilder()
         .setName(file.getPathSegment())
         .setDigest(file.getDigest())
@@ -136,10 +163,16 @@ public class MerkleTree {
         .build();
   }
 
-  private static DirectoryNode buildProto(InputTree.DirectoryNode dir, Digest protoDirDigest) {
+  private static DirectoryNode buildProto(DirectoryTree.DirectoryNode dir, Digest protoDirDigest) {
     return DirectoryNode.newBuilder()
         .setName(dir.getPathSegment())
         .setDigest(protoDirDigest)
         .build();
+  }
+
+  private static PathOrBytes toPathOrBytes(DirectoryTree.FileNode file) {
+    return file.getPath() != null
+        ? new PathOrBytes(file.getPath())
+        : new PathOrBytes(file.getBytes());
   }
 }
