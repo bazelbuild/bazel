@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -73,10 +74,12 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -195,6 +198,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .build();
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        skyframeExecutor.invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   /**

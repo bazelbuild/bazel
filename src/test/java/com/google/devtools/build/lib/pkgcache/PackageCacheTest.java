@@ -44,9 +44,11 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -139,6 +141,22 @@ public class PackageCacheTest extends FoundationTestCase {
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        invalidatePackages()
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   private OptionsParser parse(String... options) throws Exception {

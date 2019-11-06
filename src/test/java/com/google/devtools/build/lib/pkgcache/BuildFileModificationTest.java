@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -133,6 +135,22 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        invalidatePackages()
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   @Override

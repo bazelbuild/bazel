@@ -117,6 +117,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "my_rule(name = 'test', deps = [':main'], dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
     BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+    invalidatePackages();
 
     // --android_cpu with --android_crosstool_top also triggers the split transition.
     useConfiguration(

@@ -93,6 +93,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   @Test
   public void testBuildFilesWritten() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
+    invalidatePackages();
 
     Path groupIdPath = scratch.resolve("com.google.android");
     assertThat(workspaceDir.getDirectoryEntries()).containsAllOf(repoPath, groupIdPath);
@@ -104,6 +105,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   @Test
   public void testGeneratedAarImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
+    invalidatePackages();
     Rule aarImport =
         getConfiguredTargetAndData("//com.google.android:bar-1.0.0")
             .getTarget()
@@ -119,6 +121,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   @Test
   public void testGeneratedJavaImport() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
+    invalidatePackages();
     Rule javaImport =
         getConfiguredTargetAndData("//com.google.android:foo-1.0.0")
             .getTarget()
@@ -133,6 +136,7 @@ public class SdkMavenRepositoryTest extends BuildViewTestCase {
   @Test
   public void testGeneratedRuleForInvalidPackaging() throws Exception {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
+    invalidatePackages();
     Rule invalidPackagingGenrule =
         getConfiguredTargetAndData("//com.google.android:baz-1.0.0")
             .getTarget()

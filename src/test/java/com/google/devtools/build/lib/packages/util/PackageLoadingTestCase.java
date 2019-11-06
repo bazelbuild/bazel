@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import static org.junit.Assert.fail;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,9 +45,11 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -127,6 +131,22 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
                 Optional.<RootedPath>absent())));
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     return skyframeExecutor;
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        invalidatePackages();
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -122,6 +125,23 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
     scratch.file(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING);
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        skyframeExecutor.invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   @Test

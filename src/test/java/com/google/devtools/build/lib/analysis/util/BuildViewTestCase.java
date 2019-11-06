@@ -167,7 +167,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -318,6 +317,22 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
         new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+  }
+
+  private void invalidatePackagesUninterruptibly() {
+    try {
+      if (skyframeExecutor != null) {
+        invalidatePackages();
+      }
+    } catch (InterruptedException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Override
+  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
+    return createScratchWithCallback(
+        fileSystem, workingDir, () -> invalidatePackagesUninterruptibly());
   }
 
   public void initializeMockClient() throws IOException {
@@ -2252,97 +2267,5 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null);
     }
-  }
-
-  @Override
-  protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
-    return new Scratch(fileSystem, workingDir) {
-      private void invalidateRootDirectory() {
-        try {
-          if (skyframeExecutor != null) {
-            invalidatePackages();
-          }
-        } catch (InterruptedException e) {
-          fail(e.toString());
-        }
-      }
-
-      @Override
-      public Path dir(String pathName) throws IOException {
-        Path r = super.dir(pathName);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path file(String pathName, String... lines) throws IOException {
-        Path r = super.file(pathName, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path file(String pathName, Charset charset, String... lines) throws IOException {
-        Path r = super.file(pathName, charset, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path file(String pathName, byte[] content) throws IOException {
-        Path r = super.file(pathName, content);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path appendFile(String pathName, Collection<String> lines) throws IOException {
-        Path r = super.appendFile(pathName, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path appendFile(String pathName, String... lines) throws IOException {
-        Path r = super.appendFile(pathName, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path appendFile(String pathName, Charset charset, String... lines) throws IOException {
-        Path r = super.appendFile(pathName, charset, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path overwriteFile(String pathName, Collection<String> lines)  throws IOException {
-        Path r = super.overwriteFile(pathName, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path overwriteFile(String pathName, String... lines) throws IOException {
-        Path r = super.overwriteFile(pathName, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
-        Path r = super.overwriteFile(pathName, charset, lines);
-        invalidateRootDirectory();
-        return r;
-      }
-
-      @Override
-      public boolean deleteFile(String pathName) throws IOException {
-        boolean r = super.deleteFile(pathName);
-        invalidateRootDirectory();
-        return r;
-      }
-    };
   }
 }

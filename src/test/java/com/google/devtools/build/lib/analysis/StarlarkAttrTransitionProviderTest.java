@@ -374,6 +374,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   public void testOptionConversionCpu() throws Exception {
     writeOptionConversionTestFiles();
     BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+    invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
 

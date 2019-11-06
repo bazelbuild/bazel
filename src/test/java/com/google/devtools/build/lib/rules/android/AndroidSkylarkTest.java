@@ -155,6 +155,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
   public void testAndroidSplitTransitionWithAndroidCpu() throws Exception {
     writeAndroidSplitTransitionTestFiles();
     BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+    invalidatePackages();
 
     // --android_cpu with --android_crosstool_top also triggers the split transition.
     useConfiguration(

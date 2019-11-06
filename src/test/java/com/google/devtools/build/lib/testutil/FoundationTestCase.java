@@ -26,7 +26,11 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.After;
 import org.junit.Before;
 
@@ -72,6 +76,91 @@ public abstract class FoundationTestCase {
 
   protected Scratch createScratch(FileSystem fileSystem, String workingDir) {
     return new Scratch(fileSystem, workingDir);
+  }
+
+  @FunctionalInterface
+  protected interface Callback { public void doIt(); }
+
+  protected static Scratch createScratchWithCallback(FileSystem fileSystem, String workingDir,
+      Callback callback) {
+    return new Scratch(fileSystem, workingDir) {
+      @Override
+      public Path dir(String pathName) throws IOException {
+        Path r = super.dir(pathName);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path file(String pathName, String... lines) throws IOException {
+        Path r = super.file(pathName, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path file(String pathName, Charset charset, String... lines) throws IOException {
+        Path r = super.file(pathName, charset, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path file(String pathName, byte[] content) throws IOException {
+        Path r = super.file(pathName, content);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path appendFile(String pathName, Collection<String> lines) throws IOException {
+        Path r = super.appendFile(pathName, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path appendFile(String pathName, String... lines) throws IOException {
+        Path r = super.appendFile(pathName, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path appendFile(String pathName, Charset charset, String... lines) throws IOException {
+        Path r = super.appendFile(pathName, charset, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path overwriteFile(String pathName, Collection<String> lines)  throws IOException {
+        Path r = super.overwriteFile(pathName, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path overwriteFile(String pathName, String... lines) throws IOException {
+        Path r = super.overwriteFile(pathName, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
+        Path r = super.overwriteFile(pathName, charset, lines);
+        callback.doIt();
+        return r;
+      }
+
+      @Override
+      public boolean deleteFile(String pathName) throws IOException {
+        boolean r = super.deleteFile(pathName);
+        callback.doIt();
+        return r;
+      }
+    };
   }
 
   @Before
