@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -38,16 +39,17 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "This API is non-final and subject to change without warning; do not rely on it.",
     documented = false)
 public interface AndroidDataProcessingApi<
-    AndroidDataContextT extends AndroidDataContextApi,
-    TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
-    FileT extends FileApi,
-    SpecialFileT extends FileApi,
-    AndroidAssetsInfoT extends AndroidAssetsInfoApi<?, ?>,
-    AndroidResourcesInfoT extends AndroidResourcesInfoApi<?, ?, ?>,
-    AndroidManifestInfoT extends AndroidManifestInfoApi<?>,
-    AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi<?>,
-    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi<?>,
-    ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>> {
+        AndroidDataContextT extends AndroidDataContextApi,
+        TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
+        FileT extends FileApi,
+        SpecialFileT extends FileApi,
+        AndroidAssetsInfoT extends AndroidAssetsInfoApi<?, ?>,
+        AndroidResourcesInfoT extends AndroidResourcesInfoApi<?, ?, ?>,
+        AndroidManifestInfoT extends AndroidManifestInfoApi<?>,
+        AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi<?>,
+        AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi<?>,
+        ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "assets_from_deps",

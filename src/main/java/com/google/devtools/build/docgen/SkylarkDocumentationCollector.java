@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -37,12 +38,11 @@ import javax.annotation.Nullable;
  */
 final class SkylarkDocumentationCollector {
   @SkylarkModule(
-    name = "globals",
-    title = "Globals",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
-    doc = "Objects, functions and modules registered in the global environment."
-  )
-  private static final class TopLevelModule {}
+      name = "globals",
+      title = "Globals",
+      category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+      doc = "Objects, functions and modules registered in the global environment.")
+  private static final class TopLevelModule implements SkylarkValue {}
 
   private SkylarkDocumentationCollector() {}
 

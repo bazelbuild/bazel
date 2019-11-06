@@ -1,12 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load(":merge_licenses.bzl", "merge_licenses")
 
 # Description:
 #   Main Java code for Bazel
 package(
     default_visibility = ["//src:__subpackages__"],
 )
-
-load(":merge_licenses.bzl", "merge_licenses")
 
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
@@ -399,6 +398,7 @@ java_library(
     ],
     deps = [
         ":skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:jsr305",
     ],
 )

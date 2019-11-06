@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Provider for the runtime classpath contributions of a Java binary. */
 @SkylarkModule(name = "JavaRuntimeClasspathProvider", doc = "", documented = false)
-public interface JavaRuntimeClasspathProviderApi {
+public interface JavaRuntimeClasspathProviderApi extends SkylarkValue {
 
   @SkylarkCallable(name = "runtime_classpath", documented = false, structField = true)
   public SkylarkNestedSet /*<File>*/ getRuntimeClasspath();

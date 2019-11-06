@@ -18,13 +18,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** A representation of the concept "this builds these files". */
 @SkylarkModule(
     name = "file_provider",
     doc = "An interface for rules that provide files.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface FileProviderApi {
+public interface FileProviderApi extends SkylarkValue {
 
   /**
    * Returns the set of files that are the "output" of this rule.

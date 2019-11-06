@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has a parameter with both type and allowedTypes
  * specified.
  */
-public class InvalidNoneableParameter {
+public class InvalidNoneableParameter implements SkylarkValue {
 
   @SkylarkCallable(
       name = "invalid_noneable_parameter",
@@ -32,4 +33,5 @@ public class InvalidNoneableParameter {
   public Integer invalidNoneableParameter(String aParameter) {
     return 42;
   }
+
 }

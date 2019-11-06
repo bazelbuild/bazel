@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -38,18 +39,19 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
-    SkylarkActionFactoryT extends SkylarkActionFactoryApi,
-    FileT extends FileApi,
-    CcToolchainProviderT extends CcToolchainProviderApi<?>,
-    FeatureConfigurationT extends FeatureConfigurationApi,
-    CompilationContextT extends CcCompilationContextApi,
-    LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
-    LinkingContextT extends CcLinkingContextApi<?>,
-    LibraryToLinkT extends LibraryToLinkApi<FileT>,
-    CcToolchainVariablesT extends CcToolchainVariablesApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-    CompilationOutputsT extends CcCompilationOutputsApi<FileT>> {
+        SkylarkActionFactoryT extends SkylarkActionFactoryApi,
+        FileT extends FileApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<?>,
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        CompilationContextT extends CcCompilationContextApi,
+        LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
+        LinkingContextT extends CcLinkingContextApi<?>,
+        LibraryToLinkT extends LibraryToLinkApi<FileT>,
+        CcToolchainVariablesT extends CcToolchainVariablesApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
+        CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "CcToolchainInfo",

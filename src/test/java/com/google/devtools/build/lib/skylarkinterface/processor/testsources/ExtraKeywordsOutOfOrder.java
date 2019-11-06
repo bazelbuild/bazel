@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
  * Test case for a SkylarkCallable method which specifies extraKeywords, but specifies the argument
  * out of order.
  */
-public class ExtraKeywordsOutOfOrder {
+public class ExtraKeywordsOutOfOrder implements SkylarkValue {
 
   @SkylarkCallable(
       name = "extra_kwargs_out_of_order",

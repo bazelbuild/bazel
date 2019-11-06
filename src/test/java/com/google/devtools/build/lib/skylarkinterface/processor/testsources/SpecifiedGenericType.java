@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
  * type. (Parameters, if generic, may only have wildcards, as the types of these parameters must be
  * validated dynamically.)
  */
-public class SpecifiedGenericType {
+public class SpecifiedGenericType implements SkylarkValue {
 
   @SkylarkCallable(
       name = "specified_generic_type",

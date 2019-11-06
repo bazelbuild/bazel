@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -34,9 +35,9 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
         "The context of the repository rule containing"
             + " helper functions and information about attributes. You get a repository_ctx object"
             + " as an argument to the <code>implementation</code> function when you create a"
-            + " repository rule."
-)
-public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable> {
+            + " repository rule.")
+public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "name",

@@ -387,4 +387,16 @@ public final class SkylarkCallableProcessorTest {
             "Expected type 'Object' but got type 'java.lang.String' "
                 + "for noneable parameter 'aParameter'.");
   }
+
+  @Test
+  public void testDoesntImplementSkylarkValue() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DoesntImplementSkylarkValue.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "method x has @SkylarkCallable annotation but enclosing class"
+                + " DoesntImplementSkylarkValue does not implement SkylarkValue nor has"
+                + " @SkylarkGlobalLibrary annotation");
+  }
 }

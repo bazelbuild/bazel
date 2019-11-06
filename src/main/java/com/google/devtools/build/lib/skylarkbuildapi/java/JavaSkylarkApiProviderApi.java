@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 
 /**
@@ -32,4 +33,4 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
             + " href=\"https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html\">JavaInfo</a>"
             + " instead.")
 @StarlarkDeprecated
-public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {}
+public interface JavaSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkValue {}

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -1232,7 +1233,7 @@ public class MethodLibrary {
               + "100 % -7  # -5 (unlike in some other languages)\n"
               + "int(\"18\")\n"
               + "</pre>")
-  public static final class IntModule {}
+  static final class IntModule implements SkylarkValue {} // (documentation only)
 
   /** Skylark bool type. */
   @SkylarkModule(
@@ -1244,7 +1245,7 @@ public class MethodLibrary {
               + "<a href=\"globals.html#False\">False</a>. "
               + "Any value can be converted to a boolean using the "
               + "<a href=\"globals.html#bool\">bool</a> function.")
-  public static final class BoolModule {}
+  static final class BoolModule implements SkylarkValue {} // (documentation only)
 
   /** Adds bindings for all the builtin functions of this class to the given map builder. */
   public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {

@@ -162,14 +162,15 @@ public final class EvalUtils {
   }
 
   /**
-   * Is this class known to be *recursively* immutable by Skylark?
-   * For instance, class Tuple is not it, because it can contain mutable values.
+   * Is this class known to be *recursively* immutable by Skylark? For instance, class Tuple is not
+   * it, because it can contain mutable values.
+   *
    * @param c a Class
    * @return true if the class is known to represent only recursively immutable values.
    */
   // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s,
   // as well as for accepting objects as keys for Skylark dict-s.
-  static boolean isImmutable(Class<?> c) {
+  private static boolean isImmutable(Class<?> c) {
     return c.isAnnotationPresent(Immutable.class) // TODO(bazel-team): beware of containers!
         || c.equals(String.class)
         || c.equals(Integer.class)
@@ -184,6 +185,7 @@ public final class EvalUtils {
         || c.equals(String.class) // basic values
         || c.equals(Integer.class)
         || c.equals(Boolean.class)
+        // TODO(adonovan): delete those below, and order those above by cost.
         // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
         || SkylarkInterfaceUtils.getSkylarkModule(c) != null
         || ImmutableMap.class.isAssignableFrom(c); // will be converted to SkylarkDict

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -30,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     category = SkylarkModuleCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcCompilationOutputsApi<FileT extends FileApi> {
+public interface CcCompilationOutputsApi<FileT extends FileApi> extends SkylarkValue {
 
   /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
   @SkylarkCallable(

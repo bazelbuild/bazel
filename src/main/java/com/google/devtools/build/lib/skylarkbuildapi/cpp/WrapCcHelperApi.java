@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -35,13 +36,14 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @SkylarkModule(name = "WrapCcHelperDoNotUse", doc = "", documented = false)
 public interface WrapCcHelperApi<
-    FeatureConfigurationT extends FeatureConfigurationApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-    CompilationInfoT extends CompilationInfoApi,
-    FileT extends FileApi,
-    CcCompilationContextT extends CcCompilationContextApi,
-    WrapCcIncludeProviderT extends WrapCcIncludeProviderApi> {
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CompilationInfoT extends CompilationInfoApi,
+        FileT extends FileApi,
+        CcCompilationContextT extends CcCompilationContextApi,
+        WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "feature_configuration",

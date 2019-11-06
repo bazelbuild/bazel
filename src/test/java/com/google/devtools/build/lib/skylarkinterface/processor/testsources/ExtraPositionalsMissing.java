@@ -17,12 +17,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Test case for a SkylarkCallable method which specifies extraPositionals, but omits that argument.
  */
-public class ExtraPositionalsMissing {
+public class ExtraPositionalsMissing implements SkylarkValue {
 
   @SkylarkCallable(
       name = "extra_positionals_missing",

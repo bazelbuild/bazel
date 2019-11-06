@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
@@ -31,12 +32,13 @@ import javax.annotation.Nullable;
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ValidatedAndroidDataApi<
-    FileT extends FileApi,
-    AndroidResourcesInfoT extends
-        AndroidResourcesInfoApi<
-                FileT,
-                ? extends ValidatedAndroidDataApi<FileT, AndroidResourcesInfoT>,
-                ? extends AndroidManifestInfoApi<FileT>>> {
+        FileT extends FileApi,
+        AndroidResourcesInfoT extends
+            AndroidResourcesInfoApi<
+                    FileT,
+                    ? extends ValidatedAndroidDataApi<FileT, AndroidResourcesInfoT>,
+                    ? extends AndroidManifestInfoApi<FileT>>>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "to_provider",

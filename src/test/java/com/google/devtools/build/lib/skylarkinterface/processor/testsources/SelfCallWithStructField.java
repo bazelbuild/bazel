@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
- * Test case for a class with a SkylarkCallable method which has selfCall=true and
- * structField=true.
+ * Test case for a class with a SkylarkCallable method which has selfCall=true and structField=true.
  */
-public class SelfCallWithStructField {
+public class SelfCallWithStructField implements SkylarkValue {
 
   @SkylarkCallable(
       name = "selfCallMethod",
