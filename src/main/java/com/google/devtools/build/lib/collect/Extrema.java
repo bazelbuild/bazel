@@ -97,7 +97,7 @@ public class Extrema<T> {
   /**
    * For an {@link Extrema} created with {@code k} and with {@code n} calls to {@link #aggregate}
    * since the most recent call to {@link #clear}, returns the {@code min(k, n)} most extreme of the
-   * those elements.
+   * those elements, sorted from most extreme to least extreme.
    */
   public ImmutableList<T> getExtremeElements() {
     return ImmutableList.sortedCopyOf(extremaComparator, priorityQueue);
