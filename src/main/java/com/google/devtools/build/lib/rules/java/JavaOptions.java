@@ -287,17 +287,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean explicitJavaTestDeps;
 
   @Option(
-      name = "experimental_testrunner",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Use the experimental test runner in bazel which runs the tests under a separate "
-              + "classloader. We must set the --explicit_java_test_deps flag with this to ensure "
-              + "the test targets have their dependencies right.")
-  public boolean experimentalTestRunner;
-
-  @Option(
       name = "javabuilder_top",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

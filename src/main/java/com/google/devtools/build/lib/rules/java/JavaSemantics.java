@@ -317,13 +317,6 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  /**
-   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
-   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
-   */
-  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
-      throws InterruptedException;
-
   /** Adds extra runfiles for a {@code java_binary} rule. */
   void addRunfilesForBinary(
       RuleContext ruleContext, Artifact launcher, Runfiles.Builder runfilesBuilder);
