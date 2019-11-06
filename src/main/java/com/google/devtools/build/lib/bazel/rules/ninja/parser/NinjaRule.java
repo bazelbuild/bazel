@@ -62,6 +62,6 @@ public class NinjaRule {
 
   @Override
   public int hashCode() {
-    return Objects.hash(variables);
+    return Objects.hashCode(variables);
   }
 }
