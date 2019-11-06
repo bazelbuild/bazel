@@ -65,8 +65,6 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
-        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
     NONE(null);
 
@@ -172,8 +170,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
-  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
-
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
   public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
@@ -273,7 +269,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
-          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleDisallowUnverifiedHttpDownloads(true)
           .incompatibleNewActionsApi(true)
@@ -345,9 +340,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
-
-    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
-        boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 

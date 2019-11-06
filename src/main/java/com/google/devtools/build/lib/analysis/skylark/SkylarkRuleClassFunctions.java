@@ -283,7 +283,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
@@ -405,11 +404,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               bazelContext.getRepoMapping()));
     }
 
-    if (executionPlatformConstraintsAllowed) {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
-    } else {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
-    }
+    builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
 
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
