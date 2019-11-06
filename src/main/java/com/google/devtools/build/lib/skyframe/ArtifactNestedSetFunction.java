@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -20,7 +21,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -31,7 +31,8 @@ import java.util.concurrent.ConcurrentMap;
  *
  * <p>{@link ArtifactNestedSetFunction} then evaluates the {@link ArtifactNestedSetKey} by:
  *
- * <p>- Evaluating the directs elements as Artifacts. Commit the result into artifactToSkyValueMap.
+ * <p>- Evaluating the directs elements as Artifacts. Commit the result into
+ * artifactSkyKeyToValueOrException.
  *
  * <p>- Evaluating the transitive elements as {@link ArtifactNestedSetKey}s.
  *
@@ -46,47 +47,47 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part
    * of NestedSets which were evaluated as {@link ArtifactNestedSetKey}.
    *
-   * <p>Question: Why don't we clear artifactToSkyValueMap after each build?
+   * <p>Question: Why don't we clear artifactSkyKeyToValueOrException after each build?
    *
    * <p>The map maintains an invariant: if an ArtifactNestedSetKey exists on Skyframe, the SkyValues
-   * of its member Artifacts are available in artifactToSkyValueMap.
+   * of its member Artifacts are available in artifactSkyKeyToValueOrException.
    *
    * <p>Example: Action A has as input NestedSet X, where X = (X1, X2), where X1 & X2 are 2
    * transitive NestedSets.
    *
    * <p>Run 0: Establish dependency from A to X and from X to X1 & X2. Artifacts from X1 & X2 have
-   * entries in artifactToSkyValueMap.
+   * entries in artifactSkyKeyToValueOrException.
    *
    * <p>Run 1 (incremental): Some changes were made to an Artifact in X1 such that X1, X and A's
    * SkyKeys are marked as dirty. A's ActionLookupData has to be re-evaluated. This involves asking
    * Skyframe to compute SkyValues for its inputs.
    *
    * <p>However, X2 is not dirty, so Skyframe won't re-run ArtifactNestedSetFunction#compute for X2,
-   * therefore not populating artifactToSkyValueMap with X2's member Artifacts. Hence if we clear
-   * artifactToSkyValueMap between build 0 and 1, X2's member artifacts' SkyValues would not be
-   * available in the map.
+   * therefore not populating artifactSkyKeyToValueOrException with X2's member Artifacts. Hence if
+   * we clear artifactSkyKeyToValueOrException between build 0 and 1, X2's member artifacts'
+   * SkyValues would not be available in the map.
    *
-   * <p>Keeping the map in between builds introduces a potential memory leak: if an Artifact is no
-   * longer valid, it would still exist in the map. TODO(leba): Address this memory leak.
+   * <p>The map has weak references to keys to prevent memory leaks: if an Artifact no longer
+   * exists, its entry would be automatically removed from the map by the GC. Note that the map
+   * compares the SkyKeys by identity rather than with the .equals method.
    */
   private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
-      artifactToSkyValueMap;
+      artifactSkyKeyToValueOrException;
 
   /**
    * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
    * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
    *
-   * <p>Keeping the map in between builds introduces a potential memory leak: if a NestedSet is no
-   * longer valid, it would still exist in the map.
+   * <p>The map has weak references to keys to prevent memory leaks: if a nested set no longer
+   * exists, its entry would be automatically removed from the map by the GC.
    */
-  // TODO(leba): Address this memory leak.
-  private final ConcurrentMap<Object, SkyKey> knownNestedSetToKey;
+  private final ConcurrentMap<Object, SkyKey> nestedSetToSkyKey;
 
   private static ArtifactNestedSetFunction singleton = null;
 
   private ArtifactNestedSetFunction() {
-    artifactToSkyValueMap = new ConcurrentHashMap<>();
-    knownNestedSetToKey = new ConcurrentHashMap<>();
+    artifactSkyKeyToValueOrException = new MapMaker().weakKeys().makeMap();
+    nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
   }
 
   @Override
@@ -104,8 +105,8 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
     // Evaluate all children.
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
-      knownNestedSetToKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      env.getValue(knownNestedSetToKey.get(transitive));
+      nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
+      env.getValue(nestedSetToSkyKey.get(transitive));
     }
 
     if (env.valuesMissing()) {
@@ -113,7 +114,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
     }
 
     // Only commit to the map when every value is present.
-    artifactToSkyValueMap.putAll(directArtifactsEvalResult);
+    artifactSkyKeyToValueOrException.putAll(directArtifactsEvalResult);
     return ArtifactNestedSetValue.createOrGetInstance();
   }
 
@@ -124,8 +125,9 @@ class ArtifactNestedSetFunction implements SkyFunction {
     return singleton;
   }
 
-  Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getArtifactToSkyValueMap() {
-    return artifactToSkyValueMap;
+  Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+      getArtifactSkyKeyToValueOrException() {
+    return artifactSkyKeyToValueOrException;
   }
 
   @Override
