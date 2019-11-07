@@ -92,6 +92,12 @@ EOF
 function test_utf8_source_artifact() {
   unicode_filenames_test_setup
 
+  # For debugging from test failure logs.
+  if ! "$is_windows"; then
+    echo "Available locales (need en_US.ISO-8859-1 or C.UTF-8):"
+    locale -a
+  fi
+
   touch 'pkg/srcs/regular file.txt'
 
   mkdir pkg/srcs/subdir
@@ -127,10 +133,14 @@ function test_traditional_encoding_source_artifact() {
     ;;
   esac
 
+  # For debugging from test failure logs.
+  echo "Available locales (need en_US.ISO-8859-1):"
+  locale -a
+
   # The JVM can only support traditional filename encodings if the appropriate
   # locale is installed.
   if ! locale -a | grep -q '^en_US.ISO-8859-1$'; then
-    echo "Skipping test." && return
+    echo "Skipping test (no en_US.ISO-8859-1 locale)." && return
   fi
 
   unicode_filenames_test_setup
