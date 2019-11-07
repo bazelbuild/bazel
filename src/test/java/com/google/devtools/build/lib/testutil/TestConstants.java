@@ -105,8 +105,16 @@ public class TestConstants {
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "/bazel_tools_workspace/";
+
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
+
+  /** Repository label prefix for rules_cc. */
+  public static final String RULES_CC_REPOSITORY = "@rules_cc";
+  /** The file path in which to create files so that they end up under {@link #RULES_CC_REPOSITORY}. */
+  public static final String RULES_CC_REPOSITORY_SCRATCH = "/rules_cc_workspace/";
+  /** The directory in which rules_cc repo resides in execroot. */
+  public static final String RULES_CC_REPOSITORY_EXECROOT = "external/rules_cc/";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");

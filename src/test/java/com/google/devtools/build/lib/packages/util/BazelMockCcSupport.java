@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /**
@@ -77,13 +78,31 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   private void setupRulesCc(MockToolsConfig config) throws IOException {
     for (String path : ImmutableList.of(
+        "cc/BUILD",
         "cc/defs.bzl",
         "cc/action_names.bzl",
         "cc/cc_toolchain_config_lib.bzl",
         "cc/find_cc_toolchain.bzl",
-        "cc/toolchain_utils.bzl")) {
-      config.create("/rules_cc_workspace/" + path, ResourceLoader.readFromResources("external/rules_cc/" + path));
+        "cc/toolchain_utils.bzl"
+        )) {
+      try {
+        config.create(TestConstants.RULES_CC_REPOSITORY_SCRATCH + path,
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT  + path));
+      } catch (Exception e) {
+        throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
+      }
     }
+
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
   }
 
   @Override
