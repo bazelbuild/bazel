@@ -71,7 +71,19 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public void setup(MockToolsConfig config) throws IOException {
     writeMacroFile(config);
+    setupRulesCc(config);
     setupCcToolchainConfig(config);
+  }
+
+  private void setupRulesCc(MockToolsConfig config) throws IOException {
+    for (String path : ImmutableList.of(
+        "cc/defs.bzl",
+        "cc/action_names.bzl",
+        "cc/cc_toolchain_config_lib.bzl",
+        "cc/find_cc_toolchain.bzl",
+        "cc/toolchain_utils.bzl")) {
+      config.create("/rules_cc_workspace/" + path, ResourceLoader.readFromResources("external/rules_cc/" + path));
+    }
   }
 
   @Override

@@ -940,7 +940,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
-        "//tools/cpp:cc_toolchain_config_lib.bzl",
+        "@rules_cc//cc:srcs",
         "//tools/python:srcs",
     ],
     deps = [
