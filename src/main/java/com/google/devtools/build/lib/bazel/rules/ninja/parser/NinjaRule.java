@@ -47,21 +47,4 @@ public class NinjaRule {
     Preconditions.checkState(value.getVariables().isEmpty());
     return value.getText();
   }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (! (o instanceof NinjaRule)) {
-      return false;
-    }
-    NinjaRule ninjaRule = (NinjaRule) o;
-    return variables.equals(ninjaRule.variables);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(variables);
-  }
 }
