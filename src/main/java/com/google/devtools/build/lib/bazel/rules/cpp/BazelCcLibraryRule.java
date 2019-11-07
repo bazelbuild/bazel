@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -46,6 +47,7 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         please upgrade your VS 2017 to the latest version.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
+        .add(attr("linked_statically_by", STRING_LIST))
         .override(attr("linkstatic", BOOLEAN).value(false))
         .build();
   }
