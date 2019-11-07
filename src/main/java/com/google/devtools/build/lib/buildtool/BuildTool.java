@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.devtools.build.lib.platform.SuspendCounter.suspendCount;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -262,6 +264,7 @@ public class BuildTool {
       BuildRequest request, TargetValidator validator) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
+    int startSuspendCount = suspendCount();
     Throwable catastrophe = null;
     ExitCode exitCode = ExitCode.BLAZE_INTERNAL_ERROR;
     try {
@@ -318,7 +321,7 @@ public class BuildTool {
       catastrophe = throwable;
       Throwables.propagate(throwable);
     } finally {
-      stopRequest(result, catastrophe, exitCode);
+      stopRequest(result, catastrophe, exitCode, startSuspendCount);
     }
 
     return result;
@@ -355,12 +358,17 @@ public class BuildTool {
    *
    * <p>This logs the build result, cleans up and stops the clock.
    *
-   * @param crash Any unexpected RuntimeException or Error. May be null
-   * @param exitCondition A suggested exit condition from either the build logic or
-   *        a thrown exception somewhere along the way.
+   * @param result result to update
+   * @param crash any unexpected {@link RuntimeException} or {@link Error}. May be null
+   * @param exitCondition a suggested exit condition from either the build logic or a thrown
+   *     exception somewhere along the way
+   * @param startSuspendCount number of suspensions before the build started
    */
-  public void stopRequest(BuildResult result, Throwable crash, ExitCode exitCondition) {
+  public void stopRequest(
+      BuildResult result, Throwable crash, ExitCode exitCondition, int startSuspendCount) {
     Preconditions.checkState((crash == null) || !exitCondition.equals(ExitCode.SUCCESS));
+    int stopSuspendCount = suspendCount();
+    Preconditions.checkState(startSuspendCount <= stopSuspendCount);
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
     InterruptedException ie = null;
@@ -372,6 +380,7 @@ public class BuildTool {
     }
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
+    result.setWasSuspended(stopSuspendCount > startSuspendCount);
     env.getEventBus()
         .post(
             new BuildCompleteEvent(

@@ -640,6 +640,15 @@ message BuildFinished {
     int32 code = 2;
   }
 
+  // Things that happened during the build that could be of interest.
+  message AnomalyReport {
+    // Was the build suspended at any time during the build.
+    // Examples of suspensions are SIGSTOP, or the hardware being put to sleep.
+    // If was_suspended is true, then most of the timings for this build are
+    // suspect.
+    bool was_suspended = 1;
+  }
+
   // If the build succeeded or failed.
   bool overall_success = 1 [deprecated = true];
 
@@ -651,6 +660,8 @@ message BuildFinished {
   // TODO(buchgr): Use google.protobuf.Timestamp once bazel's protoc supports
   // it.
   int64 finish_time_millis = 2;
+
+  AnomalyReport anomaly_report = 4;
 }
 
 message BuildMetrics {

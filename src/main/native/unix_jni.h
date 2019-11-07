@@ -110,6 +110,10 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
 int portable_push_disable_sleep();
 int portable_pop_disable_sleep();
 
+// Returns the number of times that the process has been suspended (SIGSTOP,
+// computer put to sleep, etc.) since Bazel started.
+int portable_suspend_count();
+
 }  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

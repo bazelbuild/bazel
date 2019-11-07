@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 
-import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
-import com.google.devtools.build.lib.util.ExitCode;
+#include <windows.h>
+#include "src/main/native/jni.h"
 
-/** {@link BuildEvent} indicating that a request that does not involve building as finished. */
-public final class NoBuildRequestFinishedEvent extends BuildCompletingEvent {
-  public NoBuildRequestFinishedEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis, false);
-  }
+/*
+ * Class:     com_google_devtools_build_lib_platform_SuspendCounter
+ * Method:    suspendCountJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SuspendCounter_suspendCountJNI(
+    JNIEnv *, jclass) {
+  // Currently not implemented.
+  return 0;
 }

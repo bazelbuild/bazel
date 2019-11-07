@@ -1115,4 +1115,15 @@ Java_com_google_devtools_build_lib_platform_SleepPreventionModule_00024SleepPrev
   return portable_pop_disable_sleep();
 }
 
+/*
+ * Class:     com_google_devtools_build_lib_platform_SuspendCounter
+ * Method:    suspendCountJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SuspendCounter_suspendCountJNI(
+    JNIEnv *, jclass) {
+  return portable_suspend_count();
+}
+
 }  // namespace blaze_jni

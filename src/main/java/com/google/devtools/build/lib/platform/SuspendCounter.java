@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.platform;
 
-import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
-import com.google.devtools.build.lib.util.ExitCode;
+/** Native methods for dealing with suspension events. */
+public final class SuspendCounter extends JniLoader {
+  static native int suspendCountJNI();
 
-/** {@link BuildEvent} indicating that a request that does not involve building as finished. */
-public final class NoBuildRequestFinishedEvent extends BuildCompletingEvent {
-  public NoBuildRequestFinishedEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis, false);
+  /**
+   * The number of times the build has been suspended. Currently this is a hardware sleep and/or the
+   * platform equivalents to a SIGSTOP/SIGTSTP.
+   */
+  public static int suspendCount() {
+    return JniLoader.jniEnabled() ? suspendCountJNI() : 0;
   }
 }

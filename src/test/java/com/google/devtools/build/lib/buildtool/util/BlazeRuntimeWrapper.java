@@ -356,7 +356,10 @@ public class BlazeRuntimeWrapper {
         this.configurations = lastResult.getBuildConfigurationCollection();
         finalizeBuildResult(lastResult);
         buildTool.stopRequest(
-            lastResult, null, success ? ExitCode.SUCCESS : ExitCode.BUILD_FAILURE);
+            lastResult,
+            null,
+            success ? ExitCode.SUCCESS : ExitCode.BUILD_FAILURE,
+            /*startSuspendCount=*/ 0);
         getSkyframeExecutor().notifyCommandComplete(env.getReporter());
       }
     } finally {

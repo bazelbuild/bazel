@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#include <atomic>
 // Linting disabled for this line because for google code we could use
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
 #include <mutex>  // NOLINT
@@ -166,6 +168,92 @@ int portable_pop_disable_sleep() {
     g_sleep_state_assertion = kIOPMNullAssertionID;
   }
   return 0;
+}
+
+typedef struct {
+  // Port used to relay sleep call back messages.
+  io_connect_t connect_port;
+
+  // Count of suspensions. Atomic because it can be read from any java thread
+  // and is written to from a dispatch_queue thread.
+  std::atomic_int suspend_count;
+} SuspendState;
+
+static void SleepCallBack(void *refcon, io_service_t service,
+                          natural_t message_type, void *message_argument) {
+  SuspendState *state = (SuspendState *)refcon;
+  switch (message_type) {
+    case kIOMessageCanSystemSleep:
+      // This needs to be handled to allow sleep.
+      IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
+      break;
+
+    case kIOMessageSystemWillSleep:
+      ++state->suspend_count;
+      // This needs to be acknowledged to allow sleep.
+      IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
+      break;
+
+    case kIOMessageSystemWillNotSleep:
+      --state->suspend_count;
+      break;
+
+    case kIOMessageSystemWillPowerOn:
+    case kIOMessageSystemHasPoweredOn:
+      // We increment g_suspend_count when we are alerted to the sleep as
+      // opposed to when we wake up, because Macs have a "Dark Wake" mode (also
+      // known as PowerNap) which is when the processors (and disk and network)
+      // turn on for brief periods of time
+      // (https://support.apple.com/en-us/HT204032). Dark Wake does NOT trigger
+      // PowerOn messages through our sleep callbacks, but can allow
+      // builds to proceed for a considerable amount of time (for example if
+      // Time Machine is performing a back up).
+      // There is currently a race condition where a build may finish
+      // between the time we receive the kIOMessageSystemWillSleep and the
+      // machine actually goes to sleep (roughly 20 seconds in my experiments)
+      // or between the time we receive the kIOMessageSystemWillSleep and
+      // kIOMessageSystemWillNotSleep. This will result in us reporting that the
+      // build was suspended when it wasn't. I haven't come up with an smart way
+      // of avoiding this issue, but I don't think we really care. Over
+      // reporting "suspensions" is better than under reporting them.
+    default:
+      break;
+  }
+}
+
+int portable_suspend_count() {
+  static dispatch_once_t once_token;
+  static SuspendState suspend_state;
+  dispatch_once(&once_token, ^{
+    IONotificationPortRef notifyPortRef;
+    io_object_t notifierObject;
+
+    // Register to receive system sleep notifications.
+    suspend_state.connect_port = IORegisterForSystemPower(
+        &suspend_state, &notifyPortRef, SleepCallBack, &notifierObject);
+    CHECK(suspend_state.connect_port != MACH_PORT_NULL);
+    IONotificationPortSetDispatchQueue(notifyPortRef,
+                                       DISPATCH_TARGET_QUEUE_DEFAULT);
+
+    // Register to deal with SIGCONT.
+    // We register for SIGCONT because we can't catch SIGSTOP and we can't
+    // distinguish a SIGCONT after a SIGSTOP from a SIGCONT after SIGTSTP.
+    // We do have the potential of "over counting" suspensions if you send
+    // multiple SIGCONTs to a process without a previous SIGSTOP/SIGTSTP,
+    // but there is no reason to send a SIGCONT without a SIGSTOP/SIGTSTP, and
+    // having this functionality gives us some ability to unit test suspension
+    // counts.
+    sig_t signal_val = signal(SIGCONT, SIG_IGN);
+    CHECK(signal_val != SIG_ERR);
+    dispatch_source_t signal_source = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, DISPATCH_TARGET_QUEUE_DEFAULT);
+    CHECK(signal_source != NULL);
+    dispatch_source_set_event_handler(signal_source, ^{
+      ++suspend_state.suspend_count;
+    });
+    dispatch_resume(signal_source);
+  });
+  return suspend_state.suspend_count;
 }
 
 }  // namespace blaze_jni
