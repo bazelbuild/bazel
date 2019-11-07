@@ -1664,54 +1664,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymbolPropagateThroughImports() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_transitive_loads=false");
-    scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
-
-    scratch.file(
-        "test/skylark/extension2.bzl",
-        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')");
-
-    scratch.file(
-        "test/skylark/extension1.bzl",
-        "load('//test/skylark:extension2.bzl', 'custom_rule_impl')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension1.bzl', 'custom_rule')",
-        "custom_rule(name = 'cr')");
-
-    getConfiguredTarget("//test/skylark:cr");
-  }
-
-  @Test
-  public void testSymbolDoNotPropagateThroughImports() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_transitive_loads=true");
-    scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
-
-    scratch.file(
-        "test/skylark/extension2.bzl",
-        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')");
-
-    scratch.file(
-        "test/skylark/extension1.bzl",
-        "load('//test/skylark:extension2.bzl', 'custom_rule_impl')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension1.bzl', 'custom_rule')",
-        "custom_rule(name = 'cr')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:cr");
-    assertContainsEvent("does not contain symbol 'custom_rule_impl'");
-  }
-
-  @Test
   public void testLoadSymbolTypo() throws Exception {
     scratch.file("test/skylark/ext1.bzl", "myvariable = 2");
 

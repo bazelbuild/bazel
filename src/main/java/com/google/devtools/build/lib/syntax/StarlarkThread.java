@@ -353,10 +353,7 @@ public final class StarlarkThread implements Freezable {
       // Legacy behavior: all symbols from the global Frame are exported (including symbols
       // introduced by load).
       this(
-          ImmutableMap.copyOf(
-              thread.getSemantics().incompatibleNoTransitiveLoads()
-                  ? thread.globalFrame.getExportedBindings()
-                  : thread.globalFrame.getBindings()),
+          ImmutableMap.copyOf(thread.globalFrame.getExportedBindings()),
           thread.getTransitiveContentHashCode());
     }
 
