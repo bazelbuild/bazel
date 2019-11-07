@@ -337,12 +337,6 @@ static string EscapeForOptionSource(const string &input) {
   return result;
 }
 
-// Returns the installed embedded binaries directory, under the shared
-// install_base location.
-string GetEmbeddedBinariesRoot(const string &install_base) {
-  return blaze_util::JoinPath(install_base, "_embedded_binaries");
-}
-
 // Returns the JVM command argument array.
 static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                                        const string &server_jar_path,
@@ -392,7 +386,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   std::stringstream java_library_path;
   java_library_path << "-Djava.library.path=";
   blaze_util::Path real_install_dir =
-      blaze_util::Path(GetEmbeddedBinariesRoot(startup_options.install_base));
+      blaze_util::Path(startup_options.install_base);
 
   for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
@@ -884,9 +878,8 @@ static void StartServerAndConnect(
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
       server->ProcessInfo().jvm_log_file_,
-      server->ProcessInfo().jvm_log_file_append_,
-      GetEmbeddedBinariesRoot(startup_options.install_base), server_dir,
-      startup_options, &server_startup);
+      server->ProcessInfo().jvm_log_file_append_, startup_options.install_base,
+      server_dir, startup_options, &server_startup);
 
   ConnectOrDie(
       option_processor, startup_options, server_pid, server_startup, server);
@@ -894,7 +887,7 @@ static void StartServerAndConnect(
   delete server_startup;
 }
 
-static void MoveFiles(const string &embedded_binaries) {
+static void BlessFiles(const string &embedded_binaries) {
   blaze_util::Path embedded_binaries_(embedded_binaries);
 
   // Set the timestamps of the extracted files to the future and make sure (or
@@ -946,7 +939,6 @@ static void MoveFiles(const string &embedded_binaries) {
   blaze_util::SyncFile(embedded_binaries_);
 }
 
-
 // Installs Blaze by extracting the embedded data files, iff necessary.
 // The MD5-named install_base directory on disk is trusted; we assume
 // no-one has modified the extracted files beneath this directory once
@@ -964,13 +956,9 @@ static DurationMillis ExtractData(const string &self_path,
     // Work in a temp dir to avoid races.
     string tmp_install = startup_options.install_base + ".tmp." +
                          blaze::GetProcessIdAsString();
-    string tmp_binaries = GetEmbeddedBinariesRoot(tmp_install);
-    ExtractArchiveOrDie(
-        self_path,
-        startup_options.product_name,
-        expected_install_md5,
-        tmp_binaries);
-    MoveFiles(tmp_binaries);
+    ExtractArchiveOrDie(self_path, startup_options.product_name,
+                        expected_install_md5, tmp_install);
+    BlessFiles(tmp_install);
 
     uint64_t et = GetMillisecondsMonotonic();
     const DurationMillis extract_data_duration(et - st);
@@ -1014,8 +1002,7 @@ static DurationMillis ExtractData(const string &self_path,
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
     blaze_util::Path real_install_dir =
-        blaze_util::Path(startup_options.install_base)
-            .GetRelative("_embedded_binaries");
+        blaze_util::Path(startup_options.install_base);
     for (const auto &it : archive_contents) {
       blaze_util::Path path = real_install_dir.GetRelative(it);
       if (!mtime->IsUntampered(path)) {

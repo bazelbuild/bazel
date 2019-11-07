@@ -440,8 +440,8 @@ blaze_util::Path StartupOptions::GetSystemJavabase() const {
 }
 
 blaze_util::Path StartupOptions::GetEmbeddedJavabase() const {
-  blaze_util::Path bundled_jre_path = blaze_util::Path(blaze_util::JoinPath(
-      install_base, "_embedded_binaries/embedded_tools/jdk"));
+  blaze_util::Path bundled_jre_path = blaze_util::Path(
+      blaze_util::JoinPath(install_base, "embedded_tools/jdk"));
   if (blaze_util::CanExecuteFile(
           bundled_jre_path.GetRelative(GetJavaBinaryUnderJavabase()))) {
     return bundled_jre_path;
