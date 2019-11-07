@@ -107,7 +107,7 @@ public class ParallelFileProcessingTest {
                     () -> {
                       List<ByteBufferFragment> inner = Lists.newArrayList();
                       list.add(inner);
-                      return inner::add;
+                      return (offset, e) -> inner.add(e);
                     };
                 parseFile(file, factory, null);
                 assertThat(list).isNotEmpty();
@@ -183,11 +183,10 @@ public class ParallelFileProcessingTest {
       throws IOException, GenericParsingException, InterruptedException {
     File file = writeTestFile(limit);
     try {
-      // todo set parse block size
       List<String> lines = Collections.synchronizedList(Lists.newArrayListWithCapacity(limit));
       parseFile(
           file,
-          () -> s -> lines.add(s.toString()),
+          () -> (offset, s) -> lines.add(s.toString()),
           new BlockParameters(file.length()).setReadBlockSize(blockSize));
       // Copy to non-synchronized list for check
       assertNumbers(limit, Lists.newArrayList(lines));
