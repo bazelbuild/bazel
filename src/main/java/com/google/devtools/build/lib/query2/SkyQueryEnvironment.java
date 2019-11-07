@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
@@ -1105,8 +1106,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
       PathFragment currentPathFragment) {
     if (originalFileFragment.equals(currentPathFragment)
-        && (originalFileFragment.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME) ||
-            originalFileFragment.equals(LabelConstants.WORKSPACE_FILE_NAME))) {
+        && WorkspaceFileHelper.matchWorkspaceFileName(originalFileFragment)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
           LabelConstants.WORKSPACE_FILE_NAME

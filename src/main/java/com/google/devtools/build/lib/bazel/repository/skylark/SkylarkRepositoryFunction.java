@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -232,8 +233,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!(outputDirectory.getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME).exists() ||
-          outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists())) {
+    if (!WorkspaceFileHelper.doesWorkspaceFileExistUnder(outputDirectory)) {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 

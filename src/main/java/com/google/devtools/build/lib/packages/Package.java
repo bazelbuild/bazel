@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -381,11 +382,9 @@ public class Package {
     this.packageDirectory = filename.asPath().getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
-    String baseName = filename.getRootRelativePath().getBaseName();
     if ((sourceRoot.asPath() == null
             || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !(baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
-             || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString()))) {
+        && !WorkspaceFileHelper.matchWorkspaceFileName(filename.getRootRelativePath().getBaseName())) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '"
               + packageIdentifier

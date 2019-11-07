@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -581,8 +582,7 @@ public abstract class RepositoryFunction {
       if (isDirectory || repositoryPath.segmentCount() > 1) {
         if (!isDirectory
             && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
-            && (repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())
-                || repositoryPath.endsWith(BuildFileName.WORKSPACE_DOT_BAZEL.getFilenameFragment()))) {
+            && WorkspaceFileHelper.endsWithWorkspaceFileName(repositoryPath)) {
           // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
           return;
         }

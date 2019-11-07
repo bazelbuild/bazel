@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -291,11 +292,7 @@ public class PackageFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
-    RootedPath workspacePath =
-        RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME);
-    if (!workspacePath.asPath().exists()) {
-      workspacePath = RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_FILE_NAME);
-    }
+    RootedPath workspacePath = WorkspaceFileHelper.getWorkspaceRootedFile(packageLookupPath);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -569,8 +566,8 @@ public class PackageFunction implements SkyFunction {
     List<SkylarkImportLookupKey> importLookupKeys =
         Lists.newArrayListWithExpectedSize(loadMap.size());
 
-    boolean inWorkspace = buildFilePath.getRootRelativePath().endsWith(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)
-        || buildFilePath.getRootRelativePath().endsWith(LabelConstants.WORKSPACE_FILE_NAME);
+    boolean inWorkspace =
+        WorkspaceFileHelper.endsWithWorkspaceFileName(buildFilePath.getRootRelativePath());
     for (Label importLabel : loadMap.values()) {
       int originalChunk =
           getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);

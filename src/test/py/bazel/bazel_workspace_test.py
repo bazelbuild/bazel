@@ -13,13 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import unittest
 from src.test.py.bazel import test_base
 
 
 class BazelWorkspaceTest(test_base.TestBase):
 
   def testWorkspaceDotBazelFileInMainRepo(self):
-    self.ScratchFile("WORKSPACE.bazel")
+    workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile("BUILD", [
       "py_binary(",
       "  name = 'bin',",
@@ -29,6 +31,11 @@ class BazelWorkspaceTest(test_base.TestBase):
     self.ScratchFile("bin.py")
     exit_code, _, stderr = self.RunBazel(['build', '//:bin'])
     self.AssertExitCode(exit_code, 0, stderr)
+
+    # If WORKSPACE.bazel, the build should fail.
+    os.remove(workspace_dot_bazel)
+    exit_code, _, stderr = self.RunBazel(['build', '//:bin'])
+    self.AssertExitCode(exit_code, 2, stderr)
 
   def testWorkspaceDotBazelFileInExternalRepo(self):
     self.ScratchDir("A")
@@ -44,8 +51,8 @@ class BazelWorkspaceTest(test_base.TestBase):
     work_dir = self.ScratchDir("B")
     # Test WORKSPACE.bazel takes priority over WORKSPACE
     self.ScratchFile("B/WORKSPACE")
-    self.ScratchFile("B/WORKSPACE.bazel",
-                     ["local_repository(name = 'A', path='../A')"])
+    workspace_dot_bazel = self.ScratchFile("B/WORKSPACE.bazel",
+                                           ["local_repository(name = 'A', path='../A')"])
     self.ScratchFile("B/bin.py")
     self.ScratchFile("B/BUILD", [
       "py_binary(",
@@ -56,3 +63,13 @@ class BazelWorkspaceTest(test_base.TestBase):
     ])
     exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
     self.AssertExitCode(exit_code, 0, stderr)
+
+    # Test WORKSPACE takes effect after deleting WORKSPACE.bazel
+    os.remove(workspace_dot_bazel)
+    exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn("no such package '@A//'", "".join(stderr))
+
+
+if __name__ == "__main__":
+  unittest.main()

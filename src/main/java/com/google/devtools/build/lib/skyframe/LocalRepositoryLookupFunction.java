@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
@@ -91,20 +91,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
   private Optional<Boolean> maybeGetWorkspaceFileExistence(Environment env, RootedPath directory)
       throws InterruptedException, LocalRepositoryLookupFunctionException {
     try {
-      RootedPath workspaceRootedFile =
-          RootedPath.toRootedPath(
-              directory.getRoot(),
-              directory
-                  .getRootRelativePath()
-                  .getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME));
-      if (!workspaceRootedFile.asPath().exists()) {
-        workspaceRootedFile =
-            RootedPath.toRootedPath(
-                directory.getRoot(),
-                directory
-                    .getRootRelativePath()
-                    .getRelative(LabelConstants.WORKSPACE_FILE_NAME));
-      }
+      RootedPath workspaceRootedFile = WorkspaceFileHelper.getWorkspaceRootedFile(directory);
       FileValue workspaceFileValue =
           (FileValue) env.getValueOrThrow(FileValue.key(workspaceRootedFile), IOException.class);
       if (workspaceFileValue == null) {
