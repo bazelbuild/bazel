@@ -70,7 +70,7 @@ public class BufferSplitter implements Callable<List<BufferEdge>> {
       }
       ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 2);
       if (start > 0) {
-        consumer.declaration(fragment);
+        consumer.declaration(offset, fragment);
       } else {
         fragments.add(new BufferEdge(offset, fragment));
       }

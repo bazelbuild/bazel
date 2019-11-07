@@ -41,12 +41,16 @@ public class BufferSplitterTest {
     List<String> list = ImmutableList.of("one", "two", "three");
 
     List<String> result = Lists.newArrayList();
-    DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
+    int offsetValue = 123;
+    DeclarationConsumer consumer = (offset, fragment) -> {
+      result.add(fragment.toString());
+      assertThat(offset).isEqualTo(offsetValue);
+    };
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =
-        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
+        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, offsetValue);
     List<BufferEdge> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(
@@ -64,7 +68,7 @@ public class BufferSplitterTest {
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
 
     List<String> result = Lists.newArrayList();
-    DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
+    DeclarationConsumer consumer = (offset, fragment) -> result.add(fragment.toString());
 
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =

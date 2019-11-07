@@ -56,12 +56,15 @@ public class DeclarationAssemblerTest {
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
       throws GenericParsingException {
     List<String> list = Lists.newArrayList();
-    DeclarationAssembler assembler =
-        new DeclarationAssembler(
-            item -> list.add(item.toString()), NinjaSeparatorPredicate.INSTANCE);
-
     final byte[] chars1 = s1.getBytes(StandardCharsets.ISO_8859_1);
     final byte[] chars2 = s2.getBytes(StandardCharsets.ISO_8859_1);
+
+    DeclarationAssembler assembler =
+        new DeclarationAssembler(
+            (offset, item) -> {
+              list.add(item.toString());
+              assertThat(offset).isAnyOf(0, chars1.length);
+            }, NinjaSeparatorPredicate.INSTANCE);
 
     assembler.wrapUp(
         Lists.newArrayList(
@@ -78,7 +81,10 @@ public class DeclarationAssemblerTest {
     List<String> list = Lists.newArrayList();
     DeclarationAssembler assembler =
         new DeclarationAssembler(
-            item -> list.add(item.toString()), NinjaSeparatorPredicate.INSTANCE);
+            (offset, item) -> {
+              list.add(item.toString());
+              assertThat(offset).isEqualTo(0);
+            }, NinjaSeparatorPredicate.INSTANCE);
 
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     assembler.wrapUp(

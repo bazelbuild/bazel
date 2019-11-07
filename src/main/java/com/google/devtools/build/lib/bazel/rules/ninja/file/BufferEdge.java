@@ -29,6 +29,10 @@ public class BufferEdge {
     this.fragment = fragment;
   }
 
+  public int getOffset() {
+    return offset;
+  }
+
   public int getRealStartOffset() {
     return offset + fragment.getStartIncl();
   }
