@@ -18,15 +18,13 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
-import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -51,13 +49,13 @@ public class NinjaParserTest {
     doTestVariableParsingException(" ", "Expected identifier, but got indent");
     doTestVariableParsingException("a", "Expected = after 'a'");
     doTestVariableParsingException("a=:", "Variable 'a' has no value.");
-    doTestVariableParsingException("^a=",
-        "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
+    doTestVariableParsingException(
+        "^a=", "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
   }
 
   private static void doTestVariableParsingException(String text, String message) {
-    GenericParsingException exception = assertThrows(GenericParsingException.class,
-        () -> createParser(text).parseVariable());
+    GenericParsingException exception =
+        assertThrows(GenericParsingException.class, () -> createParser(text).parseVariable());
     assertThat(exception).hasMessageThat().isEqualTo(message);
   }
 
@@ -77,8 +75,10 @@ public class NinjaParserTest {
     doTestWithVariablesInValue("a=$b a c", "a", "$b a c", expectedVariables("b", 2, 4));
     doTestWithVariablesInValue("a=a_$b c", "a", "a_$b c", expectedVariables("b", 4, 6));
     doTestWithVariablesInValue("a=a_${b.d}c", "a", "a_${b.d}c", expectedVariables("b.d", 4, 10));
-    doTestWithVariablesInValue("e=a$b*c${ d }*18", "e", "a$b*c${ d }*18",
-        expectedVariables("b", 3, 5, "d", 7, 13));
+    doTestWithVariablesInValue(
+        "e=a$b*c${ d }*18", "e", "a$b*c${ d }*18", expectedVariables("b", 3, 5, "d", 7, 13));
+    doTestWithVariablesInValue(
+        "e=a$b*${ b }", "e", "a$b*${ b }", expectedVariables("b", 3, 5, "b", 6, 12));
   }
 
   @Test
@@ -88,45 +88,6 @@ public class NinjaParserTest {
     assertThat(NinjaParser.normalizeVariableName("${abc_de-7}")).isEqualTo("abc_de-7");
     assertThat(NinjaParser.normalizeVariableName("${ a1.5}")).isEqualTo("a1.5");
     assertThat(NinjaParser.normalizeVariableName("${a1.5  }")).isEqualTo("a1.5");
-  }
-
-  @Test
-  public void testNinjaRule() throws Exception {
-    NinjaParser parser = createParser("rule testRule  \n"
-        + " command = executable --flag $TARGET $out && $POST_BUILD\n"
-        + " description = Test rule for $TARGET\n"
-        + " rspfile = $TARGET.in\n"
-        + " deps = ${abc} $\n"
-        + " ${cde}\n"
-        + " custom_var = 123");
-    NinjaRule ninjaRule = parser.parseNinjaRule();
-    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
-    assertThat(variables.keySet()).containsExactly(
-        NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION,
-        NinjaRuleVariable.RSPFILE, NinjaRuleVariable.DEPS
-    );
-    assertThat(variables.get(NinjaRuleVariable.NAME).getText()).isEqualTo("testRule");
-    assertThat(variables.get(NinjaRuleVariable.DEPS).getText()).isEqualTo("${abc} $\n ${cde}");
-    assertThat(ninjaRule.getCustomVariables()).containsExactly("custom_var",
-        new NinjaVariableValue("123", ImmutableSortedMap.of()));
-  }
-
-  @Test
-  public void testNinjaRuleParsingException() {
-    doTestNinjaRuleParsingException("rule testRule extra-word\n",
-        "Expected newline, but got identifier");
-    doTestNinjaRuleParsingException("rule testRule\n command =",
-        "Variable 'command' has no value.");
-    doTestNinjaRuleParsingException("rule testRule\ncommand =",
-        "Expected indent, but got identifier");
-    doTestNinjaRuleParsingException("rule testRule\n ^custom = a",
-        "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
-  }
-
-  private static void doTestNinjaRuleParsingException(String text, String message) {
-    GenericParsingException exception = assertThrows(GenericParsingException.class,
-        () -> createParser(text).parseNinjaRule());
-    assertThat(exception).hasMessageThat().isEqualTo(message);
   }
 
   private static void doTestSimpleVariable(String text, String name, String value)
@@ -141,27 +102,31 @@ public class NinjaParserTest {
 
   private static void doTestNoValue(String text) {
     NinjaParser parser = createParser(text);
-    GenericParsingException exception = assertThrows(GenericParsingException.class,
-        parser::parseVariable);
+    GenericParsingException exception =
+        assertThrows(GenericParsingException.class, parser::parseVariable);
     assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
   }
 
-  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
       String name, int start, int end) {
-    return ImmutableSortedMap.of(name, Pair.of(start, end));
+    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+        .put(name, Range.openClosed(start, end))
+        .build();
   }
 
-  private static ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVariables(
+  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
       String name1, int start1, int end1, String name2, int start2, int end2) {
-    return ImmutableSortedMap.of(
-        name1, Pair.of(start1, end1),
-        name2, Pair.of(start2, end2));
+    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+        .put(name1, Range.openClosed(start1, end1))
+        .put(name2, Range.openClosed(start2, end2))
+        .build();
   }
 
-  private static void doTestWithVariablesInValue(String text,
+  private static void doTestWithVariablesInValue(
+      String text,
       String name,
       String value,
-      ImmutableSortedMap<String, Pair<Integer, Integer>> expectedVars)
+      ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVars)
       throws GenericParsingException {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
@@ -169,7 +134,7 @@ public class NinjaParserTest {
     assertThat(variable.getSecond()).isNotNull();
     assertThat(variable.getSecond().getText()).isEqualTo(value);
 
-    ImmutableSortedMap<String, Pair<Integer, Integer>> variables =
+    ImmutableSortedKeyListMultimap<String, Range<Integer>> variables =
         variable.getSecond().getVariables();
     assertThat(variables).containsExactlyEntriesIn(expectedVars);
   }

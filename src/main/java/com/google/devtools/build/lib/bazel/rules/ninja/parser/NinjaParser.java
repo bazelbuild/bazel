@@ -16,18 +16,15 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Ninja files parser.
- * The types of tokens: {@link NinjaToken}.
- * Ninja lexer: {@link NinjaLexer}.
- */
+/** Ninja files parser. The types of tokens: {@link NinjaToken}. Ninja lexer: {@link NinjaLexer}. */
 public class NinjaParser {
   private final NinjaLexer lexer;
 
@@ -35,9 +32,7 @@ public class NinjaParser {
     this.lexer = lexer;
   }
 
-  /**
-   * Parses variable at the current lexer position.
-   */
+  /** Parses variable at the current lexer position. */
   public Pair<String, NinjaVariableValue> parseVariable() throws GenericParsingException {
     String name = asString(parseExpected(NinjaToken.IDENTIFIER));
     parseExpected(NinjaToken.EQUALS);
@@ -49,8 +44,8 @@ public class NinjaParser {
   private NinjaVariableValue parseVariableValue(String name) throws GenericParsingException {
     // We are skipping starting spaces.
     int valueStart = -1;
-    ImmutableSortedMap.Builder<String, Pair<Integer, Integer>> builder =
-        ImmutableSortedMap.naturalOrder();
+    ImmutableSortedKeyListMultimap.Builder<String, Range<Integer>> builder =
+        ImmutableSortedKeyListMultimap.builder();
     while (lexer.hasNextToken()) {
       lexer.expectTextUntilEol();
       NinjaToken token = lexer.nextToken();
@@ -58,8 +53,9 @@ public class NinjaParser {
         if (valueStart == -1) {
           valueStart = lexer.getLastStart();
         }
-        builder.put(normalizeVariableName(asString(lexer.getTokenBytes())),
-            Pair.of(lexer.getLastStart(), lexer.getLastEnd()));
+        builder.put(
+            normalizeVariableName(asString(lexer.getTokenBytes())),
+            Range.openClosed(lexer.getLastStart(), lexer.getLastEnd()));
       } else if (NinjaToken.TEXT.equals(token)) {
         if (valueStart == -1) {
           valueStart = lexer.getLastStart();
@@ -75,40 +71,6 @@ public class NinjaParser {
     }
     String text = asString(lexer.getFragment().getBytes(valueStart, lexer.getLastEnd()));
     return new NinjaVariableValue(text, builder.build());
-  }
-
-  /**
-   * Parses Ninja rule at the current lexer position.
-   */
-  public NinjaRule parseNinjaRule() throws GenericParsingException {
-    parseExpected(NinjaToken.RULE);
-    String name = asString(parseExpected(NinjaToken.IDENTIFIER));
-
-    ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
-        ImmutableSortedMap.naturalOrder();
-    ImmutableSortedMap.Builder<String, NinjaVariableValue> customVariablesBuilder =
-        ImmutableSortedMap.naturalOrder();
-    variablesBuilder.put(NinjaRuleVariable.NAME,
-        new NinjaVariableValue(name, ImmutableSortedMap.of()));
-
-    parseExpected(NinjaToken.NEWLINE);
-    while (lexer.hasNextToken()) {
-      parseExpected(NinjaToken.INDENT);
-      String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
-      parseExpected(NinjaToken.EQUALS);
-      NinjaVariableValue value = parseVariableValue(variableName);
-
-      NinjaRuleVariable ninjaRuleVariable = NinjaRuleVariable.nullOrValue(variableName);
-      if (ninjaRuleVariable != null) {
-        variablesBuilder.put(ninjaRuleVariable, value);
-      } else {
-        customVariablesBuilder.put(variableName, value);
-      }
-      if (lexer.hasNextToken()) {
-        parseExpected(NinjaToken.NEWLINE);
-      }
-    }
-    return new NinjaRule(variablesBuilder.build(), customVariablesBuilder.build());
   }
 
   @VisibleForTesting
@@ -139,22 +101,25 @@ public class NinjaParser {
     if (!lexer.hasNextToken()) {
       String message;
       if (lexer.haveReadAnyTokens()) {
-        message = String.format("Expected %s after '%s'",
-            asString(expectedToken.getBytes()), asString(lexer.getTokenBytes()));
+        message =
+            String.format(
+                "Expected %s after '%s'",
+                asString(expectedToken.getBytes()), asString(lexer.getTokenBytes()));
       } else {
-        message = String.format("Expected %s, but found no text to parse",
-            asString(expectedToken.getBytes()));
+        message =
+            String.format(
+                "Expected %s, but found no text to parse", asString(expectedToken.getBytes()));
       }
       throw new GenericParsingException(message);
     }
     NinjaToken token = lexer.nextToken();
     if (!expectedToken.equals(token)) {
-      String actual = NinjaToken.ERROR.equals(token)
-          ? String.format("error: '%s'", lexer.getError())
-          : asString(token.getBytes());
+      String actual =
+          NinjaToken.ERROR.equals(token)
+              ? String.format("error: '%s'", lexer.getError())
+              : asString(token.getBytes());
       throw new GenericParsingException(
-          String.format("Expected %s, but got %s",
-              asString(expectedToken.getBytes()), actual));
+          String.format("Expected %s, but got %s", asString(expectedToken.getBytes()), actual));
     }
     return lexer.getTokenBytes();
   }

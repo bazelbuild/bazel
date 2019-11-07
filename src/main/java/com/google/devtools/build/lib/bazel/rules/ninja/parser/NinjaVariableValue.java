@@ -15,24 +15,27 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.util.Pair;
-import java.util.Objects;
+import com.google.common.collect.Range;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Ninja variable value.
  *
- * Can contain references to the other variables, defined earlier in the scope (or parent scope).
- * It is expected that those references can be replaced in one step, as all the variables
- * are parsed, so this particular structure is only needed to keep the intermediate state.
+ * <p>Can contain references to the other variables, defined earlier in the scope (or parent scope).
+ * It is expected that those references can be replaced in one step, as all the variables are
+ * parsed, so this particular structure is only needed to keep the intermediate state.
  */
-public class NinjaVariableValue {
+@Immutable
+public final class NinjaVariableValue {
+
+  /** Variable value text. */
   private final String text;
-  private final ImmutableSortedMap<String, Pair<Integer, Integer>> variables;
+  /** Map of variable names to the list of ranges of their usage in the {@link #text}. */
+  private final ImmutableSortedKeyListMultimap<String, Range<Integer>> variables;
 
   public NinjaVariableValue(
-      String text,
-      ImmutableSortedMap<String, Pair<Integer, Integer>> variables) {
+      String text, ImmutableSortedKeyListMultimap<String, Range<Integer>> variables) {
     this.text = text;
     this.variables = variables;
   }
@@ -41,33 +44,12 @@ public class NinjaVariableValue {
     return text;
   }
 
-  public ImmutableSortedMap<String, Pair<Integer, Integer>> getVariables() {
+  public ImmutableSortedKeyListMultimap<String, Range<Integer>> getVariables() {
     return variables;
   }
 
   @Override
   public String toString() {
-    return "NinjaVariableValue{" +
-        "text='" + text + '\'' +
-        ", variables=" + variables +
-        '}';
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof NinjaVariableValue)) {
-      return false;
-    }
-    NinjaVariableValue that = (NinjaVariableValue) o;
-    return Objects.equals(text, that.text) &&
-        Objects.equals(variables, that.variables);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(text, variables);
+    return "NinjaVariableValue{" + "text='" + text + '\'' + ", variables=" + variables + '}';
   }
 }
