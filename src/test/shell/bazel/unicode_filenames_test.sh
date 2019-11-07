@@ -89,14 +89,29 @@ ls_srcs = rule(
 EOF
 }
 
-function test_utf8_source_artifact() {
-  unicode_filenames_test_setup
+function has_iso_8859_1_locale() {
+  charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "ISO-8859-1" ]]
+}
 
-  # For debugging from test failure logs.
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
+function test_utf8_source_artifact() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
   if ! "$is_windows"; then
-    echo "Available locales (need en_US.ISO-8859-1 or C.UTF-8):"
-    locale -a
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
   fi
+
+  unicode_filenames_test_setup
 
   touch 'pkg/srcs/regular file.txt'
 
@@ -113,7 +128,7 @@ function test_utf8_source_artifact() {
   # This doesn't affect systems that do have an ISO-8859-1 locale, because the
   # Bazel launcher will force it to be used.
   bazel shutdown
-  LANG=C.UTF-8 bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
+  LC_ALL=en_US.UTF-8 bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
   bazel shutdown
 
   assert_contains "pkg/srcs/regular file.txt" bazel-bin/pkg/ls_srcs
@@ -133,14 +148,13 @@ function test_traditional_encoding_source_artifact() {
     ;;
   esac
 
-  # For debugging from test failure logs.
-  echo "Available locales (need en_US.ISO-8859-1):"
-  locale -a
-
-  # The JVM can only support traditional filename encodings if the appropriate
-  # locale is installed.
-  if ! locale -a | grep -q '^en_US.ISO-8859-1$'; then
-    echo "Skipping test (no en_US.ISO-8859-1 locale)." && return
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # traditional encodings if it can roundtrip through ISO-8859-1.
+  if ! has_iso_8859_1_locale; then
+    echo "Skipping test (no ISO-8859-1 locale)."
+    echo "Available locales (need en_US.ISO-8859-1):"
+    locale -a
+    return
   fi
 
   unicode_filenames_test_setup
