@@ -32,12 +32,12 @@ class BazelWorkspaceTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['build', '//:bin'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    # If WORKSPACE.bazel, the build should fail.
+    # If WORKSPACE.bazel is deleted and no WORKSPACE exists, the build should fail.
     os.remove(workspace_dot_bazel)
     exit_code, _, stderr = self.RunBazel(['build', '//:bin'])
     self.AssertExitCode(exit_code, 2, stderr)
 
-  def testWorkspaceDotBazelFileInExternalRepo(self):
+  def testWorkspaceDotBazelFileWithExternalRepo(self):
     self.ScratchDir("A")
     self.ScratchFile("A/WORKSPACE.bazel")
     self.ScratchFile("A/BUILD", [
@@ -69,6 +69,13 @@ class BazelWorkspaceTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn("no such package '@A//'", "".join(stderr))
+
+    # Test a WORKSPACE.bazel directory won't confuse Bazel
+    self.ScratchFile("B/WORKSPACE",
+                     ["local_repository(name = 'A', path='../A')"])
+    self.ScratchDir("B/WORKSPACE.bazel")
+    exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
@@ -292,7 +292,19 @@ public class PackageFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
-    RootedPath workspacePath = WorkspaceFileHelper.getWorkspaceRootedFile(packageLookupPath);
+    RootedPath workspacePath;
+    try {
+      workspacePath = WorkspaceFileHelper.getWorkspaceRootedFile(packageLookupPath, env);
+      if (workspacePath == null) {
+        return null;
+      }
+    } catch (IOException e) {
+      throw new PackageFunctionException(
+          new NoSuchPackageException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+              "Could not determine workspace file (WORKSPACE.bazel or WORKSPACE): "
+                  + e.getMessage()),
+          Transience.PERSISTENT);
+    }
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {

@@ -16,15 +16,18 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.WorkspaceFileHelper;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
+import java.io.IOException;
+
 import javax.annotation.Nullable;
 
 /** Creates a local or remote repository. */
@@ -46,8 +49,19 @@ public class RepositoryLoaderFunction implements SkyFunction {
     if (!repository.repositoryExists()) {
       return RepositoryValue.notFound(nameFromRule);
     }
-    RootedPath workspaceFilePath =
-        WorkspaceFileHelper.getWorkspaceRootedFile(Root.fromPath(repository.getPath()));
+    RootedPath workspaceFilePath;
+    try {
+      workspaceFilePath = WorkspaceFileHelper
+          .getWorkspaceRootedFile(Root.fromPath(repository.getPath()), env);
+      if (workspaceFilePath == null) {
+        return null;
+      }
+    } catch (IOException e) {
+      throw new RepositoryLoaderFunctionException(
+          new IOException("Could not determine workspace file (WORKSPACE.bazel / WORKSPACE): "
+              + e.getMessage()),
+          Transience.PERSISTENT);
+    }
     SkyKey workspaceKey =
         WorkspaceFileValue.key(workspaceFilePath);
     WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
@@ -71,5 +85,15 @@ public class RepositoryLoaderFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  public static class RepositoryLoaderFunctionException extends SkyFunctionException {
+
+    /**
+     * Error reading or writing to the filesystem.
+     */
+    public RepositoryLoaderFunctionException(IOException cause, Transience transience) {
+      super(cause, transience);
+    }
   }
 }

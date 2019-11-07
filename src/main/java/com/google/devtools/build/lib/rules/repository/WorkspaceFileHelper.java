@@ -11,20 +11,37 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.cmdline;
+package com.google.devtools.build.lib.rules.repository;
 
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
+
+import java.io.IOException;
 
 public class WorkspaceFileHelper {
 
-  public static RootedPath getWorkspaceRootedFile(Root directory) {
-    return getWorkspaceRootedFile(RootedPath.toRootedPath(directory, PathFragment.EMPTY_FRAGMENT));
+  public static RootedPath getWorkspaceRootedFile(Root directory, Environment env)
+      throws IOException, InterruptedException {
+    return getWorkspaceRootedFile(RootedPath.toRootedPath(directory, PathFragment.EMPTY_FRAGMENT), env);
   }
 
-  public static RootedPath getWorkspaceRootedFile(RootedPath directory) {
+  /**
+   * Get a RootedPath of the WORKSPACE file we should use for a given directory.
+   * @param directory The directory that could contain WORKSPACE.bazel or WORKSPACE file.
+   * @param env Skyframe env
+   * @return A RootedPath to <directory>/WORKSPACE.bazel file if it exists and it's not a directory,
+   *         otherwise, return a RootedPath to <directory>/WORKSPACE file.
+   * @throws IOException
+   * @throws InterruptedException
+   */
+  public static RootedPath getWorkspaceRootedFile(RootedPath directory, Environment env)
+      throws IOException, InterruptedException {
     RootedPath workspaceRootedFile =
         RootedPath.toRootedPath(
             directory.getRoot(),
@@ -32,14 +49,22 @@ public class WorkspaceFileHelper {
                 .getRootRelativePath()
                 .getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME));
 
-    if (!workspaceRootedFile.asPath().exists()) {
-      workspaceRootedFile = RootedPath.toRootedPath(
-          directory.getRoot(),
-          directory
-              .getRootRelativePath()
-              .getRelative(LabelConstants.WORKSPACE_FILE_NAME));
+    SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
+    FileValue value;
+    value = (FileValue) env.getValueOrThrow(workspaceFileKey, IOException.class);
+    if (value == null) {
+      return null;
     }
-    return workspaceRootedFile;
+
+    if (value.exists() && !value.isDirectory()) {
+      return workspaceRootedFile;
+    }
+
+    return RootedPath.toRootedPath(
+        directory.getRoot(),
+        directory
+            .getRootRelativePath()
+            .getRelative(LabelConstants.WORKSPACE_FILE_NAME));
   }
 
   public static boolean doesWorkspaceFileExistUnder(Path directory) {
