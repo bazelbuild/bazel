@@ -36,10 +36,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
@@ -320,16 +322,16 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   /**
-   * Converts back to type that will work in BUILD and skylark, such as string instead of label,
-   * SkylarkList instead of List, Returns null if we don't want to export the value.
+   * Converts a target attribute value to a Starlark value for return in {@code
+   * native.existing_rule()} or {@code native.existing_rules()}.
    *
-   * <p>All of the types returned are immutable. If we want, we can change this to immutable in the
-   * future, but this is the safe choice for now.
+   * <p>All returned values are immutable.
+   *
+   * @return the value, or null if we don't want to export it to the user.
+   * @throws NotRepresentableException if an unknown type is encountered.
    */
   @Nullable
   private static Object skylarkifyValue(Object val, Package pkg) throws NotRepresentableException {
-    // TODO(bazel-team): the location of this function is ad-hoc. Arguably, the conversion
-    // from Java native types to Skylark types should be part of the Type class hierarchy,
     if (val == null) {
       return null;
     }
@@ -387,7 +389,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
         m.put(key, mapVal);
       }
-      return m;
+      return SkylarkType.convertToSkylark(m, Mutability.IMMUTABLE);
     }
     if (val.getClass().isAnonymousClass()) {
       // Computed defaults. They will be represented as
