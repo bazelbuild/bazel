@@ -43,22 +43,16 @@ public final class SleepPreventionModule extends BlazeModule {
     public static native int popDisableSleep();
   }
 
-  private final Boolean jniEnabled;
-
-  public SleepPreventionModule() {
-    this.jniEnabled = !"0".equals(System.getProperty("io.bazel.EnableJni"));
-  }
-
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    if (jniEnabled) {
+    if (JniLoader.jniEnabled()) {
       SleepPrevention.pushDisableSleep();
     }
   }
 
   @Override
   public void afterCommand() throws AbruptExitException {
-    if (jniEnabled) {
+    if (JniLoader.jniEnabled()) {
       SleepPrevention.popDisableSleep();
     }
   }
