@@ -20,27 +20,27 @@ import javax.annotation.Nullable;
 
 /** Token types for {@link NinjaLexer}. */
 public enum NinjaToken {
-  ERROR(null),
+  ERROR("error"),
   BUILD("build"),
   RULE("rule"),
-  TEXT(null),
-  IDENTIFIER(null),
-  VARIABLE(null),
+  TEXT("text"),
+  IDENTIFIER("identifier"),
+  VARIABLE("variable"),
   DEFAULT("default"),
   POOL("pool"),
   SUBNINJA("subninja"),
   INCLUDE("include"),
 
-  COLON(null),
-  EQUALS(null),
-  PIPE(null),
-  PIPE2(null),
+  COLON(":"),
+  EQUALS("="),
+  PIPE("|"),
+  PIPE2("||"),
 
-  INDENT(null),
-  NEWLINE(null),
+  INDENT("indent"),
+  NEWLINE("newline"),
 
-  ZERO(null),
-  EOF(null);
+  ZERO("zero byte"),
+  EOF("end of file");
 
   private final byte[] bytes;
 
