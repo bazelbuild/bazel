@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -85,7 +86,7 @@ public class NinjaParser {
     ImmutableSortedMap.Builder<String, NinjaVariableValue> customVariablesBuilder =
         ImmutableSortedMap.naturalOrder();
     variablesBuilder.put(NinjaRuleVariable.NAME,
-        new NinjaVariableValue(name, ImmutableSortedMap.of()));
+        new NinjaVariableValue(name, ImmutableSortedKeyListMultimap.of()));
 
     parseExpected(NinjaToken.NEWLINE);
     while (lexer.hasNextToken()) {

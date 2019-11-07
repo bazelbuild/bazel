@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
+import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -51,5 +52,23 @@ public final class NinjaVariableValue {
   @Override
   public String toString() {
     return "NinjaVariableValue{" + "text='" + text + '\'' + ", variables=" + variables + '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    NinjaVariableValue that = (NinjaVariableValue) o;
+    return text.equals(that.text) &&
+        variables.equals(that.variables);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(text, variables);
   }
 }

@@ -18,11 +18,11 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
-import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
@@ -111,7 +111,7 @@ public class NinjaParserTest {
     assertThat(variables.get(NinjaRuleVariable.NAME).getText()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getText()).isEqualTo("${abc} $\n ${cde}");
     assertThat(ninjaRule.getCustomVariables()).containsExactly("custom_var",
-        new NinjaVariableValue("123", ImmutableSortedMap.of()));
+        new NinjaVariableValue("123", ImmutableSortedKeyListMultimap.of()));
   }
 
   @Test
