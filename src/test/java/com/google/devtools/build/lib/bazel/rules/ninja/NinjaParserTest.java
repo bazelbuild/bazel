@@ -94,6 +94,36 @@ public class NinjaParserTest {
   }
 
   @Test
+  public void testInclude() throws Exception {
+    NinjaVariableValue value1 = createParser("include x/multi words/z").parseIncludeStatement();
+    assertThat(value1.getText()).isEqualTo("x/multi words/z");
+
+    NinjaVariableValue value2 = createParser("subninja ${x}.ninja").parseSubNinjaStatement();
+    assertThat(value2.getText()).isEqualTo("${x}.ninja");
+    assertThat(value2.getVariables()).containsExactly("x", Range.openClosed(9, 13));
+  }
+
+  @Test
+  public void testIncludeErrors() {
+    GenericParsingException exception1 =
+        assertThrows(
+            GenericParsingException.class,
+            () -> createParser("include x :").parseIncludeStatement());
+    assertThat(exception1).hasMessageThat().isEqualTo("Expected newline, but got :");
+
+    GenericParsingException exception2 =
+        assertThrows(
+            GenericParsingException.class, () -> createParser("include").parseIncludeStatement());
+    assertThat(exception2).hasMessageThat().isEqualTo("include statement has no path.");
+
+    GenericParsingException exception3 =
+        assertThrows(
+            GenericParsingException.class,
+            () -> createParser("subninja  \nm").parseSubNinjaStatement());
+    assertThat(exception3).hasMessageThat().isEqualTo("subninja statement has no path.");
+  }
+
+  @Test
   public void testNinjaRule() throws Exception {
     NinjaParser parser =
         createParser(
