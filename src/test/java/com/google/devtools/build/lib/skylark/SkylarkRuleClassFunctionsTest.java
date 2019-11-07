@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
@@ -1161,7 +1160,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
     StructImpl z = (StructImpl) lookup("z");
-    assertThat(z.getFieldNames()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
+    assertThat(z.getFieldNames()).containsExactly("a", "b", "c", "d");
   }
 
   @Test

@@ -1618,7 +1618,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testAccessingRunfilesSymlinks() throws Exception {
     scratch.file("test/a.py");
     scratch.file("test/b.py");
@@ -1712,7 +1711,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testAccessingRunfilesRootSymlinks() throws Exception {
     scratch.file("test/a.py");
     scratch.file("test/b.py");
@@ -2415,7 +2413,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testMapAttributeOrdering() throws Exception {
     scratch.file("a/a.bzl",
         "key_provider = provider(fields=['keys'])",
