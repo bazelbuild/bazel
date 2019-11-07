@@ -92,6 +92,7 @@ java_library(
         "JavaCompileAction.java",
         "JavaCompileActionBuilder.java",
         "JavaCompileActionContext.java",
+        "JavaCompileOutputs.java",
         "JavaConfiguration.java",
         "JavaExportsProvider.java",
         "JavaGenJarsProvider.java",

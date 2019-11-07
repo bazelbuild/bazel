@@ -132,10 +132,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             .addSourceJar(srcJar)
             .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
     Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
-        JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, null /* iJar */, manifestProtoOutput, ImmutableList.of(srcJar));
 
     CppConfiguration cppConfiguration =
         ruleContext.getConfiguration().getFragment(CppConfiguration.class);
@@ -194,6 +190,15 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       filesBuilder.add(classJar);
     }
 
+    JavaCompileOutputs<Artifact> outputs = helper.createOutputs(classJar);
+    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(
+                /* classJar= */ classJar,
+                /* iJar= */ null,
+                /* manifestProto= */ outputs.manifestProto(),
+                /* sourceJars= */ ImmutableList.of(srcJar));
+
     JavaTargetAttributes attributes = helper.getAttributes();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
     if (!nativeLibraries.isEmpty()) {
@@ -222,29 +227,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             javaArtifactsBuilder,
             ruleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-    ruleOutputJarsProviderBuilder.setJdeps(outputDepsProto);
+    javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
+    ruleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
 
-    // The gensrc jar is created only if the target uses annotation processing. Otherwise,
-    // it is null, and the source jar action will not depend on the compile action.
-    Artifact genSourceJar = null;
-    Artifact genClassJar = null;
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(classJar);
-      genSourceJar = helper.createGensrcJar(classJar);
-    }
-
-    helper.createCompileAction(
-        classJar,
-        manifestProtoOutput,
-        outputDepsProto,
-        genSourceJar,
-        genClassJar,
-        /* nativeHeaderOutput= */ null);
-    helper.createSourceJarAction(srcJar, genSourceJar);
+    helper.createCompileAction(outputs);
+    helper.createSourceJarAction(srcJar, outputs.genSource());
 
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(
@@ -458,7 +448,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         classJar,
         coverageEnvironment.build(),
         coverageSupportFiles.build());
-    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
+    common.addGenJarsProvider(builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
 
     JavaInfo javaInfo =
         javaInfoBuilder

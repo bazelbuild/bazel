@@ -243,26 +243,9 @@ public final class JavaLibraryHelper {
             javaToolchainProvider,
             hostJavabase,
             additionalJavaBaseInputs);
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
-
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(output);
-
-    Artifact genSourceJar = null;
-    Artifact genClassJar = null;
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(output);
-      genSourceJar = helper.createGensrcJar(output);
-    }
-
-    Artifact nativeHeaderOutput = helper.createNativeHeaderJar(output);
-
-    helper.createCompileAction(
-        output,
-        manifestProtoOutput,
-        outputDepsProto,
-        genSourceJar,
-        genClassJar,
-        nativeHeaderOutput);
+    JavaCompileOutputs<Artifact> outputs = helper.createOutputs(output);
+    artifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
+    helper.createCompileAction(outputs);
 
     Artifact iJar = null;
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
@@ -272,14 +255,14 @@ public final class JavaLibraryHelper {
 
     if (createOutputSourceJar) {
       helper.createSourceJarAction(
-          outputSourceJar, genSourceJar, javaToolchainProvider, hostJavabase);
+          outputSourceJar, outputs.genSource(), javaToolchainProvider, hostJavabase);
     }
     ImmutableList<Artifact> outputSourceJars =
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
     outputJarsBuilder
-        .addOutputJar(new OutputJar(output, iJar, manifestProtoOutput, outputSourceJars))
-        .setJdeps(outputDepsProto)
-        .setNativeHeaders(nativeHeaderOutput);
+        .addOutputJar(new OutputJar(output, iJar, outputs.manifestProto(), outputSourceJars))
+        .setJdeps(outputs.depsProto())
+        .setNativeHeaders(outputs.nativeHeader());
 
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
     if (javaInfoBuilder != null) {
@@ -301,7 +284,8 @@ public final class JavaLibraryHelper {
 
       javaInfoBuilder.addProvider(
           JavaGenJarsProvider.class,
-          createJavaGenJarsProvider(helper, genClassJar, genSourceJar, transitiveJavaGenJars));
+          createJavaGenJarsProvider(
+              helper, outputs.genClass(), outputs.genSource(), transitiveJavaGenJars));
     }
 
     return javaArtifacts;

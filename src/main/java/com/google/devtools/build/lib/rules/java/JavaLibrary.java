@@ -106,29 +106,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     filesBuilder.add(classJar);
 
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
-
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-
-    // The gensrc jar is created only if the target uses annotation processing.
-    // Otherwise, it is null, and the source jar action will not depend on the compile action.
-    Artifact genSourceJar = null;
-    Artifact genClassJar = null;
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(classJar);
-      genSourceJar = helper.createGensrcJar(classJar);
-    }
-
-    Artifact nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
-
-    helper.createCompileAction(
-        classJar,
-        manifestProtoOutput,
-        outputDepsProto,
-        genSourceJar,
-        genClassJar,
-        nativeHeaderOutput);
-    helper.createSourceJarAction(srcJar, genSourceJar);
+    JavaCompileOutputs<Artifact> outputs = helper.createOutputs(classJar);
+    javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
+    helper.createCompileAction(outputs);
+    helper.createSourceJarAction(srcJar, outputs.genSource());
 
     Artifact iJar = null;
     if (attributes.hasSources() && jar != null) {
@@ -136,9 +117,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     }
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
-            .setJdeps(outputDepsProto)
-            .setNativeHeaders(nativeHeaderOutput);
+            .addOutputJar(classJar, iJar, outputs.manifestProto(), ImmutableList.of(srcJar))
+            .setJdeps(outputs.depsProto())
+            .setNativeHeaders(outputs.nativeHeader());
 
     GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider = null;
     if (includeGeneratedExtensionRegistry) {
@@ -171,7 +152,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
-    semantics.addProviders(ruleContext, common, genSourceJar, builder);
+    semantics.addProviders(ruleContext, common, outputs.genSource(), builder);
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
@@ -185,7 +166,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
     common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
+    common.addGenJarsProvider(builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
