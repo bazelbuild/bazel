@@ -101,7 +101,15 @@ function test_utf8_source_artifact() {
   # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
   touch "$(printf '%b' 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt')"
 
-  bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
+  # On systems without an ISO-8859-1 locale, the environment locale must be
+  # the same as the file encoding.
+  #
+  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
+  # Bazel launcher will force it to be used.
+  bazel shutdown
+  LANG=C.UTF-8 bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
+  bazel shutdown
+
   assert_contains "pkg/srcs/regular file.txt" bazel-bin/pkg/ls_srcs
   assert_contains "pkg/srcs/subdir/file.txt" bazel-bin/pkg/ls_srcs
   assert_contains "pkg/srcs/ünïcödë fïlë.txt" bazel-bin/pkg/ls_srcs
@@ -118,6 +126,12 @@ function test_traditional_encoding_source_artifact() {
     echo "Skipping test." && return
     ;;
   esac
+
+  # The JVM can only support traditional filename encodings if the appropriate
+  # locale is installed.
+  if ! locale -a | grep -q '^en_US.ISO-8859-1$'; then
+    echo "Skipping test." && return
+  fi
 
   unicode_filenames_test_setup
 

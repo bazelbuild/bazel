@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.IOException;
@@ -441,74 +443,28 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  private java.nio.file.Path createJavaNioPath(Path path) throws FileNotFoundException {
+  private File createJavaIoFile(Path path) throws FileNotFoundException {
     final String pathStr = path.getPathString();
     if (pathStr.chars().allMatch(c -> c < 128)) {
-      return Paths.get(pathStr);
+      return new File(pathStr);
     }
 
-    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem,
-    // but Java's IO subsystem expects paths to be encoded in the current locale. We can avoid this
-    // assumption by converting the path to a URI, which permits percent-encoding of any octet.
-    final byte[] pathBytes = path.getPathString().getBytes(StandardCharsets.ISO_8859_1);
-    final StringBuilder builder = new StringBuilder(pathBytes.length * 3);
-    builder.append("file://");
-    for (byte b : pathBytes) {
-      // Keep a few known-safe bytes unescaped for debugging.
-      if (b == 0x2F // '/'
-          || b == 0x2D // '-'
-          || b == 0x5F // '_'
-          || b == 0x2E // '.'
-          || (b >= 0x30 && b <= 0x39) // '0' - '9'
-          || (b >= 0x41 && b <= 0x5A) // 'A' - 'Z'
-          || (b >= 0x61 && b <= 0x7A) // 'a' - 'z'
-          ) {
-        builder.append((char)b);
-      } else {
-        builder.append(String.format("%%%02X", b));
-      }
+    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
+    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
+    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
+    if (StandardCharsets.UTF_8.isSupported(System.getProperty("sun.jnu.encoding"))) {
+      final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
+      return new File(new String(pathBytes, StandardCharsets.UTF_8));
     }
 
-    try {
-      return Paths.get(new URI(builder.toString()));
-    } catch (URISyntaxException e){
-      throw new FileNotFoundException(pathStr);
-    }
+    // This will probably fail but not much that can be done without migrating to `java.nio.Files`.
+    return new File(pathStr);
   }
 
   @Override
   protected InputStream createFileInputStream(Path path)
       throws FileNotFoundException, IOException {
-    final java.nio.file.Path nioPath = createJavaNioPath(path);
-    InputStream stream = null;
-    try {
-      stream = Files.newInputStream(nioPath, java.nio.file.StandardOpenOption.READ);
-    } catch (AccessDeniedException e) {
-      throw new IOException(e.getMessage() + " (Permission denied)", e);
-    }
-
-    // On some platforms, whether a path can be read as a file won't be checked until
-    // the first read().
-    //
-    // http://mail.openjdk.java.net/pipermail/nio-dev/2014-December/002877.html
-    //
-    // The underlying stream might not be seekable, and wrapping in a BufferedInputStream
-    // causes test failures in the integration suite, so create our own little one-byte
-    // buffer here.
-    byte[] buf = new byte[1];
-    int buflen = 0;
-    try {
-      buflen = stream.read(buf, 0, 1);
-    } catch (IOException e) {
-      if (e.getMessage().equals("Is a directory")) {
-        throw new IOException(path.toString() + " (Is a directory)", e);
-      }
-      throw e;
-    }
-    if (buflen == -1 /* EOF */) {
-      return stream;
-    }
-    return new SequenceInputStream(new ByteArrayInputStream(buf, 0, buflen), stream);
+    return new FileInputStream(createJavaIoFile(path));
   }
 
   @Override
