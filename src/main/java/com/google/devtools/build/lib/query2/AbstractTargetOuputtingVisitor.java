@@ -38,7 +38,11 @@ public abstract class AbstractTargetOuputtingVisitor<VisitKeyT>
   protected final SkyQueryEnvironment env;
 
   protected AbstractTargetOuputtingVisitor(SkyQueryEnvironment env, Callback<Target> callback) {
-    super(callback, env.getVisitBatchSizeForParallelVisitation(), PROCESS_RESULTS_BATCH_SIZE);
+    super(
+        callback,
+        env.getVisitBatchSizeForParallelVisitation(),
+        PROCESS_RESULTS_BATCH_SIZE,
+        env.getVisitTaskStatusCallback());
     this.env = env;
   }
 

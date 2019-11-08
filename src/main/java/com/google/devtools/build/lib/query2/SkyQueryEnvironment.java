@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.VisitTaskStatusCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -851,6 +852,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected int getVisitBatchSizeForParallelVisitation() {
     return ParallelSkyQueryUtils.VISIT_BATCH_SIZE;
+  }
+
+  public VisitTaskStatusCallback getVisitTaskStatusCallback() {
+    return VisitTaskStatusCallback.NULL_INSTANCE;
   }
 
   private Target getLoadTarget(Label label, Package pkg) {
