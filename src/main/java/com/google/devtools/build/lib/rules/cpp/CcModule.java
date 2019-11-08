@@ -1534,24 +1534,6 @@ public abstract class CcModule
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Label label = getCallerLabel(location, actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-    validateExtensions(
-        location,
-        "srcs",
-        sources,
-        CppFileTypes.ALL_C_CLASS_SOURCE,
-        FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE));
-    validateExtensions(
-        location,
-        "public_hdrs",
-        publicHeaders,
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER));
-    validateExtensions(
-        location,
-        "private_hdrs",
-        privateHeaders,
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER));
 
     if (disallowNopicOutputs && disallowPicOutputs) {
       throw new EvalException(location, "Either PIC or no PIC actions have to be created.");

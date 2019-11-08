@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeV
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
@@ -5375,38 +5376,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     doTestPossibleExtensionsOfSrcsAndHdrs("public_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
   }
 
-  @Test
-  public void testWrongSrcsExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("srcs");
-  }
-
-  @Test
-  public void testWrongPrivateHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("private_hdrs");
-  }
-
-  @Test
-  public void testWrongPublicHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("public_hdrs");
-  }
-
-
-  @Test
-  public void testWrongSrcExtensionGivesError() throws Exception {
-    createFiles(scratch, "tools/build_defs/foo");
-
-    scratch.file(
-        "bar/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    srcs = ['skylark_lib.qweqwe'],",
-        ")");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:skylark_lib");
-    assertContainsEvent("The list of possible extensions for 'srcs'");
-  }
-
   private static void createFilesForTestingCompilation(
       Scratch scratch, String bzlFilePath, String compileProviderLines) throws Exception {
     createFiles(scratch, bzlFilePath, compileProviderLines, "");
@@ -5734,23 +5703,16 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ")");
   }
 
-  private void doTestWrongExtensionOfSrcsAndHdrs(String attrName) throws Exception {
-    createFiles(scratch, "tools/build_defs/foo");
-    scratch.file(
-        "bar/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    " + attrName + " = ['skylark_lib.cannotpossiblybevalid'],",
-        ")");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:skylark_lib");
-    assertContainsEvent(
-        "has wrong extension. The list of possible extensions for '" + attrName + "'");
-  }
-
-  private void doTestPossibleExtensionsOfSrcsAndHdrs(String attrName, List<String> extensions)
+  private void doTestPossibleExtensionsOfSrcsAndHdrs(String attrName, List<String> knownExtensions)
       throws Exception {
+    List<String> extensions = new ArrayList<String>(knownExtensions);
+    String unknownExtension = ".unknown_extension";
+    String emptyExtension = "";
+    assertThat(extensions)
+            .doesNotContain(unknownExtension);
+    extensions.add(unknownExtension);
+    extensions.add(emptyExtension);
+
     createFiles(scratch, "tools/build_defs/foo");
     reporter.removeHandler(failFastHandler);
 
