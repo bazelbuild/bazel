@@ -109,35 +109,40 @@ public class NinjaScope {
   @Nullable
   private <T> T findByNameAndOffsetRecursively(int offset, String name,
       Function<NinjaScope, Map<String, List<Pair<Integer, T>>>> mapSupplier) {
-    Pair<Integer, T> pair = findByNameAndOffset(offset, name, this, mapSupplier);
-    NavigableMap<Integer, T> results = Maps.newTreeMap();
-    // todo somehow optimize here
-    if (pair != null) {
-      results.put(pair.getFirst(), pair.getSecond());
-    }
+    Pair<Integer, T> currentScopeValue = findByNameAndOffset(offset, name, this, mapSupplier);
+    T result = currentScopeValue != null ? currentScopeValue.getSecond() : null;
+
     if (!includedScopes.isEmpty()) {
+      NavigableMap<Integer, T> variants = Maps.newTreeMap();
+      if (currentScopeValue != null) {
+        variants.put(currentScopeValue.getFirst(), currentScopeValue.getSecond());
+      }
       for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
         // Only if the file was included before the reference.
-        if (entry.getKey() < offset) {
-          Pair<Integer, T> includedPair = findByNameAndOffset(Integer.MAX_VALUE,
-              name, entry.getValue(), mapSupplier);
-          if (includedPair != null) {
+        Integer includeOffset = entry.getKey();
+        if (includeOffset < offset) {
+          NinjaScope includedScope = entry.getValue();
+          Pair<Integer, T> includedValue = findByNameAndOffset(Integer.MAX_VALUE,
+              name, includedScope, mapSupplier);
+          if (includedValue != null) {
             // Put at include statement offset.
-            results.put(entry.getKey(), includedPair.getSecond());
+            variants.put(includeOffset, includedValue.getSecond());
           }
         }
       }
-    }
-    if (results.isEmpty()) {
-      if (parentScope != null) {
-        Preconditions.checkNotNull(includePoint);
-        // -1 is used to do not conflict with the current scope.
-        return parentScope
-            .findByNameAndOffsetRecursively(includePoint - 1, name, mapSupplier);
+      if (! variants.isEmpty()) {
+        result = variants.lastEntry().getValue();
       }
-      return null;
     }
-    return results.lastEntry().getValue();
+    if (result != null) {
+      return result;
+    }
+    if (parentScope != null) {
+      Preconditions.checkNotNull(includePoint);
+      // -1 is used to do not conflict with the current scope.
+      return parentScope.findByNameAndOffsetRecursively(includePoint - 1, name, mapSupplier);
+    }
+    return null;
   }
 
   @Nullable
