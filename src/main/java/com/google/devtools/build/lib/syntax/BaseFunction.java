@@ -316,7 +316,7 @@ public abstract class BaseFunction implements StarlarkCallable {
             throw new EvalException(loc, String.format(
                 "%s got multiple values for keyword argument '%s'", this, keyword));
           }
-          kwArg.put(keyword, value, loc, thread);
+          kwArg.put(keyword, value, loc);
         }
       }
       if (hasKwargs) {

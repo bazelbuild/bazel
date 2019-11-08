@@ -139,7 +139,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       throws EvalException {
     Object value = get(key);
     if (value != null) {
-      remove(key, loc, thread.mutability());
+      remove(key, loc);
       return value;
     }
     if (defaultValue != Runtime.UNBOUND) {
@@ -164,7 +164,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     }
     Object key = keySet().iterator().next();
     Object value = get(key);
-    remove(key, loc, thread.mutability());
+    remove(key, loc);
     return Tuple.of(key, value);
   }
 
@@ -185,16 +185,14 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             noneable = true,
             doc = "a default value if the key is absent."),
       },
-      useLocation = true,
-      useStarlarkThread = true)
+      useLocation = true)
   @SuppressWarnings("unchecked") // Cast of value to V
-  public Object setdefault(K key, Object defaultValue, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public Object setdefault(K key, Object defaultValue, Location loc) throws EvalException {
     Object value = get(key);
     if (value != null) {
       return value;
     }
-    put(key, (V) defaultValue, loc, thread);
+    put(key, (V) defaultValue, loc);
     return defaultValue;
   }
 
@@ -235,7 +233,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             ? (SkylarkDict<K, V>) args
             : getDictFromArgs("update", args, loc, thread);
     dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, thread);
-    putAll(dict, loc, thread.mutability(), thread);
+    putAll(dict, loc);
     return Runtime.NONE;
   }
 
@@ -362,23 +360,11 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * @param key the key of the added entry
    * @param value the value of the added entry
    * @param loc the location to use for error reporting
-   * @param mutability the {@link Mutability} associated with the opreation
    * @throws EvalException if the key is invalid or the dict is frozen
    */
-  public void put(K key, V value, Location loc, Mutability mutability) throws EvalException {
-    checkMutable(loc, mutability);
-    EvalUtils.checkValidDictKey(key, null);
-    contents.put(key, value);
-  }
-
-  /**
-   * Convenience version of {@link #put(K, V, Location, Mutability)} that uses the {@link
-   * Mutability} of an {@link StarlarkThread}.
-   */
-  // TODO(bazel-team): Decide whether to eliminate this overload.
-  public void put(K key, V value, Location loc, StarlarkThread thread) throws EvalException {
-    checkMutable(loc, mutability);
-    EvalUtils.checkValidDictKey(key, thread);
+  public void put(K key, V value, Location loc) throws EvalException {
+    checkMutable(loc, this.mutability);
+    EvalUtils.checkValidDictKey(key);
     contents.put(key, value);
   }
 
@@ -387,16 +373,14 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    *
    * @param map the map whose entries are added
    * @param loc the location to use for error reporting
-   * @param mutability the {@link Mutability} associated with the operation
    * @throws EvalException if some key is invalid or the dict is frozen
    */
-  public <KK extends K, VV extends V> void putAll(
-      Map<KK, VV> map, Location loc, Mutability mutability, StarlarkThread thread)
+  public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location loc)
       throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc, this.mutability);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
-      EvalUtils.checkValidDictKey(k, thread);
+      EvalUtils.checkValidDictKey(k);
       contents.put(k, e.getValue());
     }
   }
@@ -406,22 +390,20 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    *
    * @param key the key to delete
    * @param loc the location to use for error reporting
-   * @param mutability the {@link Mutability} associated with the operation
    * @return the value associated to the key, or {@code null} if not present
    * @throws EvalException if the dict is frozen
    */
-  V remove(Object key, Location loc, Mutability mutability) throws EvalException {
-    checkMutable(loc, mutability);
+  V remove(Object key, Location loc) throws EvalException {
+    checkMutable(loc, this.mutability);
     return contents.remove(key);
   }
 
   @SkylarkCallable(
       name = "clear",
       doc = "Remove all items from the dictionary.",
-      useLocation = true,
-      useStarlarkThread = true)
-  public Runtime.NoneType clearDict(Location loc, StarlarkThread thread) throws EvalException {
-    clear(loc, thread.mutability());
+      useLocation = true)
+  public Runtime.NoneType clearDict(Location loc) throws EvalException {
+    clear(loc);
     return Runtime.NONE;
   }
 
@@ -429,11 +411,10 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * Clears the dict.
    *
    * @param loc the location to use for error reporting
-   * @param mutability the {@link Mutability} associated with the operation
    * @throws EvalException if the dict is frozen
    */
-  void clear(Location loc, Mutability mutability) throws EvalException {
-    checkMutable(loc, mutability);
+  void clear(Location loc) throws EvalException {
+    checkMutable(loc, this.mutability);
     contents.clear();
   }
 
@@ -528,7 +509,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   public final boolean containsKey(Object key, Location loc, StarlarkThread thread)
       throws EvalException {
     if (thread.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
-      EvalUtils.checkValidDictKey(key, thread);
+      EvalUtils.checkValidDictKey(key);
     }
     return this.containsKey(key);
   }
@@ -579,7 +560,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
                 funcname, pos, pair.size()));
       }
       // These casts are lies
-      result.put((K) pair.get(0), (V) pair.get(1), loc, thread);
+      result.put((K) pair.get(0), (V) pair.get(1), loc);
       pos++;
     }
     return result;

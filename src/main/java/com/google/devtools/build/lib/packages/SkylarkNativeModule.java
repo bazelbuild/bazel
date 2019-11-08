@@ -151,7 +151,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       if (t instanceof Rule) {
         SkylarkDict<String, Object> rule = targetDict(t, loc, thread);
         Preconditions.checkNotNull(rule);
-        rules.put(t.getName(), rule, loc, thread);
+        rules.put(t.getName(), rule, loc);
       }
     }
 
@@ -308,7 +308,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
         if (val == null) {
           continue;
         }
-        values.put(attr.getName(), val, loc, thread);
+        values.put(attr.getName(), val, loc);
       } catch (NotRepresentableException e) {
         throw new NotRepresentableException(
             String.format(
@@ -316,8 +316,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       }
     }
 
-    values.put("name", rule.getName(), loc, thread);
-    values.put("kind", rule.getRuleClass(), loc, thread);
+    values.put("name", rule.getName(), loc);
+    values.put("kind", rule.getRuleClass(), loc);
     return values;
   }
 

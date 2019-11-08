@@ -279,7 +279,7 @@ final class Eval {
       throws EvalException {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
-      dict.put(key, value, loc, thread);
+      dict.put(key, value, loc);
     } else if (object instanceof SkylarkList.MutableList) {
       SkylarkList.MutableList<Object> list = (SkylarkList.MutableList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
@@ -450,7 +450,7 @@ final class Eval {
             Object k = eval(thread, entry.getKey());
             Object v = eval(thread, entry.getValue());
             int before = dict.size();
-            dict.put(k, v, loc, thread);
+            dict.put(k, v, loc);
             if (dict.size() == before) {
               throw new EvalException(
                   loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
@@ -670,9 +670,9 @@ final class Eval {
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(thread, body.getKey());
-          EvalUtils.checkValidDictKey(k, thread);
+          EvalUtils.checkValidDictKey(k);
           Object v = eval(thread, body.getValue());
-          dict.put(k, v, comp.getLocation(), thread);
+          dict.put(k, v, comp.getLocation());
         } else {
           list.add(eval(thread, ((Expression) comp.getBody())));
         }

@@ -120,7 +120,7 @@ public final class EvalUtils {
    * @param o an Object to validate
    * @throws EvalException if o is not a valid key
    */
-  public static void checkValidDictKey(Object o, StarlarkThread thread) throws EvalException {
+  static void checkValidDictKey(Object o) throws EvalException {
     // TODO(bazel-team): check that all recursive elements are both Immutable AND Comparable.
     if (isHashable(o)) {
       return;
