@@ -51,12 +51,24 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       PERFORMANCE_LOG,
     }
 
+    /** Indicates the type of compression the local file should have. */
+    public enum LocalFileCompression {
+      NONE,
+      GZIP,
+    }
+
     public final Path path;
     public final LocalFileType type;
+    public final LocalFileCompression compression;
 
     public LocalFile(Path path, LocalFileType type) {
+      this(path, type, LocalFileCompression.NONE);
+    }
+
+    public LocalFile(Path path, LocalFileType type, LocalFileCompression compression) {
       this.path = Preconditions.checkNotNull(path);
       this.type = Preconditions.checkNotNull(type);
+      this.compression = Preconditions.checkNotNull(compression);
     }
 
     @Override
@@ -68,12 +80,14 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
         return false;
       }
       LocalFile localFile = (LocalFile) o;
-      return Objects.equal(path, localFile.path) && type == localFile.type;
+      return Objects.equal(path, localFile.path)
+          && type == localFile.type
+          && compression == localFile.compression;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(path, type);
+      return Objects.hashCode(path, type, compression);
     }
 
     @Override

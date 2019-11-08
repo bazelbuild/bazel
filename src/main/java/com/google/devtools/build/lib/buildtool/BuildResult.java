@@ -19,6 +19,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
@@ -320,13 +321,13 @@ public final class BuildResult {
     }
 
     public BuildToolLogCollection addLocalFile(String name, Path path) {
-      return addLocalFile(name, path, LocalFileType.LOG);
+      return addLocalFile(name, path, LocalFileType.LOG, LocalFileCompression.NONE);
     }
 
     public BuildToolLogCollection addLocalFile(
-        String name, Path path, LocalFileType localFileType) {
+        String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
       Preconditions.checkState(!frozen);
-      this.localFiles.add(new LogFileEntry(name, path, localFileType));
+      this.localFiles.add(new LogFileEntry(name, path, localFileType, compression));
       return this;
     }
 
