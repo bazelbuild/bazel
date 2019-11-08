@@ -89,8 +89,8 @@ public class NinjaScope {
     int insertionPoint = Collections
         .binarySearch(pairs, Pair.of(offset, null), Comparator.comparing(Pair::getFirst));
     if (insertionPoint >= 0) {
-      // can not be, variable can not be defined in exactly same place
-      throw new GenericParsingException("Trying to interpret declaration as reference.");
+      // Can not be, variable can not be defined in exactly same place.
+      throw new IllegalStateException("Trying to interpret declaration as reference.");
     }
     // We need to access the previous element, before the insertion point.
     int idx = -insertionPoint - 2;
