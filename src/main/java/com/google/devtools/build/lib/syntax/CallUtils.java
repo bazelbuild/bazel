@@ -234,7 +234,8 @@ public final class CallUtils {
 
   /**
    * Returns a {@link BuiltinCallable} representing a {@link SkylarkCallable}-annotated instance
-   * method of a given object with the given Java method name.
+   * method of a given object with the given Starlark field name (not necessarily the same as the
+   * Java method name).
    */
   // TODO(adonovan): replace with EvalUtils.getAttr, once the latter doesn't require
   // a Thread and Location.

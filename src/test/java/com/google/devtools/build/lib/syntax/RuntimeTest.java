@@ -28,14 +28,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RuntimeTest {
 
-  private static final BuiltinFunction DUMMY_FUNC = new BuiltinFunction("dummyFunc") {
-    // This would normally be done by @SkylarkSignature annotation and configure(), but a simple
-    // stub suffices.
-    @Override
-    public Class<?> getObjectType() {
-      return DummyType.class;
-    }
-  };
+  private static final BuiltinFunction DUMMY_FUNC =
+      new BuiltinFunction("dummyFunc") {
+        // This would normally be done by @SkylarkCallable annotation and configure(), but a simple
+        // stub suffices.
+        @Override
+        public Class<?> getObjectType() {
+          return DummyType.class;
+        }
+      };
 
   private static class DummyType implements SkylarkValue {
     @Override

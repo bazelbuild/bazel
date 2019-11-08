@@ -19,8 +19,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -80,22 +78,6 @@ abstract class SkylarkDoc {
       }
     }
     return EvalUtils.getDataTypeNameFromClass(type);
-  }
-
-  // Omit self parameter from parameters in class methods.
-  protected static Param[] withoutSelfParam(SkylarkSignature annotation) {
-    Param[] params = annotation.parameters();
-    if (params.length > 0
-        && !params[0].named()
-        && (params[0].defaultValue() != null && params[0].defaultValue().isEmpty())
-        && params[0].positional()
-        && annotation.objectType() != Object.class
-        && !CallUtils.isNamespace(annotation.objectType())) {
-      // Skip the self parameter, which is the first mandatory positional parameter.
-      return Arrays.copyOfRange(params, 1, params.length);
-    } else {
-      return params;
-    }
   }
 
   // Omit self parameter from parameters in class methods.

@@ -83,6 +83,14 @@ public class SkylarkDocumentationTest {
         undocumentedItems.add(varname);
       }
     }
+
+    // These constants are currently undocumented.
+    // If they need documentation, the easiest approach would be
+    // to hard-code it in SkylarkDocumentationCollector.
+    undocumentedItems.remove("True");
+    undocumentedItems.remove("False");
+    undocumentedItems.remove("None");
+
     assertWithMessage("Undocumented items: " + undocumentedItems)
         .that(undocumentedItems)
         .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);

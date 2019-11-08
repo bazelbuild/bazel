@@ -488,7 +488,8 @@ public abstract class BaseFunction implements StarlarkCallable {
     // implementation, so this statement does not clobber the
     // enforcedArgumentTypes computed by getSignatureForCallable.
     // Still it is hard to explain what the configure method does.
-    // TODO(adonovan): eliminate SkylarkSignature then simplify.
+
+    // TODO(adonovan): simplify now that SkylarkSignature is gone.
     this.enforcedArgumentTypes = this.paramTypes;
   }
 

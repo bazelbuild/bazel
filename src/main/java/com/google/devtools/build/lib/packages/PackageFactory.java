@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -141,10 +140,8 @@ public final class PackageFactory {
     /** Update the predeclared environment of WORKSPACE files. */
     void updateWorkspace(ImmutableMap.Builder<String, Object> env);
 
-    /**
-     * Returns the extra functions needed to be added to the Skylark native module.
-     */
-    ImmutableList<BaseFunction> nativeModuleFunctions();
+    /** Update the environment of the native module. */
+    void updateNative(ImmutableMap.Builder<String, Object> env);
 
     /**
      * Returns the extra arguments to the {@code package()} statement.
@@ -904,10 +901,8 @@ public final class PackageFactory {
     builder.putAll(SkylarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     builder.putAll(ruleFunctions);
     builder.put("package", newPackageFunction(packageArguments));
-    for (EnvironmentExtension extension : environmentExtensions) {
-      for (BaseFunction function : extension.nativeModuleFunctions()) {
-        builder.put(function.getName(), function);
-      }
+    for (EnvironmentExtension ext : environmentExtensions) {
+      ext.updateNative(builder);
     }
     return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
@@ -1146,10 +1141,6 @@ public final class PackageFactory {
       return false; // Invalid package name 'foo'
     }
     return true;
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(PackageFactory.class);
   }
 
   /**

@@ -21,12 +21,10 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -166,28 +164,6 @@ public class BuiltinFunction extends BaseFunction {
             Arrays.asList(invokeMethod.getParameterTypes()),
             getEnforcedArgumentTypes()),
         e);
-  }
-
-  /**
-   * Configure the reflection mechanism. Called by signature processor for BuiltinFunctions already
-   * created.
-   */
-  final void configureFromAnnotation(SkylarkSignature annotation) {
-    Preconditions.checkState(!isConfigured()); // must not be configured yet
-    this.enforcedArgumentTypes = new ArrayList<>();
-
-    this.returnType = annotation.returnType();
-
-    // Appends to getEnforcedArgumentTypes() and paramDoc as a side effect.
-    SkylarkSignatureProcessor.SignatureInfo info =
-        SkylarkSignatureProcessor.getSignatureForCallable(
-            getName(), annotation, /*paramDoc=*/ new ArrayList<>(), this.enforcedArgumentTypes);
-    this.signature = info.signature;
-    this.paramTypes = info.types;
-    this.defaultValues = info.defaultValues;
-
-    this.objectType = annotation.objectType() == Object.class ? null : annotation.objectType();
-    configure();
   }
 
   /**

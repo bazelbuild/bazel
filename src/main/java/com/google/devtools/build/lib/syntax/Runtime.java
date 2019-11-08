@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,14 +34,6 @@ import javax.annotation.Nullable;
 public final class Runtime {
 
   private Runtime() {}
-
-  // (for documentation only)
-  @SkylarkSignature(name = "True", returnType = Boolean.class, doc = "The Boolean true value.")
-  private static final Boolean TRUE = true;
-
-  // (for documentation only)
-  @SkylarkSignature(name = "False", returnType = Boolean.class, doc = "The Boolean false value.")
-  private static final Boolean FALSE = false;
 
   /** There should be only one instance of this type to allow "== None" tests. */
   @SkylarkModule(
@@ -75,6 +66,9 @@ public final class Runtime {
     }
   }
 
+  /* The Starlark None value. */
+  public static final NoneType NONE = new NoneType();
+
   /** Marker for unbound variables in cases where neither Java null nor Skylark None is suitable. */
   @Immutable
   public static final class UnboundMarker implements SkylarkValue {
@@ -96,53 +90,7 @@ public final class Runtime {
     }
   }
 
-  @SkylarkSignature(
-      name = "<unbound>",
-      returnType = UnboundMarker.class,
-      documented = false,
-      doc = "Marker for unbound values in cases where neither Starlark None nor Java null can do.")
   public static final UnboundMarker UNBOUND = new UnboundMarker();
-
-  @SkylarkSignature(name = "None", returnType = NoneType.class,
-      doc = "Literal for the None value.")
-  public static final NoneType NONE = new NoneType();
-
-  // (for documentation only)
-  @SkylarkSignature(
-      name = "PACKAGE_NAME",
-      returnType = String.class,
-      doc =
-          "<b>Deprecated. Use <a href=\"native.html#package_name\">package_name()</a> instead.</b>"
-              + " The name of the package being evaluated. For example, in the BUILD file"
-              + " <code>some/package/BUILD</code>, its value will be <code>some/package</code>. If"
-              + " the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will match"
-              + " the caller BUILD file package. In .bzl files, do not access PACKAGE_NAME at the"
-              + " file-level (outside of functions), either directly or by calling a function at"
-              + " the file-level that accesses PACKAGE_NAME (PACKAGE_NAME is only defined during"
-              + " BUILD file evaluation).Here is an example of a .bzl file:<br><pre"
-              + " class=language-python># a = PACKAGE_NAME  # not allowed outside functions\n"
-              + "def extension():\n"
-              + "  return PACKAGE_NAME</pre>In this case, <code>extension()</code> can be called"
-              + " from a BUILD file (even indirectly), but not in a file-level expression in the"
-              + " .bzl file. When implementing a rule, use <a"
-              + " href=\"ctx.html#label\">ctx.label</a> to know where the rule comes from. ")
-  private final String unusedPackageName = "PACKAGE_NAME";
-
-  // (for documentation only)
-  @SkylarkSignature(
-      name = "REPOSITORY_NAME",
-      returnType = String.class,
-      doc =
-          "<b>Deprecated. Use <a href=\"native.html#repository_name\">repository_name()</a> "
-              + "instead.</b> The name of the repository the rule or build extension is called "
-              + "from. "
-              + "For example, in packages that are called into existence by the WORKSPACE stanza "
-              + "<code>local_repository(name='local', path=...)</code> it will be set to "
-              + "<code>@local</code>. In packages in the main repository, it will be set to "
-              + "<code>@</code>. It can only be accessed in functions (transitively) called from "
-              + "BUILD files, i.e. it follows the same restrictions as "
-              + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
-  private final String unusedRepositoryName = "REPOSITORY_NAME";
 
   /**
    * Returns the canonical class representing the namespace associated with the given class, i.e.,

@@ -20,24 +20,20 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import java.text.Collator;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
  * A class representing documentation for a Skylark built-in object with its {@link SkylarkModule}
- * annotation and with the {@link SkylarkCallable} methods and {@link SkylarkSignature} fields it
- * documents.
+ * annotation and with the {@link SkylarkCallable} methods it documents.
  */
 public final class SkylarkModuleDoc extends SkylarkDoc {
   private final SkylarkModule module;
   private final Class<?> classObject;
-  private final Map<String, SkylarkBuiltinMethodDoc> builtinMethodMap;
   private final Multimap<String, SkylarkJavaMethodDoc> javaMethods;
   private TreeMap<String, SkylarkMethodDoc> methodMap;
   private final String title;
@@ -48,7 +44,6 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     this.module = Preconditions.checkNotNull(
         module, "Class has to be annotated with SkylarkModule: %s", classObject);
     this.classObject = classObject;
-    this.builtinMethodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, SkylarkJavaMethodDoc>create();
     this.deprecated = classObject.isAnnotationPresent(StarlarkDeprecated.class);
@@ -91,11 +86,6 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     javaConstructor = method;
   }
 
-  public void addMethod(SkylarkBuiltinMethodDoc method) {
-    methodMap.put(method.getName(), method);
-    builtinMethodMap.put(method.getName(), method);
-  }
-
   public void addMethod(SkylarkJavaMethodDoc method) {
     if (!method.documented()) {
       return;
@@ -124,10 +114,6 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
 
   public boolean javaMethodsNotCollected() {
     return javaMethods.isEmpty();
-  }
-
-  public Map<String, SkylarkBuiltinMethodDoc> getBuiltinMethods() {
-    return builtinMethodMap;
   }
 
   public Collection<SkylarkMethodDoc> getJavaMethods() {

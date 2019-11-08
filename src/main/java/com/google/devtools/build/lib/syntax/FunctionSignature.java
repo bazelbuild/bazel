@@ -410,7 +410,7 @@ public abstract class FunctionSignature {
     return of(0, 0, numMandatory, false, false, names);
   }
 
-  /** Invalid signature from Parser or from SkylarkSignature annotations */
+  /** Invalid signature from Parser or from SkylarkCallable annotation. */
   static class SignatureException extends Exception {
     private final Parameter parameter;
 

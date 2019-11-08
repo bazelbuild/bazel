@@ -17,8 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +25,7 @@ import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /**
- * This class defines utilities to process @SkylarkSignature annotations
- * to configure a given field.
+ * This class defines utilities to process @SkylarkCallable annotations to configure a given field.
  */
 public class SkylarkSignatureProcessor {
 
@@ -55,71 +52,24 @@ public class SkylarkSignatureProcessor {
     }
   }
 
-  /**
-   * Extracts signature information from a {@link SkylarkCallable}-annotated method.
-   *
-   * @param name the name of the function
-   * @param descriptor the method descriptor
-   * @param paramDoc an optional list into which to store documentation strings
-   * @param enforcedTypesList an optional list into which to store effective types to enforce
-   */
-  public static SignatureInfo getSignatureForCallable(
-      String name,
-      MethodDescriptor descriptor,
-      @Nullable List<String> paramDoc,
-      @Nullable List<SkylarkType> enforcedTypesList) {
-
+  /** Extracts signature information from a {@link SkylarkCallable}-annotated method descriptor. */
+  public static SignatureInfo getSignatureForCallable(MethodDescriptor descriptor) {
     SkylarkCallable annotation = descriptor.getAnnotation();
 
-    // TODO(cparsons): Validate these properties with the annotation processor instead.
-    Preconditions.checkArgument(name.equals(annotation.name()),
-        "%s != %s", name, annotation.name());
     boolean documented = annotation.documented();
     if (annotation.doc().isEmpty() && documented) {
-      throw new RuntimeException(String.format("function %s is undocumented", name));
+      throw new IllegalStateException(
+          String.format("function %s is undocumented", annotation.name()));
     }
 
     return getSignatureForCallableImpl(
-        name,
+        annotation.name(),
         documented,
         annotation.parameters(),
         annotation.extraPositionals(),
         annotation.extraKeywords(),
-        paramDoc,
-        enforcedTypesList);
-  }
-
-  /**
-   * Extracts signature information from a {@link SkylarkSignature} annotation.
-   *
-   * @param name the name of the function
-   * @param annotation the annotation
-   * @param paramDoc an optional list into which to store documentation strings
-   * @param enforcedTypesList an optional list into which to store effective types to enforce
-   */
-  // NB: the two arguments paramDoc and enforcedTypesList are used to "return" extra values via
-  // side-effects, and that's ugly
-  // TODO(bazel-team): use AutoValue to declare a value type to use as return value?
-  static SignatureInfo getSignatureForCallable(
-      String name,
-      SkylarkSignature annotation,
-      @Nullable List<String> paramDoc,
-      @Nullable List<SkylarkType> enforcedTypesList) {
-
-    Preconditions.checkArgument(name.equals(annotation.name()),
-        "%s != %s", name, annotation.name());
-    boolean documented = annotation.documented();
-    if (annotation.doc().isEmpty() && documented) {
-      throw new RuntimeException(String.format("function %s is undocumented", name));
-    }
-    return getSignatureForCallableImpl(
-        name,
-        documented,
-        annotation.parameters(),
-        annotation.extraPositionals(),
-        annotation.extraKeywords(),
-        paramDoc,
-        enforcedTypesList);
+        /*paramDoc=*/ null,
+        /*enforcedTypesList=*/ null);
   }
 
   private static boolean isParamNamed(Param param) {
@@ -336,60 +286,11 @@ public class SkylarkSignatureProcessor {
       } catch (Exception e) {
         throw new RuntimeException(
             String.format(
-                "Exception while processing @SkylarkSignature.Param %s, default value %s",
+                "Exception while processing @Param %s, default value %s",
                 paramName, paramDefaultValue),
             e);
       }
     }
   }
 
-  /**
-   * Processes all {@link SkylarkSignature}-annotated fields in a class.
-   *
-   * <p>This includes registering these fields as builtins using {@link Runtime}, and for {@link
-   * BuiltinFunction} instances, calling {@link BuiltinFunction#configure(SkylarkSignature)}. The
-   * fields will be picked up by reflection even if they are not public.
-   *
-   * <p>This function should be called once per class, before the builtins registry is frozen. In
-   * practice, this is usually called from the class's own static initializer block. E.g., a class
-   * {@code Foo} containing {@code @SkylarkSignature} annotations would end with {@code static {
-   * SkylarkSignatureProcessor.configureSkylarkFunctions(Foo.class); }}.
-   *
-   * <p><b>If you see exceptions from {@link Runtime.BuiltinRegistry} here:</b> Be sure the class's
-   * static initializer has in fact been called before the registry was frozen. In Bazel, see {@link
-   * com.google.devtools.build.lib.runtime.BlazeRuntime#initSkylarkBuiltinsRegistry}.
-   */
-  public static void configureSkylarkFunctions(Class<?> type) {
-    Runtime.BuiltinRegistry builtins = Runtime.getBuiltinRegistry();
-    for (Field field : type.getDeclaredFields()) {
-      if (field.isAnnotationPresent(SkylarkSignature.class)) {
-        // The annotated fields are often private, but we need access them.
-        field.setAccessible(true);
-        SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
-        Object value = null;
-        try {
-          value =
-              Preconditions.checkNotNull(
-                  field.get(null),
-                  "Error while trying to configure %s.%s: its value is null",
-                  type,
-                  field);
-          builtins.registerBuiltin(type, field.getName(), value);
-          if (BuiltinFunction.class.isAssignableFrom(field.getType())) {
-            BuiltinFunction function = (BuiltinFunction) value;
-            if (!function.isConfigured()) {
-              function.configureFromAnnotation(annotation);
-            }
-            Class<?> nameSpace = function.getObjectType();
-            if (nameSpace != null) {
-              builtins.registerFunction(nameSpace, function);
-            }
-          }
-        } catch (IllegalAccessException e) {
-          throw new RuntimeException(String.format(
-              "Error while trying to configure %s.%s (value %s)", type, field, value), e);
-        }
-      }
-    }
-  }
 }

@@ -151,8 +151,7 @@ public class ApiExporter {
 
   private static Value.Builder valueFromMethodDescriptor(MethodDescriptor descriptor) {
     SkylarkSignatureProcessor.SignatureInfo info =
-        SkylarkSignatureProcessor.getSignatureForCallable(
-            descriptor.getName(), descriptor, null, null);
+        SkylarkSignatureProcessor.getSignatureForCallable(descriptor);
     return collectFunctionInfo(descriptor.getName(), info.signature, info.defaultValues);
   }
 

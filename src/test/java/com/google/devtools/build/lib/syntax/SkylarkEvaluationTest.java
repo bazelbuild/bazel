@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -48,6 +48,7 @@ import org.junit.runners.JUnit4;
 /** Tests of Starlark evaluation. */
 // This test uses 'extends' to make a copy of EvaluationTest whose
 // mode is overridden to SKYLARK, changing various environmental parameters.
+@SkylarkGlobalLibrary // required for @SkylarkCallable-annotated methods
 @RunWith(JUnit4.class)
 public final class SkylarkEvaluationTest extends EvaluationTest {
 
@@ -71,29 +72,21 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
   }
 
-  @SkylarkSignature(name = "foobar", returnType = String.class, documented = false)
-  static BuiltinFunction foobar = new BuiltinFunction("foobar") {
-    public String invoke() throws EvalException {
-      return "foobar";
-    }
-  };
+  @SkylarkCallable(name = "foobar", documented = false)
+  public String foobar() {
+    return "foobar";
+  }
 
-  @SkylarkSignature(
-      name = "interrupted_function",
-      returnType = Runtime.NoneType.class,
-      documented = false)
-  static BuiltinFunction interruptedFunction =
-      new BuiltinFunction("interrupted_function") {
-        public Runtime.NoneType invoke() throws InterruptedException {
-          throw new InterruptedException();
-        }
-      };
+  @SkylarkCallable(name = "interrupted_function", documented = false)
+  public Runtime.NoneType interruptedFunction() throws InterruptedException {
+    throw new InterruptedException();
+  }
+
+  private static final NativeProvider<NativeInfoMock> CONSTRUCTOR =
+      new NativeProvider<NativeInfoMock>(NativeInfoMock.class, "native_info_mock") {};
 
   @SkylarkModule(name = "Mock", doc = "")
-  static class NativeInfoMock extends NativeInfo {
-
-    private static final NativeProvider<NativeInfoMock> CONSTRUCTOR =
-        new NativeProvider<NativeInfoMock>(NativeInfoMock.class, "native_info_mock") {};
+  class NativeInfoMock extends NativeInfo {
 
     public NativeInfoMock() {
       super(CONSTRUCTOR);
@@ -110,8 +103,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
-    public BuiltinFunction structFieldCallable() {
-      return foobar;
+    public BuiltinCallable structFieldCallable() {
+      return CallUtils.getBuiltinCallable(SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(
@@ -126,7 +119,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "Mock", doc = "")
-  static class Mock implements SkylarkValue {
+  class Mock implements SkylarkValue {
     @SkylarkCallable(
         name = "MockFn",
         selfCall = true,
@@ -171,9 +164,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         + (sem != null)
         + ")";
     }
+
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
-    public BuiltinFunction structFieldCallable() {
-      return foobar;
+    public Object structFieldCallable() {
+      return CallUtils.getBuiltinCallable(SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
@@ -521,7 +515,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "MockSubClass", doc = "")
-  static final class MockSubClass extends Mock implements MockInterface {
+  final class MockSubClass extends Mock implements MockInterface {
     @Override
     public Boolean isEmpty(String str) {
       return str.isEmpty();
@@ -1298,8 +1292,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessAsFuncall() throws Exception {
-    foobar.configureFromAnnotation(
-        getClass().getDeclaredField("foobar").getAnnotation(SkylarkSignature.class));
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_callable()")
@@ -1314,9 +1306,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    interruptedFunction.configureFromAnnotation(
-        getClass().getDeclaredField("interruptedFunction").getAnnotation(SkylarkSignature.class));
-    update("interrupted_function", interruptedFunction);
+    update("interrupted_function", CallUtils.getBuiltinCallable(this, "interrupted_function"));
     assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
   }
 
