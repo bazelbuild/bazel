@@ -102,7 +102,7 @@ abstract class SkylarkDoc {
   protected static Param[] withoutSelfParam(SkylarkCallable annotation, Method method) {
     Param[] params = annotation.parameters();
     if (params.length > 0) {
-      SkylarkModule module = method.getClass().getAnnotation(SkylarkModule.class);
+      SkylarkModule module = method.getDeclaringClass().getAnnotation(SkylarkModule.class);
       if (module != null && module.name().equals("string")) {
         // Skip the self parameter, which is the first mandatory
         // positional parameter in each method of the "string" module.
