@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -147,6 +147,17 @@ public class Utils {
             },
             MoreExecutors.directExecutor())
         .catching(CacheNotFoundException.class, (e) -> null, MoreExecutors.directExecutor());
+  }
+
+  public static void verifyBlobContents(String expectedHash, String actualHash) throws IOException {
+    if (!expectedHash.equals(actualHash)) {
+      String msg =
+          String.format(
+              "An output download failed, because the expected hash"
+                  + "'%s' did not match the received hash '%s'.",
+              expectedHash, actualHash);
+      throw new IOException(msg);
+    }
   }
 
   /** An in-memory output file. */

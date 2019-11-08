@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
 /** A basic implementation of a {@link ByteStreamImplBase} service. */
 final class ByteStreamServer extends ByteStreamImplBase {
   private static final Logger logger = Logger.getLogger(ByteStreamServer.class.getName());
-  private final OnDiskBlobStoreActionCache cache;
+  private final OnDiskBlobStoreCache cache;
   private final Path workPath;
   private final DigestUtil digestUtil;
 
@@ -60,7 +60,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     }
   }
 
-  public ByteStreamServer(OnDiskBlobStoreActionCache cache, Path workPath, DigestUtil digestUtil) {
+  public ByteStreamServer(OnDiskBlobStoreCache cache, Path workPath, DigestUtil digestUtil) {
     this.cache = cache;
     this.workPath = workPath;
     this.digestUtil = digestUtil;

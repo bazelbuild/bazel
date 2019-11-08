@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -99,7 +99,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  private final GrpcRemoteCache remoteCache;
+  private final RemoteExecutionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   @Nullable private final RemoteRetrier retrier;
   private final String buildRequestId;
@@ -125,7 +125,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      GrpcRemoteCache remoteCache,
+      RemoteExecutionCache remoteCache,
       GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -191,7 +191,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         // Try to lookup the action in the action cache.
         ActionResult cachedResult;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          cachedResult = acceptCachedResult ? remoteCache.getCachedActionResult(actionKey) : null;
+          cachedResult = acceptCachedResult ? remoteCache.downloadActionResult(actionKey) : null;
         }
         if (cachedResult != null) {
           if (cachedResult.getExitCode() != 0) {

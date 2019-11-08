@@ -65,11 +65,11 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
   @GuardedBy("lock")
   final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
 
-  private final AbstractRemoteActionCache remoteCache;
+  private final RemoteCache remoteCache;
   private final Path execRoot;
   private final Context ctx;
 
-  RemoteActionInputFetcher(AbstractRemoteActionCache remoteCache, Path execRoot, Context ctx) {
+  RemoteActionInputFetcher(RemoteCache remoteCache, Path execRoot, Context ctx) {
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
     this.execRoot = Preconditions.checkNotNull(execRoot);
     this.ctx = Preconditions.checkNotNull(ctx);

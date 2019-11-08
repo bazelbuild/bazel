@@ -18,11 +18,12 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
-import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpBlobStore;
-import com.google.devtools.build.lib.remote.disk.OnDiskBlobStore;
-import com.google.devtools.build.lib.remote.http.HttpBlobStore;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
@@ -31,36 +32,25 @@ import java.net.URI;
 import javax.annotation.Nullable;
 
 /**
- * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
- * SimpleBlobStoreActionCache}. Currently implemented with HTTP or local.
+ * A factory class for providing a {@link RemoteCacheClient}. Currently implemented for HTTP and
+ * disk caching.
  */
-public final class SimpleBlobStoreFactory {
+public final class RemoteCacheClientFactory {
 
-  private SimpleBlobStoreFactory() {}
+  private RemoteCacheClientFactory() {}
 
-  public static SimpleBlobStore create(RemoteOptions remoteOptions, @Nullable Path casPath) {
-    if (isHttpUrlOptions(remoteOptions)) {
-      return createHttp(remoteOptions, /* creds= */ null);
-    } else if (casPath != null) {
-      return new OnDiskBlobStore(casPath);
-    } else {
-      return null;
-    }
-  }
-
-  public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, Path workingDirectory)
-      throws IOException {
-
+  public static RemoteCacheClient create(RemoteOptions options, @Nullable Credentials creds,
+      Path workingDirectory, DigestUtil digestUtil) throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     if (isHttpUrlOptions(options) && isDiskCache(options)) {
-      return createCombinedCache(workingDirectory, options.diskCache, options, creds);
+      return createCombinedCache(workingDirectory, options.diskCache, options, creds, digestUtil);
     }
     if (isHttpUrlOptions(options)) {
-      return createHttp(options, creds);
+      return createHttp(options, creds, digestUtil);
     }
     if (isDiskCache(options)) {
-      return createDiskCache(workingDirectory, options.diskCache);
+      return createDiskCache(workingDirectory, options.diskCache, options.remoteVerifyDownloads,
+          digestUtil);
     }
     throw new IllegalArgumentException(
         "Unrecognized RemoteOptions configuration: remote Http cache URL and/or local disk cache"
@@ -71,7 +61,8 @@ public final class SimpleBlobStoreFactory {
     return isHttpUrlOptions(options) || isDiskCache(options);
   }
 
-  private static SimpleBlobStore createHttp(RemoteOptions options, Credentials creds) {
+  private static RemoteCacheClient createHttp(RemoteOptions options, Credentials creds,
+      DigestUtil digestUtil) {
     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
 
     try {
@@ -82,22 +73,26 @@ public final class SimpleBlobStoreFactory {
 
       if (options.remoteProxy != null) {
         if (options.remoteProxy.startsWith("unix:")) {
-          return HttpBlobStore.create(
+          return HttpCacheClient.create(
               new DomainSocketAddress(options.remoteProxy.replaceFirst("^unix:", "")),
               uri,
               options.remoteTimeout,
               options.remoteMaxConnections,
+              options.remoteVerifyDownloads,
               ImmutableList.copyOf(options.remoteHeaders),
+              digestUtil,
               creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
         }
       } else {
-        return HttpBlobStore.create(
+        return HttpCacheClient.create(
             uri,
             options.remoteTimeout,
             options.remoteMaxConnections,
+            options.remoteVerifyDownloads,
             ImmutableList.copyOf(options.remoteHeaders),
+            digestUtil,
             creds);
       }
     } catch (Exception e) {
@@ -105,29 +100,31 @@ public final class SimpleBlobStoreFactory {
     }
   }
 
-  private static SimpleBlobStore createDiskCache(Path workingDirectory, PathFragment diskCachePath)
+  private static RemoteCacheClient createDiskCache(Path workingDirectory, PathFragment diskCachePath,
+      boolean verifyDownloads, DigestUtil digestUtil)
       throws IOException {
     Path cacheDir =
         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
-    return new OnDiskBlobStore(cacheDir);
+    return new DiskCacheClient(cacheDir, verifyDownloads, digestUtil);
   }
 
-  private static SimpleBlobStore createCombinedCache(
-      Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred)
-      throws IOException {
-
+  private static RemoteCacheClient createCombinedCache(
+      Path workingDirectory, PathFragment diskCachePath, RemoteOptions options, Credentials cred,
+      DigestUtil digestUtil) throws IOException {
     Path cacheDir =
         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
 
-    OnDiskBlobStore diskCache = new OnDiskBlobStore(cacheDir);
-    SimpleBlobStore httpCache = createHttp(options, cred);
-    return new CombinedDiskHttpBlobStore(diskCache, httpCache);
+    DiskCacheClient diskCache =
+        new DiskCacheClient(cacheDir, options.remoteVerifyDownloads, digestUtil);
+    RemoteCacheClient httpCache = createHttp(options, cred, digestUtil);
+
+    return new CombinedDiskHttpCacheClient(diskCache, httpCache);
   }
 
   private static boolean isDiskCache(RemoteOptions options) {

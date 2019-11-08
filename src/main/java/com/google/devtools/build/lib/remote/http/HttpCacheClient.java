@@ -17,11 +17,15 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -84,7 +88,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.net.ssl.SSLEngine;
 
 /**
- * Implementation of {@link SimpleBlobStore} that can talk to a HTTP/1.1 backend.
+ * Implementation of {@link RemoteCacheClient} that can talk to a HTTP/1.1 backend.
  *
  * <p>Blobs (Binary large objects) are uploaded using the {@code PUT} method. Action cache blobs are
  * stored under the path {@code /ac/base16-key}. CAS (Content Addressable Storage) blobs are stored
@@ -107,7 +111,7 @@ import javax.net.ssl.SSLEngine;
  *
  * <p>The implementation currently does not support transfer encoding chunked.
  */
-public final class HttpBlobStore implements SimpleBlobStore {
+public final class HttpCacheClient implements RemoteCacheClient {
 
   public static final String AC_PREFIX = "ac/";
   public static final String CAS_PREFIX = "cas/";
@@ -122,6 +126,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private final int timeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
   private final boolean useTls;
+  private final boolean verifyDownloads;
+  private final DigestUtil digestUtil;
 
   private final Object closeLock = new Object();
 
@@ -136,51 +142,61 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
 
-  public static HttpBlobStore create(
+  public static HttpCacheClient create(
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
+      boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
+      DigestUtil digestUtil,
       @Nullable final Credentials creds)
       throws Exception {
-    return new HttpBlobStore(
+    return new HttpCacheClient(
         NioEventLoopGroup::new,
         NioSocketChannel.class,
         uri,
         timeoutSeconds,
         remoteMaxConnections,
+        verifyDownloads,
         extraHttpHeaders,
+        digestUtil,
         creds,
         null);
   }
 
-  public static HttpBlobStore create(
+  public static HttpCacheClient create(
       DomainSocketAddress domainSocketAddress,
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
+      boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
+      DigestUtil digestUtil,
       @Nullable final Credentials creds)
       throws Exception {
 
     if (KQueue.isAvailable()) {
-      return new HttpBlobStore(
+      return new HttpCacheClient(
           KQueueEventLoopGroup::new,
           KQueueDomainSocketChannel.class,
           uri,
           timeoutSeconds,
           remoteMaxConnections,
+          verifyDownloads,
           extraHttpHeaders,
+          digestUtil,
           creds,
           domainSocketAddress);
     } else if (Epoll.isAvailable()) {
-      return new HttpBlobStore(
+      return new HttpCacheClient(
           EpollEventLoopGroup::new,
           EpollDomainSocketChannel.class,
           uri,
           timeoutSeconds,
           remoteMaxConnections,
+          verifyDownloads,
           extraHttpHeaders,
+          digestUtil,
           creds,
           domainSocketAddress);
     } else {
@@ -188,13 +204,15 @@ public final class HttpBlobStore implements SimpleBlobStore {
     }
   }
 
-  private HttpBlobStore(
+  private HttpCacheClient(
       Function<Integer, EventLoopGroup> newEventLoopGroup,
       Class<? extends Channel> channelClass,
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
+      boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
+      DigestUtil digestUtil,
       @Nullable final Credentials creds,
       @Nullable SocketAddress socketAddress)
       throws Exception {
@@ -261,6 +279,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
     this.creds = creds;
     this.timeoutSeconds = timeoutSeconds;
     this.extraHttpHeaders = extraHttpHeaders;
+    this.verifyDownloads = verifyDownloads;
+    this.digestUtil = digestUtil;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -419,7 +439,22 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    return get(digest, out, /* casDownload= */ true);
+    final HashingOutputStream hashOut = verifyDownloads
+        ? digestUtil.newHashingOutputStream(out)
+        : null;
+    return Futures.transformAsync(get(digest, hashOut != null ? hashOut : out, /* casDownload= */ true),
+        (v) -> {
+          try {
+            if (hashOut != null) {
+              Utils.verifyBlobContents(digest.getHash(),
+                  DigestUtil.hashCodeToString(hashOut.hash()));
+            }
+            out.flush();
+            return Futures.immediateFuture(null);
+          } catch (IOException e) {
+            return Futures.immediateFailedFuture(e);
+          }
+        }, MoreExecutors.directExecutor());
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -605,6 +640,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
       return Futures.immediateFailedFuture(e);
     }
     return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

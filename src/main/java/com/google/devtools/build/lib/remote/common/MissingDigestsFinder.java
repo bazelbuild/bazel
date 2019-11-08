@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 /** Supports querying a remote cache whether it contains a list of blobs. */
-interface MissingDigestsFinder {
+public interface MissingDigestsFinder {
 
   /**
    * Returns a set of digests that the remote cache does not know about. The returned set is

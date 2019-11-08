@@ -29,13 +29,14 @@ import java.io.OutputStream;
  *
  * <p>Implementations must be thread-safe.
  */
-public interface SimpleBlobStore {
+public interface RemoteCacheClient extends MissingDigestsFinder {
 
   /**
    * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
    * Action keys are special in that they aren't content-addressable but refer to action results.
    */
   final class ActionKey {
+
     private final Digest digest;
 
     public Digest getDigest() {
@@ -44,6 +45,21 @@ public interface SimpleBlobStore {
 
     public ActionKey(Digest digest) {
       this.digest = Preconditions.checkNotNull(digest, "digest");
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof ActionKey)) {
+        return false;
+      }
+
+      ActionKey otherKey = (ActionKey) other;
+      return other.equals(digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return digest.hashCode();
     }
   }
 
@@ -95,6 +111,8 @@ public interface SimpleBlobStore {
    */
   ListenableFuture<Void> uploadBlob(Digest digest, ByteString data);
 
-  /** Close resources associated with the remote cache. */
+  /**
+   * Close resources associated with the remote cache.
+   */
   void close();
 }

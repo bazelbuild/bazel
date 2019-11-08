@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -160,8 +161,8 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableBlobStoreCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
-    boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
+    boolean enableBlobStoreCache = RemoteCacheClientFactory.isRemoteCacheOptions(remoteOptions);
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
       throw new AbruptExitException(
@@ -206,7 +207,7 @@ public final class RemoteModule extends BlazeModule {
                     interceptors.toArray(new ClientInterceptor[0])));
       }
       RemoteRetrier executeRetrier = null;
-      AbstractRemoteActionCache cache = null;
+      RemoteCacheClient cacheClient = null;
       if (enableGrpcCache || !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
         rpcRetrier =
               new RemoteRetrier(
@@ -259,8 +260,8 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteTimeout,
                 rpcRetrier);
         cacheChannel.release();
-        cache =
-            new GrpcRemoteCache(
+        cacheClient =
+            new GrpcCacheClient(
                 cacheChannel.retain(),
                 credentials,
                 remoteOptions,
@@ -273,7 +274,7 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader,
-                cache,
+                cacheClient,
                 cacheChannel.authority(),
                 requestContext,
                 remoteOptions.remoteInstanceName));
@@ -281,14 +282,11 @@ public final class RemoteModule extends BlazeModule {
 
       if (enableBlobStoreCache) {
         executeRetrier = null;
-        cache =
-            new SimpleBlobStoreActionCache(
-                remoteOptions,
-                SimpleBlobStoreFactory.create(
-                    remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
-                digestUtil);
+        cacheClient = RemoteCacheClientFactory.create(
+            remoteOptions,
+            GoogleAuthUtils.newCredentials(authAndTlsOptions),
+            Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
+            digestUtil);
       }
 
       GrpcRemoteExecutor executor = null;
@@ -306,15 +304,18 @@ public final class RemoteModule extends BlazeModule {
                 retrier);
         execChannel.release();
         Preconditions.checkState(
-            cache instanceof GrpcRemoteCache,
+            cacheClient instanceof GrpcCacheClient,
             "Only the gRPC cache is support for remote execution");
+        RemoteExecutionCache remoteCache =
+            new RemoteExecutionCache((GrpcCacheClient) cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteExecution(
-                env, (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
-      } else if (cache != null) {
+                env, remoteCache, executor, executeRetrier, digestUtil, logDir);
+      } else if (cacheClient != null) {
+        RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteCaching(
-                env, cache, executeRetrier, digestUtil);
+                env, remoteCache, executeRetrier, digestUtil);
       }
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));

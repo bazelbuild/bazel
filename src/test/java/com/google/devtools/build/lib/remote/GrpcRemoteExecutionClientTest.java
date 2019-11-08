@@ -107,7 +107,9 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-/** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
+/**
+ * Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}.
+ */
 @RunWith(JUnit4.class)
 public class GrpcRemoteExecutionClientTest {
 
@@ -167,38 +169,38 @@ public class GrpcRemoteExecutionClientTest {
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
             /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
             /*outputs=*/ ImmutableList.<ActionInput>of(
-                new ActionInput() {
-                  @Override
-                  public String getExecPathString() {
-                    return "foo";
-                  }
+            new ActionInput() {
+              @Override
+              public String getExecPathString() {
+                return "foo";
+              }
 
-                  @Override
-                  public boolean isSymlink() {
-                    return false;
-                  }
+              @Override
+              public boolean isSymlink() {
+                return false;
+              }
 
-                  @Override
-                  public PathFragment getExecPath() {
-                    return null; // unused here.
-                  }
-                },
-                new ActionInput() {
-                  @Override
-                  public String getExecPathString() {
-                    return "bar";
-                  }
+              @Override
+              public PathFragment getExecPath() {
+                return null; // unused here.
+              }
+            },
+            new ActionInput() {
+              @Override
+              public String getExecPathString() {
+                return "bar";
+              }
 
-                  @Override
-                  public boolean isSymlink() {
-                    return false;
-                  }
+              @Override
+              public boolean isSymlink() {
+                return false;
+              }
 
-                  @Override
-                  public PathFragment getExecPath() {
-                    return null; // unused here.
-                  }
-                }),
+              @Override
+              public PathFragment getExecPath() {
+                return null; // unused here.
+              }
+            }),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -213,7 +215,8 @@ public class GrpcRemoteExecutionClientTest {
             RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
             retryService);
     ReferenceCountedChannel channel =
-        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+        new ReferenceCountedChannel(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), null, retrier);
     CallCredentials creds =
@@ -221,8 +224,10 @@ public class GrpcRemoteExecutionClientTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
             remoteOptions.remoteTimeout, retrier);
-    GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+    GrpcCacheClient cacheProtocol =
+        new GrpcCacheClient(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+    RemoteExecutionCache remoteCache = new RemoteExecutionCache(cacheProtocol, remoteOptions,
+        DIGEST_UTIL);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -435,8 +440,7 @@ public class GrpcRemoteExecutionClientTest {
     return new Answer<StreamObserver<WriteRequest>>() {
       @Override
       public StreamObserver<WriteRequest> answer(InvocationOnMock invocation) {
-        @SuppressWarnings("unchecked")
-        final StreamObserver<WriteResponse> responseObserver =
+        @SuppressWarnings("unchecked") final StreamObserver<WriteResponse> responseObserver =
             (StreamObserver<WriteResponse>) invocation.getArguments()[0];
         return new StreamObserver<WriteRequest>() {
           @Override
@@ -475,7 +479,8 @@ public class GrpcRemoteExecutionClientTest {
           }
 
           @Override
-          public void onCompleted() {}
+          public void onCompleted() {
+          }
 
           @Override
           public void onError(Throwable t) {
@@ -486,8 +491,11 @@ public class GrpcRemoteExecutionClientTest {
     };
   }
 
-  /** Capture the request headers from a client. Useful for testing metadata propagation. */
+  /**
+   * Capture the request headers from a client. Useful for testing metadata propagation.
+   */
   private static class RequestHeadersValidator implements ServerInterceptor {
+
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
         ServerCall<ReqT, RespT> call,
@@ -680,26 +688,26 @@ public class GrpcRemoteExecutionClientTest {
         .thenAnswer(blobWriteAnswerError()) // Error on the input file again.
         .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
     doAnswer(
-            answerVoid(
-                (QueryWriteStatusRequest request,
-                    StreamObserver<QueryWriteStatusResponse> responseObserver) -> {
-                  responseObserver.onNext(
-                      QueryWriteStatusResponse.newBuilder()
-                          .setCommittedSize(0)
-                          .setComplete(false)
-                          .build());
-                  responseObserver.onCompleted();
-                }))
+        answerVoid(
+            (QueryWriteStatusRequest request,
+                StreamObserver<QueryWriteStatusResponse> responseObserver) -> {
+              responseObserver.onNext(
+                  QueryWriteStatusResponse.newBuilder()
+                      .setCommittedSize(0)
+                      .setComplete(false)
+                      .build());
+              responseObserver.onCompleted();
+            }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
     Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              StreamObserver<ReadResponse> responseObserver =
-                  (StreamObserver<ReadResponse>) invocationOnMock.getArguments()[1];
-              responseObserver.onError(Status.INTERNAL.asRuntimeException()); // Will retry.
-              return null;
-            })
+        invocationOnMock -> {
+          @SuppressWarnings("unchecked")
+          StreamObserver<ReadResponse> responseObserver =
+              (StreamObserver<ReadResponse>) invocationOnMock.getArguments()[1];
+          responseObserver.onError(Status.INTERNAL.asRuntimeException()); // Will retry.
+          return null;
+        })
         .doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")
@@ -811,15 +819,15 @@ public class GrpcRemoteExecutionClientTest {
     when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
         .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
     Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              StreamObserver<ReadResponse> responseObserver =
-                  (StreamObserver<ReadResponse>) invocationOnMock.getArguments()[1];
-              responseObserver.onNext(
-                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("bla")).build());
-              responseObserver.onCompleted();
-              return null;
-            })
+        invocationOnMock -> {
+          @SuppressWarnings("unchecked")
+          StreamObserver<ReadResponse> responseObserver =
+              (StreamObserver<ReadResponse>) invocationOnMock.getArguments()[1];
+          responseObserver.onNext(
+              ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("bla")).build());
+          responseObserver.onCompleted();
+          return null;
+        })
         .when(mockByteStreamImpl)
         .read(
             ArgumentMatchers.<ReadRequest>any(),
@@ -868,7 +876,7 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
     // Ensure we also got back the stack trace due to verboseFailures=true
     assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
+        .contains("com.google.devtools.build.lib.remote");
   }
 
   @Test
@@ -886,9 +894,9 @@ public class GrpcRemoteExecutionClientTest {
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
     SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.getFailureMessage()).contains("whoa"); // Error details.
-    // Ensure we also got back the stack trace.
+    // Ensure we also got back the stack trace due to verboseFailures=true
     assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
+        .contains("com.google.devtools.build.lib.remote");
   }
 
   @Test
@@ -1050,7 +1058,8 @@ public class GrpcRemoteExecutionClientTest {
               StreamObserver<WriteResponse> responseObserver) {
             return new StreamObserver<WriteRequest>() {
               @Override
-              public void onNext(WriteRequest request) {}
+              public void onNext(WriteRequest request) {
+              }
 
               @Override
               public void onCompleted() {
@@ -1127,7 +1136,8 @@ public class GrpcRemoteExecutionClientTest {
               StreamObserver<WriteResponse> responseObserver) {
             return new StreamObserver<WriteRequest>() {
               @Override
-              public void onNext(WriteRequest request) {}
+              public void onNext(WriteRequest request) {
+              }
 
               @Override
               public void onCompleted() {

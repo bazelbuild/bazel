@@ -7,7 +7,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
@@ -40,7 +39,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/http",

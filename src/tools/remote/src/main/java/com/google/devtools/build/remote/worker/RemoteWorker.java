@@ -111,7 +111,7 @@ public final class RemoteWorker {
   public RemoteWorker(
       FileSystem fs,
       RemoteWorkerOptions workerOptions,
-      OnDiskBlobStoreActionCache cache,
+      OnDiskBlobStoreCache cache,
       Path sandboxPath,
       DigestUtil digestUtil)
       throws IOException {
@@ -254,8 +254,8 @@ public final class RemoteWorker {
     Path casPath =
         remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
     DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
-    OnDiskBlobStoreActionCache cache =
-        new OnDiskBlobStoreActionCache(remoteOptions, casPath, digestUtil);
+    OnDiskBlobStoreCache cache =
+        new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);

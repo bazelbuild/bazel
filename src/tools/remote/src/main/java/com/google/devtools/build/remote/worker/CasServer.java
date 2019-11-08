@@ -28,9 +28,9 @@ import io.grpc.stub.StreamObserver;
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
-  private final OnDiskBlobStoreActionCache cache;
+  private final OnDiskBlobStoreCache cache;
 
-  public CasServer(OnDiskBlobStoreActionCache cache) {
+  public CasServer(OnDiskBlobStoreCache cache) {
     this.cache = cache;
   }
 

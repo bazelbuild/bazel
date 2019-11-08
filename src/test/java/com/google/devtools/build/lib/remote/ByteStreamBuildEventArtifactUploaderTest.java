@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -82,7 +83,9 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-/** Test for {@link ByteStreamBuildEventArtifactUploader}. */
+/**
+ * Test for {@link ByteStreamBuildEventArtifactUploader}.
+ */
 @RunWith(JUnit4.class)
 public class ByteStreamBuildEventArtifactUploaderTest {
 
@@ -357,7 +360,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
   }
 
-  /** Returns a remote artifact and puts its metadata into the action input map. */
+  /**
+   * Returns a remote artifact and puts its metadata into the action input map.
+   */
   private Artifact createRemoteArtifact(
       String pathFragment, String contents, ActionInputMap inputs) {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);

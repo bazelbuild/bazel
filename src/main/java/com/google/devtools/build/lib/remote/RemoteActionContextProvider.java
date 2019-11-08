@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private final AbstractRemoteActionCache cache;
+  private final RemoteCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
   private final RemoteRetrier retrier;
   private final DigestUtil digestUtil;
@@ -53,7 +53,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
-      AbstractRemoteActionCache cache,
+      RemoteCache cache,
       @Nullable GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -68,7 +68,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   public static RemoteActionContextProvider createForRemoteCaching(
       CommandEnvironment env,
-      AbstractRemoteActionCache cache,
+      RemoteCache cache,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
     return new RemoteActionContextProvider(
@@ -77,7 +77,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
-      GrpcRemoteCache cache,
+      RemoteExecutionCache cache,
       GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -116,7 +116,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getReporter(),
               buildRequestId,
               commandId,
-              (GrpcRemoteCache) cache,
+              (RemoteExecutionCache) cache,
               executor,
               retrier,
               digestUtil,
@@ -167,7 +167,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   /** Returns the remote cache object if any. */
   @Nullable
-  AbstractRemoteActionCache getRemoteCache() {
+  RemoteCache getRemoteCache() {
     return cache;
   }
 

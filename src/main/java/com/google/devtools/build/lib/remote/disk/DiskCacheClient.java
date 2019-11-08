@@ -15,11 +15,15 @@ package com.google.devtools.build.lib.remote.disk;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -27,14 +31,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /** A on-disk store for the remote action cache. */
-public class OnDiskBlobStore implements SimpleBlobStore {
-  private final Path root;
+public class DiskCacheClient implements RemoteCacheClient {
+
   private static final String ACTION_KEY_PREFIX = "ac_";
 
-  public OnDiskBlobStore(Path root) {
+  private final Path root;
+  private final boolean verifyDownloads;
+  private final DigestUtil digestUtil;
+  
+  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
     this.root = root;
+    this.verifyDownloads = verifyDownloads;
+    this.digestUtil = digestUtil;
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
@@ -68,7 +79,23 @@ public class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    return download(digest, out, /* isActionCache= */ false);
+    @Nullable
+    HashingOutputStream hashOut = verifyDownloads
+        ? digestUtil.newHashingOutputStream(out)
+        : null;
+    return Futures.transformAsync(download(digest, hashOut != null ? hashOut : out, /* isActionCache= */ false),
+        (v) -> {
+          try {
+            if (hashOut != null) {
+              Utils.verifyBlobContents(digest.getHash(),
+                  DigestUtil.hashCodeToString(hashOut.hash()));
+            }
+            out.flush();
+            return Futures.immediateFuture(null);
+          } catch (IOException e) {
+            return Futures.immediateFailedFuture(e);
+          }
+        }, MoreExecutors.directExecutor());
   }
 
   @Override
@@ -106,6 +133,11 @@ public class OnDiskBlobStore implements SimpleBlobStore {
       return Futures.immediateFailedFuture(e);
     }
     return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 
   protected Path toPath(String key, boolean actionResult) {

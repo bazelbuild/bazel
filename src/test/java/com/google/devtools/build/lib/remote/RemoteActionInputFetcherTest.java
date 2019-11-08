@@ -16,14 +16,10 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -33,10 +29,9 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.StringActionInput;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -49,7 +44,6 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,8 +82,7 @@ public class RemoteActionInputFetcherTest {
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
     Artifact a2 = createRemoteArtifact("file2", "fizz buzz", metadata, cacheEntries);
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
-    AbstractRemoteActionCache remoteCache =
-        new StaticRemoteActionCache(options, digestUtil, cacheEntries);
+    RemoteCache remoteCache = newCache(options, digestUtil, cacheEntries);
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
@@ -112,8 +105,7 @@ public class RemoteActionInputFetcherTest {
   public void testStagingVirtualActionInput() throws Exception {
     // arrange
     MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
-    AbstractRemoteActionCache remoteCache =
-        new StaticRemoteActionCache(options, digestUtil, new HashMap<>());
+    RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
     VirtualActionInput a = new StringActionInput("hello world", PathFragment.create("file1"));
@@ -138,8 +130,7 @@ public class RemoteActionInputFetcherTest {
     Artifact a =
         createRemoteArtifact("file1", "hello world", metadata, /* cacheEntries= */ new HashMap<>());
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
-    AbstractRemoteActionCache remoteCache =
-        new StaticRemoteActionCache(options, digestUtil, new HashMap<>());
+    RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
@@ -163,8 +154,7 @@ public class RemoteActionInputFetcherTest {
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     FileArtifactValue f = FileArtifactValue.createForTesting(a);
     MetadataProvider metadataProvider = new StaticMetadataProvider(ImmutableMap.of(a, f));
-    AbstractRemoteActionCache remoteCache =
-        new StaticRemoteActionCache(options, digestUtil, new HashMap<>());
+    RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
@@ -182,8 +172,7 @@ public class RemoteActionInputFetcherTest {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<Digest, ByteString> cacheEntries = new HashMap<>();
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cacheEntries);
-    AbstractRemoteActionCache remoteCache =
-        new StaticRemoteActionCache(options, digestUtil, cacheEntries);
+    RemoteCache remoteCache = newCache(options, digestUtil, cacheEntries);
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(remoteCache, execRoot, Context.current());
 
@@ -214,58 +203,11 @@ public class RemoteActionInputFetcherTest {
     return a;
   }
 
-  private static class StaticRemoteActionCache extends AbstractRemoteActionCache {
-
-    private final ImmutableMap<Digest, ByteString> cacheEntries;
-
-    public StaticRemoteActionCache(
-        RemoteOptions options, DigestUtil digestUtil, Map<Digest, ByteString> cacheEntries) {
-      super(options, digestUtil);
-      this.cacheEntries = ImmutableMap.copyOf(cacheEntries);
+  private static RemoteCache newCache(RemoteOptions options, DigestUtil digestUtil, Map<Digest, ByteString> cacheEntries) {
+    Map<Digest, byte[]> cacheEntriesByteArray = new HashMap<>(cacheEntries.size());
+    for (Map.Entry<Digest, ByteString> entry : cacheEntries.entrySet()) {
+      cacheEntriesByteArray.put(entry.getKey(), entry.getValue().toByteArray());
     }
-
-    @Override
-    ActionResult getCachedActionResult(ActionKey actionKey) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected void setCachedActionResult(ActionKey actionKey, ActionResult action) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected ListenableFuture<Void> uploadFile(Digest digest, Path path) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-      ByteString data = cacheEntries.get(digest);
-      if (data == null) {
-        return Futures.immediateFailedFuture(new CacheNotFoundException(digest));
-      }
-      try {
-        data.writeTo(out);
-      } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
-      }
-      return Futures.immediateFuture(null);
-    }
-
-    @Override
-    public void close() {
-      // Intentionally left empty.
-    }
+    return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
   }
 }
