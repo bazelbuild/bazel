@@ -281,48 +281,26 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         commandLine.add(argName);
       }
       if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-        if (starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
-          throw new EvalException(
-              loc,
-              "Args#add no longer accepts vectorized arguments when "
-                  + "--incompatible_disallow_old_style_args_add is set. "
-                  + "Please use Args#add_all or Args#add_joined.");
-        }
-        addVectorArg(
-            value,
-            /* argName= */ null,
-            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-            /* mapEach= */ null,
-            format != Runtime.NONE ? (String) format : null,
-            beforeEach != Runtime.NONE ? (String) beforeEach : null,
-            joinWith != Runtime.NONE ? (String) joinWith : null,
-            /* formatJoined= */ null,
-            /* omitIfEmpty= */ false,
-            /* uniquify= */ false,
-            /* expandDirectories= */ true,
-            /* terminateWith= */ null,
-            loc);
-
-      } else {
-        if (mapFn != Runtime.NONE && starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
-          throw new EvalException(
-              loc,
-              "Args#add no longer accepts map_fn when"
-                  + "--incompatible_disallow_old_style_args_add is set. "
-                  + "Please eagerly map the value.");
-        }
-        if (beforeEach != Runtime.NONE) {
-          throw new EvalException(null, "'before_each' is not supported for scalar arguments");
-        }
-        if (joinWith != Runtime.NONE) {
-          throw new EvalException(null, "'join_with' is not supported for scalar arguments");
-        }
-        addScalarArg(
-            value,
-            format != Runtime.NONE ? (String) format : null,
-            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-            loc);
+        throw new EvalException(
+            loc,
+            "Args#add doesn't accept vectorized arguments. "
+                + "Please use Args#add_all or Args#add_joined.");
       }
+      if (mapFn != Runtime.NONE) {
+        throw new EvalException(
+            loc, "Args#add doesn't accept map_fn. Please eagerly map the value.");
+      }
+      if (beforeEach != Runtime.NONE) {
+        throw new EvalException(null, "'before_each' is not supported for scalar arguments");
+      }
+      if (joinWith != Runtime.NONE) {
+        throw new EvalException(null, "'join_with' is not supported for scalar arguments");
+      }
+      addScalarArg(
+          value,
+          format != Runtime.NONE ? (String) format : null,
+          mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+          loc);
       return this;
     }
 
@@ -500,7 +478,6 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     private void validateFormatString(String argumentName, @Nullable String formatStr, Location loc)
         throws EvalException {
       if (formatStr != null
-          && starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()
           && !SingleStringArgFormatter.isValid(formatStr)) {
         throw new EvalException(
             loc,

@@ -387,20 +387,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "to the rule definition, rather than the rule usage.")
   public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
 
-  /** Controls legacy arguments to ctx.actions.Args#add. */
-  @Option(
-      name = "incompatible_disallow_old_style_args_add",
-      defaultValue = "true",
-      category = "incompatible changes",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, vectorized calls to Args#add are disallowed.")
-  public boolean incompatibleDisallowOldStyleArgsAdd;
-
   @Option(
       name = "incompatible_disallow_unverified_http_downloads",
       defaultValue = "true",
@@ -645,7 +631,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
             .incompatibleDisableDepsetItems(incompatibleDisableDepsetItems)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
-            .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
             .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
             .incompatibleDisallowUnverifiedHttpDownloads(
                 incompatibleDisallowUnverifiedHttpDownloads)

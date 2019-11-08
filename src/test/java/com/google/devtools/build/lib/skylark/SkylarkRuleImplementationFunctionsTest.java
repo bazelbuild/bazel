@@ -2033,10 +2033,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testArgsScalarAddThrowsWithVectorArg() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "Args#add no longer accepts vectorized",
+        "Args#add doesn't accept vectorized",
         "args = ruleContext.actions.args()",
         "args.add([1, 2])",
         "ruleContext.actions.run(",
@@ -2246,87 +2245,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgsLegacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    setRuleContext(ruleContext);
-    exec(
-        "def map_scalar(val): return 'mapped' + val",
-        "def map_vector(vals): return [x + 1 for x in vals]",
-        "args = ruleContext.actions.args()",
-        "args.add('--foo')",
-        "args.add('foo', format='format%s')",
-        "args.add('foo', map_fn=map_scalar)",
-        "args.add([1, 2])",
-        "args.add([1, 2], join_with=':')",
-        "args.add([1, 2], before_each='-before')",
-        "args.add([1, 2], format='format/%s')",
-        "args.add([1, 2], map_fn=map_vector)",
-        "args.add([1, 2], format='format/%s', join_with=':')",
-        "args.add(ruleContext.files.srcs)",
-        "args.add(ruleContext.files.srcs, format='format/%s')",
-        "ruleContext.actions.run(",
-        "  inputs = depset(ruleContext.files.srcs),",
-        "  outputs = ruleContext.files.srcs,",
-        "  arguments = [args],",
-        "  executable = ruleContext.files.tools[0],",
-        ")");
-    SpawnAction action =
-        (SpawnAction)
-            Iterables.getOnlyElement(
-                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getArguments())
-        .containsExactly(
-            "foo/t.exe",
-            "--foo",
-            "formatfoo",
-            "mappedfoo",
-            "1",
-            "2",
-            "1:2",
-            "-before",
-            "1",
-            "-before",
-            "2",
-            "format/1",
-            "format/2",
-            "2",
-            "3",
-            "format/1:format/2",
-            "foo/a.txt",
-            "foo/b.img",
-            "format/foo/a.txt",
-            "format/foo/b.img")
-        .inOrder();
-  }
-
-  @Test
-  public void testLegacyLazyArgMapFnReturnsWrongArgumentCount() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    setRuleContext(ruleContext);
-    exec(
-        "args = ruleContext.actions.args()",
-        "def bad_fn(args): return [0]",
-        "args.add([1, 2], map_fn=bad_fn)",
-        "ruleContext.actions.run(",
-        "  inputs = depset(ruleContext.files.srcs),",
-        "  outputs = ruleContext.files.srcs,",
-        "  arguments = [args],",
-        "  executable = ruleContext.files.tools[0],",
-        ")");
-    SpawnAction action =
-        (SpawnAction)
-            Iterables.getOnlyElement(
-                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    CommandLineExpansionException e =
-        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
-    assertThat(e)
-        .hasMessageThat()
-        .contains("map_fn must return a list of the same length as the input");
-  }
-
-  @Test
   public void testMultipleLazyArgsMixedWithStrings() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -2433,7 +2351,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testArgsAddInvalidTypesForArgAndValues() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
         "expected value of type 'string' for arg name, got 'Integer'",
@@ -2454,31 +2371,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgIllegalLegacyFormatString() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=false");
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    setRuleContext(ruleContext);
-    exec(
-        "args = ruleContext.actions.args()",
-        "args.add('foo', format='format/%s%s')", // Expects two args, will only be given one
-        "ruleContext.actions.run(",
-        "  inputs = depset(ruleContext.files.srcs),",
-        "  outputs = ruleContext.files.srcs,",
-        "  arguments = [args],",
-        "  executable = ruleContext.files.tools[0],",
-        ")");
-    SpawnAction action =
-        (SpawnAction)
-            Iterables.getOnlyElement(
-                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    CommandLineExpansionException e =
-        assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
-    assertThat(e.getMessage()).contains("not enough arguments");
-  }
-
-  @Test
   public void testLazyArgIllegalFormatString() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_old_style_args_add=true");
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
         "Invalid value for parameter \"format\": Expected string with a single \"%s\"",
