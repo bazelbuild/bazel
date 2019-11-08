@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 
 /** A helper class containing built in functions for the Skylark language. */
 @SkylarkGlobalLibrary
-public class MethodLibrary {
+class MethodLibrary {
 
   @SkylarkCallable(
       name = "min",
@@ -171,9 +171,9 @@ public class MethodLibrary {
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
         @Param(
-            name = "self",
+            name = "iterable",
             type = Object.class,
-            doc = "This collection.",
+            doc = "The iterable sequence to sort.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
         @Param(
@@ -194,14 +194,14 @@ public class MethodLibrary {
       useLocation = true,
       useStarlarkThread = true)
   public MutableList<?> sorted(
-      Object self,
+      Object iterable,
       final Object key,
       Boolean reverse,
       final Location loc,
       final StarlarkThread thread)
       throws EvalException, InterruptedException {
 
-    ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(self, loc, thread));
+    ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(iterable, loc, thread));
     if (key == Runtime.NONE) {
       try {
         Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
@@ -1246,9 +1246,4 @@ public class MethodLibrary {
               + "Any value can be converted to a boolean using the "
               + "<a href=\"globals.html#bool\">bool</a> function.")
   static final class BoolModule implements SkylarkValue {} // (documentation only)
-
-  /** Adds bindings for all the builtin functions of this class to the given map builder. */
-  public static void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    Runtime.setupSkylarkLibrary(builder, new MethodLibrary());
-  }
 }

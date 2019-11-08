@@ -19,15 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ResolvedFileKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -77,7 +78,7 @@ public class ResolvedFileFunction implements SkyFunction {
           resolvedThread =
               StarlarkThread.builder(mutability)
                   .setSemantics(starlarkSemantics)
-                  .setGlobals(BazelLibrary.GLOBALS)
+                  .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
                   .build();
           try {
             EvalUtils.exec(file, resolvedThread);

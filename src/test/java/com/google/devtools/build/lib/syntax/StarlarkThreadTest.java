@@ -91,7 +91,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
       thread =
           StarlarkThread.builder(mut)
               .useDefaultSemantics()
-              .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build()
               .update("foo", "bar")
               .update("wiz", 3);
@@ -147,7 +147,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
       thread =
           StarlarkThread.builder(mutability)
               .useDefaultSemantics()
-              .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
       thread.update("x", 1);
       assertThat(thread.moduleLookup("x")).isEqualTo(1);

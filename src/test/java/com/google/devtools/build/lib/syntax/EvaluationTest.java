@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -59,7 +58,9 @@ public class EvaluationTest extends EvaluationTestCase {
     StarlarkThread thread =
         StarlarkThread.builder(mutability)
             .useDefaultSemantics()
-            .setGlobals(BazelLibrary.GLOBALS) // for print... this should not be necessary
+            .setGlobals(
+                Module.createForBuiltins(
+                    Starlark.UNIVERSE)) // for print... this should not be necessary
             .setEventHandler(printEvents)
             .build();
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");

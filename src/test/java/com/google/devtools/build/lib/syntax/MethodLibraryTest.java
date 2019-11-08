@@ -609,8 +609,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("type(str)", "function");
   }
 
-  // TODO(bazel-team): Move this into a new BazelLibraryTest.java file, or at least out of
-  // MethodLibraryTest.java.
+  // TODO(bazel-team): Move select and this test into lib/packages.
   @Test
   public void testSelectFunction() throws Exception {
     enableSkylarkMode();
@@ -707,7 +706,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         // Parameters which may be specified by keyword but are not explicitly 'named'.
         .testExpression("all(elements=[True, True])", Boolean.TRUE)
         .testExpression("any(elements=[True, False])", Boolean.TRUE)
-        .testEval("sorted(self=[3, 0, 2], key=None, reverse=False)", "[0, 2, 3]")
+        .testEval("sorted(iterable=[3, 0, 2], key=None, reverse=False)", "[0, 2, 3]")
         .testEval("reversed(sequence=[3, 2, 0])", "[0, 2, 3]")
         .testEval("tuple(x=[1, 2])", "(1, 2)")
         .testEval("list(x=(1, 2))", "[1, 2]")

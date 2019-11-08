@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -912,7 +913,7 @@ public final class PackageFactory {
   }
 
   private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
-    env.putAll(BazelLibrary.GLOBALS.getBindings());
+    env.putAll(Starlark.UNIVERSE);
     env.putAll(StarlarkBuildLibrary.BINDINGS);
     env.putAll(SkylarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", newPackageFunction(packageArguments));

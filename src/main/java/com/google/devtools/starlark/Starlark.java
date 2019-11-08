@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -59,7 +60,8 @@ class Starlark {
   private final StarlarkThread thread =
       StarlarkThread.builder(mutability)
           .useDefaultSemantics()
-          .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
+          .setGlobals(
+              Module.createForBuiltins(com.google.devtools.build.lib.syntax.Starlark.UNIVERSE))
           .setEventHandler(PRINT_HANDLER)
           .build();
 

@@ -1072,25 +1072,6 @@ public final class StarlarkThread implements Freezable {
     return transitiveHashCode;
   }
 
-  /** A read-only {@link Module} with False/True/None constants only. */
-  @AutoCodec static final Module CONSTANTS_ONLY = createConstantsGlobals();
-
-  /** A read-only {@link Module} with initial globals as defined in MethodLibrary. */
-  @AutoCodec public static final Module DEFAULT_GLOBALS = createDefaultGlobals();
-
-  /** To be removed when all call-sites are updated. */
-  public static final Module SKYLARK = DEFAULT_GLOBALS;
-
-  private static Module createConstantsGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    Runtime.addConstantsToBuilder(builder);
-    return Module.createForBuiltins(builder.build());
-  }
-
-  private static Module createDefaultGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    Runtime.addConstantsToBuilder(builder);
-    MethodLibrary.addBindingsToBuilder(builder);
-    return Module.createForBuiltins(builder.build());
-  }
+  // legacy for copybara; to be inlined and deleted in Nov 2019.
+  public static final Module SKYLARK = Module.createForBuiltins(Starlark.UNIVERSE);
 }

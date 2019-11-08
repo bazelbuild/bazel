@@ -326,7 +326,7 @@ public class SkylarkSignatureProcessor {
           StarlarkThread thread =
               StarlarkThread.builder(mutability)
                   .useDefaultSemantics()
-                  .setGlobals(StarlarkThread.CONSTANTS_ONLY)
+                  .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
                   .build()
                   .update("unbound", Runtime.UNBOUND);
           defaultValue = EvalUtils.eval(ParserInput.fromLines(paramDefaultValue), thread);

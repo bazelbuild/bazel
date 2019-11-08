@@ -144,18 +144,6 @@ public final class Runtime {
               + "<a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>.")
   private final String unusedRepositoryName = "REPOSITORY_NAME";
 
-  /** Adds bindings for False/True/None constants to the given map builder. */
-  public static void addConstantsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    // In Python 2.x, True and False are global values and can be redefined by the user.
-    // In Python 3.x, they are keywords. We implement them as values. Currently they can't be
-    // redefined because builtins can't be overridden. In the future we should permit shadowing of
-    // most builtins but still prevent shadowing of these constants.
-    builder
-        .put("False", FALSE)
-        .put("True", TRUE)
-        .put("None", NONE);
-  }
-
   /**
    * Returns the canonical class representing the namespace associated with the given class, i.e.,
    * the class under which builtins should be registered.

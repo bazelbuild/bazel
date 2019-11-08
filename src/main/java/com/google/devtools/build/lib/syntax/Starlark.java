@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
@@ -24,11 +25,26 @@ import javax.annotation.Nullable;
  * all clients of the Starlark interpreter.
  */
 // TODO(adonovan): move these here:
-// UNIVERSE, None, len, str, iterate, equal, compare, getattr, index,
+// None, len, str, iterate, equal, compare, getattr, index,
 // slice, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
+
+  /**
+   * The universal bindings predeclared in every Starlark file, such as None, True, len, and range.
+   */
+  public static final ImmutableMap<String, Object> UNIVERSE = makeUniverse();
+
+  private static ImmutableMap<String, Object> makeUniverse() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env //
+        .put("False", false)
+        .put("True", true)
+        .put("None", Runtime.NONE);
+    Runtime.setupSkylarkLibrary(env, new MethodLibrary());
+    return env.build();
+  }
 
   /**
    * Returns the truth value of a valid Starlark value, as if by the Starlark expression {@code

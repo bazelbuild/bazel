@@ -66,7 +66,9 @@ import java.util.regex.Pattern;
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
-public final class StringModule implements SkylarkValue {
+final class StringModule implements SkylarkValue {
+
+  static final StringModule INSTANCE = new StringModule();
 
   private StringModule() {}
 
@@ -1115,6 +1117,4 @@ public final class StringModule implements SkylarkValue {
     }
     return false;
   }
-
-  static final StringModule INSTANCE = new StringModule();
 }
