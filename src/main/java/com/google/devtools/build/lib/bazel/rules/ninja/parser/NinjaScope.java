@@ -16,6 +16,8 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
@@ -24,6 +26,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.SortedMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -31,12 +36,36 @@ import javax.annotation.Nullable;
  * to the order of their definition (and redefinition).
  */
 public class NinjaScope {
+  /**
+   * Parent scope for the case of subninja/include command
+   */
+  @Nullable
+  private final NinjaScope parentScope;
+  /**
+   * If include command was used for the current scope, the offset of that include command
+   */
+  @Nullable
+  private final Integer includePoint;
+  private final SortedMap<Integer, NinjaScope> includedScopes;
   private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
 
   public NinjaScope() {
+    this(null, null);
+  }
+
+  public NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint) {
+    this.parentScope = parentScope;
+    this.includePoint = includePoint;
+    includedScopes = Maps.newTreeMap();
     variables = Maps.newHashMap();
     rules = Maps.newHashMap();
+  }
+
+  public NinjaScope createIncludeScope(int offset) {
+    NinjaScope includeScope = new NinjaScope(this, offset);
+    includedScopes.put(offset, includeScope);
+    return includeScope;
   }
 
   public void addVariable(String name, int offset, NinjaVariableValue value) {
@@ -69,18 +98,53 @@ public class NinjaScope {
 
   @Nullable
   public NinjaVariableValue findVariable(int offset, String name) {
-    return findByNameAndOffset(offset, name, variables);
+    return findByNameAndOffsetRecursively(offset, name, scope -> scope.variables);
   }
 
   @Nullable
   public NinjaRule findRule(int offset, String name) {
-    return findByNameAndOffset(offset, name, rules);
+    return findByNameAndOffsetRecursively(offset, name, scope -> scope.rules);
   }
 
   @Nullable
-  private static <T> T findByNameAndOffset(int offset, String name,
-      Map<String, List<Pair<Integer, T>>> map) {
-    List<Pair<Integer, T>> pairs = map.get(name);
+  private <T> T findByNameAndOffsetRecursively(int offset, String name,
+      Function<NinjaScope, Map<String, List<Pair<Integer, T>>>> mapSupplier) {
+    Pair<Integer, T> pair = findByNameAndOffset(offset, name, this, mapSupplier);
+    NavigableMap<Integer, T> results = Maps.newTreeMap();
+    // todo somehow optimize here
+    if (pair != null) {
+      results.put(pair.getFirst(), pair.getSecond());
+    }
+    if (!includedScopes.isEmpty()) {
+      for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
+        // Only if the file was included before the reference.
+        if (entry.getKey() < offset) {
+          Pair<Integer, T> includedPair = findByNameAndOffset(Integer.MAX_VALUE,
+              name, entry.getValue(), mapSupplier);
+          if (includedPair != null) {
+            // Put at include statement offset.
+            results.put(entry.getKey(), includedPair.getSecond());
+          }
+        }
+      }
+    }
+    if (results.isEmpty()) {
+      if (parentScope != null) {
+        Preconditions.checkNotNull(includePoint);
+        // -1 is used to do not conflict with the current scope.
+        return parentScope
+            .findByNameAndOffsetRecursively(includePoint - 1, name, mapSupplier);
+      }
+      return null;
+    }
+    return results.lastEntry().getValue();
+  }
+
+  @Nullable
+  private static <T> Pair<Integer, T> findByNameAndOffset(int offset, String name,
+      NinjaScope scope,
+      Function<NinjaScope, Map<String, List<Pair<Integer, T>>>> mapFunction) {
+    List<Pair<Integer, T>> pairs = Preconditions.checkNotNull(mapFunction.apply(scope)).get(name);
     if (pairs == null) {
       // We may want to search in the parent scope.
       return null;
@@ -97,11 +161,14 @@ public class NinjaScope {
       // Check the parent scope.
       return null;
     }
-    return pairs.get(idx).getSecond();
+    Pair<Integer, T> pair = pairs.get(idx);
+    return Pair.of(pair.getFirst(), pair.getSecond());
   }
 
   public static NinjaScope mergeScopeParts(Collection<NinjaScope> parts) {
-    NinjaScope result = new NinjaScope();
+    Preconditions.checkState(!parts.isEmpty());
+    NinjaScope first = Preconditions.checkNotNull(Iterables.getFirst(parts, null));
+    NinjaScope result = new NinjaScope(first.parentScope, first.includePoint);
     for (NinjaScope part : parts) {
       for (String name : part.variables.keySet()) {
         result.variables

@@ -134,14 +134,14 @@ public class NinjaScopeTest {
 
     scope.sortResults();
 
-    GenericParsingException exception = assertThrows(GenericParsingException.class,
+    IllegalStateException exception = assertThrows(IllegalStateException.class,
         () -> scope.findVariable(5, "abc"));
     assertThat(exception).hasMessageThat()
         .isEqualTo("Trying to interpret declaration as reference.");
   }
 
   @Test
-  public void testFindRule() throws Exception {
+  public void testFindRule() {
     NinjaScope scope = new NinjaScope();
     scope.addRule(10, rule("rule1", "10"));
     scope.addRule(1115, rule("rule1", "1115"));
@@ -159,6 +159,61 @@ public class NinjaScopeTest {
     rule1 = scope.findRule(15, "rule1");
     assertThat(rule1).isNotNull();
     assertThat(rule1.getVariables().get(NinjaRuleVariable.COMMAND).getText()).isEqualTo("10");
+  }
+
+  @Test
+  public void testFindVariableInParentScope() {
+    NinjaScope parent = new NinjaScope();
+    parent.addVariable("abc", 12, value("abc"));
+    parent.addVariable("edf", 120, value("edf"));
+    parent.addVariable("xyz", 1000, value("xyz"));
+
+    // This is subninja scope, not include scope.
+    NinjaScope child = new NinjaScope(parent, 140);
+    // Shadows this variable from parent.
+    child.addVariable("edf", 1, value("11111"));
+
+    NinjaVariableValue abcVar = child.findVariable(2, "abc");
+    assertThat(abcVar).isNotNull();
+    assertThat(abcVar.getText()).isEqualTo("abc");
+
+    NinjaVariableValue edfVar = child.findVariable(2, "edf");
+    assertThat(edfVar).isNotNull();
+    assertThat(edfVar.getText()).isEqualTo("11111");
+
+    assertThat(child.findVariable(2, "xyz")).isNull();
+  }
+
+  @Test
+  public void testFindVariableInIncludedScope() {
+    NinjaScope parent = new NinjaScope();
+    parent.addVariable("abc", 12, value("abc"));
+    parent.addVariable("edf", 120, value("edf"));
+    parent.addVariable("xyz", 1000, value("xyz"));
+
+    NinjaScope child = parent.createIncludeScope(140);
+    // Shadows this variable from parent.
+    child.addVariable("edf", 1, value("11111"));
+    child.addVariable("child", 2, value("child"));
+
+    NinjaScope child2 = parent.createIncludeScope(200);
+    child2.addVariable("edf", 1, value("22222"));
+
+    NinjaVariableValue edfVar = parent.findVariable(160, "edf");
+    assertThat(edfVar).isNotNull();
+    assertThat(edfVar.getText()).isEqualTo("11111");
+
+    NinjaVariableValue edfVarFromChild2 = parent.findVariable(220, "edf");
+    assertThat(edfVarFromChild2).isNotNull();
+    assertThat(edfVarFromChild2.getText()).isEqualTo("22222");
+
+    NinjaVariableValue edfVarBefore = parent.findVariable(125, "edf");
+    assertThat(edfVarBefore).isNotNull();
+    assertThat(edfVarBefore.getText()).isEqualTo("edf");
+
+    NinjaVariableValue childVar = parent.findVariable(145, "child");
+    assertThat(childVar).isNotNull();
+    assertThat(childVar.getText()).isEqualTo("child");
   }
 
   private static NinjaRule rule(String name) {
