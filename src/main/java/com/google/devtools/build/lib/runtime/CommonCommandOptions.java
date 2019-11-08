@@ -30,6 +30,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.TriState;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -256,12 +257,16 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableTracer;
 
   @Option(
-      name = "experimental_json_trace_compression",
-      defaultValue = "false",
+      name = "json_trace_compression",
+      oldName = "experimental_json_trace_compression",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If enabled, Bazel compresses the JSON-format profile with gzip.")
-  public boolean enableTracerCompression;
+      help =
+          "If enabled, Bazel compresses the JSON-format profile with gzip. "
+              + "By default, this is decided based on the extension of the file specified in "
+              + "--profile.")
+  public TriState enableTracerCompression;
 
   @Option(
       name = "experimental_post_profile_started_event",

@@ -293,10 +293,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path profilePath = null;
     try {
       if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
-        format =
-            options.enableTracerCompression
-                ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
-                : Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        if (options.enableTracerCompression == TriState.YES
+            || (options.enableTracerCompression == TriState.AUTO
+                && (options.profilePath == null
+                    || options.profilePath.toString().endsWith(".gz")))) {
+          format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
+        } else {
+          format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        }
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
         } else {
