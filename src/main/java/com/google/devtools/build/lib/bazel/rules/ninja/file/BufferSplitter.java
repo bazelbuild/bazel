@@ -27,7 +27,7 @@ import java.util.concurrent.Callable;
  *
  * <p>{@link ParallelFileProcessing}
  */
-public class BufferSplitter implements Callable<List<BufferEdge>> {
+public class BufferSplitter implements Callable<List<ByteFragmentAtOffset>> {
   private final ByteBufferFragment bufferFragment;
   private final DeclarationConsumer consumer;
   private final SeparatorPredicate separatorPredicate;
@@ -51,14 +51,15 @@ public class BufferSplitter implements Callable<List<BufferEdge>> {
   }
 
   /**
-   * Returns the list of {@link BufferEdge} - fragments on the bounds of the current fragment, which
-   * should be potentially merged with fragments from the neighbor buffer fragments.
+   * Returns the list of {@link ByteFragmentAtOffset} - fragments on the bounds of the current
+   * fragment, which should be potentially merged with fragments from the neighbor buffer fragments.
    *
-   * <p>Combined list of {@link BufferEdge} is passed to {@link DeclarationAssembler} for merging.
+   * <p>Combined list of {@link ByteFragmentAtOffset} is passed to {@link DeclarationAssembler}
+   * for merging.
    */
   @Override
-  public List<BufferEdge> call() throws Exception {
-    List<BufferEdge> fragments = Lists.newArrayList();
+  public List<ByteFragmentAtOffset> call() throws Exception {
+    List<ByteFragmentAtOffset> fragments = Lists.newArrayList();
     int start = 0;
     for (int i = 0; i < bufferFragment.length() - 2; i++) {
       byte previous = bufferFragment.byteAt(i);
@@ -69,16 +70,17 @@ public class BufferSplitter implements Callable<List<BufferEdge>> {
         continue;
       }
       ByteBufferFragment fragment = bufferFragment.subFragment(start, i + 2);
+      ByteFragmentAtOffset fragmentAtOffset = new ByteFragmentAtOffset(offset, fragment);
       if (start > 0) {
-        consumer.declaration(offset, fragment);
+        consumer.declaration(fragmentAtOffset);
       } else {
-        fragments.add(new BufferEdge(offset, fragment));
+        fragments.add(fragmentAtOffset);
       }
       start = i + 2;
     }
     // There is always at least one byte at the bounds of the fragment.
     ByteBufferFragment lastFragment = bufferFragment.subFragment(start, bufferFragment.length());
-    fragments.add(new BufferEdge(offset, lastFragment));
+    fragments.add(new ByteFragmentAtOffset(offset, lastFragment));
     return fragments;
   }
 }

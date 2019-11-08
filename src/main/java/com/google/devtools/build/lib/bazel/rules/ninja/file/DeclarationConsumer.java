@@ -20,9 +20,10 @@ public interface DeclarationConsumer {
 
   /**
    * Accepts a declaration for further processing / parsing.
-   * @param offset offset of the fragment inside the file
-   * @param fragment fragment of {@link java.nio.ByteBuffer}
+   *
+   * @param byteFragmentAtOffset a fragment of {@link java.nio.ByteBuffer} in the form of
+   * {@link ByteBufferFragment}, starting at offset in the underlying file.
    * @throws GenericParsingException if declaration processing discovered the wrong syntax
    */
-  void declaration(int offset, ByteBufferFragment fragment) throws GenericParsingException;
+  void declaration(ByteFragmentAtOffset byteFragmentAtOffset) throws GenericParsingException;
 }

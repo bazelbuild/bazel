@@ -101,9 +101,9 @@ public class ParallelFileProcessing {
     DeclarationAssembler assembler =
         new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
 
-    CollectingListFuture<List<BufferEdge>, GenericParsingException> future =
+    CollectingListFuture<List<ByteFragmentAtOffset>, GenericParsingException> future =
         new CollectingListFuture<>(GenericParsingException.class);
-    List<List<BufferEdge>> listOfLists;
+    List<List<ByteFragmentAtOffset>> listOfLists;
     int offset = 0;
     boolean keepReading = true;
     while (keepReading) {
@@ -116,7 +116,7 @@ public class ParallelFileProcessing {
       }
     }
     listOfLists = future.getResult();
-    List<BufferEdge> fragments =
+    List<ByteFragmentAtOffset> fragments =
         listOfLists.stream().flatMap(List::stream).collect(Collectors.toList());
 
     assembler.wrapUp(fragments);
@@ -136,7 +136,7 @@ public class ParallelFileProcessing {
   private void tokenizeFragments(
       ByteBuffer bb,
       int offset,
-      CollectingListFuture<List<BufferEdge>, GenericParsingException> future) {
+      CollectingListFuture<List<ByteFragmentAtOffset>, GenericParsingException> future) {
     int from = 0;
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {

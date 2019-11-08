@@ -20,7 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferEdge;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferSplitter;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
@@ -42,16 +42,16 @@ public class BufferSplitterTest {
 
     List<String> result = Lists.newArrayList();
     int offsetValue = 123;
-    DeclarationConsumer consumer = (offset, fragment) -> {
-      result.add(fragment.toString());
-      assertThat(offset).isEqualTo(offsetValue);
+    DeclarationConsumer consumer = (byteFragmentAtOffset) -> {
+      result.add(byteFragmentAtOffset.getFragment().toString());
+      assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(offsetValue);
     };
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =
         new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, offsetValue);
-    List<BufferEdge> edges = tokenizer.call();
+    List<ByteFragmentAtOffset> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(
             edges.stream()
@@ -68,12 +68,13 @@ public class BufferSplitterTest {
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
 
     List<String> result = Lists.newArrayList();
-    DeclarationConsumer consumer = (offset, fragment) -> result.add(fragment.toString());
+    DeclarationConsumer consumer = (byteFragmentAtOffset) ->
+        result.add(byteFragmentAtOffset.getFragment().toString());
 
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =
         new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
-    List<BufferEdge> edges = tokenizer.call();
+    List<ByteFragmentAtOffset> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(
             edges.stream()

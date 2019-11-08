@@ -107,7 +107,7 @@ public class ParallelFileProcessingTest {
                     () -> {
                       List<ByteBufferFragment> inner = Lists.newArrayList();
                       list.add(inner);
-                      return (offset, e) -> inner.add(e);
+                      return byteFragmentAtOffset -> inner.add(byteFragmentAtOffset.getFragment());
                     };
                 parseFile(file, factory, null);
                 assertThat(list).isNotEmpty();
@@ -186,7 +186,7 @@ public class ParallelFileProcessingTest {
       List<String> lines = Collections.synchronizedList(Lists.newArrayListWithCapacity(limit));
       parseFile(
           file,
-          () -> (offset, s) -> lines.add(s.toString()),
+          () -> (byteFragmentAtOffset) -> lines.add(byteFragmentAtOffset.getFragment().toString()),
           new BlockParameters(file.length()).setReadBlockSize(blockSize));
       // Copy to non-synchronized list for check
       assertNumbers(limit, Lists.newArrayList(lines));
