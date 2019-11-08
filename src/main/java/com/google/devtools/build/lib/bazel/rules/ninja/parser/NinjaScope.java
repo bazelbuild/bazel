@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
 import java.util.Collections;
@@ -69,18 +68,18 @@ public class NinjaScope {
   }
 
   @Nullable
-  public NinjaVariableValue findVariable(int offset, String name) throws GenericParsingException {
+  public NinjaVariableValue findVariable(int offset, String name) {
     return findByNameAndOffset(offset, name, variables);
   }
 
   @Nullable
-  public NinjaRule findRule(int offset, String name) throws GenericParsingException {
+  public NinjaRule findRule(int offset, String name) {
     return findByNameAndOffset(offset, name, rules);
   }
 
   @Nullable
   private static <T> T findByNameAndOffset(int offset, String name,
-      Map<String, List<Pair<Integer, T>>> map) throws GenericParsingException {
+      Map<String, List<Pair<Integer, T>>> map) {
     List<Pair<Integer, T>> pairs = map.get(name);
     if (pairs == null) {
       // We may want to search in the parent scope.
