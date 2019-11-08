@@ -132,7 +132,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rule", loc);
     PackageContext context = getContext(thread, loc);
     Target target = context.pkgBuilder.getTarget(name);
-    SkylarkDict<String, Object> rule = targetDict(target, loc, thread);
+    SkylarkDict<String, Object> rule = targetDict(target, loc, thread.mutability());
     return rule != null ? rule : Runtime.NONE;
   }
 
@@ -146,10 +146,11 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rules", loc);
     PackageContext context = getContext(thread, loc);
     Collection<Target> targets = context.pkgBuilder.getTargets();
-    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(thread);
+    Mutability mu = thread.mutability();
+    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.withMutability(mu);
     for (Target t : targets) {
       if (t instanceof Rule) {
-        SkylarkDict<String, Object> rule = targetDict(t, loc, thread);
+        SkylarkDict<String, Object> rule = targetDict(t, loc, mu);
         Preconditions.checkNotNull(rule);
         rules.put(t.getName(), rule, loc);
       }
@@ -283,12 +284,12 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   @Nullable
-  private static SkylarkDict<String, Object> targetDict(
-      Target target, Location loc, StarlarkThread thread) throws EvalException {
+  private static SkylarkDict<String, Object> targetDict(Target target, Location loc, Mutability mu)
+      throws EvalException {
     if (!(target instanceof Rule)) {
       return null;
     }
-    SkylarkDict<String, Object> values = SkylarkDict.<String, Object>of(thread);
+    SkylarkDict<String, Object> values = SkylarkDict.withMutability(mu);
 
     Rule rule = (Rule) target;
     AttributeContainer cont = rule.getAttributeContainer();
@@ -304,7 +305,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       }
 
       try {
-        Object val = skylarkifyValue(cont.getAttr(attr.getName()), target.getPackage());
+        Object val = skylarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
           continue;
         }
@@ -325,13 +326,14 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
    * Converts a target attribute value to a Starlark value for return in {@code
    * native.existing_rule()} or {@code native.existing_rules()}.
    *
-   * <p>All returned values are immutable.
+   * <p>Any dict values in the result have mutability {@code mu}.
    *
    * @return the value, or null if we don't want to export it to the user.
    * @throws NotRepresentableException if an unknown type is encountered.
    */
   @Nullable
-  private static Object skylarkifyValue(Object val, Package pkg) throws NotRepresentableException {
+  private static Object skylarkifyValue(Mutability mu, Object val, Package pkg)
+      throws NotRepresentableException {
     if (val == null) {
       return null;
     }
@@ -367,7 +369,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
       for (Object o : (List) val) {
-        Object elt = skylarkifyValue(o, pkg);
+        Object elt = skylarkifyValue(mu, o, pkg);
         if (elt == null) {
           continue;
         }
@@ -380,8 +382,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     if (val instanceof Map) {
       Map<Object, Object> m = new TreeMap<>();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
-        Object key = skylarkifyValue(e.getKey(), pkg);
-        Object mapVal = skylarkifyValue(e.getValue(), pkg);
+        Object key = skylarkifyValue(mu, e.getKey(), pkg);
+        Object mapVal = skylarkifyValue(mu, e.getValue(), pkg);
 
         if (key == null || mapVal == null) {
           continue;
@@ -389,7 +391,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
         m.put(key, mapVal);
       }
-      return SkylarkType.convertToSkylark(m, Mutability.IMMUTABLE);
+      return SkylarkType.convertToSkylark(m, mu);
     }
     if (val.getClass().isAnonymousClass()) {
       // Computed defaults. They will be represented as

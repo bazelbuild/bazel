@@ -624,6 +624,23 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testExistingRuleDictIsMutable() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load('inc.bzl', 'f')", //
+        "f()");
+    scratch.file(
+        "test/inc.bzl", //
+        "def f():",
+        "  native.config_setting(name='x', define_values={'key': 'value'})",
+        "  r = native.existing_rule('x')",
+        "  r['define_values']['key'] = 123"); // mutate the dict
+
+    // Logically this belongs among the loading-phase tests of existing_rules. Where are they?
+    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error
+  }
+
+  @Test
   public void testGetRuleAttributeListValue() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);

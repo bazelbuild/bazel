@@ -97,11 +97,28 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
   @SkylarkCallable(
       name = "existing_rule",
       doc =
-          "Returns a dictionary representing the attributes of a previously defined target, or "
-              + "<code>None</code> if the target does not exist."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
+          "Returns a new mutable dict that describes the attributes of a rule instantiated in this "
+              + "thread's package, or <code>None</code> if no rule instance of that name exists." //
+              + "<p>The dict contains an entry for each attribute, except private ones, whose"
+              + " names do not start with a letter. In addition, the dict contains entries for the"
+              + " rule instance's <code>name</code> and <code>kind</code> (for example,"
+              + " <code>'cc_binary'</code>)." //
+              + "<p>The values of the dict represent attribute values as follows:" //
+              + "<ul><li>Attributes of type str, int, and bool are represented as is.</li>" //
+              + "<li>Labels are converted to strings of the form <code>':foo'</code> for targets"
+              + " in the same package or <code>'//pkg:name'</code> for targets in a different"
+              + " package.</li>" //
+              + "<li>Lists are represented as tuples, and dicts are converted to new, mutable"
+              + " dicts. Their elements are recursively converted in the same fashion.</li>" //
+              + "<li><code>select</code> values are returned as is." //
+              + "<li>Attributes for which no value was specified during rule instantiation and"
+              + " whose default value is computed are excluded from the result. (Computed defaults"
+              + " cannot be computed until the analysis phase.).</li>" //
+              + "</ul>" //
+              + "<p>If possible, avoid using this function. It makes BUILD files brittle and"
+              + " order-dependent. Also, beware that it differs subtly from the two"
+              + " other conversions of rule attribute values from internal form to Starlark: one"
+              + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
       parameters = {
         @Param(
             name = "name",
@@ -118,12 +135,11 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
   @SkylarkCallable(
       name = "existing_rules",
       doc =
-          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
-              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
-              + "output for that target."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
+          "Returns a new mutable dict describing the rules so far instantiated in this thread's"
+              + " package. Each dict entry maps the name of the rule instance to the result that"
+              + " would be returned by <code>existing_rule(name)</code>.<p><i>Note: If possible,"
+              + " avoid using this function. It makes BUILD files brittle and order-dependent, and"
+              + " it may be expensive especially if called within a loop.</i>",
       useLocation = true,
       useStarlarkThread = true)
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
