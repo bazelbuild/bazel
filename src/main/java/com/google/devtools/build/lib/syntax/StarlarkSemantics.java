@@ -164,8 +164,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisableDepsetItems();
 
-  public abstract boolean incompatibleDisallowDictPlus();
-
   public abstract boolean incompatibleDisallowEmptyGlob();
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
@@ -264,7 +262,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableDepsetItems(false)
-          .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowOldStyleArgsAdd(true)
           .incompatibleDisallowStructProviderSyntax(false)
@@ -331,8 +328,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
     public abstract Builder incompatibleDisableDepsetItems(boolean value);
-
-    public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 

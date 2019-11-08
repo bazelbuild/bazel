@@ -790,17 +790,6 @@ public final class EvalUtils {
       return MutableList.concat((MutableList<?>) x, (MutableList<?>) y, thread.mutability());
     }
 
-    if (x instanceof SkylarkDict && y instanceof SkylarkDict) {
-      if (thread.getSemantics().incompatibleDisallowDictPlus()) {
-        throw new EvalException(
-            location,
-            "The `+` operator for dicts is deprecated and no longer supported. Please use the "
-                + "`update` method instead. You can temporarily enable the `+` operator by passing "
-                + "the flag --incompatible_disallow_dict_plus=false");
-      }
-      return SkylarkDict.plus((SkylarkDict<?, ?>) x, (SkylarkDict<?, ?>) y, thread);
-    }
-
     if (x instanceof Concatable && y instanceof Concatable) {
       Concatable lobj = (Concatable) x;
       Concatable robj = (Concatable) y;

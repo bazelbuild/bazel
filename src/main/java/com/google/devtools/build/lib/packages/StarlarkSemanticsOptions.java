@@ -319,18 +319,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowDictLookupUnhashableKeys;
 
   @Option(
-      name = "incompatible_disallow_dict_plus",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, the `+` becomes disabled for dicts.")
-  public boolean incompatibleDisallowDictPlus;
-
-  @Option(
       name = "incompatible_disallow_empty_glob",
       defaultValue = "false",
       category = "incompatible changes",
@@ -656,7 +644,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
                 incompatibleDisableThirdPartyLicenseChecking)
             .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
             .incompatibleDisableDepsetItems(incompatibleDisableDepsetItems)
-            .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
             .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
             .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)

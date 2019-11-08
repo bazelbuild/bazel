@@ -1699,23 +1699,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testPlusEqualsOnDict() throws Exception {
-    new SkylarkTest("--incompatible_disallow_dict_plus=false").setUp("def func():",
-        "  d = {'a' : 1}",
-        "  d += {'b' : 2}",
-        "  return d",
-        "d = func()")
-        .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
-  }
-
-  @Test
   public void testPlusOnDictDeprecated() throws Exception {
-    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+    new SkylarkTest()
         .testIfErrorContains(
-            "The `+` operator for dicts is deprecated and no longer supported.", "{1: 2} + {3: 4}");
-    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+            "unsupported operand type(s) for +: 'dict' and 'dict'", "{1: 2} + {3: 4}");
+    new SkylarkTest()
         .testIfErrorContains(
-            "The `+` operator for dicts is deprecated and no longer supported.",
+            "unsupported operand type(s) for +: 'dict' and 'dict'",
             "def func():",
             "  d = {1: 2}",
             "  d += {3: 4}",
