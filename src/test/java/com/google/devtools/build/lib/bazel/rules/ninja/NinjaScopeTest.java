@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
@@ -214,6 +214,68 @@ public class NinjaScopeTest {
     NinjaVariableValue childVar = parent.findVariable(145, "child");
     assertThat(childVar).isNotNull();
     assertThat(childVar.getText()).isEqualTo("child");
+  }
+
+  @Test
+  public void testVariableExpand() {
+    NinjaScope scope = new NinjaScope();
+    scope.addVariable("abc", 12, value("abc"));
+    scope.addVariable("edf", 120,
+        new NinjaVariableValue("=> $abc = ?",
+            ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+                .put("abc", Range.openClosed(3, 7))
+                .build()));
+    scope.addVariable("abc", 130, value("redefined"));
+    scope.addVariable("edf", 180,
+        new NinjaVariableValue("now: $abc!",
+            ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+                .put("abc", Range.openClosed(5, 9))
+                .build()));
+
+    scope.expandVariables();
+
+    assertThat(scope.findExpandedVariable(15, "abc")).isEqualTo("abc");
+    assertThat(scope.findExpandedVariable(150, "edf")).isEqualTo("=> abc = ?");
+    assertThat(scope.findExpandedVariable(140, "abc")).isEqualTo("redefined");
+    assertThat(scope.findExpandedVariable(181, "edf")).isEqualTo("now: redefined!");
+  }
+
+  @Test
+  public void testExpandWithParentChild() {
+    NinjaScope parent = new NinjaScope();
+    parent.addVariable("abc", 12, value("abc"));
+    parent.addVariable("edf", 120,
+        new NinjaVariableValue("$abc-===-${ abc }",
+            ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+                .put("abc", Range.openClosed(0, 4))
+                .put("abc", Range.openClosed(9, 17))
+                .build()));
+
+    NinjaScope includeScope = parent.createIncludeScope(140);
+    includeScope.addVariable("included", 1,
+        new NinjaVariableValue("<$abc and ${ edf }>",
+            ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+                .put("abc", Range.openClosed(1, 5))
+                .put("edf", Range.openClosed(10, 18))
+                .build()));
+
+    NinjaScope child = new NinjaScope(parent, 150);
+    child.addVariable("subninja", 2,
+        new NinjaVariableValue("$edf = ${ included }*",
+            ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
+                .put("edf", Range.openClosed(0, 4))
+                .put("included", Range.openClosed(7, 20))
+                .build()));
+
+    parent.expandVariables();
+    child.expandVariables();
+
+    assertThat(includeScope.findExpandedVariable(2, "included"))
+        .isEqualTo("<abc and abc-===-abc>");
+    assertThat(child.findExpandedVariable(3, "subninja"))
+        .isEqualTo("abc-===-abc = <abc and abc-===-abc>*");
+    assertThat(parent.findExpandedVariable(150, "included"))
+        .isEqualTo("<abc and abc-===-abc>");
   }
 
   private static NinjaRule rule(String name) {
