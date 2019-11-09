@@ -20,6 +20,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +29,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -42,6 +46,7 @@ public class NinjaScope {
 
   private final NavigableMap<Integer, NinjaScope> includedScopes;
   private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
+  private final Map<String, List<Pair<Integer, String>>> expandedVariables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
 
   public NinjaScope() {
@@ -53,6 +58,7 @@ public class NinjaScope {
     this.includePoint = includePoint;
     includedScopes = Maps.newTreeMap();
     variables = Maps.newHashMap();
+    expandedVariables = Maps.newHashMap();
     rules = Maps.newHashMap();
   }
 
@@ -90,6 +96,58 @@ public class NinjaScope {
     }
   }
 
+  private void expandVariable(String name, Integer offset, NinjaVariableValue value) {
+    List<Pair<Integer, String>> targetList = expandedVariables
+        .computeIfAbsent(name, k -> Lists.newArrayList());
+    ImmutableSortedKeyListMultimap<String, Range<Integer>> refs = value.getVariables();
+    if (!refs.isEmpty()) {
+      TreeMap<Range<Integer>, String> replacements = Maps.newTreeMap(
+          Comparator.comparing(Range::lowerEndpoint));
+      for (String refName : refs.keys()) {
+        // We are using the start offset of the value holding the reference to the variable.
+        String variable = findExpandedVariable(offset, refName);
+        refs.get(refName)
+            .forEach(range -> replacements.put(range, variable == null ? "" : variable));
+      }
+      String text = value.getText();
+      StringBuilder result = new StringBuilder();
+      int current = 0;
+      for (Range<Integer> range : replacements.keySet()) {
+        if (current < range.lowerEndpoint()) {
+          result.append(text, current, range.lowerEndpoint());
+        }
+        result.append(replacements.get(range));
+        current = range.upperEndpoint();
+      }
+      if (current < text.length()) {
+        result.append(text, current, text.length());
+      }
+      targetList.add(Pair.of(offset, result.toString()));
+    } else {
+      // We already have the value, replacement is not needed.
+      targetList.add(Pair.of(offset, value.getText()));
+    }
+  }
+
+  /**
+   * Resolve variables inside this scope and included scopes.
+   */
+  public void expandVariables() {
+    TreeMap<Integer, Runnable> resolvables = Maps.newTreeMap();
+    for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
+      String name = entry.getKey();
+      for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
+        Integer offset = pair.getFirst();
+        resolvables.put(offset, () -> expandVariable(name, offset, pair.getSecond()));
+      }
+    }
+    for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
+      resolvables.put(entry.getKey(), () -> entry.getValue().expandVariables());
+    }
+
+    resolvables.values().forEach(Runnable::run);
+  }
+
   /**
    * Finds a variable with the name <code>name</code> to be used in the reference to it at <code>
    * offset</code>. Returns null if nothing was found.
@@ -97,6 +155,16 @@ public class NinjaScope {
   @Nullable
   public NinjaVariableValue findVariable(int offset, String name) {
     return findByNameAndOffsetRecursively(offset, name, scope -> scope.variables);
+  }
+
+  /**
+   * Finds expanded variable with the name <code>name</code> to be used in the reference to it
+   * at <code>offset</code>.
+   * Returns null if nothing was found.
+   */
+  @Nullable
+  public String findExpandedVariable(int offset, String name) {
+    return findByNameAndOffsetRecursively(offset, name, scope -> scope.expandedVariables);
   }
 
   /**
