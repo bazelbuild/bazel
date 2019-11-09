@@ -96,16 +96,43 @@ public class NinjaScope {
     }
   }
 
+  /**
+   * Finds a variable with the name <code>name</code> to be used in the reference to it
+   * at <code>offset</code>.
+   * Returns null if nothing was found.
+   */
   @Nullable
   public NinjaVariableValue findVariable(int offset, String name) {
     return findByNameAndOffsetRecursively(offset, name, scope -> scope.variables);
   }
 
+  /**
+   * Finds a rule with the name <code>name</code> to be used in the reference to it
+   * at <code>offset</code>.
+   * Returns null if nothing was found.
+   */
   @Nullable
   public NinjaRule findRule(int offset, String name) {
     return findByNameAndOffsetRecursively(offset, name, scope -> scope.rules);
   }
 
+  /**
+   * Finds a variable or rule with the name <code>name</code> to be used in the reference to it
+   * at <code>offset</code>.
+   *
+   * The following checks are made:
+   * - the last definition of variable/rule before the offset in the current scope is looked up.
+   * - the last definition of variable/rule inside the relevant included scopes
+   * (i.e. in the files from include statements before offset)
+   *
+   * If any of the definitions are found in the current or included scopes, the value with
+   * the largest offset is returned.
+   *
+   * If nothing is found, we make an attempt to find the definition in the parent scope at offset
+   * before the offset at which the current scope was introduced to parent.
+   *
+   * If no definition was found, we return null.
+   */
   @Nullable
   private <T> T findByNameAndOffsetRecursively(int offset, String name,
       Function<NinjaScope, Map<String, List<Pair<Integer, T>>>> mapSupplier) {
@@ -145,6 +172,11 @@ public class NinjaScope {
     return null;
   }
 
+  /**
+   * Finds the variable or rule with the name <code>name</code>, defined in the current scope
+   * before the <code>offset</code>.
+   * (Ninja allows to re-define the values of rules and variables.)
+   */
   @Nullable
   private static <T> Pair<Integer, T> findByNameAndOffset(int offset, String name,
       NinjaScope scope,
