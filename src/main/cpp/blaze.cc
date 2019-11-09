@@ -950,12 +950,12 @@ static DurationMillis ExtractData(const string &self_path,
                                   const string &expected_install_md5,
                                   const StartupOptions &startup_options,
                                   LoggingInfo *logging_info) {
+  const string &install_base = startup_options.install_base;
   // If the install dir doesn't exist, create it, if it does, we know it's good.
-  if (!blaze_util::PathExists(startup_options.install_base)) {
+  if (!blaze_util::PathExists(install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
-    string tmp_install = startup_options.install_base + ".tmp." +
-                         blaze::GetProcessIdAsString();
+    string tmp_install = install_base + ".tmp." + blaze::GetProcessIdAsString();
     ExtractArchiveOrDie(self_path, startup_options.product_name,
                         expected_install_md5, tmp_install);
     BlessFiles(tmp_install);
@@ -966,8 +966,7 @@ static DurationMillis ExtractData(const string &self_path,
     // Now rename the completed installation to its final name.
     int attempts = 0;
     while (attempts < 120) {
-      int result = blaze_util::RenameDirectory(
-          tmp_install.c_str(), startup_options.install_base.c_str());
+      int result = blaze_util::RenameDirectory(tmp_install, install_base);
       if (result == blaze_util::kRenameDirectorySuccess ||
           result == blaze_util::kRenameDirectoryFailureNotEmpty) {
         // If renaming fails because the directory already exists and is not
@@ -993,24 +992,43 @@ static DurationMillis ExtractData(const string &self_path,
     }
     return extract_data_duration;
   } else {
-    if (!blaze_util::IsDirectory(startup_options.install_base)) {
+    // This would be detected implicitly below, but checking explicitly lets
+    // us give a better error message.
+    if (!blaze_util::IsDirectory(install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "install base directory '" << startup_options.install_base
+          << "install base directory '" << install_base
           << "' could not be created. It exists but is not a directory.";
     }
-
+    blaze_util::Path install_dir(install_base);
+    // Check that all files are present and have timestamps from BlessFiles().
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    blaze_util::Path real_install_dir =
-        blaze_util::Path(startup_options.install_base);
     for (const auto &it : archive_contents) {
-      blaze_util::Path path = real_install_dir.GetRelative(it);
+      blaze_util::Path path = install_dir.GetRelative(it);
       if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "corrupt installation: file '" << path.AsPrintablePath()
-            << "' is missing or modified.  Please remove '"
-            << startup_options.install_base << "' and try again.";
+            << "' is missing or modified.  Please remove '" << install_base
+            << "' and try again.";
       }
+    }
+    // Also check that the installed files claim to match this binary.
+    // We check this afterward because the above diagnostic is better
+    // for a missing install_base_key file.
+    blaze_util::Path key_path = install_dir.GetRelative("install_base_key");
+    string on_disk_key;
+    if (!blaze_util::ReadFile(key_path, &on_disk_key)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "cannot read '" << key_path.AsPrintablePath()
+          << "': " << GetLastErrorString();
+    }
+    if (on_disk_key != expected_install_md5) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "The install_base directory '" << install_base
+          << "' contains a different " << startup_options.product_name
+          << " version (found " << on_disk_key << " but this binary is "
+          << expected_install_md5
+          << ").  Remove it or specify a different --install_base.";
     }
     return DurationMillis();
   }

@@ -38,7 +38,7 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
   // Scan the zip file "archive_path" until a file named "stop_entry" is seen,
   // then stop.
   // If entry_names is not null, it receives a list of all file members
-  // preceding "stop_entry".
+  // up to and including "stop_entry".
   // If a callback is given, it is run with the name and contents of
   // each such member.
   // Returns the contents of the "stop_entry" member.
@@ -73,23 +73,21 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
   }
 
   bool Accept(const char *filename, devtools_ijar::u4 attr) override {
-    string fn = filename;
-    if (stop_name_ == fn) {
-      done_ = true;
-      return true;  // save content in stop_value_
-    }
     if (devtools_ijar::zipattr_is_dir(attr)) return false;
     // Sometimes that fails to detect directories.  Check the name too.
+    string fn = filename;
     if (fn.empty() || fn.back() == '/') return false;
+    if (stop_name_ == fn) done_ = true;
     seen_names_.push_back(std::move(fn));
-    return !!callback_;  // true if a callback was supplied
+    return done_ || !!callback_;  // true if a callback was supplied
   }
 
   void Process(const char *filename, devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, size_t size) override {
     if (done_) {
       stop_value_.assign(reinterpret_cast<const char *>(data), size);
-    } else {
+    }
+    if (callback_) {
       callback_(filename, reinterpret_cast<const char *>(data), size);
     }
   }
