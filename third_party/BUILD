@@ -337,10 +337,8 @@ java_import(
 
 java_import(
     name = "checker_framework_annotations",
-    jars = [
-        "checker_framework_annotations/checker-qual-2.6.0.jar",
-        "checker_framework_annotations/checker-compat-qual-2.6.0.jar",
-    ],
+    jars = ["checker_framework_annotations/checker-qual-3.0.0.jar"],
+    srcjar = "checker_framework_annotations/checker-qual-3.0.0-sources.jar",
 )
 
 java_import(
