@@ -25,7 +25,7 @@
 #include "src/main/native/jni.h"
 
 // Keep track of our pushes and pops of sleep state.
-static std::atomic_int g_sleep_stack = 0;
+static std::atomic_int g_sleep_stack{0};
 
 /*
  * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
