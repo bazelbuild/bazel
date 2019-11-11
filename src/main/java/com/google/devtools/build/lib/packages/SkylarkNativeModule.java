@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.Tuple;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -377,7 +378,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
         l.add(elt);
       }
 
-      return SkylarkList.Tuple.copyOf(l);
+      return Tuple.copyOf(l);
     }
     if (val instanceof Map) {
       Map<Object, Object> m = new TreeMap<>();

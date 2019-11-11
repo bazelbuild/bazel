@@ -1682,10 +1682,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  t2 += (3, 4)",
             "  return t1, t2",
             "tuples = func()")
-        .testLookup("tuples", SkylarkList.Tuple.of(
-            SkylarkList.Tuple.of(1, 2),
-            SkylarkList.Tuple.of(1, 2, 3, 4)
-        ));
+        .testLookup("tuples", Tuple.of(Tuple.of(1, 2), Tuple.of(1, 2, 3, 4)));
   }
 
   @Test
@@ -2024,11 +2021,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     // tuple
     x = eval("(1,2)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2).inOrder();
-    assertThat(((SkylarkList) x).isTuple()).isTrue();
+    assertThat(x).isInstanceOf(Tuple.class);
 
     x = eval("(1,2) + (3,4)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertThat(((SkylarkList) x).isTuple()).isTrue();
+    assertThat(x).isInstanceOf(Tuple.class);
   }
 
   @Override

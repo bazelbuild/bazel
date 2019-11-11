@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.Collection;
 import java.util.IllegalFormatException;
@@ -95,7 +94,7 @@ public final class EvalUtils {
 
           if (o1 instanceof SkylarkList
               && o2 instanceof SkylarkList
-              && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
+              && o1 instanceof Tuple == o2 instanceof Tuple) {
             return compareLists((SkylarkList) o1, (SkylarkList) o2);
           }
 

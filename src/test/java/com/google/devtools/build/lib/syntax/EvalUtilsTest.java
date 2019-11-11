@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -97,8 +96,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       2,
       true,
       Runtime.NONE,
-      SkylarkList.Tuple.of(1, 2, 3),
-      SkylarkList.Tuple.of("1", "2", "3"),
+      Tuple.of(1, 2, 3),
+      Tuple.of("1", "2", "3"),
       SkylarkList.MutableList.of(thread, 1, 2, 3),
       SkylarkList.MutableList.of(thread, "1", "2", "3"),
       SkylarkDict.of(thread, "key", 123),

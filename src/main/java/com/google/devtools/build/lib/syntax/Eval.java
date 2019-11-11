@@ -555,7 +555,7 @@ final class Eval {
             result.add(eval(thread, elem));
           }
           return list.isTuple()
-              ? SkylarkList.Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
+              ? Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
               : SkylarkList.MutableList.wrapUnsafe(thread, result);
         }
 

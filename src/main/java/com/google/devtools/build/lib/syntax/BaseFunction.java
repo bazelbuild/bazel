@@ -21,7 +21,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

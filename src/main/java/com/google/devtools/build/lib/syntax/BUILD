@@ -130,6 +130,7 @@ java_library(
         "StarlarkMutable.java",
         "StarlarkThread.java",
         "StringModule.java",
+        "Tuple.java",
     ],
     deps = [
         ":frontend",

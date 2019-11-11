@@ -17,7 +17,6 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formattable;
