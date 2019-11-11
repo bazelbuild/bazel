@@ -46,6 +46,11 @@ public interface TransitionFactory<T> {
    * part of the tooling rather than a dependency of the original target.
    */
   default boolean isTool() {
+    if (isHost()) {
+      // Every host dependency is also a tool dependency.
+      return true;
+    }
+
     return false;
   }
 
