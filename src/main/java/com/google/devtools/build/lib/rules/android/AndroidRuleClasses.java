@@ -362,7 +362,7 @@ public final class AndroidRuleClasses {
           implicitOutputs.add(
               AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
-              AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+              AndroidRuleClasses.ANDROID_LIBRARY_AAR /* TODO(b/36518935): remove this */);
 
           if (AndroidResources.definesAndroidResources(attributes)) {
             implicitOutputs.add(
