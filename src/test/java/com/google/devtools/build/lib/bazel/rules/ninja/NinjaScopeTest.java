@@ -102,7 +102,7 @@ public class NinjaScopeTest {
   }
 
   @Test
-  public void testFindVariable() throws Exception {
+  public void testFindVariable() {
     NinjaScope scope = new NinjaScope();
     scope.addVariable("abc", 12, value("cba"));
     scope.addVariable("abc", 5, value("cba1"));
@@ -214,6 +214,26 @@ public class NinjaScopeTest {
     NinjaVariableValue childVar = parent.findVariable(145, "child");
     assertThat(childVar).isNotNull();
     assertThat(childVar.getText()).isEqualTo("child");
+  }
+
+  @Test
+  public void testFindInRecursivelyIncluded() {
+    NinjaScope parent = new NinjaScope();
+    parent.addVariable("abc", 12, value("abc"));
+    parent.addVariable("edf", 120, value("edf"));
+    parent.addVariable("xyz", 1000, value("xyz"));
+
+    NinjaScope child = parent.createIncludeScope(140);
+    // Shadows this variable from parent.
+    child.addVariable("edf", 1, value("11111"));
+    child.addVariable("child", 2, value("child"));
+
+    NinjaScope child2 = child.createIncludeScope(3);
+    child2.addVariable("edf", 1, value("22222"));
+
+    NinjaVariableValue edfVarFromChild2 = parent.findVariable(220, "edf");
+    assertThat(edfVarFromChild2).isNotNull();
+    assertThat(edfVarFromChild2.getText()).isEqualTo("22222");
   }
 
   private static NinjaRule rule(String name) {

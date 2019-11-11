@@ -46,7 +46,7 @@ public class NinjaScope {
    */
   @Nullable
   private final Integer includePoint;
-  private final SortedMap<Integer, NinjaScope> includedScopes;
+  private final NavigableMap<Integer, NinjaScope> includedScopes;
   private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
 
@@ -137,36 +137,27 @@ public class NinjaScope {
   private <T> T findByNameAndOffsetRecursively(int offset, String name,
       Function<NinjaScope, Map<String, List<Pair<Integer, T>>>> mapSupplier) {
     Pair<Integer, T> currentScopeValue = findByNameAndOffset(offset, name, this, mapSupplier);
-    T result = currentScopeValue != null ? currentScopeValue.getSecond() : null;
 
-    if (!includedScopes.isEmpty()) {
-      NavigableMap<Integer, T> variants = Maps.newTreeMap();
-      if (currentScopeValue != null) {
-        variants.put(currentScopeValue.getFirst(), currentScopeValue.getSecond());
-      }
-      for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
-        // Only if the file was included before the reference.
-        Integer includeOffset = entry.getKey();
-        if (includeOffset < offset) {
-          NinjaScope includedScope = entry.getValue();
-          Pair<Integer, T> includedValue = findByNameAndOffset(Integer.MAX_VALUE,
-              name, includedScope, mapSupplier);
-          if (includedValue != null) {
-            // Put at include statement offset.
-            variants.put(includeOffset, includedValue.getSecond());
-          }
-        }
-      }
-      if (! variants.isEmpty()) {
-        result = variants.lastEntry().getValue();
+    int currentScopeOffset = currentScopeValue != null
+        ? Preconditions.checkNotNull(currentScopeValue.getFirst()) : -1;
+    // Search in included scopes, which were included after the current scope, so they could
+    // override the value, but before the reference offset.
+    NavigableMap<Integer, NinjaScope> subMap = includedScopes
+        .subMap(currentScopeOffset, false, offset, false);
+    // Search in descending order, so that the first found value is the result.
+    for (NinjaScope includedScope : subMap.descendingMap().values()) {
+      T includedValue = includedScope.findByNameAndOffsetRecursively(
+          Integer.MAX_VALUE, name, mapSupplier);
+      if (includedValue != null) {
+        return includedValue;
       }
     }
-    if (result != null) {
-      return result;
+    if (currentScopeValue != null) {
+      return currentScopeValue.getSecond();
     }
     if (parentScope != null) {
       Preconditions.checkNotNull(includePoint);
-      // -1 is used to do not conflict with the current scope.
+      // -1 is used in order not to conflict with the current scope.
       return parentScope.findByNameAndOffsetRecursively(includePoint - 1, name, mapSupplier);
     }
     return null;
