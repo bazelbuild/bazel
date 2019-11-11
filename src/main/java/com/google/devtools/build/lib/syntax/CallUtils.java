@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.util.Pair;
@@ -587,12 +585,6 @@ public final class CallUtils {
     return methodDescriptor.getName() + "(" + Joiner.on(", ").join(argTokens.build()) + ")";
   }
 
-  @VisibleForTesting
-  public static boolean isNamespace(Class<?> classObject) {
-    return classObject.isAnnotationPresent(SkylarkModule.class)
-        && classObject.getAnnotation(SkylarkModule.class).namespace();
-  }
-
   /** Invoke object.method() and return the result. */
   static Object callMethod(
       StarlarkThread thread,
@@ -621,17 +613,7 @@ public final class CallUtils {
       return methodDescriptor.call(object, javaArguments, call.getLocation(), thread);
     }
 
-    // Case 3: Object is a function registered with the BuiltinRegistry.
-    // TODO(cparsons): The runtime builtin registry is deprecated and only used by non-Bazel users
-    // of the Starlark interpreter. Remove its use.
-    BaseFunction legacyRuntimeFunction =
-        Runtime.getBuiltinRegistry().getFunction(object.getClass(), methodName);
-    if (legacyRuntimeFunction != null) {
-      return callLegacyBuiltinRegistryFunction(
-          call, legacyRuntimeFunction, object, posargs, kwargs, thread);
-    }
-
-    // Case 4: All other cases. Evaluate "foo.bar" as a dot expression, then try to invoke it
+    // Case 3: All other cases. Evaluate "foo.bar" as a dot expression, then try to invoke it
     // as a callable.
     Object functionObject = EvalUtils.getAttr(thread, dotLocation, object, methodName);
     if (functionObject == null) {
@@ -639,20 +621,6 @@ public final class CallUtils {
     } else {
       return call(thread, call, functionObject, posargs, kwargs);
     }
-  }
-
-  private static Object callLegacyBuiltinRegistryFunction(
-      FuncallExpression call,
-      BaseFunction legacyRuntimeFunction,
-      Object object,
-      ArrayList<Object> posargs,
-      Map<String, Object> kwargs,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    if (!isNamespace(object.getClass())) {
-      posargs.add(0, object);
-    }
-    return legacyRuntimeFunction.call(posargs, kwargs, call, thread);
   }
 
   private static Object callStringMethod(

@@ -15,22 +15,17 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
-import javax.annotation.Nullable;
 
 /** Global constants and support for static registration of builtin symbols. */
-// TODO(adonovan): migrate None and Unbound to Starlark.java. Get rid of the rest.
+// TODO(adonovan): migrate None and Unbound to Starlark.java, and NoneType and
+// UnboundMarker to top level, then delete this class.
 public final class Runtime {
 
   private Runtime() {}
@@ -71,7 +66,7 @@ public final class Runtime {
 
   /** Marker for unbound variables in cases where neither Java null nor Skylark None is suitable. */
   @Immutable
-  public static final class UnboundMarker implements SkylarkValue {
+  private static final class UnboundMarker implements SkylarkValue {
     private UnboundMarker() {}
 
     @Override
@@ -93,219 +88,30 @@ public final class Runtime {
   public static final UnboundMarker UNBOUND = new UnboundMarker();
 
   /**
-   * Returns the canonical class representing the namespace associated with the given class, i.e.,
-   * the class under which builtins should be registered.
-   */
-  private static Class<?> getSkylarkNamespace(Class<?> clazz) {
-    return String.class.isAssignableFrom(clazz)
-        ? StringModule.class
-        : EvalUtils.getSkylarkType(clazz);
-  }
-
-  /**
-   * A registry of builtins, including both global builtins and builtins that are under some
-   * namespace.
-   *
-   * <p>The registry contains Starlark universal builtins (None, len, etc), core build-language
-   * functions (depset, select, glob, etc), members of the native module (FilesetEntry,
-   * local_repository, vardef, ...), but not the native rules (cc_library, etc) nor other built-ins
-   * (CcCompilationInfo, java_common.JavaRuntimeInfo, etc).
-   *
-   * <p>Concurrency model: This object is thread-safe. Read accesses are always allowed, while write
-   * accesses are only allowed before this object has been frozen ({@link #freeze}). Prior to
-   * freezing, all operations are synchronized, while after freezing they are lockless.
-   */
-  @Deprecated
-  public static class BuiltinRegistry {
-
-    /**
-     * Whether the registry's construction has completed.
-     *
-     * <p>Mutating methods may only be called while this is still false. Accessor methods may be
-     * called at any time.
-     *
-     * <p>We use {@code volatile} rather than {@link AtomicBoolean} because the bit flip only
-     * happens once, and doesn't require correlated reads and writes.
-     */
-    private volatile boolean frozen = false;
-
-    /**
-     * All registered builtins, keyed and sorted by an identifying (but otherwise unimportant)
-     * string.
-     *
-     * <p>The string is typically formed from the builtin's simple name and the Java class in which
-     * it is defined. The Java class need not correspond to a namespace. (This map includes global
-     * builtins that have no namespace.)
-     */
-    private final Map<String, Object> allBuiltins = new TreeMap<>();
-
-    /** All non-global builtin functions, keyed by their namespace class and their name. */
-    private final Map<Class<?>, Map<String, BaseFunction>> functions = new HashMap<>();
-
-    /**
-     * Marks the registry as initialized, if it wasn't already.
-     *
-     * <p>It is guaranteed that after this method returns, all accessor methods are safe without
-     * synchronization; i.e. no mutation operation can touch the data structures.
-     */
-    public void freeze() {
-      // Similar to double-checked locking, but no need to check again on the inside since we don't
-      // care if two threads set the bit at once. The synchronized block is only to provide
-      // exclusion with mutations.
-      if (!this.frozen) {
-        synchronized (this) {
-          this.frozen = true;
-        }
-      }
-    }
-
-    /** Registers a builtin with the given simple name, that was defined in the given Java class. */
-    public synchronized void registerBuiltin(Class<?> definingClass, String name, Object builtin) {
-      String key = String.format("%s.%s", definingClass.getName(), name);
-      Preconditions.checkArgument(
-          !allBuiltins.containsKey(key),
-          "Builtin '%s' registered multiple times",
-          key);
-
-      Preconditions.checkState(
-          !frozen,
-          "Attempted to register builtin '%s' after registry has already been frozen",
-          key);
-
-      allBuiltins.put(key, builtin);
-    }
-
-    /**
-     * Registers a function underneath a namespace.
-     *
-     * <p>This is independent of {@link #registerBuiltin}.
-     */
-    synchronized void registerFunction(Class<?> namespace, BaseFunction function) {
-      Preconditions.checkNotNull(namespace);
-      Preconditions.checkNotNull(function.getObjectType());
-      Class<?> skylarkNamespace = getSkylarkNamespace(namespace);
-      Preconditions.checkArgument(skylarkNamespace.equals(namespace));
-      Class<?> objType = getSkylarkNamespace(function.getObjectType());
-      Preconditions.checkArgument(objType.equals(skylarkNamespace));
-
-      Preconditions.checkState(
-          !frozen,
-          "Attempted to register function '%s' in namespace '%s' after registry has already been "
-              + "frozen",
-          function,
-          namespace);
-
-      functions.computeIfAbsent(namespace, k -> new HashMap<>());
-      functions.get(namespace).put(function.getName(), function);
-    }
-
-    /** Returns a list of all registered builtins, in a deterministic order. */
-    public ImmutableList<Object> getBuiltins() {
-      if (frozen) {
-        return ImmutableList.copyOf(allBuiltins.values());
-      } else {
-        synchronized (this) {
-          return ImmutableList.copyOf(allBuiltins.values());
-        }
-      }
-    }
-
-    @Nullable
-    private Map<String, BaseFunction> getFunctionsInNamespace(Class<?> namespace) {
-      return functions.get(getSkylarkNamespace(namespace));
-    }
-
-    /**
-     * Given a namespace, returns the function with the given name.
-     *
-     * <p>If the namespace does not exist or has no function with that name, returns null.
-     */
-    BaseFunction getFunction(Class<?> namespace, String name) {
-      if (frozen) {
-        Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-        return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
-      } else {
-        synchronized (this) {
-          Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-          return namespaceFunctions != null ? namespaceFunctions.get(name) : null;
-        }
-      }
-    }
-
-    /**
-     * Given a namespace, returns all function names.
-     *
-     * <p>If the namespace does not exist, returns an empty set.
-     */
-    ImmutableSet<String> getFunctionNames(Class<?> namespace) {
-      if (frozen) {
-        Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-        if (namespaceFunctions == null) {
-          return ImmutableSet.of();
-        }
-        return ImmutableSet.copyOf(namespaceFunctions.keySet());
-      } else {
-        synchronized (this) {
-          Map<String, BaseFunction> namespaceFunctions = getFunctionsInNamespace(namespace);
-          if (namespaceFunctions == null) {
-            return ImmutableSet.of();
-          }
-          return ImmutableSet.copyOf(namespaceFunctions.keySet());
-        }
-      }
-    }
-  }
-
-  /**
-   * All Skylark builtins.
-   *
-   * <p>Note that just because a symbol is registered here does not necessarily mean that it is
-   * accessible in a particular {@link StarlarkThread}. This registry should include any builtin
-   * that is available in any environment.
-   *
-   * <p>Thread safety: This object is unsynchronized. The register functions are typically called
-   * from within static initializer blocks, which should be fine.
-   */
-  private static final BuiltinRegistry builtins = new BuiltinRegistry();
-
-  /**
-   * Retrieve the static instance containing information on all known Skylark builtins.
-   *
-   * @deprecated do not use a static singleton registry -- instead set up the Skylark environment
-   *     with 'global' objects
-   */
-  @Deprecated
-  public static BuiltinRegistry getBuiltinRegistry() {
-    return builtins;
-  }
-
-  /**
-   * Adds global (top-level) symbols, provided by the given object, to the given bindings
-   * builder.
+   * Adds global (top-level) symbols, provided by the given object, to the given bindings builder.
    *
    * <p>Global symbols may be provided by the given object in the following ways:
+   *
    * <ul>
-   *   <li>If its class is annotated with {@link SkylarkModule}, an instance of that object is
-   *       a global object with the module's name.</li>
+   *   <li>If its class is annotated with {@link SkylarkModule}, an instance of that object is a
+   *       global object with the module's name.
    *   <li>If its class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
-   *       which are annotated with
-   *       {@link com.google.devtools.build.lib.skylarkinterface.SkylarkCallable} are global
-   *       callables.</li>
+   *       which are annotated with {@link SkylarkCallable} are global callables.
    * </ul>
    *
    * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
-   * multiple global libraries have functions of the same name, two modules of the same name
-   * are given, or if two subclasses of the same module are given.
+   * multiple global libraries have functions of the same name, two modules of the same name are
+   * given, or if two subclasses of the same module are given.
    *
-   * @param builder the builder for the "bindings" map, which maps from symbol names to objects,
-   *     and which will be built into a global frame
+   * @param builder the builder for the "bindings" map, which maps from symbol names to objects, and
+   *     which will be built into a global frame
    * @param moduleInstance the object containing globals
    * @throws AssertionError if there are name collisions
-   * @throws IllegalArgumentException if {@code moduleInstance} is not annotated with
-   *     {@link SkylarkGlobalLibrary} nor {@link SkylarkModule}
+   * @throws IllegalArgumentException if {@code moduleInstance} is not annotated with {@link
+   *     SkylarkGlobalLibrary} nor {@link SkylarkModule}
    */
-  public static void setupSkylarkLibrary(ImmutableMap.Builder<String, Object> builder,
-      Object moduleInstance) {
+  public static void setupSkylarkLibrary(
+      ImmutableMap.Builder<String, Object> builder, Object moduleInstance) {
     Class<?> moduleClass = moduleInstance.getClass();
     SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
     boolean hasSkylarkGlobalLibrary = SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass);

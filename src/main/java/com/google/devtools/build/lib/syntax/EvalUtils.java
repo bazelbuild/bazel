@@ -649,9 +649,7 @@ public final class EvalUtils {
     } else {
       suffix =
           SpellChecker.didYouMean(
-              name,
-              CallUtils.getStructFieldNames(
-                  semantics, object instanceof Class ? (Class<?>) object : object.getClass()));
+              name, CallUtils.getStructFieldNames(semantics, object.getClass()));
     }
     if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
       // If looking up the field failed, then we know that this method must have struct_field=false
@@ -671,12 +669,7 @@ public final class EvalUtils {
 
   /** Returns whether the given object has a method with the given name. */
   static boolean hasMethod(StarlarkSemantics semantics, Object object, String name) {
-    Class<?> cls = object instanceof Class ? (Class<?>) object : object.getClass();
-    if (Runtime.getBuiltinRegistry().getFunctionNames(cls).contains(name)) {
-      return true;
-    }
-
-    return CallUtils.getMethodNames(semantics, cls).contains(name);
+    return CallUtils.getMethodNames(semantics, object.getClass()).contains(name);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */

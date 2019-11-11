@@ -823,7 +823,6 @@ class MethodLibrary {
     if (object instanceof ClassObject) {
       fields.addAll(((ClassObject) object).getFieldNames());
     }
-    fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
     fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
     return MutableList.copyOf(thread, fields);
   }
