@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.remote.disk;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -28,16 +29,16 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 /**
- * A {@link SimpleBlobStore} implementation combining two blob stores. A local disk blob store and a
- * remote blob store. If a blob isn't found in the first store, the second store is used, and the
+ * A {@link RemoteCacheClient} implementation combining two blob stores. A local disk blob store and
+ * a remote blob store. If a blob isn't found in the first store, the second store is used, and the
  * blob added to the first. Put puts the blob on both stores.
  */
-public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
+public final class CombinedDiskHttpCacheClient implements RemoteCacheClient {
 
-  private final SimpleBlobStore remoteCache;
-  private final OnDiskBlobStore diskCache;
+  private final RemoteCacheClient remoteCache;
+  private final DiskCacheClient diskCache;
 
-  public CombinedDiskHttpBlobStore(OnDiskBlobStore diskCache, SimpleBlobStore remoteCache) {
+  public CombinedDiskHttpCacheClient(DiskCacheClient diskCache, RemoteCacheClient remoteCache) {
     this.diskCache = Preconditions.checkNotNull(diskCache);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
   }
@@ -79,6 +80,20 @@ public final class CombinedDiskHttpBlobStore implements SimpleBlobStore {
       return Futures.immediateFailedFuture(e);
     }
     return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    ListenableFuture<ImmutableSet<Digest>> remoteQuery = remoteCache.findMissingDigests(digests);
+    ListenableFuture<ImmutableSet<Digest>> diskQuery = diskCache.findMissingDigests(digests);
+    return Futures.whenAllSucceed(remoteQuery, diskQuery)
+        .call(
+            () ->
+                ImmutableSet.<Digest>builder()
+                    .addAll(remoteQuery.get())
+                    .addAll(diskQuery.get())
+                    .build(),
+            MoreExecutors.directExecutor());
   }
 
   private Path newTempPath() {

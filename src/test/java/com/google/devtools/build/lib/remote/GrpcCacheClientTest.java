@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -88,6 +88,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -107,9 +108,9 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-/** Tests for {@link GrpcRemoteCache}. */
+/** Tests for {@link GrpcCacheClient}. */
 @RunWith(JUnit4.class)
-public class GrpcRemoteCacheTest {
+public class GrpcCacheClientTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
@@ -183,15 +184,15 @@ public class GrpcRemoteCacheTest {
     }
   }
 
-  private GrpcRemoteCache newClient() throws IOException {
+  private GrpcCacheClient newClient() throws IOException {
     return newClient(Options.getDefaults(RemoteOptions.class));
   }
 
-  private GrpcRemoteCache newClient(RemoteOptions remoteOptions) throws IOException {
+  private GrpcCacheClient newClient(RemoteOptions remoteOptions) throws IOException {
     return newClient(remoteOptions, () -> new ExponentialBackoff(remoteOptions));
   }
 
-  private GrpcRemoteCache newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
+  private GrpcCacheClient newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
       throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
@@ -214,22 +215,35 @@ public class GrpcRemoteCacheTest {
         TestUtils.newRemoteRetrier(
             backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
     ReferenceCountedChannel channel =
-        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor()
-            .intercept(new CallCredentialsInterceptor(creds)).build());
+        new ReferenceCountedChannel(
+            InProcessChannelBuilder.forName(fakeServerName)
+                .directExecutor()
+                .intercept(new CallCredentialsInterceptor(creds))
+                .build());
     ByteStreamUploader uploader =
-        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
-            remoteOptions.remoteTimeout, retrier);
-    return new GrpcRemoteCache(channel.retain(),
-        creds,
-        remoteOptions,
-        retrier,
-        DIGEST_UTIL,
-        uploader);
+        new ByteStreamUploader(
+            remoteOptions.remoteInstanceName,
+            channel.retain(),
+            creds,
+            remoteOptions.remoteTimeout,
+            retrier);
+    return new GrpcCacheClient(
+        channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+  }
+
+  private static byte[] downloadBlob(GrpcCacheClient cacheClient, Digest digest)
+      throws IOException, InterruptedException {
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      getFromFuture(cacheClient.downloadBlob(digest, out));
+      return out.toByteArray();
+    }
   }
 
   @Test
   public void testVirtualActionInputSupport() throws Exception {
-    GrpcRemoteCache client = newClient();
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    RemoteExecutionCache client =
+        new RemoteExecutionCache(newClient(options), options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput = new StringActionInput("hello", execPath);
     MerkleTree merkleTree =
@@ -289,15 +303,15 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testDownloadEmptyBlob() throws Exception {
-    GrpcRemoteCache client = newClient();
+    GrpcCacheClient client = newClient();
     Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     // Will not call the mock Bytestream interface at all.
-    assertThat(getFromFuture(client.downloadBlob(emptyDigest))).isEmpty();
+    assertThat(downloadBlob(client, emptyDigest)).isEmpty();
   }
 
   @Test
   public void testDownloadBlobSingleChunk() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    final GrpcCacheClient client = newClient();
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -309,12 +323,12 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
-    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(client, digest), UTF_8)).isEqualTo("abcdefg");
   }
 
   @Test
   public void testDownloadBlobMultipleChunks() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    final GrpcCacheClient client = newClient();
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -330,12 +344,15 @@ public class GrpcRemoteCacheTest {
             responseObserver.onCompleted();
           }
         });
-    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(client, digest), UTF_8)).isEqualTo("abcdefg");
   }
 
   @Test
   public void testDownloadAllResults() throws Exception {
-    GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
     Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
@@ -346,7 +363,7 @@ public class GrpcRemoteCacheTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
-    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -355,7 +372,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testDownloadDirectory() throws Exception {
-    GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Tree barTreeMessage =
@@ -379,7 +399,7 @@ public class GrpcRemoteCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
@@ -388,7 +408,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testDownloadDirectoryEmpty() throws Exception {
-    GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
     Digest barTreeDigest = DIGEST_UTIL.compute(barTreeMessage);
     serviceRegistry.addService(
@@ -397,14 +420,17 @@ public class GrpcRemoteCacheTest {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
   }
 
   @Test
   public void testDownloadDirectoryNested() throws Exception {
-    GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest quxDigest = DIGEST_UTIL.computeAsUtf8("qux-contents");
     Directory wobbleDirMessage =
@@ -436,7 +462,7 @@ public class GrpcRemoteCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
@@ -494,7 +520,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadDirectory() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest quxDigest =
@@ -540,7 +569,7 @@ public class GrpcRemoteCacheTest {
           }
         });
 
-    ActionResult result = uploadDirectory(client, ImmutableList.<Path>of(fooFile, barDir));
+    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
@@ -549,7 +578,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadDirectoryEmpty() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
             ActionInputHelper.fromPath("bar"),
@@ -577,7 +609,7 @@ public class GrpcRemoteCacheTest {
           }
         });
 
-    ActionResult result = uploadDirectory(client, ImmutableList.<Path>of(barDir));
+    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result).isEqualTo(expectedResult.build());
@@ -585,7 +617,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadDirectoryNested() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
     final Digest quxDigest =
@@ -636,23 +671,26 @@ public class GrpcRemoteCacheTest {
           }
         });
 
-    ActionResult result = uploadDirectory(client, ImmutableList.of(barDir));
+    ActionResult result = uploadDirectory(remoteCache, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
-  private ActionResult uploadDirectory(GrpcRemoteCache client, List<Path> outputs)
+  private ActionResult uploadDirectory(RemoteCache remoteCache, List<Path> outputs)
       throws Exception {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return client.upload(actionKey, action, cmd, execRoot, outputs, outErr);
+    return remoteCache.upload(actionKey, action, cmd, execRoot, outputs, outErr);
   }
 
   @Test
   public void testUpload() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
@@ -698,7 +736,7 @@ public class GrpcRemoteCacheTest {
         });
 
     ActionResult result =
-        client.upload(
+        remoteCache.upload(
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -719,6 +757,11 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadSplitMissingDigestsCall() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
@@ -754,11 +797,8 @@ public class GrpcRemoteCacheTest {
           }
         });
 
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
-    final GrpcRemoteCache client = newClient(options);
     ActionResult result =
-        client.upload(
+        remoteCache.upload(
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -778,7 +818,10 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testUploadCacheMissesWithRetries() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
@@ -903,7 +946,7 @@ public class GrpcRemoteCacheTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    client.upload(
+    remoteCache.upload(
         actionKey,
         Action.getDefaultInstance(),
         Command.getDefaultInstance(),
@@ -917,7 +960,7 @@ public class GrpcRemoteCacheTest {
 
   @Test
   public void testGetCachedActionResultWithRetries() throws Exception {
-    final GrpcRemoteCache client = newClient();
+    final GrpcCacheClient client = newClient();
     ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -930,13 +973,13 @@ public class GrpcRemoteCacheTest {
                 (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
           }
         });
-    assertThat(client.getCachedActionResult(actionKey)).isNull();
+    assertThat(getFromFuture(client.downloadActionResult(actionKey))).isNull();
   }
 
   @Test
   public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    final GrpcRemoteCache client =
+    final GrpcCacheClient client =
         newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
@@ -959,16 +1002,15 @@ public class GrpcRemoteCacheTest {
             }
           }
         });
-    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(client, digest), UTF_8)).isEqualTo("abcdefg");
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis();
   }
 
   @Test
-  public void downloadBlobPassesThroughDeadlineExceededWithoutProgress()
-      throws IOException, InterruptedException {
+  public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     Mockito.when(mockBackoff.nextDelayMillis()).thenReturn(-1L);
-    final GrpcRemoteCache client =
+    final GrpcCacheClient client =
         newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
@@ -984,11 +1026,52 @@ public class GrpcRemoteCacheTest {
             responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
-    IOException e =
-        assertThrows(IOException.class, () -> getFromFuture(client.downloadBlob(digest)));
+    IOException e = assertThrows(IOException.class, () -> downloadBlob(client, digest));
     Status st = Status.fromThrowable(e);
     assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
     Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis();
+  }
+
+  @Test
+  public void testDownloadFailsOnDigestMismatch() throws Exception {
+    // Test that the download fails when a blob/file has a different content hash than expected.
+
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            ByteString data = ByteString.copyFromUtf8("bar");
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+            responseObserver.onCompleted();
+          }
+        });
+    IOException e = assertThrows(IOException.class, () -> downloadBlob(client, digest));
+    assertThat(e).hasMessageThat().contains(digest.getHash());
+    assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("bar").getHash());
+  }
+
+  @Test
+  public void testDisablingDigestVerification() throws Exception {
+    // Test that when digest verification is disabled a corrupted download works.
+
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteVerifyDownloads = false;
+
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("foo");
+    ByteString downloadContents = ByteString.copyFromUtf8("bar");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(ReadResponse.newBuilder().setData(downloadContents).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    assertThat(downloadBlob(client, digest)).isEqualTo(downloadContents.toByteArray());
   }
 
   @Test
@@ -996,7 +1079,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "grpc://some-host.com";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1004,7 +1087,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "GRPC://some-host.com";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1012,7 +1095,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "localhost:1234";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1020,7 +1103,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "some-host.com:1234";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1028,7 +1111,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "http://some-host.com";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 
   @Test
@@ -1036,7 +1119,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "HTTP://some-host.com";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 
   @Test
@@ -1044,7 +1127,7 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "https://some-host.com";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 
   @Test
@@ -1053,7 +1136,7 @@ public class GrpcRemoteCacheTest {
     options.remoteCache = "grp://some-host.com";
 
     // TODO(ishikhman): add proper vaildation and flip to false
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1062,7 +1145,7 @@ public class GrpcRemoteCacheTest {
     options.remoteCache = "grpcsss://some-host.com";
 
     // TODO(ishikhman): add proper vaildation and flip to false
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isTrue();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isTrue();
   }
 
   @Test
@@ -1070,13 +1153,13 @@ public class GrpcRemoteCacheTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteCache = "";
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 
   @Test
   public void isRemoteCacheOptionsWhenRemoteCacheDisabled() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
 
-    assertThat(GrpcRemoteCache.isRemoteCacheOptions(options)).isFalse();
+    assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
   }
 }

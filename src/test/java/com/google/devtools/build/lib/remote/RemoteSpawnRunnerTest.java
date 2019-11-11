@@ -64,7 +64,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -114,7 +114,7 @@ public class RemoteSpawnRunnerTest {
   private RemoteOptions remoteOptions;
   private RemoteRetrier retrier;
 
-  @Mock private GrpcRemoteCache cache;
+  @Mock private RemoteExecutionCache cache;
 
   @Mock private GrpcRemoteExecutor executor;
 
@@ -187,7 +187,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
-    verify(cache, never()).getCachedActionResult(any(ActionKey.class));
+    verify(cache, never()).downloadActionResult(any(ActionKey.class));
     verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
     verifyZeroInteractions(localRunner);
   }
@@ -298,7 +298,7 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteUploadLocalResults = true;
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(failedAction);
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     // Throw an IOException to trigger the local fallback.
@@ -338,7 +338,7 @@ public class RemoteSpawnRunnerTest {
     // remotely
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(failedAction);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(failedAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -377,8 +377,7 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
-    when(cache.getCachedActionResult(any(ActionKey.class)))
-        .thenThrow(new IOException("cache down"));
+    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException("cache down"));
 
     doThrow(new IOException("cache down"))
         .when(cache)
@@ -419,7 +418,7 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -445,7 +444,7 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
+    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException());
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -462,7 +461,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
@@ -594,7 +593,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(cachedResult);
     Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
     doThrow(downloadFailure)
         .when(cache)
@@ -623,7 +622,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse cachedResponse =
@@ -665,7 +664,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .setResult(cachedResult)
@@ -699,7 +698,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .setResult(cachedResult)
@@ -731,7 +730,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     ExecuteResponse failed =
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(33).build())
@@ -761,7 +760,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
@@ -782,7 +781,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException("reasons"));
+    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy =
@@ -862,7 +861,7 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -914,7 +913,7 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
     when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
@@ -946,7 +945,7 @@ public class RemoteSpawnRunnerTest {
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
 

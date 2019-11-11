@@ -38,9 +38,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
-import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -97,7 +96,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private final Path workPath;
   private final Path sandboxPath;
   private final RemoteWorkerOptions workerOptions;
-  private final SimpleBlobStoreActionCache cache;
+  private final OnDiskBlobStoreCache cache;
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
   private final ListeningExecutorService executorService;
   private final DigestUtil digestUtil;
@@ -106,7 +105,7 @@ final class ExecutionServer extends ExecutionImplBase {
       Path workPath,
       Path sandboxPath,
       RemoteWorkerOptions workerOptions,
-      SimpleBlobStoreActionCache cache,
+      OnDiskBlobStoreCache cache,
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache,
       DigestUtil digestUtil) {
     this.workPath = workPath;

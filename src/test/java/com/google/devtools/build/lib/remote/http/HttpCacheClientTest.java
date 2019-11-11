@@ -33,11 +33,13 @@ import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
@@ -71,6 +73,7 @@ import io.netty.handler.codec.http.HttpVersion;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -92,12 +95,12 @@ import org.junit.runners.Parameterized.Parameters;
 import org.mockito.AdditionalAnswers;
 import org.mockito.Mockito;
 
-/** Tests for {@link HttpBlobStore}. */
+/** Tests for {@link HttpCacheClient}. */
 @RunWith(Parameterized.class)
-public class HttpBlobStoreTest {
+public class HttpCacheClientTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
-  private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
+  private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("File Contents");
 
   private static ServerChannel createServer(
       Class<? extends ServerChannel> serverChannelClass,
@@ -136,6 +139,7 @@ public class HttpBlobStoreTest {
   }
 
   interface TestServer {
+
     ServerChannel start(ChannelInboundHandler handler);
 
     void stop(ServerChannel serverChannel);
@@ -241,33 +245,51 @@ public class HttpBlobStoreTest {
 
   private final TestServer testServer;
 
-  public HttpBlobStoreTest(TestServer testServer) {
+  public HttpCacheClientTest(TestServer testServer) {
     this.testServer = testServer;
   }
 
-  private HttpBlobStore createHttpBlobStore(
-      ServerChannel serverChannel, int timeoutSeconds, @Nullable final Credentials creds)
+  private HttpCacheClient createHttpBlobStore(
+      ServerChannel serverChannel,
+      int timeoutSeconds,
+      boolean remoteVerifyDownloads,
+      @Nullable final Credentials creds)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
-      return HttpBlobStore.create(
+      return HttpCacheClient.create(
           domainSocketAddress,
           uri,
           timeoutSeconds,
           /* remoteMaxConnections= */ 0,
+          remoteVerifyDownloads,
           ImmutableList.of(),
+          DIGEST_UTIL,
           creds);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(
-          uri, timeoutSeconds, /* remoteMaxConnections= */ 0, ImmutableList.of(), creds);
+      return HttpCacheClient.create(
+          uri,
+          timeoutSeconds,
+          /* remoteMaxConnections= */ 0,
+          remoteVerifyDownloads,
+          ImmutableList.of(),
+          DIGEST_UTIL,
+          creds);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
     }
+  }
+
+  private HttpCacheClient createHttpBlobStore(
+      ServerChannel serverChannel, int timeoutSeconds, @Nullable final Credentials creds)
+      throws Exception {
+    return createHttpBlobStore(
+        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds);
   }
 
   @Test
@@ -277,7 +299,7 @@ public class HttpBlobStoreTest {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
       server = testServer.start(new HttpCacheServerHandler(cacheContents));
 
-      HttpBlobStore blobStore =
+      HttpCacheClient blobStore =
           createHttpBlobStore(server, /* timeoutSeconds= */ 1, /* credentials= */ null);
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
@@ -308,7 +330,7 @@ public class HttpBlobStoreTest {
     testServer.stop(server);
 
     Credentials credentials = newCredentials();
-    HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+    HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
     getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
 
     fail("Exception expected");
@@ -329,7 +351,7 @@ public class HttpBlobStoreTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       getFromFuture(blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)));
       fail("Exception expected");
@@ -353,7 +375,7 @@ public class HttpBlobStoreTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
       fail("Exception expected");
     } finally {
@@ -385,7 +407,7 @@ public class HttpBlobStoreTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       ByteString data = ByteString.copyFrom("File Contents", Charsets.US_ASCII);
       IOException e =
           assertThrows(
@@ -400,21 +422,95 @@ public class HttpBlobStoreTest {
   }
 
   @Test
+  public void testDownloadFailsOnDigestMismatch() throws Exception {
+    // Test that the download fails when a blob/file has a different content hash than expected.
+
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+                  ByteBuf data = ctx.alloc().buffer();
+                  ByteBufUtil.writeUtf8(data, "bar");
+                  DefaultFullHttpResponse response =
+                      new DefaultFullHttpResponse(
+                          HttpVersion.HTTP_1_1, HttpResponseStatus.OK, data);
+                  HttpUtil.setContentLength(response, data.readableBytes());
+
+                  ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+                }
+              });
+
+      Credentials credentials = newCredentials();
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server, /* timeoutSeconds= */ 1, /* remoteVerifyDownloads= */ true, credentials);
+      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
+      try (OutputStream out = new ByteArrayOutputStream()) {
+        ThrowingRunnable download = () -> getFromFuture(blobStore.downloadBlob(fooDigest, out));
+        IOException e = assertThrows(IOException.class, download);
+        assertThat(e).hasMessageThat().contains(fooDigest.getHash());
+        assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("bar").getHash());
+      }
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void testDisablingDigestVerification() throws Exception {
+    // Test that when digest verification is disabled a corrupted download works.
+
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+                  ByteBuf data = ctx.alloc().buffer();
+                  ByteBufUtil.writeUtf8(data, "bar");
+                  DefaultFullHttpResponse response =
+                      new DefaultFullHttpResponse(
+                          HttpVersion.HTTP_1_1, HttpResponseStatus.OK, data);
+                  HttpUtil.setContentLength(response, data.readableBytes());
+
+                  ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+                }
+              });
+
+      Credentials credentials = newCredentials();
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server, /* timeoutSeconds= */ 1, /* remoteVerifyDownloads= */ false, credentials);
+      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
+      try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+        getFromFuture(blobStore.downloadBlob(fooDigest, out));
+        assertThat(out.toByteArray()).isEqualTo("bar".getBytes(Charsets.UTF_8));
+      }
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
   public void expiredAuthTokensShouldBeRetried_get() throws Exception {
     expiredAuthTokensShouldBeRetried_get(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
     expiredAuthTokensShouldBeRetried_get(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
   private void expiredAuthTokensShouldBeRetried_get(
-      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
+      HttpCacheClientTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.downloadBlob(DIGEST, out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
@@ -432,19 +528,19 @@ public class HttpBlobStoreTest {
   @Test
   public void expiredAuthTokensShouldBeRetried_put() throws Exception {
     expiredAuthTokensShouldBeRetried_put(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
     expiredAuthTokensShouldBeRetried_put(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
   private void expiredAuthTokensShouldBeRetried_put(
-      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
+      HttpCacheClientTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       blobStore.uploadBlob(DIGEST_UTIL.compute(data), ByteString.copyFrom(data)).get();
       verify(credentials, times(1)).refresh();
@@ -459,19 +555,19 @@ public class HttpBlobStoreTest {
   @Test
   public void errorCodesThatShouldNotBeRetried_get() {
     errorCodeThatShouldNotBeRetried_get(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_get(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
   private void errorCodeThatShouldNotBeRetried_get(
-      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
+      HttpCacheClientTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       getFromFuture(blobStore.downloadBlob(DIGEST, new ByteArrayOutputStream()));
       fail("Exception expected.");
     } catch (Exception e) {
@@ -486,19 +582,19 @@ public class HttpBlobStoreTest {
   @Test
   public void errorCodesThatShouldNotBeRetried_put() {
     errorCodeThatShouldNotBeRetried_put(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_put(
-        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
+        HttpCacheClientTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
   private void errorCodeThatShouldNotBeRetried_put(
-      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
+      HttpCacheClientTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
+      HttpCacheClient blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] oneByte = new byte[] {0};
       getFromFuture(
           blobStore.uploadBlob(DIGEST_UTIL.compute(oneByte), ByteString.copyFrom(oneByte)));
