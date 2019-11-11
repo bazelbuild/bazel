@@ -17,8 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileStateType;
-import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -48,50 +47,46 @@ public final class PathCasingLookupFunction implements SkyFunction {
     }
 
     RootedPath parent = arg.getPath().getParentDirectory();
+    Preconditions.checkNotNull(parent, arg.getPath());
+    Preconditions.checkNotNull(parent.getRootRelativePath(), arg.getPath());
+    Preconditions.checkState(!parent.getRootRelativePath().isEmpty(), arg.getPath());
 
-    SkyKey pathCasingKey = PathCasingLookupValue.key(parent);
-    SkyKey dirListKey = DirectoryListingValue.key(parent);
-    SkyKey fileStateKey = FileStateValue.key(arg.getPath());
+    SkyKey parentCasingKey = PathCasingLookupValue.key(parent);
+    SkyKey parentListingKey = DirectoryListingValue.key(parent);
+    SkyKey childFileKey = FileValue.key(arg.getPath());
     Map<SkyKey, SkyValue> values =
-        env.getValues(ImmutableList.of(pathCasingKey, dirListKey, fileStateKey));
+        env.getValues(ImmutableList.of(parentCasingKey, parentListingKey, childFileKey));
     if (env.valuesMissing()) {
       return null;
     }
 
-    PathCasingLookupValue parentCasing = (PathCasingLookupValue) values.get(pathCasingKey);
-
-    if (!parentCasing.isCorrect()) {
+    if (!((PathCasingLookupValue) values.get(parentCasingKey)).isCorrect()) {
       return PathCasingLookupValue.BAD;
     }
 
-    if (((FileStateValue) values.get(fileStateKey)).getType() == FileStateType.NONEXISTENT) {
-      // Parent's casing is good, though it may or may not exist.
-      // Child is missing, so by definition its casing is also good.
-      //
-      // Example of this scenario:
-      //   path = "[/tmp/non-existent][non-existent]", does not exist
-      //     parent = "[/tmp/non-existent][]", also does not exist
-      //       grandparent = "[/][tmp]", exists and has correct casing
-      //     so parent has correct casing
-      //   so path has correct casing.
+    if (!((FileValue) values.get(childFileKey)).exists()) {
+      // Parent's casing is good. Child is missing, so by definition its casing is also good.
       return PathCasingLookupValue.GOOD;
     }
 
-    DirectoryListingValue parentList = (DirectoryListingValue) values.get(dirListKey);
     String expected = arg.getPath().getRootRelativePath().getBaseName();
 
-    // 'expected' should not be empty or null, because we already handled RootedPaths with empty
-    // relative part.
+    // We already handled RootedPaths with empty relative part.
     Preconditions.checkState(!Strings.isNullOrEmpty(expected), arg.getPath());
 
+    DirectoryListingValue parentList = (DirectoryListingValue) values.get(parentListingKey);
     Dirent child = parentList.getDirents().maybeGetDirent(expected);
     if (child == null) {
-      // This should not happen, and if it does then Skyframe's view of the filesystem is outdated.
+      // This should not happen. If it does, then Skyframe's view of the filesystem is outdated.
       // That might happen in tests when Skyframe already cached a DirectoryListingValue, but we add
       // scratch files to that directory in the test without invalidating the DirectoryListingValue. 
       throw new PathCasingLookupFunctionException(
           new IOException(
-              String.format("'%s' exists but not listed by its parent directory", arg.getPath())));
+              // String.format("'%s' exists but not listed by its parent directory", arg.getPath())));
+              String.format(
+                  "'%s' exists but not listed by its parent directory: [%s]",
+                  arg.getPath(),
+                  com.google.common.base.Joiner.on(", ").join(parentList.getDirents()))));
     }
 
     return expected.equals(child.getName())
