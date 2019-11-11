@@ -33,10 +33,13 @@ public class WorkspaceFileHelper {
 
   /**
    * Get a RootedPath of the WORKSPACE file we should use for a given directory.
+   * This function returns a RootedPath to <directory>/WORKSPACE.bazel file if it exists and it's
+   * a regular file or file symlink, otherwise, return a RootedPath to <directory>/WORKSPACE.
+   * The caller of this function cannot assume the path returned exists, because in the second case
+   * we don't check the FileValue of `WORKSPACE` file.
    * @param directory The directory that could contain WORKSPACE.bazel or WORKSPACE file.
    * @param env Skyframe env
-   * @return A RootedPath to <directory>/WORKSPACE.bazel file if it exists and it's not a directory,
-   *         otherwise, return a RootedPath to <directory>/WORKSPACE file.
+   * @return A RootedPath to the WORKSPACE file we should use for the given directory.
    * @throws IOException
    * @throws InterruptedException
    */
@@ -56,7 +59,7 @@ public class WorkspaceFileHelper {
       return null;
     }
 
-    if (value.exists() && !value.isDirectory()) {
+    if (value.isFile() && !value.isSpecialFile()) {
       return workspaceRootedFile;
     }
 
