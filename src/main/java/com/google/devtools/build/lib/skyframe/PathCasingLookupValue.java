@@ -62,6 +62,19 @@ public abstract class PathCasingLookupValue implements SkyValue {
     public boolean isCorrect() { return true; }
   }
 
+  /**
+   * Creates a {@code SkyKey} to request this {@code PathCasingLookupValue} from Skyframe.
+   *
+   * <p>The argument is a {@link RootedPath} and not a {@link Path} for two reasons:
+   * <ul>
+   * <li>as of 2019-11-11 the {@code PathCasingLookupFunction} depends on {@code
+   * DirectoryListingValue} whose {@code SkyKey} requires a {@code RootedPath}
+   * <li>as of 2019-11-11 the {@code PathCasingLookupValue} is only used to validate that a package
+   * label is correctly cased, and package labels are always relative to a package root, so using a
+   * {@code RootedPath} is adequate and the Root part of it doesn't even have to be correctly
+   * cased.
+   * </ul>
+   */
   public static SkyKey key(RootedPath path) {
     return Key.create(RootedPathAndCasing.create(path));
   }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -38,19 +39,15 @@ public final class PathCasingLookupFunction implements SkyFunction {
   public PathCasingLookupValue compute(SkyKey skyKey, Environment env)
       throws PathCasingLookupFunctionException, InterruptedException {
     RootedPathAndCasing arg = (RootedPathAndCasing) skyKey.argument();
-    RootedPath parent = arg.getPath().getParentDirectory();
-
-    if (parent == null) {
-      Path argPath = arg.getPath().asPath();
-      Path parentPath = argPath.getParentDirectory();
-      if (parentPath == null) {
-        String driveStr = argPath.getDriveStr();
-        return driveStr.length() == 1 || Character.isUpperCase(driveStr.charAt(0))
-            ? PathCasingLookupValue.GOOD
-            : PathCasingLookupValue.BAD;
-      }
-      parent = RootedPath.toRootedPath(Root.absoluteRoot(argPath.getFileSystem()), parentPath);
+    if (arg.getPath().getRootRelativePath().isEmpty()) {
+      // This is a Root, e.g. "[/foo/bar]/[]".
+      // As of 2019-11-11, PathCasingLookupValue is only used in PackageLookupFunction to validate
+      // the package part's casing, so the RootedPath's Root's casing doesn't even matter, so if the
+      // relative part is empty then for our use case this is a correctly cased RootedPath.
+      return PathCasingLookupValue.GOOD;
     }
+
+    RootedPath parent = arg.getPath().getParentDirectory();
 
     SkyKey pathCasingKey = PathCasingLookupValue.key(parent);
     SkyKey dirListKey = DirectoryListingValue.key(parent);
@@ -83,17 +80,21 @@ public final class PathCasingLookupFunction implements SkyFunction {
     DirectoryListingValue parentList = (DirectoryListingValue) values.get(dirListKey);
     String expected = arg.getPath().getRootRelativePath().getBaseName();
 
-    if (Strings.isNullOrEmpty(expected)) {
-      expected = arg.getPath().asPath().getBaseName();
-    }
+    // 'expected' should not be empty or null, because we already handled RootedPaths with empty
+    // relative part.
+    Preconditions.checkState(!Strings.isNullOrEmpty(expected), arg.getPath());
+
     Dirent child = parentList.getDirents().maybeGetDirent(expected);
     if (child == null) {
+      // This should not happen, and if it does then Skyframe's view of the filesystem is outdated.
+      // That might happen in tests when Skyframe already cached a DirectoryListingValue, but we add
+      // scratch files to that directory in the test without invalidating the DirectoryListingValue. 
       throw new PathCasingLookupFunctionException(
           new IOException(
               String.format("'%s' exists but not listed by its parent directory", arg.getPath())));
     }
 
-    return child != null && expected.equals(child.getName())
+    return expected.equals(child.getName())
         ? PathCasingLookupValue.GOOD
         : PathCasingLookupValue.BAD;
   }
