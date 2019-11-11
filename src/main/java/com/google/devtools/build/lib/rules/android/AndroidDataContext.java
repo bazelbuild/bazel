@@ -54,6 +54,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private static final String OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES =
       "android_resources_strict_deps";
 
+  // Feature which would enable AAPT2's resource name obfuscation optimization for android_binary
+  // rules with resource shrinking and ProGuard/AppReduce enabled.
+  private static final String FEATURE_RESOURCE_NAME_OBFUSCATION = "resource_name_obfuscation";
+
   private final RuleContext ruleContext;
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
@@ -263,10 +267,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   boolean useResourceNameObfuscation(boolean hasProguardSpecs) {
     // Use resource name obfuscation iff:
-    //   1) --experimental_android_resource_name_obfuscation
+    //   1) --experimental_android_resource_name_obfuscation or feature enabled for rule's package
     //   2) resource shrinking is on (implying proguard specs are present)
     //   3) Not on allowlist exempting from compatibleForResourceNameObfuscation
-    return getAndroidConfig().useAndroidResourceNameObfuscation()
+    return (getAndroidConfig().useAndroidResourceNameObfuscation()
+            || ruleContext.getFeatures().contains(FEATURE_RESOURCE_NAME_OBFUSCATION))
         && useResourceShrinking(hasProguardSpecs)
         && compatibleForResourceNameObfuscation;
   }

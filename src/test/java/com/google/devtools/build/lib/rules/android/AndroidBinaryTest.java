@@ -1168,6 +1168,42 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void resourceNameCollapse_featureAndProguardSpecsPresent_optimizedApkIsInputToApkBuilder()
+      throws Exception {
+    useConfiguration("--features=resource_name_obfuscation");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    SpawnAction shrinkerAction =
+        getGeneratingSpawnAction(
+            getFirstArtifactEndingWith(artifacts, "resource_optimization.cfg"));
+    assertThat(shrinkerAction.getMnemonic()).isEqualTo("ResourceShrinker");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--collapse-resource-names");
+    assertThat(flagValue("--resources-config-path", processingArgs))
+        .endsWith("resource_optimization.cfg");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isTrue();
+  }
+
+  @Test
   public void resourceNameCollapse_flagPresentProguardSpecsAbsent_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("--experimental_android_resource_name_obfuscation");
