@@ -23,7 +23,7 @@ public interface SeparatorFinder {
    * or -1 if the fragment does not contain any separators.
    * @param fragment fragment to search in
    * @param startingFrom index to start search from
-   * @param untilExcluded
+   * @param untilExcluded index to stop search before (excluded from search).
    * @throws IncorrectSeparatorException if the incorrect separator value (\r) is used
    */
   int findNextSeparator(ByteBufferFragment fragment, int startingFrom, int untilExcluded)
