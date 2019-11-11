@@ -40,7 +40,7 @@ import java.util.List;
 public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
   public static final String NO_ENTRY_CLASS_ERROR_MSG =
-      "Entry classes must be specified when flag --compilationMode=opt is on in order to"
+      "Entry classes must be specified when flag --compilation_mode=opt is on in order to"
           + " perform J2ObjC dead code stripping.";
 
   public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
