@@ -414,9 +414,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         allowReturnNones = true)
     public ClassObject proxyMethodsObject() {
       ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-      for (String nativeFunction : CallUtils.getMethodNames(Mock.class)) {
-        builder.put(nativeFunction, CallUtils.getBuiltinCallable(this, nativeFunction));
-      }
+      Starlark.addMethods(builder, this);
       return StructProvider.STRUCT.create(builder.build(), "no native callable '%s'");
     }
 

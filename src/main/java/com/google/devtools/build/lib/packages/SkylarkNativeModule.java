@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicens
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.io.IOException;
@@ -69,11 +69,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public static final ImmutableMap<String, Object> BINDINGS_FOR_BUILD_FILES = initializeBindings();
 
   private static ImmutableMap<String, Object> initializeBindings() {
-    SkylarkNativeModule nativeModule = new SkylarkNativeModule();
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
-    for (String methodName : CallUtils.getMethodNames(SkylarkNativeModule.class)) {
-      bindings.put(methodName, CallUtils.getBuiltinCallable(nativeModule, methodName));
-    }
+    Starlark.addMethods(bindings, new SkylarkNativeModule());
     return bindings.build();
   }
 

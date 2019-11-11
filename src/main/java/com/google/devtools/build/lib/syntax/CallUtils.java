@@ -191,12 +191,12 @@ public final class CallUtils {
    * @deprecated use {@link #getMethods(StarlarkSemantics, Class, String)} instead
    */
   @Deprecated
-  public static MethodDescriptor getMethod(Class<?> objClass, String methodName) {
+  private static MethodDescriptor getMethod(Class<?> objClass, String methodName) {
     return getMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
   }
 
   /** Returns the list of Skylark callable Methods of objClass with the given name. */
-  public static MethodDescriptor getMethod(
+  static MethodDescriptor getMethod(
       StarlarkSemantics semantics, Class<?> objClass, String methodName) {
     return getCacheValue(objClass, semantics).methods.get(methodName);
   }
@@ -208,7 +208,7 @@ public final class CallUtils {
    * @deprecated use {@link #getMethodNames(StarlarkSemantics, Class)} instead
    */
   @Deprecated
-  public static Set<String> getMethodNames(Class<?> objClass) {
+  static Set<String> getMethodNames(Class<?> objClass) {
     return getMethodNames(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
   }
 
@@ -236,9 +236,9 @@ public final class CallUtils {
    * method of a given object with the given Starlark field name (not necessarily the same as the
    * Java method name).
    */
-  // TODO(adonovan): replace with EvalUtils.getAttr, once the latter doesn't require
-  // a Thread and Location.
-  public static BuiltinCallable getBuiltinCallable(Object obj, String methodName) {
+  static BuiltinCallable getBuiltinCallable(Object obj, String methodName) {
+    // TODO(adonovan): implement by EvalUtils.getAttr, once the latter doesn't require
+    // a Thread and Location.
     Class<?> objClass = obj.getClass();
     MethodDescriptor methodDescriptor = getMethod(objClass, methodName);
     if (methodDescriptor == null) {
@@ -613,7 +613,7 @@ public final class CallUtils {
     // java method 'bar()', this avoids evaluating 'foo.bar' in isolation (which would require
     // creating a throwaway function-like object).
     MethodDescriptor methodDescriptor =
-        CallUtils.getMethod(thread.getSemantics(), object.getClass(), methodName);
+        getMethod(thread.getSemantics(), object.getClass(), methodName);
     if (methodDescriptor != null && !methodDescriptor.isStructField()) {
       Object[] javaArguments =
           convertStarlarkArgumentsToJavaMethodArguments(

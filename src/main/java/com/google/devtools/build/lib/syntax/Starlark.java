@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
@@ -45,7 +47,7 @@ public final class Starlark {
         .put("False", false)
         .put("True", true)
         .put("None", Runtime.NONE);
-    Runtime.setupSkylarkLibrary(env, new MethodLibrary());
+    addMethods(env, new MethodLibrary());
     return env.build();
   }
 
@@ -65,6 +67,36 @@ public final class Starlark {
     } else {
       throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
     }
+  }
+
+  /**
+   * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
+   * of value {@code v}. The class of {@code v} must have or inherit a {@code SkylarkModule} or
+   * {@code SkylarkGlobalLibrary} annotation.
+   */
+  public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
+    Class<?> cls = v.getClass();
+    if (!SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
+        && SkylarkInterfaceUtils.getSkylarkModule(cls) == null) {
+      throw new IllegalArgumentException(
+          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @SkylarkModule");
+    }
+    for (String name : CallUtils.getMethodNames(v.getClass())) {
+      env.put(name, CallUtils.getBuiltinCallable(v, name));
+    }
+  }
+
+  /**
+   * Adds to the environment {@code env} the value {@code v}, under its annotated name. The class of
+   * {@code v} must have or inherit a {@code SkylarkModule} annotation.
+   */
+  public static void addModule(ImmutableMap.Builder<String, Object> env, Object v) {
+    Class<?> cls = v.getClass();
+    SkylarkModule annot = SkylarkInterfaceUtils.getSkylarkModule(cls);
+    if (annot == null) {
+      throw new IllegalArgumentException(cls.getName() + " is not annotated with @SkylarkModule");
+    }
+    env.put(annot.name(), v);
   }
 
   // TODO(adonovan):

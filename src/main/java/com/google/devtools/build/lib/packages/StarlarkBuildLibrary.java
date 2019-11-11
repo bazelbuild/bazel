@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Set;
@@ -44,9 +45,9 @@ class StarlarkBuildLibrary {
   public static final ImmutableMap<String, Object> BINDINGS = initializeBindings();
 
   private static ImmutableMap<String, Object> initializeBindings() {
-    ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
-    Runtime.setupSkylarkLibrary(bindings, new StarlarkBuildLibrary());
-    return bindings.build();
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    Starlark.addMethods(env, new StarlarkBuildLibrary());
+    return env.build();
   }
 
   private StarlarkBuildLibrary() {
