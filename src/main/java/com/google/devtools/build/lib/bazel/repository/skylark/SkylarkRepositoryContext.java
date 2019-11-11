@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -619,7 +621,8 @@ public class SkylarkRepositoryContext
             location);
     env.getListener().post(w);
     Path downloadedPath;
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
       downloadedPath =
@@ -737,7 +740,8 @@ public class SkylarkRepositoryContext
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
       downloadedPath =
           httpDownloader.download(
               urls,
@@ -766,14 +770,17 @@ public class SkylarkRepositoryContext
       throw checksumValidation;
     }
     env.getListener().post(w);
-    DecompressorValue.decompress(
-        DecompressorDescriptor.builder()
-            .setTargetKind(rule.getTargetKind())
-            .setTargetName(rule.getName())
-            .setArchivePath(downloadedPath)
-            .setRepositoryPath(outputPath.getPath())
-            .setPrefix(stripPrefix)
-            .build());
+    try (SilentCloseable c =
+        Profiler.instance().profile("extracting: " + rule.getLabel().toString())) {
+      DecompressorValue.decompress(
+          DecompressorDescriptor.builder()
+              .setTargetKind(rule.getTargetKind())
+              .setTargetName(rule.getName())
+              .setArchivePath(downloadedPath)
+              .setRepositoryPath(outputPath.getPath())
+              .setPrefix(stripPrefix)
+              .build());
+    }
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
     try {
