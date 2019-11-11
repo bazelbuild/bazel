@@ -146,7 +146,6 @@ public class RemoteSpawnRunnerTest {
     outErr = new FileOutErr(stdout, stderr);
 
     remoteOptions = Options.getDefaults(RemoteOptions.class);
-    retrier = RemoteModule.createExecuteRetrier(remoteOptions, retryService);
   }
 
   @AfterClass
@@ -817,7 +816,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             cache,
             executor,
-            retrier,
+            retryService,
             digestUtil,
             logDir,
             /* filesToDownload= */ ImmutableSet.of());
@@ -1014,7 +1013,7 @@ public class RemoteSpawnRunnerTest {
         "command-id",
         cache,
         executor,
-        retrier,
+        retryService,
         digestUtil,
         logDir,
         topLevelOutputs);

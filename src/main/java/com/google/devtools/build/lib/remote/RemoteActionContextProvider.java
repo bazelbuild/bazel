@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -45,7 +46,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
   private final RemoteCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
-  private final RemoteRetrier retrier;
+  private final ListeningScheduledExecutorService retryScheduler;
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
@@ -55,31 +56,31 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       CommandEnvironment env,
       RemoteCache cache,
       @Nullable GrpcRemoteExecutor executor,
-      RemoteRetrier retrier,
+      @Nullable ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       @Nullable Path logDir) {
     this.env = Preconditions.checkNotNull(env, "env");
     this.cache = Preconditions.checkNotNull(cache, "cache");
     this.executor = executor;
-    this.retrier = retrier;
+    this.retryScheduler = retryScheduler;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
   }
 
-  public static RemoteActionContextProvider createForRemoteCaching(
-      CommandEnvironment env, RemoteCache cache, RemoteRetrier retrier, DigestUtil digestUtil) {
+  public static RemoteActionContextProvider createForRemoteCaching(CommandEnvironment env,
+      RemoteCache cache, ListeningScheduledExecutorService retryScheduler, DigestUtil digestUtil) {
     return new RemoteActionContextProvider(
-        env, cache, /*executor=*/ null, retrier, digestUtil, /*logDir=*/ null);
+        env, cache, /*executor=*/ null, retryScheduler, digestUtil, /*logDir=*/ null);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
       RemoteExecutionCache cache,
       GrpcRemoteExecutor executor,
-      RemoteRetrier retrier,
+      ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       Path logDir) {
-    return new RemoteActionContextProvider(env, cache, executor, retrier, digestUtil, logDir);
+    return new RemoteActionContextProvider(env, cache, executor, retryScheduler, digestUtil, logDir);
   }
 
   @Override
@@ -115,7 +116,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               (RemoteExecutionCache) cache,
               executor,
-              retrier,
+              retryScheduler,
               digestUtil,
               logDir,
               filesToDownload);
