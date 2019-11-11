@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -51,7 +51,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     // Set up globals.
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     SkylarkModules.addSkylarkGlobalsToBuilder(env);
-    Runtime.setupSkylarkLibrary(env, new PlatformCommon());
+    Starlark.addModule(env, new PlatformCommon());
     Module globals = Module.createForBuiltins(env.build());
 
     EvaluationTestCase ev =

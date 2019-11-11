@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
@@ -40,7 +42,27 @@ public final class Starlark {
    * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
    * that no argument value was supplied.
    */
-  public static final Object UNBOUND = Runtime.UNBOUND;
+  public static final Object UNBOUND = new UnboundMarker();
+
+  @Immutable
+  private static final class UnboundMarker implements SkylarkValue {
+    private UnboundMarker() {}
+
+    @Override
+    public String toString() {
+      return "<unbound>";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<unbound>");
+    }
+  }
 
   /**
    * The universal bindings predeclared in every Starlark file, such as None, True, len, and range.

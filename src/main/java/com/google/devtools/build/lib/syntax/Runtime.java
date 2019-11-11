@@ -14,18 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** Global constants and support for static registration of builtin symbols. */
-// TODO(adonovan): migrate None and Unbound to Starlark.java, and NoneType and
-// UnboundMarker to top level, then delete this class.
+// TODO(adonovan): move to Starlark.NONE and delete.
 public final class Runtime {
 
   private Runtime() {}
@@ -63,70 +58,4 @@ public final class Runtime {
 
   /* The Starlark None value. */
   public static final NoneType NONE = new NoneType();
-
-  /** Marker for unbound variables in cases where neither Java null nor Skylark None is suitable. */
-  @Immutable
-  private static final class UnboundMarker implements SkylarkValue {
-    private UnboundMarker() {}
-
-    @Override
-    public String toString() {
-      return "<unbound>";
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {
-      printer.append("<unbound>");
-    }
-  }
-
-  public static final UnboundMarker UNBOUND = new UnboundMarker();
-
-  /**
-   * Adds global (top-level) symbols, provided by the given object, to the given bindings builder.
-   *
-   * <p>Global symbols may be provided by the given object in the following ways:
-   *
-   * <ul>
-   *   <li>If its class is annotated with {@link SkylarkModule}, an instance of that object is a
-   *       global object with the module's name.
-   *   <li>If its class is annotated with {@link SkylarkGlobalLibrary}, then all of its methods
-   *       which are annotated with {@link SkylarkCallable} are global callables.
-   * </ul>
-   *
-   * <p>On collisions, this method throws an {@link AssertionError}. Collisions may occur if
-   * multiple global libraries have functions of the same name, two modules of the same name are
-   * given, or if two subclasses of the same module are given.
-   *
-   * @param builder the builder for the "bindings" map, which maps from symbol names to objects, and
-   *     which will be built into a global frame
-   * @param moduleInstance the object containing globals
-   * @throws AssertionError if there are name collisions
-   * @throws IllegalArgumentException if {@code moduleInstance} is not annotated with {@link
-   *     SkylarkGlobalLibrary} nor {@link SkylarkModule}
-   */
-  public static void setupSkylarkLibrary(
-      ImmutableMap.Builder<String, Object> builder, Object moduleInstance) {
-    Class<?> moduleClass = moduleInstance.getClass();
-    SkylarkModule skylarkModule = SkylarkInterfaceUtils.getSkylarkModule(moduleClass);
-    boolean hasSkylarkGlobalLibrary = SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(moduleClass);
-
-    Preconditions.checkArgument(hasSkylarkGlobalLibrary || skylarkModule != null,
-        "%s must be annotated with @SkylarkGlobalLibrary or @SkylarkModule",
-        moduleClass);
-
-    if (skylarkModule != null) {
-      builder.put(skylarkModule.name(), moduleInstance);
-    }
-    if (hasSkylarkGlobalLibrary) {
-      for (String methodName : CallUtils.getMethodNames(moduleClass)) {
-        builder.put(methodName, CallUtils.getBuiltinCallable(moduleInstance, methodName));
-      }
-    }
-  }
 }
