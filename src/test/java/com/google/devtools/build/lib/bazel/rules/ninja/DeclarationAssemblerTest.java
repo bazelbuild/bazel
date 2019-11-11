@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -65,7 +65,7 @@ public class DeclarationAssemblerTest {
               list.add(byteFragmentAtOffset.getFragment().toString());
               assertThat(byteFragmentAtOffset.getOffset()).isAnyOf(0, chars1.length);
             },
-            NinjaSeparatorPredicate.INSTANCE);
+            NinjaSeparatorFinder.INSTANCE);
 
     assembler.wrapUp(
         Lists.newArrayList(
@@ -87,7 +87,7 @@ public class DeclarationAssemblerTest {
               list.add(byteFragmentAtOffset.getFragment().toString());
               assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(0);
             },
-            NinjaSeparatorPredicate.INSTANCE);
+            NinjaSeparatorFinder.INSTANCE);
 
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     assembler.wrapUp(

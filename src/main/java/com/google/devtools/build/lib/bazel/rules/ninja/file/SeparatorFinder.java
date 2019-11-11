@@ -16,14 +16,16 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 /** Interface for determining where the byte sequence should be split into parts. */
-public interface SeparatorPredicate {
+public interface SeparatorFinder {
 
   /**
-   * Returns true if the sequence should be split after <code>current</code> byte.
-   *
-   * @param previous previous byte (before current)
-   * @param current current byte
-   * @param next next byte (after current)
+   * Returns the index of the end of the next separator (separator can be of two symbols, \r\n),
+   * or -1 if the fragment does not contain any separators.
+   * @param fragment fragment to search in
+   * @param startingFrom index to start search from
+   * @param untilExcluded
+   * @throws IncorrectSeparatorException if the incorrect separator value (\r) is used
    */
-  boolean test(byte previous, byte current, byte next);
+  int findNextSeparator(ByteBufferFragment fragment, int startingFrom, int untilExcluded)
+      throws IncorrectSeparatorException;
 }
