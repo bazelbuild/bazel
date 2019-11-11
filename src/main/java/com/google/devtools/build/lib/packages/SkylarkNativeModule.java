@@ -92,7 +92,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
     List<String> matches;
     boolean allowEmpty;
-    if (allowEmptyArgument == Runtime.UNBOUND) {
+    if (allowEmptyArgument == Starlark.UNBOUND) {
       allowEmpty = !thread.getSemantics().incompatibleDisallowEmptyGlob();
     } else if (allowEmptyArgument instanceof Boolean) {
       allowEmpty = (Boolean) allowEmptyArgument;

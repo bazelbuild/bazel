@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet.TypeException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -181,7 +181,7 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
         Location loc)
         throws EvalException {
       SkylarkNestedSet imports =
-          importsUncast.equals(Runtime.UNBOUND)
+          importsUncast.equals(Starlark.UNBOUND)
               ? SkylarkNestedSet.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
               : (SkylarkNestedSet) importsUncast;
 

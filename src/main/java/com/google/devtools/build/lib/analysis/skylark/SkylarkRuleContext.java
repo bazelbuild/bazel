@@ -743,7 +743,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
     // Determine which of new_file's four signatures is being used. Yes, this is terrible.
     // It's one major reason that this method is deprecated.
-    if (fileSuffix != Runtime.UNBOUND) {
+    if (fileSuffix != Starlark.UNBOUND) {
       // new_file(file_root, sibling_file, suffix)
       ArtifactRoot root =
           assertTypeForNewFile(var1, ArtifactRoot.class, loc,
@@ -755,7 +755,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
       return ruleContext.getDerivedArtifact(fragment, root);
 
-    } else if (var2 == Runtime.UNBOUND) {
+    } else if (var2 == Starlark.UNBOUND) {
       // new_file(filename)
       String filename =
           assertTypeForNewFile(var1, String.class, loc,

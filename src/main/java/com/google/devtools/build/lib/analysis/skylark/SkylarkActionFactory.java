@@ -532,7 +532,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     }
 
-    if (toolsUnchecked != Runtime.UNBOUND) {
+    if (toolsUnchecked != Starlark.UNBOUND) {
       Iterable<?> toolsIterable;
       if (toolsUnchecked instanceof SkylarkList) {
         toolsIterable = ((SkylarkList<?>) toolsUnchecked).getContents(Object.class, "tools");

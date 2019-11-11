@@ -37,6 +37,12 @@ public final class Starlark {
   public static final Runtime.NoneType NONE = Runtime.NONE;
 
   /**
+   * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
+   * that no argument value was supplied.
+   */
+  public static final Object UNBOUND = Runtime.UNBOUND;
+
+  /**
    * The universal bindings predeclared in every Starlark file, such as None, True, len, and range.
    */
   public static final ImmutableMap<String, Object> UNIVERSE = makeUniverse();

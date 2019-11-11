@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.nio.charset.StandardCharsets;
@@ -270,7 +271,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         throw new EvalException(null, "cannot modify frozen value");
       }
       final String argName;
-      if (value == Runtime.UNBOUND) {
+      if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
         argName = null;
       } else {
@@ -321,7 +322,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         throw new EvalException(null, "cannot modify frozen value");
       }
       final String argName;
-      if (values == Runtime.UNBOUND) {
+      if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values, loc);
         argName = null;
@@ -363,7 +364,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         throw new EvalException(null, "cannot modify frozen value");
       }
       final String argName;
-      if (values == Runtime.UNBOUND) {
+      if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values, loc);
         argName = null;

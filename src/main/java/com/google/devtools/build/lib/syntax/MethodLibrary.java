@@ -492,7 +492,7 @@ class MethodLibrary {
       useLocation = true)
   public Integer convertToInt(Object x, Object base, Location loc) throws EvalException {
     if (x instanceof String) {
-      if (base == Runtime.UNBOUND) {
+      if (base == Starlark.UNBOUND) {
         base = 10;
       } else if (!(base instanceof Integer)) {
         throw new EvalException(
@@ -500,7 +500,7 @@ class MethodLibrary {
       }
       return fromString((String) x, loc, (Integer) base);
     } else {
-      if (base != Runtime.UNBOUND) {
+      if (base != Starlark.UNBOUND) {
         throw new EvalException(loc, "int() can't convert non-string with explicit base");
       }
       if (x instanceof Boolean) {
@@ -793,7 +793,7 @@ class MethodLibrary {
       throws EvalException, InterruptedException {
     Object result = EvalUtils.getAttr(thread, loc, obj, name);
     if (result == null) {
-      if (defaultValue != Runtime.UNBOUND) {
+      if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
       }
       throw EvalUtils.getMissingFieldException(obj, name, loc, thread.getSemantics(), "attribute");

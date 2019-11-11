@@ -141,7 +141,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       remove(key, loc);
       return value;
     }
-    if (defaultValue != Runtime.UNBOUND) {
+    if (defaultValue != Starlark.UNBOUND) {
       return defaultValue;
     }
     throw new EvalException(loc, Printer.format("KeyError: %r", key));

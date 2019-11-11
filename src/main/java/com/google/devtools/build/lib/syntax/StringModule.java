@@ -434,7 +434,7 @@ final class StringModule implements SkylarkValue {
       useLocation = true)
   public Tuple<String> partition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
+    if (sep == Starlark.UNBOUND) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
@@ -469,7 +469,7 @@ final class StringModule implements SkylarkValue {
       useLocation = true)
   public Tuple<String> rpartition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
+    if (sep == Starlark.UNBOUND) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "

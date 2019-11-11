@@ -44,7 +44,7 @@ public @interface Param {
    *
    * <p>If the function implementation needs to distinguish the case where the caller does not
    * supply a value for this parameter, you can set the default to the magic string "unbound", which
-   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Runtime#UNBOUND}
+   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Starlark#UNBOUND}
    * (which can't appear in normal Skylark code).
    */
   String defaultValue() default "";

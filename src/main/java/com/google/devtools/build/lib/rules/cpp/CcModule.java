@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -552,7 +553,7 @@ public abstract class CcModule
 
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
-    if (obj == Runtime.UNBOUND) {
+    if (obj == Starlark.UNBOUND) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
       return SkylarkNestedSet.getSetFromNoneableParam(obj, Artifact.class, fieldName);
@@ -561,7 +562,7 @@ public abstract class CcModule
 
   private static NestedSet<String> toNestedSetOfStrings(Object obj, String fieldName)
       throws EvalException {
-    if (obj == Runtime.UNBOUND) {
+    if (obj == Starlark.UNBOUND) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
       return SkylarkNestedSet.getSetFromNoneableParam(obj, String.class, fieldName);

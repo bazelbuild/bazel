@@ -245,7 +245,7 @@ public class SkylarkSignatureProcessor {
           String.format("parameter %s on method %s is undocumented", param.name(), name));
     }
     doc.put(param.name(), param.doc());
-    if (defaultValue != null && !defaultValue.equals(Runtime.UNBOUND) && enforcedType != null) {
+    if (defaultValue != null && !defaultValue.equals(Starlark.UNBOUND) && enforcedType != null) {
       Preconditions.checkArgument(
           enforcedType.contains(defaultValue),
           "In function '%s', parameter '%s' has default value %s that isn't of enforced type"
@@ -278,7 +278,7 @@ public class SkylarkSignatureProcessor {
                   .useDefaultSemantics()
                   .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
                   .build()
-                  .update("unbound", Runtime.UNBOUND);
+                  .update("unbound", Starlark.UNBOUND);
           defaultValue = EvalUtils.eval(ParserInput.fromLines(paramDefaultValue), thread);
           defaultValueCache.put(paramDefaultValue, defaultValue);
           return defaultValue;
