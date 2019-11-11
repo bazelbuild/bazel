@@ -58,7 +58,8 @@ public class RepositoryLoaderFunction implements SkyFunction {
       }
     } catch (IOException e) {
       throw new RepositoryLoaderFunctionException(
-          new IOException("Could not determine workspace file (WORKSPACE.bazel / WORKSPACE): "
+          new IOException(
+              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
               + e.getMessage()),
           Transience.PERSISTENT);
     }

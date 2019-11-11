@@ -301,7 +301,7 @@ public class PackageFunction implements SkyFunction {
     } catch (IOException e) {
       throw new PackageFunctionException(
           new NoSuchPackageException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-              "Could not determine workspace file (WORKSPACE.bazel or WORKSPACE): "
+              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
                   + e.getMessage()),
           Transience.PERSISTENT);
     }

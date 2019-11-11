@@ -124,7 +124,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not determine workspace file (WORKSPACE.bazel / WORKSPACE): "
+          new IOException(
+              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
               + e.getMessage()),
           Transience.PERSISTENT);
     }
