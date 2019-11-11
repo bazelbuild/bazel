@@ -18,8 +18,8 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferEdge;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
@@ -56,17 +56,22 @@ public class DeclarationAssemblerTest {
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
       throws GenericParsingException {
     List<String> list = Lists.newArrayList();
-    DeclarationAssembler assembler =
-        new DeclarationAssembler(
-            item -> list.add(item.toString()), NinjaSeparatorPredicate.INSTANCE);
-
     final byte[] chars1 = s1.getBytes(StandardCharsets.ISO_8859_1);
     final byte[] chars2 = s2.getBytes(StandardCharsets.ISO_8859_1);
 
+    DeclarationAssembler assembler =
+        new DeclarationAssembler(
+            (byteFragmentAtOffset) -> {
+              list.add(byteFragmentAtOffset.getFragment().toString());
+              assertThat(byteFragmentAtOffset.getOffset()).isAnyOf(0, chars1.length);
+            },
+            NinjaSeparatorPredicate.INSTANCE);
+
     assembler.wrapUp(
         Lists.newArrayList(
-            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
-            new BufferEdge(
+            new ByteFragmentAtOffset(
+                0, new ByteBufferFragment(ByteBuffer.wrap(chars1), 0, s1.length())),
+            new ByteFragmentAtOffset(
                 chars1.length, new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length()))));
 
     assertThat(list).isEqualTo(Arrays.asList(expected));
@@ -78,13 +83,19 @@ public class DeclarationAssemblerTest {
     List<String> list = Lists.newArrayList();
     DeclarationAssembler assembler =
         new DeclarationAssembler(
-            item -> list.add(item.toString()), NinjaSeparatorPredicate.INSTANCE);
+            (byteFragmentAtOffset) -> {
+              list.add(byteFragmentAtOffset.getFragment().toString());
+              assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(0);
+            },
+            NinjaSeparatorPredicate.INSTANCE);
 
     final byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     assembler.wrapUp(
         Lists.newArrayList(
-            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
-            new BufferEdge(0, new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2))));
+            new ByteFragmentAtOffset(
+                0, new ByteBufferFragment(ByteBuffer.wrap(chars), start1, end1)),
+            new ByteFragmentAtOffset(
+                0, new ByteBufferFragment(ByteBuffer.wrap(chars), start2, end2))));
 
     assertThat(list).isEqualTo(Arrays.asList(expected));
   }

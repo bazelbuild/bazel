@@ -20,13 +20,17 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
  * starting at {@link #offset}. The first byte should be read at {@link #getRealStartOffset()}, the
  * length of fragment is {@link ByteBufferFragment#length()}.
  */
-public class BufferEdge {
+public class ByteFragmentAtOffset {
   private final int offset;
   private final ByteBufferFragment fragment;
 
-  public BufferEdge(int offset, ByteBufferFragment fragment) {
+  public ByteFragmentAtOffset(int offset, ByteBufferFragment fragment) {
     this.offset = offset;
     this.fragment = fragment;
+  }
+
+  public int getOffset() {
+    return offset;
   }
 
   public int getRealStartOffset() {

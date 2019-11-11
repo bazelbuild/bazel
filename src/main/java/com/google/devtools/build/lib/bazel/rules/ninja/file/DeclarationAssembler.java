@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.util.Comparator;
@@ -44,22 +45,22 @@ public class DeclarationAssembler {
   /**
    * Should be called after all work for processing of individual buffer fragments is complete.
    *
-   * @param fragments list of {@link BufferEdge} - pieces on the bounds of sub-fragments.
+   * @param fragments list of {@link ByteFragmentAtOffset} - pieces on the bounds of sub-fragments.
    * @throws GenericParsingException thrown by delegate {@link #declarationConsumer}
    */
-  public void wrapUp(List<BufferEdge> fragments) throws GenericParsingException {
-    fragments.sort(Comparator.comparingInt(BufferEdge::getRealStartOffset));
+  public void wrapUp(List<ByteFragmentAtOffset> fragments) throws GenericParsingException {
+    fragments.sort(Comparator.comparingInt(ByteFragmentAtOffset::getRealStartOffset));
 
-    List<ByteBufferFragment> list = Lists.newArrayList();
+    List<ByteFragmentAtOffset> list = Lists.newArrayList();
     int previous = -1;
-    for (BufferEdge edge : fragments) {
+    for (ByteFragmentAtOffset edge : fragments) {
       int start = edge.getRealStartOffset();
       ByteBufferFragment fragment = edge.getFragment();
       if (previous >= 0 && previous != start) {
         sendMerged(list);
         list.clear();
       }
-      list.add(fragment);
+      list.add(edge);
       previous = start + fragment.length();
     }
     if (!list.isEmpty()) {
@@ -67,10 +68,12 @@ public class DeclarationAssembler {
     }
   }
 
-  private void sendMerged(List<ByteBufferFragment> list) throws GenericParsingException {
+  private void sendMerged(List<ByteFragmentAtOffset> list) throws GenericParsingException {
+    int offset = -1;
     List<ByteBufferFragment> leftPart = Lists.newArrayList();
 
-    for (ByteBufferFragment sequence : list) {
+    for (ByteFragmentAtOffset edge : list) {
+      ByteBufferFragment sequence = edge.getFragment();
       // If the new sequence is separate from already collected parts,
       // merge them and feed to consumer.
       if (!leftPart.isEmpty()) {
@@ -85,26 +88,37 @@ public class DeclarationAssembler {
         if (separatorPredicate.test(lastInOld, currentInNew, nextInNew)) {
           // Add separator to the end of the accumulated sequence
           leftPart.add(sequence.subFragment(0, 1));
-          declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
+          ByteFragmentAtOffset byteFragmentAtOffset =
+              new ByteFragmentAtOffset(edge.getOffset(), ByteBufferFragment.merge(leftPart));
+          declarationConsumer.declaration(byteFragmentAtOffset);
           leftPart.clear();
           // Cutting out the separator in the beginning
           if (sequence.length() > 1) {
             leftPart.add(sequence.subFragment(1, sequence.length()));
+            offset = edge.getOffset();
           }
           continue;
         }
 
         // <symbol>\n | <non-space>
         if (separatorPredicate.test(previousInOld, lastInOld, currentInNew)) {
-          declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
+          ByteFragmentAtOffset byteFragmentAtOffset =
+              new ByteFragmentAtOffset(edge.getOffset(), ByteBufferFragment.merge(leftPart));
+          declarationConsumer.declaration(byteFragmentAtOffset);
           leftPart.clear();
         }
       }
 
       leftPart.add(sequence);
+      if (offset == -1) {
+        offset = edge.getOffset();
+      }
     }
     if (!leftPart.isEmpty()) {
-      declarationConsumer.declaration(ByteBufferFragment.merge(leftPart));
+      Preconditions.checkState(offset >= 0);
+      ByteFragmentAtOffset byteFragmentAtOffset =
+          new ByteFragmentAtOffset(offset, ByteBufferFragment.merge(leftPart));
+      declarationConsumer.declaration(byteFragmentAtOffset);
     }
   }
 }
