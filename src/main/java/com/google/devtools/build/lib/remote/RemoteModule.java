@@ -67,7 +67,6 @@ import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -120,18 +119,24 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableBlobStoreCache = RemoteCacheClientFactory.isRemoteCacheOptions(remoteOptions);
+    boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
+    boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
-    if (enableBlobStoreCache && enableRemoteExecution) {
-      throw new AbruptExitException(
-          "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",
-          ExitCode.COMMAND_LINE_ERROR);
-    }
 
-    if (!enableBlobStoreCache && !enableGrpcCache && !enableRemoteExecution) {
+    if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
       return;
+    }
+
+    if ((enableDiskCache || enableHttpCache) && enableRemoteExecution) {
+      throw new AbruptExitException("Cannot combine gRPC based remote execution with local disk"
+          + " or HTTP-based caching", ExitCode.COMMAND_LINE_ERROR);
+    }
+
+    if (enableDiskCache && enableGrpcCache) {
+      throw new AbruptExitException("Cannot combine gRPC based remote caching with local disk"
+          + " caching", ExitCode.COMMAND_LINE_ERROR);
     }
 
     env.getEventBus().register(this);
@@ -144,131 +149,117 @@ public final class RemoteModule extends BlazeModule {
     cleanAndCreateRemoteLogsDir(logDir);
 
     try {
-      List<ClientInterceptor> interceptors = new ArrayList<>();
+      if (enableHttpCache || enableDiskCache) {
+          RemoteCacheClient cacheClient = RemoteCacheClientFactory.create(
+              remoteOptions,
+              GoogleAuthUtils.newCredentials(authAndTlsOptions),
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
+              digestUtil);
+          RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
+          actionContextProvider = RemoteActionContextProvider.createForRemoteCaching(
+              env, remoteCache, /* executeRetrier= */ null, digestUtil);
+          return;
+      }
+
+      Preconditions.checkState(enableGrpcCache || enableRemoteExecution);
+
+      ClientInterceptor loggingInterceptor = null;
       if (remoteOptions.experimentalRemoteGrpcLog != null) {
         rpcLogFile =
             new AsynchronousFileOutputStream(
                 env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
-        interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
+        loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
 
-      ReferenceCountedChannel cacheChannel = null;
       ReferenceCountedChannel execChannel = null;
-      RemoteRetrier rpcRetrier = null;
-      // Initialize the gRPC channels and capabilities service, when relevant.
-      if (!Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
-        execChannel =
-            new ReferenceCountedChannel(
-                GoogleAuthUtils.newChannel(
-                    remoteOptions.remoteExecutor,
-                    remoteOptions.remoteProxy,
-                    authAndTlsOptions,
-                    interceptors.toArray(new ClientInterceptor[0])));
-      }
-      RemoteCacheClient cacheClient = null;
-      if (enableGrpcCache || !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
-        rpcRetrier =
-              new RemoteRetrier(
-                  remoteOptions,
-                  RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-                  retryScheduler,
-                  Retrier.ALLOW_ALL_CALLS);
-        if (!Strings.isNullOrEmpty(remoteOptions.remoteCache)
-            && !remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
-          cacheChannel =
-              new ReferenceCountedChannel(
-                  GoogleAuthUtils.newChannel(
-                      remoteOptions.remoteCache,
-                      remoteOptions.remoteProxy,
-                      authAndTlsOptions,
-                      interceptors.toArray(new ClientInterceptor[0])));
-        } else {  // Assume --remote_cache is equal to --remote_executor by default.
-          cacheChannel = execChannel.retain(); // execChannel is guaranteed to be defined here.
-        }
-        CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
-        // We always query the execution server for capabilities, if it is defined. A remote
-        // execution/cache system should have all its servers to return the capabilities pertaining
-        // to the system as a whole.
-        RemoteServerCapabilities rsc = new RemoteServerCapabilities(
-                remoteOptions.remoteInstanceName,
-                (execChannel != null ? execChannel : cacheChannel),
-                credentials,
-                remoteOptions.remoteTimeout,
-                rpcRetrier);
-        ServerCapabilities capabilities = null;
-        try {
-          capabilities = rsc.get(buildRequestId, invocationId);
-        } catch (IOException e) {
-          throw new AbruptExitException(
-              "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
-              ExitCode.REMOTE_ERROR,
-              e);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return;
-        }
-        checkClientServerCompatibility(
-            capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
-        ByteStreamUploader uploader =
-            new ByteStreamUploader(
-                remoteOptions.remoteInstanceName,
-                cacheChannel.retain(),
-                credentials,
-                remoteOptions.remoteTimeout,
-                rpcRetrier);
-        cacheChannel.release();
-        cacheClient =
-            new GrpcCacheClient(
-                cacheChannel.retain(),
-                credentials,
-                remoteOptions,
-                rpcRetrier,
-                digestUtil,
-                uploader.retain());
-        uploader.release();
-        Context requestContext =
-            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
-        buildEventArtifactUploaderFactoryDelegate.init(
-            new ByteStreamBuildEventArtifactUploaderFactory(
-                uploader,
-                cacheClient,
-                cacheChannel.authority(),
-                requestContext,
-                remoteOptions.remoteInstanceName));
-      }
-
-      if (enableBlobStoreCache) {
-        cacheClient =
-            RemoteCacheClientFactory.create(
-                remoteOptions,
-                GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
-                digestUtil);
-      }
-
-      GrpcRemoteExecutor executor = null;
+      ReferenceCountedChannel cacheChannel = null;
       if (enableRemoteExecution) {
-        RemoteRetrier retrier =
-            new RemoteRetrier(
-                remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
-                retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
-        executor =
-            new GrpcRemoteExecutor(
-                execChannel.retain(),
-                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
-                retrier);
+        execChannel =
+            RemoteCacheClientFactory.createGrpcChannel(remoteOptions.remoteExecutor,
+                remoteOptions.remoteProxy, authAndTlsOptions, loggingInterceptor);
+        // Create a separate channel if --remote_executor and --remote_cache point to different
+        // endpoints.
+        if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
+            || remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+          cacheChannel = execChannel.retain();
+        }
+      }
+
+      if (cacheChannel == null) {
+        cacheChannel = RemoteCacheClientFactory.createGrpcChannel(remoteOptions.remoteCache,
+            remoteOptions.remoteProxy, authAndTlsOptions, loggingInterceptor);
+      }
+
+      CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+      RemoteRetrier retrier =
+          new RemoteRetrier(remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+
+      // We always query the execution server for capabilities, if it is defined. A remote
+      // execution/cache system should have all its servers to return the capabilities pertaining
+      // to the system as a whole.
+      RemoteServerCapabilities rsc = new RemoteServerCapabilities(
+          remoteOptions.remoteInstanceName,
+          (execChannel != null ? execChannel : cacheChannel),
+          credentials,
+          remoteOptions.remoteTimeout,
+          retrier);
+      ServerCapabilities capabilities = null;
+      try {
+        capabilities = rsc.get(buildRequestId, invocationId);
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
+            ExitCode.REMOTE_ERROR,
+            e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+      checkClientServerCompatibility(
+          capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+
+      ByteStreamUploader uploader =
+          new ByteStreamUploader(
+              remoteOptions.remoteInstanceName,
+              cacheChannel.retain(),
+              credentials,
+              remoteOptions.remoteTimeout,
+              retrier);
+      cacheChannel.release();
+      GrpcCacheClient cacheClient =
+          new GrpcCacheClient(
+              cacheChannel.retain(),
+              credentials,
+              remoteOptions,
+              retrier,
+              digestUtil,
+              uploader.retain());
+      uploader.release();
+      Context requestContext =
+          TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+      buildEventArtifactUploaderFactoryDelegate.init(
+          new ByteStreamBuildEventArtifactUploaderFactory(
+              uploader,
+              cacheClient,
+              cacheChannel.authority(),
+              requestContext,
+              remoteOptions.remoteInstanceName));
+
+      if (enableRemoteExecution) {
+        RemoteRetrier execRetrier = new RemoteRetrier(remoteOptions,
+            RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS, retryScheduler, Retrier.ALLOW_ALL_CALLS);
+        GrpcRemoteExecutor remoteExecutor = new GrpcRemoteExecutor(
+            execChannel.retain(),
+            GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+            execRetrier);
         execChannel.release();
-        Preconditions.checkState(
-            cacheClient instanceof GrpcCacheClient,
-            "Only the gRPC cache is support for remote execution");
         RemoteExecutionCache remoteCache =
-            new RemoteExecutionCache((GrpcCacheClient) cacheClient, remoteOptions, digestUtil);
+            new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteExecution(
-                env, remoteCache, executor, retryScheduler, digestUtil, logDir);
-      } else if (cacheClient != null) {
+                env, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
+      } else {
         RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteCaching(

@@ -18,6 +18,8 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import io.grpc.ClientInterceptor;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
@@ -39,17 +42,20 @@ public final class RemoteCacheClientFactory {
 
   private RemoteCacheClientFactory() {}
 
-  public static RemoteCacheClient create(
-      RemoteOptions options,
-      @Nullable Credentials creds,
-      Path workingDirectory,
-      DigestUtil digestUtil)
-      throws IOException {
+  public static ReferenceCountedChannel createGrpcChannel(String target, String proxyUri,
+      AuthAndTLSOptions authOptions, @Nullable ClientInterceptor interceptor) throws IOException {
+    return new ReferenceCountedChannel(
+        GoogleAuthUtils.newChannel(target, proxyUri, authOptions,
+            interceptor));
+  }
+
+  public static RemoteCacheClient create(RemoteOptions options, @Nullable Credentials creds,
+      Path workingDirectory, DigestUtil digestUtil) throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
-    if (isHttpUrlOptions(options) && isDiskCache(options)) {
+    if (isHttpCache(options) && isDiskCache(options)) {
       return createCombinedCache(workingDirectory, options.diskCache, options, creds, digestUtil);
     }
-    if (isHttpUrlOptions(options)) {
+    if (isHttpCache(options)) {
       return createHttp(options, creds, digestUtil);
     }
     if (isDiskCache(options)) {
@@ -62,7 +68,7 @@ public final class RemoteCacheClientFactory {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isHttpUrlOptions(options) || isDiskCache(options);
+    return isHttpCache(options) || isDiskCache(options);
   }
 
   private static RemoteCacheClient createHttp(
@@ -138,11 +144,11 @@ public final class RemoteCacheClientFactory {
     return new CombinedDiskHttpCacheClient(diskCache, httpCache);
   }
 
-  private static boolean isDiskCache(RemoteOptions options) {
+  public static boolean isDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  private static boolean isHttpUrlOptions(RemoteOptions options) {
+  public static boolean isHttpCache(RemoteOptions options) {
     return options.remoteCache != null
         && (Ascii.toLowerCase(options.remoteCache).startsWith("http://")
             || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
