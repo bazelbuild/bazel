@@ -295,17 +295,29 @@ public class PackageLookupFunction implements SkyFunction {
   private PackageLookupValue computeWorkspacePackageLookupValue(
       Environment env, ImmutableList<Root> packagePathEntries)
       throws PackageLookupFunctionException, InterruptedException {
-    PackageLookupValue result =
+    PackageLookupValue resultForWorkspaceDotBazel =
+        getPackageLookupValue(
+            env,
+            packagePathEntries,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            BuildFileName.WORKSPACE_DOT_BAZEL);
+    if (resultForWorkspaceDotBazel == null) {
+      return null;
+    }
+    if (resultForWorkspaceDotBazel.packageExists()) {
+      return resultForWorkspaceDotBazel;
+    }
+    PackageLookupValue resultForWorkspace =
         getPackageLookupValue(
             env,
             packagePathEntries,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             BuildFileName.WORKSPACE);
-    if (result == null) {
+    if (resultForWorkspace == null) {
       return null;
     }
-    if (result.packageExists()) {
-      return result;
+    if (resultForWorkspace.packageExists()) {
+      return resultForWorkspace;
     }
     // Fall back on the last package path entry if there were any and nothing else worked.
     // TODO(kchodorow): get rid of this, the semantics are wrong (successful package lookup should

@@ -63,6 +63,9 @@ title: Concepts and Terminology
    at a subdirectory containing a <code>WORKSPACE</code> file (as they form
    another workspace).</p>
 
+<p>Bazel also supports <code>WORKSPACE.bazel</code> file as an alias of <code>WORKSPACE</code> file.
+   If both files exist, <code>WORKSPACE.bazel</code> will take the priority.</p>
+
 <h3 id="repositories">Repositories</h3>
 <p>Code is organized in <em>repositories</em>. The directory containing
    the <code>WORKSPACE</code> file is the root of the main repository, also
