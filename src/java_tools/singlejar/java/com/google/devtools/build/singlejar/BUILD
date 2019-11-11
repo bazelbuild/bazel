@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
 
 # Description:
 #   SingleJar combines multiple zip files and additional files
@@ -70,8 +71,6 @@ java_binary(
 #
 # Bootstrapping using Skylark rules
 #
-
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
     name = "skylark-deps",
