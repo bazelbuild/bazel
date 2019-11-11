@@ -195,4 +195,10 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       }
     }
   }
+
+  @Override
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(
+      Location location, StarlarkThread thread) throws EvalException {
+    // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.
+  }
 }
