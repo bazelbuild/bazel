@@ -223,7 +223,7 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableSet<Artifact> mandatoryInputs =
         action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null;
 
-    int nestedSetSizeThreshold = skyframeActionExecutor.getNestedSetAsSkyKeyThreshold();
+    int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     Iterable<Artifact> allInputs =
         state.allInputs.getAllInputs(/* maybeAsNestedSet= */ nestedSetSizeThreshold > 0);
 

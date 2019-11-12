@@ -85,6 +85,8 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
   private static ArtifactNestedSetFunction singleton = null;
 
+  private static Integer sizeThreshold = null;
+
   private ArtifactNestedSetFunction() {
     artifactSkyKeyToValueOrException = new MapMaker().weakKeys().makeMap();
     nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
@@ -120,8 +122,18 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
   public static ArtifactNestedSetFunction getInstance() {
     if (singleton == null) {
-      singleton = new ArtifactNestedSetFunction();
+      return createInstance();
     }
+    return singleton;
+  }
+
+  /**
+   * Creates a new instance. Should only be used in {@code SkyframeExecutor#skyFunctions}. Keeping
+   * this method separated from {@code #getInstance} since sometimes we need to overwrite the
+   * existing instance.
+   */
+  public static ArtifactNestedSetFunction createInstance() {
+    singleton = new ArtifactNestedSetFunction();
     return singleton;
   }
 
@@ -133,5 +145,33 @@ class ArtifactNestedSetFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  /**
+   * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
+   * return the default value of 0.
+   */
+  public static int getSizeThreshold() {
+    return sizeThreshold == null ? 0 : sizeThreshold;
+  }
+
+  /**
+   * Updates the sizeThreshold value if the existing value differs from newValue.
+   *
+   * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
+   * @return whether an update was made.
+   */
+  public static boolean sizeThresholdUpdatedTo(int newValue) {
+    // If this is the first time the value is set, it's not considered "updated".
+    if (sizeThreshold == null) {
+      sizeThreshold = newValue;
+      return false;
+    }
+
+    if (sizeThreshold == newValue || (sizeThreshold <= 0 && newValue <= 0)) {
+      return false;
+    }
+    sizeThreshold = newValue;
+    return true;
   }
 }

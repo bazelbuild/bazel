@@ -358,7 +358,7 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
               + " will be evaluated as a unit on Skyframe.")

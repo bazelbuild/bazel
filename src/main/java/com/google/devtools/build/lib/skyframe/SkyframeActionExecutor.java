@@ -209,7 +209,6 @@ public final class SkyframeActionExecutor {
   private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
-  private int nestedSetAsSkyKeyThreshold;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -428,9 +427,6 @@ public final class SkyframeActionExecutor {
     this.outputService = outputService;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
-
-    this.nestedSetAsSkyKeyThreshold =
-        options.getOptions(BuildRequestOptions.class).nestedSetAsSkyKeyThreshold;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -800,10 +796,6 @@ public final class SkyframeActionExecutor {
 
   boolean isBazelRemoteExecutionEnabled() {
     return bazelRemoteExecutionEnabled;
-  }
-
-  int getNestedSetAsSkyKeyThreshold() {
-    return nestedSetAsSkyKeyThreshold;
   }
 
   private MetadataProvider createFileCache(

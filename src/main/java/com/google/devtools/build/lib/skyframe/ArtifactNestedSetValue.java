@@ -13,14 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
-import java.io.IOException;
-import java.util.Map;
 
 /**
  * Represent a "promise" that the Artifacts under a NestedSet is evaluated by Skyframe and the
@@ -37,9 +32,5 @@ public class ArtifactNestedSetValue implements SkyValue {
       singleton = new ArtifactNestedSetValue();
     }
     return singleton;
-  }
-
-  Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getArtifactToSkyValueMap() {
-    return ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
   }
 }

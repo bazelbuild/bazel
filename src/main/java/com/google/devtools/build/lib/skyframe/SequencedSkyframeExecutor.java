@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
@@ -226,6 +227,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return recordingDiffer;
   }
 
+  /**
+   * Update the nestedset size threshold if the flag value changed.
+   *
+   * @return whether an update was made.
+   */
+  private static boolean nestedSetAsSkyKeyThresholdUpdatedAndReset(
+      BuildRequestOptions buildRequestOptions) {
+    if (buildRequestOptions == null) {
+      return false;
+    }
+    return ArtifactNestedSetFunction.sizeThresholdUpdatedTo(
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
+  }
+
   @Override
   public void sync(
       ExtendedEventHandler eventHandler,
@@ -237,7 +252,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    if (evaluatorNeedsReset) {
+    // If the nestedSetAsSkykeyThreshold changed between builds, it's necessary to reset the
+    // evaluator to avoid dependency inconsistencies in Skyframe.
+    // Resetting the evaluator also creates new instances of the SkyFunctions, hence also wiping
+    // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
+    if (evaluatorNeedsReset
+        || nestedSetAsSkyKeyThresholdUpdatedAndReset(
+            options.getOptions(BuildRequestOptions.class))) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
