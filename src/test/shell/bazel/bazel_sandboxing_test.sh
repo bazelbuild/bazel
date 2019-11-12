@@ -17,6 +17,12 @@
 # Test sandboxing spawn strategy
 #
 
+# Set to a host:port address that is outside of the local machine to
+# test remote network sandboxing features.
+#
+# Can be passed in via --test_env=REMOTE_NETWORK_ADDRESS=host:port.
+: "${REMOTE_NETWORK_ADDRESS:=}"
+
 # Load test environment
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -339,103 +345,186 @@ function test_sandbox_cyclic_symlink_in_inputs() {
   }
 }
 
-function test_sandbox_network_access() {
+# Prepares common targets and services to be used by all network-related
+# tests.  The tests for remote network access are only enabled if the
+# user has requested them by setting REMOTE_NETWORK_ADDRESS in the
+# environment.
+function setup_network_tests() {
+  local tags="${1}"; shift
+
   serve_file file_to_serve
-  cat << EOF >> examples/genrule/BUILD
+
+  local socket_dir
+  socket_dir="$(mktemp -d /tmp/test.XXXXXX)" || fail "mktemp failed"
+  local socket="${socket_dir}/socket"
+  python $python_server --unix_socket="${socket}" always file_to_serve &
+  local pid="${!}"
+
+  trap "kill_nc || true; kill '${pid}' || true; rm -f '${socket}'; rmdir '${socket_dir}'" EXIT
+
+  mkdir pkg
+  cat <<EOF >pkg/BUILD
+genrule(
+  name = "localhost",
+  outs = [ "localhost.txt" ],
+  cmd = "curl -o \$@ localhost:${nc_port}",
+  tags = [ ${tags} ],
+)
 
 genrule(
-  name = "sandbox_network_access",
-  outs = [ "sandbox_network_access.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
+  name = "unix-socket",
+  outs = [ "unix-socket.txt" ],
+  cmd = "curl --unix-socket ${socket} -o \$@ irrelevant-url",
+  tags = [ ${tags} ],
 )
 EOF
-  bazel build examples/genrule:sandbox_network_access &> $TEST_log \
-    || fail "genrule 'sandbox_network_access' trying to use network failed, but should have succeeded"
-  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access.txt" ] \
-    || fail "genrule 'sandbox_network_access' did not produce output"
-  kill_nc
+
+  # TODO(https://github.com/bazelbuild/bazel/issues/10068): Remove once
+  # network sandboxing works on macOS.
+  case "$(uname -s)" in
+    Darwin) REMOTE_NETWORK_ADDRESS= ;;
+  esac
+
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    local hostname="${REMOTE_NETWORK_ADDRESS%:*}"
+    local remote_ip
+    if which host 2>/dev/null; then
+      remote_ip="$(host -t A "${hostname}" | head -n 1 | awk '{print $4}')"
+    elif which dig 2>/dev/null; then
+      remote_ip="$(dig -t A "${hostname}" | grep "^${hostname}" | awk '{print $5}')"
+    else
+      fail "Don't know how to query IP of remote host ${hostname}"
+    fi
+    if [[ -z "${remote_ip}" ]]; then
+      fail "No IPv4 connectivity within unsandboxed test"
+    fi
+
+    cat <<EOF >>pkg/BUILD
+genrule(
+  name = "remote-ip",
+  outs = [ "remote-ip.txt" ],
+  cmd = "curl -o \$@ ${remote_ip}:80",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "remote-name",
+  outs = [ "remote-name.txt" ],
+  cmd = "curl -o \$@ '${REMOTE_NETWORK_ADDRESS}'",
+  tags = [ ${tags} ],
+)
+EOF
+  else
+    echo "Not registering tests for remote network sandboxing;" \
+      "REMOTE_NETWORK_ADDRESS has not been set"
+  fi
+}
+
+# Checks that the given target name, which must have been created by
+# a previous call to setup_network_tests, can access the network.
+function check_network_ok() {
+  local target="${1}"; shift
+
+  (
+    # macOS's /bin/bash is ancient and cannot reference $@ when -u is set.
+    # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
+    set +u
+
+    bazel build "${@}" "pkg:${target}" &>$TEST_log \
+      || fail "'${target}' could not access the network"
+  )
+}
+
+# Checks that the given target name, which must have been created by
+# a previous call to setup_network_tests, cannot access the network.
+function check_network_not_ok() {
+  local target="${1}"; shift
+
+  (
+    # macOS's /bin/bash is ancient and cannot reference $@ when -u is set.
+    # https://unix.stackexchange.com/questions/16560/bash-su-unbound-variable-with-set-u
+    set +u
+
+    bazel build "${@}" "pkg:${target}" &> $TEST_log \
+      && fail "'${target}' trying to use network succeeded but should have failed" || true
+  )
+  [[ ! -f "${BAZEL_GENFILES_DIR}/pkg/${target}.txt" ]] \
+    || fail "'${target}' produced output but was expected to fail"
+}
+
+function test_sandbox_network_access() {
+  setup_network_tests '"some-tag"'
+
+  check_network_ok localhost
+  check_network_ok unix-socket
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    check_network_ok remote-ip
+    check_network_ok remote-name
+  fi
 }
 
 function test_sandbox_block_network_access() {
-  serve_file file_to_serve
-  cat << EOF >> examples/genrule/BUILD
+  setup_network_tests '"some-tag"'
 
-genrule(
-  name = "breaks4",
-  outs = [ "breaks4.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
-)
-EOF
-  bazel build --experimental_sandbox_default_allow_network=false examples/genrule:breaks1 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks4" || true
-  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt" ] || {
-    output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt")
-    fail "Non-hermetic genrule breaks1 succeeded with following output: $output"
-  }
-  kill_nc
+  case "$(uname -s)" in
+    Linux)
+      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+      # within the network namespace... but that doesn't seem to be the case.
+      check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
+      ;;
+
+    *)
+      check_network_ok localhost --experimental_sandbox_default_allow_network=false
+      ;;
+  esac
+  check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=false
+    check_network_not_ok remote-name --experimental_sandbox_default_allow_network=false
+  fi
 }
 
 function test_sandbox_network_access_with_local() {
-  serve_file file_to_serve
-  cat << EOF >> examples/genrule/BUILD
+  setup_network_tests '"local"'
 
-genrule(
-  name = "sandbox_network_access_with_local",
-  outs = [ "sandbox_network_access_with_local.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
-  tags = [ "local" ],
-)
-EOF
-  bazel build examples/genrule:sandbox_network_access_with_local &> $TEST_log \
-    || fail "genrule 'sandbox_network_access_with_local' trying to use network failed, but should have succeeded"
-  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_local.txt" ] \
-    || fail "genrule 'sandbox_network_access_with_local' did not produce output"
-  kill_nc
+  check_network_ok localhost
+  check_network_ok unix-socket
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    check_network_ok remote-ip
+    check_network_ok remote-name
+  fi
 }
 
 function test_sandbox_network_access_with_requires_network() {
-  serve_file file_to_serve
-  cat << EOF >> examples/genrule/BUILD
+  setup_network_tests '"requires-network"'
 
-genrule(
-  name = "sandbox_network_access_with_requires_network",
-  outs = [ "sandbox_network_access_with_requires_network.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
-  tags = [ "requires-network" ],
-)
-EOF
-  bazel build --experimental_sandbox_default_allow_network=false \
-    examples/genrule:sandbox_network_access_with_requires_network &> $TEST_log \
-    || fail "genrule failed even though tags=['requires-network']: \
-    examples/genrule:breaks4_works_with_requires_network"
-  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_requires_network.txt" ] \
-    || fail "Genrule did not produce output: examples/genrule:sandbox_network_access_with_requires_network.txt"
-  kill_nc
+  check_network_ok localhost --experimental_sandbox_default_allow_network=false
+  check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    check_network_ok remote-ip --experimental_sandbox_default_allow_network=false
+    check_network_ok remote-name --experimental_sandbox_default_allow_network=false
+  fi
 }
 
 function test_sandbox_network_access_with_block_network() {
-  if [[ "$(uname -s)" = Darwin ]]; then
-    # TODO(https://github.com/bazelbuild/bazel/issues/10068): Network blocking
-    # currently broken on macOS.
-    echo "Skipping test: functionality known to be broken on macOS"
-    return 0
+  setup_network_tests '"block-network"'
+
+  case "$(uname -s)" in
+    Linux)
+      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+      # within the network namespace... but that doesn't seem to be the case.
+      check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
+      ;;
+
+    *)
+      check_network_ok localhost --experimental_sandbox_default_allow_network=true
+      ;;
+  esac
+  check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
+  if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
+    check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=true
+    check_network_not_ok remote-name --experimental_sandbox_default_allow_network=true
   fi
-
-  serve_file file_to_serve
-  cat << EOF >> examples/genrule/BUILD
-
-genrule(
-  name = "sandbox_network_access_with_block_network",
-  outs = [ "sandbox_network_access_with_block_network.txt" ],
-  cmd = "curl -o \$@ localhost:${nc_port}",
-  tags = [ "block-network" ],
-)
-EOF
-  bazel build --experimental_sandbox_default_allow_network=true examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
-    && fail "genrule 'sandbox_network_access_with_block_network' trying to use network succeeded, but should have failed" || true
-  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_block_network.txt" ] \
-    || fail "genrule 'sandbox_network_access_with_block_network' produced output, but was expected to fail"
-  kill_nc
 }
 
 function test_sandbox_can_resolve_own_hostname() {
