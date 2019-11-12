@@ -121,7 +121,17 @@ $ bazel query "deps(//foo)"
 <p>The library <code>//third_party/zlib:zlibonly</code> isn't in the BUILD file for
 <code>//foo</code>, but it is an indirect dependency. How can
 we trace this dependency path?  There are two useful functions here:
-<code>allpaths</code> and <code>somepath</code></p>
+<code>allpaths</code> and <code>somepath</code>. You may also want to exclude
+tooling dependencies with <code>--notool_deps</code> if you care only about
+what is included in the artifact you built, and not every possible job.
+
+<p>To visualize the graph of all dependencies, pipe the bazel query output through
+  the <code>dot</dot> command-line tool:</p>
+<pre>
+$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tpng > graph.png
+</pre>
+
+<p>When a dependency graph is big and complicated, it can be helpful start with a single path:</p>
 
 <pre>
 $ bazel query "somepath(//foo:foo, third_party/zlib:zlibonly)"
@@ -132,6 +142,11 @@ $ bazel query "somepath(//foo:foo, third_party/zlib:zlibonly)"
 //third_party/py/MySQL:_MySQL.so
 //third_party/mysql:mysql
 //third_party/zlib:zlibonly
+</pre>
+
+<p>If you do not specify <code>--output graph</code> with <code>allpaths</code>,
+you will get a flattened list of the dependency graph.</p>
+<pre>
 $ bazel query "allpaths(//foo, third_party/...)"
   ...many errors detected in BUILD files...
 //foo:foo
