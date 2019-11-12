@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -147,16 +146,13 @@ public class BuiltinFunction extends BaseFunction {
     // If this happens, it's a bug in our code.
     return new IllegalStateException(
         String.format(
-            "%s%s (%s)\n"
-                + "while calling %s with args %s\n"
-                + "Java parameter types: %s\nStarlark type checks: %s",
+            "%s%s (%s)\n" + "while calling %s with args %s\n" + "Java parameter types: %s",
             (loc == null) ? "" : loc + ": ",
             Arrays.asList(args),
             e.getClass().getName(),
             stacktraceToString(e.getStackTrace()),
             this,
-            Arrays.asList(invokeMethod.getParameterTypes()),
-            getEnforcedArgumentTypes()),
+            Arrays.asList(invokeMethod.getParameterTypes())),
         e);
   }
 
@@ -166,39 +162,6 @@ public class BuiltinFunction extends BaseFunction {
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
     int numParameters = getSignature().numParameters();
     this.extraParams = extraParams(numParameters, parameterTypes);
-
-    if (enforcedArgumentTypes != null) {
-      for (int i = 0; i < numParameters; i++) {
-        SkylarkType enforcedType = enforcedArgumentTypes.get(i);
-        if (enforcedType != null) {
-          Class<?> parameterType = parameterTypes[i];
-          String msg =
-              String.format(
-                  "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
-                  getName(),
-                  getSignature(),
-                  getSignature().getParameterNames().get(i),
-                  enforcedType,
-                  enforcedType.getType(),
-                  parameterType);
-          if (enforcedType instanceof SkylarkType.Simple
-              || enforcedType instanceof SkylarkFunctionType) {
-            Preconditions.checkArgument(
-                parameterType.isAssignableFrom(enforcedType.getType()), msg);
-
-            // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
-            enforcedArgumentTypes.set(i, null);
-          } else if (enforcedType instanceof SkylarkType.Combination) {
-            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
-          } else {
-            Preconditions.checkArgument(
-                parameterType == Object.class || parameterType == null, msg);
-          }
-        }
-      }
-      // No need for the enforcedArgumentTypes List if all the types were Simple
-      enforcedArgumentTypes = valueListOrNull(enforcedArgumentTypes);
-    }
 
     if (returnType != null) {
       Class<?> type = returnType;
@@ -217,13 +180,8 @@ public class BuiltinFunction extends BaseFunction {
    */
   private String getShortSignature() {
     StringBuilder builder = new StringBuilder();
-    builder.append(getFullName()).append("(");
-    getSignature()
-        .toStringBuilder(
-            builder,
-            /*defaultValuePrinter=*/ null,
-            /*typePrinter=*/ null,
-            /* skipFirstMandatory= */ false);
+    builder.append(getName()).append("(");
+    getSignature().toStringBuilder(builder, /*defaultValuePrinter=*/ null);
     builder.append(")");
     return builder.toString();
   }
@@ -249,19 +207,6 @@ public class BuiltinFunction extends BaseFunction {
   private static final Class<?>[] EXTRA_PARAM_CLASSES = {
     Location.class, FuncallExpression.class, StarlarkThread.class
   };
-
-  /** Returns list, or null if all its elements are null. */
-  @Nullable
-  private static <E> List<E> valueListOrNull(List<E> list) {
-    if (list != null) {
-      for (E value : list) {
-        if (value != null) {
-          return list;
-        }
-      }
-    }
-    return null;
-  }
 
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
   private static Method findMethod(Class<?> cls, String name) {

@@ -901,7 +901,7 @@ public final class StarlarkThread implements Freezable {
           DebugFrame.builder()
               .setLexicalFrameBindings(ImmutableMap.copyOf(currentFrame.getTransitiveBindings()))
               .setGlobalBindings(ImmutableMap.copyOf(getGlobals().getTransitiveBindings()))
-              .setFunctionName(currentContinuation.function.getFullName())
+              .setFunctionName(currentContinuation.function.getName())
               .setLocation(currentLocation)
               .build());
 

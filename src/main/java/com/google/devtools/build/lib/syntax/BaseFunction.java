@@ -50,8 +50,7 @@ import javax.annotation.Nullable;
  */
 public abstract class BaseFunction implements StarlarkCallable {
 
-  // TODO(adonovan): this class has too many fields and relies too heavily on side effects and the
-  // class hierarchy. Turn fields into abstract methods. Make processArguments a static function
+  // TODO(adonovan): Turn fields into abstract methods. Make processArguments a static function
   // with multiple parameters, instead of a "mix-in" that accesses instance fields.
 
   /**
@@ -72,22 +71,12 @@ public abstract class BaseFunction implements StarlarkCallable {
   // element per optional parameter, without exception.
   @Nullable private final List<Object> defaultValues;
 
-  // Location of the function definition, or null for builtin functions
-  // TODO(bazel-team): make non-nullable and use Location.BUILTIN for builtin functions.
-  @Nullable protected final Location location;
-
-  // Some functions are also Namespaces or other Skylark entities.
-  @Nullable protected Class<?> objectType;
-
-  // The types actually enforced by the Skylark runtime, as opposed to those enforced by the JVM,
-  // or those displayed to the user in the documentation.
-  @Nullable List<SkylarkType> enforcedArgumentTypes;
-
   /**
    * Returns the name of this function.
    *
    * <p>A subclass must override this function if a null name is given to this class's constructor.
    */
+  @Override
   public String getName() {
     Preconditions.checkNotNull(name);
     return name;
@@ -107,27 +96,16 @@ public abstract class BaseFunction implements StarlarkCallable {
     return defaultValues;
   }
 
-  /** This function may also be viewed by Skylark as being of a special ObjectType */
-  @Nullable public Class<?> getObjectType() {
-    return objectType;
-  }
-
   /**
-   * Constructs a BaseFunction with a given name, signature and location.
+   * Constructs a BaseFunction with a given name and signature.
    *
    * @param signature the signature with default values and types
-   * @param location the location of function definition
    */
   protected BaseFunction(
-      @Nullable String name,
-      FunctionSignature signature,
-      @Nullable List<Object> defaultValues,
-      @Nullable Location location) {
+      @Nullable String name, FunctionSignature signature, @Nullable List<Object> defaultValues) {
     this.name = name;
     this.signature = Preconditions.checkNotNull(signature);
     this.defaultValues = defaultValues;
-    this.location = location;
-
     if (defaultValues != null) {
       Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
     }
@@ -140,7 +118,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @param signature the function signature
    */
   protected BaseFunction(@Nullable String name, FunctionSignature signature) {
-    this(name, signature, /*defaultValues=*/ null, /*location=*/ null);
+    this(name, signature, /*defaultValues=*/ null);
   }
 
   /**
@@ -148,15 +126,6 @@ public abstract class BaseFunction implements StarlarkCallable {
    */
   protected int getArgArraySize() {
     return signature.numParameters();
-  }
-
-  /**
-   * The types that will be actually enforced by Skylark itself, so we may skip those already
-   * enforced by the JVM during calls to BuiltinFunction, but also so we may lie to the user in the
-   * automatically-generated documentation
-   */
-  List<SkylarkType> getEnforcedArgumentTypes() {
-    return enforcedArgumentTypes;
   }
 
   /**
@@ -331,27 +300,6 @@ public abstract class BaseFunction implements StarlarkCallable {
     return arguments;
   }
 
-  /** check types and convert as required */
-  private void canonicalizeArguments(Object[] arguments, Location loc) throws EvalException {
-    List<SkylarkType> types = getEnforcedArgumentTypes();
-
-    // Check types, if supplied
-    if (types == null) {
-      return;
-    }
-    int length = types.size();
-    for (int i = 0; i < length; i++) {
-      Object value = arguments[i];
-      SkylarkType type = types.get(i);
-      if (value != null && type != null && !type.contains(value)) {
-        List<String> names = signature.getParameterNames();
-        throw new EvalException(loc,
-            String.format("expected %s for '%s' while calling %s but got %s instead: %s",
-                type, names.get(i), getName(), EvalUtils.getDataTypeName(value, true), value));
-      }
-    }
-  }
-
   /**
    * The outer calling convention to a BaseFunction.
    *
@@ -372,7 +320,7 @@ public abstract class BaseFunction implements StarlarkCallable {
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
 
     Object[] arguments = processArguments(args, kwargs, loc, thread);
-    return callWithArgArray(arguments, ast, thread, location);
+    return callWithArgArray(arguments, ast, thread, getLocation());
   }
 
   /**
@@ -404,8 +352,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   public Object callWithArgArray(
       Object[] arguments, @Nullable FuncallExpression ast, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
-    canonicalizeArguments(arguments, loc);
-
     try {
       if (Callstack.enabled) {
         Callstack.push(this);
@@ -426,7 +372,7 @@ public abstract class BaseFunction implements StarlarkCallable {
     StringBuilder sb = new StringBuilder();
     sb.append(getName());
     sb.append('(');
-    signature.toStringBuilder(sb, this::printDefaultValue, /*typePrinter=*/ null, false);
+    signature.toStringBuilder(sb, this::printDefaultValue);
     sb.append(')');
     return sb.toString();
   }
@@ -434,24 +380,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   private String printDefaultValue(int i) {
     Object v = defaultValues != null ? defaultValues.get(i) : null;
     return v != null ? Printer.repr(v) : null;
-  }
-
-  private String getObjectTypeString() {
-    Class<?> clazz = getObjectType();
-    if (clazz == null) {
-      return "";
-    }
-    return EvalUtils.getDataTypeNameFromClass(clazz, false) + ".";
-  }
-
-  /** Returns [class.]function (depending on whether func belongs to a class). */
-  String getFullName() {
-    return String.format("%s%s", getObjectTypeString(), getName());
-  }
-
-  @Nullable
-  public Location getLocation() {
-    return location;
   }
 
   @Override
@@ -462,5 +390,10 @@ public abstract class BaseFunction implements StarlarkCallable {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<function " + getName() + ">");
+  }
+
+  @Override
+  public Location getLocation() {
+    return Location.BUILTIN;
   }
 }

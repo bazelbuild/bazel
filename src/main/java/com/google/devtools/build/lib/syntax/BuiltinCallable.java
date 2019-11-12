@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -69,6 +70,16 @@ public final class BuiltinCallable implements StarlarkCallable {
 
   public MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
     return CallUtils.getMethod(semantics, obj.getClass(), methodName);
+  }
+
+  @Override
+  public Location getLocation() {
+    return Location.BUILTIN;
+  }
+
+  @Override
+  public String getName() {
+    return methodName;
   }
 
   @Override

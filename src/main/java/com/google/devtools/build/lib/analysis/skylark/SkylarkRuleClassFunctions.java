@@ -700,7 +700,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         if (attr.hasAnalysisTestTransition()) {
           if (!builder.isAnalysisTest()) {
             throw new EvalException(
-                location,
+                getLocation(),
                 "Only rule definitions with analysis_test=True may have attributes with "
                     + "analysis_test_transition transitions");
           }
@@ -711,11 +711,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
           if (!BuildType.isLabelType(attr.getType())) {
             throw new EvalException(
-                location, "_whitelist_function_transition attribute must be a label type");
+                getLocation(), "_whitelist_function_transition attribute must be a label type");
           }
           if (attr.getDefaultValueUnchecked() == null) {
             throw new EvalException(
-                location, "_whitelist_function_transition attribute must have a default value");
+                getLocation(),
+                "_whitelist_function_transition attribute must have a default value");
           }
           Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
           // Check the label value for package and target name, to make sure this works properly
@@ -727,7 +728,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   .getName()
                   .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getName())) {
             throw new EvalException(
-                location,
+                getLocation(),
                 "_whitelist_function_transition attribute ("
                     + defaultLabel
                     + ") does not have the expected value "
@@ -742,7 +743,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       if (hasStarlarkDefinedTransition) {
         if (!hasFunctionTransitionWhitelist) {
           throw new EvalException(
-              location,
+              getLocation(),
               String.format(
                   "Use of Starlark transition without whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
@@ -750,7 +751,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       } else {
         if (hasFunctionTransitionWhitelist) {
           throw new EvalException(
-              location,
+              getLocation(),
               String.format(
                   "Unused function-based split transition whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
@@ -760,7 +761,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
-        throw new EvalException(location, ex);
+        throw new EvalException(getLocation(), ex);
       }
 
       this.builder = null;

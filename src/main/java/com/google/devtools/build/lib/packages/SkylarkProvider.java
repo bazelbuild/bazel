@@ -49,6 +49,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   /** Default value for {@link #errorMessageFormatForUnknownField}. */
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
 
+  private final Location location;
+
   /**
    * For schemaful providers, a layout describing the allowed fields and their order in an
    * array-based representation. For schemaless providers, null.
@@ -126,7 +128,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
       @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
     // We override getName() in order to use the name that is assigned when export() is called.
     // Hence BaseFunction's constructor gets a null name.
-    super(/*name=*/ null, buildSignature(fields), location);
+    super(/*name=*/ null, buildSignature(fields));
+    this.location = location;
     this.layout = fields == null ? null : new Layout(fields);
     this.key = key;  // possibly null
     this.errorMessageFormatForUnknownField =
@@ -151,6 +154,11 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
       // Note: This depends on the layout map using the same ordering as args.
       return SkylarkInfo.createSchemaful(this, layout, args, loc);
     }
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
   }
 
   @Override

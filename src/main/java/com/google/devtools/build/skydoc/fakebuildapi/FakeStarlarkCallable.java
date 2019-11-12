@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -42,6 +43,16 @@ public final class FakeStarlarkCallable implements StarlarkCallable {
       @Nullable FuncallExpression call,
       StarlarkThread thread) {
     return Starlark.NONE;
+  }
+
+  @Override
+  public String getName() {
+    return functionName;
+  }
+
+  @Override
+  public Location getLocation() {
+    return Location.BUILTIN;
   }
 
   @Override
