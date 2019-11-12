@@ -239,7 +239,7 @@ public class GrpcRemoteExecutionClientTest {
             "command-id",
             remoteCache,
             executor,
-            RemoteModule.createExecuteRetrier(remoteOptions, retryService),
+            retryService,
             DIGEST_UTIL,
             logDir,
             /* filesToDownload= */ ImmutableSet.of());
