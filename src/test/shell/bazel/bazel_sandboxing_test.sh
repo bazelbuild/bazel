@@ -379,12 +379,6 @@ genrule(
 )
 EOF
 
-  # TODO(https://github.com/bazelbuild/bazel/issues/10068): Remove once
-  # network sandboxing works on macOS.
-  case "$(uname -s)" in
-    Darwin) REMOTE_NETWORK_ADDRESS= ;;
-  esac
-
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     local hostname="${REMOTE_NETWORK_ADDRESS%:*}"
     local remote_ip
