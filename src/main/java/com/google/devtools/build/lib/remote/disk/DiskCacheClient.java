@@ -137,6 +137,8 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
+    // Both upload and download check if the file exists before doing I/O. So we don't
+    // have to do it here.
     return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 

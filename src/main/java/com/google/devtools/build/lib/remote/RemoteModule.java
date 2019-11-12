@@ -129,16 +129,9 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-    if ((enableDiskCache || enableHttpCache) && enableRemoteExecution) {
-      throw new AbruptExitException(
-          "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",
-          ExitCode.COMMAND_LINE_ERROR);
-    }
-
-    if (enableDiskCache && enableGrpcCache) {
-      throw new AbruptExitException(
-          "Cannot combine gRPC based remote caching with local disk caching",
-          ExitCode.COMMAND_LINE_ERROR);
+    if ((enableHttpCache || enableDiskCache) && enableRemoteExecution) {
+      throw new AbruptExitException("Cannot combine gRPC based remote execution with disk caching or"
+          + " HTTP-based caching", ExitCode.COMMAND_LINE_ERROR);
     }
 
     env.getEventBus().register(this);
@@ -151,18 +144,16 @@ public final class RemoteModule extends BlazeModule {
     cleanAndCreateRemoteLogsDir(logDir);
 
     try {
-      if (enableHttpCache || enableDiskCache) {
-        RemoteCacheClient cacheClient =
-            RemoteCacheClientFactory.create(
-                remoteOptions,
-                GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
-                digestUtil);
-        RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
-        actionContextProvider =
-            RemoteActionContextProvider.createForRemoteCaching(
-                env, remoteCache, /* retryScheduler= */ null, digestUtil);
-        return;
+      if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
+          RemoteCacheClient cacheClient = RemoteCacheClientFactory.create(
+              remoteOptions,
+              GoogleAuthUtils.newCredentials(authAndTlsOptions),
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
+              digestUtil);
+          RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
+          actionContextProvider = RemoteActionContextProvider.createForRemoteCaching(
+              env, remoteCache, /* executeRetrier= */ null, digestUtil);
+          return;
       }
 
       Preconditions.checkState(enableGrpcCache || enableRemoteExecution);
@@ -242,7 +233,7 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions.remoteTimeout,
               retrier);
       cacheChannel.release();
-      GrpcCacheClient cacheClient =
+      RemoteCacheClient cacheClient =
           new GrpcCacheClient(
               cacheChannel.retain(),
               credentials,
@@ -280,6 +271,13 @@ public final class RemoteModule extends BlazeModule {
             RemoteActionContextProvider.createForRemoteExecution(
                 env, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
       } else {
+        if (enableDiskCache) {
+          cacheClient = RemoteCacheClientFactory
+              .createDiskAndRemoteClient(env.getWorkingDirectory(),
+                  remoteOptions.diskCache, remoteOptions.remoteVerifyDownloads, digestUtil,
+                  cacheClient);
+        }
+
         RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteCaching(

@@ -21,6 +21,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -39,8 +40,9 @@ import java.util.concurrent.ExecutionException;
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
 
-  public RemoteExecutionCache(
-      GrpcCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
+  public RemoteExecutionCache(RemoteCacheClient protocolImpl,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
     super(protocolImpl, options, digestUtil);
   }
 
@@ -86,7 +88,7 @@ public class RemoteExecutionCache extends RemoteCache {
    * end-point from the executor itself, so the functionality lives here.
    */
   public void ensureInputsPresent(
-      MerkleTree merkleTree, Map<Digest, Message> additionalInputs, Path execRoot)
+      MerkleTree merkleTree, Map<Digest, Message> additionalInputs)
       throws IOException, InterruptedException {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());

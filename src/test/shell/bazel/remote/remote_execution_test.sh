@@ -1471,6 +1471,71 @@ EOF
   expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
 }
 
+function test_genrule_combined_disk_grpc_cache() {
+  # Test for the combined disk and grpc cache.
+  # Built items should be pushed to both the disk and grpc cache.
+  # If an item is missing on disk cache, but present on grpc cache,
+  # then bazel should copy it from grpc cache to disk cache on fetch.
+
+  local cache="${TEST_TMPDIR}/cache"
+  local disk_flags="--disk_cache=$cache"
+  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+genrule(
+name = 'test',
+cmd = 'echo "Hello world" > \$@',
+outs = [ 'test.txt' ],
+)
+EOF
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk and grpc cache
+  bazel build $disk_flags $grpc_flags //a:test \
+    || fail "Failed to build //a:test with combined disk grpc cache"
+  cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # Fetch from grpc cache
+  bazel clean
+  bazel build $grpc_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from grpc cache"
+  expect_log "1 remote cache hit" "Fetch from grpc cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Copy from grpc cache to disk cache
+  bazel clean
+  bazel build $disk_flags $grpc_flags //a:test &> $TEST_log \
+    || fail "Failed to copy //a:test from grpc cache to disk cache"
+  expect_log "1 remote cache hit" "Copy from grpc cache to disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache after copy from grpc cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
