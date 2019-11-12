@@ -137,7 +137,7 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testSumFunction() throws Exception {
     BaseFunction sum =
-        new BaseFunction("sum") {
+        new BaseFunction("sum", FunctionSignature.ANY) {
           @Override
           public Object call(
               List<Object> args,
@@ -179,7 +179,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
     // This function returns the map of keyword arguments passed to it.
     BaseFunction kwargs =
-        new BaseFunction("kwargs") {
+        new BaseFunction("kwargs", FunctionSignature.ANY) {
           @Override
           public Object call(
               List<Object> args,

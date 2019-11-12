@@ -53,15 +53,10 @@ public class BuiltinFunction extends BaseFunction {
   // The returnType of the method.
   private Class<?> returnType;
 
-  /** Create unconfigured (signature-less) function from its name. */
-  protected BuiltinFunction(String name) {
-    super(name);
-  }
-
   /** Creates a BuiltinFunction with the given name and signature. */
   protected BuiltinFunction(String name, FunctionSignature signature) {
     super(name, signature);
-    configure();
+    initialize();
   }
 
   @Override
@@ -120,15 +115,14 @@ public class BuiltinFunction extends BaseFunction {
       for (int i = 0; i < args.length; i++) {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
-              i < len ? signature.getParameterNames().get(i) : extraParams[i - len].getName();
+              i < len ? getSignature().getParameterNames().get(i) : extraParams[i - len].getName();
           throw new EvalException(
               loc,
               String.format(
-                  "argument '%s' has type '%s', but should be '%s'\nin call to builtin %s %s",
+                  "argument '%s' has type '%s', but should be '%s'\nin call to %s",
                   paramName,
                   EvalUtils.getDataTypeName(args[i]),
                   EvalUtils.getDataTypeNameFromClass(types[i]),
-                  hasSelfArgument() ? "method" : "function",
                   getShortSignature()));
         }
       }
@@ -166,15 +160,11 @@ public class BuiltinFunction extends BaseFunction {
         e);
   }
 
-  /**
-   * Configure the reflection mechanism. Called directly by constructor for BuiltinFunctions created
-   * with a signature, and called after annotation processing for other BuiltinFunctions.
-   */
-  @Override
-  final void configure() {
+  // Configures the reflection mechanism.
+  private final void initialize() {
     this.invokeMethod = findMethod(this.getClass(), "invoke");
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
-    int numParameters = signature.numParameters();
+    int numParameters = getSignature().numParameters();
     this.extraParams = extraParams(numParameters, parameterTypes);
 
     if (enforcedArgumentTypes != null) {
@@ -186,8 +176,8 @@ public class BuiltinFunction extends BaseFunction {
               String.format(
                   "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
                   getName(),
-                  signature,
-                  signature.getParameterNames().get(i),
+                  getSignature(),
+                  getSignature().getParameterNames().get(i),
                   enforcedType,
                   enforcedType.getType(),
                   parameterType);
@@ -220,6 +210,22 @@ public class BuiltinFunction extends BaseFunction {
           returnType,
           methodReturnType);
     }
+  }
+
+  /**
+   * Returns the signature as "[className.]methodName(name1: paramType1, name2: paramType2, ...)"
+   */
+  private String getShortSignature() {
+    StringBuilder builder = new StringBuilder();
+    builder.append(getFullName()).append("(");
+    getSignature()
+        .toStringBuilder(
+            builder,
+            /*defaultValuePrinter=*/ null,
+            /*typePrinter=*/ null,
+            /* skipFirstMandatory= */ false);
+    builder.append(")");
+    return builder.toString();
   }
 
   // Returns the list of extra parameters beyond those in the signature.

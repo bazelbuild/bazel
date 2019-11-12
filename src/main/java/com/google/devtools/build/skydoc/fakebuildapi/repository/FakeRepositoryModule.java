@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModule
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -96,7 +97,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     private static int idCounter = 0;
 
     public RepositoryRuleDefinitionIdentifier() {
-      super("RepositoryRuleDefinitionIdentifier" + idCounter++);
+      super("RepositoryRuleDefinitionIdentifier" + idCounter++, FunctionSignature.KWARGS);
     }
   }
 
