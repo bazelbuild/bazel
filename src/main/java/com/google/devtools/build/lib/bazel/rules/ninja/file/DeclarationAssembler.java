@@ -73,7 +73,7 @@ public class DeclarationAssembler {
   }
 
   private void sendMerged(List<ByteFragmentAtOffset> list) throws GenericParsingException {
-    Preconditions.checkState(!list.isEmpty());
+    Preconditions.checkArgument(!list.isEmpty());
     ByteFragmentAtOffset first = list.get(0);
     if (list.size() == 1) {
       declarationConsumer.declaration(first);
@@ -101,6 +101,10 @@ public class DeclarationAssembler {
         // We are only looking for the separators between fragments.
         int start = Math.max(0, fragmentShift - 3);
         int end = fragmentShift + Math.min(4, fragment.length());
+        // Assert that the ranges are not intersecting, otherwise the code that iterates ranges
+        // will work incorrectly.
+        Preconditions.checkState(interestingRanges.isEmpty()
+          || Iterables.getLast(interestingRanges).upperEndpoint() < start);
         interestingRanges.add(Range.openClosed(start, end));
       }
       fragmentShift += fragment.length();
@@ -113,7 +117,9 @@ public class DeclarationAssembler {
       int idx = separatorFinder
           .findNextSeparator(merged, range.lowerEndpoint(), range.upperEndpoint());
       if (idx >= 0) {
-        // Separator found at idx. There always be a previous fragment.
+        // There should always be a previous fragment, as we are checking non-intersecting ranges,
+        // starting from the connection point between first and second fragments.
+        Preconditions.checkState(idx > previousEnd);
         declarationConsumer.declaration(new ByteFragmentAtOffset(firstOffset,
             merged.subFragment(previousEnd, idx + 1)));
         previousEnd = idx + 1;

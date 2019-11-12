@@ -25,7 +25,7 @@ import com.google.common.base.Preconditions;
  * new declaration, it starts with non-space symbol. Dollar symbol '$' escapes the newline, i.e.
  * "$\nsomething" does not contain a separator.
  *
- * We support '\r\n' separators in Ninja files and throw {@link }IncorrectSeparatorException}
+ * We support '\r\n' separators in Ninja files and throw {@link IncorrectSeparatorException}
  * in case an incorrect separator '\r' is used.
  */
 public class NinjaSeparatorFinder implements SeparatorFinder {

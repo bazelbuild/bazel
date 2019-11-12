@@ -141,11 +141,15 @@ public class ParallelFileProcessing {
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + blockSize);
+      if (bb.limit() - to < BlockParameters.MIN_TOKENIZE_BLOCK_SIZE) {
+        // Do not create the last block too small, rather join it with the previous block.
+        to = bb.limit();
+      }
       DeclarationConsumer consumer = tokenConsumerFactory.get();
       ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
       BufferSplitter tokenizer = new BufferSplitter(fragment, consumer, predicate, offset);
       future.add(executorService.submit(tokenizer));
-      from += blockSize;
+      from = to;
     }
   }
 
