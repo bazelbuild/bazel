@@ -132,8 +132,7 @@ public class SkylarkRepositoryContextTest {
             downloader,
             null,
             1.0,
-            new HashMap<>(),
-            true);
+            new HashMap<>());
   }
 
   protected void setUpContexForRule(String name) throws Exception {

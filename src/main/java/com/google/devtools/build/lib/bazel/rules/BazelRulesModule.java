@@ -385,6 +385,19 @@ public class BazelRulesModule extends BlazeModule {
         help = "This option is deprecated and has no effect.")
     public boolean incompatibleDisableLateBoundOptionDefaults;
 
+    @Option(
+        name = "incompatible_use_native_patch",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+            OptionMetadataTag.DEPRECATED,
+            OptionMetadataTag.INCOMPATIBLE_CHANGE,
+            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean useNativePatch;
+
     @Deprecated
     @Option(
         name = "ui",
