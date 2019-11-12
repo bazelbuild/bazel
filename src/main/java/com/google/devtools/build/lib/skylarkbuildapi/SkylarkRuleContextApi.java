@@ -870,7 +870,9 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "Whether to collect the data "
+                "<b>Use of this parameter is not recommended. See "
+                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<p>Whether to collect the data "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "collect_default",
@@ -878,7 +880,9 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "Whether to collect the default "
+                "<b>Use of this parameter is not recommended. See "
+                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<p>Whether to collect the default "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "symlinks",
