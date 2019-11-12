@@ -221,8 +221,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       useLocation = true,
       useStarlarkThread = true)
   @SuppressWarnings("unchecked")
-  public Runtime.NoneType update(
-      Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
+  public NoneType update(Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
       throws EvalException {
     // TODO(adonovan): opt: don't materialize dict; call put directly.
 
@@ -233,7 +232,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
             : getDictFromArgs("update", args, loc, thread);
     dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, thread);
     putAll(dict, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @SkylarkCallable(
@@ -401,9 +400,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       name = "clear",
       doc = "Remove all items from the dictionary.",
       useLocation = true)
-  public Runtime.NoneType clearDict(Location loc) throws EvalException {
+  public NoneType clearDict(Location loc) throws EvalException {
     clear(loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   /**

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
@@ -46,7 +46,7 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
       Location location)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Runtime.NONE
+        extensions == Starlark.NONE
             ? null
             : SkylarkList.castList((List<?>) extensions, String.class, "extensions");
 

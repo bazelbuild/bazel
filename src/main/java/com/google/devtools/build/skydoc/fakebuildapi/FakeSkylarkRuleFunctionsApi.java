@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
@@ -148,7 +148,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       StarlarkThread funcallThread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Runtime.NONE) {
+    if (attrs != null && attrs != Starlark.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
       attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }
@@ -202,7 +202,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Runtime.NONE) {
+    if (attrs != null && attrs != Starlark.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
       attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }

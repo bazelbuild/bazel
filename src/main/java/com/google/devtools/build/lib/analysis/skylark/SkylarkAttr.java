@@ -48,11 +48,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileType;
@@ -73,7 +73,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   // Arguments
 
   private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
-    return arguments.containsKey(key) && arguments.get(key) != Runtime.NONE;
+    return arguments.containsKey(key) && arguments.get(key) != Starlark.NONE;
   }
 
   private static void setAllowedFileTypes(
@@ -231,7 +231,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     }
 
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
-    if (ruleClassesObj != null && ruleClassesObj != Runtime.NONE) {
+    if (ruleClassesObj != null && ruleClassesObj != Starlark.NONE) {
       builder.allowedRuleClasses(
           SkylarkList.castSkylarkListOrNoneToList(
               ruleClassesObj, String.class, "allowed rule classes for attribute definition"));

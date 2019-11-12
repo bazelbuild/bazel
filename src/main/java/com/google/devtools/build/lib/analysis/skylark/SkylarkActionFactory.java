@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -120,7 +119,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.declare_file");
 
     PathFragment fragment;
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -142,7 +141,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.declare_directory");
     PathFragment fragment;
 
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -180,7 +179,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     Artifact result;
     PathFragment rootRelativePath;
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       rootRelativePath = ruleContext.getPackageDirectory().getRelative(filename);
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -438,7 +437,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     registerStarlarkAction(
         outputs,
         inputs,
-        /*unusedInputsList=*/ Runtime.NONE,
+        /*unusedInputsList=*/ Starlark.NONE,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
@@ -512,7 +511,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
     builder.addOutputs(outputArtifacts);
 
-    if (unusedInputsList != Runtime.NONE) {
+    if (unusedInputsList != Starlark.NONE) {
       if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
         throw new EvalException(
             location,
@@ -605,13 +604,13 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     String mnemonic = getMnemonic(mnemonicUnchecked);
     builder.setMnemonic(mnemonic);
-    if (envUnchecked != Runtime.NONE) {
+    if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
           ImmutableMap.copyOf(
               SkylarkDict.castSkylarkDictOrNoneToDict(
                   envUnchecked, String.class, String.class, "env")));
     }
-    if (progressMessage != Runtime.NONE) {
+    if (progressMessage != Starlark.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
     }
     if (Starlark.truth(useDefaultShellEnv)) {
@@ -625,7 +624,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             starlarkSemantics.experimentalAllowTagsPropagation());
     builder.setExecutionInfo(executionInfo);
 
-    if (inputManifestsUnchecked != Runtime.NONE) {
+    if (inputManifestsUnchecked != Starlark.NONE) {
       for (RunfilesSupplier supplier : SkylarkList.castSkylarkListOrNoneToList(
           inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
         builder.addRunfilesSupplier(supplier);
@@ -636,7 +635,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic = mnemonicUnchecked == Runtime.NONE ? "Action" : (String) mnemonicUnchecked;
+    String mnemonic = mnemonicUnchecked == Starlark.NONE ? "Action" : (String) mnemonicUnchecked;
     if (ruleContext.getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }

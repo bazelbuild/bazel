@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -131,7 +131,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     PackageContext context = getContext(thread, loc);
     Target target = context.pkgBuilder.getTarget(name);
     SkylarkDict<String, Object> rule = targetDict(target, loc, thread.mutability());
-    return rule != null ? rule : Runtime.NONE;
+    return rule != null ? rule : Starlark.NONE;
   }
 
   /*
@@ -158,7 +158,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   @Override
-  public Runtime.NoneType packageGroup(
+  public NoneType packageGroup(
       String name,
       SkylarkList<?> packagesO,
       SkylarkList<?> includesO,
@@ -176,7 +176,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
     try {
       context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler, loc);
-      return Runtime.NONE;
+      return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw new EvalException(
           loc, "package group has invalid name: " + name + ": " + e.getMessage());
@@ -186,7 +186,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   @Override
-  public Runtime.NoneType exportsFiles(
+  public NoneType exportsFiles(
       SkylarkList<?> srcs,
       Object visibilityO,
       Object licensesO,
@@ -262,7 +262,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
         throw new EvalException(loc, e.getMessage());
       }
     }
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override

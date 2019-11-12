@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
@@ -287,7 +287,7 @@ public abstract class StructImpl extends Info
 
   private void printJson(Object value, StringBuilder sb, Location loc, String container, String key)
       throws EvalException {
-    if (value == Runtime.NONE) {
+    if (value == Starlark.NONE) {
       sb.append("null");
     } else if (value instanceof ClassObject) {
       sb.append("{");

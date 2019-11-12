@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -87,7 +87,7 @@ class StarlarkBuildLibrary {
       documented = false,
       useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType environmentGroup(
+  public NoneType environmentGroup(
       String name,
       SkylarkList<?> environmentsList, // <Label>
       SkylarkList<?> defaultsList, // <Label>
@@ -111,7 +111,7 @@ class StarlarkBuildLibrary {
     try {
       context.pkgBuilder.addEnvironmentGroup(
           name, environments, defaults, context.eventHandler, loc);
-      return Runtime.NONE;
+      return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw new EvalException(
           loc, "environment group has invalid name: " + name + ": " + e.getMessage());
@@ -135,7 +135,7 @@ class StarlarkBuildLibrary {
       documented = false,
       useStarlarkThread = true,
       useLocation = true)
-  public Runtime.NoneType invoke(
+  public NoneType invoke(
       SkylarkList<?> licensesList, // list of license strings
       Location loc,
       StarlarkThread thread)
@@ -148,7 +148,7 @@ class StarlarkBuildLibrary {
       context.eventHandler.handle(Event.error(loc, e.getMessage()));
       context.pkgBuilder.setContainsErrors();
     }
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @SkylarkCallable(
@@ -162,7 +162,7 @@ class StarlarkBuildLibrary {
       documented = false,
       useStarlarkThread = true,
       useLocation = true)
-  public Runtime.NoneType distribs(Object object, Location loc, StarlarkThread thread)
+  public NoneType distribs(Object object, Location loc, StarlarkThread thread)
       throws EvalException {
     PackageContext context = getContext(thread, loc);
 
@@ -174,6 +174,6 @@ class StarlarkBuildLibrary {
       context.eventHandler.handle(Event.error(loc, e.getMessage()));
       context.pkgBuilder.setContainsErrors();
     }
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 }

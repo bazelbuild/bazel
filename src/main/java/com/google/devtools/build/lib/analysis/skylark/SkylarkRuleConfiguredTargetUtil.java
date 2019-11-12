@@ -56,10 +56,10 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -139,7 +139,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       if (ruleContext.hasErrors()) {
         return null;
       } else if (!(target instanceof InfoInterface)
-          && target != Runtime.NONE
+          && target != Starlark.NONE
           && !(target instanceof Iterable)) {
         ruleContext.ruleError(
             String.format(

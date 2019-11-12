@@ -59,8 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -690,7 +689,7 @@ public abstract class CcModule
   @SuppressWarnings("unchecked")
   private static <T> NestedSet<T> convertToNestedSet(Object o, Class<T> type, String fieldName)
       throws EvalException {
-    if (o == Runtime.NONE) {
+    if (o == Starlark.NONE) {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }
     return o instanceof SkylarkNestedSet
@@ -1383,7 +1382,7 @@ public abstract class CcModule
 
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
-    return object != Runtime.NONE ? type.cast(object) : null;
+    return object != Starlark.NONE ? type.cast(object) : null;
   }
 
   @Override

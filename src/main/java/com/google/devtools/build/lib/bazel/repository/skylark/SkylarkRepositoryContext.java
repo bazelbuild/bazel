@@ -56,10 +56,10 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.OS;
@@ -144,7 +144,7 @@ public class SkylarkRepositoryContext
         attrBuilder.put(
             Attribute.getSkylarkName(name),
             val == null
-                ? Runtime.NONE
+                ? Starlark.NONE
                 // Attribute values should be type safe
                 : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
       }

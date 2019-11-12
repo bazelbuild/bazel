@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -176,7 +176,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType packageGroup(
+  public NoneType packageGroup(
       String name,
       SkylarkList<?> packages,
       SkylarkList<?> includes,
@@ -218,7 +218,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType exportsFiles(
+  public NoneType exportsFiles(
       SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException;
 

@@ -53,7 +53,7 @@ public class PrinterTest {
     assertThat(Printer.repr("\"")).isEqualTo("\"\\\"\"");
     assertThat(Printer.str(3)).isEqualTo("3");
     assertThat(Printer.repr(3)).isEqualTo("3");
-    assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
+    assertThat(Printer.repr(Starlark.NONE)).isEqualTo("None");
 
     assertThat(Printer.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
     assertThat(Printer.repr(Label.parseAbsolute("//x", ImmutableMap.of())))

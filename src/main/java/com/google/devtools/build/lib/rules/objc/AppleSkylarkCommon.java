@@ -44,10 +44,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -211,7 +211,7 @@ public class AppleSkylarkCommon
     NestedSet<Artifact> frameworkFiles =
         SkylarkNestedSet.getSetFromNoneableParam(
             dynamicFrameworkFiles, Artifact.class, "framework_files");
-    Artifact binary = (dylibBinary != Runtime.NONE) ? (Artifact) dylibBinary : null;
+    Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(
         binary, depsObjcProvider, frameworkDirs, frameworkFiles);

@@ -79,8 +79,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -208,7 +208,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           if (artifacts.size() == 1) {
             outputs.addOutput(attrName, Iterables.getOnlyElement(artifacts));
           } else {
-            outputs.addOutput(attrName, Runtime.NONE);
+            outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
           outputs.addOutput(attrName, SkylarkList.createImmutable(artifacts));
@@ -455,7 +455,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           // behaves like getPrerequisites(). This also means there should be only one entry in
           // the map. Use None in Skylark to represent this.
           Preconditions.checkState(splitPrereqs.size() == 1);
-          splitPrereqsMap.put(Runtime.NONE, value);
+          splitPrereqsMap.put(Starlark.NONE, value);
         }
       }
 
@@ -507,7 +507,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       return ActionsProvider.create(
           ruleContext.getAnalysisEnvironment().getRegisteredActions());
     } else {
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
   }
 
@@ -615,7 +615,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     if (!config.isCodeCoverageEnabled()) {
       return false;
     }
-    if (targetUnchecked == Runtime.NONE) {
+    if (targetUnchecked == Starlark.NONE) {
       return InstrumentedFilesCollector.shouldIncludeLocalSources(
           ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
@@ -760,7 +760,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       String filename =
           assertTypeForNewFile(var1, String.class, loc,
               "expected first param to be of type 'string'");
-      return actionFactory.declareFile(filename, Runtime.NONE, loc);
+      return actionFactory.declareFile(filename, Starlark.NONE, loc);
 
     } else {
       String filename = assertTypeForNewFile(var2, String.class, loc,
@@ -876,7 +876,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    * command = 'command', )
    */
   @Override
-  public Runtime.NoneType action(
+  public NoneType action(
       SkylarkList<?> outputs,
       Object inputs,
       Object executableUnchecked,
@@ -895,16 +895,16 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     checkDeprecated(
         "ctx.actions.run or ctx.actions.run_shell", "ctx.action", loc, thread.getSemantics());
     checkMutable("action");
-    if ((commandUnchecked == Runtime.NONE) == (executableUnchecked == Runtime.NONE)) {
+    if ((commandUnchecked == Starlark.NONE) == (executableUnchecked == Starlark.NONE)) {
       throw new EvalException(loc, "You must specify either 'command' or 'executable' argument");
     }
-    boolean hasCommand = commandUnchecked != Runtime.NONE;
+    boolean hasCommand = commandUnchecked != Starlark.NONE;
     if (!hasCommand) {
       actions()
           .run(
               outputs,
               inputs,
-              /*unusedInputsList=*/ Runtime.NONE,
+              /*unusedInputsList=*/ Starlark.NONE,
               executableUnchecked,
               toolsUnchecked,
               arguments,
@@ -933,7 +933,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               loc,
               thread.getSemantics());
     }
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
@@ -952,26 +952,26 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Runtime.NoneType fileAction(
+  public NoneType fileAction(
       FileApi output, String content, Boolean executable, Location loc, StarlarkThread thread)
       throws EvalException {
     checkDeprecated("ctx.actions.write", "ctx.file_action", loc, thread.getSemantics());
     checkMutable("file_action");
     actions().write(output, content, executable, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
-  public Runtime.NoneType emptyAction(
-      String mnemonic, Object inputs, Location loc, StarlarkThread thread) throws EvalException {
+  public NoneType emptyAction(String mnemonic, Object inputs, Location loc, StarlarkThread thread)
+      throws EvalException {
     checkDeprecated("ctx.actions.do_nothing", "ctx.empty_action", loc, thread.getSemantics());
     checkMutable("empty_action");
     actions().doNothing(mnemonic, inputs, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
-  public Runtime.NoneType templateAction(
+  public NoneType templateAction(
       FileApi template,
       FileApi output,
       SkylarkDict<?, ?> substitutionsUnchecked,
@@ -983,7 +983,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         "ctx.actions.expand_template", "ctx.template_action", loc, thread.getSemantics());
     checkMutable("template_action");
     actions().expandTemplate(template, output, substitutionsUnchecked, executable, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
@@ -1010,7 +1010,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     if (!files.isEmpty()) {
       builder.addArtifacts(files.getContents(Artifact.class, "files"));
     }
-    if (transitiveFiles != Runtime.NONE) {
+    if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
           ((SkylarkNestedSet) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }

@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -82,7 +82,7 @@ public class JavaSkylarkCommon
             sourceJars.getContents(Artifact.class, "source_jars"),
             sourceFiles.getContents(Artifact.class, "source_files"),
             outputJar,
-            outputSourceJar == Runtime.NONE ? null : (Artifact) outputSourceJar,
+            outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
             javacOpts.getContents(String.class, "javac_opts"),
             deps.getContents(JavaInfo.class, "deps"),
             exports.getContents(JavaInfo.class, "exports"),
@@ -116,7 +116,7 @@ public class JavaSkylarkCommon
         .buildIjar(
             actions,
             jar,
-            targetLabel != Runtime.NONE ? (Label) targetLabel : null,
+            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
             javaToolchain,
             location);
   }

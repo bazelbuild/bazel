@@ -199,14 +199,14 @@ public class SkylarkListTest extends EvaluationTestCase {
   @Test
   public void testAppend() throws Exception {
     exec("l = [1, 2]");
-    assertThat(Runtime.NONE).isEqualTo(eval("l.append([3, 4])"));
+    assertThat(Starlark.NONE).isEqualTo(eval("l.append([3, 4])"));
     assertThat(eval("[1, 2, [3, 4]]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testExtend() throws Exception {
     exec("l = [1, 2]");
-    assertThat(Runtime.NONE).isEqualTo(eval("l.extend([3, 4])"));
+    assertThat(Starlark.NONE).isEqualTo(eval("l.extend([3, 4])"));
     assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
   }
 

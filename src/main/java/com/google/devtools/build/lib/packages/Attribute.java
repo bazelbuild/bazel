@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -1493,7 +1493,7 @@ public final class Attribute implements Comparable<Attribute> {
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);
       try {
-        return type.cast((result == Runtime.NONE) ? type.getDefaultValue() : result);
+        return type.cast((result == Starlark.NONE) ? type.getDefaultValue() : result);
       } catch (ClassCastException ex) {
         throw new EvalException(
             location,

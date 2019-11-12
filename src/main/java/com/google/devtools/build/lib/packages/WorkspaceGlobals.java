@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;

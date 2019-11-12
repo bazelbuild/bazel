@@ -156,7 +156,7 @@ public abstract class SkylarkType {
   // by declaring its type as TOP instead of NONE, even though at runtime,
   // we reject None from all types but NONE, and in particular from e.g. lists of Files.
   // TODO(bazel-team): resolve this inconsistency, one way or the other.
-  @AutoCodec public static final Simple NONE = Simple.forClass(Runtime.NoneType.class);
+  @AutoCodec public static final Simple NONE = Simple.forClass(NoneType.class);
 
   /** The STRING type, for strings */
   @AutoCodec public static final Simple STRING = Simple.forClass(String.class);

@@ -60,7 +60,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
     assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
     assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
     assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
-    assertThat(EvalUtils.getDataTypeName(Runtime.NONE)).isEqualTo("NoneType");
+    assertThat(EvalUtils.getDataTypeName(Starlark.NONE)).isEqualTo("NoneType");
     assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
     assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
   }
@@ -95,7 +95,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
       "1",
       2,
       true,
-      Runtime.NONE,
+      Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
       SkylarkList.MutableList.of(thread, 1, 2, 3),
@@ -122,7 +122,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
   public void testComparatorWithNones() throws Exception {
     assertThrows(
         ComparisonException.class,
-        () -> EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE));
+        () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
   }
 
   @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")

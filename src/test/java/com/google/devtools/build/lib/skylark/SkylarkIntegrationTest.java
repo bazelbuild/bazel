@@ -55,10 +55,10 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -1269,7 +1269,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
     StructImpl myInfo = getMyInfoFromTarget(target);
-    assertThat(myInfo.getValue("o1")).isEqualTo(Runtime.NONE);
+    assertThat(myInfo.getValue("o1")).isEqualTo(Starlark.NONE);
     assertThat(myInfo.getValue("o2")).isEqualTo(MutableList.empty());
   }
 

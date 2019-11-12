@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -837,7 +837,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
             }
             consumer.accept((String) val);
           }
-        } else if (ret != Runtime.NONE) {
+        } else if (ret != Starlark.NONE) {
           throw new CommandLineExpansionException(
               "Expected map_each to return string, None, or list of strings, found "
                   + ret.getClass().getSimpleName());

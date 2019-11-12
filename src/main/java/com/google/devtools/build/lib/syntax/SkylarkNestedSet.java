@@ -345,7 +345,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   // TODO(b/140932420): Better noneable handling should prevent instanceof checking.
   public static <T> NestedSet<T> getSetFromNoneableParam(
       Object depsetOrNone, Class<T> expectedType, String fieldName) throws EvalException {
-    if (depsetOrNone == Runtime.NONE) {
+    if (depsetOrNone == Starlark.NONE) {
       return NestedSetBuilder.<T>emptySet(Order.STABLE_ORDER);
     }
     if (depsetOrNone instanceof SkylarkNestedSet) {

@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 public class SkylarkSignatureProcessor {
 
   // A cache mapping string representation of a skylark parameter default value to the object
-  // represented by that string. For example, "None" -> Runtime.NONE. This cache is manually
+  // represented by that string. For example, "None" -> Starlark.NONE. This cache is manually
   // maintained (instead of using, for example, a LoadingCache), as default values may sometimes
   // be recursively requested.
   private static final ConcurrentHashMap<String, Object> defaultValueCache =
@@ -264,7 +264,7 @@ public class SkylarkSignatureProcessor {
 
   static Object getDefaultValue(String paramName, String paramDefaultValue) {
     if (paramDefaultValue.isEmpty()) {
-      return Runtime.NONE;
+      return Starlark.NONE;
     } else {
       try {
         Object defaultValue = defaultValueCache.get(paramDefaultValue);

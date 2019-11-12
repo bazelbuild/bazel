@@ -78,7 +78,7 @@ public class FunctionTest extends EvaluationTestCase {
               StarlarkThread thread)
               throws EvalException, InterruptedException {
             params.addAll(args);
-            return Runtime.NONE;
+            return Starlark.NONE;
           }
         };
     update("outer_func", outerFunc);

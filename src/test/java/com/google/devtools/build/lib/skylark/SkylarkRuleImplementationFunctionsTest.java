@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -554,7 +553,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   private void checkEmptyAction(String namedArgs) throws Exception {
     assertThat(eval(String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
-        .isEqualTo(Runtime.NONE);
+        .isEqualTo(Starlark.NONE);
   }
 
   @Test
@@ -1076,7 +1075,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     assertThat(myInfo.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
-    assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Runtime.NONE);
+    assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Starlark.NONE);
   }
 
   @Test

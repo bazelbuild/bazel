@@ -493,7 +493,7 @@ public final class EvalUtils {
 
   /**
    * Calculates the indices of the elements in a slice, after validating the arguments and replacing
-   * Runtime.NONE with default values. Throws an EvalException if a bad argument is given.
+   * Starlark.NONE with default values. Throws an EvalException if a bad argument is given.
    */
   public static List<Integer> getSliceIndices(
       Object startObj, Object endObj, Object stepObj, int length, Location loc)
@@ -502,7 +502,7 @@ public final class EvalUtils {
     int end;
     int step;
 
-    if (stepObj == Runtime.NONE) {
+    if (stepObj == Starlark.NONE) {
       step = 1;
     } else if (stepObj instanceof Integer) {
       step = ((Integer) stepObj).intValue();
@@ -514,7 +514,7 @@ public final class EvalUtils {
       throw new EvalException(loc, "slice step cannot be zero");
     }
 
-    if (startObj == Runtime.NONE) {
+    if (startObj == Starlark.NONE) {
       start = (step > 0) ? 0 : length - 1;
     } else if (startObj instanceof Integer) {
       start = ((Integer) startObj).intValue();
@@ -522,7 +522,7 @@ public final class EvalUtils {
       throw new EvalException(
           loc, String.format("slice start must be an integer, not '%s'", startObj));
     }
-    if (endObj == Runtime.NONE) {
+    if (endObj == Starlark.NONE) {
       // If step is negative, can't use -1 for end since that would be converted
       // to the rightmost element's position.
       end = (step > 0) ? length : -length - 1;
@@ -537,7 +537,7 @@ public final class EvalUtils {
 
   /** @return true if x is Java null or Skylark None */
   public static boolean isNullOrNone(Object x) {
-    return x == null || x == Runtime.NONE;
+    return x == null || x == Starlark.NONE;
   }
 
   /**

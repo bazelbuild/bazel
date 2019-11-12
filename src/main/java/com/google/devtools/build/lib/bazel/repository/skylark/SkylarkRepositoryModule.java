@@ -46,9 +46,9 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
@@ -80,7 +80,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     BaseRuleClasses.nameAttribute(builder);
     BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));
-    if (attrs != Runtime.NONE) {
+    if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;

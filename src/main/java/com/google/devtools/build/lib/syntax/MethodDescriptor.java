@@ -147,11 +147,11 @@ public final class MethodDescriptor {
       throw new EvalException(loc, null, e);
     }
     if (method.getReturnType().equals(Void.TYPE)) {
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
     if (result == null) {
       if (isAllowReturnNones()) {
-        return Runtime.NONE;
+        return Starlark.NONE;
       } else {
         throw new IllegalStateException(
             "method invocation returned None: " + getName() + Tuple.copyOf(Arrays.asList(args)));

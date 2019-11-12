@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -169,7 +169,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         attrBuilder.put(
             skyname,
             val == null
-                ? Runtime.NONE
+                ? Starlark.NONE
                 // Attribute values should be type safe
                 : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
         return;
@@ -192,7 +192,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
             seenExecutables.add(executable);
           }
         } else {
-          executableBuilder.put(skyname, Runtime.NONE);
+          executableBuilder.put(skyname, Starlark.NONE);
         }
       }
       if (a.isSingleArtifact()) {
@@ -202,7 +202,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         if (artifact != null) {
           fileBuilder.put(skyname, artifact);
         } else {
-          fileBuilder.put(skyname, Runtime.NONE);
+          fileBuilder.put(skyname, Starlark.NONE);
         }
       }
       filesBuilder.put(
@@ -212,7 +212,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         Object prereq = context.getRuleContext().getPrerequisite(a.getName(), Mode.DONT_CHECK);
         if (prereq == null) {
-          prereq = Runtime.NONE;
+          prereq = Starlark.NONE;
         }
         attrBuilder.put(skyname, prereq);
       } else if (type == BuildType.LABEL_LIST

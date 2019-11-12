@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -287,20 +286,20 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
             "Args#add doesn't accept vectorized arguments. "
                 + "Please use Args#add_all or Args#add_joined.");
       }
-      if (mapFn != Runtime.NONE) {
+      if (mapFn != Starlark.NONE) {
         throw new EvalException(
             loc, "Args#add doesn't accept map_fn. Please eagerly map the value.");
       }
-      if (beforeEach != Runtime.NONE) {
+      if (beforeEach != Starlark.NONE) {
         throw new EvalException(null, "'before_each' is not supported for scalar arguments");
       }
-      if (joinWith != Runtime.NONE) {
+      if (joinWith != Starlark.NONE) {
         throw new EvalException(null, "'join_with' is not supported for scalar arguments");
       }
       addScalarArg(
           value,
-          format != Runtime.NONE ? (String) format : null,
-          mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
+          format != Starlark.NONE ? (String) format : null,
+          mapFn != Starlark.NONE ? (BaseFunction) mapFn : null,
           loc);
       return this;
     }
@@ -334,15 +333,15 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
-          beforeEach != Runtime.NONE ? (String) beforeEach : null,
+          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Starlark.NONE ? (String) formatEach : null,
+          beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
           /* formatJoined= */ null,
           omitIfEmpty,
           uniquify,
           expandDirectories,
-          terminateWith != Runtime.NONE ? (String) terminateWith : null,
+          terminateWith != Starlark.NONE ? (String) terminateWith : null,
           loc);
       return this;
     }
@@ -376,11 +375,11 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
+          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,
-          formatJoined != Runtime.NONE ? (String) formatJoined : null,
+          formatJoined != Starlark.NONE ? (String) formatJoined : null,
           omitIfEmpty,
           uniquify,
           expandDirectories,

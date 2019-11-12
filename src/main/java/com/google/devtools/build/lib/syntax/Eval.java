@@ -36,7 +36,7 @@ final class Eval {
 
   private final StarlarkThread thread;
   private final Debugger dbg;
-  private Object result = Runtime.NONE;
+  private Object result = Starlark.NONE;
 
   // ---- entry points ----
 
@@ -563,9 +563,9 @@ final class Eval {
         {
           SliceExpression slice = (SliceExpression) expr;
           Object object = eval(thread, slice.getObject());
-          Object start = slice.getStart() == null ? Runtime.NONE : eval(thread, slice.getStart());
-          Object end = slice.getEnd() == null ? Runtime.NONE : eval(thread, slice.getEnd());
-          Object step = slice.getStep() == null ? Runtime.NONE : eval(thread, slice.getStep());
+          Object start = slice.getStart() == null ? Starlark.NONE : eval(thread, slice.getStart());
+          Object end = slice.getEnd() == null ? Starlark.NONE : eval(thread, slice.getEnd());
+          Object step = slice.getStep() == null ? Starlark.NONE : eval(thread, slice.getStep());
           Location loc = slice.getLocation();
 
           // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.

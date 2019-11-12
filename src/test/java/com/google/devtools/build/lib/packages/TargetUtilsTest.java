@@ -18,8 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -252,7 +252,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
 
     execInfo =
-        TargetUtils.getFilteredExecutionInfo(Runtime.NONE, tag1, /* allowTagsPropagation */ true);
+        TargetUtils.getFilteredExecutionInfo(Starlark.NONE, tag1, /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "", "supports-workers", "");
   }
 

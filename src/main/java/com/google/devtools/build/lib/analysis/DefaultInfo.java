@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import javax.annotation.Nullable;
 
 /** DefaultInfo is provided by all targets implicitly and contains all standard fields. */
@@ -153,7 +153,7 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
   }
 
   private static <T> T castNoneToNull(Class<T> clazz, Object value) {
-    if (value == Runtime.NONE) {
+    if (value == Starlark.NONE) {
       return null;
     } else {
       return clazz.cast(value);

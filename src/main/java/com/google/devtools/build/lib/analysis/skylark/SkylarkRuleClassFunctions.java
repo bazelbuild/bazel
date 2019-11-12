@@ -86,11 +86,11 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -326,7 +326,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.setExecutableSkylark();
     }
 
-    if (implicitOutputs != Runtime.NONE) {
+    if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
             new StarlarkCallbackHelper(
@@ -364,15 +364,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             ast.getLocation(),
             bazelContext.getRepoMapping()));
 
-    if (!buildSetting.equals(Runtime.NONE) && !cfg.equals(Runtime.NONE)) {
+    if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw new EvalException(
           ast.getLocation(),
           "Build setting rules cannot use the `cfg` param to apply transitions to themselves.");
     }
-    if (!buildSetting.equals(Runtime.NONE)) {
+    if (!buildSetting.equals(Starlark.NONE)) {
       builder.setBuildSetting((BuildSetting) buildSetting);
     }
-    if (!cfg.equals(Runtime.NONE)) {
+    if (!cfg.equals(Starlark.NONE)) {
       if (!(cfg instanceof StarlarkDefinedConfigTransition)) {
         throw new EvalException(
             ast.getLocation(),
@@ -420,7 +420,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object attrs, Location loc) throws EvalException {
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
 
-    if (attrs != Runtime.NONE) {
+    if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
@@ -670,7 +670,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
         RuleFactory.createAndAddRule(
             pkgContext, ruleClass, attributeValues, loc, thread, new AttributeContainer(ruleClass));
-        return Runtime.NONE;
+        return Starlark.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(loc, e.getMessage());
       }

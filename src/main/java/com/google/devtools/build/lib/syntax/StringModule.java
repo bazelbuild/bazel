@@ -203,7 +203,7 @@ final class StringModule implements SkylarkValue {
             defaultValue = "None")
       })
   public String lstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringLStrip(self, chars);
   }
 
@@ -228,7 +228,7 @@ final class StringModule implements SkylarkValue {
             defaultValue = "None")
       })
   public String rstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringRStrip(self, chars);
   }
 
@@ -254,7 +254,7 @@ final class StringModule implements SkylarkValue {
             defaultValue = "None")
       })
   public String strip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringStrip(self, chars);
   }
 
@@ -290,7 +290,7 @@ final class StringModule implements SkylarkValue {
   public String replace(String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = Math.max(0, (Integer) maxSplitO);
     }
     StringBuilder sb = new StringBuilder();
@@ -347,7 +347,7 @@ final class StringModule implements SkylarkValue {
       throw new EvalException(loc, "Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
     ArrayList<String> res = new ArrayList<>();
@@ -396,7 +396,7 @@ final class StringModule implements SkylarkValue {
       throw new EvalException(loc, "Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
     ArrayList<String> res = new ArrayList<>();

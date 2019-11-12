@@ -57,8 +57,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1880,7 +1880,7 @@ public class RuleClass {
    * attributeValues} map.
    *
    * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
-   * {@link Runtime#NONE}.
+   * {@link Starlark#NONE}.
    *
    * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a value
    * for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported on {@code
@@ -1897,7 +1897,7 @@ public class RuleClass {
       String attributeName = attributeValues.getName(attributeAccessor);
       Object attributeValue = attributeValues.getValue(attributeAccessor);
       // Ignore all None values.
-      if (attributeValue == Runtime.NONE) {
+      if (attributeValue == Starlark.NONE) {
         continue;
       }
 

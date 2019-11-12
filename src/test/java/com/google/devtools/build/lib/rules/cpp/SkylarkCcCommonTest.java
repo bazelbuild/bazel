@@ -52,11 +52,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -5710,7 +5710,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
 
     Object picObjects = fooInfoForPic.getValue("pic_objects");
-    assertThat(picObjects).isNotEqualTo(Runtime.NONE);
+    assertThat(picObjects).isNotEqualTo(Starlark.NONE);
     assertThat((MutableList) picObjects).isEmpty();
 
     // With PIC and the default compilation_mode which is fastbuild C++ rules only produce PIC
@@ -5726,7 +5726,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
 
     Object objects = fooInfoForNoPic.getValue("objects");
-    assertThat(objects).isNotEqualTo(Runtime.NONE);
+    assertThat(objects).isNotEqualTo(Starlark.NONE);
     assertThat((MutableList) objects).isEmpty();
   }
 

@@ -201,7 +201,7 @@ class MethodLibrary {
       throws EvalException, InterruptedException {
 
     ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(iterable, loc, thread));
-    if (key == Runtime.NONE) {
+    if (key == Starlark.NONE) {
       try {
         Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
       } catch (EvalUtils.ComparisonException e) {
@@ -711,7 +711,7 @@ class MethodLibrary {
       throws EvalException {
     int start;
     int stop;
-    if (stopOrNone == Runtime.NONE) {
+    if (stopOrNone == Starlark.NONE) {
       start = 0;
       stop = startOrStop;
     } else if (stopOrNone instanceof Integer) {
@@ -851,9 +851,9 @@ class MethodLibrary {
             named = true)
       },
       useLocation = true)
-  public Runtime.NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
+  public NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
     String str = Printer.str(msg);
-    if (attr != Runtime.NONE) {
+    if (attr != Starlark.NONE) {
       str = String.format("attribute %s: %s", attr, str);
     }
     throw new EvalException(loc, str);
@@ -884,8 +884,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType print(
-      String sep, SkylarkList<?> starargs, Location loc, StarlarkThread thread)
+  public NoneType print(String sep, SkylarkList<?> starargs, Location loc, StarlarkThread thread)
       throws EvalException {
     try {
       String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
@@ -896,7 +895,7 @@ class MethodLibrary {
         msg += "<== skylark flag test ==>";
       }
       thread.handleEvent(Event.debug(loc, msg));
-      return Runtime.NONE;
+      return Starlark.NONE;
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           loc,
@@ -1033,8 +1032,8 @@ class MethodLibrary {
     }
 
     if (semantics.incompatibleDisableDepsetItems()) {
-      if (x != Runtime.NONE) {
-        if (direct != Runtime.NONE) {
+      if (x != Starlark.NONE) {
+        if (direct != Starlark.NONE) {
           throw new EvalException(
               loc, "parameter 'direct' cannot be specified both positionally and by keyword");
         }
@@ -1042,7 +1041,7 @@ class MethodLibrary {
       }
       return depsetConstructor(direct, order, transitive, loc);
     } else {
-      if (x != Runtime.NONE) {
+      if (x != Starlark.NONE) {
         if (!isEmptySkylarkList(items)) {
           throw new EvalException(
               loc, "parameter 'items' cannot be specified both positionally and by keyword");
@@ -1077,7 +1076,7 @@ class MethodLibrary {
 
   private static <T> List<T> listFromNoneable(
       Object listOrNone, Class<T> objectType, String paramName) throws EvalException {
-    if (listOrNone != Runtime.NONE) {
+    if (listOrNone != Starlark.NONE) {
       SkylarkType.checkType(listOrNone, SkylarkList.class, paramName);
       return ((SkylarkList<?>) listOrNone).getContents(objectType, paramName);
     } else {
@@ -1089,19 +1088,19 @@ class MethodLibrary {
       Object items, Order order, Object direct, Object transitive, Location loc)
       throws EvalException {
 
-    if (transitive == Runtime.NONE && direct == Runtime.NONE) {
+    if (transitive == Starlark.NONE && direct == Starlark.NONE) {
       // Legacy behavior.
       return SkylarkNestedSet.of(order, items, loc);
     }
 
-    if (direct != Runtime.NONE && !isEmptySkylarkList(items)) {
+    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
       throw new EvalException(
           loc, "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
 
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
     Iterable<Object> directElements;
-    if (direct != Runtime.NONE) {
+    if (direct != Starlark.NONE) {
       SkylarkType.checkType(direct, SkylarkList.class, "direct");
       directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
     } else {
@@ -1110,7 +1109,7 @@ class MethodLibrary {
     }
 
     Iterable<SkylarkNestedSet> transitiveList;
-    if (transitive != Runtime.NONE) {
+    if (transitive != Starlark.NONE) {
       SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
       transitiveList =
           ((SkylarkList<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");

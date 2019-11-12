@@ -78,7 +78,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkCallable(name = "interrupted_function", documented = false)
-  public Runtime.NoneType interruptedFunction() throws InterruptedException {
+  public NoneType interruptedFunction() throws InterruptedException {
     throw new InterruptedException();
   }
 
@@ -298,8 +298,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + optionalNamed
           + ", "
           + nonNoneable
-          + (noneable != Runtime.NONE ? ", " + noneable : "")
-          + (multi != Runtime.NONE ? ", " + multi : "")
+          + (noneable != Starlark.NONE ? ", " + noneable : "")
+          + (multi != Starlark.NONE ? ", " + multi : "")
           + ")";
     }
 
@@ -396,8 +396,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + optionalNamed
           + ", "
           + nonNoneable
-          + (noneable != Runtime.NONE ? ", " + noneable : "")
-          + (multi != Runtime.NONE ? ", " + multi : "")
+          + (noneable != Starlark.NONE ? ", " + noneable : "")
+          + (multi != Starlark.NONE ? ", " + multi : "")
           + ", "
           + location.getStartLine()
           + ", "
@@ -1539,7 +1539,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.nullfunc_working()")
-        .testLookup("v", Runtime.NONE);
+        .testLookup("v", Starlark.NONE);
   }
 
   @Test
@@ -1547,7 +1547,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.voidfunc()")
-        .testLookup("v", Runtime.NONE);
+        .testLookup("v", Starlark.NONE);
   }
 
   @Test
@@ -1855,12 +1855,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
-    new SkylarkTest().setUp("a = None",
-      "b = True",
-      "c = False")
-      .testLookup("a", Runtime.NONE)
-      .testLookup("b", Boolean.TRUE)
-      .testLookup("c", Boolean.FALSE);
+    new SkylarkTest()
+        .setUp("a = None", "b = True", "c = False")
+        .testLookup("a", Starlark.NONE)
+        .testLookup("b", Boolean.TRUE)
+        .testLookup("c", Boolean.FALSE);
   }
 
   @Test

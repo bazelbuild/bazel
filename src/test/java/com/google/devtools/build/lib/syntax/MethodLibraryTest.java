@@ -173,7 +173,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "object of type 'string' has no attribute 'not_there'",
             "getattr('a string', 'not_there')")
         .testExpression("getattr('a string', 'not_there', 'use this')", "use this")
-        .testExpression("getattr('a string', 'not there', None)", Runtime.NONE);
+        .testExpression("getattr('a string', 'not there', None)", Starlark.NONE);
   }
 
   @SkylarkModule(name = "AStruct", documented = false, doc = "")
@@ -366,10 +366,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testDictionaryGet() throws Exception {
     new BuildTest()
         .testExpression("{1: 'foo'}.get(1)", "foo")
-        .testExpression("{1: 'foo'}.get(2)", Runtime.NONE)
+        .testExpression("{1: 'foo'}.get(2)", Starlark.NONE)
         .testExpression("{1: 'foo'}.get(2, 'a')", "a")
         .testExpression("{1: 'foo'}.get(2, default='a')", "a")
-        .testExpression("{1: 'foo'}.get(2, default=None)", Runtime.NONE);
+        .testExpression("{1: 'foo'}.get(2, default=None)", Starlark.NONE);
   }
 
   @Test
@@ -666,15 +666,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
     checkStrip("abc", "xyz", "abc", "abc", "abc");
     // Default whitespace.
     checkStrip(" a b c ", null, "a b c ", " a b c", "a b c");
-    checkStrip(" a b c ", Runtime.NONE, "a b c ", " a b c", "a b c");
+    checkStrip(" a b c ", Starlark.NONE, "a b c ", " a b c", "a b c");
     // Default whitespace with full range of Latin-1 whitespace chars.
     String whitespace = "\u0009\n\u000B\u000C\r\u001C\u001D\u001E\u001F\u0020\u0085\u00A0";
     checkStrip(
         whitespace + "a" + whitespace, null,
         "a" + whitespace, whitespace + "a", "a");
     checkStrip(
-        whitespace + "a" + whitespace, Runtime.NONE,
-        "a" + whitespace, whitespace + "a", "a");
+        whitespace + "a" + whitespace, Starlark.NONE, "a" + whitespace, whitespace + "a", "a");
     // Empty cases.
     checkStrip("", "", "", "", "");
     checkStrip("abc", "abc", "", "", "");

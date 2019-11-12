@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -35,8 +34,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SelectorValue;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -624,7 +623,7 @@ public final class BuildType {
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;
         }
-        if (entry.getValue() == Runtime.NONE) {
+        if (entry.getValue() == Starlark.NONE) {
           // { "//condition": None } is the same as not setting the value.
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);

@@ -29,14 +29,13 @@ import javax.annotation.Nullable;
  * all clients of the Starlark interpreter.
  */
 // TODO(adonovan): move these here:
-// len, str, iterate, equal, compare, getattr, index,
-// slice, parse, exec, eval, and so on.
+// len, str, iterate, equal, compare, getattr, index, slice, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
 
   /** The Starlark None value. */
-  public static final Runtime.NoneType NONE = Runtime.NONE;
+  public static final NoneType NONE = NoneType.NONE;
 
   /**
    * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
@@ -74,7 +73,7 @@ public final class Starlark {
     env //
         .put("False", false)
         .put("True", true)
-        .put("None", Runtime.NONE);
+        .put("None", Starlark.NONE);
     addMethods(env, new MethodLibrary());
     return env.build();
   }

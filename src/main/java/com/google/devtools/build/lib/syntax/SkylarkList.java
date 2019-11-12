@@ -436,12 +436,12 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         parameters = {@Param(name = "x", type = Object.class, doc = "The object to remove.")},
         useLocation = true,
         useStarlarkThread = true)
-    public Runtime.NoneType removeObject(Object x, Location loc, StarlarkThread thread)
+    public NoneType removeObject(Object x, Location loc, StarlarkThread thread)
         throws EvalException {
       for (int i = 0; i < size(); i++) {
         if (get(i).equals(x)) {
           remove(i, loc, thread.mutability());
-          return Runtime.NONE;
+          return Starlark.NONE;
         }
       }
       throw new EvalException(loc, Printer.format("item %r not found in list", x));
@@ -474,10 +474,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true,
         useStarlarkThread = true)
     @SuppressWarnings("unchecked") // Cast of Object item to E
-    public Runtime.NoneType append(Object item, Location loc, StarlarkThread thread)
-        throws EvalException {
+    public NoneType append(Object item, Location loc, StarlarkThread thread) throws EvalException {
       add((E) item, loc, thread.mutability());
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
 
     @SkylarkCallable(
@@ -485,10 +484,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         doc = "Removes all the elements of the list.",
         useLocation = true,
         useStarlarkThread = true)
-    public Runtime.NoneType clearMethod(Location loc, StarlarkThread thread) throws EvalException {
+    public NoneType clearMethod(Location loc, StarlarkThread thread) throws EvalException {
       checkMutable(loc, thread.mutability());
       contents.clear();
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
 
     @SkylarkCallable(
@@ -501,10 +500,10 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true,
         useStarlarkThread = true)
     @SuppressWarnings("unchecked") // Cast of Object item to E
-    public Runtime.NoneType insert(Integer index, Object item, Location loc, StarlarkThread thread)
+    public NoneType insert(Integer index, Object item, Location loc, StarlarkThread thread)
         throws EvalException {
       add(EvalUtils.clampRangeEndpoint(index, size()), (E) item, loc, thread.mutability());
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
 
     @SkylarkCallable(
@@ -516,13 +515,12 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true,
         useStarlarkThread = true)
     @SuppressWarnings("unchecked")
-    public Runtime.NoneType extend(Object items, Location loc, StarlarkThread thread)
-        throws EvalException {
+    public NoneType extend(Object items, Location loc, StarlarkThread thread) throws EvalException {
       addAll(
           (Collection<? extends E>) EvalUtils.toCollection(items, loc, thread),
           loc,
           thread.mutability());
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
 
     @SkylarkCallable(
@@ -550,9 +548,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true)
     public Integer index(Object x, Object start, Object end, Location loc) throws EvalException {
       int i =
-          start == Runtime.NONE ? 0 : EvalUtils.clampRangeEndpoint((Integer) start, this.size());
+          start == Starlark.NONE ? 0 : EvalUtils.clampRangeEndpoint((Integer) start, this.size());
       int j =
-          end == Runtime.NONE
+          end == Starlark.NONE
               ? this.size()
               : EvalUtils.clampRangeEndpoint((Integer) end, this.size());
 
@@ -582,7 +580,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         useLocation = true,
         useStarlarkThread = true)
     public Object pop(Object i, Location loc, StarlarkThread thread) throws EvalException {
-      int arg = i == Runtime.NONE ? -1 : (Integer) i;
+      int arg = i == Starlark.NONE ? -1 : (Integer) i;
       int index = EvalUtils.getSequenceIndex(arg, size(), loc);
       Object result = get(index);
       remove(index, loc, thread.mutability());

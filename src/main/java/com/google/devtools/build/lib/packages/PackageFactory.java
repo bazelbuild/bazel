@@ -55,8 +55,8 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -539,7 +539,7 @@ public final class PackageFactory {
               loc, "at least one argument must be given to the 'package' function");
         }
 
-        return Runtime.NONE;
+        return Starlark.NONE;
       }
     };
   }
@@ -591,7 +591,7 @@ public final class PackageFactory {
     }
 
     @SuppressWarnings("unused")
-    public Runtime.NoneType invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
+    public NoneType invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
         throws EvalException, InterruptedException {
       SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClassName, loc);
       try {
@@ -599,7 +599,7 @@ public final class PackageFactory {
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(loc, e.getMessage());
       }
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
 
     private void addRule(

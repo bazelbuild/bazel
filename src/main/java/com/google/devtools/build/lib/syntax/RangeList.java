@@ -256,7 +256,7 @@ final class RangeList extends SkylarkList<Integer> {
       int stop;
       int step;
 
-      if (stepObj == Runtime.NONE) {
+      if (stepObj == Starlark.NONE) {
         step = 1;
       } else if (stepObj instanceof Integer) {
         step = (Integer) stepObj;
@@ -278,7 +278,7 @@ final class RangeList extends SkylarkList<Integer> {
         upper = length;
       }
 
-      if (startObj == Runtime.NONE) {
+      if (startObj == Starlark.NONE) {
         start = step < 0 ? upper : lower;
       } else if (startObj instanceof Integer) {
         start = (Integer) startObj;
@@ -292,7 +292,7 @@ final class RangeList extends SkylarkList<Integer> {
         throw new EvalException(
             loc, String.format("slice start must be an integer, not '%s'", startObj));
       }
-      if (endObj == Runtime.NONE) {
+      if (endObj == Starlark.NONE) {
         stop = step < 0 ? lower : upper;
       } else if (endObj instanceof Integer) {
         stop = (Integer) endObj;

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
@@ -299,7 +298,7 @@ final class ThreadHandler {
 
       ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
       Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
-      return x != null ? x : Runtime.NONE;
+      return x != null ? x : Starlark.NONE;
     } finally {
       servicingEvalRequest.set(false);
     }

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Wrapper for every C++ compilation and linking provider. */

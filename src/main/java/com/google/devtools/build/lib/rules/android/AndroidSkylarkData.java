@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -433,7 +433,7 @@ public abstract class AndroidSkylarkData
       AndroidDataContext ctx, Location location, StarlarkThread thread) throws EvalException {
     return makeBinarySettings(
         ctx,
-        Runtime.NONE,
+        Starlark.NONE,
         SkylarkList.createImmutable(ImmutableList.of()),
         SkylarkList.createImmutable(ImmutableList.of()),
         SkylarkList.createImmutable(ImmutableList.of()),
@@ -682,14 +682,14 @@ public abstract class AndroidSkylarkData
 
   /** Checks if a "Noneable" object passed by Skylark is "None", which Java should treat as null. */
   public static boolean isNone(Object object) {
-    return object == Runtime.NONE;
+    return object == Starlark.NONE;
   }
 
   /**
    * Converts a "Noneable" Object passed by Skylark to an nullable object of the appropriate type.
    *
    * <p>Skylark "Noneable" types are passed in as an Object that may be either the correct type or a
-   * Runtime.NONE object. Skylark will handle type checking, based on the appropriate @param
+   * Starlark.NONE object. Skylark will handle type checking, based on the appropriate @param
    * annotation, but we still need to do the actual cast (or conversion to null) ourselves.
    *
    * @param object the Noneable object

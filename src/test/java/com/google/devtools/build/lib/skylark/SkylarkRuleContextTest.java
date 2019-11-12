@@ -47,10 +47,10 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1925,9 +1925,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(eval("action1.inputs")).isInstanceOf(SkylarkNestedSet.class);
     assertThat(eval("action1.outputs")).isInstanceOf(SkylarkNestedSet.class);
 
-    assertThat(eval("action1.argv")).isEqualTo(Runtime.NONE);
-    assertThat(eval("action2.content")).isEqualTo(Runtime.NONE);
-    assertThat(eval("action1.substitutions")).isEqualTo(Runtime.NONE);
+    assertThat(eval("action1.argv")).isEqualTo(Starlark.NONE);
+    assertThat(eval("action2.content")).isEqualTo(Starlark.NONE);
+    assertThat(eval("action1.substitutions")).isEqualTo(Starlark.NONE);
 
     assertThat(eval("action1.inputs.to_list()")).isEqualTo(eval("[]"));
     assertThat(eval("action1.outputs.to_list()")).isEqualTo(eval("[file1]"));
@@ -1997,7 +1997,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(ruleContext);
 
     Object result = eval("ruleContext.created_actions()");
-    assertThat(result).isEqualTo(Runtime.NONE);
+    assertThat(result).isEqualTo(Starlark.NONE);
   }
 
   @Test
