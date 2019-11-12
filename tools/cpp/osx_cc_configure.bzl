@@ -83,11 +83,12 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         # the C++ actions behave consistently.
         cc = repository_ctx.path("wrapped_clang")
 
+        cc_path = '"$(dirname "$0")"/wrapped_clang'
         repository_ctx.template(
             "cc_wrapper.sh",
             paths["@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"],
             {
-                "%{cc}": escape_string(str(cc)),
+                "%{cc}": escape_string(cc_path),
                 "%{env}": escape_string(get_env(repository_ctx)),
             },
         )
