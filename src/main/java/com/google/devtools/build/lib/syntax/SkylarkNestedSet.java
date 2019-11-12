@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -441,9 +440,10 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               + "on the depset and vice versa.",
       useStarlarkThread = true,
       useLocation = true)
-  public MutableList<Object> toList(Location location, StarlarkThread thread) throws EvalException {
+  public StarlarkList<Object> toList(Location location, StarlarkThread thread)
+      throws EvalException {
     try {
-      return MutableList.copyOf(thread, this.toCollection());
+      return StarlarkList.copyOf(thread, this.toCollection());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           location,

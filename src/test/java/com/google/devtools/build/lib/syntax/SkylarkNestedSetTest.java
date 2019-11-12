@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -493,7 +492,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "s = depset() + [2, 4, 6] + [3, 4, 5]", //
         "x = s.to_list()");
     Object value = lookup("x");
-    assertThat(value).isInstanceOf(MutableList.class);
+    assertThat(value).isInstanceOf(StarlarkList.class);
     assertThat((Iterable<?>) value).containsExactly(2, 4, 6, 3, 5).inOrder();
   }
 

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -242,7 +241,7 @@ public class SkylarkListTest extends EvaluationTestCase {
   @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     mutability.freeze();
 
     EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
@@ -262,7 +261,7 @@ public class SkylarkListTest extends EvaluationTestCase {
   @Test
   public void testCannotMutateAfterShallowFreeze() throws Exception {
     Mutability mutability = Mutability.createAllowingShallowFreeze("test");
-    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     list.unsafeShallowFreeze();
 
     EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
@@ -273,7 +272,7 @@ public class SkylarkListTest extends EvaluationTestCase {
   public void testCopyOfTakesCopy() throws EvalException {
     ArrayList<String> copyFrom = Lists.newArrayList("hi");
     Mutability mutability = Mutability.create("test");
-    MutableList<String> mutableList = MutableList.copyOf(mutability, copyFrom);
+    StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
     mutableList.add("added2", /*loc=*/ null, mutability);
 
@@ -285,7 +284,7 @@ public class SkylarkListTest extends EvaluationTestCase {
   public void testWrapUnsafeTakesOwnershipOfPassedArrayList() throws EvalException {
     ArrayList<String> wrapped = Lists.newArrayList("hi");
     Mutability mutability = Mutability.create("test");
-    MutableList<String> mutableList = MutableList.wrapUnsafe(mutability, wrapped);
+    StarlarkList<String> mutableList = StarlarkList.wrapUnsafe(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
     wrapped.add("added1");
@@ -298,9 +297,9 @@ public class SkylarkListTest extends EvaluationTestCase {
   public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = MutableList.copyOf(thread, Tuple.of(1, 2, 3)).getClass();
+    Class<?> mutableListClass = StarlarkList.copyOf(thread, Tuple.of(1, 2, 3)).getClass();
 
-    assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(MutableList.class);
+    assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(StarlarkList.class);
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
     assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
   }

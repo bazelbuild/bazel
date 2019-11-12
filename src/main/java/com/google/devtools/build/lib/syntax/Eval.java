@@ -280,8 +280,8 @@ final class Eval {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
       dict.put(key, value, loc);
-    } else if (object instanceof SkylarkList.MutableList) {
-      SkylarkList.MutableList<Object> list = (SkylarkList.MutableList<Object>) object;
+    } else if (object instanceof StarlarkList) {
+      StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
       list.set(index, value, loc, thread.mutability());
     } else {
@@ -359,10 +359,8 @@ final class Eval {
       throws EvalException, InterruptedException {
     // list += iterable  behaves like  list.extend(iterable)
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
-    if (op == TokenKind.PLUS
-        && x instanceof SkylarkList.MutableList
-        && y instanceof SkylarkList.MutableList) {
-      SkylarkList.MutableList<?> list = (SkylarkList.MutableList) x;
+    if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
+      StarlarkList<?> list = (StarlarkList) x;
       list.extend(y, location, thread);
       return list;
     }
@@ -556,7 +554,7 @@ final class Eval {
           }
           return list.isTuple()
               ? Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
-              : SkylarkList.MutableList.wrapUnsafe(thread, result);
+              : StarlarkList.wrapUnsafe(thread, result);
         }
 
       case SLICE:
@@ -688,7 +686,7 @@ final class Eval {
       thread.updateInternal(name, value);
     }
 
-    return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(thread, list);
+    return comp.isDict() ? dict : StarlarkList.copyOf(thread, list);
   }
 
   /** Returns an exception which should be thrown instead of the original one. */

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.IllegalFormatException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,20 +58,18 @@ public class PrinterTest {
     assertThat(Printer.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
         .isEqualTo("Label(\"//x:x\")");
 
-    List<?> list = MutableList.of(null, "foo", "bar");
+    List<?> list = StarlarkList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
 
     assertThat(Printer.str(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
     assertThat(Printer.repr(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Printer.str(MutableList.of(null, 1, tuple, 3)))
+    assertThat(Printer.str(StarlarkList.of(null, 1, tuple, 3)))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
-    assertThat(Printer.repr(MutableList.of(null, 1, tuple, 3)))
+    assertThat(Printer.repr(StarlarkList.of(null, 1, tuple, 3)))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
 
-    Map<Object, Object> dict = ImmutableMap.<Object, Object>of(
-        1, tuple,
-        2, list,
-        "foo", MutableList.of(null));
+    Map<Object, Object> dict =
+        ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", StarlarkList.of(null));
     assertThat(Printer.str(dict))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
     assertThat(Printer.repr(dict))
@@ -114,9 +111,9 @@ public class PrinterTest {
         "%%s", "foo");
     checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
         "% %s", "foo");
-    assertThat(Printer.format("%s", MutableList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
+    assertThat(Printer.format("%s", StarlarkList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
     assertThat(Printer.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
-    assertThat(Printer.format("%s", MutableList.of(null))).isEqualTo("[]");
+    assertThat(Printer.format("%s", StarlarkList.of(null))).isEqualTo("[]");
     assertThat(Printer.format("%s", Tuple.of())).isEqualTo("()");
     assertThat(Printer.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
 

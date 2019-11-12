@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.io.IOException;
@@ -121,7 +121,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       throw new EvalException(loc, "illegal argument in call to glob", e);
     }
 
-    return MutableList.copyOf(thread, matches);
+    return StarlarkList.copyOf(thread, matches);
   }
 
   @Override

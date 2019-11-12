@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
@@ -39,7 +39,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
       Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return MutableList.of(thread);
+    return StarlarkList.of(thread);
   }
 
   @Override

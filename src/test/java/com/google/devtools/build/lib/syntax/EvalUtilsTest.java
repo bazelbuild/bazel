@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,8 +36,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class EvalUtilsTest extends EvaluationTestCase {
 
-  private static MutableList<Object> makeList(StarlarkThread thread) {
-    return MutableList.of(thread, 1, 2, 3);
+  private static StarlarkList<Object> makeList(StarlarkThread thread) {
+    return StarlarkList.of(thread, 1, 2, 3);
   }
 
   private static SkylarkDict<Object, Object> makeDict(StarlarkThread thread) {
@@ -98,8 +97,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
-      SkylarkList.MutableList.of(thread, 1, 2, 3),
-      SkylarkList.MutableList.of(thread, "1", "2", "3"),
+      StarlarkList.of(thread, 1, 2, 3),
+      StarlarkList.of(thread, "1", "2", "3"),
       SkylarkDict.of(thread, "key", 123),
       SkylarkDict.of(thread, 123, "value"),
       NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),

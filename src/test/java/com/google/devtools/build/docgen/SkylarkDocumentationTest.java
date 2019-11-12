@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
@@ -243,7 +243,7 @@ public class SkylarkDocumentationTest {
     }
 
     @SkylarkCallable(name = "mutable", doc = "mutable")
-    public MutableList<Integer> getMutableList() {
+    public StarlarkList<Integer> getMutableList() {
       return null;
     }
 

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -181,8 +180,8 @@ public abstract class SkylarkType {
   // we ever want to use this type, and if not, make sure no existing client code uses it.
   @AutoCodec public static final Simple SEQUENCE = Simple.forClass(SkylarkList.class);
 
-  /** The LIST type, that contains all MutableList-s */
-  @AutoCodec public static final Simple LIST = Simple.forClass(MutableList.class);
+  /** The LIST type, that contains all StarlarkList-s */
+  @AutoCodec public static final Simple LIST = Simple.forClass(StarlarkList.class);
 
   /** The TUPLE type, that contains all Tuple-s */
   @AutoCodec public static final Simple TUPLE = Simple.forClass(Tuple.class);
@@ -190,10 +189,10 @@ public abstract class SkylarkType {
   /** The STRING_PAIR type, that contains Tuple-s of size 2 containing only Strings. */
   @AutoCodec public static final SkylarkType STRING_PAIR = new StringPairType();
 
-  /** The STRING_LIST type, a MutableList of strings */
+  /** The STRING_LIST type, a StarlarkList of strings */
   @AutoCodec public static final SkylarkType STRING_LIST = Combination.of(LIST, STRING);
 
-  /** The INT_LIST type, a MutableList of integers */
+  /** The INT_LIST type, a StarlarkList of integers */
   @AutoCodec public static final SkylarkType INT_LIST = Combination.of(LIST, INT);
 
   /** The SET type, that contains all SkylarkNestedSets, and the generic combinator for them */
@@ -769,7 +768,7 @@ public abstract class SkylarkType {
    */
   public static Object convertToSkylark(Object object, @Nullable Mutability mutability) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return MutableList.copyOf(mutability, (List<?>) object);
+      return StarlarkList.copyOf(mutability, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {
       return object;

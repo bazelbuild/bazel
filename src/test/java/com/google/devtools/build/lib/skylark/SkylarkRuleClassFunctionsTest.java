@@ -51,9 +51,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -1279,7 +1279,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             "a",
-                MutableList.<Object>of(
+                StarlarkList.<Object>of(
                     thread,
                     StructProvider.STRUCT.create(
                         ImmutableMap.<String, Object>of(
@@ -1296,8 +1296,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", 1))).isTrue();
   }
 
-  private static MutableList<Object> makeList(StarlarkThread thread) {
-    return MutableList.<Object>of(thread, 1, 2, 3);
+  private static StarlarkList<Object> makeList(StarlarkThread thread) {
+    return StarlarkList.<Object>of(thread, 1, 2, 3);
   }
 
   @Test
@@ -1752,7 +1752,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     invalidatePackages();
     SkylarkRuleContext context = createRuleContext("//test:check");
     @SuppressWarnings("unchecked")
-    MutableList<Object> params = (MutableList<Object>) context.getAttr().getValue("params");
+    StarlarkList<Object> params = (StarlarkList<Object>) context.getAttr().getValue("params");
     assertThat(params.get(0)).isEqualTo("NoneType");
     assertThat(params.get(1)).isEqualTo("NoneType");
   }

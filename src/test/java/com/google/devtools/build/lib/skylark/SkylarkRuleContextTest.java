@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -2016,8 +2017,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(eval("type(action)")).isEqualTo("Action");
 
     Object argvUnchecked = eval("action.argv");
-    assertThat(argvUnchecked).isInstanceOf(SkylarkList.MutableList.class);
-    SkylarkList.MutableList<?> argv = (SkylarkList.MutableList) argvUnchecked;
+    assertThat(argvUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> argv = (StarlarkList) argvUnchecked;
     assertThat(argv).hasSize(3);
     assertThat(argv.isImmutable()).isTrue();
     Object result = eval("action.argv[2].startswith('echo foo123')");

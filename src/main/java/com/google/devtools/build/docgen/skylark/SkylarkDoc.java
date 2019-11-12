@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -62,7 +62,7 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
     } else if (type.equals(Tuple.class)) {
       return "<a class=\"anchor\" href=\"tuple.html\">tuple</a>";
-    } else if (type.equals(MutableList.class) || type.equals(ImmutableList.class)) {
+    } else if (type.equals(StarlarkList.class) || type.equals(ImmutableList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">list</a>";
     } else if (type.equals(SkylarkList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">sequence</a>";

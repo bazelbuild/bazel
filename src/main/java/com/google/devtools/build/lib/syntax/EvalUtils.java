@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.Collection;
 import java.util.IllegalFormatException;
@@ -778,8 +777,8 @@ public final class EvalUtils {
       return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
     }
 
-    if (x instanceof MutableList && y instanceof MutableList) {
-      return MutableList.concat((MutableList<?>) x, (MutableList<?>) y, thread.mutability());
+    if (x instanceof StarlarkList && y instanceof StarlarkList) {
+      return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, thread.mutability());
     }
 
     if (x instanceof Concatable && y instanceof Concatable) {

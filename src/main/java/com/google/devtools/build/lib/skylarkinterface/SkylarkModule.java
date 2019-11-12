@@ -40,7 +40,7 @@ import java.lang.annotation.Target;
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the
  * class should have its own distinct user-visible API or documentation. For example, {@link
- * SkylarkList} is an abstract type implemented by both {@link SkylarkList.MutableList} and {@link
+ * SkylarkList} is an abstract type implemented by both {@link StarlarkList} and {@link
  * SkylarkList.Tuple}, all three of which are annotated. Annotating the list and tuple types allows
  * them to define different methods, while annotating {@link SkylarkList} allows them to be
  * identified as a single type for the purpose of type checking, documentation, and error messages.

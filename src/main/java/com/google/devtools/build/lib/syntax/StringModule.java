@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -340,7 +339,7 @@ final class StringModule implements SkylarkValue {
       },
       useStarlarkThread = true,
       useLocation = true)
-  public MutableList<String> split(
+  public StarlarkList<String> split(
       String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep.isEmpty()) {
@@ -361,7 +360,7 @@ final class StringModule implements SkylarkValue {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return MutableList.wrapUnsafe(thread, res);
+    return StarlarkList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -389,7 +388,7 @@ final class StringModule implements SkylarkValue {
       },
       useStarlarkThread = true,
       useLocation = true)
-  public MutableList<String> rsplit(
+  public StarlarkList<String> rsplit(
       String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sep.isEmpty()) {
@@ -411,7 +410,7 @@ final class StringModule implements SkylarkValue {
       end = start;
     }
     Collections.reverse(res);
-    return MutableList.wrapUnsafe(thread, res);
+    return StarlarkList.wrapUnsafe(thread, res);
   }
 
   @SkylarkCallable(
@@ -505,7 +504,7 @@ final class StringModule implements SkylarkValue {
 
   /**
    * Splits the input string at the {first|last} occurrence of the given separator and returns the
-   * resulting partition as a three-tuple of Strings, contained in a {@code MutableList}.
+   * resulting partition as a three-tuple of Strings, contained in a {@code StarlarkList}.
    *
    * <p>If the input string does not contain the separator, the tuple will consist of the original
    * input string and two empty strings.

@@ -56,9 +56,9 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -1245,7 +1245,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     StructImpl myInfo = getMyInfoFromTarget(target);
     assertThat(myInfo.getValue("o1"))
         .isEqualTo(Label.parseAbsoluteUnchecked("//test/skylark:foo.txt"));
-    assertThat(myInfo.getValue("o2")).isEqualTo(MutableList.empty());
+    assertThat(myInfo.getValue("o2")).isEqualTo(StarlarkList.empty());
   }
 
   @Test
@@ -1270,7 +1270,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
     StructImpl myInfo = getMyInfoFromTarget(target);
     assertThat(myInfo.getValue("o1")).isEqualTo(Starlark.NONE);
-    assertThat(myInfo.getValue("o2")).isEqualTo(MutableList.empty());
+    assertThat(myInfo.getValue("o2")).isEqualTo(StarlarkList.empty());
   }
 
   @Test

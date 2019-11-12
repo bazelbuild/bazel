@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -192,7 +191,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public MutableList<?> sorted(
+  public StarlarkList<?> sorted(
       Object iterable,
       final Object key,
       Boolean reverse,
@@ -252,7 +251,7 @@ class MethodLibrary {
     if (reverse) {
       Collections.reverse(list);
     }
-    return MutableList.wrapUnsafe(thread, list);
+    return StarlarkList.wrapUnsafe(thread, list);
   }
 
   @SkylarkCallable(
@@ -270,7 +269,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public MutableList<?> reversed(Object sequence, Location loc, StarlarkThread thread)
+  public StarlarkList<?> reversed(Object sequence, Location loc, StarlarkThread thread)
       throws EvalException {
     if (sequence instanceof SkylarkDict) {
       throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
@@ -279,7 +278,7 @@ class MethodLibrary {
     for (Object element : EvalUtils.toIterable(sequence, loc, thread)) {
       tmpList.addFirst(element);
     }
-    return MutableList.copyOf(thread, tmpList);
+    return StarlarkList.copyOf(thread, tmpList);
   }
 
   @SkylarkCallable(
@@ -320,8 +319,8 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public MutableList<?> list(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    return MutableList.copyOf(thread, EvalUtils.toCollection(x, loc, thread));
+  public StarlarkList<?> list(Object x, Location loc, StarlarkThread thread) throws EvalException {
+    return StarlarkList.copyOf(thread, EvalUtils.toCollection(x, loc, thread));
   }
 
   @SkylarkCallable(
@@ -635,7 +634,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true,
       useLocation = true)
-  public MutableList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
+  public StarlarkList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
       throws EvalException {
     int count = start;
     ArrayList<SkylarkList<?>> result = new ArrayList<>();
@@ -643,7 +642,7 @@ class MethodLibrary {
       result.add(Tuple.of(count, obj));
       count++;
     }
-    return MutableList.wrapUnsafe(thread, result);
+    return StarlarkList.wrapUnsafe(thread, result);
   }
 
   @SkylarkCallable(
@@ -816,7 +815,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public MutableList<?> dir(Object object, Location loc, StarlarkThread thread)
+  public StarlarkList<?> dir(Object object, Location loc, StarlarkThread thread)
       throws EvalException {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
@@ -824,7 +823,7 @@ class MethodLibrary {
       fields.addAll(((ClassObject) object).getFieldNames());
     }
     fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
-    return MutableList.copyOf(thread, fields);
+    return StarlarkList.copyOf(thread, fields);
   }
 
   @SkylarkCallable(
@@ -1188,7 +1187,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
       useLocation = true,
       useStarlarkThread = true)
-  public MutableList<?> zip(SkylarkList<?> args, Location loc, StarlarkThread thread)
+  public StarlarkList<?> zip(SkylarkList<?> args, Location loc, StarlarkThread thread)
       throws EvalException {
     Iterator<?>[] iterators = new Iterator<?>[args.size()];
     for (int i = 0; i < args.size(); i++) {
@@ -1210,7 +1209,7 @@ class MethodLibrary {
         result.add(Tuple.copyOf(elem));
       }
     } while (allHasNext);
-    return MutableList.wrapUnsafe(thread, result);
+    return StarlarkList.wrapUnsafe(thread, result);
   }
 
   /** Skylark int type. */

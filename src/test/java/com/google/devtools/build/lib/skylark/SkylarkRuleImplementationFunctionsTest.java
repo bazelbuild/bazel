@@ -62,9 +62,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -659,7 +659,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  command='I got the $(HELLO) on a $(DAVE)', ",
         "  make_variables={'HELLO': 'World', 'DAVE': type('')})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -673,7 +673,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inputs, argv, input_manifests = ruleContext.resolve_command(",
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
-    List<Artifact> inputs = (List<Artifact>) (List<?>) (MutableList) lookup("inputs");
+    List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) lookup("inputs");
     assertArtifactFilenames(
         inputs,
         "mytool.sh",
@@ -701,7 +701,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
         "inputs, argv, manifests = foo()");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -716,7 +716,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inputs, argv, manifests = ruleContext.resolve_command(",
         "  execution_requirements={'requires-darwin': ''})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertMatches("argv[0]", "^/bin/bash$", argv.get(0));
   }
 
@@ -731,7 +731,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    command=s)",
         "argv = foo()[1]");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
@@ -1823,7 +1823,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testEmptyLabelListTypeAttrInCtx() throws Exception {
     setRuleContext(createRuleContext("//foo:baz"));
     Object result = eval("ruleContext.attr.srcs");
-    assertThat(result).isEqualTo(MutableList.empty());
+    assertThat(result).isEqualTo(StarlarkList.empty());
   }
 
   @Test

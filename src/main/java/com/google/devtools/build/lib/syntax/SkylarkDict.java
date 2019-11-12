@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.StarlarkMutable.MutableMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -242,8 +241,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
               + "<pre class=\"language-python\">"
               + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
       useStarlarkThread = true)
-  public MutableList<?> invoke(StarlarkThread thread) throws EvalException {
-    return MutableList.copyOf(thread, values());
+  public StarlarkList<?> invoke(StarlarkThread thread) throws EvalException {
+    return StarlarkList.copyOf(thread, values());
   }
 
   @SkylarkCallable(
@@ -254,12 +253,12 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
               + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(2, \"a\"), (4, \"b\"), (1, \"c\")]"
               + "</pre>\n",
       useStarlarkThread = true)
-  public MutableList<?> items(StarlarkThread thread) throws EvalException {
+  public StarlarkList<?> items(StarlarkThread thread) throws EvalException {
     ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
     for (Map.Entry<?, ?> entries : entrySet()) {
       list.add(Tuple.of(entries.getKey(), entries.getValue()));
     }
-    return MutableList.wrapUnsafe(thread, list);
+    return StarlarkList.wrapUnsafe(thread, list);
   }
 
   @SkylarkCallable(
@@ -269,12 +268,12 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
               + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [2, 4, 1]"
               + "</pre>\n",
       useStarlarkThread = true)
-  public MutableList<?> keys(StarlarkThread thread) throws EvalException {
+  public StarlarkList<?> keys(StarlarkThread thread) throws EvalException {
     ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
     for (Map.Entry<?, ?> entries : entrySet()) {
       list.add(entries.getKey());
     }
-    return MutableList.wrapUnsafe(thread, list);
+    return StarlarkList.wrapUnsafe(thread, list);
   }
 
   private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.List;
@@ -792,15 +791,18 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testForDeepUpdate() throws Exception {
     // Check that indirectly reachable values can still be manipulated as normal.
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [['a'], ['b'], ['c']]",
-        "  ys = []",
-        "  for x in xs:",
-        "    for y in x:",
-        "      ys.append(y)",
-        "    xs[2].append(x[0])",
-        "  return ys",
-        "ys = foo()").testLookup("ys", MutableList.of(null, "a", "b", "c", "a", "b"));
+    new SkylarkTest()
+        .setUp(
+            "def foo():",
+            "  xs = [['a'], ['b'], ['c']]",
+            "  ys = []",
+            "  for x in xs:",
+            "    for y in x:",
+            "      ys.append(y)",
+            "    xs[2].append(x[0])",
+            "  return ys",
+            "ys = foo()")
+        .testLookup("ys", StarlarkList.of(null, "a", "b", "c", "a", "b"));
   }
 
   @Test
@@ -1090,7 +1092,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "    modified_list = v + ['extra_string']",
             "  return modified_list",
             "m = func(mock)")
-        .testLookup("m", MutableList.of(thread, "b", "c", "extra_string"));
+        .testLookup("m", StarlarkList.of(thread, "b", "c", "extra_string"));
   }
 
   @Test
@@ -1572,7 +1574,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return value",
             "",
             "f()[1] += 1") // `f()` should be called only once here
-        .testLookup("counter", MutableList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread, 1));
 
     // Check key position.
     new SkylarkTest()
@@ -1585,7 +1587,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return 1",
             "",
             "value[f()] += 1") // `f()` should be called only once here
-        .testLookup("counter", MutableList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread, 1));
   }
 
   @Test
@@ -1625,8 +1627,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "",
             "f(ordinary)[0] = g(ordinary)[1]",
             "f(augmented)[0] += g(augmented)[1]")
-        .testLookup("ordinary", MutableList.of(thread, "g", "f")) // This order is consistent
-        .testLookup("augmented", MutableList.of(thread, "f", "g")); // with Python
+        .testLookup("ordinary", StarlarkList.of(thread, "g", "f")) // This order is consistent
+        .testLookup("augmented", StarlarkList.of(thread, "f", "g")); // with Python
   }
 
   @Test
@@ -1764,10 +1766,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testAssignmentToListInDictSideEffect() throws Exception {
-    new SkylarkTest().setUp(
-        "l = [1, 2]",
-        "d = {0: l}",
-        "d[0].append(3)").testLookup("l", MutableList.of(null, 1, 2, 3));
+    new SkylarkTest()
+        .setUp("l = [1, 2]", "d = {0: l}", "d[0].append(3)")
+        .testLookup("l", StarlarkList.of(null, 1, 2, 3));
   }
 
   @Test
