@@ -138,12 +138,12 @@ class TestBase(unittest.TestCase):
     return self.GetCcRulesRepoRule()
 
   def GetCcRulesRepoRule(self):
-    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89'
-    strip_pfx = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c'
+    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
+    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
     url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     url2 = ('https://github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     return [
         'http_archive(',
         '    name = "rules_cc",',

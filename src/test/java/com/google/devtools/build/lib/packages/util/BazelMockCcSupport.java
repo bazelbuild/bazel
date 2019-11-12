@@ -71,6 +71,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public void setup(MockToolsConfig config) throws IOException {
     writeMacroFile(config);
+    setupRulesCc(config);
     setupCcToolchainConfig(config);
   }
 

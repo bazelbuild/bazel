@@ -56,6 +56,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .setUp("def Label(arg):\n  return 42")
         .setUp(
             ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"));
+                TestConstants.RULES_CC_REPOSITORY_EXECROOT
+                    + "cc/private/toolchain/lib_cc_configure.bzl"));
   }
 }
