@@ -14,17 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-/**
- * Provider for the runtime classpath contributions of a Java binary.
- */
+/** Provider for the runtime classpath contributions of a Java binary. */
 @SkylarkModule(name = "JavaRuntimeClasspathProvider", doc = "", documented = false)
-public interface JavaRuntimeClasspathProviderApi<FileT extends FileApi> {
+public interface JavaRuntimeClasspathProviderApi extends SkylarkValue {
 
   @SkylarkCallable(name = "runtime_classpath", documented = false, structField = true)
-  public NestedSet<FileT> getRuntimeClasspath();
+  public SkylarkNestedSet /*<File>*/ getRuntimeClasspath();
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -38,7 +39,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   /** Mock containing exposed methods for flag-guarding tests. */
   @SkylarkModule(name = "Mock", doc = "")
-  public static class Mock {
+  public static class Mock implements SkylarkValue {
 
     @SkylarkCallable(
         name = "positionals_only_method",

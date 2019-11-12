@@ -612,7 +612,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.getInstance());
+    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -726,7 +726,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // We evaluate in keepGoing mode because in the case that the graph does not store its
       // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
       // permitted.
-      EvaluationResult result =
+      EvaluationResult<?> result =
           evaluate(
               ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
       if (!result.hasError()) {
@@ -1409,7 +1409,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
-  @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
@@ -1558,6 +1557,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           EvaluationContext.newBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
+              .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(
@@ -3022,4 +3022,3 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver.evaluate(roots, evaluationContext);
   }
 }
-

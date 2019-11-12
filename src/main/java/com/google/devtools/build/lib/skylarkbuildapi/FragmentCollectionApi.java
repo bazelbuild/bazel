@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 
 /** Represents a collection of configuration fragments in Skylark. */
@@ -31,4 +32,4 @@ import com.google.devtools.build.lib.syntax.ClassObject;
             + "ex:</p><code>ctx.fragments.apple</code></p>"
             + "Note that rules have to declare their required fragments in order to access them "
             + "(see <a href=\"../rules.md#fragments\">here</a>).")
-public interface FragmentCollectionApi extends ClassObject {}
+public interface FragmentCollectionApi extends ClassObject, SkylarkValue {}

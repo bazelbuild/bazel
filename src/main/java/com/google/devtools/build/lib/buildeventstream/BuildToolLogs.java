@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -101,11 +102,14 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
     private final String name;
     private final Path localPath;
     private final LocalFileType fileType;
+    private final LocalFileCompression compression;
 
-    public LogFileEntry(String name, Path localPath, LocalFileType fileType) {
+    public LogFileEntry(
+        String name, Path localPath, LocalFileType fileType, LocalFileCompression compression) {
       this.name = name;
       this.localPath = localPath;
       this.fileType = fileType;
+      this.compression = compression;
     }
 
     public String getName() {
@@ -117,7 +121,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
     }
 
     LocalFile toLocalFile() {
-      return new LocalFile(localPath, fileType);
+      return new LocalFile(localPath, fileType, compression);
     }
 
     @Override

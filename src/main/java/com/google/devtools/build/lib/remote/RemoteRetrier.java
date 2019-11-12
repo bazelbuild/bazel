@@ -20,7 +20,6 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
@@ -28,16 +27,28 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Specific retry logic for remote execution/caching. */
 public class RemoteRetrier extends Retrier {
 
+  @Nullable
+  private static Status fromException(Exception e) {
+    for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+      if (cause instanceof StatusRuntimeException) {
+        return ((StatusRuntimeException) cause).getStatus();
+      }
+    }
+    return null;
+  }
+
   public static final Predicate<? super Exception> RETRIABLE_GRPC_ERRORS =
       e -> {
-        if (!(e instanceof StatusException) && !(e instanceof StatusRuntimeException)) {
+        Status s = fromException(e);
+        if (s == null) {
+          // It's not a gRPC error.
           return false;
         }
-        Status s = Status.fromThrowable(e);
         switch (s.getCode()) {
           case CANCELLED:
             return !Thread.currentThread().isInterrupted();

@@ -63,7 +63,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       BaseFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<String> environ,
+      SkylarkList<?> environ, // <String> expected
       Boolean configure,
       String doc,
       FuncallExpression ast,
@@ -187,12 +187,18 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 ruleClass,
                 null,
                 WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
-                ast,
+                ast.getLocation(),
                 callStack.toString());
         return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
     }
+  }
+
+  @Override
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(
+      Location location, StarlarkThread thread) throws EvalException {
+    // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.
   }
 }

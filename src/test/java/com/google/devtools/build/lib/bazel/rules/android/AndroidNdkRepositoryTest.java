@@ -52,12 +52,12 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "/bazel_tools_workspace/tools/build_defs/cc/action_names.bzl",
         ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
 
     scratch.overwriteFile(
         "/bazel_tools_workspace/tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
     scratch.file("/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 13.1.3345770");
   }
 

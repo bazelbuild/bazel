@@ -2032,6 +2032,9 @@ public final class CcCompilationHelper {
   }
 
   private Artifact getLtoIndexingFile(Artifact outputFile) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+      return null;
+    }
     String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
     return actionConstructionContext.getRelatedArtifact(outputFile.getRootRelativePath(), ext);
   }

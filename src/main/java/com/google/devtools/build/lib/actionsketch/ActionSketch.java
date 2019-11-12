@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actionsketch;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.math.BigInteger;
@@ -29,7 +28,7 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 public abstract class ActionSketch implements SkyValue {
-  public static final int BIGINTEGER_ENCODED_LENGTH = /*length=*/ 1 + /*payload=*/ 17;
+  public static final int BIGINTEGER_ENCODED_LENGTH = /*length=*/ 1 + /*payload=*/ 39;
   public static final int MAX_BYTES = /*hashes=*/ 2 * BIGINTEGER_ENCODED_LENGTH;
 
   private static final ActionSketch NULL_SKETCH =
@@ -88,10 +87,6 @@ public abstract class ActionSketch implements SkyValue {
       buffer.put((byte) -1);
     } else {
       byte[] bytes = value.toByteArray();
-      Preconditions.checkState(
-          bytes.length > 0 && bytes.length <= 17,
-          "Illegal number of bytes in sketch field? %s",
-          bytes.length);
       buffer.put((byte) bytes.length).put(bytes);
     }
   }

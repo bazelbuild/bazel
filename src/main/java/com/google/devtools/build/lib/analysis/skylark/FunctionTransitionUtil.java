@@ -175,7 +175,7 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
+          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, /*loc=*/ null);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
@@ -187,7 +187,7 @@ public class FunctionTransitionUtil {
         if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
           continue;
         }
-        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), null, mutability);
+        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), /*loc=*/ null);
       }
 
       if (!remainingInputs.isEmpty()) {

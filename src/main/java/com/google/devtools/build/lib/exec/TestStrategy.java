@@ -20,7 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -53,10 +56,14 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
+  private final ConcurrentHashMap<ShardKey, ListenableFuture<Void>> futures =
+      new ConcurrentHashMap<>();
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -145,6 +152,12 @@ public abstract class TestStrategy implements TestActionContext {
   @Override
   public final boolean isTestKeepGoing() {
     return executionOptions.testKeepGoing;
+  }
+
+  @Override
+  public final ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum) {
+    ShardKey key = new ShardKey(owner, shardNum);
+    return futures.computeIfAbsent(key, (k) -> SettableFuture.<Void>create());
   }
 
   /**
@@ -299,7 +312,8 @@ public abstract class TestStrategy implements TestActionContext {
     digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
     digest.addInt(action.getShardNum());
     digest.addInt(action.getRunNumber());
-    return digest.hexDigestAndReset();
+    // Truncate the string to 32 character to avoid exceeding path length limit on Windows and macOS
+    return digest.hexDigestAndReset().substring(0, 32);
   }
 
   /** Parse a test result XML file into a {@link TestCase}. */
@@ -332,7 +346,8 @@ public abstract class TestStrategy implements TestActionContext {
       throws IOException {
     boolean isPassed = testResultData.getTestPassed();
     try {
-      if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+      if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
+          && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
         TestLogHelper.writeTestLog(
             testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
       }
@@ -349,6 +364,10 @@ public abstract class TestStrategy implements TestActionContext {
           actionExecutionContext
               .getEventHandler()
               .handle(Event.of(EventKind.TIMEOUT, null, testName + " (see " + testLog + ")"));
+        } else if (testResultData.getStatus() == BlazeTestStatus.INCOMPLETE) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.CANCELLED, null, testName));
         } else {
           actionExecutionContext
               .getEventHandler()
@@ -430,6 +449,33 @@ public abstract class TestStrategy implements TestActionContext {
           ByteStreams.copy(input, outErr.getOutputStream());
         }
       }
+    }
+  }
+
+  private static final class ShardKey {
+    private final ActionOwner owner;
+    private final int shard;
+
+    ShardKey(ActionOwner owner, int shard) {
+      this.owner = Preconditions.checkNotNull(owner);
+      this.shard = shard;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(owner, shard);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ShardKey)) {
+        return false;
+      }
+      ShardKey s = (ShardKey) o;
+      return owner.equals(s.owner) && shard == s.shard;
     }
   }
 }

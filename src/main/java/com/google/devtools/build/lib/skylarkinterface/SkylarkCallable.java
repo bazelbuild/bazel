@@ -54,6 +54,10 @@ import java.lang.annotation.Target;
  *       respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
+ *   <li>Method parameters with generic type must only have wildcard types. For example, {@code
+ *       Foo<Bar>} is forbidden, but {@code Foo<?>} is allowed. This is because the type parameters
+ *       of these java parameters cannot be verified by the java reflection API. Such parameters
+ *       must be dynamically validated in the method implementation.
  * </ul>
  */
 // TODO(adonovan): rename to StarlarkMethod (?)

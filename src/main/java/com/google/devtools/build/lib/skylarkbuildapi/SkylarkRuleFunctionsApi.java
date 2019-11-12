@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -273,23 +272,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
-            name = "execution_platform_constraints_allowed",
-            type = Boolean.class,
-            named = true,
-            positional = false,
-            defaultValue = "True",
-            disableWithFlag =
-                FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
-            valueWhenDisabled = "True",
-            doc =
-                "If true, a special attribute named <code>exec_compatible_with</code> of "
-                    + "label-list type is added, which must not already exist in "
-                    + "<code>attrs</code>. Targets may use this attribute to specify additional "
-                    + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
-                    + "This will be deprecated and removed in the near future, and all rules will "
-                    + "be able to use <code>exec_compatible_with</code>."),
-        @Param(
             name = "exec_compatible_with",
             type = SkylarkList.class,
             generic1 = String.class,
@@ -303,16 +285,24 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "analysis_test",
             allowedTypes = {
               @ParamType(type = Boolean.class),
-              @ParamType(type = UnboundMarker.class)
             },
             named = true,
             positional = false,
-            // TODO(cparsons): Make the default false when this is no longer experimental.
-            defaultValue = "unbound",
-            // TODO(cparsons): Link to in-build testing documentation when it is available.
+            defaultValue = "False",
             doc =
-                "<b>Experimental: This parameter is experimental and subject to change at any "
-                    + "time.</b><p> If true, then this rule is treated as an analysis test."),
+                "If true, then this rule is treated as an analysis test. <p>Note: Analysis test"
+                    + " rules are primarily defined using infrastructure provided in core Starlark"
+                    + " libraries. See <a href=\"../testing.html#for-testing-rules\">Testing</a>"
+                    + " for guidance. <p>If a rule is defined as an analysis test rule, it becomes"
+                    + " allowed to use configuration transitions defined using <a"
+                    + " href=\"#analysis_test_transition\">analysis_test_transition</a> on its"
+                    + " attributes, but opts into some restrictions: <ul><li>Targets of this rule"
+                    + " are limited in the number of transitive dependencies they may have."
+                    + " <li>The rule is considered a test rule (as if <code>test=True</code> were"
+                    + " set). This supercedes the value of <code>test</code></li> <li>The rule"
+                    + " implementation function may not register actions."
+                    + " Instead, it must register a pass/fail result via providing <a"
+                    + " href='AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>.</li></ul>"),
         @Param(
             name = "build_setting",
             type = BuildSettingApi.class,
@@ -327,7 +317,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<a href = '../config.$DOC_EXT#user-defined-build-settings'><code>build "
                     + "setting</code></a> this rule is. See the "
                     + "<a href='config.html'><code>config</code></a> module. If this is "
-                    + "set, a mandatory attribute named \"build_setting_default\" is automatically"
+                    + "set, a mandatory attribute named \"build_setting_default\" is automatically "
                     + "added to this rule, with a type corresponding to the value passed in here."),
         @Param(
             name = "cfg",
@@ -355,7 +345,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,

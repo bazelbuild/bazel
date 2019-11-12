@@ -482,15 +482,15 @@ public class JavaCommon {
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPathFragment();
   }
 
   public static PathFragment getHostJavaExecutable(JavaRuntimeInfo javaRuntime) {
-    return javaRuntime.javaBinaryExecPath();
+    return javaRuntime.javaBinaryExecPathFragment();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPathFragment();
   }
 
   /**
@@ -507,7 +507,7 @@ public class JavaCommon {
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
     } else {
-      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
+      javaExecutable = javaRuntime.javaBinaryRunfilesPathFragment();
     }
 
     if (!javaExecutable.isAbsolute()) {

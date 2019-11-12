@@ -86,8 +86,12 @@ final class Eval {
   }
 
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
-    Object rvalue = eval(thread, node.getRHS());
-    assign(node.getLHS(), rvalue, thread, node.getLocation());
+    if (node.isAugmented()) {
+      execAugmentedAssignment(node);
+    } else {
+      Object rvalue = eval(thread, node.getRHS());
+      assign(node.getLHS(), rvalue, thread, node.getLocation());
+    }
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
@@ -148,7 +152,7 @@ final class Eval {
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
-    boolean cond = EvalUtils.toBoolean(eval(thread, node.getCondition()));
+    boolean cond = Starlark.truth(eval(thread, node.getCondition()));
     if (cond) {
       return execStatementsInternal(node.getThenBlock());
     } else if (node.getElseBlock() != null) {
@@ -202,9 +206,6 @@ final class Eval {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
         return TokenKind.PASS;
-      case AUGMENTED_ASSIGNMENT:
-        execAugmentedAssignment((AugmentedAssignmentStatement) st);
-        return TokenKind.PASS;
       case EXPRESSION:
         eval(thread, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
@@ -212,7 +213,7 @@ final class Eval {
         return ((FlowStatement) st).getKind();
       case FOR:
         return execFor((ForStatement) st);
-      case FUNCTION_DEF:
+      case DEF:
         execDef((DefStatement) st);
         return TokenKind.PASS;
       case IF:
@@ -278,7 +279,7 @@ final class Eval {
       throws EvalException {
     if (object instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
-      dict.put(key, value, loc, thread);
+      dict.put(key, value, loc);
     } else if (object instanceof SkylarkList.MutableList) {
       SkylarkList.MutableList<Object> list = (SkylarkList.MutableList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
@@ -322,16 +323,7 @@ final class Eval {
     }
   }
 
-  /**
-   * Evaluates an augmented assignment that mutates this {@code LValue} with the given right-hand
-   * side's value.
-   *
-   * <p>The left-hand side expression is evaluated only once, even when it is an {@link
-   * IndexExpression}. The left-hand side is evaluated before the right-hand side to match Python's
-   * behavior (hence why the right-hand side is passed as an expression rather than as an evaluated
-   * value).
-   */
-  private void execAugmentedAssignment(AugmentedAssignmentStatement stmt)
+  private void execAugmentedAssignment(AssignmentStatement stmt)
       throws EvalException, InterruptedException {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();
@@ -430,9 +422,9 @@ final class Eval {
           // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              return EvalUtils.toBoolean(x) ? eval(thread, binop.getY()) : x;
+              return Starlark.truth(x) ? eval(thread, binop.getY()) : x;
             case OR:
-              return EvalUtils.toBoolean(x) ? x : eval(thread, binop.getY());
+              return Starlark.truth(x) ? x : eval(thread, binop.getY());
             default:
               Object y = eval(thread, binop.getY());
               return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
@@ -446,7 +438,7 @@ final class Eval {
         {
           ConditionalExpression cond = (ConditionalExpression) expr;
           Object v = eval(thread, cond.getCondition());
-          return eval(thread, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
+          return eval(thread, Starlark.truth(v) ? cond.getThenCase() : cond.getElseCase());
         }
 
       case DICT_EXPR:
@@ -458,7 +450,7 @@ final class Eval {
             Object k = eval(thread, entry.getKey());
             Object v = eval(thread, entry.getValue());
             int before = dict.size();
-            dict.put(k, v, loc, thread);
+            dict.put(k, v, loc);
             if (dict.size() == before) {
               throw new EvalException(
                   loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
@@ -563,7 +555,7 @@ final class Eval {
             result.add(eval(thread, elem));
           }
           return list.isTuple()
-              ? SkylarkList.Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
+              ? Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
               : SkylarkList.MutableList.wrapUnsafe(thread, result);
         }
 
@@ -667,7 +659,7 @@ final class Eval {
 
           } else {
             Comprehension.If ifClause = (Comprehension.If) clause;
-            if (EvalUtils.toBoolean(eval(thread, ifClause.getCondition()))) {
+            if (Starlark.truth(eval(thread, ifClause.getCondition()))) {
               execClauses(index + 1);
             }
           }
@@ -678,9 +670,9 @@ final class Eval {
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(thread, body.getKey());
-          EvalUtils.checkValidDictKey(k, thread);
+          EvalUtils.checkValidDictKey(k);
           Object v = eval(thread, body.getValue());
-          dict.put(k, v, comp.getLocation(), thread);
+          dict.put(k, v, comp.getLocation());
         } else {
           list.add(eval(thread, ((Expression) comp.getBody())));
         }
@@ -705,7 +697,7 @@ final class Eval {
     // new scope (e.g. FuncallExpression).
     if (original instanceof EvalExceptionWithStackTrace) {
       EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      if (node.isNewScope()) {
+      if (node instanceof FuncallExpression) {
         real.registerNode(node);
       }
       return real;

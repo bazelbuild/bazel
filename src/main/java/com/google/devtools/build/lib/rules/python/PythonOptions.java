@@ -269,6 +269,23 @@ public class PythonOptions extends FragmentOptions {
               + "data runfiles of another binary.")
   public boolean buildTransitiveRunfilesTrees;
 
+  @Option(
+      name = "incompatible_default_to_explicit_init_py",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "This flag changes the default behavior so that __init__.py files are no longer "
+              + "automatically created in the runfiles of Python targets. Precisely, when a "
+              + "py_binary or py_test target has legacy_create_init set to \"auto\" (the default), "
+              + "it is treated as false if and only if this flag is set. See "
+              + "https://github.com/bazelbuild/bazel/issues/10076.")
+  public boolean incompatibleDefaultToExplicitInitPy;
+
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
     // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -114,6 +115,8 @@ public abstract class Artifact
         Comparable<Artifact>,
         CommandLineItem,
         SkyKey {
+
+  public static final SkylarkType TYPE = SkylarkType.of(Artifact.class);
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
@@ -895,6 +898,7 @@ public abstract class Artifact
   }
 
   /** {@link ObjectCodec} for {@link SourceArtifact} */
+  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
   private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
 
     @Override

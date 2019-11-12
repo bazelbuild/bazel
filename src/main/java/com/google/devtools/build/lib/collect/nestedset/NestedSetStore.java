@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -184,8 +185,12 @@ public class NestedSetStore {
                   FingerprintComputationResult.create(fingerprint, Futures.immediateFuture(null)));
 
             } catch (ExecutionException e) {
-              throw new AssertionError(
-                  "Expected write for " + fingerprint + " to be complete", e.getCause());
+              // Failure to fetch the NestedSet contents is unexpected, but the failed future can
+              // be stored as the NestedSet children. This way the exception is only propagated if
+              // the NestedSet is consumed (unrolled).
+              BugReport.sendBugReport(
+                  new IllegalStateException(
+                      "Expected write for " + fingerprint + " to be complete", e));
             }
           },
           MoreExecutors.directExecutor());

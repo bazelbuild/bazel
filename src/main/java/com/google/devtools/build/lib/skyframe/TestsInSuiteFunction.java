@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -170,6 +171,20 @@ final class TestsInSuiteFunction implements SkyFunction {
       Package pkg = packageMap.get(label.getPackageIdentifier());
       if (pkg == null) {
         continue;
+      }
+      if (pkg.containsErrors()) {
+        hasError = true;
+        // Abort the build if --nokeep_going.
+        try {
+          env.getValueOrThrow(
+              PackageErrorFunction.key(label.getPackageIdentifier()),
+              BuildFileContainsErrorsException.class);
+          return false;
+        } catch (BuildFileContainsErrorsException e) {
+          // PackageErrorFunction always throws this exception, and this fact is used by Skyframe to
+          // abort the build. If we get here, it's either because of error bubbling or because we're
+          // in --keep_going mode. In either case, we *should* ignore the exception.
+        }
       }
       try {
         targets.add(pkg.getTarget(label.getName()));

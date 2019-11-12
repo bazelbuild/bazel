@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidA
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -204,6 +205,9 @@ public final class AndroidRuleClasses {
   static final FileType APK = FileType.of(".apk");
 
   public static final String NOCOMPRESS_EXTENSIONS_ATTR = "nocompress_extensions";
+
+  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
+      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
   /** The default label of android_sdk option */
   public static LabelLateBoundDefault<?> getAndroidSdkLabel(Label androidSdk) {
@@ -358,7 +362,7 @@ public final class AndroidRuleClasses {
           implicitOutputs.add(
               AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
-              AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+              AndroidRuleClasses.ANDROID_LIBRARY_AAR /* TODO(b/36518935): remove this */);
 
           if (AndroidResources.definesAndroidResources(attributes)) {
             implicitOutputs.add(
@@ -583,6 +587,7 @@ public final class AndroidRuleClasses {
                   .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .allowedRuleClasses(ALLOWED_DEPENDENCIES)
                   .allowedFileTypes()
+                  .mandatoryProviders(CONTAINS_CC_INFO_PARAMS)
                   .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                   .mandatoryProviders(
                       SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()),

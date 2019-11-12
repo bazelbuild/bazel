@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -19,23 +20,31 @@ An AAR may contain JARs at /classes.jar and /libs/*.jar. This tool extracts all
 of the jars and creates a param file for singlejar to merge them into one jar.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import re
 import sys
 import zipfile
 
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
+import six
+
 from tools.android import junction
-from third_party.py import gflags
 
-FLAGS = gflags.FLAGS
+FLAGS = flags.FLAGS
 
-gflags.DEFINE_string("input_aar", None, "Input AAR")
-gflags.MarkFlagAsRequired("input_aar")
-gflags.DEFINE_string(
-    "output_singlejar_param_file", None, "Output parameter file for singlejar")
-gflags.MarkFlagAsRequired("output_singlejar_param_file")
-gflags.DEFINE_string("output_dir", None, "Output directory to extract jars in")
-gflags.MarkFlagAsRequired("output_dir")
+flags.DEFINE_string("input_aar", None, "Input AAR")
+flags.mark_flag_as_required("input_aar")
+flags.DEFINE_string("output_singlejar_param_file", None,
+                    "Output parameter file for singlejar")
+flags.mark_flag_as_required("output_singlejar_param_file")
+flags.DEFINE_string("output_dir", None, "Output directory to extract jars in")
+flags.mark_flag_as_required("output_dir")
 
 
 def ExtractEmbeddedJars(aar,
@@ -52,7 +61,7 @@ def ExtractEmbeddedJars(aar,
       # output_dir may be a temporary junction, so write the original
       # (unshortened) path to the params file
       singlejar_param_file.write(
-          (output_dir_orig + "/" + name + "\n").encode("utf-8"))
+          six.ensure_binary((output_dir_orig + "/" + name + "\n"), "utf-8"))
       aar.extract(name, output_dir)
 
 
@@ -68,7 +77,7 @@ def _Main(input_aar,
                           output_dir_orig)
 
 
-def main():
+def main(unused_argv):
   if os.name == "nt":
     # Shorten paths unconditionally, because the extracted paths in
     # ExtractEmbeddedJars (which we cannot yet predict, because they depend on
@@ -90,4 +99,4 @@ def main():
 
 if __name__ == "__main__":
   FLAGS(sys.argv)
-  main()
+  app.run(main)

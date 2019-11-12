@@ -74,6 +74,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -119,6 +120,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javacOptions,
         jvmOptions,
         javabuilderJvmOptions,
+        turbineJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
         jacocoRunner,
@@ -147,6 +149,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
   private final ImmutableList<String> javabuilderJvmOptions;
+  private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
@@ -176,6 +179,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
@@ -204,6 +208,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
     this.javabuilderJvmOptions = javabuilderJvmOptions;
+    this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
@@ -347,6 +352,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the list of JVM options for running JavaBuilder. */
   public ImmutableList<String> getJavabuilderJvmOptions() {
     return javabuilderJvmOptions;
+  }
+
+  public ImmutableList<String> getTurbineJvmOptions() {
+    return turbineJvmOptions;
   }
 
   /** @return whether JavaBuilders supports running as a persistent worker or not */

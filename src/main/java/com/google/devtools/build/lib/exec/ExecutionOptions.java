@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
-import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -87,7 +87,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "strategy",
       allowMultiple = true,
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},

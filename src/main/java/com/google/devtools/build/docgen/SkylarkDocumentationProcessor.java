@@ -105,17 +105,16 @@ public final class SkylarkDocumentationProcessor {
       }
     }
 
-    List<String> globalModules = new ArrayList<>();
+    List<SkylarkModuleDoc> globalModules = new ArrayList<>();
     for (SkylarkModuleCategory globalCategory : GLOBAL_CATEGORIES) {
-      List<SkylarkModuleDoc> allGlobalModules = modulesByCategory.remove(globalCategory);
-      for (SkylarkModuleDoc module : allGlobalModules) {
+      for (SkylarkModuleDoc module : modulesByCategory.remove(globalCategory)) {
         if (!module.getName().equals(globalModule.getName())) {
-          globalModules.add(module.getName());
+          globalModules.add(module);
         }
       }
     }
 
-    Collections.sort(globalModules, us);
+    Collections.sort(globalModules, (doc1, doc2) -> us.compare(doc1.getName(), doc2.getName()));
     writeOverviewPage(
         outputDir,
         globalModule.getName(),
@@ -172,7 +171,7 @@ public final class SkylarkDocumentationProcessor {
       String globalModuleName,
       List<String> globalFunctions,
       List<String> globalConstants,
-      List<String> globalModules,
+      List<SkylarkModuleDoc> globalModules,
       Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
       throws IOException {
     File skylarkDocPath = new File(outputDir + "/skylark-overview.html");

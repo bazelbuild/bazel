@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -34,9 +35,9 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
         "The context of the repository rule containing"
             + " helper functions and information about attributes. You get a repository_ctx object"
             + " as an argument to the <code>implementation</code> function when you create a"
-            + " repository rule."
-)
-public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable> {
+            + " repository rule.")
+public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "name",
@@ -193,7 +194,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      SkylarkDict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -266,9 +267,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
-      SkylarkList<Object> arguments,
+      SkylarkList<?> arguments,
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      SkylarkDict<?, ?> environment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
@@ -426,7 +427,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -582,7 +583,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;

@@ -275,7 +275,7 @@ function test_stats_high_user_time_and_high_system_time() {
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_supported_platform || exit 0
+[[ "$(uname -s)" = Linux ]] || exit 0
 check_sandbox_allowed || exit 0
 
 run_suite "linux-sandbox"

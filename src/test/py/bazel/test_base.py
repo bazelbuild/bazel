@@ -138,12 +138,12 @@ class TestBase(unittest.TestCase):
     return self.GetCcRulesRepoRule()
 
   def GetCcRulesRepoRule(self):
-    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89'
-    strip_pfx = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c'
+    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
+    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
     url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     url2 = ('https://github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     return [
         'http_archive(',
         '    name = "rules_cc",',
@@ -315,12 +315,17 @@ class TestBase(unittest.TestCase):
     """
     self._worker_stdout = tempfile.TemporaryFile(dir=self._test_cwd)
     self._worker_stderr = tempfile.TemporaryFile(dir=self._test_cwd)
-    # Ideally we would use something under TEST_TMPDIR here, but the
-    # worker path must be as short as possible so we don't exceed Windows
-    # path length limits, so we run straight in TEMP. This should ideally
-    # be set to something like C:\temp. On CI this is set to D:\temp.
-    worker_path = TestBase.GetEnv('TEMP')
-    self._cas_path = worker_path + '\\cas'
+    if TestBase.IsWindows():
+      # Ideally we would use something under TEST_TMPDIR here, but the
+      # worker path must be as short as possible so we don't exceed Windows
+      # path length limits, so we run straight in TEMP. This should ideally
+      # be set to something like C:\temp. On CI this is set to D:\temp.
+      worker_path = TestBase.GetEnv('TEMP')
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
+    else:
+      worker_path = tempfile.mkdtemp(dir=self._tests_root)
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
+    self._cas_path = os.path.join(worker_path, 'cas')
     os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
@@ -330,10 +335,17 @@ class TestBase(unittest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
+    env_add = {}
+    try:
+      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
+          'RUNFILES_MANIFEST_FILE')
+    except EnvVarUndefinedError:
+      pass
+
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
-            self.Rlocation('io_bazel/src/tools/remote/worker.exe'),
+            worker_exe,
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.
@@ -343,9 +355,7 @@ class TestBase(unittest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add={
-            'RUNFILES_MANIFEST_FILE': TestBase.GetEnv('RUNFILES_MANIFEST_FILE'),
-        }))
+        env=self._EnvMap(env_add=env_add))
 
     return port
 

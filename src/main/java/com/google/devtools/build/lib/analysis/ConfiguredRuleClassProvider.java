@@ -55,13 +55,14 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -81,10 +82,11 @@ import javax.annotation.Nullable;
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
  *
- * <p>This class is initialized on server startup and the set of rules, build info factories
- * and configuration options is guaranteed not to change over the life time of the Blaze server.
+ * <p>This class is initialized on server startup and the set of rules, build info factories and
+ * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
-public class ConfiguredRuleClassProvider implements RuleClassProvider {
+// This class has no subclasses except those created by the evil that is mockery.
+public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /**
    * Predicate for determining whether the analysis cache should be cleared, given the new and old
@@ -548,7 +550,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final StarlarkThread.GlobalFrame globals;
+  private final ImmutableMap<String, Object> environment;
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -600,7 +602,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
@@ -750,18 +752,20 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private StarlarkThread.GlobalFrame createGlobals(
+  private static ImmutableMap<String, Object> createEnvironment(
       ImmutableMap<String, Object> skylarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
+    // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
     SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+
     envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
     }
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return envBuilder.build();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -778,6 +782,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
+  public ImmutableMap<String, Object> getEnvironment() {
+    return environment;
+  }
+
+  @Override
   public StarlarkThread createRuleClassStarlarkThread(
       Label fileLabel,
       Mutability mutability,
@@ -785,10 +794,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
+      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+    Map<String, Object> env = new HashMap<>(environment);
+    env.put("native", nativeModule);
+
     StarlarkThread thread =
         StarlarkThread.builder(mutability)
-            .setGlobals(globals.withLabel(fileLabel))
+            .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
             .setSemantics(starlarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
@@ -829,15 +842,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
     return thirdPartyLicenseExistencePolicy;
-  }
-
-  /** Returns all skylark objects in global scope for this RuleClassProvider. */
-  public Map<String, Object> getTransitiveGlobalBindings() {
-    return globals.getTransitiveBindings();
-  }
-
-  public Object getGlobalsForConstantRegistration() {
-    return globals;
   }
 
   /** Returns all registered {@link BuildConfiguration.Fragment} classes. */

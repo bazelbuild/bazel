@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,8 +47,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  public static class MockClassA {
-  }
+  public static class MockClassA implements SkylarkValue {}
 
   /** MockClassB */
   public static class MockClassB extends MockClassA {
@@ -98,8 +96,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       2,
       true,
       Runtime.NONE,
-      SkylarkList.Tuple.of(1, 2, 3),
-      SkylarkList.Tuple.of("1", "2", "3"),
+      Tuple.of(1, 2, 3),
+      Tuple.of("1", "2", "3"),
       SkylarkList.MutableList.of(thread, 1, 2, 3),
       SkylarkList.MutableList.of(thread, "1", "2", "3"),
       SkylarkDict.of(thread, "key", 123),
@@ -127,11 +125,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
         () -> EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE));
   }
 
-  @SkylarkModule(
-      name = "ParentType",
-      doc = "A parent class annotated with @SkylarkModule."
-  )
-  private static class ParentClassWithSkylarkModule {}
+  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
+  private static class ParentClassWithSkylarkModule implements SkylarkValue {}
 
   private static class ChildClass extends ParentClassWithSkylarkModule {}
 

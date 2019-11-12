@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.List;
@@ -35,7 +36,7 @@ import javax.annotation.Nullable;
 /** Marks configured targets that are able to supply message bundles to their dependents. */
 @AutoCodec
 @Immutable
-public final class MessageBundleInfo extends NativeInfo {
+public final class MessageBundleInfo extends NativeInfo implements SkylarkValue {
 
   public static final String SKYLARK_NAME = "MessageBundleInfo";
 

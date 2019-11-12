@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /**
  * A parser for options. Typical use case in a main method:
@@ -183,7 +182,7 @@ public class OptionsParser implements OptionsParsingResult {
     }
 
     /** Any flags with this prefix will be skipped during processing. */
-    public Builder skippedPrefix(@Nullable String skippedPrefix) {
+    public Builder skippedPrefix(String skippedPrefix) {
       this.implBuilder.skippedPrefix(skippedPrefix);
       return this;
     }

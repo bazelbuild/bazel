@@ -18,8 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Wrapper for every C++ linking provider. */
@@ -29,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<FileT extends FileApi> {
+public interface CcLinkingContextApi<FileT extends FileApi> extends SkylarkValue {
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
@@ -50,4 +52,11 @@ public interface CcLinkingContextApi<FileT extends FileApi> {
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)
   SkylarkNestedSet getSkylarkNonCodeInputs();
+
+  @SkylarkCallable(
+      name = "linker_inputs",
+      doc = "Returns the depset of linker inputs.",
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
+      structField = true)
+  SkylarkNestedSet getSkylarkLinkerInputs();
 }

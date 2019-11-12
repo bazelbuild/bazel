@@ -48,6 +48,7 @@ public class ObjcCppSemantics implements CppSemantics {
   private final ObjcConfiguration config;
   private final IntermediateArtifacts intermediateArtifacts;
   private final BuildConfiguration buildConfiguration;
+  private final boolean enableModules;
 
   /**
    * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
@@ -73,6 +74,7 @@ public class ObjcCppSemantics implements CppSemantics {
    * @param config the ObjcConfiguration for this build
    * @param intermediateArtifacts used to create headers_list artifacts
    * @param buildConfiguration the build configuration for this build
+   * @param enableModules whether modules are enabled
    */
   public ObjcCppSemantics(
       ObjcProvider objcProvider,
@@ -81,7 +83,8 @@ public class ObjcCppSemantics implements CppSemantics {
       Iterable<Artifact> extraIncludeScanningInputs,
       ObjcConfiguration config,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfiguration buildConfiguration) {
+      BuildConfiguration buildConfiguration,
+      boolean enableModules) {
     this.objcProvider = objcProvider;
     this.includeProcessingType = includeProcessingType;
     this.includeProcessing = includeProcessing;
@@ -89,6 +92,7 @@ public class ObjcCppSemantics implements CppSemantics {
     this.config = config;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
+    this.enableModules = enableModules;
   }
 
   @Override
@@ -134,9 +138,7 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
-    // Currently, objc builds do not enforce strict deps.  To begin enforcing strict deps in objc,
-    // switch this flag to STRICT.
-    return HeadersCheckingMode.LOOSE;
+    return HeadersCheckingMode.STRICT;
   }
 
   @Override
@@ -155,7 +157,10 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public boolean needsIncludeValidation() {
-    return false;
+    // We disable include valication when modules are enabled, because Apple uses absolute paths in
+    // its module maps, which include validation does not recognize.  Modules should only be used
+    // rarely and in third party code anyways.
+    return (includeProcessingType == INCLUDE_SCANNING) && !enableModules;
   }
 
   /**

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.VisitTaskStatusCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -85,6 +86,7 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
+import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
@@ -853,6 +855,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return ParallelSkyQueryUtils.VISIT_BATCH_SIZE;
   }
 
+  public VisitTaskStatusCallback getVisitTaskStatusCallback() {
+    return VisitTaskStatusCallback.NULL_INSTANCE;
+  }
+
   private Target getLoadTarget(Label label, Package pkg) {
     return new FakeLoadTarget(label, pkg);
   }
@@ -1105,7 +1111,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
       PathFragment currentPathFragment) {
     if (originalFileFragment.equals(currentPathFragment)
-        && originalFileFragment.equals(LabelConstants.WORKSPACE_FILE_NAME)) {
+        && WorkspaceFileHelper.matchWorkspaceFileName(originalFileFragment)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
           LabelConstants.WORKSPACE_FILE_NAME

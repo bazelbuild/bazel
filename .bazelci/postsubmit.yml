@@ -74,6 +74,8 @@ tasks:
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--test_timeout=1200"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
       - "--"
       - "//scripts/..."
@@ -133,6 +135,8 @@ tasks:
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--test_timeout=1200"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
       # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
       - "--noincompatible_strict_action_env"
     test_targets:
@@ -169,7 +173,7 @@ tasks:
       # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
       - "--noincompatible_strict_action_env"
     build_targets:
-      - "//src:bazel"
+      - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--copt=-w"

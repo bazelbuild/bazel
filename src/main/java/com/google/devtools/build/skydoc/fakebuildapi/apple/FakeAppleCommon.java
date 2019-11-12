@@ -120,8 +120,8 @@ public class FakeAppleCommon implements AppleCommonApi<
   @Override
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      SkylarkList<?> extraLinkopts,
+      SkylarkList<?> extraLinkInputs,
       StarlarkThread thread) {
     return new FakeStructApi();
   }
@@ -137,8 +137,10 @@ public class FakeAppleCommon implements AppleCommonApi<
   }
 
   @Override
-  public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(Object dylibBinary,
-      ObjcProviderApi<?> depsObjcProvider, Object dynamicFrameworkDirs,
+  public AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
+      Object dylibBinary,
+      ObjcProviderApi<?> depsObjcProvider,
+      Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles) {
     return new FakeAppleDynamicFrameworkInfo();
   }

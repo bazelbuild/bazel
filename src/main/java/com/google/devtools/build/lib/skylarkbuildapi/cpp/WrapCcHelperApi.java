@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -35,13 +36,14 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @SkylarkModule(name = "WrapCcHelperDoNotUse", doc = "", documented = false)
 public interface WrapCcHelperApi<
-    FeatureConfigurationT extends FeatureConfigurationApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-    CompilationInfoT extends CompilationInfoApi,
-    FileT extends FileApi,
-    CcCompilationContextT extends CcCompilationContextApi,
-    WrapCcIncludeProviderT extends WrapCcIncludeProviderApi> {
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CompilationInfoT extends CompilationInfoApi,
+        FileT extends FileApi,
+        CcCompilationContextT extends CcCompilationContextApi,
+        WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "feature_configuration",
@@ -98,8 +100,8 @@ public interface WrapCcHelperApi<
       CcToolchainProviderT ccToolchain,
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<CcCompilationContextT> depCcCompilationContexts,
-      SkylarkList<String> targetCopts)
+      SkylarkList<?> depCcCompilationContexts, // <CcCompilationContextT> expected
+      SkylarkList<?> targetCopts /* <String> expected */)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -199,10 +201,10 @@ public interface WrapCcHelperApi<
       CcCompilationContextT wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileT swigSource,
-      SkylarkList<String> subParameters,
+      SkylarkList<?> subParameters, // <String> expected
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<FileT> outputFiles,
+      SkylarkList<?> outputFiles, // <FileT> expected
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,

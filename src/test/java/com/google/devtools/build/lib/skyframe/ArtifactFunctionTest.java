@@ -56,8 +56,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -106,8 +104,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testUnreadableInputWithFsWithAvailableDigest() throws Throwable {
-    final byte[] expectedDigest = MessageDigest.getInstance("md5").digest(
-        "someunreadablecontent".getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedDigest = {1, 2, 3, 4};
     setupRoot(
         new CustomInMemoryFs() {
           @Override

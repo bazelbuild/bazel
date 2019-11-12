@@ -23,15 +23,20 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -141,23 +146,34 @@ public final class StarlarkAction extends SpawnAction {
 
   private InputStream getUnusedInputListInputStream(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException {
+      throws IOException, ExecException {
 
     // Check if the file is in-memory.
     // Note: SpawnActionContext guarantees that the first list entry exists and corresponds to the
     // executed spawn.
-    InputStream inputStream = spawnResults.get(0).getInMemoryOutput(unusedInputsList.get());
+    Artifact unusedInputsListArtifact = unusedInputsList.get();
+    InputStream inputStream = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
     if (inputStream != null) {
       return inputStream;
     }
     // Fallback to reading from disk.
-    return actionExecutionContext.getPathResolver().toPath(unusedInputsList.get()).getInputStream();
+    try {
+      return actionExecutionContext
+          .getPathResolver()
+          .toPath(unusedInputsListArtifact)
+          .getInputStream();
+    } catch (FileNotFoundException e) {
+      throw new UserExecException(
+          "Action did not create expected output file listing unused inputs: "
+              + unusedInputsListArtifact.getExecPathString(),
+          e);
+    }
   }
 
   @Override
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException {
+      throws IOException, ExecException {
     if (!unusedInputsList.isPresent()) {
       return;
     }
@@ -179,6 +195,18 @@ public final class StarlarkAction extends SpawnAction {
       }
     }
     updateInputs(usedInputs.values());
+  }
+
+  @Override
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+    return getSpawn(allInputs);
+  }
+
+  @Override
+  public Iterable<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return allInputs;
   }
 
   /** Builder class to construct {@link StarlarkAction} instances. */

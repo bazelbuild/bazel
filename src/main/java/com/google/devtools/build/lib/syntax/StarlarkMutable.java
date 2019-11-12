@@ -315,6 +315,11 @@ public abstract class StarlarkMutable implements Freezable, SkylarkValue {
     }
 
     @Override
+    public final boolean truth() {
+      return !isEmpty();
+    }
+
+    @Override
     public Set<K> keySet() {
       return Collections.unmodifiableMap(getContentsUnsafe()).keySet();
     }

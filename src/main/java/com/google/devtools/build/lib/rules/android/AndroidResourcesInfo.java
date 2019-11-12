@@ -216,7 +216,7 @@ public class AndroidResourcesInfo extends NativeInfo
         throws EvalException {
       Preconditions.checkArgument(
           from instanceof SkylarkNestedSet
-              || from == com.google.devtools.build.lib.syntax.Runtime.UNBOUND);
+              || from == com.google.devtools.build.lib.syntax.Starlark.UNBOUND);
 
       if (from instanceof SkylarkNestedSet) {
         return nestedSet((SkylarkNestedSet) from, with, fieldName);

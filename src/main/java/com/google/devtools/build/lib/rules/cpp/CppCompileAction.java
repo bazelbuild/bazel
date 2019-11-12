@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -487,7 +486,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
-      if (!isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
         missing.add(header);
       }
     }
@@ -959,7 +958,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
       }
-      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
         errors.add(input.getExecPath().toString());
       }
     }
@@ -1038,6 +1037,7 @@ public class CppCompileAction extends AbstractAction
    * matches.
    */
   private static boolean isDeclaredIn(
+      CppConfiguration cppConfiguration,
       ActionExecutionContext actionExecutionContext,
       Artifact input,
       Set<PathFragment> declaredIncludeDirs) {
@@ -1049,7 +1049,10 @@ public class CppCompileAction extends AbstractAction
     }
     // Need to do dir/package matching: first try a quick exact lookup.
     PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (includeDir.isEmpty() || declaredIncludeDirs.contains(includeDir)) {
+    if (!cppConfiguration.validateTopLevelHeaderInclusions() && includeDir.isEmpty()) {
+      return true; // Legacy behavior nobody understands anymore.
+    }
+    if (declaredIncludeDirs.contains(includeDir)) {
       return true;  // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.
@@ -1062,12 +1065,16 @@ public class CppCompileAction extends AbstractAction
     }
     // Still not found: see if it is in a subdir of a declared package.
     Root root = actionExecutionContext.getRoot(input);
+    Path dir = actionExecutionContext.getInputPath(input).getParentDirectory();
+    if (dir.equals(root.asPath())) {
+      return false; // Bad: at the top, give up.
+    }
     // As we walk up along parent paths, we'll need to check whether Bazel build files exist, which
     // would mean that the file is in a sub-package and not a subdir of a declared include
     // directory. Do so lazily to avoid stats when this file doesn't lie beneath any declared
     // include directory.
     List<Path> packagesToCheckForBuildFiles = new ArrayList<>();
-    for (Path dir = actionExecutionContext.getInputPath(input).getParentDirectory(); ; ) {
+    while (true) {
       packagesToCheckForBuildFiles.add(dir);
       dir = dir.getParentDirectory();
       if (dir.equals(root.asPath())) {
@@ -1221,7 +1228,8 @@ public class CppCompileAction extends AbstractAction
         additionalPrunableHeaders,
         ccCompilationContext.getDeclaredIncludeDirs(),
         builtInIncludeDirectories,
-        inputsForInvalidation);
+        inputsForInvalidation,
+        cppConfiguration.validateTopLevelHeaderInclusions());
   }
 
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
@@ -1238,12 +1246,14 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> prunableHeaders,
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
-      Iterable<Artifact> inputsForInvalidation) {
+      Iterable<Artifact> inputsForInvalidation,
+      boolean validateTopLevelHeaderInclusions) {
     fp.addUUID(actionClassId);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
+    fp.addBoolean(validateTopLevelHeaderInclusions);
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types
@@ -1677,24 +1687,6 @@ public class CppCompileAction extends AbstractAction
     return transitivelyUsedModules.build();
   }
 
-  private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(
-      ActionExecutionContext actionExecutionContext, IOException e) {
-    // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-    // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-    String stackTrace = Throwables.getStackTraceAsString(e);
-    actionExecutionContext
-        .getEventHandler()
-        .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
-    return toActionExecutionException(
-        new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
-  }
-
-  private ActionExecutionException toActionExecutionException(
-      ExecException e, boolean verboseFailures) {
-    String failMessage = getRawProgressMessage();
-    return e.toActionExecutionException(failMessage, verboseFailures, this);
-  }
-
   private final class CppCompileActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final ActionExecutionContext spawnExecutionContext;
@@ -1824,7 +1816,11 @@ public class CppCompileAction extends AbstractAction
             }
           }
         } catch (IOException e) {
-          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+          throw new EnvironmentalExecException(e)
+              .toActionExecutionException(
+                  getRawProgressMessage(),
+                  actionExecutionContext.getVerboseFailures(),
+                  CppCompileAction.this);
         }
       }
     }

@@ -293,10 +293,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path profilePath = null;
     try {
       if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
-        format =
-            options.enableTracerCompression
-                ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
-                : Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        if (options.enableTracerCompression == TriState.YES
+            || (options.enableTracerCompression == TriState.AUTO
+                && (options.profilePath == null
+                    || options.profilePath.toString().endsWith(".gz")))) {
+          format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
+        } else {
+          format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        }
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
         } else {
@@ -307,7 +311,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           profilePath = workspace.getOutputBase().getRelative(profileName);
         }
         out = profilePath.getOutputStream();
-        eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
+        if (options.announceProfilePath) {
+          eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
+        }
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
@@ -644,15 +650,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     env.getBlazeWorkspace().clearEventBus();
 
+    for (BlazeModule module : blazeModules) {
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".commandComplete")) {
+        module.commandComplete();
+      }
+    }
+
     try {
       Profiler.instance().stop();
       MemoryProfiler.instance().stop();
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
-    }
-
-    for (BlazeModule module : blazeModules) {
-      module.commandComplete();
     }
 
     env.getReporter().clearEventBus();
@@ -1311,10 +1319,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomExitCodePublisher.setAbruptExitStatusFileDir(
         serverDirectories.getOutputBase().getPathString());
 
-    // Most static initializers for @SkylarkSignature-containing classes have already run by this
-    // point, but this will pick up the stragglers.
-    initSkylarkBuiltinsRegistry();
-
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     BlazeDirectories directories =
@@ -1331,38 +1335,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Keep this line last in this method, so that all other initialization is available to it.
     runtime.initWorkspace(directories, binTools);
     return runtime;
-  }
-
-  /**
-   * Configures the Skylark builtins registry.
-   *
-   * <p>Any class containing {@link SkylarkSignature}-annotated fields should call
-   * {@link SkylarkSignatureProcessor#configureSkylarkFunctions} on itself. This serves two
-   * purposes: 1) it initializes those fields for use, and 2) it registers them with the Skylark
-   * builtins registry object
-   * ({@link com.google.devtools.build.lib.syntax.Runtime#getBuiltinRegistry}). Unfortunately
-   * there's some technical debt here: The registry object is static and the registration occurs
-   * inside static initializer blocks.
-   *
-   * <p>The registry supports concurrent read/write access, but read access is not actually
-   * efficient (lockless) until write access is disallowed by calling its
-   * {@link com.google.devtools.build.lib.syntax.Runtime.BuiltinRegistry#freeze freeze} method.
-   * We want to freeze before the build begins, but not before all classes have had a chance to run
-   * their static initializers.
-   *
-   * <p>Therefore, this method first ensures that the initializers have run, and then explicitly
-   * freezes the registry. It ensures initialization by calling a no-op static method on the class.
-   * Only classes whose initializers have been observed to cause {@code BuiltinRegistry} to throw an
-   * exception need to be included here, since that indicates that their initialization did not
-   * happen by this point in time.
-   *
-   * <p>Unit tests don't need to worry about registry freeze exceptions, since the registry isn't
-   * frozen at all for them. They just pay the cost of extra synchronization on every access.
-   */
-  private static void initSkylarkBuiltinsRegistry() {
-    // Currently no classes need to be initialized here. The hook's still here because it's
-    // possible it may be needed again in the future.
-    com.google.devtools.build.lib.syntax.Runtime.getBuiltinRegistry().freeze();
   }
 
   private static String maybeGetPidString() {

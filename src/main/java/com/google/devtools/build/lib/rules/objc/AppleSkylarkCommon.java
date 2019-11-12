@@ -15,16 +15,14 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
@@ -52,7 +49,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -209,18 +205,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles)
       throws EvalException {
-    NestedSet<PathFragment> frameworkDirs;
-    if (dynamicFrameworkDirs == Runtime.NONE) {
-      frameworkDirs = NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER);
-    } else {
-      SkylarkNestedSet frameworkDirsSet = (SkylarkNestedSet) dynamicFrameworkDirs;
-      Iterable<String> pathStrings =
-          frameworkDirsSet.getSetFromParam(String.class, "framework_dirs");
-      frameworkDirs =
-          NestedSetBuilder.<PathFragment>stableOrder()
-              .addAll(Iterables.transform(pathStrings, PathFragment::create))
-              .build();
-    }
+    NestedSet<String> frameworkDirs =
+        SkylarkNestedSet.getSetFromNoneableParam(
+            dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
         SkylarkNestedSet.getSetFromNoneableParam(
             dynamicFrameworkFiles, Artifact.class, "framework_files");
@@ -233,8 +220,8 @@ public class AppleSkylarkCommon
   @Override
   public StructImpl linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContextApi,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      SkylarkList<?> extraLinkopts,
+      SkylarkList<?> extraLinkInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
@@ -243,7 +230,7 @@ public class AppleSkylarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              extraLinkopts.getImmutableList(),
+              ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
               SkylarkList.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {

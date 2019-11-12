@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -245,6 +246,64 @@ public final class SpawnMetrics {
       return "N/A";
     }
     return String.format("%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
+  }
+
+  /**
+   * Aggregates a the duration and values of a collection of SpawnMetrics called by {@link
+   * CriticalPathComponent#addSpawnResult}
+   *
+   * @param spawnMetrics - collection of SpawnMetrics to aggregate
+   * @param onlyDuration - if true, only aggregate the Duration fields, otherwise everything
+   * @return a single SpawnMetrics object has the total duration (and other values)
+   */
+  public static SpawnMetrics aggregateMetrics(
+      ImmutableList<SpawnMetrics> spawnMetrics, boolean onlyDuration) {
+    Duration totalTime = Duration.ZERO;
+    Duration parseTime = Duration.ZERO;
+    Duration networkTime = Duration.ZERO;
+    Duration fetchTime = Duration.ZERO;
+    Duration remoteQueueTime = Duration.ZERO;
+    Duration uploadTime = Duration.ZERO;
+    Duration setupTime = Duration.ZERO;
+    Duration executionWallTime = Duration.ZERO;
+    Duration retryTime = Duration.ZERO;
+    Duration remoteProcessOutputsTime = Duration.ZERO;
+    long inputFiles = 0L;
+    long inputBytes = 0L;
+    long memoryEstimate = 0L;
+
+    for (SpawnMetrics metric : spawnMetrics) {
+      totalTime = totalTime.plus(metric.totalTime());
+      parseTime = parseTime.plus(metric.parseTime());
+      networkTime = networkTime.plus(metric.networkTime());
+      fetchTime = fetchTime.plus(metric.fetchTime());
+      remoteQueueTime = remoteQueueTime.plus(metric.remoteQueueTime());
+      uploadTime = uploadTime.plus(metric.uploadTime());
+      setupTime = setupTime.plus(metric.setupTime());
+      executionWallTime = executionWallTime.plus(metric.executionWallTime());
+      retryTime = retryTime.plus(metric.retryTime());
+      remoteProcessOutputsTime = remoteProcessOutputsTime.plus(metric.remoteProcessOutputsTime());
+      inputFiles = onlyDuration ? metric.inputFiles() : inputFiles + metric.inputFiles();
+      inputBytes = onlyDuration ? metric.inputBytes() : inputBytes + metric.inputBytes();
+      memoryEstimate =
+          onlyDuration ? metric.memoryEstimate() : memoryEstimate + metric.memoryEstimate();
+    }
+
+    return new SpawnMetrics.Builder()
+        .setTotalTime(totalTime)
+        .setParseTime(parseTime)
+        .setNetworkTime(networkTime)
+        .setFetchTime(fetchTime)
+        .setRemoteQueueTime(remoteQueueTime)
+        .setSetupTime(setupTime)
+        .setUploadTime(uploadTime)
+        .setExecutionWallTime(executionWallTime)
+        .setRetryTime(retryTime)
+        .setRemoteProcessOutputsTime(remoteProcessOutputsTime)
+        .setInputBytes(inputBytes)
+        .setInputFiles(inputFiles)
+        .setMemoryEstimateBytes(memoryEstimate)
+        .build();
   }
 
   /** Builder class for SpawnMetrics. */

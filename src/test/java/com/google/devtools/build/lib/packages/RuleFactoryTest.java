@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -51,7 +52,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
         packageFactory
-            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .newPackageBuilder(
+                PackageIdentifier.createInMainRepo("mypkg"),
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -104,7 +108,9 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory.newExternalPackageBuilder(
-            RootedPath.toRootedPath(root, myPkgPath), "TESTING");
+            RootedPath.toRootedPath(root, myPkgPath),
+            "TESTING",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -128,7 +134,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
         packageFactory
-            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .newPackageBuilder(
+                PackageIdentifier.createInMainRepo("mypkg"),
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -156,7 +165,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory
-            .newPackageBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
+            .newPackageBuilder(
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -197,7 +209,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg");
     Package.Builder pkgBuilder =
         packageFactory
-            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .newPackageBuilder(
+                PackageIdentifier.createInMainRepo("mypkg"),
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -231,7 +246,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package pkg =
         packageFactory
-            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .newPackageBuilder(
+                PackageIdentifier.createInMainRepo("mypkg"),
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath))
             .build();
 

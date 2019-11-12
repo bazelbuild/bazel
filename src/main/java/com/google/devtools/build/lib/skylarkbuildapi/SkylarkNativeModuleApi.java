@@ -19,16 +19,14 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/**
- * Interface for a module with native rule and package helper functions.
- */
+/** Interface for a module with native rule and package helper functions. */
 @SkylarkModule(
     name = "native",
     category = SkylarkModuleCategory.BUILTIN,
@@ -39,9 +37,8 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "Note that the native module is only available in the loading phase "
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
-            + "The following functions are also available:"
-)
-public interface SkylarkNativeModuleApi {
+            + "The following functions are also available:")
+public interface SkylarkNativeModuleApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "glob",
@@ -86,25 +83,42 @@ public interface SkylarkNativeModuleApi {
                     + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
   public SkylarkList<?> glob(
       SkylarkList<?> include,
       SkylarkList<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "existing_rule",
       doc =
-          "Returns a dictionary representing the attributes of a previously defined target, or "
-              + "<code>None</code> if the target does not exist."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
+          "Returns a new mutable dict that describes the attributes of a rule instantiated in this "
+              + "thread's package, or <code>None</code> if no rule instance of that name exists." //
+              + "<p>The dict contains an entry for each attribute, except private ones, whose"
+              + " names do not start with a letter. In addition, the dict contains entries for the"
+              + " rule instance's <code>name</code> and <code>kind</code> (for example,"
+              + " <code>'cc_binary'</code>)." //
+              + "<p>The values of the dict represent attribute values as follows:" //
+              + "<ul><li>Attributes of type str, int, and bool are represented as is.</li>" //
+              + "<li>Labels are converted to strings of the form <code>':foo'</code> for targets"
+              + " in the same package or <code>'//pkg:name'</code> for targets in a different"
+              + " package.</li>" //
+              + "<li>Lists are represented as tuples, and dicts are converted to new, mutable"
+              + " dicts. Their elements are recursively converted in the same fashion.</li>" //
+              + "<li><code>select</code> values are returned as is." //
+              + "<li>Attributes for which no value was specified during rule instantiation and"
+              + " whose default value is computed are excluded from the result. (Computed defaults"
+              + " cannot be computed until the analysis phase.).</li>" //
+              + "</ul>" //
+              + "<p>If possible, avoid using this function. It makes BUILD files brittle and"
+              + " order-dependent. Also, beware that it differs subtly from the two"
+              + " other conversions of rule attribute values from internal form to Starlark: one"
+              + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
       parameters = {
         @Param(
             name = "name",
@@ -113,24 +127,23 @@ public interface SkylarkNativeModuleApi {
             legacyNamed = true,
             doc = "The name of the target.")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  public Object existingRule(String name, FuncallExpression ast, StarlarkThread thread)
+  public Object existingRule(String name, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "existing_rules",
       doc =
-          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
-              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
-              + "output for that target."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
-      useAst = true,
+          "Returns a new mutable dict describing the rules so far instantiated in this thread's"
+              + " package. Each dict entry maps the name of the rule instance to the result that"
+              + " would be returned by <code>existing_rule(name)</code>.<p><i>Note: If possible,"
+              + " avoid using this function. It makes BUILD files brittle and order-dependent, and"
+              + " it may be expensive especially if called within a loop.</i>",
+      useLocation = true,
       useStarlarkThread = true)
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, StarlarkThread thread) throws EvalException, InterruptedException;
+      Location loc, StarlarkThread thread) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "package_group",
@@ -161,13 +174,13 @@ public interface SkylarkNativeModuleApi {
             positional = false,
             doc = "Other package groups that are included in this one.")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
   public Runtime.NoneType packageGroup(
       String name,
       SkylarkList<?> packages,
       SkylarkList<?> includes,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -203,14 +216,10 @@ public interface SkylarkNativeModuleApi {
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
   public Runtime.NoneType exportsFiles(
-      SkylarkList<?> srcs,
-      Object visibility,
-      Object licenses,
-      FuncallExpression ast,
-      StarlarkThread thread)
+      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -223,9 +232,9 @@ public interface SkylarkNativeModuleApi {
               + "<code>package_name()</code> will match the caller BUILD file package. "
               + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
       parameters = {},
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  public String packageName(FuncallExpression ast, StarlarkThread thread) throws EvalException;
+  public String packageName(Location loc, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "repository_name",

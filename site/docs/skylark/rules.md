@@ -559,39 +559,86 @@ generated). During the
 containing symlinks pointing to the runfiles. This stages the environment for
 the binary so it can access the runfiles during runtime.
 
-[See example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/execute.bzl)
+Runfiles can be added manually during rule creation.
+[`runfiles`](lib/runfiles.html) objects can be created by the `runfiles` method
+on the rule context, [`ctx.runfiles`](lib/ctx.html#runfiles).
 
-Runfiles can be added manually during rule creation and/or collected
-transitively from the rule's dependencies. [`runfiles`](lib/runfiles.html)
-objects can be created by the `runfiles` method on the rule context,
-[`ctx.runfiles`](lib/ctx.html#runfiles):
+### Basic usage
+
+Use `runfiles` objects to specify a set of files that are needed in an
+executable's environment at runtime. Do this by passing a `runfiles` object to
+the `runfiles` parameter of the `DefaultInfo` object returned by your rule.
+
+Construct `runfiles` objects using `ctx.runfiles` with parameters
+`files` and `transitive_files`.
+
+Example:
 
 ```python
 def _rule_implementation(ctx):
   ...
   runfiles = ctx.runfiles(
-      # Optionally add some files manually.
       files = [ctx.file.some_data_file],
-      # Optionally add files from some dependencies' providers manually.
-      transitive_files = [ctx.attr.something[SomeProviderInfo].depset_of_files],
-      # Optionally collect default_runfiles from the common locations:
-      # transitively from srcs, deps and data attributes.
-      collect_default = True,
+      transitive_files = ctx.attr.something[SomeProviderInfo].depset_of_files,
   )
-  # Optionally merge in runfiles from specific dependencies.
-  for dep in ctx.attr.special_dependencies:
-    runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)
-  # Add a field named "runfiles" to the DefaultInfo provider in order to actually
-  # create the symlink tree.
+
   return [DefaultInfo(runfiles=runfiles)]
 ```
 
-Note that non-executable rule outputs can also have runfiles. For example, a
-library might need some external files during runtime, and every dependent
-binary should know about them.
+The specified `files` and `transitive_files` will be available to the
+executable's runtime environment. The location of these files relative to
+the execution root may be obtained in a couple of ways. **Note that the
+following recommendations only work for obtaining relative runfiles paths
+when running an executable on the command line with `bazel run`**:
 
-Also note that if an action uses an executable, the executable's runfiles can
-be used when the action executes.
+* If relevant files are themselves valid targets (and thus have a corresponding
+label), you may use [`ctx.expand_location`](lib/ctx.html#expand_location).
+* Use [`file.short_path`](lib/File.html#short_path).
+
+See [basic example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/execute.bzl).
+
+### Libraries with runfiles
+
+Non-executable rule outputs can also have runfiles. For example, a
+library might need some external files during runtime, and every dependent
+binary should know about them. In such cases, it's recommended to propagate
+these files via a custom provider; propagate the files themselves via a
+`depset`; avoid propagating the `runfiles` object type in anything other than
+`DefaultInfo`, as it generally adds unnecessary complexity. (There are
+exceptions listed later!)
+
+See [example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/library.bzl).
+
+### Tools with runfiles
+
+A build action might use an executable that requires runfiles (such executables
+are nicknamed "tools"). For such cases, depend on this executable target
+via an attribute which has `executable = True` specified. The executable file
+will then be available under `ctx.executable.<attr_name>`. By passing this file
+to the `executable` parameter of the action registration function, the
+executable's runfiles will be implicitly added to the execution environment.
+
+The runfiles directory structure for tools is different than for basic
+executables (executables simply run with `bazel run`).
+
+* The tool executable file exists in a root-relative path derived from its
+label. This full relative path can be obtained via
+`ctx.executable.<attr_name>.path`.
+* The runfiles for the tool exist in a `.runfiles` directory which resides
+adjacent to the tool's path. An individual runfile can thus be found at the
+following path relative to the execution root.
+
+```python
+# Given executable_file and runfile_file:
+runfiles_root = executable_file.path + ".runfiles"
+workspace_name = ctx.workspace_name
+runfile_path = runfile_file.short_path
+execution_root_relative_path = "%s/%s/%s" % (runfiles_root, workspace_name, runfile_path)
+```
+
+See [example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/tool.bzl).
+
+### Runfiles symlinks
 
 Normally, the relative path of a file in the runfiles tree is the same as the
 relative path of that file in the source tree or generated output tree. If these
@@ -623,7 +670,61 @@ files to the same path in the runfiles tree. This will cause the build to fail
 with an error describing the conflict. To fix, you will need to modify your
 `ctx.runfiles` arguments to remove the collision. This checking will be done for
 any targets using your rule, as well as targets of any kind that depend on those
-targets.
+targets. This is especially risky if your tool is likely to be used transitively
+by another tool; symlink names must be unique across the runfiles of a tool
+and all of its dependencies!
+
+### Tools depending on tools
+
+A tool (executable used for action registration) may depend on another
+tool with its own runfiles. (For purposes of this explanation, we nickname
+the primary tool the "root tool" and the tool it depends on a "subtool".)
+
+Merge the runfiles of subtools with the root tool by using
+[`runfiles.merge`](lib/runfiles.html#merge). Acquire the runfiles of subtools
+via [`DefaultInfo.default_runfiles`](lib/DefaultInfo.html#default_runfiles)
+
+Example code:
+
+```python
+def _mytool_impl(ctx):
+  ...
+  my_runfiles = ctx.runfles(files = mytool_files)
+  for subtool in ctx.attr.subtools:
+    subtool_runfiles = subtool[DefaultInfo].default_runfiles
+    my_runfiles = my_runfiles.merge(subtool_runfiles)
+  ...
+  return [DefaultInfo(runfiles = my_runfiles))]
+```
+
+The runfiles directory structure is a bit more difficult to manage for
+subtools. The runfiles directory is always adjacent to the *root* tool being
+run -- not an individual subtool. To simplify subtool tool logic, it's
+recommended that each subtool optionally accept its runfiles root as a
+parameter (via environment or command line argument/flag). A root tool can thus
+pass the correct canonical runfiles root to any of its subtools.
+
+This scenario is complex and thus best demonstrated by
+[an example](https://github.com/bazelbuild/examples/blob/master/rules/runfiles/complex_tool.bzl).
+
+### Runfiles features to avoid
+
+[`ctx.runfiles`](lib/ctx.html#runfiles) and the [`runfiles`](lib/runfiles.html)
+type have a complex set of features, many of which are kept for legacy reasons.
+We make the following recommendations to reduce complexity:
+
+* **Avoid** use of the `collect_data` and `collect_default` modes of
+[`ctx.runfiles`](lib/ctx.html#runfiles). These modes implicitly collect runfiles
+across certain hardcoded dependency edges in confusing ways. Instead, manually
+collect files along relevant dependency edges and add them to your runfiles
+using `files` or `transitive_files` parameters of `ctx.runfiles`.
+* **Avoid** use of the `data_runfiles` and `default_runfiles` of the `DefaultInfo`
+constructor. Specify `DefaultInfo(runfiles = ...)` instead. The distinction
+between "default" and "data" runfiles is maintained for legacy reasons, but
+is unimportant for new usage.
+* When retrieving `runfiles` from `DefaultInfo` (generally only for merging
+runfiles between the current rule and its dependencies), use
+`DefaultInfo.default_runfiles`. **not** `DefaultInfo.data_runfiles`.
 
 ## Requesting output files
 
@@ -683,13 +784,18 @@ separate fields of your provider.
 
 ## Code coverage instrumentation
 
-A rule can use the `instrumented_files` provider to provide information about
-which files should be measured when code coverage data collection is enabled:
+A rule can use the `InstrumentedFilesInfo` provider to provide information about
+which files should be measured when code coverage data collection is enabled.
+That provider can be created with
+[`coverage_common.instrumented_files_info`](lib/coverage_common.html#instrumented_files_info)
+and included in the list of providers returned by the rule's implementation
+function:
 
 ```python
 def _rule_implementation(ctx):
   ...
-  return struct(instrumented_files = struct(
+  instrumented_files_info = coverage_common.instrumented_files_info(
+      ctx,
       # Optional: File extensions used to filter files from source_attributes.
       # If not provided, then all files from source_attributes will be
       # added to instrumented files, if an empty list is provided, then
@@ -699,7 +805,8 @@ def _rule_implementation(ctx):
       source_attributes = ["srcs"],
       # Optional: Attributes for dependencies that could include instrumented
       # files.
-      dependency_attributes = ["data", "deps"]))
+      dependency_attributes = ["data", "deps"])
+  return [..., instrumented_files_info]
 ```
 
 [ctx.configuration.coverage_enabled](lib/configuration.html#coverage_enabled) notes

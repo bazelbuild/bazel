@@ -36,8 +36,9 @@ class FormatUtils {
           : DependencyFilter.NO_IMPLICIT_DEPS;
     }
     return queryOptions.includeImplicitDeps
-        ? DependencyFilter.and(DependencyFilter.NO_IMPLICIT_DEPS, DependencyFilter.ONLY_TARGET_DEPS)
-        : DependencyFilter.ONLY_TARGET_DEPS;
+        ? DependencyFilter.ONLY_TARGET_DEPS
+        : DependencyFilter.and(
+            DependencyFilter.NO_IMPLICIT_DEPS, DependencyFilter.ONLY_TARGET_DEPS);
   }
 
   /** An ordering of Targets based on the ordering of their labels. */

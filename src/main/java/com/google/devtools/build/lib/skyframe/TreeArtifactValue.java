@@ -49,7 +49,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()).getDigestBytesUnsafe(),
+          DigestUtils.fromMetadata(ImmutableMap.of()),
           ImmutableSortedMap.of(),
           /* remote= */ false);
 
@@ -87,7 +87,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
-        DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
+        DigestUtils.fromMetadata(digestBuilder),
         ImmutableSortedMap.copyOf(childFileValues),
         remote);
   }

@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.go;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** A configuration fragment for Go. */
 @SkylarkModule(
     name = "go",
     doc = "A configuration fragment for Go.",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public interface GoConfigurationApi {}
+public interface GoConfigurationApi extends SkylarkValue {}

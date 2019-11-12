@@ -300,8 +300,8 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object manifest,
         /*noneable*/ Object generatedManifest,
         /*noneable*/ Object idlImportRoot,
-        SkylarkList<FileT> idlSrcs,
-        SkylarkList<FileT> idlGeneratedJavaFiles,
+        SkylarkList<?> idlSrcs, // <FileT>
+        SkylarkList<?> idlGeneratedJavaFiles, // <FileT>
         /*noneable*/ Object idlSourceJar,
         /*noneable*/ Object idlClassJar,
         boolean definesAndroidResources,
@@ -309,8 +309,8 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object resourceApk,
         /*noneable*/ Object signedApk,
         /*noneable*/ Object aar,
-        SkylarkList<FileT> apksUnderTest,
-        SkylarkDict<String, SkylarkNestedSet> nativeLibs)
+        SkylarkList<?> apksUnderTest, // <FileT>
+        SkylarkDict<?, ?> nativeLibs /* <String, SkylarkNestedSet> */)
         throws EvalException;
   }
 }

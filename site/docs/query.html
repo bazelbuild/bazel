@@ -805,7 +805,7 @@ x intersect (y union z)</pre>
     <li><code><var>ruletype</var> rule</code>
     <li><code><var>ruletype</var></code><br>
     Where <var>ruletype</var> is a build rule.  The difference between these
-    forms is that including "rule" causes the regular expression match for
+    forms is that including "rule" causes the <a href="#regex">regular expression</a> match for
     <var>ruletype</var> to be anchored.
   </ul>
 <li><b>package group</b> patterns should simply be:
@@ -849,7 +849,7 @@ genrule(
 
 <p>
   Quotation of the <var>pattern</var> argument is often required
-  because without it, many regular expressions, such as <code>source
+  because without it, many <a href="#regex">regular expressions</a>, such as <code>source
   file</code> and <code>.*_test</code>, are not considered words by
   the parser.
 </p>
@@ -871,7 +871,7 @@ genrule(
 
 <p>
   The first argument, <var>pattern</var> is a word containing a
-  regular expression over target names.  A <code>filter</code> expression
+  <a href="#regex">regular expression</a> over target names.  A <code>filter</code> expression
   evaluates to the set containing all targets <var>x</var> such that
   <var>x</var> is a member of the set <var>input</var> and the
   label (in absolute form, e.g. <code>//foo:bar</code>)
@@ -919,12 +919,12 @@ genrule(
   operator applies a filter to a set of targets, and discards targets that
   are not rules, rule targets that do not have attribute <var>name</var>
   defined or rule targets where the attribute value does not match the provided
-  regular expression <var>pattern</var>; it evaluates to a subset of its input.
+  <a href="#regex">regular expression</a> <var>pattern</var>; it evaluates to a subset of its input.
 </p>
 
 <p>
   The first argument, <var>name</var> is the name of the rule attribute that
-  should be matched against the provided regular expression pattern. The second
+  should be matched against the provided <a href="#regex">regular expression</a> pattern. The second
   argument, <var>pattern</var> is a regular expression over the attribute
   values. An <code>attr</code> expression evaluates to the set containing all
   targets <var>x</var> such that  <var>x</var> is a member of the set

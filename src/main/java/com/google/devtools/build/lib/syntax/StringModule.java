@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,30 +43,31 @@ import java.util.regex.Pattern;
  * 'String self' parameter as the first parameter of the method.
  */
 @SkylarkModule(
-  name = "string",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A language built-in type to support strings. "
-          + "Examples of string literals:<br>"
-          + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
-          + "b = \"ab'cd\"\n"
-          + "c = \"\"\"multiline string\"\"\"\n"
-          + "\n"
-          + "# Strings support slicing (negative index starts from the end):\n"
-          + "x = \"hello\"[2:4]  # \"ll\"\n"
-          + "y = \"hello\"[1:-1]  # \"ell\"\n"
-          + "z = \"hello\"[:4]  # \"hell\""
-          + "# Slice steps can be used, too:\n"
-          + "s = \"hello\"[::2] # \"hlo\"\n"
-          + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
-          + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
-          + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-          + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
-          + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
-          + "operator instead. Comparison operators perform a lexicographical comparison; "
-          + "use <code>==</code> to test for equality."
-)
-public final class StringModule {
+    name = "string",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A language built-in type to support strings. "
+            + "Examples of string literals:<br>"
+            + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
+            + "b = \"ab'cd\"\n"
+            + "c = \"\"\"multiline string\"\"\"\n"
+            + "\n"
+            + "# Strings support slicing (negative index starts from the end):\n"
+            + "x = \"hello\"[2:4]  # \"ll\"\n"
+            + "y = \"hello\"[1:-1]  # \"ell\"\n"
+            + "z = \"hello\"[:4]  # \"hell\""
+            + "# Slice steps can be used, too:\n"
+            + "s = \"hello\"[::2] # \"hlo\"\n"
+            + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
+            + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+            + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
+            + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
+            + "operator instead. Comparison operators perform a lexicographical comparison; "
+            + "use <code>==</code> to test for equality.")
+final class StringModule implements SkylarkValue {
+
+  static final StringModule INSTANCE = new StringModule();
 
   private StringModule() {}
 
@@ -433,7 +434,7 @@ public final class StringModule {
       useLocation = true)
   public Tuple<String> partition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
+    if (sep == Starlark.UNBOUND) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
@@ -468,7 +469,7 @@ public final class StringModule {
       useLocation = true)
   public Tuple<String> rpartition(String self, Object sep, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
+    if (sep == Starlark.UNBOUND) {
         throw new EvalException(
             loc,
             "parameter 'sep' has no default value, "
@@ -1115,6 +1116,4 @@ public final class StringModule {
     }
     return false;
   }
-
-  public static final StringModule INSTANCE = new StringModule();
 }

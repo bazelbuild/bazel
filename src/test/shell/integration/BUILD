@@ -258,6 +258,26 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_configurations_test",
+    size = "medium",
+    srcs = ["starlark_configurations_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "starlark_configurations_external_workspaces_test",
+    size = "medium",
+    srcs = ["starlark_configurations_external_workspaces_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "analysis_test_test",
     size = "medium",
     srcs = ["analysis_test_test.sh"],
@@ -366,6 +386,17 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_test(
+    name = "action_aspect_test",
+    size = "large",
+    srcs = ["action_aspect_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -642,6 +673,14 @@ sh_test(
     name = "bash_runfiles_v1_test",
     srcs = ["bash_runfiles_v1_test.sh"],
     data = ["BUILD"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "validation_actions_test",
+    srcs = ["validation_actions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 

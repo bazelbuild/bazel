@@ -56,7 +56,7 @@ public final class Fingerprint implements Consumer<String> {
   public Fingerprint() {
     // TODO(b/112460990): Use the value from DigestHashFunction.getDefault(), but check for
     // contention.
-    this(DigestHashFunction.MD5);
+    this(DigestHashFunction.SHA256);
   }
 
   /**
@@ -291,12 +291,12 @@ public final class Fingerprint implements Consumer<String> {
    * @param input the String from which to compute the digest
    */
   public static String getHexDigest(String input) {
-    // TODO(b/112460990): This convenience method, if kept should not use MD5 by default, but should
+    // TODO(b/112460990): This convenience method should
     // use the value from DigestHashFunction.getDefault(). However, this gets called during class
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
     return hexDigest(
-        DigestHashFunction.MD5
+        DigestHashFunction.SHA256
             .cloneOrCreateMessageDigest()
             .digest(input.getBytes(StandardCharsets.UTF_8)));
   }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -102,10 +103,21 @@ public interface RepositoryModuleApi {
       BaseFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<String> environ,
+      SkylarkList<?> environ, // <String> expected
       Boolean configure,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
+
+  @SkylarkCallable(
+      name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",
+      doc =
+          "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
+              + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
+              + "details and migration instructions.",
+      useLocation = true,
+      useStarlarkThread = true)
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(
+      Location location, StarlarkThread thread) throws EvalException;
 }

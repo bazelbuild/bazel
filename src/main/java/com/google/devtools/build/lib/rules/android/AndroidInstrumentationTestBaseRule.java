@@ -138,7 +138,7 @@ android_binary(
     name = "hello_world_test_app",
     instruments = "//java/com/samples/hello_world:hello_world_app",
     manifest = "AndroidManifest.xml",
-    deps = ["hello_world_test_lib"],
+    deps = [":hello_world_test_lib"],
 )
 
 android_instrumentation_test(

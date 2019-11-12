@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -117,7 +118,8 @@ public class PackageFactoryApparatus {
                       buildFile
                           .getRootRelativePath()
                           .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
-                  "TESTING")
+                  "TESTING",
+                  semantics)
               .build();
       Package pkg =
           factory.createPackageForTesting(
@@ -152,6 +154,7 @@ public class PackageFactoryApparatus {
         new GlobCache(
             buildFile.asPath().getParentDirectory(),
             packageId,
+            ImmutableSet.of(),
             getPackageLocator(),
             null,
             TestUtils.getPool(),
@@ -163,7 +166,8 @@ public class PackageFactoryApparatus {
                 RootedPath.toRootedPath(
                     buildFile.getRoot(),
                     buildFile.getRootRelativePath().getParentDirectory().getRelative("WORKSPACE")),
-                "TESTING")
+                "TESTING",
+                StarlarkSemantics.DEFAULT_SEMANTICS)
             .build();
     Package.Builder resultBuilder =
         factory.evaluateBuildFile(

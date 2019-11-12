@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -129,7 +127,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
               + " for legacy reasons.",
       structField = true)
-  public NestedSet<FileT> getTransitiveDeps();
+  public SkylarkNestedSet /*<FileT>*/ getTransitiveDeps();
 
   @SkylarkCallable(
       name = "transitive_runtime_deps",
@@ -139,7 +137,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
               + "</a></code> for legacy reasons.",
       structField = true)
-  public NestedSet<FileT> getTransitiveRuntimeDeps();
+  public SkylarkNestedSet /*<FileT>*/ getTransitiveRuntimeDeps();
 
   @SkylarkCallable(
       name = "transitive_source_jars",
@@ -147,13 +145,13 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
           "Returns the Jars containing source files of the current target and all of its"
               + " transitive dependencies.",
       structField = true)
-  public NestedSet<FileT> getTransitiveSourceJars();
+  public SkylarkNestedSet /*<FileT>*/ getTransitiveSourceJars();
 
   @SkylarkCallable(
       name = "transitive_exports",
       structField = true,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
-  public NestedSet<Label> getTransitiveExports();
+  public SkylarkNestedSet /*<Label>*/ getTransitiveExports();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")

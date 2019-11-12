@@ -150,15 +150,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableModuleMaps;
 
   @Option(
-    name = "objc_enable_binary_stripping",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help =
-        "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-            + "strippings will be performed if both this flag and --compilationMode=opt are "
-            + "specified."
-  )
+      name = "objc_enable_binary_stripping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+              + "strippings will be performed if both this flag and --compilation_mode=opt are "
+              + "specified.")
   public boolean enableBinaryStripping;
 
   @Option(

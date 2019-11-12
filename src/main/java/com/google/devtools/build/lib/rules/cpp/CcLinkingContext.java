@@ -22,11 +22,15 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -148,22 +152,176 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
   }
 
-  private final NestedSet<LibraryToLink> libraries;
-  private final NestedSet<LinkOptions> userLinkFlags;
-  private final NestedSet<Linkstamp> linkstamps;
-  private final NestedSet<Artifact> nonCodeInputs;
+  /**
+   * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
+   */
+  @Immutable
+  public static class LinkerInput implements LinkerInputApi<LibraryToLink, Artifact> {
+    // Identifies which target created the LinkerInput. It doesn't have to be unique between
+    // LinkerInputs.
+    private final Label owner;
+    private final ImmutableList<LibraryToLink> libraries;
+    private final ImmutableList<LinkOptions> userLinkFlags;
+    private final ImmutableList<Artifact> nonCodeInputs;
+    private final ImmutableList<Linkstamp> linkstamps;
+
+    private LinkerInput(
+        Label owner,
+        ImmutableList<LibraryToLink> libraries,
+        ImmutableList<LinkOptions> userLinkFlags,
+        ImmutableList<Artifact> nonCodeInputs,
+        ImmutableList<Linkstamp> linkstamps) {
+      this.owner = owner;
+      this.libraries = libraries;
+      this.userLinkFlags = userLinkFlags;
+      this.nonCodeInputs = nonCodeInputs;
+      this.linkstamps = linkstamps;
+    }
+
+    @Override
+    public Label getSkylarkOwner(Location location) throws EvalException {
+      if (owner == null) {
+        throw new EvalException(
+            location,
+            "Owner is null. This means that some target upstream is of a rule type that uses the"
+                + " old API of create_linking_context");
+      }
+      return owner;
+    }
+
+    public Label getOwner() {
+      return owner;
+    }
+
+    public List<LibraryToLink> getLibraries() {
+      return libraries;
+    }
+
+    @Override
+    public SkylarkList<LibraryToLink> getSkylarkLibrariesToLink(StarlarkThread thread) {
+      return SkylarkList.createImmutable(getLibraries());
+    }
+
+    public List<LinkOptions> getUserLinkFlags() {
+      return userLinkFlags;
+    }
+
+    @Override
+    public SkylarkList<String> getSkylarkUserLinkFlags() {
+      return SkylarkList.createImmutable(
+          getUserLinkFlags().stream()
+              .map(LinkOptions::get)
+              .flatMap(Collection::stream)
+              .collect(ImmutableList.toImmutableList()));
+    }
+
+    public List<Artifact> getNonCodeInputs() {
+      return nonCodeInputs;
+    }
+
+    @Override
+    public SkylarkList<Artifact> getSkylarkNonCodeInputs() {
+      return SkylarkList.createImmutable(getNonCodeInputs());
+    }
+
+    public List<Linkstamp> getLinkstamps() {
+      return linkstamps;
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    /** Builder for {@link LinkerInput} */
+    public static class Builder {
+      private Label owner;
+      private final ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
+      private final ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
+      private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
+      private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
+
+      public Builder addLibrary(LibraryToLink library) {
+        this.libraries.add(library);
+        return this;
+      }
+
+      public Builder addLibraries(List<LibraryToLink> libraries) {
+        this.libraries.addAll(libraries);
+        return this;
+      }
+
+      public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
+        this.userLinkFlags.addAll(userLinkFlags);
+        return this;
+      }
+
+      public Builder addLinkstamps(List<Linkstamp> linkstamps) {
+        this.linkstamps.addAll(linkstamps);
+        return this;
+      }
+
+      public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
+        this.nonCodeInputs.addAll(nonCodeInputs);
+        return this;
+      }
+
+      public Builder setOwner(Label owner) {
+        this.owner = owner;
+        return this;
+      }
+
+      public LinkerInput build() {
+        return new LinkerInput(
+            owner,
+            libraries.build(),
+            userLinkFlags.build(),
+            nonCodeInputs.build(),
+            linkstamps.build());
+      }
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+      if (!(otherObject instanceof LinkerInput)) {
+        return false;
+      }
+      LinkerInput other = (LinkerInput) otherObject;
+      if (this == other) {
+        return true;
+      }
+      return ((this.owner == null && other.owner == null) || this.owner.equals(other.owner))
+          && this.libraries.equals(other.libraries)
+          && this.userLinkFlags.equals(other.userLinkFlags)
+          && this.linkstamps.equals(other.linkstamps)
+          && this.nonCodeInputs.equals(other.nonCodeInputs);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(
+          libraries.hashCode(),
+          userLinkFlags.hashCode(),
+          linkstamps.hashCode(),
+          nonCodeInputs.hashCode());
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("userLinkFlags", userLinkFlags)
+          .add("linkstamps", linkstamps)
+          .add("libraries", libraries)
+          .add("nonCodeInputs", nonCodeInputs)
+          .toString();
+    }
+  }
+
+  private final NestedSet<LinkerInput> linkerInputs;
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   public CcLinkingContext(
-      NestedSet<LibraryToLink> libraries,
-      NestedSet<LinkOptions> userLinkFlags,
-      NestedSet<Linkstamp> linkstamps,
-      NestedSet<Artifact> nonCodeInputs,
-      ExtraLinkTimeLibraries extraLinkTimeLibraries) {
-    this.libraries = libraries;
-    this.userLinkFlags = userLinkFlags;
-    this.linkstamps = linkstamps;
-    this.nonCodeInputs = nonCodeInputs;
+      NestedSet<LinkerInput> linkerInputs, ExtraLinkTimeLibraries extraLinkTimeLibraries) {
+    this.linkerInputs = linkerInputs;
     this.extraLinkTimeLibraries = extraLinkTimeLibraries;
   }
 
@@ -171,11 +329,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     Builder mergedCcLinkingContext = CcLinkingContext.builder();
     ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries = ExtraLinkTimeLibraries.builder();
     for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
-      mergedCcLinkingContext
-          .addLibraries(ccLinkingContext.getLibraries())
-          .addUserLinkFlags(ccLinkingContext.getUserLinkFlags())
-          .addLinkstamps(ccLinkingContext.getLinkstamps())
-          .addNonCodeInputs(ccLinkingContext.getNonCodeInputs());
+      mergedCcLinkingContext.addTransitiveLinkerInputs(ccLinkingContext.getLinkerInputs());
       if (ccLinkingContext.getExtraLinkTimeLibraries() != null) {
         mergedExtraLinkTimeLibraries.addTransitive(ccLinkingContext.getExtraLinkTimeLibraries());
       }
@@ -216,44 +370,25 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return artifactListBuilder.build();
   }
 
-  public List<Artifact> getDynamicModeParamsForExecutableLibraries() {
-    ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-    for (LibraryToLink library : getLibraries()) {
-      if (library.getInterfaceLibrary() != null) {
-        artifactListBuilder.add(library.getInterfaceLibrary());
-      } else if (library.getDynamicLibrary() != null) {
-        artifactListBuilder.add(library.getDynamicLibrary());
-      } else if (library.getStaticLibrary() != null) {
-        artifactListBuilder.add(library.getStaticLibrary());
-      } else if (library.getPicStaticLibrary() != null) {
-        artifactListBuilder.add(library.getPicStaticLibrary());
-      }
-    }
-    return artifactListBuilder.build();
-  }
-
-  public List<Artifact> getDynamicModeParamsForDynamicLibraryLibraries() {
-    ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-    for (LibraryToLink library : getLibraries()) {
-      if (library.getInterfaceLibrary() != null) {
-        artifactListBuilder.add(library.getInterfaceLibrary());
-      } else if (library.getDynamicLibrary() != null) {
-        artifactListBuilder.add(library.getDynamicLibrary());
-      } else if (library.getPicStaticLibrary() != null) {
-        artifactListBuilder.add(library.getPicStaticLibrary());
-      } else if (library.getStaticLibrary() != null) {
-        artifactListBuilder.add(library.getStaticLibrary());
-      }
-    }
-    return artifactListBuilder.build();
-  }
-
   public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
-    return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, libraries);
+    return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, getLibraries());
   }
 
   public NestedSet<LibraryToLink> getLibraries() {
-    return libraries;
+    NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      libraries.addAll(linkerInput.libraries);
+    }
+    return libraries.build();
+  }
+
+  public NestedSet<LinkerInput> getLinkerInputs() {
+    return linkerInputs;
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkLinkerInputs() {
+    return SkylarkNestedSet.of(LinkerInput.class, linkerInputs);
   }
 
   @Override
@@ -263,35 +398,48 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Object getSkylarkLibrariesToLink(StarlarkThread thread) {
+    // TODO(plf): Flag can be removed already.
     if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
-      return SkylarkNestedSet.of(LibraryToLink.class, libraries);
+      return SkylarkNestedSet.of(LibraryToLink.class, getLibraries());
     } else {
-      return SkylarkList.createImmutable(libraries.toList());
+      return SkylarkList.createImmutable(getLibraries().toList());
     }
   }
 
   @Override
   public SkylarkNestedSet getSkylarkNonCodeInputs() {
-    return SkylarkNestedSet.of(Artifact.class, nonCodeInputs);
+    return SkylarkNestedSet.of(Artifact.class, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
-    return userLinkFlags;
+    NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      userLinkFlags.addAll(linkerInput.getUserLinkFlags());
+    }
+    return userLinkFlags.build();
   }
 
   public ImmutableList<String> getFlattenedUserLinkFlags() {
-    return Streams.stream(userLinkFlags)
+    return Streams.stream(getUserLinkFlags())
         .map(LinkOptions::get)
         .flatMap(Collection::stream)
         .collect(ImmutableList.toImmutableList());
   }
 
   public NestedSet<Linkstamp> getLinkstamps() {
-    return linkstamps;
+    NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.linkOrder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      linkstamps.addAll(linkerInput.getLinkstamps());
+    }
+    return linkstamps.build();
   }
 
   public NestedSet<Artifact> getNonCodeInputs() {
-    return nonCodeInputs;
+    NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      nonCodeInputs.addAll(linkerInput.getNonCodeInputs());
+    }
+    return nonCodeInputs.build();
   }
 
   public ExtraLinkTimeLibraries getExtraLinkTimeLibraries() {
@@ -305,29 +453,48 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   /** Builder for {@link CcLinkingContext}. */
   public static class Builder {
-    private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-    private final NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
-    private final NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.compileOrder();
-    private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
+    boolean hasDirectLinkerInput;
+    LinkerInput.Builder linkerInputBuilder = LinkerInput.builder();
+    private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
-    public Builder addLibraries(NestedSet<LibraryToLink> libraries) {
-      this.libraries.addTransitive(libraries);
+    public Builder setOwner(Label owner) {
+      linkerInputBuilder.setOwner(owner);
       return this;
     }
 
-    public Builder addUserLinkFlags(NestedSet<LinkOptions> userLinkFlags) {
-      this.userLinkFlags.addTransitive(userLinkFlags);
+    public Builder addLibrary(LibraryToLink library) {
+      hasDirectLinkerInput = true;
+      linkerInputBuilder.addLibrary(library);
       return this;
     }
 
-    Builder addLinkstamps(NestedSet<Linkstamp> linkstamps) {
-      this.linkstamps.addTransitive(linkstamps);
+    public Builder addLibraries(List<LibraryToLink> libraries) {
+      hasDirectLinkerInput = true;
+      linkerInputBuilder.addLibraries(libraries);
       return this;
     }
 
-    Builder addNonCodeInputs(NestedSet<Artifact> nonCodeInputs) {
-      this.nonCodeInputs.addTransitive(nonCodeInputs);
+    public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
+      hasDirectLinkerInput = true;
+      linkerInputBuilder.addUserLinkFlags(userLinkFlags);
+      return this;
+    }
+
+    Builder addLinkstamps(List<Linkstamp> linkstamps) {
+      hasDirectLinkerInput = true;
+      linkerInputBuilder.addLinkstamps(linkstamps);
+      return this;
+    }
+
+    Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
+      hasDirectLinkerInput = true;
+      linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
+      return this;
+    }
+
+    public Builder addTransitiveLinkerInputs(NestedSet<LinkerInput> linkerInputs) {
+      this.linkerInputs.addTransitive(linkerInputs);
       return this;
     }
 
@@ -338,12 +505,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     public CcLinkingContext build() {
-      return new CcLinkingContext(
-          libraries.build(),
-          userLinkFlags.build(),
-          linkstamps.build(),
-          nonCodeInputs.build(),
-          extraLinkTimeLibraries);
+      if (hasDirectLinkerInput) {
+        linkerInputs.add(linkerInputBuilder.build());
+      }
+      return new CcLinkingContext(linkerInputs.build(), extraLinkTimeLibraries);
     }
   }
 
@@ -356,28 +521,16 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     if (this == other) {
       return true;
     }
-    return this.libraries.shallowEquals(other.libraries)
-        && this.userLinkFlags.shallowEquals(other.userLinkFlags)
-        && this.linkstamps.shallowEquals(other.linkstamps)
-        && this.nonCodeInputs.shallowEquals(other.nonCodeInputs);
+    return this.linkerInputs.shallowEquals(other.linkerInputs);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
-        libraries.shallowHashCode(),
-        userLinkFlags.shallowHashCode(),
-        linkstamps.shallowHashCode(),
-        nonCodeInputs.shallowHashCode());
+    return linkerInputs.shallowHashCode();
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("userLinkFlags", userLinkFlags)
-        .add("linkstamps", linkstamps)
-        .add("libraries", libraries)
-        .add("nonCodeInputs", nonCodeInputs)
-        .toString();
+    return MoreObjects.toStringHelper(this).add("linkerInputs", linkerInputs).toString();
   }
 }

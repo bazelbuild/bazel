@@ -77,6 +77,8 @@ platforms:
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--test_timeout=1200"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -133,6 +135,8 @@ platforms:
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--test_timeout=1200"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
       # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
       - "--noincompatible_strict_action_env"
     test_targets:
@@ -181,7 +185,7 @@ platforms:
       # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
       - "--noincompatible_strict_action_env"
     build_targets:
-      - "//src:bazel"
+      - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
     test_flags:
       - "--copt=-w"
@@ -234,7 +238,7 @@ platforms:
     - "-//src/test/shell/bazel:maven_test"
     - "-//src/test/shell/bazel:bazel_repository_cache_test"
     - "-//src/test/shell/integration:java_integration_test"
-    - "-//src/test/java/com/google/devtools/build/lib:sandbox-tests"
+    - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
     # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
     - "-//src/java_tools/buildjar/..."
     - "-//src/java_tools/import_deps_checker/..."

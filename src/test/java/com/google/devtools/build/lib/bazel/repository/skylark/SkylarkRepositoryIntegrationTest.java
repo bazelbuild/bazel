@@ -151,6 +151,36 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
+    // A simple test that recreates local_repository with Skylark.
+    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/bar.txt");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file(
+        "def.bzl",
+        "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
+        "",
+        "repo = repository_rule(",
+        "    implementation=_impl,",
+        "    local=True,",
+        "    attrs={'path': attr.string(mandatory=True)})");
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foo', path='/repo2')")
+            .build());
+    invalidatePackages();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
+    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    assertThat(path).isEqualTo("foo");
+  }
+
+  @Test
   public void testSkylarkSymlinkFileFromRepository() throws Exception {
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
     scratch.file("/repo2/BUILD");

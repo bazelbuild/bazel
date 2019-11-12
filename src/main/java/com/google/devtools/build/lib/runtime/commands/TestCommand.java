@@ -138,7 +138,10 @@ public class TestCommand implements BlazeCommand {
       env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
       ExitCode exitCode =
           buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
-      env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+      env.getEventBus()
+          .post(
+              new TestingCompleteEvent(
+                  exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
       return BlazeCommandResult.exitCode(exitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
@@ -150,7 +153,8 @@ public class TestCommand implements BlazeCommand {
       ExitCode exitCode =
           buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
       env.getEventBus()
-          .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
+          .post(
+              new NoTestsFound(exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
       return BlazeCommandResult.exitCode(exitCode);
     }
 
@@ -170,7 +174,10 @@ public class TestCommand implements BlazeCommand {
     ExitCode exitCode = buildSuccess
         ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
         : buildResult.getExitCondition();
-    env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+    env.getEventBus()
+        .post(
+            new TestingCompleteEvent(
+                exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
     return BlazeCommandResult.exitCode(exitCode);
   }
 

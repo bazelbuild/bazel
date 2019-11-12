@@ -1,12 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load(":merge_licenses.bzl", "merge_licenses")
 
 # Description:
 #   Main Java code for Bazel
 package(
     default_visibility = ["//src:__subpackages__"],
 )
-
-load(":merge_licenses.bzl", "merge_licenses")
 
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
@@ -77,6 +76,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
@@ -398,6 +398,7 @@ java_library(
     ],
     deps = [
         ":skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:jsr305",
     ],
 )
@@ -695,10 +696,22 @@ java_library(
 )
 
 java_library(
+    name = "bazel-ninja",
+    srcs = glob(["bazel/rules/ninja/**/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-rules",
     srcs = glob(
         [
             "bazel/rules/**/*.java",
+            "bazel/rules/ninja/**/*.java",
         ],
         exclude = [
             "bazel/rules/workspace/*.java",
@@ -943,6 +956,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1303,6 +1317,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
+        "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
@@ -1490,7 +1505,6 @@ genrule(
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
         "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
-        "mkdir $${TMP}/_embedded_binaries/ && " +
         "$(location :bazel/BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +

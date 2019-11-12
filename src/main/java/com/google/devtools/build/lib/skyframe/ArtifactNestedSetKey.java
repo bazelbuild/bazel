@@ -85,13 +85,12 @@ public class ArtifactNestedSetKey implements SkyKey {
    *
    * <p>TODO(b/142232950) Investigate the potential additional load on GC.
    */
-  Iterable<SkyKey> transitiveKeys() {
+  Iterable<Object> transitiveMembers() {
     if (!(rawChildren instanceof Object[])) {
       return ImmutableSet.of();
     }
     return Arrays.stream((Object[]) rawChildren)
         .filter(c -> c instanceof Object[])
-        .map(ArtifactNestedSetKey::new)
         .collect(Collectors.toList());
   }
 

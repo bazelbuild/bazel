@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-/**
- * Test case which verifies a method annotated with SkylarkCallable cannot be private.
- */
-public class PrivateMethod {
+/** Test case which verifies a method annotated with SkylarkCallable cannot be private. */
+public class PrivateMethod implements SkylarkValue {
 
   @SkylarkCallable(name = "private_method", doc = "A private method")
   private String privateMethod() {

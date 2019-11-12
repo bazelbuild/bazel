@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.DownloadException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -63,20 +63,13 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.rpc.PreconditionFailure;
-import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
-import io.grpc.Status.Code;
-import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -104,40 +97,6 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate, "remote");
   }
 
-  private static final String VIOLATION_TYPE_MISSING = "MISSING";
-
-  private static final Predicate<? super Exception> RETRIABLE_EXEC_ERRORS =
-      e -> {
-        if (e.getCause() instanceof DownloadException) {
-          DownloadException downloadException = (DownloadException) e.getCause();
-          return downloadException.onlyCausedByCacheNotFoundException();
-        }
-        if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
-          return false;
-        }
-        com.google.rpc.Status status = StatusProto.fromThrowable(e);
-        if (status == null || status.getDetailsCount() == 0) {
-          return false;
-        }
-        for (Any details : status.getDetailsList()) {
-          PreconditionFailure f;
-          try {
-            f = details.unpack(PreconditionFailure.class);
-          } catch (InvalidProtocolBufferException protoEx) {
-            return false;
-          }
-          if (f.getViolationsCount() == 0) {
-            return false; // Generally shouldn't happen
-          }
-          for (Violation v : f.getViolationsList()) {
-            if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
-              return false;
-            }
-          }
-        }
-        return true; // if *all* > 0 violations have type MISSING
-      };
-
   /** Returns whether remote execution should be available. */
   public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
     return !Strings.isNullOrEmpty(options.remoteExecutor);
@@ -161,8 +120,8 @@ public final class RemoteModule extends BlazeModule {
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
-    boolean enableBlobStoreCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
-    boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
+    boolean enableBlobStoreCache = RemoteCacheClientFactory.isRemoteCacheOptions(remoteOptions);
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     if (enableBlobStoreCache && enableRemoteExecution) {
       throw new AbruptExitException(
@@ -206,8 +165,7 @@ public final class RemoteModule extends BlazeModule {
                     authAndTlsOptions,
                     interceptors.toArray(new ClientInterceptor[0])));
       }
-      RemoteRetrier executeRetrier = null;
-      AbstractRemoteActionCache cache = null;
+      RemoteCacheClient cacheClient = null;
       if (enableGrpcCache || !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
         rpcRetrier =
               new RemoteRetrier(
@@ -251,7 +209,6 @@ public final class RemoteModule extends BlazeModule {
         }
         checkClientServerCompatibility(
             capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
-        executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler);
         ByteStreamUploader uploader =
             new ByteStreamUploader(
                 remoteOptions.remoteInstanceName,
@@ -260,8 +217,8 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteTimeout,
                 rpcRetrier);
         cacheChannel.release();
-        cache =
-            new GrpcRemoteCache(
+        cacheClient =
+            new GrpcCacheClient(
                 cacheChannel.retain(),
                 credentials,
                 remoteOptions,
@@ -274,21 +231,18 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader,
-                cache,
+                cacheClient,
                 cacheChannel.authority(),
                 requestContext,
                 remoteOptions.remoteInstanceName));
       }
 
       if (enableBlobStoreCache) {
-        executeRetrier = null;
-        cache =
-            new SimpleBlobStoreActionCache(
+        cacheClient =
+            RemoteCacheClientFactory.create(
                 remoteOptions,
-                SimpleBlobStoreFactory.create(
-                    remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
+                GoogleAuthUtils.newCredentials(authAndTlsOptions),
+                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
                 digestUtil);
       }
 
@@ -307,15 +261,18 @@ public final class RemoteModule extends BlazeModule {
                 retrier);
         execChannel.release();
         Preconditions.checkState(
-            cache instanceof GrpcRemoteCache,
+            cacheClient instanceof GrpcCacheClient,
             "Only the gRPC cache is support for remote execution");
+        RemoteExecutionCache remoteCache =
+            new RemoteExecutionCache((GrpcCacheClient) cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteExecution(
-                env, (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
-      } else if (cache != null) {
+                env, remoteCache, executor, retryScheduler, digestUtil, logDir);
+      } else if (cacheClient != null) {
+        RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteCaching(
-                env, cache, executeRetrier, digestUtil);
+                env, remoteCache, retryScheduler, digestUtil);
       }
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
@@ -531,17 +488,6 @@ public final class RemoteModule extends BlazeModule {
     return "build".equals(command.name())
         ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
         : ImmutableList.of();
-  }
-
-  static RemoteRetrier createExecuteRetrier(
-      RemoteOptions options, ListeningScheduledExecutorService retryService) {
-    return new RemoteRetrier(
-        options.remoteMaxRetryAttempts > 0
-            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
-            : () -> Retrier.RETRIES_DISABLED,
-        RemoteModule.RETRIABLE_EXEC_ERRORS,
-        retryService,
-        Retrier.ALLOW_ALL_CALLS);
   }
 
   private static class BuildEventArtifactUploaderFactoryDelegate

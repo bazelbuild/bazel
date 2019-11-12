@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -141,9 +142,6 @@ public final class ValidationEnvironment extends NodeVisitor {
       case ASSIGNMENT:
         collectDefinitions(((AssignmentStatement) stmt).getLHS());
         break;
-      case AUGMENTED_ASSIGNMENT:
-        collectDefinitions(((AugmentedAssignmentStatement) stmt).getLHS());
-        break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
         collectDefinitions(ifStmt.getThenBlock());
@@ -156,7 +154,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         collectDefinitions(forStmt.getLHS());
         collectDefinitions(forStmt.getBlock());
         break;
-      case FUNCTION_DEF:
+      case DEF:
         DefStatement def = (DefStatement) stmt;
         declare(def.getIdentifier());
         break;
@@ -370,17 +368,14 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(AssignmentStatement node) {
     visit(node.getRHS());
-    assign(node.getLHS());
-  }
 
-  @Override
-  public void visit(AugmentedAssignmentStatement node) {
-    if (node.getLHS() instanceof ListExpression) {
+    // Disallow: [e, ...] += rhs
+    // Other bad cases are handled in assign.
+    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
       addError(
           node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
     }
-    // Other bad cases are handled in assign.
-    visit(node.getRHS());
+
     assign(node.getLHS());
   }
 
@@ -485,6 +480,25 @@ public final class ValidationEnvironment extends NodeVisitor {
     venv.validateToplevelStatements(file.getStatements());
     // Check that no closeBlock was forgotten.
     Preconditions.checkState(venv.block.parent == null);
+  }
+
+  /**
+   * Performs static checks, including resolution of identifiers in {@code expr} in the environment
+   * defined by {@code module}. This operation mutates the Expression.
+   */
+  public static void validateExpr(Expression expr, Module module, StarlarkSemantics semantics)
+      throws SyntaxError {
+    List<Event> errors = new ArrayList<>();
+    ValidationEnvironment venv =
+        new ValidationEnvironment(errors, module, semantics, /*isBuildFile=*/ false);
+
+    venv.openBlock(Scope.Local); // needed?
+    venv.visit(expr);
+    venv.closeBlock();
+
+    if (!errors.isEmpty()) {
+      throw new SyntaxError(errors);
+    }
   }
 
   /** Open a new lexical block that will contain the future declarations. */

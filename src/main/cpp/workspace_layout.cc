@@ -27,6 +27,7 @@ namespace blaze {
 using std::string;
 using std::vector;
 
+static const char kWorkspaceDotBazelMarker[] = "WORKSPACE.bazel";
 static const char kWorkspaceMarker[] = "WORKSPACE";
 
 string WorkspaceLayout::GetOutputRoot() const {
@@ -35,7 +36,9 @@ string WorkspaceLayout::GetOutputRoot() const {
 
 bool WorkspaceLayout::InWorkspace(const string &workspace) const {
   return blaze_util::PathExists(
-      blaze_util::JoinPath(workspace, kWorkspaceMarker));
+             blaze_util::JoinPath(workspace, kWorkspaceDotBazelMarker)) ||
+         blaze_util::PathExists(
+             blaze_util::JoinPath(workspace, kWorkspaceMarker));
 }
 
 string WorkspaceLayout::GetWorkspace(const string &cwd) const {

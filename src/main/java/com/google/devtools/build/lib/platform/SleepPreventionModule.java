@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -48,19 +45,15 @@ public final class SleepPreventionModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    // Only register this component if JNI is available.
-    if (!"0".equals(System.getProperty("io.bazel.EnableJni"))) {
-      env.getEventBus().register(this);
+    if (JniLoader.jniEnabled()) {
+      SleepPrevention.pushDisableSleep();
     }
   }
 
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    SleepPrevention.pushDisableSleep();
-  }
-
-  @Subscribe
-  public void buildComplete(BuildCompleteEvent event) {
-    SleepPrevention.popDisableSleep();
+  @Override
+  public void afterCommand() throws AbruptExitException {
+    if (JniLoader.jniEnabled()) {
+      SleepPrevention.popDisableSleep();
+    }
   }
 }

@@ -29,9 +29,13 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -432,6 +436,29 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  private static File createJavaIoFile(Path path) throws FileNotFoundException {
+    final String pathStr = path.getPathString();
+    if (pathStr.chars().allMatch(c -> c < 128)) {
+      return new File(pathStr);
+    }
+
+    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
+    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
+    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
+    if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
+      final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
+      return new File(new String(pathBytes, StandardCharsets.UTF_8));
+    }
+
+    // This will probably fail but not much that can be done without migrating to `java.nio.Files`.
+    return new File(pathStr);
+  }
+
+  @Override
+  protected InputStream createFileInputStream(Path path) throws IOException {
+    return new FileInputStream(createJavaIoFile(path));
+  }
+
   @Override
   protected OutputStream createFileOutputStream(Path path, boolean append)
       throws FileNotFoundException {
@@ -467,8 +494,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     @Override
     public synchronized void close() throws IOException {
       if (!closed) {
-        closed = true;
         NativePosixFiles.close(fd, this);
+        closed = true;
       }
       super.close();
     }
@@ -484,7 +511,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
-    public void write(byte[] b, int off, int len) throws IOException {
+    public synchronized void write(byte[] b, int off, int len) throws IOException {
       if (closed) {
         throw new IOException("attempt to write to a closed Outputstream backed by a native file");
       }

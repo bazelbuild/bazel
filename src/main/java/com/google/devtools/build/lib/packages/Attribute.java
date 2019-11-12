@@ -2204,7 +2204,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
     ImmutableList.Builder<Aspect> builder = null;
-    for (RuleAspect aspect : aspects) {
+    for (RuleAspect<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);
       if (a != null) {
         if (builder == null) {

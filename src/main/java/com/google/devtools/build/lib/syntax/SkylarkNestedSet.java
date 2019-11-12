@@ -161,24 +161,37 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     return new SkylarkNestedSet(contentType, builder.build(), items, transitiveItems);
   }
 
-  public static SkylarkNestedSet of(Order order, Object item, Location loc) throws EvalException {
+  static SkylarkNestedSet of(Order order, Object item, Location loc) throws EvalException {
+    // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
+    // (should be BOTTOM) if item is an empty SkylarkNestedSet or SkylarkList.
     return of(order, SkylarkType.TOP, item, loc, null);
   }
 
-  public static SkylarkNestedSet of(SkylarkNestedSet left, Object right, Location loc)
+  static SkylarkNestedSet of(SkylarkNestedSet left, Object right, Location loc)
       throws EvalException {
     return of(left.set.getOrder(), left.contentType, right, loc, left);
   }
 
   /**
-   * Returns a type safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   * Returns a type-safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   *
+   * <p>This operation is type-safe only if the specified element type is appropriate for every
+   * element of the set.
    */
+  // TODO(adonovan): enforce that we never construct a SkylarkNestedSet with a StarlarkType
+  // that represents a non-Skylark type (e.g. NestedSet<PathFragment>).
+  // One way to do that is to disallow constructing StarlarkTypes for classes
+  // that would fail isSkylarkAcceptable; however remains the problem that
+  // Object.class means "any Starlark value" but in fact allows any Java value.
   public static <T> SkylarkNestedSet of(SkylarkType contentType, NestedSet<T> set) {
     return new SkylarkNestedSet(contentType, set, null, null);
   }
 
   /**
    * Returns a type safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   *
+   * <p>This operation is type-safe only if the specified element type is appropriate for every
+   * element of the set.
    */
   public static <T> SkylarkNestedSet of(Class<T> contentType, NestedSet<T> set) {
     return of(SkylarkType.of(contentType), set);
@@ -348,6 +361,11 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   public boolean isEmpty() {
     return set.isEmpty();
+  }
+
+  @Override
+  public boolean truth() {
+    return !set.isEmpty();
   }
 
   public SkylarkType getContentType() {

@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -45,7 +48,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
@@ -56,6 +61,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -104,6 +110,8 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
+    maybeAddRequiredConfigFragmentsProvider();
+
     NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
     if (runfilesSupport != null) {
       runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
@@ -134,6 +142,8 @@ public final class RuleConfiguredTargetBuilder {
               .getDefaultRunfiles()
               .getAllArtifacts());
     }
+
+    collectTransitiveValidationOutputGroups();
 
     // Create test action and artifacts if target was successfully initialized
     // and is a test.
@@ -201,7 +211,9 @@ public final class RuleConfiguredTargetBuilder {
           ruleContext
               .attributes()
               .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
-      addProvider(BuildSettingProvider.class, new BuildSettingProvider(buildSetting, defaultValue));
+      addProvider(
+          BuildSettingProvider.class,
+          new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
@@ -235,6 +247,56 @@ public final class RuleConfiguredTargetBuilder {
         generatingActions.getArtifactsByOutputLabel());
   }
 
+  /**
+   * Adds {@link RequiredConfigFragmentsProvider} if {@link
+   * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
+   * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
+   *
+   * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments} for a description of the
+   * meaning of this provider's content. That method populates {@link
+   * RuleContext#getRequiredConfigFragments}, which we read here. We add to that any additional
+   * config state that is only known to be required after the rule's analysis function has finished.
+   * In particular, if the current rule is a {@code config_setting}, we add as a direct requirement
+   * the config state that it matches.
+   */
+  private void maybeAddRequiredConfigFragmentsProvider() {
+    if (ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .includeRequiredConfigFragmentsProvider
+        == IncludeConfigFragmentsEnum.OFF) {
+      return;
+    }
+
+    ImmutableSet.Builder<String> requiredFragments = ImmutableSet.builder();
+    requiredFragments.addAll(ruleContext.getRequiredConfigFragments());
+
+    if (providersBuilder.contains(ConfigMatchingProvider.class)) {
+      // config_setting discovers extra requirements through its "values = {'some_option': ...}"
+      // references. Make sure those are included here.
+      requiredFragments.addAll(
+          providersBuilder.getProvider(ConfigMatchingProvider.class).getRequiredFragmentOptions());
+    }
+
+    if (ruleContext.getRule().isAttrDefined("feature_flags", BuildType.LABEL_KEYED_STRING_DICT)) {
+      // Sad hack to make android_binary rules list the feature flags they set.
+      // TODO(gregce): move this to AndroidBinary.java. This requires some more coordination to
+      // make sure we don't add a RequiredConfigFragmentsProvider both there and here, which is
+      // technically a violation of TransitiveInfoProviderMapBuilder.put.
+      requiredFragments.addAll(
+          ruleContext
+              .attributes()
+              .get("feature_flags", BuildType.LABEL_KEYED_STRING_DICT)
+              .keySet()
+              .stream()
+              .map(label -> label.toString())
+              .collect(Collectors.toList()));
+    }
+
+    addProvider(new RequiredConfigFragmentsProvider(requiredFragments.build()));
+  }
+
   private NestedSet<Label> transitiveLabels() {
     NestedSetBuilder<Label> nestedSetBuilder = NestedSetBuilder.stableOrder();
 
@@ -251,6 +313,44 @@ public final class RuleConfiguredTargetBuilder {
     }
     nestedSetBuilder.add(ruleContext.getLabel());
     return nestedSetBuilder.build();
+  }
+
+  /**
+   * Collects the validation action output groups from every dependency-type attribute on this rule.
+   * This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
+   * automatically propagates the validation action output group.
+   *
+   * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
+   * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
+   * validation action output group itself.
+   */
+  private void collectTransitiveValidationOutputGroups() {
+
+    for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+
+      Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+
+      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // not fail the overall build, since those dependencies should have their own builds
+      // and tests that should surface any failing validations.
+      if (!attribute.getTransitionFactory().isHost()
+          && !attribute.getTransitionFactory().isTool()
+          && !attribute.isImplicit()
+          && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+
+        for (OutputGroupInfo outputGroup :
+            ruleContext.getPrerequisites(
+                attributeName, Mode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+
+          NestedSet<Artifact> validationArtifacts =
+              outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
+
+          if (!validationArtifacts.isEmpty()) {
+            addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts);
+          }
+        }
+      }
+    }
   }
 
   /**

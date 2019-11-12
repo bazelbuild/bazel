@@ -14,11 +14,13 @@ package com.google.devtools.build.lib.rules.cpp;
 // limitations under the License.
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.AutoValue.CopyAnnotations;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -34,6 +36,8 @@ import javax.annotation.Nullable;
  * dynamic params for executable and dynamic params for dynamic library.
  */
 @AutoValue
+@Immutable
+@CopyAnnotations
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {

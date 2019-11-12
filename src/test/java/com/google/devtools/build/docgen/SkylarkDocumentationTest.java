@@ -22,15 +22,16 @@ import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,7 +57,6 @@ public class SkylarkDocumentationTest {
     checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
-  @SuppressWarnings("unchecked")
   private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
@@ -83,6 +83,14 @@ public class SkylarkDocumentationTest {
         undocumentedItems.add(varname);
       }
     }
+
+    // These constants are currently undocumented.
+    // If they need documentation, the easiest approach would be
+    // to hard-code it in SkylarkDocumentationCollector.
+    undocumentedItems.remove("True");
+    undocumentedItems.remove("False");
+    undocumentedItems.remove("None");
+
     assertWithMessage("Undocumented items: " + undocumentedItems)
         .that(undocumentedItems)
         .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
@@ -96,7 +104,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  private static class MockClassA {
+  private static class MockClassA implements SkylarkValue {
     @SkylarkCallable(name = "get", doc = "MockClassA#get")
     public Integer get() {
       return 0;
@@ -105,7 +113,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassD */
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
-  private static class MockClassD {
+  private static class MockClassD implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassD#test",
@@ -132,7 +140,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassF */
   @SkylarkModule(name = "MockClassF", doc = "MockClassF")
-  private static class MockClassF {
+  private static class MockClassF implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassF#test",
@@ -151,7 +159,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassG */
   @SkylarkModule(name = "MockClassG", doc = "MockClassG")
-  private static class MockClassG {
+  private static class MockClassG implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassG#test",
@@ -170,7 +178,7 @@ public class SkylarkDocumentationTest {
 
   /** MockClassH */
   @SkylarkModule(name = "MockClassH", doc = "MockClassH")
-  private static class MockClassH {
+  private static class MockClassH implements SkylarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassH#test",
@@ -194,6 +202,7 @@ public class SkylarkDocumentationTest {
    * shows up.
    */
   @SkylarkGlobalLibrary
+  @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @SkylarkCallable(
         name = "MockGlobalCallable",
@@ -216,10 +225,10 @@ public class SkylarkDocumentationTest {
   @SkylarkModule(
       name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
-  private static class MockClassWithContainerReturnValues {
+  private static class MockClassWithContainerReturnValues implements SkylarkValue {
 
     @SkylarkCallable(name = "depset", doc = "depset")
-    public NestedSet<Integer> getNestedSet() {
+    public SkylarkNestedSet /*<Integer>*/ getNestedSet() {
       return null;
     }
 
@@ -245,9 +254,8 @@ public class SkylarkDocumentationTest {
   }
 
   /** MockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
-  private static class MockClassCommonNameOne {
+  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  private static class MockClassCommonNameOne implements SkylarkValue {
 
     @SkylarkCallable(name = "one", doc = "one")
     public Integer one() {
@@ -267,9 +275,10 @@ public class SkylarkDocumentationTest {
   }
 
   /** PointsToCommonNameOneWithSubclass */
-  @SkylarkModule(name = "PointsToCommonNameOneWithSubclass",
+  @SkylarkModule(
+      name = "PointsToCommonNameOneWithSubclass",
       doc = "PointsToCommonNameOneWithSubclass")
-  private static class PointsToCommonNameOneWithSubclass {
+  private static class PointsToCommonNameOneWithSubclass implements SkylarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
@@ -282,10 +291,8 @@ public class SkylarkDocumentationTest {
   }
 
   /** MockClassCommonNameOneUndocumented */
-  @SkylarkModule(name = "MockClassCommonName",
-      documented = false,
-      doc = "")
-  private static class MockClassCommonNameUndocumented {
+  @SkylarkModule(name = "MockClassCommonName", documented = false, doc = "")
+  private static class MockClassCommonNameUndocumented implements SkylarkValue {
 
     @SkylarkCallable(name = "two", doc = "two")
     public Integer two() {
@@ -294,9 +301,10 @@ public class SkylarkDocumentationTest {
   }
 
   /** PointsToCommonNameAndUndocumentedModule */
-  @SkylarkModule(name = "PointsToCommonNameAndUndocumentedModule",
+  @SkylarkModule(
+      name = "PointsToCommonNameAndUndocumentedModule",
       doc = "PointsToCommonNameAndUndocumentedModule")
-  private static class PointsToCommonNameAndUndocumentedModule {
+  private static class PointsToCommonNameAndUndocumentedModule implements SkylarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;

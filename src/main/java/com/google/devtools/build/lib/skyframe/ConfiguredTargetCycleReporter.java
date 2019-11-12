@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -89,9 +89,13 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
   }
 
   private SkyKey asTransitiveTargetKey(SkyKey key) {
-    return IS_TRANSITIVE_TARGET_SKY_KEY.apply(key)
-        ? key
-        : TransitiveTargetKey.of(((ConfiguredTargetKey) key.argument()).getLabel());
+    if (IS_TRANSITIVE_TARGET_SKY_KEY.apply(key)) {
+      return key;
+    } else if (key.argument() instanceof ActionLookupKey) {
+      return TransitiveTargetKey.of(((ActionLookupKey) key.argument()).getLabel());
+    } else {
+      throw new IllegalArgumentException("Unknown type: " + key);
+    }
   }
 
   @Override
@@ -109,9 +113,8 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   public Label getLabel(SkyKey key) {
-    if (key instanceof ActionLookupValue.ActionLookupKey) {
-      return Preconditions.checkNotNull(
-          ((ActionLookupValue.ActionLookupKey) key.argument()).getLabel(), key);
+    if (key instanceof ActionLookupKey) {
+      return Preconditions.checkNotNull(((ActionLookupKey) key.argument()).getLabel(), key);
     } else if (SkyFunctions.isSkyFunction(TRANSITIVE_TARGET).apply(key)) {
       return ((TransitiveTargetKey) key).getLabel();
     } else {

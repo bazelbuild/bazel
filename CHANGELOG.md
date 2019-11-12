@@ -1,3 +1,29 @@
+## Release 1.0.1 (2019-10-21)
+
+```
+Baseline: 97a82646dadd93bf52d47828bda42e3383b657c6
+
+Cherry picks:
+
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+   + ada2c55dcc106cd55bafbbe5d9a966e21e4770e0:
+     Add explicit --sdk argument to xcrun calls
+   + 847df729528f6e5919ec8374247eadf792cba544:
+     toolchain_vanilla: Unset source and target language level
+     versions
+   + 5cfa0303d6ac3b5bd031ff60272ce80a704af8c2:
+     Update java_tools version to javac11-v5.1.
+   + 9c257df5b9b1de5459fc066e77c435ae085957a7:
+     Release 1.0.0 (2019-10-10)
+   + f7a31b30f5319639c36a6c6b1c14f358597d98d2:
+     Prevent action-cache duplicate suppression
+   + 618e5a28f7f735c37724377b15775a4975349c74:
+     Use FileSystemUtils.moveFile instead of renameTo function of Path
+```
+
+This release contains contributions from many people at Google, as well as David Ostrovsky, George Gensure, Keith Smiley.
+
 ## Release 1.0.0 (2019-10-10)
 
 ```

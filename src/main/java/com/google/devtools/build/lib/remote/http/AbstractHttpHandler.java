@@ -103,7 +103,7 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
     if (!uri.getPath().endsWith("/")) {
       builder.append("/");
     }
-    builder.append(isCas ? HttpBlobStore.CAS_PREFIX : HttpBlobStore.AC_PREFIX);
+    builder.append(isCas ? HttpCacheClient.CAS_PREFIX : HttpCacheClient.AC_PREFIX);
     builder.append(hash);
     return builder.toString();
   }

@@ -142,8 +142,6 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "string or a <code>File</code>. A directory <code>File</code> must be "
                     + "passed to <a href='#add_all'><code>add_all()</code> or "
                     + "<a href='#add_joined'><code>add_joined()</code></a> instead of this method."
-                    + "<p><i>Deprecated behavior:</i> <code>value</code> may be a directory "
-                    + "unless --noincompatible_expand_directories is passed.</p>"
                     + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a "
                     + "list, tuple, or depset of multiple items to append."),
         @Param(
@@ -216,8 +214,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
               + "the following steps:"
               + "<ol>"
               + "<li>Each directory <code>File</code> item is replaced by all <code>File</code>s "
-              + "recursively contained in that directory, unless "
-              + "<code>expand_directories=False</code> is specified."
+              + "recursively contained in that directory."
               + "</li>"
               + "<li>If <code>map_each</code> is given, it is applied to each item, and the "
               + "    resulting lists of strings are concatenated to form the initial argument "
@@ -335,12 +332,10 @@ public interface CommandLineArgsApi extends SkylarkValue {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "unbound",
+            defaultValue = "True",
             doc =
                 "If true, any directories in <code>values</code> will be expanded to a flat list "
-                    + "of files. This happens before <code>map_each</code> is applied. "
-                    + "The default value of this flag is controlled by "
-                    + "--incompatible_expand_directories."),
+                    + "of files. This happens before <code>map_each</code> is applied."),
         @Param(
             name = "terminate_with",
             type = String.class,
@@ -363,7 +358,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object beforeEach,
       Boolean omitIfEmpty,
       Boolean uniquify,
-      Object expandDirectories,
+      Boolean expandDirectories,
       Object terminateWith,
       Location loc)
       throws EvalException;
@@ -467,7 +462,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "unbound",
+            defaultValue = "True",
             doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
       useLocation = true)
@@ -480,7 +475,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object formatJoined,
       Boolean omitIfEmpty,
       Boolean uniquify,
-      Object expandDirectories,
+      Boolean expandDirectories,
       Location loc)
       throws EvalException;
 

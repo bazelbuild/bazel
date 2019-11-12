@@ -349,7 +349,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       },
       useLocation = true)
   public void run(
-      SkylarkList outputs,
+      SkylarkList<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object executableUnchecked,

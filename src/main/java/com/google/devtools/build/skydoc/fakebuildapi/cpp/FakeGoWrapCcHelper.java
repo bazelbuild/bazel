@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Fake implementation of {@link GoWrapCcHelperApi}. */
 public class FakeGoWrapCcHelper
@@ -89,8 +89,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActions(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<FileApi> srcs,
-      SkylarkList<TransitiveInfoCollectionApi> deps) {
+      SkylarkList<?> srcs,
+      SkylarkList<?> deps) {
     return null;
   }
 
@@ -98,8 +98,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActionsGopkg(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<FileApi> srcs,
-      SkylarkList<TransitiveInfoCollectionApi> deps) {
+      SkylarkList<?> srcs,
+      SkylarkList<?> deps) {
     return null;
   }
 
@@ -138,8 +138,8 @@ public class FakeGoWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-      SkylarkList<String> targetCopts) {
+      SkylarkList<?> depCcCompilationContexts,
+      SkylarkList<?> targetCopts) {
     return null;
   }
 
@@ -162,10 +162,10 @@ public class FakeGoWrapCcHelper
       CcCompilationContextApi wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileApi swigSource,
-      SkylarkList<String> subParameters,
+      SkylarkList<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<FileApi> outputFiles,
+      SkylarkList<?> outputFiles,
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,

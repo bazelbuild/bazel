@@ -339,8 +339,7 @@ public class CompilationSupport {
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
-            .addFrameworkIncludeDirs(
-                frameworkHeaderSearchPathFragments(objcProvider, ruleContext, buildConfiguration))
+            .addFrameworkIncludeDirs(frameworkHeaderSearchPathFragments(objcProvider))
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
@@ -350,7 +349,8 @@ public class CompilationSupport {
             .setPurpose(purpose)
             .addQuoteIncludeDirs(
                 ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
-            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
+            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
+            .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     if (pchHdr != null) {
       result.addNonModuleMapHeader(pchHdr);
@@ -543,7 +543,8 @@ public class CompilationSupport {
         extraInputs,
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
-        buildConfiguration);
+        buildConfiguration,
+        attributes.enableModules());
   }
 
   private FeatureConfiguration getFeatureConfiguration(
@@ -575,7 +576,7 @@ public class CompilationSupport {
         && !getCustomModuleMap(ruleContext).isPresent()) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     }
-    if (!CompilationAttributes.Builder.fromRuleContext(ruleContext).build().enableModules()) {
+    if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
@@ -702,8 +703,7 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework header search path fragments. */
-  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
@@ -712,21 +712,18 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework header search paths. */
-  static ImmutableList<String> frameworkHeaderSearchPaths(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<String> frameworkHeaderSearchPaths(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
         .addAll(
             Iterables.transform(
-                frameworkHeaderSearchPathFragments(provider, ruleContext, buildConfiguration),
-                PathFragment::getSafePathString))
+                frameworkHeaderSearchPathFragments(provider), PathFragment::getSafePathString))
         .build();
   }
 
   /** Returns a list of framework library search paths. */
-  static ImmutableList<String> frameworkLibrarySearchPaths(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
@@ -1070,8 +1067,7 @@ public class CompilationSupport {
             .setCompilationArtifacts(compilationArtifacts)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setConfiguration(buildConfiguration)
-            .setFrameworkSearchPath(
-                frameworkHeaderSearchPaths(objcProvider, ruleContext, buildConfiguration));
+            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider));
 
     Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> compilationInfo;
 
@@ -1210,8 +1206,7 @@ public class CompilationSupport {
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setFrameworkNames(frameworkNames(objcProvider))
-            .setFrameworkSearchPath(
-                frameworkLibrarySearchPaths(objcProvider, ruleContext, buildConfiguration))
+            .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
             .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
             .setAttributeLinkopts(attributes.linkopts())
@@ -1393,8 +1388,7 @@ public class CompilationSupport {
             .setObjcProvider(objcProvider)
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setFrameworkSearchPath(
-                frameworkHeaderSearchPaths(objcProvider, ruleContext, buildConfiguration))
+            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider))
             .setFullyLinkArchive(outputArchive)
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();

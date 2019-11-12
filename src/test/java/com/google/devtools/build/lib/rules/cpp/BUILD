@@ -22,9 +22,7 @@ java_test(
         ],
     ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
-        "//tools/build_defs/cc:action_names.bzl",
-        "//tools/cpp:cc_toolchain_config_lib.bzl",
-        "//tools/cpp:lib_cc_configure",
+        "@rules_cc//cc:srcs",
     ],
     shard_count = 5,
     tags = ["rules"],

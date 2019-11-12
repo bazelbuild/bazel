@@ -174,11 +174,6 @@ java_toolchain(
 )
 
 filegroup(
-    name = "ExperimentalRunner",
-    srcs = ["java_tools/ExperimentalRunner_deploy.jar"],
-)
-
-filegroup(
     name = "GenClass",
     srcs = ["java_tools/GenClass_deploy.jar"],
 )

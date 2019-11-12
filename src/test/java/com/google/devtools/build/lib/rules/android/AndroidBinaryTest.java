@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -247,6 +249,125 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "shard1.jar.dex.zip");
     Iterable<Artifact> shardInputs = getGeneratingAction(jarShard).getInputs();
     assertThat(getFirstArtifactEndingWith(shardInputs, ".txt")).isNull();
+  }
+
+  @Test
+  public void testCcInfoDeps() throws Exception {
+    scratch.file(
+        "java/a/cc_info.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = cc_toolchain,",
+        "    requested_features = ctx.features,",
+        "    unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  library_to_link = cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = cc_toolchain, ",
+        "    static_library=ctx.file.static_library)",
+        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
+        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  return [CcInfo(linking_context=linking_context)]",
+        "cc_info = rule(",
+        "  implementation=_impl,",
+        "  fragments = [\"cpp\"],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    '_cc_toolchain': attr.label(default=Label('//java/a:alias'))",
+        "  },",
+        ");");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:cc_info.bzl', 'cc_info')",
+        "cc_toolchain_alias(name='alias')",
+        "android_binary(",
+        "    name = 'a',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'native',",
+        "    deps = [':cc_info'],",
+        ")",
+        "cc_info(",
+        "    name = 'cc_info',",
+        "    user_link_flags = ['-first_flag', '-second_flag'],",
+        "    static_library = 'cc_info.a',",
+        ")");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+
+    Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
+    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+
+    assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
+
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
+  }
+
+  @Test
+  public void testCcInfoDepsViaAndroidLibrary() throws Exception {
+    scratch.file(
+        "java/a/cc_info.bzl",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "    ctx = ctx,",
+        "    cc_toolchain = cc_toolchain,",
+        "    requested_features = ctx.features,",
+        "    unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  library_to_link = cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = cc_toolchain, ",
+        "    static_library=ctx.file.static_library)",
+        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
+        "    user_link_flags=ctx.attr.user_link_flags)",
+        "  return [CcInfo(linking_context=linking_context)]",
+        "cc_info = rule(",
+        "  implementation=_impl,",
+        "  fragments = [\"cpp\"],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    '_cc_toolchain': attr.label(default=Label('//java/a:alias'))",
+        "  },",
+        ");");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:cc_info.bzl', 'cc_info')",
+        "cc_toolchain_alias(name='alias')",
+        "android_binary(",
+        "    name = 'a',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'native',",
+        "    deps = [':liba'],",
+        ")",
+        "android_library(",
+        "    name = 'liba',",
+        "    srcs = ['a.java'],",
+        "    deps = [':cc_info'],",
+        ")",
+        "cc_info(",
+        "    name = 'cc_info',",
+        "    user_link_flags = ['-first_flag', '-second_flag'],",
+        "    static_library = 'cc_info.a',",
+        ")");
+
+    ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+
+    Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
+    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+
+    assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
+
+    Iterable<Artifact> linkInputs = action.getInputs();
+    assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
   }
 
   @Test
@@ -1047,6 +1168,42 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void resourceNameCollapse_featureAndProguardSpecsPresent_optimizedApkIsInputToApkBuilder()
+      throws Exception {
+    useConfiguration("--features=resource_name_obfuscation");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1,",
+        "               proguard_specs = ['proguard-spec.pro'],)");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    SpawnAction shrinkerAction =
+        getGeneratingSpawnAction(
+            getFirstArtifactEndingWith(artifacts, "resource_optimization.cfg"));
+    assertThat(shrinkerAction.getMnemonic()).isEqualTo("ResourceShrinker");
+    SpawnAction optimizeAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_optimized.ap_"));
+    assertThat(optimizeAction.getMnemonic()).isEqualTo("Aapt2Optimize");
+
+    List<String> processingArgs = optimizeAction.getArguments();
+    assertThat(processingArgs).contains("--collapse-resource-names");
+    assertThat(flagValue("--resources-config-path", processingArgs))
+        .endsWith("resource_optimization.cfg");
+
+    // Verify that the optimized APK is an input to build the unsigned APK.
+    SpawnAction apkAction =
+        getGeneratingSpawnAction(getFirstArtifactEndingWith(artifacts, "hello_unsigned.apk"));
+    assertThat(apkAction.getMnemonic()).isEqualTo("ApkBuilder");
+    assertThat(hasInput(apkAction, "hello_optimized.ap_")).isTrue();
+  }
+
+  @Test
   public void resourceNameCollapse_flagPresentProguardSpecsAbsent_optimizeArtifactsAbsent()
       throws Exception {
     useConfiguration("--experimental_android_resource_name_obfuscation");
@@ -1097,7 +1254,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceShrinkingAction() throws Exception {
+  public void testResourceShrinkingAction_legacyAapt1() throws Exception {
     useConfiguration("--android_aapt=aapt");
 
     scratch.file(
@@ -1147,8 +1304,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .isEqualTo(flagValue("--manifestOutput", processingArgs));
     assertThat(flagValue("--resourceConfigs", shrinkingArgs))
         .isEqualTo(flagValue("--resourceConfigs", processingArgs));
-
-    assertThat(shrinkingArgs).doesNotContain("--keptResourcesOutput");
 
     List<String> packageArgs =
         getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
@@ -5124,6 +5279,43 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(resourceApks).hasSize(1);
     assertThat(resourceApks.get(0).getExecPathString())
         .endsWith("java/com/app/application_resources/injected_resource.ap_");
+  }
+
+  @Test
+  public void testAndroidSkylarkApiNativeLibs() throws Exception {
+    scratch.file(
+        "java/a/fetch_native_libs.bzl",
+        "def _impl(ctx):",
+        "  libs = ctx.attr.android_binary.android.native_libs",
+        "  return [DefaultInfo(files = libs.values()[0])]",
+        "fetch_native_libs = rule(implementation = _impl,",
+        "    attrs = {",
+        "        'android_binary': attr.label(),",
+        "    },",
+        ")");
+    scratch.file(
+        "java/a/BUILD",
+        "load('//java/a:fetch_native_libs.bzl', 'fetch_native_libs')",
+        "android_binary(",
+        "    name = 'app',",
+        "    srcs=['Main.java'],",
+        "    manifest='AndroidManifest.xml',",
+        "    deps=[':cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'cc',",
+        "    srcs = ['cc.cc'],",
+        ")",
+        "fetch_native_libs(",
+        "    name = 'clibs',",
+        "    android_binary = 'app',",
+        ")");
+    ConfiguredTarget clibs = getConfiguredTarget("//java/a:clibs");
+
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                clibs.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("libapp.so");
   }
 
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would

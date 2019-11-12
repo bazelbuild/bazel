@@ -51,8 +51,6 @@ public interface ConstraintCollectionApi<
         @Param(
             name = "constraint",
             type = ConstraintSettingInfoApi.class,
-            defaultValue = "None",
-            noneable = true,
             named = true,
             doc = "The constraint setting to fetch the value for.")
       },
@@ -67,8 +65,6 @@ public interface ConstraintCollectionApi<
         @Param(
             name = "constraint",
             type = ConstraintSettingInfoApi.class,
-            defaultValue = "None",
-            noneable = true,
             named = true,
             doc = "The constraint setting to check.")
       },

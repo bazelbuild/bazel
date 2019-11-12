@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import javax.annotation.Nullable;
 
 /**
@@ -30,7 +31,7 @@ import javax.annotation.Nullable;
     name = "java_annotation_processing",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Information about jars that are a result of annotation processing for a Java rule.")
-public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> {
+public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends SkylarkValue {
 
   @SkylarkCallable(
     name = "enabled",

@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has a parameter with is neither named nor
  * positional.
  */
-public class ParamNeitherNamedNorPositional {
+public class ParamNeitherNamedNorPositional implements SkylarkValue {
 
   @SkylarkCallable(
       name = "param_neither_named_nor_positional",

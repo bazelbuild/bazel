@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import java.util.Objects;
 
 /**
  * A ConfiguredTarget for an InputFile.
@@ -49,7 +50,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
       NestedSet<PackageGroupContents> visibility,
       SourceArtifact artifact,
       NestedSet<TargetLicense> licenses) {
-    super(label, null, visibility, artifact, null);
+    super(label, null, visibility, artifact, null, null, null);
     this.artifact = artifact;
     this.licenses = licenses;
   }
@@ -63,7 +64,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
 
   private static NestedSet<TargetLicense> makeLicenses(InputFile inputFile) {
     License license = inputFile.getLicense();
-    return license == License.NO_LICENSE
+    return Objects.equals(license, License.NO_LICENSE)
         ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
         : NestedSetBuilder.create(
             Order.LINK_ORDER, new TargetLicense(inputFile.getLabel(), license));

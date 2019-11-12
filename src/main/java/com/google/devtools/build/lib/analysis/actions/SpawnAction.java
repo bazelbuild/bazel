@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -64,11 +65,13 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -241,6 +244,20 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @Override
+  public SkylarkList<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+    ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
+    ImmutableSet<Artifact> directoryInputs =
+        Streams.stream(getInputs())
+            .filter(artifact -> artifact.isDirectory())
+            .collect(ImmutableSet.toImmutableSet());
+
+    for (CommandLineAndParamFileInfo commandLine : commandLines.getCommandLines()) {
+      result.add(Args.forRegisteredAction(commandLine, directoryInputs));
+    }
+    return SkylarkList.createImmutable(result.build());
+  }
+
+  @Override
   public SkylarkList<String> getSkylarkArgv() throws EvalException {
     try {
       return SkylarkList.createImmutable(getArguments());
@@ -292,7 +309,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException {}
+      throws IOException, ExecException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(
@@ -363,8 +380,16 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   @VisibleForTesting
   public final Spawn getSpawn() throws CommandLineExpansionException {
+    return getSpawn(getInputs());
+  }
+
+  final Spawn getSpawn(Iterable<Artifact> inputs) throws CommandLineExpansionException {
     return new ActionSpawn(
-        commandLines.allArguments(), ImmutableMap.of(), ImmutableList.of(), ImmutableMap.of());
+        commandLines.allArguments(),
+        ImmutableMap.of(),
+        inputs,
+        ImmutableList.of(),
+        ImmutableMap.of());
   }
 
   /**
@@ -389,8 +414,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
         clientEnv,
+        getInputs(),
         expandedCommandLines.getParamFiles(),
         filesetMappings);
+  }
+
+  Spawn getSpawnForExtraAction() throws CommandLineExpansionException {
+    return getSpawn(getInputs());
   }
 
   @Override
@@ -478,7 +508,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   protected SpawnInfo getExtraActionSpawnInfo() throws CommandLineExpansionException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
-    Spawn spawn = getSpawn();
+    Spawn spawn = getSpawnForExtraAction();
     info.addAllArgument(spawn.getArguments());
     for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
       info.addVariable(
@@ -531,6 +561,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private ActionSpawn(
         ImmutableList<String> arguments,
         Map<String, String> clientEnv,
+        Iterable<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
       super(
@@ -540,15 +571,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
           resourceSet);
-      ImmutableList.Builder<ActionInput> inputs = ImmutableList.builder();
+      ImmutableList.Builder<ActionInput> inputsBuilder = ImmutableList.builder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
-      for (Artifact input : getInputs()) {
+      for (Artifact input : inputs) {
         if (!input.isFileset() && !manifests.contains(input)) {
-          inputs.add(input);
+          inputsBuilder.add(input);
         }
       }
-      inputs.addAll(additionalInputs);
-      this.inputs = inputs.build();
+      inputsBuilder.addAll(additionalInputs);
+      this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
       LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.env.size());
       SpawnAction.this.env.resolve(env, clientEnv);

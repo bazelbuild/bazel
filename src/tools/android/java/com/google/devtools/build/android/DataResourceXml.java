@@ -100,6 +100,8 @@ public class DataResourceXml implements DataResource {
           String attributeName =
               attribute.getName().getNamespaceURI().isEmpty()
                   ? attribute.getName().getLocalPart()
+                  // This is intentionally putting the "package" in the wrong place!
+                  // TODO: FullyQualifiedName.Factory#create has a overload which accepts "package".
                   : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
           FullyQualifiedName fqn =
               fqnFactory.create(VirtualType.RESOURCES_ATTRIBUTE, attribute.getName().toString());

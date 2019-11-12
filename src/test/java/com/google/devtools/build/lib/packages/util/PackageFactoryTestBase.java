@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -113,6 +114,7 @@ public abstract class PackageFactoryTestBase {
         new GlobCache(
             pkg.getFilename().asPath().getParentDirectory(),
             pkg.getPackageIdentifier(),
+            ImmutableSet.of(),
             PackageFactoryApparatus.createEmptyLocator(),
             null,
             TestUtils.getPool(),

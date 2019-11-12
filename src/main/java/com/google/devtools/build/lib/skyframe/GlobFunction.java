@@ -56,9 +56,23 @@ public final class GlobFunction implements SkyFunction {
       throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
+    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    PathFragment globSubdir = glob.getSubdir();
+    PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
+
+    for (PathFragment blacklistedPrefix : blacklistedPackagePrefixes.getPatterns()) {
+      if (dirPathFragment.startsWith(blacklistedPrefix)) {
+        return GlobValue.EMPTY;
+      }
+    }
+
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
-    PathFragment globSubdir = glob.getSubdir();
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
       PackageLookupValue globSubdirPkgLookupValue =
           (PackageLookupValue)
@@ -99,7 +113,7 @@ public final class GlobFunction implements SkyFunction {
 
     boolean globMatchesBareFile = patternTail == null;
 
-    PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
+
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (alwaysUseDirListing || containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.

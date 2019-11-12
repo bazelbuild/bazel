@@ -37,7 +37,8 @@ public abstract class AbstractUnfilteredTTVDTCVisitor<T> extends AbstractSkyKeyP
         uniquifier,
         callback,
         env.getVisitBatchSizeForParallelVisitation(),
-        processResultsBatchSize);
+        processResultsBatchSize,
+        env.getVisitTaskStatusCallback());
     this.env = env;
   }
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for dict expressions. */
@@ -40,13 +39,6 @@ public final class DictExpression extends Expression {
     }
 
     @Override
-    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-      key.prettyPrint(buffer);
-      buffer.append(": ");
-      value.prettyPrint(buffer);
-    }
-
-    @Override
     public void accept(NodeVisitor visitor) {
       visitor.visit(this);
     }
@@ -56,18 +48,6 @@ public final class DictExpression extends Expression {
 
   DictExpression(List<Entry> entries) {
     this.entries = ImmutableList.copyOf(entries);
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append("{");
-    String sep = "";
-    for (Entry e : entries) {
-      buffer.append(sep);
-      e.prettyPrint(buffer);
-      sep = ", ";
-    }
-    buffer.append("}");
   }
 
   @Override

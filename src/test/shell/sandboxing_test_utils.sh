@@ -15,16 +15,17 @@
 # limitations under the License.
 #
 
-function check_supported_platform {
-  if [ "${PLATFORM-}" = "darwin" ]; then
-    echo "Test will skip: sandbox is not yet supported on Darwin."
-    return 1
-  fi
-}
-
 function check_sandbox_allowed {
-  $linux_sandbox -- /bin/true || {
-    echo "Sandboxing disabled or not supported on this system, skipping..."
-    return 1
-  }
+  case "$(uname -s)" in
+    Linux)
+      if ! $linux_sandbox -- /bin/true; then
+        echo "Skipping test: Sandboxing disabled or not supported" 2>&1
+        return 1
+      fi
+      ;;
+
+    *)
+      return 0
+      ;;
+  esac
 }

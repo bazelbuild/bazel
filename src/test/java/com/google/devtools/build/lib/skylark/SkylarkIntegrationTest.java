@@ -1664,54 +1664,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymbolPropagateThroughImports() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_transitive_loads=false");
-    scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
-
-    scratch.file(
-        "test/skylark/extension2.bzl",
-        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')");
-
-    scratch.file(
-        "test/skylark/extension1.bzl",
-        "load('//test/skylark:extension2.bzl', 'custom_rule_impl')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension1.bzl', 'custom_rule')",
-        "custom_rule(name = 'cr')");
-
-    getConfiguredTarget("//test/skylark:cr");
-  }
-
-  @Test
-  public void testSymbolDoNotPropagateThroughImports() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_transitive_loads=true");
-    scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
-
-    scratch.file(
-        "test/skylark/extension2.bzl",
-        "load('//test/skylark:implementation.bzl', 'custom_rule_impl')");
-
-    scratch.file(
-        "test/skylark/extension1.bzl",
-        "load('//test/skylark:extension2.bzl', 'custom_rule_impl')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension1.bzl', 'custom_rule')",
-        "custom_rule(name = 'cr')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:cr");
-    assertContainsEvent("does not contain symbol 'custom_rule_impl'");
-  }
-
-  @Test
   public void testLoadSymbolTypo() throws Exception {
     scratch.file("test/skylark/ext1.bzl", "myvariable = 2");
 
@@ -2062,7 +2014,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2085,7 +2037,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2108,7 +2060,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().toList().get(0);
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
     assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
@@ -2159,7 +2111,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         new AnalysisFailure(
             Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
 
-    assertThat(info.getCauses().toList())
+    assertThat(info.getCauses().getSet(AnalysisFailure.class).toList())
         .comparingElementsUsing(correspondence)
         .containsExactly(expectedOne, expectedTwo);
   }
@@ -3240,19 +3192,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testHashFrozenList() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=false");
-    scratch.file("test/extension.bzl", "y = []");
-
-    scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'y')", "{y: 1}", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
-  }
-
-  @Test
   public void testHashFrozenListForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
     scratch.file("test/extension.bzl", "y = []");
 
     scratch.file(
@@ -3265,7 +3205,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testHashFrozenDeepMutableForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_hashing_frozen_mutables=true");
     scratch.file("test/extension.bzl", "y = {}");
 
     scratch.file(

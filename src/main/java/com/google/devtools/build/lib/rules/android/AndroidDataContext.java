@@ -54,12 +54,17 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private static final String OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES =
       "android_resources_strict_deps";
 
+  // Feature which would enable AAPT2's resource name obfuscation optimization for android_binary
+  // rules with resource shrinking and ProGuard/AppReduce enabled.
+  private static final String FEATURE_RESOURCE_NAME_OBFUSCATION = "resource_name_obfuscation";
+
   private final RuleContext ruleContext;
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
   private final boolean compatibleForResourcePathShortening;
   private final boolean compatibleForResourceNameObfuscation;
+  private final boolean compatibleForResourceShrinking;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -80,6 +85,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         AndroidSdkProvider.fromRuleContext(ruleContext),
         lacksAllowlistExemptions(ruleContext, "allow_raw_access_to_resource_paths", true),
         lacksAllowlistExemptions(ruleContext, "allow_resource_name_obfuscation_opt_out", true),
+        lacksAllowlistExemptions(ruleContext, "allow_resource_shrinking_opt_out", true),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_dictionary", false),
         lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_mapping", false),
         lacksAllowlistExemptions(ruleContext, "allow_resource_conflicts", false),
@@ -100,6 +106,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       AndroidSdkProvider sdk,
       boolean compatibleForResourcePathShortening,
       boolean compatibleForResourceNameObfuscation,
+      boolean compatibleForResourceShrinking,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -110,6 +117,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.sdk = sdk;
     this.compatibleForResourcePathShortening = compatibleForResourcePathShortening;
     this.compatibleForResourceNameObfuscation = compatibleForResourceNameObfuscation;
+    this.compatibleForResourceShrinking = compatibleForResourceShrinking;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -196,6 +204,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return compatibleForResourceNameObfuscation;
   }
 
+  public boolean compatibleForResourceShrinking() {
+    return compatibleForResourceShrinking;
+  }
+
   public boolean throwOnProguardApplyDictionary() {
     return throwOnProguardApplyDictionary;
   }
@@ -240,7 +252,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
     }
 
-    return state == TriState.YES;
+    return state == TriState.YES && compatibleForResourceShrinking;
   }
 
   boolean useResourcePathShortening() {
@@ -255,10 +267,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   boolean useResourceNameObfuscation(boolean hasProguardSpecs) {
     // Use resource name obfuscation iff:
-    //   1) --experimental_android_resource_name_obfuscation
+    //   1) --experimental_android_resource_name_obfuscation or feature enabled for rule's package
     //   2) resource shrinking is on (implying proguard specs are present)
     //   3) Not on allowlist exempting from compatibleForResourceNameObfuscation
-    return getAndroidConfig().useAndroidResourceNameObfuscation()
+    return (getAndroidConfig().useAndroidResourceNameObfuscation()
+            || ruleContext.getFeatures().contains(FEATURE_RESOURCE_NAME_OBFUSCATION))
         && useResourceShrinking(hasProguardSpecs)
         && compatibleForResourceNameObfuscation;
   }

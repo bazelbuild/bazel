@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -64,11 +65,11 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
   @GuardedBy("lock")
   final Map<Path, ListenableFuture<Void>> downloadsInProgress = new HashMap<>();
 
-  private final AbstractRemoteActionCache remoteCache;
+  private final RemoteCache remoteCache;
   private final Path execRoot;
   private final Context ctx;
 
-  RemoteActionInputFetcher(AbstractRemoteActionCache remoteCache, Path execRoot, Context ctx) {
+  RemoteActionInputFetcher(RemoteCache remoteCache, Path execRoot, Context ctx) {
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
     this.execRoot = Preconditions.checkNotNull(execRoot);
     this.ctx = Preconditions.checkNotNull(ctx);

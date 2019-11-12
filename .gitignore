@@ -21,3 +21,6 @@
 /.sass-cache
 # Bazelisk version file
 .bazelversion
+# User-specific .bazelrc
+user.bazelrc
+

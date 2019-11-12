@@ -37,7 +37,10 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,6 +51,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -84,7 +88,11 @@ public class SkylarkRepositoryContextTest {
       ruleClassBuilder.addOrOverrideAttribute(attr);
     }
     ruleClassBuilder.setWorkspaceOnly();
-    ruleClassBuilder.setConfiguredTargetFunction(new BuiltinFunction("test") {});
+    ruleClassBuilder.setConfiguredTargetFunction(
+        new BuiltinFunction("test", FunctionSignature.ANY) {
+          public void invoke(
+              List<Object> args, Map<String, Object> kwargs, StarlarkThread thread) {}
+        });
     return ruleClassBuilder.build();
   }
 
@@ -97,13 +105,14 @@ public class SkylarkRepositoryContextTest {
         Package.newExternalPackageBuilder(
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
-            "runfiles");
+            "runfiles",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     ParserInput input = ParserInput.fromLines("test()");
     FuncallExpression ast = (FuncallExpression) Expression.parse(input);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
+            packageBuilder, buildRuleClass(attributes), null, kwargs, ast.getLocation());
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(environment.getListener()).thenReturn(listener);

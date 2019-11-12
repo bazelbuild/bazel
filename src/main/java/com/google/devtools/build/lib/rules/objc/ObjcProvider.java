@@ -695,12 +695,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
-    NestedSetBuilder<LibraryToLink> libraryToLinkListBuilder = NestedSetBuilder.linkOrder();
-    for (LibraryToLink libraryToLink : get(CC_LIBRARY)) {
-      libraryToLinkListBuilder.add(libraryToLink);
-    }
     CcLinkingContext ccLinkingContext =
-        CcLinkingContext.builder().addLibraries(libraryToLinkListBuilder.build()).build();
+        CcLinkingContext.builder().addLibraries(get(CC_LIBRARY).toList()).build();
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 
@@ -882,9 +878,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     addTransitiveAndFilter(objcProviderBuilder, key, notContainedIn(avoidPathsSet));
   }
 
-  @SuppressWarnings("unchecked")
-  private <T> void addTransitiveAndAvoid(ObjcProvider.Builder objcProviderBuilder, Key<T> key,
-      Iterable<ObjcProvider> avoidProviders) {
+  private <T> void addTransitiveAndAvoid(
+      ObjcProvider.Builder objcProviderBuilder, Key<T> key, Iterable<ObjcProvider> avoidProviders) {
     HashSet<T> avoidItemsSet = new HashSet<T>();
     for (ObjcProvider avoidProvider : avoidProviders) {
       avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
@@ -1030,7 +1025,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      * Add all elements from a single key of the given provider, and propagate them to any
      * (transitive) dependers on this ObjcProvider.
      */
-    public Builder addTransitiveAndPropagate(Key key, ObjcProvider provider) {
+    public Builder addTransitiveAndPropagate(Key<?> key, ObjcProvider provider) {
       if (provider.items.containsKey(key)) {
         uncheckedAddTransitive(key, provider.items.get(key), this.items);
       }
@@ -1177,7 +1172,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       }
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public ObjcProvider build() {
       ImmutableMap.Builder<Key<?>, NestedSet<?>> propagatedBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : items.entrySet()) {

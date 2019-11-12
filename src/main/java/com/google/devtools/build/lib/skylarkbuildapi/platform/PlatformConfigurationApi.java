@@ -19,17 +19,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
 
-/**
- * The platform configuration.
- */
+/** The platform configuration. */
 @SkylarkModule(
     name = "platform",
     doc = "The platform configuration.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public interface PlatformConfigurationApi {
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+public interface PlatformConfigurationApi extends SkylarkValue {
 
   @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
   Label getHostPlatform();

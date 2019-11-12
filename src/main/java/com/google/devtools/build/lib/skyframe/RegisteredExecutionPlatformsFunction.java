@@ -52,7 +52,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
 
     BuildConfigurationValue buildConfigurationValue =
         (BuildConfigurationValue)

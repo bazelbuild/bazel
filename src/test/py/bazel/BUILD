@@ -1,7 +1,7 @@
-package(default_visibility = ["//visibility:private"])
-
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//tools/python:private/defs.bzl", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "srcs",
@@ -217,6 +217,12 @@ py_test(
     name = "genrule_test",
     size = "medium",
     srcs = ["genrule_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "bazel_workspace_test",
+    srcs = ["bazel_workspace_test.py"],
     deps = [":test_base"],
 )
 

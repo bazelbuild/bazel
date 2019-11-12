@@ -44,7 +44,7 @@ public class StarlarkThreadDebuggingTest {
     FuncallExpression ast = new FuncallExpression(Identifier.of("test"), ImmutableList.of());
     ast.setLocation(location);
     thread.enterScope(
-        new BaseFunction(functionName) {},
+        new BaseFunction(functionName, FunctionSignature.ANY) {},
         LexicalFrame.create(thread.mutability()),
         ast,
         thread.getGlobals());

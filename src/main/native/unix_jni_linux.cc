@@ -22,6 +22,8 @@
 
 #include <string>
 
+namespace blaze_jni {
+
 std::string ErrorMessage(int error_number) {
   char buf[1024] = "";
 
@@ -101,3 +103,10 @@ int portable_pop_disable_sleep() {
   // Currently not supported.
   return -1;
 }
+
+int portable_suspend_count() {
+  // Currently not implemented.
+  return 0;
+}
+
+}  // namespace blaze_jni

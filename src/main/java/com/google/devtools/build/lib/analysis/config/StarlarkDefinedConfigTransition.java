@@ -204,6 +204,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      */
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Override
+    @SuppressWarnings("rawtypes")
     public ImmutableList<Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper)
         throws EvalException, InterruptedException {
@@ -214,8 +215,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         throw new EvalException(impl.getLocation(), e.getMessage());
       }
 
-      if (result instanceof SkylarkDict<?, ?>) {
-        // If we're recieving an empty dictionary, it's an error. Even if a
+      if (result instanceof SkylarkDict) {
+        // If we're receiving an empty dictionary, it's an error. Even if a
         // transition function sometimes evaluates to a no-op, it needs to return the passed in
         // settings. Return early for now since better error reporting will happen in
         // {@link FunctionTransitionUtil#validateFunctionOutputsMatchesDeclaredOutputs}
@@ -225,14 +226,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
         // keys on cpu value - we should be able to key on the keys returned here.
         try {
+          @SuppressWarnings("rawtypes")
           Map<String, SkylarkDict> dictOfDict =
               ((SkylarkDict<?, ?>) result)
                   .getContents(
                       String.class, SkylarkDict.class, "dictionary of options dictionaries");
           ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
-          for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) {
+          for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) { // rawtypes error
             Map<String, Object> dict =
-                entry.getValue().getContents(String.class, Object.class, "an option dictionary");
+                ((SkylarkDict<?, ?>) entry.getValue())
+                    .getContents(String.class, Object.class, "an option dictionary");
             builder.add(dict);
           }
           return builder.build();
@@ -246,7 +249,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
         }
-      } else if (result instanceof SkylarkList<?>) {
+      } else if (result instanceof SkylarkList) {
         ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
         try {
           for (SkylarkDict<?, ?> toOptions :

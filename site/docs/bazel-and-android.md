@@ -42,5 +42,5 @@ Android Studio and IntelliJ.
 
 ## Further reading
 
-*  Integrating with dependencies from Google Maven and Maven Central with [rules_jvm_external](https://github.com/bazebuild/rules_jvm_external).
+*  Integrating with dependencies from Google Maven and Maven Central with [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external).
 *  Learn [How Android Builds Work in Bazel](https://blog.bazel.build/2018/02/14/how-android-builds-work-in-bazel.html).

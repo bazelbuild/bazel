@@ -38,11 +38,9 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     this.event = event;
   }
 
-  /**
-   * Creates a new WorkspaceRuleEvent for an execution event.
-   */
+  /** Creates a new WorkspaceRuleEvent for an execution event. */
   public static WorkspaceRuleEvent newExecuteEvent(
-      Iterable<Object> args,
+      Iterable<?> args, // <String> or <SkylarkPath> expected
       Integer timeout,
       Map<String, String> commonEnvironment,
       Map<String, String> customEnvironment,

@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -128,7 +126,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference(UnixGlob.DEFAULT_SYSCALLS),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
@@ -148,9 +146,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider,
             analysisMock
                 .getPackageFactoryBuilderForTesting(directories)
-                .setEnvironmentExtensions(
-                    ImmutableList.<EnvironmentExtension>of(
-                        new PackageFactory.EmptyEnvironmentExtension()))
                 .build(ruleClassProvider, fileSystem),
             directories,
             /*skylarkImportLookupFunctionForInlining=*/ null));

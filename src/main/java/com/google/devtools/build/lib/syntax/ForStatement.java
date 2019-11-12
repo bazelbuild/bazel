@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for a for loop statement. */
@@ -45,17 +44,6 @@ public final class ForStatement extends Statement {
 
   public ImmutableList<Statement> getBlock() {
     return block;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append("for ");
-    lhs.prettyPrint(buffer);
-    buffer.append(" in ");
-    collection.prettyPrint(buffer);
-    buffer.append(":\n");
-    printSuite(buffer, block, indentLevel);
   }
 
   @Override

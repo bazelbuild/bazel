@@ -262,20 +262,22 @@ public final class BuildType {
         if (!(x instanceof String)) {
           throw new ConversionException(Type.STRING, x, what);
         }
+        // This String here is about to be parsed into a Label. We do not use STRING.convert since
+        // there is absolutely no motivation to intern the String; the Label we create will be
+        // storing a reference to different string (a substring in fact).
+        String str = (String) x;
         // TODO(b/110101445): check if context is ever actually null
         if (context == null) {
           return Label.parseAbsolute(
-              (String) x, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
+              str, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
           // TODO(b/110308446): remove instances of context being a Label
         } else if (context instanceof Label) {
-          return ((Label) context)
-              .getRelativeWithRemapping(STRING.convert(x, what, context), ImmutableMap.of());
+          return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
         } else if (context instanceof LabelConversionContext) {
           LabelConversionContext labelConversionContext = (LabelConversionContext) context;
           return labelConversionContext
               .getLabel()
-              .getRelativeWithRemapping(
-                  STRING.convert(x, what, context), labelConversionContext.getRepositoryMapping());
+              .getRelativeWithRemapping(str, labelConversionContext.getRepositoryMapping());
         } else {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }

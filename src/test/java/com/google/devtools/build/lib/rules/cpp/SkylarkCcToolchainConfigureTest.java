@@ -29,23 +29,23 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
   @Test
   public void testSplitEscaped() throws Exception {
     newTest()
-        .testStatement("split_escaped('a:b:c', ':')", MutableList.of(thread, "a", "b", "c"))
-        .testStatement("split_escaped('a%:b', ':')", MutableList.of(thread, "a:b"))
-        .testStatement("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testStatement("split_escaped('a:::b', ':')", MutableList.of(thread, "a", "", "", "b"))
-        .testStatement("split_escaped('a:b%:c', ':')", MutableList.of(thread, "a", "b:c"))
-        .testStatement("split_escaped('a%%:b:c', ':')", MutableList.of(thread, "a%", "b", "c"))
-        .testStatement("split_escaped(':a', ':')", MutableList.of(thread, "", "a"))
-        .testStatement("split_escaped('a:', ':')", MutableList.of(thread, "a", ""))
-        .testStatement("split_escaped('::a::', ':')", MutableList.of(thread, "", "", "a", "", ""))
-        .testStatement("split_escaped('%%%:a%%%%:b', ':')", MutableList.of(thread, "%:a%%", "b"))
-        .testStatement("split_escaped('', ':')", MutableList.of(thread))
-        .testStatement("split_escaped('%', ':')", MutableList.of(thread, "%"))
-        .testStatement("split_escaped('%%', ':')", MutableList.of(thread, "%"))
-        .testStatement("split_escaped('%:', ':')", MutableList.of(thread, ":"))
-        .testStatement("split_escaped(':', ':')", MutableList.of(thread, "", ""))
-        .testStatement("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testStatement("split_escaped('a%:', ':')", MutableList.of(thread, "a:"));
+        .testExpression("split_escaped('a:b:c', ':')", MutableList.of(thread, "a", "b", "c"))
+        .testExpression("split_escaped('a%:b', ':')", MutableList.of(thread, "a:b"))
+        .testExpression("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
+        .testExpression("split_escaped('a:::b', ':')", MutableList.of(thread, "a", "", "", "b"))
+        .testExpression("split_escaped('a:b%:c', ':')", MutableList.of(thread, "a", "b:c"))
+        .testExpression("split_escaped('a%%:b:c', ':')", MutableList.of(thread, "a%", "b", "c"))
+        .testExpression("split_escaped(':a', ':')", MutableList.of(thread, "", "a"))
+        .testExpression("split_escaped('a:', ':')", MutableList.of(thread, "a", ""))
+        .testExpression("split_escaped('::a::', ':')", MutableList.of(thread, "", "", "a", "", ""))
+        .testExpression("split_escaped('%%%:a%%%%:b', ':')", MutableList.of(thread, "%:a%%", "b"))
+        .testExpression("split_escaped('', ':')", MutableList.of(thread))
+        .testExpression("split_escaped('%', ':')", MutableList.of(thread, "%"))
+        .testExpression("split_escaped('%%', ':')", MutableList.of(thread, "%"))
+        .testExpression("split_escaped('%:', ':')", MutableList.of(thread, ":"))
+        .testExpression("split_escaped(':', ':')", MutableList.of(thread, "", ""))
+        .testExpression("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
+        .testExpression("split_escaped('a%:', ':')", MutableList.of(thread, "a:"));
   }
 
   private ModalTestCase newTest(String... skylarkOptions) throws IOException {
@@ -56,6 +56,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .setUp("def Label(arg):\n  return 42")
         .setUp(
             ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"));
+                TestConstants.RULES_CC_REPOSITORY_EXECROOT
+                    + "cc/private/toolchain/lib_cc_configure.bzl"));
   }
 }

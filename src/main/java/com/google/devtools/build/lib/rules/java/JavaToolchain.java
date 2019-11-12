@@ -110,6 +110,11 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             .addAll(jvmOpts)
             .addAll(getJvmOpts(ruleContext, locations, "javabuilder_jvm_opts"))
             .build();
+    ImmutableList<String> turbineJvmOpts =
+        ImmutableList.<String>builder()
+            .addAll(jvmOpts)
+            .addAll(getJvmOpts(ruleContext, locations, "turbine_jvm_opts"))
+            .build();
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
@@ -125,6 +130,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javacopts,
             jvmOpts,
             javabuilderJvmOpts,
+            turbineJvmOpts,
             javacSupportsWorkers,
             bootclasspath,
             extclasspath,

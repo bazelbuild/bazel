@@ -410,7 +410,7 @@ public abstract class FunctionSignature {
     return of(0, 0, numMandatory, false, false, names);
   }
 
-  /** Invalid signature from Parser or from SkylarkSignature annotations */
+  /** Invalid signature from Parser or from SkylarkCallable annotation. */
   static class SignatureException extends Exception {
     private final Parameter parameter;
 
@@ -429,4 +429,8 @@ public abstract class FunctionSignature {
   /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =
       FunctionSignature.of(0, 0, 0, false, true, "kwargs");
+
+  /** A ready-made signature that allows any arguments. */
+  public static final FunctionSignature ANY =
+      FunctionSignature.of(0, 0, 0, true, true, "args", "kwargs");
 }

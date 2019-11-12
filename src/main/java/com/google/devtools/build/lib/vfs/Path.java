@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -28,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -56,8 +56,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @AutoCodec
-public class Path
-    implements Comparable<Path>, Serializable, SkylarkPrintable, FileType.HasFileType {
+public class Path implements Comparable<Path>, Serializable, FileType.HasFileType {
   private static FileSystem fileSystemForSerialization;
 
   /**
@@ -339,16 +338,6 @@ public class Path
       }
     }
     return OS.compare(this.path, o.path);
-  }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.append(path);
-  }
-
-  @Override
-  public void str(SkylarkPrinter printer) {
-    repr(printer);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -856,6 +845,16 @@ public class Path
    */
   public InputStream getInputStream() throws IOException {
     return fileSystem.getInputStream(this);
+  }
+
+  /**
+   * Opens the file denoted by this path, following symbolic links, for reading, and returns a file
+   * channel for it.
+   *
+   * @throws IOException if the file was not found or could not be opened for reading
+   */
+  public ReadableByteChannel createReadableByteChannel() throws IOException {
+    return fileSystem.createReadableByteChannel(this);
   }
 
   /**

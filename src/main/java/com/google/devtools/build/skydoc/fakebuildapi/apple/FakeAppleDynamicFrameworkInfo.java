@@ -14,27 +14,24 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-/**
- * Fake implementation of {@link AppleDynamicFrameworkInfoApi}.
- */
-public class FakeAppleDynamicFrameworkInfo
-    implements AppleDynamicFrameworkInfoApi<Object, FileApi> {
+/** Fake implementation of {@link AppleDynamicFrameworkInfoApi}. */
+public class FakeAppleDynamicFrameworkInfo implements AppleDynamicFrameworkInfoApi<FileApi> {
 
   @Override
-  public NestedSet<Object> getDynamicFrameworkDirs() {
+  public SkylarkNestedSet /*<String>*/ getDynamicFrameworkDirs() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getDynamicFrameworkFiles() {
+  public SkylarkNestedSet /*<FileApi>*/ getDynamicFrameworkFiles() {
     return null;
   }
 

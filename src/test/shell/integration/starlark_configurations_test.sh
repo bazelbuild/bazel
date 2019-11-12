@@ -515,8 +515,8 @@ EOF
   TARGET=$(grep "//$pkg:with_rule_class_transition " output)
 
   # Trim to just configuration
-  OUTPUT_CONFIG=${OUTPUT/"//$pkg:with_rule_class_transition.output "}
-  TARGET_CONFIG=${TARGET/"//$pkg:with_rule_class_transition "}
+  OUTPUT_CONFIG=${OUTPUT#* }
+  TARGET_CONFIG=${TARGET#* }
 
   # Confirm same configuration
   assert_equals $OUTPUT_CONFIG $TARGET_CONFIG

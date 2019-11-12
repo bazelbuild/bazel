@@ -59,7 +59,8 @@ public final class SingleJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
-          .setJarExecutable(hostJavabase.javaBinaryExecPath(), singleJar, provider.getJvmOptions())
+          .setJarExecutable(
+              hostJavabase.javaBinaryExecPathFragment(), singleJar, provider.getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       builder.setExecutable(singleJar);

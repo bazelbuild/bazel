@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -192,6 +193,7 @@ public final class RuleContext extends TargetContext
   private final RuleErrorConsumer reporter;
   @Nullable private final ResolvedToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
+  private final ImmutableSet<String> requiredConfigFragments;
 
   private ActionOwner actionOwner;
   private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
@@ -210,7 +212,8 @@ public final class RuleContext extends TargetContext
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ResolvedToolchainContext toolchainContext,
-      ConstraintSemantics constraintSemantics) {
+      ConstraintSemantics constraintSemantics,
+      ImmutableSet<String> requiredConfigFragments) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -242,6 +245,7 @@ public final class RuleContext extends TargetContext
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
+    this.requiredConfigFragments = requiredConfigFragments;
   }
 
   private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
@@ -1219,6 +1223,10 @@ public final class RuleContext extends TargetContext
     return constraintSemantics;
   }
 
+  public ImmutableSet<String> getRequiredConfigFragments() {
+    return requiredConfigFragments;
+  }
+
   public Map<String, String> getTargetExecProperties() {
     if (isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
       return attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT);
@@ -1525,22 +1533,33 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * @return true if {@code rule} is visible from {@code prerequisite}.
+   * Returns true if {@code label} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by
-   * {@link ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link
+   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
    */
-  public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
+  public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
     for (PackageGroupContents specification :
         prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
-      if (specification.containsPackage(rule.getLabel().getPackageIdentifier())) {
+      if (specification.containsPackage(label.getPackageIdentifier())) {
         return true;
       }
     }
 
     return false;
+  }
+
+  /**
+   * Returns true if {@code rule} is visible from {@code prerequisite}.
+   *
+   * <p>This only computes the logic as implemented by the visibility system. The final decision
+   * whether a dependency is allowed is made by {@link
+   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   */
+  public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
+    return isVisible(rule.getLabel(), prerequisite);
   }
 
   /**
@@ -1585,6 +1604,7 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Aspect> aspects;
     private ResolvedToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
+    private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
     @VisibleForTesting
     public Builder(
@@ -1636,7 +1656,8 @@ public final class RuleContext extends TargetContext
           actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
           toolchainContext,
-          constraintSemantics);
+          constraintSemantics,
+          requiredConfigFragments);
     }
 
     private void validateAttributes(AttributeMap attributes) {
@@ -1700,6 +1721,11 @@ public final class RuleContext extends TargetContext
 
     public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
+      return this;
+    }
+
+    public Builder setRequiredConfigFragments(ImmutableSet<String> requiredConfigFragments) {
+      this.requiredConfigFragments = requiredConfigFragments;
       return this;
     }
 
@@ -1927,6 +1953,14 @@ public final class RuleContext extends TargetContext
 
     public Rule getRule() {
       return target.getAssociatedRule();
+    }
+
+    /**
+     * Expose the Starlark semantics that governs the building of this rule (and the rest of the
+     * build)
+     */
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+      return env.getSkylarkSemantics();
     }
 
     /**

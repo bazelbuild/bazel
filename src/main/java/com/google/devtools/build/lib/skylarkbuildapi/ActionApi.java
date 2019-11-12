@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.io.IOException;
 
 /** Interface for actions in Skylark. */
@@ -72,6 +73,22 @@ public interface ActionApi extends SkylarkValue {
     allowReturnNones = true
   )
   public SkylarkList<String> getSkylarkArgv() throws EvalException;
+
+  @SkylarkCallable(
+      name = "args",
+      doc =
+          "A list of frozen <a href=\"Args.html\">Args</a> objects containing information about"
+              + " the action arguments. These objects contain accurate argument information,"
+              + " including arguments involving expanded action output directories. However, <a"
+              + " href=\"Args.html\">Args</a> objects are not readable in the analysis phase. For"
+              + " a less accurate account of arguments which is available in the analysis phase,"
+              + " see <a href=\"#argv\">argv</a>."
+              + " <p>Note that some types of actions do not yet support exposure of this field."
+              + " For such action types, this is <code>None</code>.",
+      structField = true,
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
+  public SkylarkList<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   @SkylarkCallable(
     name = "content",

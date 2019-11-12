@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -34,12 +33,12 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testIndex() throws Exception {
-    eval("l = [1, '2', 3]");
+    exec("l = [1, '2', 3]");
     assertThat(eval("l[0]")).isEqualTo(1);
     assertThat(eval("l[1]")).isEqualTo("2");
     assertThat(eval("l[2]")).isEqualTo(3);
 
-    eval("t = (1, '2', 3)");
+    exec("t = (1, '2', 3)");
     assertThat(eval("t[0]")).isEqualTo(1);
     assertThat(eval("t[1]")).isEqualTo("2");
     assertThat(eval("t[2]")).isEqualTo(3);
@@ -56,7 +55,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testNegativeIndices() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(eval("l[0]")).isEqualTo("a");
     assertThat(eval("l[-1]")).isEqualTo("c");
     assertThat(eval("l[-2]")).isEqualTo("b");
@@ -72,7 +71,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSlice() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[0:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[0:1]")).containsExactly("a").inOrder();
@@ -83,14 +82,14 @@ public class SkylarkListTest extends EvaluationTestCase {
     assertThat(listEval("l[2:1]")).isEmpty();
     assertThat(listEval("l[3:0]")).isEmpty();
 
-    eval("t = ('a', 'b', 'c')");
+    exec("t = ('a', 'b', 'c')");
     assertThat(listEval("t[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("t[1:2]")).containsExactly("b").inOrder();
   }
 
   @Test
   public void testSliceDefault() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[:]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[2:]")).containsExactly("c").inOrder();
@@ -98,7 +97,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegative() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[-2:-1]")).containsExactly("b").inOrder();
     assertThat(listEval("l[-2:]")).containsExactly("b", "c").inOrder();
     assertThat(listEval("l[0:-1]")).containsExactly("a", "b").inOrder();
@@ -107,7 +106,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceBounds() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:5]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[-10:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[3:10]")).isEmpty();
@@ -116,7 +115,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceSkip() throws Exception {
-    eval("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[0:6:2]")).containsExactly("a", "c", "e").inOrder();
     assertThat(listEval("l[0:7:2]")).containsExactly("a", "c", "e", "g").inOrder();
     assertThat(listEval("l[0:10:2]")).containsExactly("a", "c", "e", "g").inOrder();
@@ -129,7 +128,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegativeSkip() throws Exception {
-    eval("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[5:2:-1]")).containsExactly("f", "e", "d").inOrder();
     assertThat(listEval("l[5:2:-2]")).containsExactly("f", "d").inOrder();
     assertThat(listEval("l[5:3:-2]")).containsExactly("f").inOrder();
@@ -164,7 +163,8 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testConcatListIndex() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
+    exec(
+        "l = [1, 2] + [3, 4]", //
         "e0 = l[0]",
         "e1 = l[1]",
         "e2 = l[2]",
@@ -177,12 +177,13 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testConcatListHierarchicalIndex() throws Exception {
-    eval("l = [1] + (([2] + [3, 4]) + [5])",
-         "e0 = l[0]",
-         "e1 = l[1]",
-         "e2 = l[2]",
-         "e3 = l[3]",
-         "e4 = l[4]");
+    exec(
+        "l = [1] + (([2] + [3, 4]) + [5])", //
+        "e0 = l[0]",
+        "e1 = l[1]",
+        "e2 = l[2]",
+        "e3 = l[3]",
+        "e4 = l[4]");
     assertThat(lookup("e0")).isEqualTo(1);
     assertThat(lookup("e1")).isEqualTo(2);
     assertThat(lookup("e2")).isEqualTo(3);
@@ -197,34 +198,32 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testAppend() throws Exception {
-    eval("l = [1, 2]");
+    exec("l = [1, 2]");
     assertThat(Runtime.NONE).isEqualTo(eval("l.append([3, 4])"));
     assertThat(eval("[1, 2, [3, 4]]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testExtend() throws Exception {
-    eval("l = [1, 2]");
+    exec("l = [1, 2]");
     assertThat(Runtime.NONE).isEqualTo(eval("l.extend([3, 4])"));
     assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testConcatListToString() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
-         "s = str(l)");
-    assertThat(lookup("s")).isEqualTo("[1, 2, 3, 4]");
+    assertThat(eval("str([1, 2] + [3, 4])")).isEqualTo("[1, 2, 3, 4]");
   }
 
   @Test
   public void testConcatListNotEmpty() throws Exception {
-    eval("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
+    exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(1);
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
-    eval("l = [] + []", "v = 1 if l else 0");
+    exec("l = [] + []", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(0);
   }
 

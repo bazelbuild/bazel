@@ -6,7 +6,8 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 exports_files(["jdeps_modules.golden"])
 
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs cat | %s | awk '{ print $$1; }' > $@"
+# Keep only the first 32 chars (a hex md5sum) and no trailing newline.
+md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | head -c 32 > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(
@@ -36,10 +37,10 @@ filegroup(
     ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
-        "//src/conditions:darwin": md5_cmd % "/sbin/md5",
-        "//src/conditions:darwin_x86_64": md5_cmd % "/sbin/md5",
-        "//src/conditions:freebsd": md5_cmd % "/sbin/md5",
-        "//conditions:default": md5_cmd % "md5sum",
+        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//conditions:default": md5_cmd % ("md5sum", "md5sum"),
     }),
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
@@ -126,7 +127,10 @@ JAVA_TOOLS = [
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
+               "//third_party/py/abseil:srcs",
                "//third_party/py/concurrent:srcs",
+               # TODO(laszlocsomor): delete "//third_party/py/gflags:srcs" after
+               # every script in @bazel_tools was migrated to use Abseil.
                "//third_party/py/gflags:srcs",
                "//third_party/py/six:srcs",
                "//src/conditions:embedded_tools",
@@ -548,7 +552,6 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
     "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
     "//third_party/jarjar:jarjar_command_deploy.jar",
 ] + select({

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -58,13 +60,26 @@ public class CqueryOptions extends CommonQueryOptions {
   public Transitions transitions;
 
   @Option(
-    name = "proto:include_configurations",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "if enabled, proto output will include information about configurations. When disabled,"
-            + "cquery proto output format resembles query output format"
-  )
+      name = "show_config_fragments",
+      defaultValue = "off",
+      converter = IncludeConfigFragmentsEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Shows the configuration fragments required by a rule and its transitive "
+              + "dependencies. This can be useful for evaluating how much a configured target "
+              + "graph can be trimmed.")
+  // This implicitly sets the BuildConfiguration option --include_config_fragments_provider, which
+  //  makes configured targets compute the data cquery needs to enable this feature.
+  public IncludeConfigFragmentsEnum showRequiredConfigFragments;
+
+  @Option(
+      name = "proto:include_configurations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "if enabled, proto output will include information about configurations. When disabled,"
+              + "cquery proto output format resembles query output format.")
   public boolean protoIncludeConfigurations;
 }

@@ -65,8 +65,7 @@ public final class PlaceholderRTxtWriterTest {
                 ResourceType.STRING,
                 "attr1"),
             true,
-            FullyQualifiedName.of(
-                "android", ImmutableList.of(), ResourceType.LAYOUT, "android:attr2"),
+            FullyQualifiedName.of("android", ImmutableList.of(), ResourceType.LAYOUT, "attr2"),
             true));
     rTxtWriter.flush();
 

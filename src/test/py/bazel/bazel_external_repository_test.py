@@ -186,6 +186,37 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertNotIn('hello!', os.linesep.join(stdout))
     self.assertIn('world', os.linesep.join(stdout))
 
+  def testDeletedPackagesOnExternalRepo(self):
+    self.ScratchFile('other_repo/WORKSPACE')
+    self.ScratchFile('other_repo/pkg/BUILD', [
+        'filegroup(',
+        '  name = "file",',
+        '  srcs = ["ignore/file"],',
+        ')',
+    ])
+    self.ScratchFile('other_repo/pkg/ignore/BUILD', [
+        'Bad BUILD file',
+    ])
+    self.ScratchFile('other_repo/pkg/ignore/file')
+    work_dir = self.ScratchDir('my_repo')
+    self.ScratchFile('my_repo/WORKSPACE', [
+        "local_repository(name = 'other_repo', path='../other_repo')",
+    ])
+
+    exit_code, _, stderr = self.RunBazel(
+        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
+                  ''.join(stderr))
+
+    exit_code, _, stderr = self.RunBazel(
+        args=[
+            'build', '@other_repo//pkg:file',
+            '--deleted_packages=@other_repo//pkg/ignore'
+        ],
+        cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
+
 
 if __name__ == '__main__':
   unittest.main()

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.List;
 
 /**
  * A collection of top-level Starlark functions pertaining to configuration.
@@ -104,21 +103,22 @@ public interface ConfigGlobalLibraryApi {
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      List<String> inputs,
-      List<String> outputs,
+      SkylarkList<?> inputs, // <String> expected
+      SkylarkList<?> outputs, // <String> expected
       Location location,
       StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
       name = "analysis_test_transition",
-      // TODO(cparsons): Improve documentation with an example once this feature is
-      // non-experimental.
       doc =
-          "<b>Experimental. This type is experimental and subject to change at any time. Do "
-              + "not depend on it.</b><p> Creates a configuration transition to be applied on "
+          "<p> Creates a configuration transition to be applied on "
               + "an analysis-test rule's dependencies. This transition may only be applied "
-              + "on attributes of rules with <code>analysis_test = True</code>.",
+              + "on attributes of rules with <code>analysis_test = True</code>. Such rules are "
+              + "restricted in capabilities (for example, the size of their dependency tree is "
+              + "limited), so transitions created using this function are limited in potential "
+              + "scope as compared to transitions created using "
+              + "<a href=\"#transition\">transition</a>.",
       parameters = {
         @Param(
             name = "settings",
@@ -135,6 +135,8 @@ public interface ConfigGlobalLibraryApi {
       useLocation = true,
       useStarlarkSemantics = true)
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<String, String> changedSettings, Location location, StarlarkSemantics semantics)
+      SkylarkDict<?, ?> changedSettings, // <String, String> expected
+      Location location,
+      StarlarkSemantics semantics)
       throws EvalException;
 }

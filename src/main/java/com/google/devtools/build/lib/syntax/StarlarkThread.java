@@ -32,13 +32,10 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -62,12 +59,11 @@ import javax.annotation.Nullable;
  * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
  * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
  *
- * <p>One creates an StarlarkThread using the {@link #builder} function, then populates it with
- * {@link #setup} and sometimes {@link #setupOverride}, before to evaluate code in it with {@link
- * StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained by passing a
- * {@link ValidationEnvironment} constructed from the StarlarkThread to {@link StarlarkFile#parse}.
- * When the computation is over, the frozen StarlarkThread can still be queried with {@link
- * #lookup}.
+ * <p>One creates an StarlarkThread using the {@link #builder} function, before evaluating code in
+ * it with {@link StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained
+ * by passing a {@link ValidationEnvironment} constructed from the StarlarkThread to {@link
+ * StarlarkFile#parse}. When the computation is over, the frozen StarlarkThread can still be queried
+ * with {@link #lookup}.
  */
 // TODO(adonovan): further steps for StarlarkThread remediation:
 // Its API should expose the following concepts, and no more:
@@ -97,7 +93,7 @@ import javax.annotation.Nullable;
 //
 // The Frame interface should be hidden from clients and then eliminated.
 // The dynamic lookup mechanism should go away.
-// The GlobalFrame class should be redesigned.
+// The Module class should be redesigned.
 // The concept struggling to get out of it is a Module,
 // which is created before file initialization and
 // populated by execution of the top-level statements in a file;
@@ -131,7 +127,7 @@ public final class StarlarkThread implements Freezable {
    * <p>TODO(laurentlb): "parent" should be named "universe" since it contains only the builtins.
    * The "get" method shouldn't look at the universe (so that "moduleLookup" works as expected)
    */
-  private interface Frame extends Freezable {
+  interface Frame extends Freezable {
     /**
      * Gets a binding from this {@link Frame} or one of its transitive parents.
      *
@@ -150,17 +146,16 @@ public final class StarlarkThread implements Freezable {
      * <p>If the binding has the same name as one in a transitive parent, the parent binding is
      * shadowed (i.e., the parent is unaffected).
      *
-     * @param thread the {@link StarlarkThread} attempting the mutation
      * @param varname the name of the variable to be bound
      * @param value the value to bind to the variable
      */
-    void put(StarlarkThread thread, String varname, Object value) throws MutabilityException;
+    void put(String varname, Object value) throws MutabilityException;
 
     /**
      * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
      * public interface.
      */
-    void remove(StarlarkThread thread, String varname) throws MutabilityException;
+    void remove(String varname) throws MutabilityException;
 
     /**
      * Returns a map containing all bindings of this {@link Frame} and of its transitive parents,
@@ -200,15 +195,14 @@ public final class StarlarkThread implements Freezable {
     }
 
     @Override
-    public void put(StarlarkThread thread, String varname, Object value)
-        throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void put(String varname, Object value) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       throw new IllegalStateException();
     }
 
     @Override
-    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void remove(String varname) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       throw new IllegalStateException();
     }
 
@@ -250,15 +244,14 @@ public final class StarlarkThread implements Freezable {
     }
 
     @Override
-    public void put(StarlarkThread thread, String varname, Object value)
-        throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void put(String varname, Object value) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       bindings.put(varname, value);
     }
 
     @Override
-    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
-      Mutability.checkMutable(this, thread.mutability());
+    public void remove(String varname) throws MutabilityException {
+      Mutability.checkMutable(this, mutability());
       bindings.remove(varname);
     }
 
@@ -270,300 +263,6 @@ public final class StarlarkThread implements Freezable {
     @Override
     public String toString() {
       return String.format("<MutableLexicalFrame%s>", mutability());
-    }
-  }
-
-  /**
-   * A {@link Frame} that represents the top-level definitions of a file. It contains the
-   * module-scope variables and has a reference to the universe.
-   *
-   * <p>Bindings in a {@link GlobalFrame} may shadow those inherited from its universe.
-   *
-   * <p>A {@link GlobalFrame} can also be constructed in a two-phase process. To do this, call the
-   * nullary constructor to create an uninitialized {@link GlobalFrame}, then call {@link
-   * #initialize}. It is illegal to use any other method in-between these two calls, or to call
-   * {@link #initialize} on an already initialized {@link GlobalFrame}.
-   */
-  // TODO(adonovan): move this to toplevel, call it "Module", and remove references to it from
-  // StarlarkThread.
-  public static final class GlobalFrame implements Frame, ValidationEnvironment.Module {
-    /**
-     * Final, except that it may be initialized after instantiation. Null mutability indicates that
-     * this Frame is uninitialized.
-     */
-    @Nullable private Mutability mutability;
-
-    /** Final, except that it may be initialized after instantiation. */
-    @Nullable private GlobalFrame universe;
-
-    // The label (an optional piece of metadata) associated with the file.
-    @Nullable private Object label;
-
-    /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings;
-
-    /**
-     * A list of bindings which *would* exist in this global frame under certain semantic
-     * flags, but do not exist using the semantic flags used in this frame's creation.
-     * This map should not be used for lookups; it should only be used to throw descriptive
-     * error messages when a lookup of a restricted object is attempted.
-     **/
-    private final LinkedHashMap<String, FlagGuardedValue> restrictedBindings;
-
-    /** Set of bindings that are exported (can be loaded from other modules). */
-    private final HashSet<String> exportedBindings;
-
-    /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
-    public GlobalFrame() {
-      this.mutability = null;
-      this.universe = null;
-      this.label = null;
-      this.bindings = new LinkedHashMap<>();
-      this.restrictedBindings = new LinkedHashMap<>();
-      this.exportedBindings = new HashSet<>();
-    }
-
-    GlobalFrame(
-        Mutability mutability,
-        @Nullable GlobalFrame universe,
-        @Nullable Object label,
-        @Nullable Map<String, Object> bindings,
-        @Nullable Map<String, FlagGuardedValue> restrictedBindings) {
-      Preconditions.checkState(universe == null || universe.universe == null);
-      this.mutability = Preconditions.checkNotNull(mutability);
-      this.universe = universe;
-      if (label != null) {
-        this.label = label;
-      } else if (universe != null) {
-        this.label = universe.label;
-      } else {
-        this.label = null;
-      }
-      this.bindings = new LinkedHashMap<>();
-      if (bindings != null) {
-        this.bindings.putAll(bindings);
-      }
-      this.restrictedBindings = new LinkedHashMap<>();
-      if (restrictedBindings != null) {
-        this.restrictedBindings.putAll(restrictedBindings);
-      }
-      if (universe != null) {
-        this.restrictedBindings.putAll(universe.restrictedBindings);
-      }
-      this.exportedBindings = new HashSet<>();
-    }
-
-    public GlobalFrame(Mutability mutability) {
-      this(mutability, null, null, null, null);
-    }
-
-    public GlobalFrame(Mutability mutability, @Nullable GlobalFrame universe) {
-      this(mutability, universe, null, null, null);
-    }
-
-    public GlobalFrame(
-        Mutability mutability, @Nullable GlobalFrame universe, @Nullable Object label) {
-      this(mutability, universe, label, null, null);
-    }
-
-    /** Constructs a global frame for the given builtin bindings. */
-    public static GlobalFrame createForBuiltins(Map<String, Object> bindings) {
-      Mutability mutability = Mutability.create("<builtins>").freeze();
-      return new GlobalFrame(mutability, null, null, bindings, null);
-    }
-
-    /**
-     * Constructs a global frame based on the given parent frame, filtering out flag-restricted
-     * global objects.
-     */
-    private static GlobalFrame filterOutRestrictedBindings(
-        Mutability mutability, GlobalFrame parent, StarlarkSemantics semantics) {
-      if (parent == null) {
-        return new GlobalFrame(mutability);
-      }
-      Map<String, Object> filteredBindings = new LinkedHashMap<>();
-      Map<String, FlagGuardedValue> restrictedBindings = new LinkedHashMap<>();
-
-      for (Entry<String, Object> binding : parent.getTransitiveBindings().entrySet()) {
-        if (binding.getValue() instanceof FlagGuardedValue) {
-          FlagGuardedValue val = (FlagGuardedValue) binding.getValue();
-          if (val.isObjectAccessibleUsingSemantics(semantics)) {
-            filteredBindings.put(binding.getKey(), val.getObject(semantics));
-          } else {
-            restrictedBindings.put(binding.getKey(), val);
-          }
-        } else {
-          filteredBindings.put(binding.getKey(), binding.getValue());
-        }
-      }
-
-      restrictedBindings.putAll(parent.restrictedBindings);
-
-      return new GlobalFrame(
-          mutability,
-          null /*parent */,
-          parent.label,
-          filteredBindings,
-          restrictedBindings);
-    }
-
-    private void checkInitialized() {
-      Preconditions.checkNotNull(mutability, "Attempted to use Frame before initializing it");
-    }
-
-    public void initialize(
-        Mutability mutability,
-        @Nullable GlobalFrame universe,
-        @Nullable Object label,
-        Map<String, Object> bindings) {
-      Preconditions.checkState(
-          universe == null || universe.universe == null); // no more than 1 universe
-      Preconditions.checkState(
-          this.mutability == null, "Attempted to initialize an already initialized Frame");
-      this.mutability = Preconditions.checkNotNull(mutability);
-      this.universe = universe;
-      if (label != null) {
-        this.label = label;
-      } else if (universe != null) {
-        this.label = universe.label;
-      } else {
-        this.label = null;
-      }
-      this.bindings.putAll(bindings);
-    }
-
-    /**
-     * Returns a new {@link GlobalFrame} with the same fields, except that {@link #label} is set to
-     * the given value. The label associated with each function (frame) on the stack is accessible
-     * using {@link #getLabel}, and is included in the result of {@code str(fn)} where {@code fn} is
-     * a StarlarkFunction.
-     */
-    public GlobalFrame withLabel(Object label) {
-      checkInitialized();
-      return new GlobalFrame(mutability, /*universe*/ null, label, bindings,
-          /*restrictedBindings*/ null);
-    }
-
-    /** Returns the {@link Mutability} of this {@link GlobalFrame}. */
-    @Override
-    public Mutability mutability() {
-      checkInitialized();
-      return mutability;
-    }
-
-    /**
-     * Returns the parent {@link GlobalFrame}, if it exists.
-     *
-     * <p>TODO(laurentlb): Should be called getUniverse.
-     */
-    @Nullable
-    public GlobalFrame getParent() {
-      checkInitialized();
-      return universe;
-    }
-
-    /**
-     * Returns the label (an optional piece of metadata) associated with this {@code GlobalFrame}.
-     * (For Bazel LOADING threads, this is the build label of its BUILD or .bzl file.)
-     */
-    @Nullable
-    public Object getLabel() {
-      checkInitialized();
-      return label;
-    }
-
-    /**
-     * Returns a map of direct bindings of this {@link GlobalFrame}, ignoring universe.
-     *
-     * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
-     * and updates).
-     *
-     * <p>For efficiency an unmodifiable view is returned. Callers should assume that the view is
-     * invalidated by any subsequent modification to the {@link GlobalFrame}'s bindings.
-     */
-    public Map<String, Object> getBindings() {
-      checkInitialized();
-      return Collections.unmodifiableMap(bindings);
-    }
-
-    /**
-     * Returns a map of bindings that are exported (i.e. symbols declared using `=` and
-     * `def`, but not `load`).
-     */
-    public Map<String, Object> getExportedBindings() {
-      checkInitialized();
-      ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
-      for (Map.Entry<String, Object> entry : bindings.entrySet()) {
-        if (exportedBindings.contains(entry.getKey())) {
-          result.put(entry);
-        }
-      }
-      return result.build();
-    }
-
-    @Override
-    public Set<String> getNames() {
-      return getTransitiveBindings().keySet();
-    }
-
-    @Override
-    public String getUndeclaredNameError(StarlarkSemantics semantics, String name) {
-      FlagGuardedValue v = restrictedBindings.get(name);
-      return v == null ? null : v.getErrorFromAttemptingAccess(semantics, name);
-    }
-
-    @Override
-    public Map<String, Object> getTransitiveBindings() {
-      checkInitialized();
-      // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
-      LinkedHashMap<String, Object> collectedBindings = new LinkedHashMap<>();
-      if (universe != null) {
-        collectedBindings.putAll(universe.getTransitiveBindings());
-      }
-      collectedBindings.putAll(getBindings());
-      return collectedBindings;
-    }
-
-    public Object getDirectBindings(String varname) {
-      checkInitialized();
-      return bindings.get(varname);
-    }
-
-    @Override
-    public Object get(String varname) {
-      checkInitialized();
-      Object val = bindings.get(varname);
-      if (val != null) {
-        return val;
-      }
-      if (universe != null) {
-        return universe.get(varname);
-      }
-      return null;
-    }
-
-    @Override
-    public void put(StarlarkThread thread, String varname, Object value)
-        throws MutabilityException {
-      checkInitialized();
-      Mutability.checkMutable(this, thread.mutability());
-      bindings.put(varname, value);
-    }
-
-    @Override
-    public void remove(StarlarkThread thread, String varname) throws MutabilityException {
-      checkInitialized();
-      Mutability.checkMutable(this, thread.mutability());
-      bindings.remove(varname);
-    }
-
-    @Override
-    public String toString() {
-      if (mutability == null) {
-        return "<Uninitialized GlobalFrame>";
-      } else {
-        return String.format("<GlobalFrame%s>", mutability());
-      }
     }
   }
 
@@ -607,14 +306,14 @@ public final class StarlarkThread implements Freezable {
     final Frame lexicalFrame;
 
     /** The global Frame of the caller. */
-    final GlobalFrame globalFrame;
+    final Module globalFrame;
 
     Continuation(
         @Nullable Continuation continuation,
         BaseFunction function,
         @Nullable FuncallExpression caller,
         Frame lexicalFrame,
-        GlobalFrame globalFrame) {
+        Module globalFrame) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
@@ -654,10 +353,7 @@ public final class StarlarkThread implements Freezable {
       // Legacy behavior: all symbols from the global Frame are exported (including symbols
       // introduced by load).
       this(
-          ImmutableMap.copyOf(
-              thread.getSemantics().incompatibleNoTransitiveLoads()
-                  ? thread.globalFrame.getExportedBindings()
-                  : thread.globalFrame.getBindings()),
+          ImmutableMap.copyOf(thread.globalFrame.getExportedBindings()),
           thread.getTransitiveContentHashCode());
     }
 
@@ -802,7 +498,7 @@ public final class StarlarkThread implements Freezable {
    * definition if evaluation is currently happening in the body of a function. Thus functions can
    * close over other functions defined in the same file.
    */
-  private GlobalFrame globalFrame;
+  private Module globalFrame;
 
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
@@ -837,10 +533,7 @@ public final class StarlarkThread implements Freezable {
    *     StarlarkThread
    */
   void enterScope(
-      BaseFunction function,
-      Frame lexical,
-      @Nullable FuncallExpression caller,
-      GlobalFrame globals) {
+      BaseFunction function, Frame lexical, @Nullable FuncallExpression caller, Module globals) {
     continuation = new Continuation(continuation, function, caller, lexicalFrame, globalFrame);
     lexicalFrame = lexical;
     globalFrame = globals;
@@ -863,7 +556,7 @@ public final class StarlarkThread implements Freezable {
    *     body of a function.
    */
   boolean isGlobal() {
-    return lexicalFrame instanceof GlobalFrame;
+    return lexicalFrame instanceof Module;
   }
 
   @Override
@@ -872,7 +565,7 @@ public final class StarlarkThread implements Freezable {
   }
 
   /** Returns the global variables for the StarlarkThread (not including dynamic bindings). */
-  public GlobalFrame getGlobals() {
+  public Module getGlobals() {
     return globalFrame;
   }
 
@@ -931,7 +624,7 @@ public final class StarlarkThread implements Freezable {
    * @param fileContentHashCode a hash for the source file being evaluated, if any
    */
   private StarlarkThread(
-      GlobalFrame globalFrame,
+      Module globalFrame,
       StarlarkSemantics semantics,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
@@ -955,7 +648,7 @@ public final class StarlarkThread implements Freezable {
    */
   public static class Builder {
     private final Mutability mutability;
-    @Nullable private GlobalFrame parent;
+    @Nullable private Module parent;
     @Nullable private StarlarkSemantics semantics;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
@@ -970,7 +663,7 @@ public final class StarlarkThread implements Freezable {
      *
      * <p>TODO(laurentlb): this should be called setUniverse.
      */
-    public Builder setGlobals(GlobalFrame parent) {
+    public Builder setGlobals(Module parent) {
       Preconditions.checkState(this.parent == null);
       this.parent = parent;
       return this;
@@ -1018,7 +711,7 @@ public final class StarlarkThread implements Freezable {
 
           // Flatten the frame, ensure all builtins are in the same frame.
           parent =
-              new GlobalFrame(
+              new Module(
                   parent.mutability(),
                   null /* parent */,
                   parent.label,
@@ -1032,9 +725,9 @@ public final class StarlarkThread implements Freezable {
       // have been available during its creation. Thus, create a new universe scope for this
       // environment which is equivalent in every way except that restricted bindings are
       // filtered out.
-      parent = GlobalFrame.filterOutRestrictedBindings(mutability, parent, semantics);
+      parent = Module.filterOutRestrictedBindings(mutability, parent, semantics);
 
-      GlobalFrame globalFrame = new GlobalFrame(mutability, parent);
+      Module globalFrame = new Module(mutability, parent);
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
@@ -1050,7 +743,7 @@ public final class StarlarkThread implements Freezable {
   /** Remove variable from local bindings. */
   void removeLocalBinding(String varname) {
     try {
-      lexicalFrame.remove(this, varname);
+      lexicalFrame.remove(varname);
     } catch (MutabilityException e) {
       throw new AssertionError(e);
     }
@@ -1092,10 +785,11 @@ public final class StarlarkThread implements Freezable {
    * @param value the value to bind to the variable
    * @return this StarlarkThread, in fluid style
    */
-  public StarlarkThread update(String varname, Object value) throws EvalException {
+  // TODO(adonovan): eliminate sole external call from EvaluationTestCase and make private.
+  public StarlarkThread update(String varname, Object value) {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
-      lexicalFrame.put(this, varname, value);
+      lexicalFrame.put(varname, value);
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
       // end users should never be able to mutate a frozen StarlarkThread, and a MutabilityException
@@ -1112,43 +806,12 @@ public final class StarlarkThread implements Freezable {
   void updateInternal(String name, @Nullable Object value) {
     try {
       if (value != null) {
-        lexicalFrame.put(this, name, value);
+        lexicalFrame.put(name, value);
       } else {
-        lexicalFrame.remove(this, name);
+        lexicalFrame.remove(name);
       }
     } catch (MutabilityException ex) {
       throw new IllegalStateException(ex);
-    }
-  }
-
-  /**
-   * Initializes a binding in this StarlarkThread. It is an error if the variable is already bound.
-   * This is not for end-users, and will throw an AssertionError in case of conflict.
-   *
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this StarlarkThread, in fluid style
-   */
-  public StarlarkThread setup(String varname, Object value) {
-    if (lookup(varname) != null) {
-      throw new AssertionError(String.format("variable '%s' already bound", varname));
-    }
-    return setupOverride(varname, value);
-  }
-
-  /**
-   * Initializes a binding in this environment. Overrides any previous binding. This is not for
-   * end-users, and will throw an AssertionError in case of conflict.
-   *
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this StarlarkThread, in fluid style
-   */
-  public StarlarkThread setupOverride(String varname, Object value) {
-    try {
-      return update(varname, value);
-    } catch (EvalException ee) {
-      throw new AssertionError(ee);
     }
   }
 
@@ -1380,11 +1043,7 @@ public final class StarlarkThread implements Freezable {
 
     Object value = bindings.get(nameInLoadedFile);
 
-    try {
-      update(symbol.getName(), value);
-    } catch (EvalException e) {
-      throw new LoadFailedException(importString);
-    }
+    update(symbol.getName(), value);
   }
 
   /**
@@ -1413,28 +1072,6 @@ public final class StarlarkThread implements Freezable {
     return transitiveHashCode;
   }
 
-  /** A read-only {@link StarlarkThread.GlobalFrame} with False/True/None constants only. */
-  @AutoCodec static final GlobalFrame CONSTANTS_ONLY = createConstantsGlobals();
-
-  /**
-   * A read-only {@link StarlarkThread.GlobalFrame} with initial globals as defined in
-   * MethodLibrary.
-   */
-  @AutoCodec public static final GlobalFrame DEFAULT_GLOBALS = createDefaultGlobals();
-
-  /** To be removed when all call-sites are updated. */
-  public static final GlobalFrame SKYLARK = DEFAULT_GLOBALS;
-
-  private static StarlarkThread.GlobalFrame createConstantsGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    Runtime.addConstantsToBuilder(builder);
-    return GlobalFrame.createForBuiltins(builder.build());
-  }
-
-  private static StarlarkThread.GlobalFrame createDefaultGlobals() {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    Runtime.addConstantsToBuilder(builder);
-    MethodLibrary.addBindingsToBuilder(builder);
-    return GlobalFrame.createForBuiltins(builder.build());
-  }
+  // legacy for copybara; to be inlined and deleted in Nov 2019.
+  public static final Module SKYLARK = Module.createForBuiltins(Starlark.UNIVERSE);
 }

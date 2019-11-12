@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +40,7 @@ import javax.annotation.Nullable;
             + "provides this struct, accessible as a <code>android</code> field on a "
             + "<a href=\"Target.html\">target</a>.",
     documented = false)
-public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
+public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkValue {
 
   @SkylarkCallable(
       name = "apk",
@@ -84,7 +86,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
               + "to a set of the native library files, or the empty dictionary if there are no "
               + "native libraries.",
       documented = false)
-  ImmutableMap<String, NestedSet<FileT>> getNativeLibs();
+  ImmutableMap<String, SkylarkNestedSet> getNativeLibs();
 
   @SkylarkCallable(
       name = "resource_apk",
@@ -152,7 +154,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> {
               + "it, you will be broken when it is removed."
               + "Provides access to information about Android rules.",
       documented = false)
-  interface IdlInfoApi<FileT extends FileApi> {
+  interface IdlInfoApi<FileT extends FileApi> extends SkylarkValue {
     @SkylarkCallable(
         name = "import_root",
         structField = true,

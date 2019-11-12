@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -65,9 +66,14 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics spawnMetrics = SpawnMetrics.EMPTY;
+  private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY;
+
+  private SpawnMetrics totalSpawnMetrics = SpawnMetrics.EMPTY;
+  private Duration longestRunningTotalDuration = Duration.ZERO;
+  private boolean phaseChange;
+
   /** Name of the runner used for the spawn. */
-  @Nullable private String spawnRunnerName;
+  @Nullable private String longestPhaseSpawnRunnerName;
   /** An unique identifier of the component for one build execution */
   private final int id;
 
@@ -79,6 +85,7 @@ public class CriticalPathComponent {
     this.action = Preconditions.checkNotNull(action);
     this.primaryOutput = action.getPrimaryOutput();
     this.startNanos = startNanos;
+    this.phaseChange = false;
   }
 
   /**
@@ -98,12 +105,24 @@ public class CriticalPathComponent {
    * action will not necessarily use the correct getElapsedTimeNanos(). But we do not want to block
    * action execution because of this. So in certain conditions we might see another path as the
    * critical path.
+   *
+   * <p>In addition, in the case of sequential spawns, Aggregate the last phase's duration values
+   * with the total spawn metrics. To make sure not to add the last phase's duration multiple times,
+   * only add if there is duration and reset the phase metrics once it has been aggregated.
    */
   public synchronized void finishActionExecution(long startNanos, long finishNanos) {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
       this.startNanos = startNanos;
       this.finishNanos = finishNanos;
       isRunning = false;
+    }
+
+    // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
+    if (!this.phaseMaxMetrics.totalTime().isZero()) {
+      this.totalSpawnMetrics =
+          SpawnMetrics.aggregateMetrics(
+              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
+      this.phaseMaxMetrics = SpawnMetrics.EMPTY;
     }
   }
 
@@ -146,31 +165,50 @@ public class CriticalPathComponent {
   }
 
   /**
-   * An action can run multiple spawns. Those calls can be sequential or parallel. Because we do not
-   * know in general how to aggregate the data (if it is a sequence of calls we should add, if they
-   * are run in parallel we should keep the maximum), we keep the maximum. This is better than just
-   * keeping the latest one.
+   * An action can run multiple spawns. Those calls can be sequential or parallel. If it is a
+   * sequence of calls we should aggregate the metrics by collecting all the SpawnResults, if they
+   * are run in parallel we should keep the maximum runtime spawn. We will also set the
+   * longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases.
    */
   void addSpawnResult(SpawnResult spawnResult) {
-    if (spawnResult.getMetrics().totalTime().compareTo(spawnMetrics.totalTime()) > 0) {
-      this.spawnMetrics = spawnResult.getMetrics();
-      this.spawnRunnerName = spawnResult.getRunnerName();
+    if (this.phaseChange) {
+      this.totalSpawnMetrics =
+          SpawnMetrics.aggregateMetrics(
+              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
+      this.phaseMaxMetrics = spawnResult.getMetrics();
+      this.phaseChange = false;
+    } else if (spawnResult.getMetrics().totalTime().compareTo(this.phaseMaxMetrics.totalTime())
+        > 0) {
+      this.phaseMaxMetrics = spawnResult.getMetrics();
+    }
+
+    if (spawnResult.getMetrics().totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
+      this.longestPhaseSpawnRunnerName = spawnResult.getRunnerName();
+      this.longestRunningTotalDuration = spawnResult.getMetrics().totalTime();
     }
   }
 
-  /** Returns spawn metrics for the execution of the action. */
-  public SpawnMetrics getSpawnMetrics() {
-    return spawnMetrics;
+  /** Set the phaseChange flag as true so we will aggregate incoming spawnMetrics. */
+  void changePhase() {
+    this.phaseChange = true;
   }
 
   /**
-   * Returns name of the runner used for the finished spawn which took most time (see {@link
+   * Returns total spawn metrics of the maximum (longest running) spawn metrics of all phases for
+   * the execution of the action.
+   */
+  public SpawnMetrics getSpawnMetrics() {
+    return totalSpawnMetrics;
+  }
+
+  /**
+   * Returns name of the maximum runner used for the finished spawn which took most time (see {@link
    * #addSpawnResult(SpawnResult)}), null if no spawns have finished for this action (either there
    * are no spawns or we asked before any have finished).
    */
   @Nullable
-  public String getSpawnRunnerName() {
-    return spawnRunnerName;
+  public String getLongestPhaseSpawnRunnerName() {
+    return longestPhaseSpawnRunnerName;
   }
 
   /**

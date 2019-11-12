@@ -144,37 +144,6 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
-   * Returns true if sandboxfs should be used for this build.
-   *
-   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
-   * is "yes" and binary is not valid.
-   *
-   * @param requested whether sandboxfs use was requested or not
-   * @param binary path of the sandboxfs binary to use, can be absolute or relative path
-   * @return true if sandboxfs can and should be used; false otherwise
-   * @throws IOException if there are problems trying to determine the status of sandboxfs
-   */
-  private boolean shouldUseSandboxfs(TriState requested, PathFragment binary) throws IOException {
-    switch (requested) {
-      case AUTO:
-        return RealSandboxfsProcess.isAvailable(binary);
-
-      case NO:
-        return false;
-
-      case YES:
-        if (!RealSandboxfsProcess.isAvailable(binary)) {
-          throw new IOException(
-              "sandboxfs explicitly requested but \""
-                  + binary
-                  + "\" could not be found or is not valid");
-        }
-        return true;
-    }
-    throw new IllegalStateException("Not reachable");
-  }
-
-  /**
    * Returns true if windows-sandbox should be used for this build.
    *
    * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
@@ -254,12 +223,8 @@ public final class SandboxModule extends BlazeModule {
     firstBuild = false;
 
     PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
-    boolean useSandboxfs;
-    try (SilentCloseable c = Profiler.instance().profile("shouldUseSandboxfs")) {
-      useSandboxfs = shouldUseSandboxfs(options.useSandboxfs, sandboxfsPath);
-    }
     sandboxBase.createDirectoryAndParents();
-    if (useSandboxfs) {
+    if (options.useSandboxfs != TriState.NO) {
       mountPoint.createDirectory();
       Path logFile = sandboxBase.getRelative("sandboxfs.log");
 
@@ -267,7 +232,19 @@ public final class SandboxModule extends BlazeModule {
         if (options.sandboxDebug) {
           env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
         }
-        sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
+        try (SilentCloseable c = Profiler.instance().profile("mountSandboxfs")) {
+          sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
+        } catch (IOException e) {
+          if (options.sandboxDebug) {
+            env.getReporter()
+                .handle(
+                    Event.info(
+                        "sandboxfs failed to mount due to " + e.getMessage() + "; ignoring"));
+          }
+          if (options.useSandboxfs == TriState.YES) {
+            throw e;
+          }
+        }
       }
     }
 

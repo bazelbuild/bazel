@@ -98,7 +98,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (provider == FileProvider.class) {
-      return (P) NO_FILES;
+      return provider.cast(NO_FILES); // can't fail
     } else {
       return super.getProvider(provider);
     }

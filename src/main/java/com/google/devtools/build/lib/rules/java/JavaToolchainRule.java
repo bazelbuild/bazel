@@ -37,8 +37,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
 
   private final Class<C> ruleClass;
 
-  public static <C extends JavaToolchain> JavaToolchainRule create(Class<C> ruleClass) {
-    return new JavaToolchainRule(ruleClass);
+  public static <C extends JavaToolchain> JavaToolchainRule<C> create(Class<C> ruleClass) {
+    return new JavaToolchainRule<C>(ruleClass);
   }
 
   private JavaToolchainRule(Class<C> ruleClass) {
@@ -101,6 +101,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         The list of arguments for the JVM when invoking JavaBuilder.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javabuilder_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(turbine_jvm_opts) -->
+        The list of arguments for the JVM when invoking turbine.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("turbine_jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -18,6 +18,8 @@
 #include <list>
 #include <string>
 
+namespace {
+
 // A structure to pass around the FSEvents info and the list of paths.
 struct JNIEventsDiffAwareness {
   // FSEvents run loop (thread)
@@ -110,6 +112,8 @@ JNIEventsDiffAwareness *GetInfo(JNIEnv *env, jobject fsEventsDiffAwareness) {
   jlong field = env->GetLongField(fsEventsDiffAwareness, fid);
   return reinterpret_cast<JNIEventsDiffAwareness *>(field);
 }
+
+}  // namespace
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_run(

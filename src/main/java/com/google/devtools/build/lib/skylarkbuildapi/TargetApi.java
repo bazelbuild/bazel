@@ -17,12 +17,11 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-/**
- * A node in the build dependency graph, identified by a Label.
- */
+/** A node in the build dependency graph, identified by a Label. */
 @SkylarkModule(name = "target", doc = "", documented = false)
-public interface TargetApi {
+public interface TargetApi extends SkylarkValue {
 
   /**
    * Returns the label of this target.  (e.g. "//foo:bar")

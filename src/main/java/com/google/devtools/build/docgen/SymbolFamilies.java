@@ -31,8 +31,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootst
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
-import com.google.devtools.build.lib.syntax.MethodLibrary;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -71,6 +70,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfoApiProvi
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoModule;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyStarlarkTransitions;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
@@ -104,7 +104,7 @@ public class SymbolFamilies {
           IOException {
     this.nativeRules =
         ImmutableList.copyOf(collectNativeRules(productName, provider, inputDirs, blackList));
-    this.globals = ImmutableMap.copyOf(collectGlobals());
+    this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = ImmutableMap.copyOf(collectBzlGlobals());
     this.types = ImmutableMap.copyOf(collectTypes());
   }
@@ -161,17 +161,6 @@ public class SymbolFamilies {
   }
 
   /*
-   * Collects a mapping between names and Starlark entities that are available both in BZL and
-   * BUILD files.
-   */
-  private Map<String, Object> collectGlobals() {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    MethodLibrary.addBindingsToBuilder(envBuilder);
-    Runtime.addConstantsToBuilder(envBuilder);
-    return envBuilder.build();
-  }
-
-  /*
    * Collects a mapping between names and Starlark entities that are available only in BZL files
    */
   private Map<String, Object> collectBzlGlobals() {
@@ -224,7 +213,10 @@ public class SymbolFamilies {
             new SkylarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =
-        new PyBootstrap(new FakePyInfoProvider(), new FakePyRuntimeInfoProvider());
+        new PyBootstrap(
+            new FakePyInfoProvider(),
+            new FakePyRuntimeInfoProvider(),
+            new FakePyStarlarkTransitions());
     RepositoryBootstrap repositoryBootstrap =
         new RepositoryBootstrap(new FakeRepositoryModule(Lists.newArrayList()));
     TestingBootstrap testingBootstrap =

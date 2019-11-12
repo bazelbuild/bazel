@@ -45,6 +45,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Sequence number to assign a unique subtree to each action within the mount point. */
   private static final AtomicInteger lastId = new AtomicInteger();
 
+  /** Single instance of a path fragment representing a root directory. */
+  private static final PathFragment rootFragment = PathFragment.create("/");
+
   /** The sandboxfs instance to use for this spawn. */
   private final SandboxfsProcess process;
 
@@ -85,10 +88,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   private final Path execRoot;
 
   /**
-   * Path to the working directory of the command, seen as an absolute path that starts at
-   * the sandboxfs's mount point.
+   * Name of the sandbox within the sandboxfs mount point, which is just the basename of the
+   * top-level directory where all execroot paths start.
    */
-  private final PathFragment innerExecRoot;
+  private final String sandboxName;
 
   @Nullable private final Path statisticsPath;
 
@@ -139,8 +142,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     this.sandboxScratchDir = sandboxPath.getRelative("scratch");
 
     int id = lastId.getAndIncrement();
-    this.execRoot = process.getMountPoint().getRelative("" + id);
-    this.innerExecRoot = PathFragment.create("/" + id);
+    this.sandboxName = "" + id;
+    this.execRoot = process.getMountPoint().getRelative(this.sandboxName);
     this.statisticsPath = statisticsPath;
   }
 
@@ -168,8 +171,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    List<Mapping> mappings =
-        createMappings(innerExecRoot, sandboxScratchDir, inputs, mapSymlinkTargets);
+    List<Mapping> mappings = createMappings(sandboxScratchDir, inputs, mapSymlinkTargets);
 
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
@@ -180,7 +182,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }
 
-    process.map(mappings);
+    process.createSandbox(sandboxName, mappings);
   }
 
   @Override
@@ -194,12 +196,12 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   @Override
   public void delete() {
     try {
-      process.unmap(innerExecRoot);
+      process.destroySandbox(sandboxName);
     } catch (IOException e) {
       // We use independent subdirectories for each action, so a failure to unmap one, while
       // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
       // the build, which will cause these to go away anyway.
-      log.warning("Cannot unmap " + innerExecRoot + ": " + e);
+      log.warning("Cannot unmap " + sandboxName + ": " + e);
     }
 
     try {
@@ -271,8 +273,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /**
    * Creates a new set of mappings to sandbox the given inputs.
    *
-   * @param root unique working directory for the command, specified as an absolute path anchored at
-   *     the sandboxfs' mount point
    * @param scratchDir writable used as the target for all writable mappings
    * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
    *     a map of mapped path to target path. The target path may be null, in which case an empty
@@ -282,13 +282,13 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @throws IOException if we fail to resolve symbolic links
    */
   private static List<Mapping> createMappings(
-      PathFragment root, Path scratchDir, SandboxInputs inputs, boolean sandboxfsMapSymlinkTargets)
+      Path scratchDir, SandboxInputs inputs, boolean sandboxfsMapSymlinkTargets)
       throws IOException {
     List<Mapping> mappings = new ArrayList<>();
 
     mappings.add(
         Mapping.builder()
-            .setPath(root)
+            .setPath(rootFragment)
             .setTarget(scratchDir.asFragment())
             .setWritable(true)
             .build());
@@ -324,7 +324,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       }
       mappings.add(
           Mapping.builder()
-              .setPath(root.getRelative(entry.getKey()))
+              .setPath(rootFragment.getRelative(entry.getKey()))
               .setTarget(target)
               .setWritable(false)
               .build());
@@ -335,7 +335,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         if (!inputs.getFiles().containsKey(entry.getKey())) {
           mappings.add(
               Mapping.builder()
-                  .setPath(root.getRelative(entry.getKey()))
+                  .setPath(rootFragment.getRelative(entry.getKey()))
                   .setTarget(entry.getValue().asFragment())
                   .setWritable(false)
                   .build());

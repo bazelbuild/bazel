@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -481,7 +481,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
 
     // Collect local (target, rule) constraints for filtering out execution platforms.
-    ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
+    ImmutableSet<Label> execConstraintLabels =
+        getExecutionPlatformConstraints(
+            rule, configuration.getFragment(PlatformConfiguration.class));
     return (UnloadedToolchainContext)
         env.getValueOrThrow(
             UnloadedToolchainContext.key()
@@ -495,19 +497,22 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Returns the target-specific execution platform constraints, based on the rule definition and
-   * any constraints added by the target.
+   * any constraints added by the target, including those added for the target on the command line.
    */
-  public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+  public static ImmutableSet<Label> getExecutionPlatformConstraints(
+      Rule rule, PlatformConfiguration platformConfiguration) {
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
     execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
-
-    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed()
-        == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+    if (rule.getRuleClassObject()
+        .hasAttr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)) {
       execConstraintLabels.addAll(
           mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
     }
+
+    execConstraintLabels.addAll(
+        platformConfiguration.getAdditionalExecutionConstraintsFor(rule.getLabel()));
 
     return execConstraintLabels.build();
   }
@@ -758,7 +763,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             Iterables.transform(
                 deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
-            env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
+        env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
     Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();

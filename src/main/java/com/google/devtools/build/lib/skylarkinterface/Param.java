@@ -44,7 +44,7 @@ public @interface Param {
    *
    * <p>If the function implementation needs to distinguish the case where the caller does not
    * supply a value for this parameter, you can set the default to the magic string "unbound", which
-   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Runtime#UNBOUND}
+   * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Starlark#UNBOUND}
    * (which can't appear in normal Skylark code).
    */
   String defaultValue() default "";
@@ -106,11 +106,11 @@ public @interface Param {
   /**
    * If this true, {@link #named} should be treated as true.
    *
-   * <p>This indicates this parameter is part of a {@link SkylarkCallable} method which
-   * was migrated from {@link SkylarkSignature}. Due to a pre-migration bug, all parameters were
-   * treated as if {@link #named} was true, even if it was false. To prevent breakages during
-   * migration, the interpreter can continue to treat these parameters as named. This is distinct
-   * from {@link #named}, however, so that a bulk fix/cleanup will be easier later.
+   * <p>This indicates this parameter is part of a {@link SkylarkCallable} method which was migrated
+   * from {@code SkylarkSignature}. Due to a pre-migration bug, all parameters were treated as if
+   * {@link #named} was true, even if it was false. To prevent breakages during migration, the
+   * interpreter can continue to treat these parameters as named. This is distinct from {@link
+   * #named}, however, so that a bulk fix/cleanup will be easier later.
    */
   // TODO(b/77902276): Remove this after a bulk cleanup/fix.
   boolean legacyNamed() default false;

@@ -91,7 +91,9 @@ public final class SpawnActionContextMaps {
    */
   List<SpawnActionContext> getSpawnActionContexts(Spawn spawn, EventHandler reporter) {
     Preconditions.checkNotNull(spawn);
-    if (!spawnStrategyRegexList.isEmpty() && spawn.getResourceOwner() != null) {
+    if (!spawnStrategyRegexList.isEmpty() && spawn.getResourceOwner() != null
+            // Don't override test strategies by --strategy_regexp for backwards compatibility.
+            && !"TestRunner".equals(spawn.getMnemonic())) {
       String description = spawn.getResourceOwner().getProgressMessage();
       if (description != null) {
         for (RegexFilterSpawnActionContext entry : spawnStrategyRegexList) {

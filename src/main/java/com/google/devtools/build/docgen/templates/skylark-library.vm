@@ -17,7 +17,12 @@ ${module.documentation}
   <ul>
   #foreach ($method in $module.methods)
     #if ($method.documented())
-    <li><a href="#${method.name}">${method.name}</a></li>
+    <li>
+      <a href="#${method.name}">${method.name}</a>
+      #if (${method.deprecated})
+      (Deprecated)
+      #end
+    </li>
     #end
   #end
   </ul>

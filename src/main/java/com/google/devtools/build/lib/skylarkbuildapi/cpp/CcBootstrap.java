@@ -32,6 +32,8 @@ public class CcBootstrap implements Bootstrap {
           ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
           ? extends CcCompilationContextApi,
+          ? extends
+              LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
           ? extends CcLinkingContextApi<? extends FileApi>,
           ? extends LibraryToLinkApi<? extends FileApi>,
           ? extends CcToolchainVariablesApi,
@@ -54,6 +56,8 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
               ? extends CcCompilationContextApi,
+              ? extends
+                  LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
               ? extends LibraryToLinkApi<? extends FileApi>,
               ? extends CcToolchainVariablesApi,

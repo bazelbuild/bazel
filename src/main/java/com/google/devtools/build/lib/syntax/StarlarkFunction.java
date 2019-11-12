@@ -27,7 +27,7 @@ public final class StarlarkFunction extends BaseFunction {
   private final ImmutableList<Statement> statements;
 
   // we close over the globals at the time of definition
-  private final StarlarkThread.GlobalFrame definitionGlobals;
+  private final Module definitionGlobals;
 
   // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
   // such things.
@@ -37,7 +37,7 @@ public final class StarlarkFunction extends BaseFunction {
       FunctionSignature signature,
       ImmutableList<Object> defaultValues,
       ImmutableList<Statement> statements,
-      StarlarkThread.GlobalFrame definitionGlobals) {
+      Module definitionGlobals) {
     super(name, signature, defaultValues, location);
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
@@ -47,7 +47,7 @@ public final class StarlarkFunction extends BaseFunction {
     return statements;
   }
 
-  public StarlarkThread.GlobalFrame getDefinitionGlobals() {
+  public Module getDefinitionGlobals() {
     return definitionGlobals;
   }
 
@@ -65,7 +65,7 @@ public final class StarlarkFunction extends BaseFunction {
               getName(), thread.getCurrentFunction().getName()));
     }
 
-    ImmutableList<String> names = signature.getParameterNames();
+    ImmutableList<String> names = getSignature().getParameterNames();
     LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {

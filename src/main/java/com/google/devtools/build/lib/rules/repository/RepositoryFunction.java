@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -417,7 +416,7 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, String ruleKind, String ruleName)
       throws RepositoryFunctionException {
     try {
-      Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
+      Path workspaceFile = repositoryDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME);
       FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
           String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
               + "workspace(name = \"%s\")\n", ruleKind, ruleName));
@@ -581,7 +580,7 @@ public abstract class RepositoryFunction {
       if (isDirectory || repositoryPath.segmentCount() > 1) {
         if (!isDirectory
             && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
-            && repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())) {
+            && WorkspaceFileHelper.endsWithWorkspaceFileName(repositoryPath)) {
           // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
           return;
         }

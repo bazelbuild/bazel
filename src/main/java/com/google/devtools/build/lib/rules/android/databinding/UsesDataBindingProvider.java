@@ -53,9 +53,10 @@ public final class UsesDataBindingProvider extends NativeInfo
     }
 
     @Override
-    public UsesDataBindingProvider createInfo(SkylarkList<Artifact> metadataOutputs)
+    public UsesDataBindingProvider createInfo(SkylarkList<?> metadataOutputs) // <Artifact>
         throws EvalException {
-      return new UsesDataBindingProvider(metadataOutputs.getImmutableList());
+      return new UsesDataBindingProvider(
+          metadataOutputs.getContents(Artifact.class, "metadata_outputs"));
     }
   }
 }

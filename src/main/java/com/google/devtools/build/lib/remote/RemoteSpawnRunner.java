@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -56,8 +57,9 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.DownloadException;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.RemoteCache.DownloadException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -69,9 +71,14 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.rpc.PreconditionFailure;
+import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Context;
 import io.grpc.Status.Code;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -90,7 +97,41 @@ import javax.annotation.Nullable;
 /** A client for the remote execution service. */
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
+
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+
+  private static final String VIOLATION_TYPE_MISSING = "MISSING";
+
+  private static boolean retriableExecErrors(Exception e) {
+    if (e.getCause() instanceof DownloadException) {
+      DownloadException downloadException = (DownloadException) e.getCause();
+      return downloadException.onlyCausedByCacheNotFoundException();
+    }
+    if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
+      return false;
+    }
+    com.google.rpc.Status status = StatusProto.fromThrowable(e);
+    if (status == null || status.getDetailsCount() == 0) {
+      return false;
+    }
+    for (Any details : status.getDetailsList()) {
+      PreconditionFailure f;
+      try {
+        f = details.unpack(PreconditionFailure.class);
+      } catch (InvalidProtocolBufferException protoEx) {
+        return false;
+      }
+      if (f.getViolationsCount() == 0) {
+        return false; // Generally shouldn't happen
+      }
+      for (Violation v : f.getViolationsList()) {
+        if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
+          return false;
+        }
+      }
+    }
+    return true; // if *all* > 0 violations have type MISSING
+  }
 
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
@@ -99,9 +140,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  private final GrpcRemoteCache remoteCache;
+  private final RemoteExecutionCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
-  @Nullable private final RemoteRetrier retrier;
+  private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
@@ -125,9 +166,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      GrpcRemoteCache remoteCache,
+      RemoteExecutionCache remoteCache,
       GrpcRemoteExecutor remoteExecutor,
-      @Nullable RemoteRetrier retrier,
+      ListeningScheduledExecutorService retryService,
       DigestUtil digestUtil,
       Path logDir,
       ImmutableSet<ActionInput> filesToDownload) {
@@ -141,7 +182,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.cmdlineReporter = cmdlineReporter;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.retrier = retrier;
+    this.retrier = createExecuteRetrier(remoteOptions, retryService);
     this.digestUtil = digestUtil;
     this.logDir = logDir;
     this.filesToDownload = Preconditions.checkNotNull(filesToDownload, "filesToDownload");
@@ -191,7 +232,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         // Try to lookup the action in the action cache.
         ActionResult cachedResult;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          cachedResult = acceptCachedResult ? remoteCache.getCachedActionResult(actionKey) : null;
+          cachedResult = acceptCachedResult ? remoteCache.downloadActionResult(actionKey) : null;
         }
         if (cachedResult != null) {
           if (cachedResult.getExitCode() != 0) {
@@ -580,5 +621,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return actionInputs.stream()
         .map((inp) -> execRoot.getRelative(inp.getExecPath()))
         .collect(ImmutableList.toImmutableList());
+  }
+
+  private static RemoteRetrier createExecuteRetrier(
+      RemoteOptions options, ListeningScheduledExecutorService retryService) {
+    return new RemoteRetrier(
+        options.remoteMaxRetryAttempts > 0
+            ? () -> new Retrier.ZeroBackoff(options.remoteMaxRetryAttempts)
+            : () -> Retrier.RETRIES_DISABLED,
+        RemoteSpawnRunner::retriableExecErrors,
+        retryService,
+        Retrier.ALLOW_ALL_CALLS);
   }
 }

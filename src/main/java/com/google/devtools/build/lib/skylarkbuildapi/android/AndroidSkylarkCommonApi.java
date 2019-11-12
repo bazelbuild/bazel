@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
 @SkylarkModule(
@@ -29,7 +29,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
             + "you will be broken when it is removed."
             + "Common utilities and functionality related to Android rules.",
     documented = false)
-public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi> {
+public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "create_device_broker_info",
@@ -54,7 +55,7 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extend
             named = false,
             type = FileApi.class)
       })
-  PathFragment getSourceDirectoryRelativePathFromResource(FileT resource);
+  String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @SkylarkCallable(
       name = "multi_cpu_configuration",

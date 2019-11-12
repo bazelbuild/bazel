@@ -176,11 +176,6 @@ final class RangeList extends SkylarkList<Integer> {
   }
 
   @Override
-  public boolean isTuple() {
-    return false;
-  }
-
-  @Override
   public ImmutableList<Integer> getImmutableList() {
     return ImmutableList.copyOf(contents);
   }

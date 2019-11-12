@@ -365,4 +365,38 @@ public final class SkylarkCallableProcessorTest {
             "Parameter 'two' may be disabled by semantic flag, "
                 + "thus valueWhenDisabled must be set");
   }
+
+  @Test
+  public void testSpecifiedGenericType() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SpecifiedGenericType.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter one has generic type "
+                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,java.lang.String>");
+  }
+
+  @Test
+  public void testInvalidNoneableParameter() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("InvalidNoneableParameter.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected type 'Object' but got type 'java.lang.String' "
+                + "for noneable parameter 'aParameter'.");
+  }
+
+  @Test
+  public void testDoesntImplementSkylarkValue() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DoesntImplementSkylarkValue.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "method x has @SkylarkCallable annotation but enclosing class"
+                + " DoesntImplementSkylarkValue does not implement SkylarkValue nor has"
+                + " @SkylarkGlobalLibrary annotation");
+  }
 }

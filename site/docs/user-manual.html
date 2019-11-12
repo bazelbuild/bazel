@@ -270,7 +270,7 @@ Package path elements may be specified in three formats:
   all binaries and shared libraries, by invoking the linker with the <code>-Wl,--strip-debug</code> option.
   <code class='flag'>--strip=always</code> means always strip debugging information.
   <code class='flag'>--strip=never</code> means never strip debugging information.
-  The default value of <code class='flag'>--strip=sometimes</code> means strip iff the <code class='flag'>--compilation_mode</code>
+  The default value of <code class='flag'>--strip=sometimes</code> means strip if the <code class='flag'>--compilation_mode</code>
   is <code>fastbuild</code>.
 </p>
 <pre>
@@ -2431,7 +2431,10 @@ a user-friendly way.
 <p>
   <code>bazel --version</code>, with no other args, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
-  a Bazel server.
+  a Bazel server or unpacking the server archive.
+</p>
+<p>
+  <code>bazel --version</code> can be run from anywhere - it does not require a workspace directory.
 </p>
 
 <h3 id='mobile-install'>The <code>mobile-install</code> command</h3>

@@ -230,30 +230,30 @@ maybe(
 maybe(
     http_archive,
     name = "remote_java_tools_linux",
-    sha256 = "37acb8380b1dd6c31fd27a19bf3da821c9b02ee93c6163fce36f070a806516b5",
+    sha256 = "12f7940ed0bc4c2e82238951cdf19b4179c7dcc361d16fe40fe4266538fb4ac6",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.0/java_tools_javac11_linux-v6.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.0/java_tools_javac11_linux-v6.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.1/java_tools_javac11_linux-v6.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.1/java_tools_javac11_linux-v6.1.zip",
     ],
 )
 
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
-    sha256 = "384e138ca58842ea563fb7efbe0cb9c5c381bd4de1f6a31f0256823325f81ccc",
+    sha256 = "e2deb2efff684de78787e0bdc7620f9672d13f04a12856d8e7f677369a8e286b",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.0/java_tools_javac11_windows-v6.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.0/java_tools_javac11_windows-v6.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.1/java_tools_javac11_windows-v6.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.1/java_tools_javac11_windows-v6.1.zip",
     ],
 )
 
 maybe(
     http_archive,
     name = "remote_java_tools_darwin",
-    sha256 = "5a9f320c33424262e505151dd5c6903e36678a0f0bbdaae67bcf07f41d8c7cf3",
+    sha256 = "f0c488dac18f18ab1a0d18bbd65288c7a128e90a24d9c16f65bd8243f79483a0",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.0/java_tools_javac11_darwin-v6.0.zip",
-        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.0/java_tools_javac11_darwin-v6.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v6.1/java_tools_javac11_darwin-v6.1.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v6.1/java_tools_javac11_darwin-v6.1.zip",
     ],
 )
 
@@ -261,23 +261,23 @@ maybe(
     http_archive,
     "rules_java",
     sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
     ],
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
 )
 
 # Needed only because of java_tools.
 maybe(
     http_archive,
     "rules_cc",
-    sha256 = "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
+    sha256 = "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
+    strip_prefix = "rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
+        "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
     ],
-    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
 )
 
 # Needed only because of java_tools.

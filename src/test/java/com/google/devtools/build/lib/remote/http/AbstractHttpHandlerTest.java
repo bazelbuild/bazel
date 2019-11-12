@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -29,18 +32,19 @@ import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link AbstractHttpHandlerTest}. */
 @RunWith(JUnit4.class)
 public abstract class AbstractHttpHandlerTest {
 
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  private static final Digest DIGEST = DIGEST_UTIL.computeAsUtf8("foo");
+
   @Test
   public void basicAuthShouldWork() throws Exception {
     URI uri = new URI("http://user:password@does.not.exist/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -53,8 +57,7 @@ public abstract class AbstractHttpHandlerTest {
   public void basicAuthShouldNotEnabled() throws Exception {
     URI uri = new URI("http://does.not.exist/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -66,8 +69,7 @@ public abstract class AbstractHttpHandlerTest {
   public void hostDoesntIncludePortHttp() throws Exception {
     URI uri = new URI("http://does.not.exist/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -79,8 +81,7 @@ public abstract class AbstractHttpHandlerTest {
   public void hostDoesntIncludePortHttps() throws Exception {
     URI uri = new URI("https://does.not.exist/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -92,8 +93,7 @@ public abstract class AbstractHttpHandlerTest {
   public void hostDoesIncludePort() throws Exception {
     URI uri = new URI("http://does.not.exist:8080/foo");
     EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
-    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
-    DownloadCommand cmd = new DownloadCommand(uri, true, "abcdef", new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(uri, true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -107,8 +107,7 @@ public abstract class AbstractHttpHandlerTest {
     EmbeddedChannel ch =
         new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, ImmutableList.of()));
     DownloadCommand cmd =
-        new DownloadCommand(
-            uri, /* casDownload= */ true, /* hash= */ "abcdef", new ByteArrayOutputStream());
+        new DownloadCommand(uri, /* casDownload= */ true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -126,8 +125,7 @@ public abstract class AbstractHttpHandlerTest {
     EmbeddedChannel ch =
         new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, remoteHeaders));
     DownloadCommand cmd =
-        new DownloadCommand(
-            uri, /* casDownload= */ true, /* hash= */ "abcdef", new ByteArrayOutputStream());
+        new DownloadCommand(uri, /* casDownload= */ true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 
@@ -146,8 +144,7 @@ public abstract class AbstractHttpHandlerTest {
     EmbeddedChannel ch =
         new EmbeddedChannel(new HttpDownloadHandler(/* credentials= */ null, remoteHeaders));
     DownloadCommand cmd =
-        new DownloadCommand(
-            uri, /* casDownload= */ true, /* hash= */ "abcdef", new ByteArrayOutputStream());
+        new DownloadCommand(uri, /* casDownload= */ true, DIGEST, new ByteArrayOutputStream());
     ChannelPromise writePromise = ch.newPromise();
     ch.writeOneOutbound(cmd, writePromise);
 

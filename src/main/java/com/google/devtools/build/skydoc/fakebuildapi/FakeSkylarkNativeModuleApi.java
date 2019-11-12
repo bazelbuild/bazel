@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -37,21 +36,21 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
       SkylarkList<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return MutableList.of(thread);
   }
 
   @Override
-  public Object existingRule(String name, FuncallExpression ast, StarlarkThread thread)
+  public Object existingRule(String name, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
   }
 
   @Override
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, StarlarkThread thread) throws EvalException, InterruptedException {
+      Location loc, StarlarkThread thread) throws EvalException, InterruptedException {
     return SkylarkDict.of(thread);
   }
 
@@ -60,7 +59,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
       String name,
       SkylarkList<?> packages,
       SkylarkList<?> includes,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return null;
@@ -68,17 +67,13 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
 
   @Override
   public NoneType exportsFiles(
-      SkylarkList<?> srcs,
-      Object visibility,
-      Object licenses,
-      FuncallExpression ast,
-      StarlarkThread thread)
+      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException {
     return null;
   }
 
   @Override
-  public String packageName(FuncallExpression ast, StarlarkThread thread) throws EvalException {
+  public String packageName(Location loc, StarlarkThread thread) throws EvalException {
     return "";
   }
 

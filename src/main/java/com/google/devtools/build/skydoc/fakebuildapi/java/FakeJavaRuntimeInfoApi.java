@@ -19,27 +19,26 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 final class FakeJavaRuntimeInfoApi implements JavaRuntimeInfoApi {
 
   @Override
-  public PathFragment javaHome() {
+  public String javaHome() {
     return null;
   }
 
   @Override
-  public PathFragment javaBinaryExecPath() {
+  public String javaBinaryExecPath() {
     return null;
   }
 
   @Override
-  public PathFragment javaHomeRunfilesPath() {
+  public String javaHomeRunfilesPath() {
     return null;
   }
 
   @Override
-  public PathFragment javaBinaryRunfilesPath() {
+  public String javaBinaryRunfilesPath() {
     return null;
   }
 

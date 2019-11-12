@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** A class for flow statements (break, continue, and pass) */
 public final class FlowStatement extends Statement {
@@ -27,12 +26,6 @@ public final class FlowStatement extends Statement {
 
   public TokenKind getKind() {
     return kind;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append(kind.toString()).append('\n');
   }
 
   @Override

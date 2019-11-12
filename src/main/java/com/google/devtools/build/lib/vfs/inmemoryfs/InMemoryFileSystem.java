@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.auto.value.AutoValue;
@@ -32,6 +33,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -99,23 +101,6 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     rootInode.addChild(".", rootInode);
     rootInode.addChild("..", rootInode);
     return rootInode;
-  }
-
-  /**
-   * Given a path that's normalized (no ".." or "." segments), except for a possible prefix sequence
-   * of contiguous ".." segments, returns the size of that prefix sequence.
-   *
-   * <p>Example allowed inputs: "/absolute/path", "relative/path", "../../relative/path". Example
-   * disallowed inputs: "/absolute/path/../path2", "relative/../path", "../relative/../p".
-   */
-  private int leadingParentReferences(PathFragment normalizedPath) {
-    int leadingParentReferences = 0;
-    for (int i = 0;
-        i < normalizedPath.segmentCount() && normalizedPath.getSegment(i).equals("..");
-        i++) {
-      leadingParentReferences++;
-    }
-    return leadingParentReferences;
   }
 
   /**
@@ -670,9 +655,11 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     if (isRootDirectory(path)) {
       throw Error.EBUSY.exception(path);
     }
-    if (!exists(path, false)) { return false; }
 
     synchronized (this) {
+      if (!exists(path, /*followSymlinks=*/ false)) {
+        return false;
+      }
       InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
       InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
       if (child.isDirectory() && child.getSize() > 2) {
@@ -709,6 +696,21 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
       }
       Preconditions.checkState(status instanceof FileInfo);
       return ((FileInfo) status).getInputStream();
+    }
+  }
+
+  @Override
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+    synchronized (this) {
+      InMemoryContentInfo status = inodeStat(path, true);
+      if (status.isDirectory()) {
+        throw Error.EISDIR.exception(path);
+      }
+      if (!path.isReadable()) {
+        throw Error.EACCES.exception(path);
+      }
+      Preconditions.checkState(status instanceof FileInfo);
+      return ((FileInfo) status).createReadableByteChannel();
     }
   }
 

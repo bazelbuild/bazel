@@ -18,7 +18,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -39,8 +38,8 @@ import javax.annotation.Nullable;
  * PackageFunction} has already been successfully called and the resulting Package contains an
  * error.
  *
- * <p>This SkyFunction never returns a value, only throws a {@link BuildFileNotFoundException}, and
- * should never return null, since all of its dependencies should already be present.
+ * <p>This SkyFunction always throws a {@link BuildFileContainsErrorsException}. It also should
+ * never request a skyframe restart, since all of its dependencies should already be present.
  */
 public class PackageErrorFunction implements SkyFunction {
   public static Key key(PackageIdentifier packageIdentifier) {

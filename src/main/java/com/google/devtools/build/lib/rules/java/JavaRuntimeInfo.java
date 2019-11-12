@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
+public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
@@ -125,25 +125,37 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
 
   /** The root directory of the Java installation. */
   @Override
-  public PathFragment javaHome() {
+  public String javaHome() {
+    return javaHome.toString();
+  }
+
+  public PathFragment javaHomePathFragment() {
     return javaHome;
   }
 
-  @Override
   /** The execpath of the Java binary. */
-  public PathFragment javaBinaryExecPath() {
+  @Override
+  public String javaBinaryExecPath() {
+    return javaBinaryExecPath.toString();
+  }
+
+  public PathFragment javaBinaryExecPathFragment() {
     return javaBinaryExecPath;
   }
 
   /** The runfiles path of the root directory of the Java installation. */
   @Override
-  public PathFragment javaHomeRunfilesPath() {
-    return javaHomeRunfilesPath;
+  public String javaHomeRunfilesPath() {
+    return javaHomeRunfilesPath.toString();
   }
 
-  @Override
   /** The runfiles path of the Java binary. */
-  public PathFragment javaBinaryRunfilesPath() {
+  @Override
+  public String javaBinaryRunfilesPath() {
+    return javaBinaryRunfilesPath.toString();
+  }
+
+  public PathFragment javaBinaryRunfilesPathFragment() {
     return javaBinaryRunfilesPath;
   }
 

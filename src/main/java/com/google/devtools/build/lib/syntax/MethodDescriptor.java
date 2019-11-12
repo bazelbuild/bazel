@@ -154,9 +154,7 @@ public final class MethodDescriptor {
         return Runtime.NONE;
       } else {
         throw new IllegalStateException(
-            "method invocation returned None: "
-                + getName()
-                + SkylarkList.Tuple.copyOf(Arrays.asList(args)));
+            "method invocation returned None: " + getName() + Tuple.copyOf(Arrays.asList(args)));
       }
     }
     // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
@@ -173,6 +171,10 @@ public final class MethodDescriptor {
   /** @see SkylarkCallable#name() */
   public String getName() {
     return name;
+  }
+
+  Method getMethod() {
+    return method;
   }
 
   /** @see SkylarkCallable#structField() */

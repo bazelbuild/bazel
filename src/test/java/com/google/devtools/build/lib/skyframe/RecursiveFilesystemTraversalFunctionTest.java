@@ -36,7 +36,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -1088,6 +1091,68 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     assertThat(resolvedFile.getMetadata()).isInstanceOf(FileArtifactValue.class);
     assertThat(strictResolvedFile.getMetadata()).isInstanceOf(FileArtifactValue.class);
+  }
+
+  @Test
+  public void testWithDigestFileArtifactValue() throws Exception {
+    // file artifacts will return the same bytes as it was initialized with
+    byte[] expectedBytes = new byte[] {1, 2, 3};
+    FileArtifactValue fav = FileArtifactValue.createForVirtualActionInput(expectedBytes, 10L);
+    HasDigest result = RecursiveFilesystemTraversalFunction.withDigest(fav, null);
+    assertThat(result).isInstanceOf(FileArtifactValue.class);
+    assertThat(result.getDigest()).isEqualTo(expectedBytes);
+
+    // Directories do not have digest but the result will have a fingerprinted digest
+    FileArtifactValue directoryFav = FileArtifactValue.createForDirectoryWithMtime(10L);
+    HasDigest directoryResult = RecursiveFilesystemTraversalFunction.withDigest(directoryFav, null);
+    assertThat(directoryResult).isInstanceOf(HasDigest.ByteStringDigest.class);
+    assertThat(directoryResult.getDigest()).isNotNull();
+  }
+
+  @Test
+  public void testWithDigestFileStateValue() throws Exception {
+    // RegularFileStateValue with actual digest will be transformed with the same digest
+    byte[] expectedBytes = new byte[] {1, 2, 3};
+    RegularFileStateValue withDigest =
+        new RegularFileStateValue(10L, expectedBytes, /* contentsProxy */ null);
+    HasDigest result = RecursiveFilesystemTraversalFunction.withDigest(withDigest, null);
+    assertThat(result).isInstanceOf(FileArtifactValue.class);
+    assertThat(result.getDigest()).isEqualTo(expectedBytes);
+
+    // FileStateValue will be transformed with fingerprinted digest
+    RootedPath rootedPath = rootedPath("bar", "foo");
+    FileStateValue fsv = FileStateValue.create(rootedPath, null);
+    HasDigest fsvResult = RecursiveFilesystemTraversalFunction.withDigest(fsv, null);
+    assertThat(fsvResult).isInstanceOf(HasDigest.ByteStringDigest.class);
+    assertThat(fsvResult.getDigest()).isNotNull();
+  }
+
+  @Test
+  public void testRegularFileStateValueWithoutDigest() throws Exception {
+    Artifact artifact = derivedArtifact("foo/fooy.txt");
+    RootedPath rootedPath = rootedPath(artifact);
+    createFile(rootedPath, "fooy-content");
+    FileStatus status = rootedPath.asPath().stat();
+
+    RegularFileStateValue withoutDigest =
+        new RegularFileStateValue(
+            status.getSize(), /* digest */
+            null, /* contentsProxy */
+            FileContentsProxy.create(status));
+    HasDigest withoutDigestResult =
+        RecursiveFilesystemTraversalFunction.withDigest(withoutDigest, rootedPath.asPath());
+    // withDigest will construct a FileArtifactValue using the Path
+    assertThat(withoutDigestResult).isInstanceOf(FileArtifactValue.class);
+    assertThat(withoutDigestResult.getDigest()).isNotNull();
+  }
+
+  @Test
+  public void testWithDigestByteStringDigest() throws Exception {
+    byte[] expectedBytes = new byte[] {1, 2, 3};
+    HasDigest.ByteStringDigest byteStringDigest = new HasDigest.ByteStringDigest(expectedBytes);
+    HasDigest result = RecursiveFilesystemTraversalFunction.withDigest(byteStringDigest, null);
+    assertThat(result).isInstanceOf(HasDigest.ByteStringDigest.class);
+    assertThat(result.getDigest()).isEqualTo(expectedBytes);
   }
 
   private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<SkyKey> {

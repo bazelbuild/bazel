@@ -45,9 +45,11 @@ import java.lang.annotation.Target;
  * them to define different methods, while annotating {@link SkylarkList} allows them to be
  * identified as a single type for the purpose of type checking, documentation, and error messages.
  *
- * <p>All {@code @SkylarkModule}-annotated types should implement {@link SkylarkValue}. Conversely,
- * all non-abstract implementations of {@link SkylarkValue} should have or inherit a {@code
- * @SkylarkModule} annotation.
+ * <p>All {@code @SkylarkModule}-annotated types must implement {@link SkylarkValue}. Nearly all
+ * non-abstract implementations of {@link SkylarkValue} have or inherit a {@code @SkylarkModule}
+ * annotation. (It is possible, though quite unusual, to declare an implementation of {@code
+ * SkylarkValue} without using the annotation mechanism defined in this package. {@code
+ * StarlarkFunction} is one example.)
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

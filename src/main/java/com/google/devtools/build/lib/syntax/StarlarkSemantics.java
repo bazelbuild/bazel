@@ -46,6 +46,7 @@ public abstract class StarlarkSemantics {
   // features by name. The features can be named string constants, defined close to the code they
   // affect, to avoid accidential misspellings.
   public enum FlagIdentifier {
+    EXPERIMENTAL_ACTION_ARGS(StarlarkSemantics::experimentalActionArgs),
     EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
         StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
     EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION(StarlarkSemantics::experimentalAspectOutputPropagation),
@@ -58,13 +59,12 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
     EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
+    EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
     INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
-        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
     INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
     NONE(null);
 
@@ -128,6 +128,8 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean experimentalActionArgs();
+
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
 
   public abstract boolean experimentalAspectOutputPropagation();
@@ -146,6 +148,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalStarlarkUnusedInputsList();
 
+  public abstract boolean experimentalCcSharedLibrary();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -160,23 +164,17 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisableDepsetItems();
 
-  public abstract boolean incompatibleDisallowDictPlus();
-
   public abstract boolean incompatibleDisallowEmptyGlob();
-
-  public abstract boolean incompatibleDisallowOldStyleArgsAdd();
-
-  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
 
   public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
 
-  public abstract boolean incompatibleExpandDirectories();
-
   public abstract boolean incompatibleNewActionsApi();
 
   public abstract boolean incompatibleNoAttrLicense();
+
+  public abstract boolean incompatibleNoImplicitFileExport();
 
   public abstract boolean incompatibleNoOutputAttrDefault();
 
@@ -185,8 +183,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatibleNoTargetOutputGroup();
-
-  public abstract boolean incompatibleNoTransitiveLoads();
 
   public abstract boolean incompatibleRemapMainRepo();
 
@@ -197,6 +193,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleRunShellCommandString();
 
   public abstract boolean incompatibleStringJoinRequiresStrings();
+
+  public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
@@ -209,8 +207,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
   public abstract boolean experimentalAllowTagsPropagation();
-
-  public abstract boolean incompatibleDisallowHashingFrozenMutables();
 
   @Memoized
   @Override
@@ -245,6 +241,7 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .experimentalActionArgs(false)
           .experimentalAllowTagsPropagation(false)
           .experimentalAspectOutputPropagation(false)
           .experimentalBuildSettingApi(true)
@@ -255,6 +252,7 @@ public abstract class StarlarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
+          .experimentalCcSharedLibrary(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
@@ -262,31 +260,27 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableDepsetItems(false)
-          .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
-          .incompatibleDisallowOldStyleArgsAdd(true)
-          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
           .incompatibleDisallowUnverifiedHttpDownloads(true)
-          .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
+          .incompatibleNoImplicitFileExport(false)
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
-          .incompatibleNoTransitiveLoads(true)
           .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
           .incompatibleStringJoinRequiresStrings(true)
+          .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
-          .incompatibleDisallowHashingFrozenMutables(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -294,6 +288,8 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalActionArgs(boolean value);
+
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
@@ -314,6 +310,8 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
+    public abstract Builder experimentalCcSharedLibrary(boolean value);
+
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
@@ -328,24 +326,17 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisableDepsetItems(boolean value);
 
-    public abstract Builder incompatibleDisallowDictPlus(boolean value);
-
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
-
-    public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
-
-    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
-        boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
 
     public abstract Builder incompatibleDisallowUnverifiedHttpDownloads(boolean value);
 
-    public abstract Builder incompatibleExpandDirectories(boolean value);
-
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleNoAttrLicense(boolean value);
+
+    public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
@@ -354,8 +345,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
-    public abstract Builder incompatibleNoTransitiveLoads(boolean value);
 
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
@@ -367,6 +356,8 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
+    public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
+
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
@@ -376,8 +367,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
-
-    public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
 
     public abstract StarlarkSemantics build();
   }

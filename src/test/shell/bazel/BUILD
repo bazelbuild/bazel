@@ -1218,3 +1218,10 @@ sh_test(
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "unicode_filenames_test",
+    srcs = ["unicode_filenames_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

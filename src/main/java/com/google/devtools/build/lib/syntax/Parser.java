@@ -112,7 +112,7 @@ final class Parser {
   private final List<Event> errors;
 
   // TODO(adonovan): opt: compute this by subtraction.
-  private static final Map<TokenKind, TokenKind> augmentedAssignmentMethods =
+  private static final Map<TokenKind, TokenKind> augmentedAssignments =
       new ImmutableMap.Builder<TokenKind, TokenKind>()
           .put(TokenKind.PLUS_EQUALS, TokenKind.PLUS)
           .put(TokenKind.MINUS_EQUALS, TokenKind.MINUS)
@@ -1153,9 +1153,7 @@ final class Parser {
   //                  | return_stmt
   //                  | BREAK | CONTINUE | PASS
   //     assign_stmt ::= expr ('=' | augassign) expr
-  //     augassign ::= ('+=' | '-=' | '*=' | '/=' | '%=' | '//=' )
-  // Note that these are in Python, but not implemented here (at least for now):
-  // '&=' | '|=' | '^=' |'<<=' | '>>=' | '**='
+  //     augassign ::= '+=' | '-=' | '*=' | '/=' | '%=' | '//=' | '&=' | '|=' | '^=' |'<<=' | '>>='
   private Statement parseSmallStatement() {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
@@ -1168,18 +1166,17 @@ final class Parser {
       expect(kind);
       return setLocation(new FlowStatement(kind), start, end);
     }
-    Expression expression = parseExpression();
-    if (token.kind == TokenKind.EQUALS) {
+    Expression lhs = parseExpression();
+
+    // lhs = rhs  or  lhs += rhs
+    TokenKind op = augmentedAssignments.get(token.kind);
+    if (token.kind == TokenKind.EQUALS || op != null) {
       nextToken();
       Expression rhs = parseExpression();
-      return setLocation(new AssignmentStatement(expression, rhs), start, rhs);
-    } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
-      TokenKind op = augmentedAssignmentMethods.get(token.kind);
-      nextToken();
-      Expression operand = parseExpression();
-      return setLocation(new AugmentedAssignmentStatement(op, expression, operand), start, operand);
+      // op == null for ordinary assignment.
+      return setLocation(new AssignmentStatement(lhs, op, rhs), start, rhs);
     } else {
-      return setLocation(new ExpressionStatement(expression), start, expression);
+      return setLocation(new ExpressionStatement(lhs), start, lhs);
     }
   }
 

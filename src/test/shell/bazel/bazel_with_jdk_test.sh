@@ -103,7 +103,7 @@ function test_bazel_uses_bundled_jdk() {
   install_base="$(bazel --batch info install_base)"
 
   # Case-insensitive match, because Windows paths are case-insensitive.
-  grep -sqi -- "^java-home: ${install_base}/_embedded_binaries/embedded_tools/jdk" $TEST_log || \
+  grep -sqi -- "^java-home: ${install_base}/embedded_tools/jdk" $TEST_log || \
       fail "bazel's java-home is not inside the install base"
 }
 

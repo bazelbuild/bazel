@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -36,10 +37,11 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     name = "apple_common",
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
-    FileApiT extends FileApi,
-    ObjcProviderApiT extends ObjcProviderApi<?>,
-    XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
-    ApplePlatformApiT extends ApplePlatformApi> {
+        FileApiT extends FileApi,
+        ObjcProviderApiT extends ObjcProviderApi<?>,
+        XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
+        ApplePlatformApiT extends ApplePlatformApi>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "apple_toolchain",
@@ -344,7 +346,7 @@ public interface AppleCommonApi<
                 "The full set of artifacts that should be included as inputs to link against the "
                     + "dynamic framework")
       })
-  public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(
+  public AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,
@@ -388,8 +390,8 @@ public interface AppleCommonApi<
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      SkylarkList<?> extraLinkopts, // <String> expected.
+      SkylarkList<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

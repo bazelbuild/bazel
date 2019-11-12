@@ -214,7 +214,21 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // Check every constraint_setting in either the toolchain or the platform.
     ImmutableSet<ConstraintSettingInfo> mismatchSettings =
         toolchainConstraints.diff(platform.constraints());
+    boolean matches = true;
     for (ConstraintSettingInfo mismatchSetting : mismatchSettings) {
+      // If a constraint_setting has a default_constraint_value, and the platform
+      // sets a non-default constraint value for the same constraint_setting, then
+      // even toolchains with no reference to that constraint_setting will detect
+      // a mismatch here. This manifests as a toolchain resolution failure (#8778).
+      //
+      // To allow combining rulesets with their own toolchains in a single top-level
+      // workspace, toolchains that do not reference a constraint_setting should not
+      // be forced to match with it.
+      if (!toolchainConstraints.hasWithoutDefault(mismatchSetting)) {
+        continue;
+      }
+      matches = false;
+
       debugMessage(
           eventHandler,
           "    Toolchain constraint %s has value %s, "
@@ -229,7 +243,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
           platformType,
           platform.label());
     }
-    return mismatchSettings.isEmpty();
+    return matches;
   }
 
   @Nullable

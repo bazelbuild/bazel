@@ -751,7 +751,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "Whether to use graphless query and disable output ordering.")
-  public boolean useGraphlessQuery;
+  public TriState useGraphlessQuery;
 
   @Option(
       name = "experimental_inmemory_unused_inputs_list",
@@ -767,6 +767,46 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
               + "directly from the remote build nodes instead of being written to disk.")
   public boolean inmemoryUnusedInputsList;
+
+  @Option(
+      name = "include_config_fragments_provider",
+      defaultValue = "off",
+      converter = IncludeConfigFragmentsEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.HIDDEN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "INTERNAL BLAZE DEVELOPER FEATURE: If \"direct\", all configured targets expose "
+              + "RequiredConfigFragmentsProvider with the configuration fragments they directly "
+              + "require. If \"transitive\", they do the same but also include the fragments their "
+              + "transitive dependencies require. If \"off\", the provider is omitted. "
+              + ""
+              + "If not \"off\", this also populates config_setting's "
+              + " ConfigMatchingProvider.requiredFragmentOptions with the fragment options "
+              + " the config_setting requires."
+              + ""
+              + "Be careful using this feature: it adds memory to every configured target in the "
+              + "build")
+  public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
+
+  /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
+  public enum IncludeConfigFragmentsEnum {
+    // Don't offer the provider at all. This is best for most builds, which don't use this
+    // information and don't need the extra memory hit over every configured target.
+    OFF,
+    // Provide the fragments required *directly* by this rule.
+    DIRECT,
+    // Provide the fragments required by this rule and its transitive dependencies.
+    TRANSITIVE;
+  }
+
+  /** Enum converter for --include_config_fragments_provider. */
+  public static class IncludeConfigFragmentsEnumConverter
+      extends EnumConverter<IncludeConfigFragmentsEnum> {
+    public IncludeConfigFragmentsEnumConverter() {
+      super(IncludeConfigFragmentsEnum.class, "include config fragments provider option");
+    }
+  }
 
   @Override
   public FragmentOptions getHost() {
@@ -785,6 +825,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
     host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
+    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

@@ -1,3 +1,23 @@
+# Copyright (c) 2010-2018 Benjamin Peterson
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import operator
 import sys
 import types
@@ -210,6 +230,12 @@ def test_filter_false():
 def test_map():
     from six.moves import map
     assert six.advance_iterator(map(lambda x: x + 1, range(2))) == 1
+
+
+def test_getoutput():
+    from six.moves import getoutput
+    output = getoutput('echo "foo"')
+    assert output == 'foo'
 
 
 def test_zip():
@@ -708,6 +734,42 @@ def test_with_metaclass():
     assert issubclass(X, Base)
     assert issubclass(X, Base2)
     assert X.__mro__ == (X, Base, Base2, object)
+    class X(six.with_metaclass(Meta)):
+        pass
+    class MetaSub(Meta):
+        pass
+    class Y(six.with_metaclass(MetaSub, X)):
+        pass
+    assert type(Y) is MetaSub
+    assert Y.__mro__ == (Y, X, object)
+
+
+@py.test.mark.skipif("sys.version_info[:2] < (3, 0)")
+def test_with_metaclass_prepare():
+    """Test that with_metaclass causes Meta.__prepare__ to be called with the correct arguments."""
+
+    class MyDict(dict):
+        pass
+
+    class Meta(type):
+
+        @classmethod
+        def __prepare__(cls, name, bases):
+            namespace = MyDict(super().__prepare__(name, bases), cls=cls, bases=bases)
+            namespace['namespace'] = namespace
+            return namespace
+
+    class Base(object):
+        pass
+
+    bases = (Base,)
+
+    class X(six.with_metaclass(Meta, *bases)):
+        pass
+
+    assert getattr(X, 'cls', type) is Meta
+    assert getattr(X, 'bases', ()) == bases
+    assert isinstance(getattr(X, 'namespace', {}), MyDict)
 
 
 def test_wraps():
@@ -813,6 +875,26 @@ def test_add_metaclass():
     assert type(MySlotsWeakref) is Meta
 
 
+@py.test.mark.skipif("sys.version_info[:2] < (3, 3)")
+def test_add_metaclass_nested():
+    # Regression test for https://github.com/benjaminp/six/issues/259
+    class Meta(type):
+        pass
+
+    class A:
+        class B: pass
+
+    expected = 'test_add_metaclass_nested.<locals>.A.B'
+
+    assert A.B.__qualname__ == expected
+
+    class A:
+        @six.add_metaclass(Meta)
+        class B: pass
+
+    assert A.B.__qualname__ == expected
+
+
 @py.test.mark.skipif("sys.version_info[:2] < (2, 7) or sys.version_info[:2] in ((3, 0), (3, 1))")
 def test_assertCountEqual():
     class TestAssertCountEqual(unittest.TestCase):
@@ -870,3 +952,61 @@ def test_python_2_unicode_compatible():
         assert str(my_test) == six.u("hello")
 
     assert getattr(six.moves.builtins, 'bytes', str)(my_test) == six.b("hello")
+
+
+class EnsureTests:
+
+    # grinning face emoji
+    UNICODE_EMOJI = six.u("\U0001F600")
+    BINARY_EMOJI = b"\xf0\x9f\x98\x80"
+
+    def test_ensure_binary_raise_type_error(self):
+        with py.test.raises(TypeError):
+            six.ensure_str(8)
+
+    def test_errors_and_encoding(self):
+        six.ensure_binary(self.UNICODE_EMOJI, encoding='latin-1', errors='ignore')
+        with py.test.raises(UnicodeEncodeError):
+            six.ensure_binary(self.UNICODE_EMOJI, encoding='latin-1', errors='strict')
+
+    def test_ensure_binary_raise(self):
+        converted_unicode = six.ensure_binary(self.UNICODE_EMOJI, encoding='utf-8', errors='strict')
+        converted_binary = six.ensure_binary(self.BINARY_EMOJI, encoding="utf-8", errors='strict')
+        if six.PY2:
+            # PY2: unicode -> str
+            assert converted_unicode == self.BINARY_EMOJI and isinstance(converted_unicode, str)
+            # PY2: str -> str
+            assert converted_binary == self.BINARY_EMOJI and isinstance(converted_binary, str)
+        else:
+            # PY3: str -> bytes
+            assert converted_unicode == self.BINARY_EMOJI and isinstance(converted_unicode, bytes)
+            # PY3: bytes -> bytes
+            assert converted_binary == self.BINARY_EMOJI and isinstance(converted_binary, bytes)
+
+    def test_ensure_str(self):
+        converted_unicode = six.ensure_str(self.UNICODE_EMOJI, encoding='utf-8', errors='strict')
+        converted_binary = six.ensure_str(self.BINARY_EMOJI, encoding="utf-8", errors='strict')
+        if six.PY2:
+            # PY2: unicode -> str
+            assert converted_unicode == self.BINARY_EMOJI and isinstance(converted_unicode, str)
+            # PY2: str -> str
+            assert converted_binary == self.BINARY_EMOJI and isinstance(converted_binary, str)
+        else:
+            # PY3: str -> str
+            assert converted_unicode == self.UNICODE_EMOJI and isinstance(converted_unicode, str)
+            # PY3: bytes -> str
+            assert converted_binary == self.UNICODE_EMOJI and isinstance(converted_unicode, str)
+
+    def test_ensure_text(self):
+        converted_unicode = six.ensure_text(self.UNICODE_EMOJI, encoding='utf-8', errors='strict')
+        converted_binary = six.ensure_text(self.BINARY_EMOJI, encoding="utf-8", errors='strict')
+        if six.PY2:
+            # PY2: unicode -> unicode
+            assert converted_unicode == self.UNICODE_EMOJI and isinstance(converted_unicode, unicode)
+            # PY2: str -> unicode
+            assert converted_binary == self.UNICODE_EMOJI and isinstance(converted_unicode, unicode)
+        else:
+            # PY3: str -> str
+            assert converted_unicode == self.UNICODE_EMOJI and isinstance(converted_unicode, str)
+            # PY3: bytes -> str
+            assert converted_binary == self.UNICODE_EMOJI and isinstance(converted_unicode, str)

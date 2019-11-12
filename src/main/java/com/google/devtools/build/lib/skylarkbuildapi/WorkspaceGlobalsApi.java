@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -68,7 +67,6 @@ public interface WorkspaceGlobalsApi {
             name = "managed_directories",
             type = SkylarkDict.class,
             generic1 = String.class,
-            noneable = true,
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -79,12 +77,12 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
   NoneType workspace(
       String name,
-      SkylarkDict<String, Object> managedDirectories,
-      FuncallExpression ast,
+      SkylarkDict<?, ?> managedDirectories, // <String, SkylarkList<String>>
+      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -146,8 +144,8 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, FuncallExpression ast, StarlarkThread thread)
+  NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

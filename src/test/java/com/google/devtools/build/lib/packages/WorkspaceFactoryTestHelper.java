@@ -66,7 +66,8 @@ class WorkspaceFactoryTestHelper {
         Package.newExternalPackageBuilder(
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
-            "");
+            "",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
