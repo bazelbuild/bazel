@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
@@ -49,6 +51,12 @@ public class FileSymlinkInfiniteExpansionException extends FileSymlinkException 
   @VisibleForSerialization
   public ImmutableList<RootedPath> getChain() {
     return chain;
+  }
+
+  @Override
+  public String getUserFriendlyMessage() {
+    return "Infinite symlink expansion: "
+        + Joiner.on("- > ").join(Iterables.transform(chain, RootedPath::asPath));
   }
 }
 

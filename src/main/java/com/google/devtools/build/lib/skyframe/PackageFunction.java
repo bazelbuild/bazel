@@ -252,17 +252,17 @@ public class PackageFunction implements SkyFunction {
 
   /**
    * These deps have already been marked (see {@link SkyframeHybridGlobber}) but we need to properly
-   * handle some errors that legacy package loading can't handle gracefully.
+   * handle symlink issues that legacy globbing can't handle gracefully.
    */
-  private static boolean handleGlobDepsAndPropagateFilesystemExceptions(
+  private static void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
       Iterable<SkyKey> depKeys,
       Environment env,
       boolean packageWasInError)
-      throws InternalInconsistentFilesystemException, InterruptedException {
+      throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
-     boolean packageShouldBeInErrorFromGlobDeps = false;
+    FileSymlinkException arbitraryFse = null;
     for (Map.Entry<SkyKey, ValueOrException2<IOException, BuildFileNotFoundException>> entry :
         env.getValuesOrThrow(
             depKeys, IOException.class, BuildFileNotFoundException.class).entrySet()) {
@@ -271,13 +271,22 @@ public class PackageFunction implements SkyFunction {
       } catch (InconsistentFilesystemException e) {
         throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       } catch (FileSymlinkException e) {
-        // Legacy doesn't detect symlink cycles.
-        packageShouldBeInErrorFromGlobDeps = true;
+        // Legacy globbing doesn't explicitly detect symlink issues, but certain filesystems might
+        // detect some symlink issues. For example, many filesystems have a hardcoded bound on the
+        // number of symlink hops they will follow when resolving paths (e.g. Unix's ELOOP). Since
+        // Skyframe globbing does explicitly detect symlink issues, we are able to:
+        //   (1) Provide a more informative error message.
+        //   (2) Confidently act as though the symlink issue is non-transient.
+        arbitraryFse = e;
       } catch (IOException | BuildFileNotFoundException e) {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       }
     }
-    return packageShouldBeInErrorFromGlobDeps;
+    if (arbitraryFse != null) {
+      // If there was at least one symlink issue and no inconsistent filesystem issues, arbitrarily
+      // rethrow one of the symlink issues.
+      throw arbitraryFse;
+    }
   }
 
   /**
@@ -467,15 +476,21 @@ public class PackageFunction implements SkyFunction {
       }
       packageFunctionCache.put(packageId, packageCacheEntry);
     }
+    PackageFunctionException pfeFromLegacyPackageLoading = null;
     Package.Builder pkgBuilder = packageCacheEntry.builder;
     try {
       pkgBuilder.buildPartial();
     } catch (NoSuchPackageException e) {
-      throw new PackageFunctionException(
-          e,
-          e.getCause() instanceof SkyframeGlobbingIOException
-              ? Transience.PERSISTENT
-              : Transience.TRANSIENT);
+      // If legacy globbing encounters an IOException, #buildPartial with throw a
+      // NoSuchPackageException. If that happens, we prefer throwing an exception derived from
+      // Skyframe globbing. See the comments in #handleGlobDepsAndPropagateFilesystemExceptions.
+      // Therefore we store the exception encountered here and maybe use it later.
+      pfeFromLegacyPackageLoading =
+          new PackageFunctionException(
+              e,
+              e.getCause() instanceof SkyframeGlobbingIOException
+                  ? Transience.PERSISTENT
+                  : Transience.TRANSIENT);
     }
     try {
       // Since the Skyframe dependencies we request below in
@@ -493,22 +508,34 @@ public class PackageFunction implements SkyFunction {
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
     Set<SkyKey> globKeys = packageCacheEntry.globDepKeys;
-    boolean packageShouldBeConsideredInErrorFromGlobDeps;
     try {
-      packageShouldBeConsideredInErrorFromGlobDeps =
-          handleGlobDepsAndPropagateFilesystemExceptions(
+      handleGlobDepsAndPropagateFilesystemExceptions(
           packageId, globKeys, env, pkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(
           e.toNoSuchPackageException(),
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
+    } catch (FileSymlinkException e) {
+      packageFunctionCache.invalidate(packageId);
+      throw new PackageFunctionException(
+          new NoSuchPackageException(
+              packageId, "Symlink issue while evaluating globs: " + e.getUserFriendlyMessage()),
+          // Since the symlink issue was detected by Skyframe globbing, it's non-transient.
+          Transience.PERSISTENT);
     }
     if (env.valuesMissing()) {
       return null;
     }
 
-    if (pkgBuilder.containsErrors() || packageShouldBeConsideredInErrorFromGlobDeps) {
+    // We know this SkyFunction will not be called again, so we can remove the cache entry.
+    packageFunctionCache.invalidate(packageId);
+
+    if (pfeFromLegacyPackageLoading != null) {
+      throw pfeFromLegacyPackageLoading;
+    }
+
+    if (pkgBuilder.containsErrors()) {
       pkgBuilder.setContainsErrors();
     }
     Package pkg = pkgBuilder.finishBuild();
@@ -517,9 +544,6 @@ public class PackageFunction implements SkyFunction {
     for (Postable post : pkgBuilder.getPosts()) {
       env.getListener().post(post);
     }
-
-    // We know this SkyFunction will not be called again, so we can remove the cache entry.
-    packageFunctionCache.invalidate(packageId);
 
     packageFactory.afterDoneLoadingPackage(pkg, starlarkSemantics, packageCacheEntry.loadTimeNanos);
     return new PackageValue(pkg);
