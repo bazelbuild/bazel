@@ -43,6 +43,7 @@ public final class ServerBuilder {
       new BuildEventArtifactUploaderFactoryMap.Builder();
   private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
       ImmutableMap.builder();
+  private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -81,6 +82,10 @@ public final class ServerBuilder {
 
   public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderMap() {
     return buildEventArtifactUploaderFactories.build();
+  }
+
+  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
+    return repositoryRemoteExecutorFactory;
   }
 
   /**
@@ -158,6 +163,12 @@ public final class ServerBuilder {
   public ServerBuilder addBuildEventArtifactUploaderFactory(
       BuildEventArtifactUploaderFactory uploaderFactory, String name) {
     buildEventArtifactUploaderFactories.add(name, uploaderFactory);
+    return this;
+  }
+
+  public ServerBuilder setRepositoryRemoteExecutorFactory(
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
+    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     return this;
   }
 

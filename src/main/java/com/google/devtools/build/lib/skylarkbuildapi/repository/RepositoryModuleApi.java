@@ -88,6 +88,13 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false),
         @Param(
+            name = "remotable",
+            type = Boolean.class,
+            defaultValue = "False",
+            doc = "Compatible with remote execution",
+            named = true,
+            positional = false),
+        @Param(
             name = "doc",
             type = String.class,
             defaultValue = "''",
@@ -105,6 +112,7 @@ public interface RepositoryModuleApi {
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)

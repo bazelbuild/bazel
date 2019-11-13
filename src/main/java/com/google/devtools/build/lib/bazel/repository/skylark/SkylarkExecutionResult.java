@@ -48,7 +48,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
   private final String stdout;
   private final String stderr;
 
-  private SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
+  SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;

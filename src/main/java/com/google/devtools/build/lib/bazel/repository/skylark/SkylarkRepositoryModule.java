@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
@@ -65,16 +66,22 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
       FuncallExpression ast,
       StarlarkThread funcallThread)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallThread, "repository_rule", ast.getLocation());
+    StarlarkSemantics semantics = funcallThread.getSemantics();
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
     builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
     builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
+    if (semantics.experimentalRepoRemoteExec()) {
+      builder.addOrOverrideAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
+      BaseRuleClasses.execPropertiesAttribute(builder);
+    }
     builder.addOrOverrideAttribute(
         attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);

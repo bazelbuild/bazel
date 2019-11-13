@@ -169,6 +169,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
   private final RetainedHeapLimiter retainedHeapLimiter = new RetainedHeapLimiter();
+  @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -195,7 +196,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Iterable<BlazeCommand> commands,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
-      ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap) {
+      ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -225,6 +227,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
     this.authHeadersProviderMap =
         Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
+    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1431,6 +1434,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return authHeadersProviderMap;
   }
 
+  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
+    return repositoryRemoteExecutorFactory;
+  }
+
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
@@ -1570,7 +1577,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           serverBuilder.getCommands(),
           productName,
           serverBuilder.getBuildEventArtifactUploaderMap(),
-          serverBuilder.getAuthHeadersProvidersMap());
+          serverBuilder.getAuthHeadersProvidersMap(),
+          serverBuilder.getRepositoryRemoteExecutorFactory());
     }
 
     public Builder setProductName(String productName) {

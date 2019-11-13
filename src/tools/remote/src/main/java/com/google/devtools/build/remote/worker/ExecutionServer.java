@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
@@ -76,6 +77,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /** A basic implementation of an {@link ExecutionImplBase} service. */
 final class ExecutionServer extends ExecutionImplBase {
@@ -429,6 +431,20 @@ final class ExecutionServer extends ExecutionImplBase {
     return result;
   }
 
+  private String platformAsString(@Nullable Platform platform) {
+    if (platform == null) {
+      return "";
+    }
+
+    String separator = "";
+    StringBuilder value = new StringBuilder();
+    for (Property property : platform.getPropertiesList()) {
+      value.append(separator).append(property.getName()).append("=").append(property.getValue());
+      separator = ",";
+    }
+    return value.toString();
+  }
+
   // Converts the Command proto into the shell Command object.
   // If no docker container is specified, creates a Command straight from the
   // arguments. Otherwise, returns a Command that would run the specified command inside the
@@ -436,6 +452,8 @@ final class ExecutionServer extends ExecutionImplBase {
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
       throws StatusException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
+    // This allows Bazel's integration tests to test for the remote platform.
+    environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));
     String container = dockerContainer(cmd);
     if (container != null) {
       // Run command inside a docker container.

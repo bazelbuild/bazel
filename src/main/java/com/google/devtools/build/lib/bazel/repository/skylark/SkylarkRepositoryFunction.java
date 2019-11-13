@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -57,6 +59,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   private final HttpDownloader httpDownloader;
   private double timeoutScaling = 1.0;
+  @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
 
   public SkylarkRepositoryFunction(HttpDownloader httpDownloader) {
     this.httpDownloader = httpDownloader;
@@ -145,7 +148,15 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               httpDownloader,
               directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
-              markerData);
+              markerData,
+              starlarkSemantics,
+              repositoryRemoteExecutor);
+
+      if (skylarkRepositoryContext.isRemotable()) {
+        // If a rule is declared remotable then invalidate it if remote execution gets
+        // enabled or disabled.
+        PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
+      }
 
       // Since restarting a repository function can be really expensive, we first ensure that
       // all label-arguments can be resolved to paths.
@@ -262,5 +273,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return null; // unused so safe to return null
+  }
+
+  public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
+    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 }
