@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -198,8 +198,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public SkylarkList<LibraryToLink> getSkylarkLibrariesToLink(StarlarkThread thread) {
-      return SkylarkList.createImmutable(getLibraries());
+    public Sequence<LibraryToLink> getSkylarkLibrariesToLink(StarlarkThread thread) {
+      return Sequence.createImmutable(getLibraries());
     }
 
     public List<LinkOptions> getUserLinkFlags() {
@@ -207,8 +207,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public SkylarkList<String> getSkylarkUserLinkFlags() {
-      return SkylarkList.createImmutable(
+    public Sequence<String> getSkylarkUserLinkFlags() {
+      return Sequence.createImmutable(
           getUserLinkFlags().stream()
               .map(LinkOptions::get)
               .flatMap(Collection::stream)
@@ -220,8 +220,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public SkylarkList<Artifact> getSkylarkNonCodeInputs() {
-      return SkylarkList.createImmutable(getNonCodeInputs());
+    public Sequence<Artifact> getSkylarkNonCodeInputs() {
+      return Sequence.createImmutable(getNonCodeInputs());
     }
 
     public List<Linkstamp> getLinkstamps() {
@@ -392,8 +392,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public SkylarkList<String> getSkylarkUserLinkFlags() {
-    return SkylarkList.createImmutable(getFlattenedUserLinkFlags());
+  public Sequence<String> getSkylarkUserLinkFlags() {
+    return Sequence.createImmutable(getFlattenedUserLinkFlags());
   }
 
   @Override
@@ -402,7 +402,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
       return SkylarkNestedSet.of(LibraryToLink.class, getLibraries());
     } else {
-      return SkylarkList.createImmutable(getLibraries().toList());
+      return Sequence.createImmutable(getLibraries().toList());
     }
   }
 

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
 
 /**
@@ -176,7 +176,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = DataBindingV2ProviderApi.class),
           @Param(
               name = "databinding_v2_providers_in_exports",
@@ -184,7 +184,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = DataBindingV2ProviderApi.class),
         },
         selfCall = true)
@@ -195,8 +195,8 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
         Object brFile,
         Object label,
         Object javaPackage,
-        SkylarkList<?> databindingV2ProvidersInDeps, // <DataBindingV2ProviderApi<FileT>>
-        SkylarkList<?> databindingV2ProvidersInExports /* <DataBindingV2ProviderApi<FileT>> */)
+        Sequence<?> databindingV2ProvidersInDeps, // <DataBindingV2ProviderApi<FileT>>
+        Sequence<?> databindingV2ProvidersInExports /* <DataBindingV2ProviderApi<FileT>> */)
         throws EvalException;
   }
 }

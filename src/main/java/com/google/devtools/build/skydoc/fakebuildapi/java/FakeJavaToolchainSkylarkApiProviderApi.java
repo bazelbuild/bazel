@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkylarkApiProviderApi {
@@ -50,7 +50,7 @@ final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkyla
   }
 
   @Override
-  public SkylarkList<String> getSkylarkJvmOptions() {
+  public Sequence<String> getSkylarkJvmOptions() {
     return null;
   }
 

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -288,12 +288,12 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   }
 
   @Override
-  public SkylarkList<Artifact> getSourceJars() {
+  public Sequence<Artifact> getSourceJars() {
     // TODO(#4221) change return type to NestedSet<Artifact>
     JavaSourceJarsProvider provider = providers.getProvider(JavaSourceJarsProvider.class);
     ImmutableList<Artifact> sourceJars =
         provider == null ? ImmutableList.of() : provider.getSourceJars();
-    return SkylarkList.createImmutable(sourceJars);
+    return Sequence.createImmutable(sourceJars);
   }
 
   @Override
@@ -312,8 +312,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   }
 
   @Override
-  public SkylarkList<Artifact> getRuntimeOutputJars() {
-    return SkylarkList.createImmutable(getDirectRuntimeJars());
+  public Sequence<Artifact> getRuntimeOutputJars() {
+    return Sequence.createImmutable(getDirectRuntimeJars());
   }
 
   public ImmutableList<Artifact> getDirectRuntimeJars() {
@@ -414,9 +414,9 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         Object compileJarApi,
         Object sourceJarApi,
         Boolean neverlink,
-        SkylarkList<?> deps,
-        SkylarkList<?> runtimeDeps,
-        SkylarkList<?> exports,
+        Sequence<?> deps,
+        Sequence<?> runtimeDeps,
+        Sequence<?> exports,
         Object jdepsApi,
         Location loc,
         StarlarkThread thread)
@@ -434,9 +434,9 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
               compileJar,
               sourceJar,
               neverlink,
-              (SkylarkList<JavaInfo>) deps,
-              (SkylarkList<JavaInfo>) runtimeDeps,
-              (SkylarkList<JavaInfo>) exports,
+              (Sequence<JavaInfo>) deps,
+              (Sequence<JavaInfo>) runtimeDeps,
+              (Sequence<JavaInfo>) exports,
               jdeps,
               loc);
     }

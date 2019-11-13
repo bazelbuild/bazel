@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -81,9 +81,9 @@ final class JavaInfoBuildHelper {
       Artifact compileJar,
       @Nullable Artifact sourceJar,
       Boolean neverlink,
-      SkylarkList<JavaInfo> compileTimeDeps,
-      SkylarkList<JavaInfo> runtimeDeps,
-      SkylarkList<JavaInfo> exports,
+      Sequence<JavaInfo> compileTimeDeps,
+      Sequence<JavaInfo> runtimeDeps,
+      Sequence<JavaInfo> exports,
       @Nullable Artifact jdeps,
       Location location) {
     compileJar = compileJar != null ? compileJar : outputJar;

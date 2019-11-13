@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderAp
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
@@ -89,8 +89,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActions(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<?> srcs,
-      SkylarkList<?> deps) {
+      Sequence<?> srcs,
+      Sequence<?> deps) {
     return null;
   }
 
@@ -98,8 +98,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActionsGopkg(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<?> srcs,
-      SkylarkList<?> deps) {
+      Sequence<?> srcs,
+      Sequence<?> deps) {
     return null;
   }
 
@@ -138,8 +138,8 @@ public class FakeGoWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<?> depCcCompilationContexts,
-      SkylarkList<?> targetCopts) {
+      Sequence<?> depCcCompilationContexts,
+      Sequence<?> targetCopts) {
     return null;
   }
 
@@ -162,10 +162,10 @@ public class FakeGoWrapCcHelper
       CcCompilationContextApi wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileApi swigSource,
-      SkylarkList<?> subParameters,
+      Sequence<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<?> outputFiles,
+      Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,

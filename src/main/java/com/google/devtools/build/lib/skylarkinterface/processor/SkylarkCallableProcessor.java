@@ -93,7 +93,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   // that class (where "method name" is @SkylarkCallable.name").
   private SetMultimap<String, String> processedClassMethods;
 
-  private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.SkylarkList<?>";
+  private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.Sequence<?>";
   private static final String SKYLARK_DICT =
       "com.google.devtools.build.lib.syntax.SkylarkDict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";

@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -424,7 +424,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public SkylarkList<Artifact> directHeaders() {
+  public Sequence<Artifact> directHeaders() {
     return getDirect(HEADER);
   }
 
@@ -494,7 +494,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public SkylarkList<Artifact> directModuleMaps() {
+  public Sequence<Artifact> directModuleMaps() {
     return getDirect(MODULE_MAP);
   }
 
@@ -530,7 +530,7 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   }
 
   @Override
-  public SkylarkList<Artifact> directSources() {
+  public Sequence<Artifact> directSources() {
     return getDirect(SOURCE);
   }
 
@@ -642,11 +642,11 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
 
   /** All direct artifacts, bundleable files, etc. of the type specified by {@code key}. */
   @SuppressWarnings({"rawtypes", "unchecked"})
-  public <E> SkylarkList<E> getDirect(Key<E> key) {
+  public <E> Sequence<E> getDirect(Key<E> key) {
     if (directItems.containsKey(key)) {
-      return SkylarkList.createImmutable((List) directItems.get(key));
+      return Sequence.createImmutable((List) directItems.get(key));
     }
-    return SkylarkList.createImmutable(ImmutableList.of());
+    return Sequence.createImmutable(ImmutableList.of());
   }
 
   /**

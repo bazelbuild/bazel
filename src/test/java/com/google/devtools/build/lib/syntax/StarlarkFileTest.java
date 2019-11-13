@@ -58,7 +58,7 @@ public class StarlarkFileTest {
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
     assertThat(thread.moduleLookup("x"))
-        .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")));
+        .isEqualTo(Sequence.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")));
   }
 
   @Test

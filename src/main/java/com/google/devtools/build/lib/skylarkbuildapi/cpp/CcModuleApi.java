@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -95,20 +95,20 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "unsupported_features",
             doc = "List of features that are unsupported by the current rule.",
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
       })
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
-      SkylarkList<?> requestedFeatures, // <String> expected
-      SkylarkList<?> unsupportedFeatures) // <String> expected
+      Sequence<?> requestedFeatures, // <String> expected
+      Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException;
 
   @SkylarkCallable(
@@ -153,7 +153,7 @@ public interface CcModuleApi<
             named = true,
             positional = false),
       })
-  SkylarkList<String> getExecutionRequirements(
+  Sequence<String> getExecutionRequirements(
       FeatureConfigurationT featureConfiguration, String actionName);
 
   @SkylarkCallable(
@@ -222,7 +222,7 @@ public interface CcModuleApi<
             positional = false,
             type = CcToolchainVariablesApi.class),
       })
-  SkylarkList<String> getCommandLine(
+  Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
       CcToolchainVariablesT variables)
@@ -307,7 +307,7 @@ public interface CcModuleApi<
             noneable = true,
             allowedTypes = {
               @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
             }),
         @Param(
             name = "include_directories",
@@ -438,10 +438,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "output_file",
             doc = "Optional output file path.",
@@ -684,10 +681,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
@@ -695,10 +689,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
@@ -706,10 +697,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
       })
   LinkingContextT createCcLinkingInfo(
       Object linkerInputs,
@@ -730,9 +718,9 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class)
+            type = Sequence.class)
       })
-  CcInfoApi mergeCcInfos(SkylarkList<?> ccInfos) // <CcInfoApi> expected
+  CcInfoApi mergeCcInfos(Sequence<?> ccInfos) // <CcInfoApi> expected
       throws EvalException;
 
   @SkylarkCallable(
@@ -855,7 +843,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L336\">features</a>."),
@@ -864,7 +852,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L461\">action_configs</a>."),
@@ -873,7 +861,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L516\">artifact_name_patterns</a>."),
@@ -882,7 +870,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "<p>Built-in include directories for C++ compilation. These should be the exact "
                     + "paths used by the compiler, and are generally relative to the exec root.</p>"
@@ -950,7 +938,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L400\">tool_paths</a>."),
@@ -959,7 +947,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L86\">make_variables</a>."),
@@ -984,10 +972,10 @@ public interface CcModuleApi<
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<?> features, // <StructApi> expected
-      SkylarkList<?> actionConfigs, // <StructApi> expected
-      SkylarkList<?> artifactNamePatterns, // <StructApi> expected
-      SkylarkList<?> cxxBuiltInIncludeDirectories, // <String> expected
+      Sequence<?> features, // <StructApi> expected
+      Sequence<?> actionConfigs, // <StructApi> expected
+      Sequence<?> artifactNamePatterns, // <StructApi> expected
+      Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       String hostSystemName,
       String targetSystemName,
@@ -996,8 +984,8 @@ public interface CcModuleApi<
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      SkylarkList<?> toolPaths, // <StructApi> expected
-      SkylarkList<?> makeVariables, // <StructApi> expected
+      Sequence<?> toolPaths, // <StructApi> expected
+      Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException;
@@ -1041,7 +1029,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "linking_contexts",
             doc =
@@ -1050,7 +1038,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -1079,7 +1067,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "disallow_static_libraries",
             doc = "Whether static libraries should be created.",
@@ -1107,12 +1095,12 @@ public interface CcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
-      SkylarkList<?> userLinkFlags, // <String> expected
-      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> userLinkFlags, // <String> expected
+      Sequence<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       boolean alwayslink,
-      SkylarkList<?> additionalInputs, // <FileT> expected
+      Sequence<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,

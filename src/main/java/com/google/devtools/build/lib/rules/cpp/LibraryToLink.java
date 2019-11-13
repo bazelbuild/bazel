@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -66,11 +66,11 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   @Override
-  public SkylarkList<Artifact> getObjectFilesForStarlark() {
+  public Sequence<Artifact> getObjectFilesForStarlark() {
     if (getObjectFiles() == null) {
       return StarlarkList.empty();
     }
-    return SkylarkList.createImmutable(getObjectFiles());
+    return Sequence.createImmutable(getObjectFiles());
   }
 
   @Nullable
@@ -88,11 +88,11 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
   @Nullable
   @Override
-  public SkylarkList<Artifact> getPicObjectFilesForStarlark() {
+  public Sequence<Artifact> getPicObjectFilesForStarlark() {
     if (getPicObjectFiles() == null) {
       return StarlarkList.empty();
     }
-    return SkylarkList.createImmutable(getPicObjectFiles());
+    return Sequence.createImmutable(getPicObjectFiles());
   }
 
   @Nullable

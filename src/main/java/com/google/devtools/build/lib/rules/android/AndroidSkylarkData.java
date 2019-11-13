@@ -43,8 +43,8 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -72,7 +72,7 @@ public abstract class AndroidSkylarkData
 
   @Override
   public AndroidAssetsInfo assetsFromDeps(
-      SkylarkList<?> deps, // <AndroidAssetsInfo>
+      Sequence<?> deps, // <AndroidAssetsInfo>
       boolean neverlink,
       StarlarkThread thread)
       throws EvalException {
@@ -86,8 +86,8 @@ public abstract class AndroidSkylarkData
   @Override
   public AndroidResourcesInfo resourcesFromDeps(
       AndroidDataContext ctx,
-      SkylarkList<?> deps, // <AndroidResourcesInfo>
-      SkylarkList<?> assets, // <AndroidAssetsInfo>
+      Sequence<?> deps, // <AndroidResourcesInfo>
+      Sequence<?> assets, // <AndroidAssetsInfo>
       boolean neverlink,
       String customPackage,
       Location location,
@@ -139,7 +139,7 @@ public abstract class AndroidSkylarkData
       AndroidDataContext ctx,
       Object assets,
       Object assetsDir,
-      SkylarkList<?> deps, // <AndroidAssetsInfo>
+      Sequence<?> deps, // <AndroidAssetsInfo>
       boolean neverlink,
       Location location,
       StarlarkThread thread)
@@ -166,8 +166,8 @@ public abstract class AndroidSkylarkData
   public ValidatedAndroidResources mergeRes(
       AndroidDataContext ctx,
       AndroidManifestInfo manifest,
-      SkylarkList<?> resources, // <ConfiguredTarget>
-      SkylarkList<?> deps, // <AndroidResourcesInfo>
+      Sequence<?> resources, // <ConfiguredTarget>
+      Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
@@ -197,8 +197,8 @@ public abstract class AndroidSkylarkData
   public SkylarkDict<Provider, NativeInfo> mergeResources(
       AndroidDataContext ctx,
       AndroidManifestInfo manifest,
-      SkylarkList<?> resources, // <ConfiguredTarget>
-      SkylarkList<?> deps, // <AndroidResourcesInfo>
+      Sequence<?> resources, // <ConfiguredTarget>
+      Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
@@ -222,8 +222,8 @@ public abstract class AndroidSkylarkData
       AndroidResourcesInfo resourcesInfo,
       AndroidAssetsInfo assetsInfo,
       Artifact libraryClassJar,
-      SkylarkList<?> localProguardSpecs, // <Artifact>
-      SkylarkList<?> deps, // <AndroidLibraryAarInfo>
+      Sequence<?> localProguardSpecs, // <Artifact>
+      Sequence<?> deps, // <AndroidLibraryAarInfo>
       boolean neverlink)
       throws EvalException, InterruptedException {
     if (neverlink) {
@@ -276,7 +276,7 @@ public abstract class AndroidSkylarkData
       SpecialArtifact resources,
       SpecialArtifact assets,
       Artifact androidManifestArtifact,
-      SkylarkList<?> deps) // <ConfiguredTarget>
+      Sequence<?> deps) // <ConfiguredTarget>
       throws InterruptedException, EvalException {
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
     AndroidAaptVersion aaptVersion = getAndroidAaptVersionForLibrary(ctx);
@@ -309,14 +309,14 @@ public abstract class AndroidSkylarkData
   public SkylarkDict<Provider, NativeInfo> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
-      SkylarkList<?> resources, // <ConfiguredTarget>
+      Sequence<?> resources, // <ConfiguredTarget>
       Object assets,
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
       SkylarkDict<?, ?> manifestValues, // <String, String>
-      SkylarkList<?> deps, // <ConfiguredTarget>
-      SkylarkList<?> noCompressExtensions, // <String>
+      Sequence<?> deps, // <ConfiguredTarget>
+      Sequence<?> noCompressExtensions, // <String>
       Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
@@ -388,9 +388,9 @@ public abstract class AndroidSkylarkData
   public BinaryDataSettings makeBinarySettings(
       AndroidDataContext ctx,
       Object shrinkResources,
-      SkylarkList<?> resourceConfigurationFilters, // <String>
-      SkylarkList<?> densities, // <String>
-      SkylarkList<?> noCompressExtensions, // <String>
+      Sequence<?> resourceConfigurationFilters, // <String>
+      Sequence<?> densities, // <String>
+      Sequence<?> noCompressExtensions, // <String>
       String aaptVersionString,
       Location location,
       StarlarkThread thread)
@@ -434,9 +434,9 @@ public abstract class AndroidSkylarkData
     return makeBinarySettings(
         ctx,
         Starlark.NONE,
-        SkylarkList.createImmutable(ImmutableList.of()),
-        SkylarkList.createImmutable(ImmutableList.of()),
-        SkylarkList.createImmutable(ImmutableList.of()),
+        Sequence.createImmutable(ImmutableList.of()),
+        Sequence.createImmutable(ImmutableList.of()),
+        Sequence.createImmutable(ImmutableList.of()),
         "auto",
         location,
         thread);
@@ -463,13 +463,13 @@ public abstract class AndroidSkylarkData
   @Override
   public AndroidBinaryDataInfo processBinaryData(
       AndroidDataContext ctx,
-      SkylarkList<?> resources,
+      Sequence<?> resources,
       Object assets,
       Object assetsDir,
       Object manifest,
       Object customPackage,
       SkylarkDict<?, ?> manifestValues, // <String, String>
-      SkylarkList<?> deps, // <ConfiguredTarget>
+      Sequence<?> deps, // <ConfiguredTarget>
       String manifestMerger,
       Object maybeSettings,
       boolean crunchPng,
@@ -564,9 +564,9 @@ public abstract class AndroidSkylarkData
       Artifact proguardOutputJar,
       Artifact proguardMapping,
       Object maybeSettings,
-      SkylarkList<?> deps, // <ConfiguredTarget>
-      SkylarkList<?> localProguardSpecs, // <ConfiguredTarget>
-      SkylarkList<?> extraProguardSpecs, // <ConfiguredTarget>
+      Sequence<?> deps, // <ConfiguredTarget>
+      Sequence<?> localProguardSpecs, // <ConfiguredTarget>
+      Sequence<?> extraProguardSpecs, // <ConfiguredTarget>
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -718,17 +718,17 @@ public abstract class AndroidSkylarkData
   /**
    * Converts a "Noneable" Object passed by Skylark to a List of the appropriate type.
    *
-   * <p>This first calls {@link #fromNoneable(Object, Class)} to get a SkylarkList<?>, then safely
+   * <p>This first calls {@link #fromNoneable(Object, Class)} to get a Sequence<?>, then safely
    * casts it to a list with the appropriate generic.
    */
   @Nullable
   public static <T> List<T> listFromNoneable(Object object, Class<T> clazz) throws EvalException {
-    SkylarkList<?> asList = fromNoneable(object, SkylarkList.class);
+    Sequence<?> asList = fromNoneable(object, Sequence.class);
     if (asList == null) {
       return null;
     }
 
-    return SkylarkList.castList(asList, clazz, null);
+    return Sequence.castList(asList, clazz, null);
   }
 
   private static ImmutableList<Artifact> filesFromConfiguredTargets(
@@ -754,21 +754,19 @@ public abstract class AndroidSkylarkData
         .collect(ImmutableList.toImmutableList());
   }
 
-  public static <T extends NativeInfo> SkylarkList<T> getProviders(
+  public static <T extends NativeInfo> Sequence<T> getProviders(
       List<ConfiguredTarget> targets, NativeProvider<T> provider) {
-    return SkylarkList.createImmutable(
-        targets
-            .stream()
+    return Sequence.createImmutable(
+        targets.stream()
             .map(target -> target.get(provider))
             .filter(Objects::nonNull)
             .collect(ImmutableList.toImmutableList()));
   }
 
-  protected static <T extends NativeInfo> SkylarkList<T> getProviders(
+  protected static <T extends NativeInfo> Sequence<T> getProviders(
       List<ConfiguredTarget> targets, BuiltinProvider<T> provider) {
-    return SkylarkList.createImmutable(
-        targets
-            .stream()
+    return Sequence.createImmutable(
+        targets.stream()
             .map(target -> target.get(provider))
             .filter(Objects::nonNull)
             .collect(ImmutableList.toImmutableList()));

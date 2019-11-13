@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -90,13 +90,16 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     FakeProviderApi fakeProvider = new FakeProviderApi();
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
-    if (fields instanceof SkylarkList) {
+    if (fields instanceof Sequence) {
       @SuppressWarnings("unchecked")
-      SkylarkList<String> fieldNames = (SkylarkList<String>)
-          SkylarkType.cast(
-              fields,
-              SkylarkList.class, String.class, location,
-              "Expected list of strings or dictionary of string -> string for 'fields'");
+      Sequence<String> fieldNames =
+          (Sequence<String>)
+              SkylarkType.cast(
+                  fields,
+                  Sequence.class,
+                  String.class,
+                  location,
+                  "Expected list of strings or dictionary of string -> string for 'fields'");
       for (String fieldName : fieldNames) {
         providerFieldInfos.add(asProviderFieldInfo(fieldName, "(Undocumented)"));
       }
@@ -134,13 +137,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
@@ -188,13 +191,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   @Override
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToFiles,
       FuncallExpression ast,

@@ -178,7 +178,7 @@ public abstract class SkylarkType {
   // that doesn't make a difference between list and tuple, so that functions can be declared
   // that keep not making the difference. Going forward, though, we should investigate whether
   // we ever want to use this type, and if not, make sure no existing client code uses it.
-  @AutoCodec public static final Simple SEQUENCE = Simple.forClass(SkylarkList.class);
+  @AutoCodec public static final Simple SEQUENCE = Simple.forClass(Sequence.class);
 
   /** The LIST type, that contains all StarlarkList-s */
   @AutoCodec public static final Simple LIST = Simple.forClass(StarlarkList.class);
@@ -350,7 +350,7 @@ public abstract class SkylarkType {
   public static class Combination extends SkylarkType {
     // For the moment, we can only combine a Simple type with a Simple type,
     // and the first one has to be a Java generic class,
-    // and in practice actually one of SkylarkList or SkylarkNestedSet
+    // and in practice actually one of Sequence or SkylarkNestedSet
     private final SkylarkType genericType; // actually always a Simple, for now.
     private final SkylarkType argType; // not always Simple
 
@@ -767,7 +767,7 @@ public abstract class SkylarkType {
    * Converts an object to a Skylark-compatible type if possible.
    */
   public static Object convertToSkylark(Object object, @Nullable Mutability mutability) {
-    if (object instanceof List && !(object instanceof SkylarkList)) {
+    if (object instanceof List && !(object instanceof Sequence)) {
       return StarlarkList.copyOf(mutability, (List<?>) object);
     }
     if (object instanceof SkylarkValue) {

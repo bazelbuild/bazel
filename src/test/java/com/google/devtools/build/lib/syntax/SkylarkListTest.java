@@ -24,9 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for SkylarkList.
- */
+/** Tests for Sequence. */
 @RunWith(JUnit4.class)
 public class SkylarkListTest extends EvaluationTestCase {
 
@@ -64,8 +62,8 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @SuppressWarnings("unchecked")
-  private SkylarkList<Object> listEval(String... input) throws Exception {
-    return (SkylarkList<Object>) eval(input);
+  private Sequence<Object> listEval(String... input) throws Exception {
+    return (Sequence<Object>) eval(input);
   }
 
   @Test
@@ -156,8 +154,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testListConcat() throws Exception {
-    assertThat(eval("[1, 2] + [3, 4]"))
-        .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, 3, 4)));
+    assertThat(eval("[1, 2] + [3, 4]")).isEqualTo(Sequence.createImmutable(Tuple.of(1, 2, 3, 4)));
   }
 
   @Test

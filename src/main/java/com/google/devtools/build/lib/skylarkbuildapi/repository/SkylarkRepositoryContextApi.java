@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -235,7 +235,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       parameters = {
         @Param(
             name = "arguments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "List of arguments, the first element should be the path to the program to "
                     + "execute."),
@@ -267,7 +267,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
-      SkylarkList<?> arguments,
+      Sequence<?> arguments,
       Integer timeout,
       SkylarkDict<?, ?> environment, // <String, String> expected
       boolean quiet,

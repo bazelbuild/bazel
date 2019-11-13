@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryA
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
@@ -43,8 +43,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   @Override
   public ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      SkylarkList<?> inputs, // <String> expected
-      SkylarkList<?> outputs, // <String> expected
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
       Location location,
       StarlarkThread thread)
       throws EvalException {

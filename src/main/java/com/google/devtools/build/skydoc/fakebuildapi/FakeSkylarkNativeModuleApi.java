@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, ClassObject {
 
   @Override
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+  public Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
       Location loc,
@@ -56,18 +56,14 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
 
   @Override
   public NoneType packageGroup(
-      String name,
-      SkylarkList<?> packages,
-      SkylarkList<?> includes,
-      Location loc,
-      StarlarkThread thread)
+      String name, Sequence<?> packages, Sequence<?> includes, Location loc, StarlarkThread thread)
       throws EvalException {
     return null;
   }
 
   @Override
   public NoneType exportsFiles(
-      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
+      Sequence<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException {
     return null;
   }

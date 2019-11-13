@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -80,7 +80,7 @@ public interface ConfigGlobalLibraryApi {
                     + "split transition."),
         @Param(
             name = "inputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             positional = false,
             named = true,
@@ -90,7 +90,7 @@ public interface ConfigGlobalLibraryApi {
                     + "parameter."),
         @Param(
             name = "outputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             positional = false,
             named = true,
@@ -103,8 +103,8 @@ public interface ConfigGlobalLibraryApi {
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      SkylarkList<?> inputs, // <String> expected
-      SkylarkList<?> outputs, // <String> expected
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
       Location location,
       StarlarkThread thread)
       throws EvalException;

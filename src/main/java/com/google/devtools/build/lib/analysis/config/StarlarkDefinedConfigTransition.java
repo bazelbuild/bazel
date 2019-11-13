@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
@@ -249,11 +249,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
         }
-      } else if (result instanceof SkylarkList) {
+      } else if (result instanceof Sequence) {
         ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
         try {
           for (SkylarkDict<?, ?> toOptions :
-              ((SkylarkList<?>) result)
+              ((Sequence<?>) result)
                   .getContents(SkylarkDict.class, "dictionary of options dictionaries")) {
             builder.add(toOptions.getContents(String.class, Object.class, "dictionary of options"));
           }

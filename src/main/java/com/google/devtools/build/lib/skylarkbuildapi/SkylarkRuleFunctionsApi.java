@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -77,7 +77,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
                     + " })</pre></ul>All fields are optional.",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = SkylarkDict.class)
             },
             noneable = true,
@@ -215,7 +215,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "(e.g. when generating header files for C++), do not set this flag."),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -224,7 +224,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -247,7 +247,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -266,14 +266,14 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "tools."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
             name = "exec_compatible_with",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -339,13 +339,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
@@ -373,7 +373,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -405,7 +405,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "name, type, and valid values according to the restriction."),
         @Param(
             name = "required_aspect_providers",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc =
@@ -428,13 +428,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -443,7 +443,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -452,7 +452,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in host configuration."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -492,13 +492,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useAst = true)
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToGeneratingRules,
       FuncallExpression ast,

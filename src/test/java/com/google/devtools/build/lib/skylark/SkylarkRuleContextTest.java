@@ -47,8 +47,8 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -458,8 +458,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   private void assertArtifactList(Object result, List<String> artifacts) {
-    assertThat(result).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> resultList = (SkylarkList) result;
+    assertThat(result).isInstanceOf(Sequence.class);
+    Sequence<?> resultList = (Sequence) result;
     assertThat(resultList).hasSize(artifacts.size());
     int i = 0;
     for (String artifact : artifacts) {
@@ -473,7 +473,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.srcs");
     // Check for a known provider
-    TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((SkylarkList) result).get(0);
+    TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((Sequence) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
     // Check an unimplemented provider too
     assertThat(PyProviderUtils.hasLegacyProvider(tic1)).isFalse();
@@ -494,7 +494,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
-    assertThat(result).isInstanceOf(SkylarkList.class);
+    assertThat(result).isInstanceOf(Sequence.class);
   }
 
   @Test
@@ -646,7 +646,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
-    assertThat(((SkylarkList) result)).hasSize(1);
+    assertThat(((Sequence) result)).hasSize(1);
   }
 
   @Test
@@ -654,7 +654,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
-    assertThat(((SkylarkList) result)).hasSize(1);
+    assertThat(((Sequence) result)).hasSize(1);
   }
 
   @Test
@@ -865,14 +865,14 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testFeatures() throws Exception {
     setRuleContext(createRuleContext("//foo:cc_with_features"));
     Object result = eval("ruleContext.features");
-    assertThat((SkylarkList) result).containsExactly("cc_include_scanning", "f1", "f2");
+    assertThat((Sequence) result).containsExactly("cc_include_scanning", "f1", "f2");
   }
 
   @Test
   public void testDisabledFeatures() throws Exception {
     setRuleContext(createRuleContext("//foo:cc_with_features"));
     Object result = eval("ruleContext.disabled_features");
-    assertThat((SkylarkList) result).containsExactly("f3");
+    assertThat((Sequence) result).containsExactly("f3");
   }
 
   @Test
@@ -1571,19 +1571,19 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//test:foo"));
     Object filenames =
         eval("[f.short_path for f in ruleContext.attr.dep.default_runfiles.files.to_list()]");
-    assertThat(filenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> filenamesList = (SkylarkList) filenames;
+    assertThat(filenames).isInstanceOf(Sequence.class);
+    Sequence<?> filenamesList = (Sequence) filenames;
     assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
     Object emptyFilenames = eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
-    assertThat(emptyFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> emptyFilenamesList = (SkylarkList) emptyFilenames;
+    assertThat(emptyFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> emptyFilenamesList = (Sequence) emptyFilenames;
     assertThat(emptyFilenamesList).containsExactly("test/__init__.py");
 
     setRuleContext(createRuleContext("//test:foo_with_init"));
     Object noEmptyFilenames =
         eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
-    assertThat(noEmptyFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> noEmptyFilenamesList = (SkylarkList) noEmptyFilenames;
+    assertThat(noEmptyFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> noEmptyFilenamesList = (Sequence) noEmptyFilenames;
     assertThat(noEmptyFilenamesList).isEmpty();
   }
 
@@ -1622,15 +1622,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//test:test_with_symlink"));
     Object symlinkPaths =
         eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkPaths).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> symlinkPathsList = (SkylarkList) symlinkPaths;
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
     Object symlinkFilenames =
         eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> symlinkFilenamesList = (SkylarkList) symlinkFilenames;
+    assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
     assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
@@ -1668,15 +1668,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//test:test_with_symlink"));
     Object symlinkPaths =
         eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkPaths).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> symlinkPathsList = (SkylarkList) symlinkPaths;
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
     Object symlinkFilenames =
         eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> symlinkFilenamesList = (SkylarkList) symlinkFilenames;
+    assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
     assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
@@ -1715,15 +1715,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//test:test_with_root_symlink"));
     Object rootSymlinkPaths =
         eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkPaths).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> rootSymlinkPathsList = (SkylarkList) rootSymlinkPaths;
+    assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
     Object rootSymlinkFilenames =
         eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> rootSymlinkFilenamesList = (SkylarkList) rootSymlinkFilenames;
+    assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
     assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
@@ -1761,15 +1761,15 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//test:test_with_root_symlink"));
     Object rootSymlinkPaths =
         eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkPaths).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> rootSymlinkPathsList = (SkylarkList) rootSymlinkPaths;
+    assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
     Object rootSymlinkFilenames =
         eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkFilenames).isInstanceOf(SkylarkList.class);
-    SkylarkList<?> rootSymlinkFilenamesList = (SkylarkList) rootSymlinkFilenames;
+    assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
+    Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
     assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
@@ -2445,7 +2445,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         new SkylarkKey(Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
 
     SkylarkInfo keyInfo = (SkylarkInfo) a.get(key);
-    SkylarkList<?> keys = (SkylarkList) keyInfo.getValue("keys");
+    Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
     assertThat(keys).containsExactly("c", "b", "a", "f", "e", "d").inOrder();
   }
 

@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.io.IOException;
@@ -62,17 +62,16 @@ public interface ActionApi extends SkylarkValue {
   public SkylarkNestedSet getSkylarkOutputs();
 
   @SkylarkCallable(
-    name = "argv",
-    doc =
-        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-            + "list of the arguments for the command line to be executed. Note that "
-            + "for shell actions the first two arguments will be the shell path "
-            + "and <code>\"-c\"</code>.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public SkylarkList<String> getSkylarkArgv() throws EvalException;
+      name = "argv",
+      doc =
+          "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
+              + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
+              + "list of the arguments for the command line to be executed. Note that "
+              + "for shell actions the first two arguments will be the shell path "
+              + "and <code>\"-c\"</code>.",
+      structField = true,
+      allowReturnNones = true)
+  public Sequence<String> getSkylarkArgv() throws EvalException;
 
   @SkylarkCallable(
       name = "args",
@@ -88,7 +87,7 @@ public interface ActionApi extends SkylarkValue {
       structField = true,
       allowReturnNones = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
-  public SkylarkList<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   @SkylarkCallable(
     name = "content",

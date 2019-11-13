@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Integer defaultInt,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -51,7 +51,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String defaultString,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -71,11 +71,11 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
-      SkylarkList<?> providers,
+      Sequence<?> providers,
       Object allowRules,
       Boolean singleFile,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -91,7 +91,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -105,7 +105,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -121,12 +121,12 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -144,12 +144,12 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -243,13 +243,13 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * each of the inner lists is a separate group.
    */
   private static List<List<String>> allProviderNameGroups(
-      SkylarkList<?> providers, StarlarkThread thread) {
+      Sequence<?> providers, StarlarkThread thread) {
 
     List<List<String>> allNameGroups = new ArrayList<>();
     for (Object object : providers) {
       List<String> providerNameGroup;
-      if (object instanceof SkylarkList) {
-        SkylarkList<?> group = (SkylarkList<?>) object;
+      if (object instanceof Sequence) {
+        Sequence<?> group = (Sequence<?>) object;
         providerNameGroup = parseProviderGroup(group, thread);
         allNameGroups.add(providerNameGroup);
       } else {
@@ -267,7 +267,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * <p>Each item in the group may be either a {@link ProviderApi} or a {@code String} (representing
    * a legacy provider).
    */
-  private static List<String> parseProviderGroup(SkylarkList<?> group, StarlarkThread thread) {
+  private static List<String> parseProviderGroup(Sequence<?> group, StarlarkThread thread) {
     List<String> providerNameGroup = new ArrayList<>();
     for (Object object : group) {
       if (object instanceof ProviderApi) {

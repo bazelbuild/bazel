@@ -227,55 +227,49 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(
-      name = "with_params",
-      documented = false,
-      parameters = {
-        @Param(name = "pos1"),
-        @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
-        @Param(
-          name = "posOrNamed",
-          defaultValue = "False",
-          type = Boolean.class,
-          positional = true,
-          named = true
-        ),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-        @Param(
-          name = "optionalNamed",
-          type = Boolean.class,
-          defaultValue = "False",
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "nonNoneable",
-          type = Object.class,
-          defaultValue = "\"a\"",
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "noneable",
-          type = Integer.class,
-          defaultValue = "None",
-          noneable = true,
-          positional = false,
-          named = true
-        ),
-        @Param(
-          name = "multi",
-          allowedTypes = {
-            @ParamType(type = String.class),
-            @ParamType(type = Integer.class),
-            @ParamType(type = SkylarkList.class, generic1 = Integer.class),
-          },
-          defaultValue = "None",
-          noneable = true,
-          positional = false,
-          named = true
-        )
-      }
-    )
+        name = "with_params",
+        documented = false,
+        parameters = {
+          @Param(name = "pos1"),
+          @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
+          @Param(
+              name = "posOrNamed",
+              defaultValue = "False",
+              type = Boolean.class,
+              positional = true,
+              named = true),
+          @Param(name = "named", type = Boolean.class, positional = false, named = true),
+          @Param(
+              name = "optionalNamed",
+              type = Boolean.class,
+              defaultValue = "False",
+              positional = false,
+              named = true),
+          @Param(
+              name = "nonNoneable",
+              type = Object.class,
+              defaultValue = "\"a\"",
+              positional = false,
+              named = true),
+          @Param(
+              name = "noneable",
+              type = Integer.class,
+              defaultValue = "None",
+              noneable = true,
+              positional = false,
+              named = true),
+          @Param(
+              name = "multi",
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = Integer.class),
+                @ParamType(type = Sequence.class, generic1 = Integer.class),
+              },
+              defaultValue = "None",
+              noneable = true,
+              positional = false,
+              named = true)
+        })
     public String withParams(
         Integer pos1,
         boolean pos2,
@@ -359,7 +353,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
               allowedTypes = {
                 @ParamType(type = String.class),
                 @ParamType(type = Integer.class),
-                @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+                @ParamType(type = Sequence.class, generic1 = Integer.class),
               },
               defaultValue = "None",
               noneable = true,
@@ -428,7 +422,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         extraPositionals = @Param(name = "args"),
         useStarlarkThread = true)
     public String withArgsAndThread(
-        Integer pos1, boolean pos2, boolean named, SkylarkList<?> args, StarlarkThread thread) {
+        Integer pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
       String argsString =
           "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
       return "with_args_and_thread("
@@ -468,15 +462,14 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(
-      name = "with_args_and_kwargs",
-      documented = false,
-      parameters = {
-        @Param(name = "foo", named = true, positional = true, type = String.class),
-      },
-      extraPositionals = @Param(name = "args"),
-      extraKeywords = @Param(name = "kwargs")
-    )
-    public String withArgsAndKwargs(String foo, SkylarkList<?> args, SkylarkDict<?, ?> kwargs)
+        name = "with_args_and_kwargs",
+        documented = false,
+        parameters = {
+          @Param(name = "foo", named = true, positional = true, type = String.class),
+        },
+        extraPositionals = @Param(name = "args"),
+        extraKeywords = @Param(name = "kwargs"))
+    public String withArgsAndKwargs(String foo, Sequence<?> args, SkylarkDict<?, ?> kwargs)
         throws EvalException {
       String argsString =
           "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";

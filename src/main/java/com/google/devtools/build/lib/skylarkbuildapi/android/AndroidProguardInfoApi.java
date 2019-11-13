@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /** A target that can provide local proguard specifications. */
 @SkylarkModule(
@@ -61,12 +61,12 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
               doc = "A list of local proguard specs.",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class)
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
-    AndroidProguardInfoApi<FileT> createInfo(SkylarkList<?> localProguardSpecs /* <FileT> */)
+    AndroidProguardInfoApi<FileT> createInfo(Sequence<?> localProguardSpecs /* <FileT> */)
         throws EvalException;
   }
 }

@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -2912,7 +2912,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "directory = ruleContext.actions.declare_directory('dir')",
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2939,7 +2939,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path, expand_directories=True)",
         "args.add_all([directory], map_each=_short_path, expand_directories=False)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2974,7 +2974,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args.add_all([directory])",
         "params = ruleContext.actions.declare_file('params')",
         "ruleContext.actions.write(params, args)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("params, directory");
+    Sequence<?> result = (Sequence<?>) eval("params, directory");
     Artifact params = (Artifact) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     ActionAnalysisMetadata action =

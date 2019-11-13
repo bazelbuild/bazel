@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
@@ -41,7 +41,7 @@ public class FakePyWrapCcHelper
         WrapCcIncludeProviderApi> {
 
   @Override
-  public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
     return null;
   }
 
@@ -95,10 +95,10 @@ public class FakePyWrapCcHelper
       CcCompilationContextApi wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileApi swigSource,
-      SkylarkList<?> subParameters,
+      Sequence<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<?> outputFiles,
+      Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,
@@ -112,8 +112,8 @@ public class FakePyWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<?> depCcCompilationContexts,
-      SkylarkList<?> targetCopts) {
+      Sequence<?> depCcCompilationContexts,
+      Sequence<?> targetCopts) {
     return null;
   }
 }

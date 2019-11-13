@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -63,7 +63,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
       })
   // TODO(plf): PyExtension is not in Skylark.
-  public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
+  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

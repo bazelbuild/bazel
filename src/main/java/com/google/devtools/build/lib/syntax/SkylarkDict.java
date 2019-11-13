@@ -74,7 +74,7 @@ import javax.annotation.Nullable;
 // this, as Java parameterized types are not accessible at runtime.
 // Every cast to a parameterized type is a lie.
 // Unchecked warnings should be treated as errors.
-// Ditto SkylarkList.
+// Ditto Sequence.
 public final class SkylarkDict<K, V> extends MutableMap<K, V>
     implements Map<K, V>, SkylarkIndexable {
 

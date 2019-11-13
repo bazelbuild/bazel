@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -371,7 +371,7 @@ public interface AppleCommonApi<
             doc = "The Starlark rule context."),
         @Param(
             name = "extra_linkopts",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -379,7 +379,7 @@ public interface AppleCommonApi<
             doc = "Extra linkopts to be passed to the linker action."),
         @Param(
             name = "extra_link_inputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -390,8 +390,8 @@ public interface AppleCommonApi<
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<?> extraLinkopts, // <String> expected.
-      SkylarkList<?> extraLinkInputs, // <? extends FileApi> expected.
+      Sequence<?> extraLinkopts, // <String> expected.
+      Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

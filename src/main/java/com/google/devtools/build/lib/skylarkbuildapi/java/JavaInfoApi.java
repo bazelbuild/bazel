@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -90,7 +90,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " annotations) of the target  itself, i.e. NOT including the sources of the"
               + " transitive dependencies.",
       structField = true)
-  public SkylarkList<FileT> getSourceJars();
+  public Sequence<FileT> getSourceJars();
 
   @SkylarkCallable(
       name = "outputs",
@@ -117,7 +117,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       name = "runtime_output_jars",
       doc = "Returns a list of runtime Jars created by this Java/Java-like target.",
       structField = true)
-  public SkylarkList<FileT> getRuntimeOutputJars();
+  public Sequence<FileT> getRuntimeOutputJars();
 
   @SkylarkCallable(
       name = "transitive_deps",
@@ -201,21 +201,21 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               doc = "If true only use this library for compilation and not at runtime."),
           @Param(
               name = "deps",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
               doc = "Compile time dependencies that were used to create the output jar."),
           @Param(
               name = "runtime_deps",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
               doc = "Runtime dependencies that are needed for this library."),
           @Param(
               name = "exports",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
@@ -244,9 +244,9 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         Object compileJarApi,
         Object sourceJarApi,
         Boolean neverlink,
-        SkylarkList<?> deps,
-        SkylarkList<?> runtimeDeps,
-        SkylarkList<?> exports,
+        Sequence<?> deps,
+        Sequence<?> runtimeDeps,
+        Sequence<?> exports,
         Object jdepsApi,
         Location loc,
         StarlarkThread thread)

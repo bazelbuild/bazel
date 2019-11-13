@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -80,7 +80,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc =
           "Header files from this target directly (no transitive headers). "
               + "These may be either public or private headers.")
-  public SkylarkList<FileApiT> directHeaders();
+  public Sequence<FileApiT> directHeaders();
 
   @SkylarkCallable(name = "imported_library",
       structField = true,
@@ -174,7 +174,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc =
           "Module map files from this target directly (no transitive module maps). "
               + "Used to enforce proper use of private header files and for Swift compilation.")
-  public SkylarkList<FileApiT> directModuleMaps();
+  public Sequence<FileApiT> directModuleMaps();
 
   @SkylarkCallable(name = "multi_arch_dynamic_libraries",
       structField = true,
@@ -216,7 +216,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "direct_sources",
       structField = true,
       doc = "All direct source files from this target (no transitive files).")
-  public SkylarkList<FileApiT> directSources();
+  public Sequence<FileApiT> directSources();
 
   @SkylarkCallable(
       name = "static_framework_file",

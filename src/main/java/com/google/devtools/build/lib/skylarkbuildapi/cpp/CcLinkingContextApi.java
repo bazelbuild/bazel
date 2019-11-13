@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -36,7 +36,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends SkylarkValue
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
       structField = true)
-  SkylarkList<String> getSkylarkUserLinkFlags();
+  Sequence<String> getSkylarkUserLinkFlags();
 
   @SkylarkCallable(
       name = "libraries_to_link",

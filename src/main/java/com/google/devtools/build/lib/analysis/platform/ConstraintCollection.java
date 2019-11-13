@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Map;
@@ -229,8 +229,8 @@ public abstract class ConstraintCollection
   }
 
   @Override
-  public SkylarkList<ConstraintSettingInfo> constraintSettings() {
-    return SkylarkList.createImmutable(constraints().keySet());
+  public Sequence<ConstraintSettingInfo> constraintSettings() {
+    return Sequence.createImmutable(constraints().keySet());
   }
 
   @Override

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -47,7 +47,7 @@ public interface LinkerInputApi<
       doc = "Returns the list of user link flags passed as strings.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
-  SkylarkList<String> getSkylarkUserLinkFlags();
+  Sequence<String> getSkylarkUserLinkFlags();
 
   @SkylarkCallable(
       name = "libraries",
@@ -57,12 +57,12 @@ public interface LinkerInputApi<
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       useStarlarkThread = true)
-  SkylarkList<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkThread thread);
+  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkThread thread);
 
   @SkylarkCallable(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
-  SkylarkList<FileT> getSkylarkNonCodeInputs();
+  Sequence<FileT> getSkylarkNonCodeInputs();
 }

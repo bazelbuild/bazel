@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -220,8 +220,8 @@ public class AppleSkylarkCommon
   @Override
   public StructImpl linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContextApi,
-      SkylarkList<?> extraLinkopts,
-      SkylarkList<?> extraLinkInputs,
+      Sequence<?> extraLinkopts,
+      Sequence<?> extraLinkInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
@@ -231,7 +231,7 @@ public class AppleSkylarkCommon
           AppleBinary.linkMultiArchBinary(
               ruleContext,
               ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
-              SkylarkList.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+              Sequence.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);

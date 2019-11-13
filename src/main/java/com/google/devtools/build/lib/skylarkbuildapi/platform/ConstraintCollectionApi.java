@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
@@ -41,7 +41,7 @@ public interface ConstraintCollectionApi<
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
-  SkylarkList<ConstraintSettingInfoT> constraintSettings();
+  Sequence<ConstraintSettingInfoT> constraintSettings();
 
   @SkylarkCallable(
       name = "get",

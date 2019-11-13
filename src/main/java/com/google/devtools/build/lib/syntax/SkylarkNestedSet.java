@@ -128,10 +128,10 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
             contentType, nestedSet.contentType, /*lastInsertedType=*/ null, loc);
         transitiveItemsBuilder.add(nestedSet.set);
       }
-    } else if (item instanceof SkylarkList) {
+    } else if (item instanceof Sequence) {
       SkylarkType lastInsertedType = null;
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
-      for (Object object : (SkylarkList) item) {
+      for (Object object : (Sequence) item) {
         SkylarkType elemType = SkylarkType.of(object);
         contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
         lastInsertedType = elemType;
@@ -162,7 +162,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   static SkylarkNestedSet of(Order order, Object item, Location loc) throws EvalException {
     // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if item is an empty SkylarkNestedSet or SkylarkList.
+    // (should be BOTTOM) if item is an empty SkylarkNestedSet or Sequence.
     return of(order, SkylarkType.TOP, item, loc, null);
   }
 

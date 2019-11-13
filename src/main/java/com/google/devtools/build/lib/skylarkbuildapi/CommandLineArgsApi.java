@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Command line args module. */
@@ -247,7 +247,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
         @Param(
             name = "values",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
               @ParamType(type = SkylarkNestedSet.class),
             },
             defaultValue = "unbound",
@@ -397,7 +397,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
         @Param(
             name = "values",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
               @ParamType(type = SkylarkNestedSet.class),
             },
             defaultValue = "unbound",

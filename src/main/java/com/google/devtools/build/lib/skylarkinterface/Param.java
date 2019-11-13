@@ -50,8 +50,8 @@ public @interface Param {
   String defaultValue() default "";
 
   /**
-   * Type of the parameter, e.g. {@link String}.class or
-   * {@link com.google.devtools.build.lib.syntax.SkylarkList}.class.
+   * Type of the parameter, e.g. {@link String}.class or {@link
+   * com.google.devtools.build.lib.syntax.Sequence}.class.
    */
   Class<?> type() default Object.class;
 
@@ -63,10 +63,10 @@ public @interface Param {
   ParamType[] allowedTypes() default {};
 
   /**
-   * When {@link #type()} is a generic type (e.g.,
-   * {@link com.google.devtools.build.lib.syntax.SkylarkList}), specify the type parameter (e.g.
-   * {@link String}.class} along with {@link com.google.devtools.build.lib.syntax.SkylarkList} for
-   * {@link #type()} to specify a list of strings).
+   * When {@link #type()} is a generic type (e.g., {@link
+   * com.google.devtools.build.lib.syntax.Sequence}), specify the type parameter (e.g. {@link
+   * String}.class} along with {@link com.google.devtools.build.lib.syntax.Sequence} for {@link
+   * #type()} to specify a list of strings).
    *
    * <p>This is only used for documentation generation. The actual generic type is not checked at
    * runtime, so the Java method signature should use a generic type of Object and cast

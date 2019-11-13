@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -2057,8 +2057,8 @@ public class RuleClass {
       Object attributeValue = attributes.get(attributeName, attr.getType());
 
       boolean isEmpty = false;
-      if (attributeValue instanceof SkylarkList) {
-        isEmpty = ((SkylarkList<?>) attributeValue).isEmpty();
+      if (attributeValue instanceof Sequence) {
+        isEmpty = ((Sequence<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof List<?>) {
         isEmpty = ((List<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof Map<?, ?>) {

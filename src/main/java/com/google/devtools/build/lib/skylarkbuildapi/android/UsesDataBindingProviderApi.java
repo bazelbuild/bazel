@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /**
  * An interface for a provider that exposes the use of <a
@@ -65,12 +65,12 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
               doc = "A list of artifacts of the metadata outputs.",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = UsesDataBindingProviderApi.class)
-    UsesDataBindingProviderApi<FileT> createInfo(SkylarkList<?> metadataOutputs /* <FileT> */)
+    UsesDataBindingProviderApi<FileT> createInfo(Sequence<?> metadataOutputs /* <FileT> */)
         throws EvalException;
   }
 }

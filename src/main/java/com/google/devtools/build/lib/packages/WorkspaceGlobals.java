@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -106,7 +106,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   private void parseManagedDirectories(
-      Map<String, ?> managedDirectories, // <String, SkylarkList<String>>
+      Map<String, ?> managedDirectories, // <String, Sequence<String>>
       Location loc)
       throws EvalException {
     Map<PathFragment, String> nonNormalizedPathsMap = Maps.newHashMap();
@@ -158,14 +158,14 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   private static List<PathFragment> getManagedDirectoriesPaths(
       Object directoriesList, Location location, Map<PathFragment, String> nonNormalizedPathsMap)
       throws EvalException {
-    if (!(directoriesList instanceof SkylarkList)) {
+    if (!(directoriesList instanceof Sequence)) {
       throw new EvalException(
           location,
           "managed_directories attribute value should be of the type attr.string_list_dict(),"
               + " mapping repository name to the list of managed directories.");
     }
     List<PathFragment> result = Lists.newArrayList();
-    for (Object obj : (SkylarkList) directoriesList) {
+    for (Object obj : (Sequence) directoriesList) {
       if (!(obj instanceof String)) {
         throw new EvalException(
             location,
@@ -221,7 +221,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, StarlarkThread thread)
+      Sequence<?> platformLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread, location).pkgBuilder;
@@ -232,7 +232,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public NoneType registerToolchains(
-      SkylarkList<?> toolchainLabels, Location location, StarlarkThread thread)
+      Sequence<?> toolchainLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread, location).pkgBuilder;

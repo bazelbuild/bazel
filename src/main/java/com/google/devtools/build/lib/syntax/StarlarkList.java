@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public final class StarlarkList<E> extends SkylarkList<E> {
+public final class StarlarkList<E> extends Sequence<E> {
 
   private final ArrayList<E> contents;
 

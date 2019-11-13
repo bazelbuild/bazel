@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
@@ -219,14 +219,14 @@ public interface AndroidIdeInfoProviderApi<
               doc = "A list of artifacts of the idl srcs.",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class),
           @Param(
               name = "idl_generated_java_files",
               doc = "A list of artifacts of the idl generated java files.",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class),
           @Param(
               name = "idl_source_jar",
@@ -281,7 +281,7 @@ public interface AndroidIdeInfoProviderApi<
               doc = "A list of artifacts of the apks under test",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class),
           @Param(
               name = "native_libs",
@@ -300,8 +300,8 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object manifest,
         /*noneable*/ Object generatedManifest,
         /*noneable*/ Object idlImportRoot,
-        SkylarkList<?> idlSrcs, // <FileT>
-        SkylarkList<?> idlGeneratedJavaFiles, // <FileT>
+        Sequence<?> idlSrcs, // <FileT>
+        Sequence<?> idlGeneratedJavaFiles, // <FileT>
         /*noneable*/ Object idlSourceJar,
         /*noneable*/ Object idlClassJar,
         boolean definesAndroidResources,
@@ -309,7 +309,7 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object resourceApk,
         /*noneable*/ Object signedApk,
         /*noneable*/ Object aar,
-        SkylarkList<?> apksUnderTest, // <FileT>
+        Sequence<?> apksUnderTest, // <FileT>
         SkylarkDict<?, ?> nativeLibs /* <String, SkylarkNestedSet> */)
         throws EvalException;
   }

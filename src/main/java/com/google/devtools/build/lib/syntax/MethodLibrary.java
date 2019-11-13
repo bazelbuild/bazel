@@ -59,10 +59,10 @@ class MethodLibrary {
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
       extraPositionals =
-          @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
       useLocation = true,
       useStarlarkThread = true)
-  public Object min(SkylarkList<?> args, Location loc, StarlarkThread thread) throws EvalException {
+  public Object min(Sequence<?> args, Location loc, StarlarkThread thread) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, thread);
     } catch (ComparisonException e) {
@@ -79,10 +79,10 @@ class MethodLibrary {
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
       extraPositionals =
-          @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
       useLocation = true,
       useStarlarkThread = true)
-  public Object max(SkylarkList<?> args, Location loc, StarlarkThread thread) throws EvalException {
+  public Object max(Sequence<?> args, Location loc, StarlarkThread thread) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, thread);
     } catch (ComparisonException e) {
@@ -92,7 +92,7 @@ class MethodLibrary {
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
   private static Object findExtreme(
-      SkylarkList<?> args, Ordering<Object> maxOrdering, Location loc, StarlarkThread thread)
+      Sequence<?> args, Ordering<Object> maxOrdering, Location loc, StarlarkThread thread)
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
@@ -340,8 +340,8 @@ class MethodLibrary {
       return ((String) x).length();
     } else if (x instanceof Map) {
       return ((Map<?, ?>) x).size();
-    } else if (x instanceof SkylarkList) {
-      return ((SkylarkList<?>) x).size();
+    } else if (x instanceof Sequence) {
+      return ((Sequence<?>) x).size();
     } else if (x instanceof SkylarkNestedSet) {
       if (thread.getSemantics().incompatibleDepsetIsNotIterable()) {
         throw new EvalException(
@@ -637,7 +637,7 @@ class MethodLibrary {
   public StarlarkList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
       throws EvalException {
     int count = start;
-    ArrayList<SkylarkList<?>> result = new ArrayList<>();
+    ArrayList<Sequence<?>> result = new ArrayList<>();
     for (Object obj : EvalUtils.toCollection(input, loc, thread)) {
       result.add(Tuple.of(count, obj));
       count++;
@@ -705,7 +705,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkList<Integer> range(
+  public Sequence<Integer> range(
       Integer startOrStop, Object stopOrNone, Integer step, Location loc, StarlarkThread thread)
       throws EvalException {
     int start;
@@ -883,7 +883,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useLocation = true,
       useStarlarkThread = true)
-  public NoneType print(String sep, SkylarkList<?> starargs, Location loc, StarlarkThread thread)
+  public NoneType print(String sep, Sequence<?> starargs, Location loc, StarlarkThread thread)
       throws EvalException {
     try {
       String msg = starargs.stream().map(Printer::debugPrint).collect(joining(sep));
@@ -993,7 +993,7 @@ class MethodLibrary {
             name = "transitive",
             named = true,
             positional = false,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkNestedSet.class,
             noneable = true,
             doc = "A list of depsets whose elements will become indirect elements of the depset.",
@@ -1076,8 +1076,8 @@ class MethodLibrary {
   private static <T> List<T> listFromNoneable(
       Object listOrNone, Class<T> objectType, String paramName) throws EvalException {
     if (listOrNone != Starlark.NONE) {
-      SkylarkType.checkType(listOrNone, SkylarkList.class, paramName);
-      return ((SkylarkList<?>) listOrNone).getContents(objectType, paramName);
+      SkylarkType.checkType(listOrNone, Sequence.class, paramName);
+      return ((Sequence<?>) listOrNone).getContents(objectType, paramName);
     } else {
       return ImmutableList.of();
     }
@@ -1100,18 +1100,17 @@ class MethodLibrary {
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
     Iterable<Object> directElements;
     if (direct != Starlark.NONE) {
-      SkylarkType.checkType(direct, SkylarkList.class, "direct");
-      directElements = ((SkylarkList<?>) direct).getContents(Object.class, "direct");
+      SkylarkType.checkType(direct, Sequence.class, "direct");
+      directElements = ((Sequence<?>) direct).getContents(Object.class, "direct");
     } else {
-      SkylarkType.checkType(items, SkylarkList.class, "items");
-      directElements = ((SkylarkList<?>) items).getContents(Object.class, "items");
+      SkylarkType.checkType(items, Sequence.class, "items");
+      directElements = ((Sequence<?>) items).getContents(Object.class, "items");
     }
 
     Iterable<SkylarkNestedSet> transitiveList;
     if (transitive != Starlark.NONE) {
-      SkylarkType.checkType(transitive, SkylarkList.class, "transitive");
-      transitiveList =
-          ((SkylarkList<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
+      SkylarkType.checkType(transitive, Sequence.class, "transitive");
+      transitiveList = ((Sequence<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
     } else {
       transitiveList = ImmutableList.of();
     }
@@ -1126,7 +1125,7 @@ class MethodLibrary {
   }
 
   private static boolean isEmptySkylarkList(Object o) {
-    return o instanceof SkylarkList && ((SkylarkList) o).isEmpty();
+    return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 
   /**
@@ -1187,7 +1186,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
       useLocation = true,
       useStarlarkThread = true)
-  public StarlarkList<?> zip(SkylarkList<?> args, Location loc, StarlarkThread thread)
+  public StarlarkList<?> zip(Sequence<?> args, Location loc, StarlarkThread thread)
       throws EvalException {
     Iterator<?>[] iterators = new Iterator<?>[args.size()];
     for (int i = 0; i < args.size(); i++) {

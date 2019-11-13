@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -91,8 +91,8 @@ public interface WrapCcHelperApi<
             name = "dep_compilation_contexts",
             positional = false,
             named = true,
-            type = SkylarkList.class),
-        @Param(name = "target_copts", positional = false, named = true, type = SkylarkList.class),
+            type = Sequence.class),
+        @Param(name = "target_copts", positional = false, named = true, type = Sequence.class),
       })
   public CompilationInfoT skylarkCreateCompileActions(
       SkylarkRuleContextT skylarkRuleContext,
@@ -100,8 +100,8 @@ public interface WrapCcHelperApi<
       CcToolchainProviderT ccToolchain,
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<?> depCcCompilationContexts, // <CcCompilationContextT> expected
-      SkylarkList<?> targetCopts /* <String> expected */)
+      Sequence<?> depCcCompilationContexts, // <CcCompilationContextT> expected
+      Sequence<?> targetCopts /* <String> expected */)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -158,10 +158,10 @@ public interface WrapCcHelperApi<
             named = true,
             type = SkylarkNestedSet.class),
         @Param(name = "swig_source", positional = false, named = true, type = FileApi.class),
-        @Param(name = "sub_parameters", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "sub_parameters", positional = false, named = true, type = Sequence.class),
         @Param(name = "cc_file", positional = false, named = true, type = FileApi.class),
         @Param(name = "header_file", positional = false, named = true, type = FileApi.class),
-        @Param(name = "output_files", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "output_files", positional = false, named = true, type = Sequence.class),
         @Param(
             name = "out_dir",
             positional = false,
@@ -201,10 +201,10 @@ public interface WrapCcHelperApi<
       CcCompilationContextT wrapperCcCompilationContext,
       SkylarkNestedSet swigIncludes,
       FileT swigSource,
-      SkylarkList<?> subParameters, // <String> expected
+      Sequence<?> subParameters, // <String> expected
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<?> outputFiles, // <FileT> expected
+      Sequence<?> outputFiles, // <FileT> expected
       Object outDir,
       Object javaDir,
       SkylarkNestedSet auxiliaryInputs,

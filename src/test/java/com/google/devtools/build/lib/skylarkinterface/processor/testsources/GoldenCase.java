@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -193,11 +193,7 @@ public class GoldenCase implements SkylarkValue {
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one,
-      Integer two,
-      SkylarkList<?> args,
-      SkylarkDict<?, ?> kwargs,
-      StarlarkThread thread) {
+      String one, Integer two, Sequence<?> args, SkylarkDict<?, ?> kwargs, StarlarkThread thread) {
     return "yar";
   }
 
@@ -230,10 +226,10 @@ public class GoldenCase implements SkylarkValue {
       name = "method_with_list_and_dict",
       documented = false,
       parameters = {
-        @Param(name = "one", type = SkylarkList.class, named = true),
+        @Param(name = "one", type = Sequence.class, named = true),
         @Param(name = "two", type = SkylarkDict.class, named = true),
       })
-  public String methodWithListandDict(SkylarkList<?> one, SkylarkDict<?, ?> two) {
+  public String methodWithListandDict(Sequence<?> one, SkylarkDict<?, ?> two) {
     return "bar";
   }
 }

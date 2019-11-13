@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -672,8 +672,8 @@ public abstract class Type<T> {
     public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
       // TODO(adonovan): converge on EvalUtils.toIterable.
-      if (x instanceof SkylarkList) {
-        return ((SkylarkList) x).getImmutableList();
+      if (x instanceof Sequence) {
+        return ((Sequence) x).getImmutableList();
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {

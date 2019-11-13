@@ -47,8 +47,8 @@ import java.lang.annotation.Target;
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
  *       (Location)(FuncallExpression)(StarlarkThread)(StarlarkSemantics))</pre>
- *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
- *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
+ *       where (extra positionals list) is a Sequence if extraPositionals is defined, (extra kwargs)
+ *       is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
  *       StarlarkThread, and StarlarkSemantics are supplied by the interpreter if and only if
  *       useLocation, useAst, useStarlarkThread, and useStarlarkSemantics are specified,
  *       respectively.
@@ -99,11 +99,11 @@ public @interface SkylarkCallable {
    *
    * <p>If this is left as default, it is an error for the caller to pass more positional arguments
    * than are explicitly allowed by the method signature. If this is defined, all additional
-   * positional arguments are passed as elements of a {@link SkylarkList} to the method.
+   * positional arguments are passed as elements of a {@link Sequence} to the method.
    *
    * <p>See python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
-   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkList
+   * <p>(If this is defined, the annotated method signature must contain a corresponding Sequence
    * parameter. See the interface-level javadoc for details.)
    */
   Param extraPositionals() default @Param(name = "");

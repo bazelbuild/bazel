@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
@@ -69,14 +69,14 @@ class StarlarkBuildLibrary {
         // Both parameter below are lists of label designators
         @Param(
             name = "environments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = Object.class,
             positional = false,
             named = true,
             doc = "A list of Labels for the environments to be grouped, from the same package."),
         @Param(
             name = "defaults",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = Object.class,
             positional = false,
             named = true,
@@ -89,8 +89,8 @@ class StarlarkBuildLibrary {
       useStarlarkThread = true)
   public NoneType environmentGroup(
       String name,
-      SkylarkList<?> environmentsList, // <Label>
-      SkylarkList<?> defaultsList, // <Label>
+      Sequence<?> environmentsList, // <Label>
+      Sequence<?> defaultsList, // <Label>
       Location loc,
       StarlarkThread thread)
       throws EvalException {
@@ -126,7 +126,7 @@ class StarlarkBuildLibrary {
       parameters = {
         @Param(
             name = "license_strings",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             doc = "A list of strings, the names of the licenses used.")
       },
@@ -136,7 +136,7 @@ class StarlarkBuildLibrary {
       useStarlarkThread = true,
       useLocation = true)
   public NoneType invoke(
-      SkylarkList<?> licensesList, // list of license strings
+      Sequence<?> licensesList, // list of license strings
       Location loc,
       StarlarkThread thread)
       throws EvalException {

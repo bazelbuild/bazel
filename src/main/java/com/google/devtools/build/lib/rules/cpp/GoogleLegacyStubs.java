@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
@@ -81,8 +81,8 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<?> depCcCompilationContexts, // <CcCompilationContextApi>
-        SkylarkList<?> targetCopts /* <String> */)
+        Sequence<?> depCcCompilationContexts, // <CcCompilationContextApi>
+        Sequence<?> targetCopts /* <String> */)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -108,10 +108,10 @@ public final class GoogleLegacyStubs {
         CcCompilationContextApi wrapperCcCompilationContext,
         SkylarkNestedSet swigIncludes,
         FileApi swigSource,
-        SkylarkList<?> subParameters, // <String>
+        Sequence<?> subParameters, // <String>
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<?> outputFiles, // <FileApi>
+        Sequence<?> outputFiles, // <FileApi>
         Object outDir,
         Object javaDir,
         SkylarkNestedSet auxiliaryInputs,
@@ -136,7 +136,7 @@ public final class GoogleLegacyStubs {
           WrapCcIncludeProviderApi> {
 
     @Override
-    public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+    public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
       return null;
     }
 
@@ -215,8 +215,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActions(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<?> srcs, // <FileApi>
-        SkylarkList<?> deps /* <TransitiveInfoCollectionApi> */) {
+        Sequence<?> srcs, // <FileApi>
+        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 
@@ -224,8 +224,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActionsGopkg(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<?> srcs, // <FileApi>
-        SkylarkList<?> deps /* <TransitiveInfoCollectionApi> */) {
+        Sequence<?> srcs, // <FileApi>
+        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 

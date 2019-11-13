@@ -51,7 +51,7 @@ import java.util.NoSuchElementException;
             + "range(10)[::2]  # range(0, 10, 2)\n"
             + "range(10)[3:0:-1]  # range(3, 0, -1)</pre>"
             + "Ranges are immutable, as in Python 3.")
-final class RangeList extends SkylarkList<Integer> {
+final class RangeList extends Sequence<Integer> {
 
   private final int step;
   private final int start;
@@ -181,7 +181,7 @@ final class RangeList extends SkylarkList<Integer> {
   }
 
   @Override
-  public SkylarkList<Integer> getSlice(
+  public Sequence<Integer> getSlice(
       Object start, Object end, Object step, Location loc, Mutability mutability)
       throws EvalException {
     Slice slice = Slice.from(size(), start, end, step, loc);
@@ -192,7 +192,7 @@ final class RangeList extends SkylarkList<Integer> {
   }
 
   @Override
-  public SkylarkList<Integer> repeat(int times, Mutability mutability) {
+  public Sequence<Integer> repeat(int times, Mutability mutability) {
     throw new UnsupportedOperationException("Ranges do not support repetition.");
   }
 

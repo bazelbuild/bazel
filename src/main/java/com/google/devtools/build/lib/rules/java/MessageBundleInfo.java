@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -55,13 +55,13 @@ public final class MessageBundleInfo extends NativeInfo implements SkylarkValue 
         doc = "The <code>MessageBundleInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "messages", positional = false, named = true, type = SkylarkList.class),
+          @Param(name = "messages", positional = false, named = true, type = Sequence.class),
         },
         selfCall = true,
         useLocation = true)
-    public MessageBundleInfo messageBundleInfo(SkylarkList<?> messages, Location loc)
+    public MessageBundleInfo messageBundleInfo(Sequence<?> messages, Location loc)
         throws EvalException {
-      List<Artifact> messagesList = SkylarkList.castList(messages, Artifact.class, "messages");
+      List<Artifact> messagesList = Sequence.castList(messages, Artifact.class, "messages");
       return new MessageBundleInfo(ImmutableList.copyOf(messagesList), loc);
     }
   }

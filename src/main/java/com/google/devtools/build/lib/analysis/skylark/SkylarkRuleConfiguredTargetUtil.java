@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -247,24 +247,23 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
-  @SuppressWarnings("unchecked") // Casting SkylarkList to List<String> is checked by cast().
+  @SuppressWarnings("unchecked") // Casting Sequence to List<String> is checked by cast().
   private static void addInstrumentedFiles(
       StructImpl insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     Location insLoc = insStruct.getCreationLoc();
     List<String> extensions = null;
     if (insStruct.getFieldNames().contains("extensions")) {
-      extensions = cast("extensions", insStruct, SkylarkList.class, String.class, insLoc);
+      extensions = cast("extensions", insStruct, Sequence.class, String.class, insLoc);
     }
     List<String> dependencyAttributes = Collections.emptyList();
     if (insStruct.getFieldNames().contains("dependency_attributes")) {
       dependencyAttributes =
-          cast("dependency_attributes", insStruct, SkylarkList.class, String.class, insLoc);
+          cast("dependency_attributes", insStruct, Sequence.class, String.class, insLoc);
     }
     List<String> sourceAttributes = Collections.emptyList();
     if (insStruct.getFieldNames().contains("source_attributes")) {
-      sourceAttributes =
-          cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
+      sourceAttributes = cast("source_attributes", insStruct, Sequence.class, String.class, insLoc);
     }
     InstrumentedFilesInfo instrumentedFilesProvider =
         CoverageCommon.createInstrumentedFilesInfo(
@@ -282,9 +281,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
         "Output group '%s' is of unexpected type. "
             + "Should be list or set of Files, but got '%s' instead.";
 
-    if (objects instanceof SkylarkList) {
+    if (objects instanceof Sequence) {
       NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
-      for (Object o : (SkylarkList) objects) {
+      for (Object o : (Sequence) objects) {
         if (o instanceof Artifact) {
           nestedSetBuilder.add((Artifact) o);
         } else {

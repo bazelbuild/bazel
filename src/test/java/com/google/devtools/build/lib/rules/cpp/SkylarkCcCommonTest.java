@@ -52,8 +52,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -271,8 +271,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
-    SkylarkList<String> requirements =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("requirements");
+    Sequence<String> requirements =
+        (Sequence<String>) getMyInfoFromTarget(r).getValue("requirements");
     assertThat(requirements).containsExactly("requires-yolo");
   }
 
@@ -386,8 +386,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
-    SkylarkList<String> commandLine =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("command_line");
+    Sequence<String> commandLine =
+        (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
@@ -987,7 +987,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .doesNotContain("-i_dont_want_to_see_this_on_archiver_command_line");
   }
 
-  private SkylarkList<String> commandLineForVariables(String actionName, String... variables)
+  private Sequence<String> commandLineForVariables(String actionName, String... variables)
       throws Exception {
     return commandLineForVariables(actionName, 0, variables);
   }
@@ -995,7 +995,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   // This method is only there to change the package to fix multiple runs of this method in a single
   // test.
   // TODO(b/109917616): Remove pkgSuffix argument when bzl files are not cached within single test
-  private SkylarkList<String> commandLineForVariables(
+  private Sequence<String> commandLineForVariables(
       String actionName, int pkgSuffix, String... variables) throws Exception {
     scratch.file(
         "a" + pkgSuffix + "/BUILD",
@@ -1033,8 +1033,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       return null;
     }
     @SuppressWarnings("unchecked")
-    SkylarkList<String> result =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("command_line");
+    Sequence<String> result = (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     return result;
   }
 
@@ -1336,8 +1335,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     @SuppressWarnings("unchecked")
-    SkylarkList<String> userLinkFlags =
-        (SkylarkList<String>) info.getValue("user_link_flags", SkylarkList.class);
+    Sequence<String> userLinkFlags =
+        (Sequence<String>) info.getValue("user_link_flags", Sequence.class);
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     SkylarkNestedSet additionalInputs = info.getValue("additional_inputs", SkylarkNestedSet.class);
@@ -5440,8 +5439,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries =
-        (SkylarkList<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
+    Sequence<LibraryToLink> libraries =
+        (Sequence<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
     assertThat(
             libraries.stream()
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())

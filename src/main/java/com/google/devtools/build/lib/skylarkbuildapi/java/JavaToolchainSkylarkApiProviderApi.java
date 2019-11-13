@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -62,7 +62,7 @@ public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  public SkylarkList<String> getSkylarkJvmOptions();
+  public Sequence<String> getSkylarkJvmOptions();
 
   @SkylarkCallable(name = "tools", doc = "The compilation tools.", structField = true)
   public SkylarkNestedSet getSkylarkTools();

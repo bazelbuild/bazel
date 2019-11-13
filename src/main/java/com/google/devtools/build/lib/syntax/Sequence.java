@@ -26,18 +26,17 @@ import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
 /**
- * A Skylark list or tuple.
+ * A Sequence is a finite sequence of Starlark values, such as a list or tuple.
  *
  * <p>Although this implements the {@link List} interface, it is not mutable via that interface's
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
  */
-// TODO(adonovan): rename to Sequence.
 @SkylarkModule(
     name = "sequence",
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "common type of lists and tuples.")
-public abstract class SkylarkList<E> extends BaseMutableList<E>
+public abstract class Sequence<E> extends BaseMutableList<E>
     implements List<E>, RandomAccess, SkylarkIndexable {
 
   @Override
@@ -45,13 +44,11 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     return !isEmpty();
   }
 
-  /**
-   * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
-   */
+  /** Returns an ImmutableList object with the current underlying contents of this Sequence. */
   public abstract ImmutableList<E> getImmutableList();
 
   /**
-   * Retrieve an entry from a SkylarkList.
+   * Retrieve an entry from a Sequence.
    *
    * @param key the index
    * @param loc a {@link Location} in case of error
@@ -75,7 +72,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * Constructs a version of this {@code SkylarkList} containing just the items in a slice.
+   * Constructs a version of this {@code Sequence} containing just the items in a slice.
    *
    * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
    * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
@@ -83,17 +80,17 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    * @see EvalUtils#getSliceIndices
    * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
    */
-  public abstract SkylarkList<E> getSlice(
+  public abstract Sequence<E> getSlice(
       Object start, Object end, Object step, Location loc, Mutability mutability)
       throws EvalException;
 
   /**
-   * Constructs a repetition of this {@code SkylarkList}.
+   * Constructs a repetition of this {@code Sequence}.
    *
    * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
    * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
    */
-  public abstract SkylarkList<E> repeat(int times, Mutability mutability);
+  public abstract Sequence<E> repeat(int times, Mutability mutability);
 
   @Override
   public void repr(SkylarkPrinter printer) {
@@ -106,7 +103,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   // Note that the following two functions slightly violate the Java List protocol,
-  // in that it does NOT consider that a SkylarkList .equals() an arbitrary List with same contents.
+  // in that it does NOT consider that a Sequence .equals() an arbitrary List with same contents.
   // This is because we use .equals() to model skylark equality, which like Python
   // distinguishes a StarlarkList from a Tuple.
   @Override
@@ -114,7 +111,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     return (this == object)
         || ((object != null)
             && (this.getClass() == object.getClass())
-            && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
+            && getContentsUnsafe().equals(((Sequence) object).getContentsUnsafe()));
   }
 
   @Override
@@ -146,7 +143,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   }
 
   /**
-   * If {@code obj} is a {@code SkylarkList}, casts it to an unmodifiable {@code List<T>} after
+   * If {@code obj} is a {@code Sequence}, casts it to an unmodifiable {@code List<T>} after
    * checking that each element has type {@code type}. If {@code obj} is {@code None} or null,
    * treats it as an empty list. For all other values, throws an {@link EvalException}.
    *
@@ -157,13 +154,12 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
    * @param description a description of the argument being converted, or null, for debugging
    */
   public static <T> List<T> castSkylarkListOrNoneToList(
-      Object obj, Class<T> type, @Nullable String description)
-      throws EvalException {
+      Object obj, Class<T> type, @Nullable String description) throws EvalException {
     if (EvalUtils.isNullOrNone(obj)) {
       return ImmutableList.of();
     }
-    if (obj instanceof SkylarkList) {
-      return ((SkylarkList<?>) obj).getContents(type, description);
+    if (obj instanceof Sequence) {
+      return ((Sequence<?>) obj).getContents(type, description);
     }
     throw new EvalException(null,
         String.format("Illegal argument: %s is not of expected type list or NoneType",
@@ -194,7 +190,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   // such a method, we may no longer need to take null as a possible value for the Mutability or
   // StarlarkThread. That in turn would allow us to overload StarlarkList#of to take either a
   // Mutability or StarlarkThread.
-  public static <E> SkylarkList<E> createImmutable(Iterable<? extends E> contents) {
+  public static <E> Sequence<E> createImmutable(Iterable<? extends E> contents) {
     return StarlarkList.copyOf(Mutability.IMMUTABLE, contents);
   }
 }

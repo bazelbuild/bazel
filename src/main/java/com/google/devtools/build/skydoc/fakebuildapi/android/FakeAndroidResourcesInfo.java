@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInf
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Fake implementation of {@link AndroidResourcesInfoApi}. */
@@ -190,7 +190,7 @@ public class FakeAndroidResourcesInfo
     }
 
     @Override
-    public SkylarkList<FileApi> getResourcesList() {
+    public Sequence<FileApi> getResourcesList() {
       return null;
     }
   }

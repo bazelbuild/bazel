@@ -81,9 +81,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -211,7 +211,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          outputs.addOutput(attrName, SkylarkList.createImmutable(artifacts));
+          outputs.addOutput(attrName, Sequence.createImmutable(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -444,7 +444,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           value = splitPrereq.getValue().get(0);
         } else {
           // BuildType.LABEL_LIST
-          value = SkylarkList.createImmutable(splitPrereq.getValue());
+          value = Sequence.createImmutable(splitPrereq.getValue());
         }
 
         if (splitPrereq.getKey().isPresent()) {
@@ -700,7 +700,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkList<String> tokenize(String optionString) throws EvalException {
+  public Sequence<String> tokenize(String optionString) throws EvalException {
     checkMutable("tokenize");
     List<String> options = new ArrayList<>();
     try {
@@ -708,13 +708,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     } catch (TokenizationException e) {
       throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return SkylarkList.createImmutable(options);
+    return Sequence.createImmutable(options);
   }
 
   @Override
   public String expand(
       @Nullable String expression,
-      SkylarkList<?> artifacts, // <Artifact>
+      Sequence<?> artifacts, // <Artifact>
       Label labelResolver)
       throws EvalException {
     checkMutable("expand");
@@ -799,7 +799,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public boolean checkPlaceholders(String template, SkylarkList<?> allowedPlaceholders) // <String>
+  public boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
       throws EvalException {
     checkMutable("check_placeholders");
     List<String> actualPlaceHolders = new LinkedList<>();
@@ -877,7 +877,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    */
   @Override
   public NoneType action(
-      SkylarkList<?> outputs,
+      Sequence<?> outputs,
       Object inputs,
       Object executableUnchecked,
       Object toolsUnchecked,
@@ -938,8 +938,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expandLocation(
-      String input, SkylarkList<?> targets, Location loc, StarlarkThread thread)
-      throws EvalException {
+      String input, Sequence<?> targets, Location loc, StarlarkThread thread) throws EvalException {
     checkMutable("expand_location");
     try {
       return LocationExpander.withExecPaths(
@@ -988,7 +987,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public Runfiles runfiles(
-      SkylarkList<?> files,
+      Sequence<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
@@ -1042,7 +1041,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       Object attributeUnchecked,
       Boolean expandLocations,
       Object makeVariablesUnchecked,
-      SkylarkList<?> tools,
+      Sequence<?> tools,
       SkylarkDict<?, ?> labelDictUnchecked,
       SkylarkDict<?, ?> executionRequirementsUnchecked,
       Location loc,
@@ -1097,7 +1096,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Tuple<Object> resolveTools(SkylarkList<?> tools) throws EvalException {
+  public Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())

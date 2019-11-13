@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -465,7 +465,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
     }
 
     static class Builder {
-      @Nullable private final SkylarkList<?> list;
+      @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
       private Location location;
       public String argName;
@@ -480,7 +480,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       private boolean uniquify;
       private String terminateWith;
 
-      Builder(SkylarkList<?> list) {
+      Builder(Sequence<?> list) {
         this.list = list;
         this.nestedSet = null;
       }
@@ -827,8 +827,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
         Object ret = mapFn.callWithArgArray(args, null, thread, location);
         if (ret instanceof String) {
           consumer.accept((String) ret);
-        } else if (ret instanceof SkylarkList) {
-          for (Object val : ((SkylarkList) ret)) {
+        } else if (ret instanceof Sequence) {
+          for (Object val : ((Sequence) ret)) {
             if (!(val instanceof String)) {
               throw new CommandLineExpansionException(
                   "Expected map_each to return string, None, or list of strings, "

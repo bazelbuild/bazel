@@ -41,7 +41,7 @@ import java.util.List;
             + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
-public final class Tuple<E> extends SkylarkList<E> {
+public final class Tuple<E> extends Sequence<E> {
 
     private final ImmutableList<E> contents;
 

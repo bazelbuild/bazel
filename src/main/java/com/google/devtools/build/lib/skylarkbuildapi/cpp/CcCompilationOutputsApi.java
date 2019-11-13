@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
@@ -43,12 +43,12 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends SkylarkV
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
   @Deprecated
-  SkylarkList<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
+  Sequence<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(name = "objects", documented = false, useLocation = true, structField = true)
-  SkylarkList<FileT> getSkylarkObjects(Location location) throws EvalException;
+  Sequence<FileT> getSkylarkObjects(Location location) throws EvalException;
 
   @SkylarkCallable(name = "pic_objects", documented = false, useLocation = true, structField = true)
-  SkylarkList<FileT> getSkylarkPicObjects(Location location) throws EvalException;
+  Sequence<FileT> getSkylarkPicObjects(Location location) throws EvalException;
 }

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** Info object propagating information about protocol buffer sources. */
@@ -95,7 +95,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JsModuleInfoApi.class),
         },
         selfCall = true,
@@ -106,7 +106,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         String wrapper,
         Object fullPintoSources,
         Object directPintoSources,
-        SkylarkList<?> directModuleDependencies /* <? extends JsModuleApi> expected */)
+        Sequence<?> directModuleDependencies /* <? extends JsModuleApi> expected */)
         throws EvalException;
   }
 }

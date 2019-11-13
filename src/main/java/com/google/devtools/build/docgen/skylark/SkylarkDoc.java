@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.lang.reflect.Method;
@@ -64,7 +64,7 @@ abstract class SkylarkDoc {
       return "<a class=\"anchor\" href=\"tuple.html\">tuple</a>";
     } else if (type.equals(StarlarkList.class) || type.equals(ImmutableList.class)) {
       return "<a class=\"anchor\" href=\"list.html\">list</a>";
-    } else if (type.equals(SkylarkList.class)) {
+    } else if (type.equals(Sequence.class)) {
       return "<a class=\"anchor\" href=\"list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";

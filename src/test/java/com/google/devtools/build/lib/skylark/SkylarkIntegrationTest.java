@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -294,7 +294,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         .containsExactlyElementsIn(hiddenTopLevelArtifacts);
     assertThat(myInfo.getValue("has_key1")).isEqualTo(Boolean.TRUE);
     assertThat(myInfo.getValue("has_key2")).isEqualTo(Boolean.FALSE);
-    assertThat((SkylarkList) myInfo.getValue("all_keys"))
+    assertThat((Sequence) myInfo.getValue("all_keys"))
         .containsExactly(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             OutputGroupInfo.COMPILATION_PREREQUISITES,
@@ -2225,8 +2225,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     StructImpl outerDepInfo = (StructImpl) outerTarget.get(myDepKey);
     StructImpl innerInfo = (StructImpl) outerDepInfo.getValue("info");
 
-    assertThat((SkylarkList) outerInfo.getValue("copts")).containsExactly("yeehaw");
-    assertThat((SkylarkList) innerInfo.getValue("copts")).containsExactly("cowabunga");
+    assertThat((Sequence) outerInfo.getValue("copts")).containsExactly("yeehaw");
+    assertThat((Sequence) innerInfo.getValue("copts")).containsExactly("cowabunga");
   }
 
   @Test

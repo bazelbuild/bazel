@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -70,7 +70,7 @@ public interface JavaCommonApi<
             name = "source_jars",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc =
@@ -80,7 +80,7 @@ public interface JavaCommonApi<
             name = "source_files",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc =
@@ -99,7 +99,7 @@ public interface JavaCommonApi<
             name = "javac_opts",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             doc = "A list of the desired javac options. Optional."),
@@ -107,7 +107,7 @@ public interface JavaCommonApi<
             name = "deps",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = JavaInfoApi.class,
             defaultValue = "[]",
             doc = "A list of dependencies. Optional."),
@@ -115,7 +115,7 @@ public interface JavaCommonApi<
             name = "exports",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = JavaInfoApi.class,
             defaultValue = "[]",
             doc = "A list of exports. Optional."),
@@ -123,7 +123,7 @@ public interface JavaCommonApi<
             name = "plugins",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = JavaInfoApi.class,
             defaultValue = "[]",
             doc = "A list of plugins. Optional."),
@@ -131,7 +131,7 @@ public interface JavaCommonApi<
             name = "exported_plugins",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = JavaInfoApi.class,
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
@@ -139,7 +139,7 @@ public interface JavaCommonApi<
             name = "annotation_processor_additional_inputs",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc =
@@ -149,7 +149,7 @@ public interface JavaCommonApi<
             name = "annotation_processor_additional_outputs",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc =
@@ -184,14 +184,14 @@ public interface JavaCommonApi<
             name = "sourcepath",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]"),
         @Param(
             name = "resources",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]"),
         @Param(
@@ -205,22 +205,22 @@ public interface JavaCommonApi<
       useStarlarkThread = true)
   public JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<?> sourceJars, // <FileT> expected.
-      SkylarkList<?> sourceFiles, // <FileT> expected.
+      Sequence<?> sourceJars, // <FileT> expected.
+      Sequence<?> sourceFiles, // <FileT> expected.
       FileT outputJar,
       Object outputSourceJar,
-      SkylarkList<?> javacOpts, // <String> expected.
-      SkylarkList<?> deps, // <JavaInfoT> expected.
-      SkylarkList<?> exports, // <JavaInfoT> expected.
-      SkylarkList<?> plugins, // <JavaInfoT> expected.
-      SkylarkList<?> exportedPlugins, // <JavaInfoT> expected.
-      SkylarkList<?> annotationProcessorAdditionalInputs, // <FileT> expected.
-      SkylarkList<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
+      Sequence<?> javacOpts, // <String> expected.
+      Sequence<?> deps, // <JavaInfoT> expected.
+      Sequence<?> exports, // <JavaInfoT> expected.
+      Sequence<?> plugins, // <JavaInfoT> expected.
+      Sequence<?> exportedPlugins, // <JavaInfoT> expected.
+      Sequence<?> annotationProcessorAdditionalInputs, // <FileT> expected.
+      Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
-      SkylarkList<?> sourcepathEntries, // <FileT> expected.
-      SkylarkList<?> resources, // <FileT> expected.
+      Sequence<?> sourcepathEntries, // <FileT> expected.
+      Sequence<?> resources, // <FileT> expected.
       Boolean neverlink,
       Location loc,
       StarlarkThread thread)
@@ -349,7 +349,7 @@ public interface JavaCommonApi<
             name = "sources",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc = "A list of Java source files to be packed into the source jar."),
@@ -357,7 +357,7 @@ public interface JavaCommonApi<
             name = "source_jars",
             positional = false,
             named = true,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             doc = "A list of source jars to be packed into the source jar."),
@@ -382,8 +382,8 @@ public interface JavaCommonApi<
   public FileApi packSources(
       SkylarkActionFactoryT actions,
       FileT outputJar,
-      SkylarkList<?> sourceFiles, // <FileT> expected.
-      SkylarkList<?> sourceJars, // <FileT> expected.
+      Sequence<?> sourceFiles, // <FileT> expected.
+      Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
       Location location,
@@ -419,11 +419,11 @@ public interface JavaCommonApi<
             name = "providers",
             positional = true,
             named = false,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = JavaInfoApi.class,
             doc = "The list of providers to merge."),
       })
-  public JavaInfoT mergeJavaProviders(SkylarkList<?> providers /* <JavaInfoT> expected. */)
+  public JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
       throws EvalException;
 
   @SkylarkCallable(
@@ -490,7 +490,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to enhance."),
         @Param(
             name = "constraints",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -499,7 +499,7 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   public JavaInfoT addConstraints(
-      JavaInfoT javaInfo, SkylarkList<?> constraints /* <String> expected. */) throws EvalException;
+      JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */) throws EvalException;
 
   @SkylarkCallable(
       name = "experimental_disable_annotation_processing",
@@ -545,7 +545,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to clone."),
         @Param(
             name = "compile_time_jdeps",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -554,7 +554,7 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   public JavaInfoT addCompileTimeJavaDependencyArtifacts(
-      JavaInfoT javaInfo, SkylarkList<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
+      JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
       throws EvalException;
 
   @SkylarkCallable(

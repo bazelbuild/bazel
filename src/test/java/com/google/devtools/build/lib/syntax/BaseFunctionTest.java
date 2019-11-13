@@ -33,8 +33,8 @@ import org.junit.runners.JUnit4;
 public class BaseFunctionTest extends EvaluationTestCase {
 
   /**
-   * Handy implementation of {@link BaseFunction} that returns all its args as a list.
-   * (We'd use SkylarkList.tuple, but it can't handle null.)
+   * Handy implementation of {@link BaseFunction} that returns all its args as a list. (We'd use
+   * Sequence.tuple, but it can't handle null.)
    */
   private static class TestingBaseFunction extends BaseFunction {
     TestingBaseFunction(FunctionSignature signature) {

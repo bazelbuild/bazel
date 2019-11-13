@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a module with native rule and package helper functions. */
@@ -53,14 +53,14 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "include",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
             doc = "The list of glob patterns to include."),
         @Param(
             name = "exclude",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -85,9 +85,9 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+  public Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
       Location loc,
@@ -159,7 +159,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
             doc = "The unique name for this rule."),
         @Param(
             name = "packages",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -167,7 +167,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
             doc = "A complete enumeration of packages in this group."),
         @Param(
             name = "includes",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -177,11 +177,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       useLocation = true,
       useStarlarkThread = true)
   public NoneType packageGroup(
-      String name,
-      SkylarkList<?> packages,
-      SkylarkList<?> includes,
-      Location loc,
-      StarlarkThread thread)
+      String name, Sequence<?> packages, Sequence<?> includes, Location loc, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -192,14 +188,14 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "srcs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc = "The list of files to export."),
         // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
         @Param(
             name = "visibility",
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "None",
             noneable = true,
             named = true,
@@ -209,7 +205,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
                     + "to every package."),
         @Param(
             name = "licenses",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             named = true,
@@ -219,7 +215,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       useLocation = true,
       useStarlarkThread = true)
   public NoneType exportsFiles(
-      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
+      Sequence<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(

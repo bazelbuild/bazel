@@ -61,7 +61,7 @@ public final class EvalUtils {
    */
   public static final Ordering<Object> SKYLARK_COMPARATOR =
       new Ordering<Object>() {
-        private int compareLists(SkylarkList<?> o1, SkylarkList<?> o2) {
+        private int compareLists(Sequence<?> o1, Sequence<?> o2) {
           if (o1 instanceof RangeList || o2 instanceof RangeList) {
             throw new ComparisonException("Cannot compare range objects");
           }
@@ -91,10 +91,10 @@ public final class EvalUtils {
           o1 = SkylarkType.convertToSkylark(o1, (StarlarkThread) null);
           o2 = SkylarkType.convertToSkylark(o2, (StarlarkThread) null);
 
-          if (o1 instanceof SkylarkList
-              && o2 instanceof SkylarkList
+          if (o1 instanceof Sequence
+              && o2 instanceof Sequence
               && o1 instanceof Tuple == o2 instanceof Tuple) {
-            return compareLists((SkylarkList) o1, (SkylarkList) o2);
+            return compareLists((Sequence) o1, (Sequence) o2);
           }
 
           if (o1 instanceof ClassObject) {
@@ -188,9 +188,8 @@ public final class EvalUtils {
   /**
    * Return the Skylark-type of {@code c}
    *
-   * <p>The result will be a type that Skylark understands and is either equal to {@code c}
-   * or is a supertype of it. For example, all instances of (all subclasses of) SkylarkList
-   * are considered to be SkylarkLists.
+   * <p>The result will be a type that Skylark understands and is either equal to {@code c} or is a
+   * supertype of it.
    *
    * <p>Skylark's type validation isn't equipped to deal with inheritance so we must tell it which
    * of the superclasses or interfaces of {@code c} is the one that matters for type compatibility.
@@ -272,7 +271,7 @@ public final class EvalUtils {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a SkylarkList
+    } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a Sequence
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a SkylarkDict
       return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
@@ -306,8 +305,8 @@ public final class EvalUtils {
       throws EvalException {
     if (o instanceof Collection) {
       return (Collection<?>) o;
-    } else if (o instanceof SkylarkList) {
-      return ((SkylarkList) o).getImmutableList();
+    } else if (o instanceof Sequence) {
+      return ((Sequence) o).getImmutableList();
     } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
       if (o instanceof SkylarkDict) {
@@ -611,10 +610,10 @@ public final class EvalUtils {
 
         // TODO(bazel-team): Unify this check with the logic in getSkylarkType. Might
         // break some providers whose contents don't implement SkylarkValue, aren't wrapped in
-        // SkylarkList, etc.
+        // Sequence, etc.
         // TODO(adonovan): this is still far too permissive. Replace with isSkylarkAcceptable.
         if (result instanceof NestedSet
-            || (result instanceof List && !(result instanceof SkylarkList))) {
+            || (result instanceof List && !(result instanceof Sequence))) {
           throw new EvalException(
               loc,
               "internal error: type '"
@@ -854,9 +853,9 @@ public final class EvalUtils {
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number));
-      } else if (otherFactor instanceof SkylarkList && !(otherFactor instanceof RangeList)) {
+      } else if (otherFactor instanceof Sequence && !(otherFactor instanceof RangeList)) {
         // Similar to Python, a factor < 1 leads to an empty string.
-        return ((SkylarkList<?>) otherFactor).repeat(number, thread.mutability());
+        return ((Sequence<?>) otherFactor).repeat(number, thread.mutability());
       }
     }
     throw unknownBinaryOperator(x, y, TokenKind.STAR, location);

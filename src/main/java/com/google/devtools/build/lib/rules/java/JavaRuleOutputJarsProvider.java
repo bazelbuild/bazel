@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.Outpu
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -87,8 +87,8 @@ public final class JavaRuleOutputJarsProvider
 
     @Nullable
     @Override
-    public SkylarkList<Artifact> getSrcJarsSkylark() {
-      return SkylarkList.createImmutable(srcJars);
+    public Sequence<Artifact> getSrcJarsSkylark() {
+      return Sequence.createImmutable(srcJars);
     }
 
     public Iterable<Artifact> getSrcJars() {

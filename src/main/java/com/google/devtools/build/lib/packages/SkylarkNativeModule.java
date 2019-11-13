@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -75,9 +75,9 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   @Override
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+  public Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirs,
       Object allowEmptyArgument,
       Location loc,
@@ -160,8 +160,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   @Override
   public NoneType packageGroup(
       String name,
-      SkylarkList<?> packagesO,
-      SkylarkList<?> includesO,
+      Sequence<?> packagesO,
+      Sequence<?> includesO,
       Location loc,
       StarlarkThread thread)
       throws EvalException {
@@ -187,11 +187,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   @Override
   public NoneType exportsFiles(
-      SkylarkList<?> srcs,
-      Object visibilityO,
-      Object licensesO,
-      Location loc,
-      StarlarkThread thread)
+      Sequence<?> srcs, Object visibilityO, Object licensesO, Location loc, StarlarkThread thread)
       throws EvalException {
     SkylarkUtils.checkLoadingPhase(thread, "native.exports_files", loc);
     Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -93,7 +93,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "public_hdrs",
             doc =
@@ -102,7 +102,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "private_hdrs",
             doc =
@@ -111,7 +111,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "includes",
             doc =
@@ -120,7 +120,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "quote_includes",
             doc =
@@ -131,7 +131,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "system_includes",
             doc =
@@ -142,7 +142,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "framework_includes",
             doc =
@@ -152,7 +152,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "defines",
             doc =
@@ -161,7 +161,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "local_defines",
             doc =
@@ -170,21 +170,21 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "user_compile_flags",
             doc = "Additional list of compilation options.",
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "compilation_contexts",
             doc = "Headers from dependencies used for compilation.",
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -213,27 +213,27 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
       })
   Tuple<Object> compile(
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      SkylarkList<?> sources, // <FileT> expected
-      SkylarkList<?> publicHeaders, // <FileT> expected
-      SkylarkList<?> privateHeaders, // <FileT> expected
-      SkylarkList<?> includes, // <String> expected
-      SkylarkList<?> quoteIncludes, // <String> expected
-      SkylarkList<?> systemIncludes, // <String> expected
-      SkylarkList<?> frameworkIncludes, // <String> expected
-      SkylarkList<?> defines, // <String> expected
-      SkylarkList<?> localDefines, // <String> expected
-      SkylarkList<?> userCompileFlags, // <String> expected
-      SkylarkList<?> ccCompilationContexts, // <CompilationContextT> expected
+      Sequence<?> sources, // <FileT> expected
+      Sequence<?> publicHeaders, // <FileT> expected
+      Sequence<?> privateHeaders, // <FileT> expected
+      Sequence<?> includes, // <String> expected
+      Sequence<?> quoteIncludes, // <String> expected
+      Sequence<?> systemIncludes, // <String> expected
+      Sequence<?> frameworkIncludes, // <String> expected
+      Sequence<?> defines, // <String> expected
+      Sequence<?> localDefines, // <String> expected
+      Sequence<?> userCompileFlags, // <String> expected
+      Sequence<?> ccCompilationContexts, // <CompilationContextT> expected
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
-      SkylarkList<?> additionalInputs, // <FileT> expected
+      Sequence<?> additionalInputs, // <FileT> expected
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -279,7 +279,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "linking_contexts",
             doc =
@@ -288,7 +288,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -324,7 +324,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "grep_includes",
             positional = false,
@@ -338,13 +338,13 @@ public interface BazelCcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       Object compilationOutputs,
-      SkylarkList<?> userLinkFlags, // <String> expected
-      SkylarkList<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> userLinkFlags, // <String> expected
+      Sequence<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       String outputType,
       boolean linkDepsStatically,
-      SkylarkList<?> additionalInputs, // <FileT> expected
+      Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
       Location location,
       StarlarkThread thread)
@@ -390,9 +390,9 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
       })
   CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
-      SkylarkList<?> compilationOutputs) // <CompilationOutputsT> expected
+      Sequence<?> compilationOutputs) // <CompilationOutputsT> expected
       throws EvalException;
 }

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Fake implementation of {@link CoverageCommonApi}. */
 public class FakeCoverageCommon implements CoverageCommonApi<SkylarkRuleContextApi> {
@@ -27,8 +27,8 @@ public class FakeCoverageCommon implements CoverageCommonApi<SkylarkRuleContextA
   @Override
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<?> sourceAttributes,
-      SkylarkList<?> dependencyAttributes,
+      Sequence<?> sourceAttributes,
+      Sequence<?> dependencyAttributes,
       Object extensions,
       Location location) {
     return null;

@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -246,8 +246,8 @@ public abstract class StructImpl extends Info
 
   private void printProtoTextMessage(
       String key, Object value, StringBuilder sb, int indent, Location loc) throws EvalException {
-    if (value instanceof SkylarkList) {
-      for (Object item : ((SkylarkList) value)) {
+    if (value instanceof Sequence) {
+      for (Object item : ((Sequence) value)) {
         // TODO(bazel-team): There should be some constraint on the fields of the structs
         // in the same list but we ignore that for now.
         printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkMutable;
@@ -280,7 +280,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       if (argName != null) {
         commandLine.add(argName);
       }
-      if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
+      if (value instanceof SkylarkNestedSet || value instanceof Sequence) {
         throw new EvalException(
             loc,
             "Args#add doesn't accept vectorized arguments. "
@@ -413,7 +413,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         @SuppressWarnings("unchecked")
-        SkylarkList<Object> skylarkList = (SkylarkList<Object>) value;
+        Sequence<Object> skylarkList = (Sequence<Object>) value;
         if (expandDirectories) {
           scanForDirectories(skylarkList);
         }
@@ -449,7 +449,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     }
 
     private void validateValues(Object values, Location loc) throws EvalException {
-      if (!(values instanceof SkylarkList || values instanceof SkylarkNestedSet)) {
+      if (!(values instanceof Sequence || values instanceof SkylarkNestedSet)) {
         throw new EvalException(
             loc,
             String.format(

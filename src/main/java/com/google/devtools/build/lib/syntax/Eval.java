@@ -568,8 +568,8 @@ final class Eval {
 
           // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
 
-          if (object instanceof SkylarkList) {
-            return ((SkylarkList<?>) object).getSlice(start, end, step, loc, thread.mutability());
+          if (object instanceof Sequence) {
+            return ((Sequence<?>) object).getSlice(start, end, step, loc, thread.mutability());
           }
 
           if (object instanceof String) {

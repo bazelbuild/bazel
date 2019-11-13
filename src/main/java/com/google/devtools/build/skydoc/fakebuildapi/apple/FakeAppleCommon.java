@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAspect;
@@ -120,8 +120,8 @@ public class FakeAppleCommon implements AppleCommonApi<
   @Override
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<?> extraLinkopts,
-      SkylarkList<?> extraLinkInputs,
+      Sequence<?> extraLinkopts,
+      Sequence<?> extraLinkInputs,
       StarlarkThread thread) {
     return new FakeStructApi();
   }

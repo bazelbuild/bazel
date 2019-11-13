@@ -56,8 +56,8 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -376,7 +376,7 @@ public class SkylarkRepositoryContext
 
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<?> arguments, // <String> or <SkylarkPath> expected
+      Sequence<?> arguments, // <String> or <SkylarkPath> expected
       Integer timeout,
       SkylarkDict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
@@ -1001,8 +1001,8 @@ public class SkylarkRepositoryContext
       if (value instanceof Label) {
         getPathFromLabel((Label) value);
       }
-      if (value instanceof SkylarkList) {
-        for (Object entry : (SkylarkList) value) {
+      if (value instanceof Sequence) {
+        for (Object entry : (Sequence) value) {
           if (entry instanceof Label) {
             getPathFromLabel((Label) entry);
           }

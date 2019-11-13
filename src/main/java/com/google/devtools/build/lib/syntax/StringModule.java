@@ -766,7 +766,7 @@ final class StringModule implements SkylarkValue {
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
       })
-  public SkylarkList<String> splitLines(String self, Boolean keepEnds) throws EvalException {
+  public Sequence<String> splitLines(String self, Boolean keepEnds) throws EvalException {
     List<String> result = new ArrayList<>();
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
@@ -782,7 +782,7 @@ final class StringModule implements SkylarkValue {
         result.add(line);
       }
     }
-    return SkylarkList.createImmutable(result);
+    return Sequence.createImmutable(result);
   }
 
   @SkylarkCallable(
@@ -965,12 +965,12 @@ final class StringModule implements SkylarkValue {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", type = String.class, doc = "This string.")})
-  public SkylarkList<String> elems(String self) throws EvalException {
+  public Sequence<String> elems(String self) throws EvalException {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : self.toCharArray()) {
       builder.add(String.valueOf(c));
     }
-    return SkylarkList.createImmutable(builder.build());
+    return Sequence.createImmutable(builder.build());
   }
 
   @SkylarkCallable(
@@ -1048,7 +1048,7 @@ final class StringModule implements SkylarkValue {
       extraPositionals =
           @Param(
               name = "args",
-              type = SkylarkList.class,
+              type = Sequence.class,
               defaultValue = "()",
               doc = "List of arguments."),
       extraKeywords =
@@ -1058,7 +1058,7 @@ final class StringModule implements SkylarkValue {
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useLocation = true)
-  public String format(String self, SkylarkList<?> args, SkylarkDict<?, ?> kwargs, Location loc)
+  public String format(String self, Sequence<?> args, SkylarkDict<?, ?> kwargs, Location loc)
       throws EvalException {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();

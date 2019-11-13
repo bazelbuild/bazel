@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -173,7 +173,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false),
         @Param(
             name = VALUES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = Integer.class,
             defaultValue = "[]",
             doc = VALUES_DOC,
@@ -186,7 +186,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Integer defaultInt,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
@@ -220,7 +220,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false),
         @Param(
             name = VALUES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             doc = VALUES_DOC,
@@ -233,7 +233,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       String defaultString,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
@@ -311,14 +311,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -352,7 +352,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
                     + "unless it really helps clarify your intentions."),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
@@ -368,11 +368,11 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
-      SkylarkList<?> providers,
+      Sequence<?> providers,
       Object allowRules,
       Boolean singleFile,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
@@ -402,7 +402,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
@@ -423,7 +423,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -454,7 +454,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Integer.class),
+              @ParamType(type = Sequence.class, generic1 = Integer.class),
               @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "[]",
@@ -475,7 +475,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -496,7 +496,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Label.class),
+              @ParamType(type = Sequence.class, generic1 = Label.class),
               @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
@@ -524,7 +524,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_FILES_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -533,14 +533,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_RULES_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = FLAGS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -570,7 +570,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = CONFIGURATION_DOC),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
@@ -585,12 +585,12 @@ public interface SkylarkAttrApi extends SkylarkValue {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
@@ -640,7 +640,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_FILES_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -649,14 +649,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_RULES_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = FLAGS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -686,7 +686,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = CONFIGURATION_DOC),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
@@ -701,12 +701,12 @@ public interface SkylarkAttrApi extends SkylarkValue {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
@@ -797,7 +797,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Label.class),
+              @ParamType(type = Sequence.class, generic1 = Label.class),
               @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,

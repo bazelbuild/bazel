@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -71,7 +71,7 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "environ",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             doc =
@@ -103,7 +103,7 @@ public interface RepositoryModuleApi {
       BaseFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<?> environ, // <String> expected
+      Sequence<?> environ, // <String> expected
       Boolean configure,
       String doc,
       FuncallExpression ast,

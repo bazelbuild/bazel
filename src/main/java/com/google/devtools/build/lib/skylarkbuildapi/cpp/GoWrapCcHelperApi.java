@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
@@ -153,14 +153,14 @@ public interface GoWrapCcHelperApi<
             positional = false,
             named = true,
             type = CcToolchainProviderApi.class),
-        @Param(name = "srcs", positional = false, named = true, type = SkylarkList.class),
-        @Param(name = "deps", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "srcs", positional = false, named = true, type = Sequence.class),
+        @Param(name = "deps", positional = false, named = true, type = Sequence.class),
       })
   public Tuple<FileT> createGoCompileActions(
       SkylarkRuleContextT skylarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
-      SkylarkList<?> srcs, // <FileT> expected
-      SkylarkList<?> deps /* <TransitiveInfoCollectionT> expected */)
+      Sequence<?> srcs, // <FileT> expected
+      Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
   @SkylarkCallable(
@@ -174,14 +174,14 @@ public interface GoWrapCcHelperApi<
             positional = false,
             named = true,
             type = CcToolchainProviderApi.class),
-        @Param(name = "srcs", positional = false, named = true, type = SkylarkList.class),
-        @Param(name = "deps", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "srcs", positional = false, named = true, type = Sequence.class),
+        @Param(name = "deps", positional = false, named = true, type = Sequence.class),
       })
   public Tuple<FileT> createGoCompileActionsGopkg(
       SkylarkRuleContextT skylarkRuleContext,
       CcToolchainProviderT ccToolchainProvider,
-      SkylarkList<?> srcs, // <FileT> expected
-      SkylarkList<?> deps /* <TransitiveInfoCollectionT> expected */)
+      Sequence<?> srcs, // <FileT> expected
+      Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
   @SkylarkCallable(

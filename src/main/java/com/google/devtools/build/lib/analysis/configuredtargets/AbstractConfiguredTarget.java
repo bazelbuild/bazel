@@ -142,7 +142,7 @@ public abstract class AbstractConfiguredTarget
         return getLabel();
       case RuleConfiguredTarget.ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
-        // java.util.List, which needs to be converted to SkylarkList before being returned.
+        // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
         if (result != null) {
           result = SkylarkType.convertToSkylark(result, (Mutability) null);

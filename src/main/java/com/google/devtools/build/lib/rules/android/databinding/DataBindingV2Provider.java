@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
 
 /**
@@ -168,8 +168,8 @@ public final class DataBindingV2Provider extends NativeInfo
         Object brFile,
         Object label,
         Object javaPackage,
-        SkylarkList<?> databindingV2ProvidersInDeps, // <DataBindingV2Provider>
-        SkylarkList<?> databindingV2ProvidersInExports) // <DataBindingV2Provider>
+        Sequence<?> databindingV2ProvidersInDeps, // <DataBindingV2Provider>
+        Sequence<?> databindingV2ProvidersInExports) // <DataBindingV2Provider>
         throws EvalException {
 
       return createProvider(
