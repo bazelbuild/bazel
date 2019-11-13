@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1473,6 +1474,22 @@ public class FileFunctionTest {
             rootedPath("g/f"),
             rootedPath("h"))
         .inOrder();
+  }
+
+  @Test
+  public void testFileAccessException() throws Exception {
+    Path foo = file("foo");
+    FileAccessException fae = new FileAccessException("nope");
+    fs.stubStatError(foo, fae);
+    SkyKey skyKey = skyKey("foo");
+    BuildDriver driver = makeDriver();
+    EvaluationResult<FileValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfoSubject errorInfoSubject =
+        assertThatEvaluationResult(result).hasErrorEntryForKeyThat(skyKey);
+    errorInfoSubject.isTransient();
+    errorInfoSubject.hasExceptionThat().isSameInstanceAs(fae);
   }
 
   /**
