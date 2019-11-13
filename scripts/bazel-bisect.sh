@@ -79,7 +79,8 @@ cd "$WORKING_DIR"
 # Call the newly built Bazel. If it fails, save the exit code but don't stop
 # the script.
 result=0
-"$TMP_BIN" $BAZEL_ARGUMENTS || result=$\? && true
+"$TMP_BIN" clean || true
+"$TMP_BIN" $BAZEL_ARGUMENTS || result=\$? && true
 "$TMP_BIN" shutdown || true
 exit \$result
 EOF
