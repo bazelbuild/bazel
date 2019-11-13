@@ -334,7 +334,6 @@ public class BazelRepositoryModule extends BlazeModule {
         outputVerificationRules =
             ImmutableSet.copyOf(repoOptions.experimentalVerifyRepositoryRules);
       }
-      skylarkRepositoryFunction.setUseNativePatch(repoOptions.useNativePatch);
     }
   }
 
