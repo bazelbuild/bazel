@@ -19,12 +19,24 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.InputKind;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.InputOutputKind;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.OutputKind;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Ninja files parser. The types of tokens: {@link NinjaToken}. Ninja lexer: {@link NinjaLexer}. */
 public class NinjaParser {
@@ -46,12 +58,14 @@ public class NinjaParser {
   @VisibleForTesting
   public NinjaVariableValue parseVariableValue(boolean allowUnescapedColon, String name)
       throws GenericParsingException {
-    return parseVariableValueImpl(
-        allowUnescapedColon, () -> String.format("Variable '%s' has no value.", name));
+    NinjaVariableValue ninjaVariableValue = parseVariableValueImpl(allowUnescapedColon);
+    if (ninjaVariableValue == null) {
+      throw new GenericParsingException(String.format("Variable '%s' has no value.", name));
+    }
+    return ninjaVariableValue;
   }
 
-  private NinjaVariableValue parseVariableValueImpl(
-      boolean allowUnescapedColon, Supplier<String> messageForNoValue)
+  private NinjaVariableValue parseVariableValueImpl(boolean allowUnescapedColon)
       throws GenericParsingException {
     NinjaVariableValue.Builder varBuilder = NinjaVariableValue.builder();
     int previous = -1;
@@ -81,7 +95,7 @@ public class NinjaParser {
     }
     if (previous == -1) {
       // We read no value.
-      throw new GenericParsingException(messageForNoValue.get());
+      return null;
     }
     return varBuilder.build();
   }
@@ -112,10 +126,11 @@ public class NinjaParser {
   private NinjaVariableValue parseIncludeOrSubNinja(NinjaToken token)
       throws GenericParsingException {
     parseExpected(token);
-    NinjaVariableValue value =
-        parseVariableValueImpl(
-            true,
-            () -> String.format("%s statement has no path.", Ascii.toLowerCase(token.name())));
+    NinjaVariableValue value = parseVariableValueImpl(true);
+    if (value == null) {
+      throw new GenericParsingException(
+          String.format("%s statement has no path.", Ascii.toLowerCase(token.name())));
+    }
     if (lexer.hasNextToken()) {
       parseExpected(NinjaToken.NEWLINE);
       lexer.undo();
@@ -149,6 +164,128 @@ public class NinjaParser {
       }
     }
     return new NinjaRule(variablesBuilder.build());
+  }
+
+  private enum NinjaTargetParsingPart {
+    outputs(OutputKind.usual, true),
+    implicitOutputs(OutputKind.implicit, true),
+    inputs(InputKind.usual, false),
+    implicitInputs(InputKind.implicit, false),
+    orderOnlyInputs(InputKind.orderOnly, false),
+    ruleName(null, false),
+    variables(null, false);
+
+    @Nullable
+    private final InputOutputKind inputOutputKind;
+    private final boolean transitionRequired;
+
+    NinjaTargetParsingPart(
+        @Nullable InputOutputKind inputOutputKind,
+        boolean transitionRequired) {
+      this.inputOutputKind = inputOutputKind;
+      this.transitionRequired = transitionRequired;
+    }
+
+    @Nullable
+    public InputOutputKind getInputOutputKind() {
+      return inputOutputKind;
+    }
+
+    public boolean isTransitionRequired() {
+      return transitionRequired;
+    }
+  }
+
+  private final static ImmutableSortedMap<NinjaTargetParsingPart,
+      ImmutableSortedMap<NinjaToken, NinjaTargetParsingPart>> targetTransitionsMap =
+      ImmutableSortedMap.of(
+          NinjaTargetParsingPart.outputs, ImmutableSortedMap.of(
+              NinjaToken.PIPE, NinjaTargetParsingPart.implicitOutputs,
+              NinjaToken.COLON, NinjaTargetParsingPart.ruleName
+          ),
+          NinjaTargetParsingPart.implicitOutputs, ImmutableSortedMap.of(
+              NinjaToken.COLON, NinjaTargetParsingPart.ruleName
+          ),
+          NinjaTargetParsingPart.inputs, ImmutableSortedMap.of(
+              NinjaToken.PIPE, NinjaTargetParsingPart.implicitInputs,
+              NinjaToken.PIPE2, NinjaTargetParsingPart.orderOnlyInputs,
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          ),
+          NinjaTargetParsingPart.implicitInputs, ImmutableSortedMap.of(
+              NinjaToken.PIPE2, NinjaTargetParsingPart.orderOnlyInputs,
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          ),
+          NinjaTargetParsingPart.orderOnlyInputs, ImmutableSortedMap.of(
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          )
+      );
+
+  public NinjaTarget parseNinjaTarget(Function<NinjaVariableValue, String> variableExpander)
+      throws GenericParsingException {
+    NinjaTarget.Builder builder = NinjaTarget.builder();
+    parseExpected(NinjaToken.BUILD);
+
+    boolean ruleNameParsed = false;
+    NinjaTargetParsingPart parsingPart = NinjaTargetParsingPart.outputs;
+    while (lexer.hasNextToken() && !NinjaTargetParsingPart.variables.equals(parsingPart)) {
+      if (NinjaTargetParsingPart.ruleName.equals(parsingPart)) {
+        ruleNameParsed = true;
+        builder.setRuleName(asString(parseExpected(NinjaToken.IDENTIFIER)));
+        parsingPart = NinjaTargetParsingPart.inputs;
+        continue;
+      }
+      List<PathFragment> paths = parsePaths(variableExpander);
+      if (paths.isEmpty() && !NinjaTargetParsingPart.inputs.equals(parsingPart)) {
+        throw new GenericParsingException("Expected paths sequence");
+      }
+      if (!paths.isEmpty()) {
+        InputOutputKind inputOutputKind = parsingPart.getInputOutputKind();
+        if (inputOutputKind instanceof InputKind) {
+          builder.addInputs((InputKind) inputOutputKind, paths);
+        } else {
+          builder.addOutputs((OutputKind) inputOutputKind, paths);
+        }
+      }
+      NinjaToken lexicalSeparator = lexer.hasNextToken() ? lexer.nextToken() : null;
+      if (lexicalSeparator == null) {
+        if (parsingPart.isTransitionRequired()) {
+          throw new GenericParsingException("Unexpected end of target");
+        }
+        break;
+      }
+      parsingPart = Preconditions.checkNotNull(targetTransitionsMap.get(parsingPart))
+          .get(lexicalSeparator);
+
+      if (parsingPart == null) {
+        throw new GenericParsingException("Unexpected token: " + lexicalSeparator);
+      }
+    }
+
+    while (lexer.hasNextToken()) {
+      Preconditions.checkState(NinjaTargetParsingPart.variables.equals(parsingPart));
+      parseExpected(NinjaToken.INDENT);
+      Pair<String, NinjaVariableValue> pair = parseVariable();
+      String expandedValue = variableExpander.apply(pair.getSecond());
+      builder.addVariable(Preconditions.checkNotNull(pair.getFirst()), expandedValue);
+      if (lexer.hasNextToken()) {
+        parseExpected(NinjaToken.NEWLINE);
+      }
+    }
+    if (!ruleNameParsed) {
+      throw new GenericParsingException("Expected rule name");
+    }
+    return builder.build();
+  }
+
+  private List<PathFragment> parsePaths(Function<NinjaVariableValue, String> variableReplacer)
+      throws GenericParsingException {
+    // Spaces are parsed as the part of value.
+    NinjaVariableValue variableValue = parseVariableValueImpl(false);
+    if (variableValue == null) {
+      return ImmutableList.of();
+    }
+    String string = variableReplacer.apply(variableValue);
+    return Arrays.stream(string.split(" ")).map(PathFragment::create).collect(Collectors.toList());
   }
 
   @VisibleForTesting
