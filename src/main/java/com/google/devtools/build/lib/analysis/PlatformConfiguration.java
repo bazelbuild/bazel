@@ -31,7 +31,6 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> extraExecutionPlatforms;
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
-  private final ImmutableList<Label> enabledToolchainTypes;
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   PlatformConfiguration(
@@ -39,13 +38,11 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> extraExecutionPlatforms,
       Label targetPlatform,
       ImmutableList<String> extraToolchains,
-      ImmutableList<Label> enabledToolchainTypes,
       List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints) {
     this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatform = targetPlatform;
     this.extraToolchains = extraToolchains;
-    this.enabledToolchainTypes = enabledToolchainTypes;
     this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
   }
 
@@ -83,15 +80,6 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
    */
   public ImmutableList<String> getExtraToolchains() {
     return extraToolchains;
-  }
-
-  @Override
-  public List<Label> getEnabledToolchainTypes() {
-    return enabledToolchainTypes;
-  }
-
-  public boolean isToolchainTypeEnabled(Label toolchainType) {
-    return getEnabledToolchainTypes().contains(toolchainType);
   }
 
   /**

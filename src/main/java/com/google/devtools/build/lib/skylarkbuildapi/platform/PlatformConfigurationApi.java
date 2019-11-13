@@ -42,10 +42,4 @@ public interface PlatformConfigurationApi extends SkylarkValue {
       documented = false)
   @Deprecated
   ImmutableList<Label> getTargetPlatforms();
-
-  @SkylarkCallable(
-      name = "enabled_toolchain_types",
-      structField = true,
-      doc = "The set of toolchain types enabled for platform-based toolchain selection.")
-  List<Label> getEnabledToolchainTypes();
 }

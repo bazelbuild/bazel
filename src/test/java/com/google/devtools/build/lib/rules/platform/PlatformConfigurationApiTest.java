@@ -73,34 +73,6 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
   }
 
-  @Test
-  public void testEnabledToolchainTypes() throws Exception {
-    scratch.file(
-        "toolchains/BUILD",
-        "toolchain_type(name = 'test_toolchain_type1')",
-        "toolchain_type(name = 'test_toolchain_type2')",
-        "toolchain_type(name = 'test_toolchain_type3')");
-
-    useConfiguration(
-        "--enabled_toolchain_types="
-            + "//toolchains:test_toolchain_type1,//toolchains:test_toolchain_type3");
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_skylark_rule',",
-        ")");
-    assertNoEvents();
-
-    PlatformConfigurationApi platformConfiguration = fetchPlatformConfiguration();
-    assertThat(platformConfiguration).isNotNull();
-    assertThat(platformConfiguration.getEnabledToolchainTypes())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//toolchains:test_toolchain_type1"),
-            Label.parseAbsoluteUnchecked("//toolchains:test_toolchain_type3"));
-  }
-
   private RuleBuilder ruleBuilder() {
     return new RuleBuilder();
   }
