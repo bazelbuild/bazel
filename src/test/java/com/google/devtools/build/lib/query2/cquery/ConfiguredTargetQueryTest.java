@@ -286,7 +286,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                     .cfg(HostTransition.createFactory()),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(new ExecutionTransitionFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
     MockRule simpleRule =
         () ->
