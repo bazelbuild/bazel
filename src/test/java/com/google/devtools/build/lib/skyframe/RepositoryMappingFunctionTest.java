@@ -66,7 +66,11 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"))));
+                ImmutableMap.of(
+                    RepositoryName.create("@a"),
+                    RepositoryName.create("@b"),
+                    RepositoryName.create("@good"),
+                    RepositoryName.create("@"))));
   }
 
   @Test
@@ -93,12 +97,20 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey1)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"))));
+                ImmutableMap.of(
+                    RepositoryName.create("@a"),
+                    RepositoryName.create("@b"),
+                    RepositoryName.create("@good"),
+                    RepositoryName.create("@"))));
     assertThatEvaluationResult(eval(skyKey2))
         .hasEntryThat(skyKey2)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(RepositoryName.create("@x"), RepositoryName.create("@y"))));
+                ImmutableMap.of(
+                    RepositoryName.create("@x"),
+                    RepositoryName.create("@y"),
+                    RepositoryName.create("@good"),
+                    RepositoryName.create("@"))));
   }
 
   @Test
@@ -119,8 +131,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             RepositoryMappingValue.withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("@a"), RepositoryName.create("@b"),
-                    RepositoryName.create("@x"), RepositoryName.create("@y"))));
+                    RepositoryName.create("@a"),
+                    RepositoryName.create("@b"),
+                    RepositoryName.create("@x"),
+                    RepositoryName.create("@y"),
+                    RepositoryName.create("@good"),
+                    RepositoryName.create("@"))));
   }
 
   @Test
