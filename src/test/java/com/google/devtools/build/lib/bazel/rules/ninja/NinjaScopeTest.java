@@ -283,10 +283,9 @@ public class NinjaScopeTest {
   }
 
   private static NinjaRule rule(String name, String command) {
-    return new NinjaRule(
-        ImmutableSortedMap.of(
-            NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name),
-            NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
+    return new NinjaRule(ImmutableSortedMap.of(
+        NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name),
+        NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
   }
 
   private static NinjaVariableValue parseValue(String text) throws GenericParsingException {
