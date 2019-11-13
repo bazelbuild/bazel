@@ -117,7 +117,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
               SkyKey rdep = entry.getKey();
               int depthOfRdepOfRdep = shallowestRdepDepthMap.get(rdep) + 1;
               Streams.stream(entry.getValue())
-                  .filter(Predicates.and(SkyQueryEnvironment.IS_TTV, universe))
+                  .filter(Predicates.and(SkyQueryEnvironment.IS_LABEL, universe))
                   .forEachOrdered(
                       rdepOfRdep -> {
                         depAndRdepAtDepthsToVisitBuilder.add(

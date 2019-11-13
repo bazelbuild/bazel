@@ -20,12 +20,16 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class to traverse a visitation graph where the outputs are {@link Target}s and there is a
@@ -49,8 +53,24 @@ public abstract class AbstractTargetOuputtingVisitor<VisitKeyT>
   @Override
   protected Iterable<Target> outputKeysToOutputValues(Iterable<SkyKey> targetKeys)
       throws InterruptedException {
-    return env.getTargets(Iterables.transform(targetKeys, SkyQueryEnvironment.SKYKEY_TO_LABEL))
-        .values();
+    Map<Label, Target> targets =
+        env.getTargets(Iterables.transform(targetKeys, SkyQueryEnvironment.SKYKEY_TO_LABEL));
+    checkForMissingTargets(targetKeys, targets);
+    return targets.values();
+  }
+
+  private void checkForMissingTargets(Iterable<SkyKey> targetKeys, Map<Label, Target> targets) {
+    Set<SkyKey> missingTargets = new HashSet<>();
+    Set<Label> keysFound = targets.keySet();
+    for (SkyKey key : targetKeys) {
+      if (!keysFound.contains(key)) {
+        missingTargets.add(key);
+      }
+    }
+    if (!missingTargets.isEmpty()) {
+      env.getEventHandler()
+          .handle(Event.warn("Targets were missing from graph: " + missingTargets));
+    }
   }
 
   @Override

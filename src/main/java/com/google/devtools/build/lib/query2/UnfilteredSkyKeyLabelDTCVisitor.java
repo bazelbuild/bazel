@@ -23,8 +23,8 @@ import com.google.devtools.build.skyframe.SkyKey;
  * Helper class for visiting the TTV-only DTC of some given TTV keys, and feeding those TTVs to a
  * callback.
  */
-class UnfilteredSkyKeyTTVDTCVisitor extends AbstractUnfilteredTTVDTCVisitor<SkyKey> {
-  private UnfilteredSkyKeyTTVDTCVisitor(
+class UnfilteredSkyKeyLabelDTCVisitor extends AbstractUnfilteredLabelDTCVisitor<SkyKey> {
+  private UnfilteredSkyKeyLabelDTCVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
@@ -59,8 +59,8 @@ class UnfilteredSkyKeyTTVDTCVisitor extends AbstractUnfilteredTTVDTCVisitor<SkyK
     }
 
     @Override
-    public UnfilteredSkyKeyTTVDTCVisitor create() {
-      return new UnfilteredSkyKeyTTVDTCVisitor(
+    public UnfilteredSkyKeyLabelDTCVisitor create() {
+      return new UnfilteredSkyKeyLabelDTCVisitor(
           env, uniquifier, processResultsBatchSize, aggregateAllCallback);
     }
   }

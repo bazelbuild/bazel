@@ -14,21 +14,21 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Map;
 
 /**
- * Helper class for visiting the TTV-only DTC of some given TTV keys, via BFS following all
- * TTV->TTV dep edges. Disallowed edge filtering is *not* performed.
+ * Helper class for visiting the label-only DTC of some given label keys, via BFS following all
+ * target label -> target label dep edges. Disallowed edge filtering is *not* performed.
  */
-public abstract class AbstractUnfilteredTTVDTCVisitor<T> extends AbstractSkyKeyParallelVisitor<T> {
+public abstract class AbstractUnfilteredLabelDTCVisitor<T>
+    extends AbstractSkyKeyParallelVisitor<T> {
   protected final SkyQueryEnvironment env;
 
-  protected AbstractUnfilteredTTVDTCVisitor(
+  protected AbstractUnfilteredLabelDTCVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
@@ -43,21 +43,16 @@ public abstract class AbstractUnfilteredTTVDTCVisitor<T> extends AbstractSkyKeyP
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<SkyKey> ttvKeys) throws InterruptedException {
-    Multimap<SkyKey, SkyKey> deps = env.getUnfilteredDirectDepsOfSkyKeys(ttvKeys);
-    return new Visit(
-        /*keysToUseForResult=*/ deps.keySet(),
-        /*keysToVisit=*/ deps.values()
-        .stream()
-        .filter(SkyQueryEnvironment.IS_TTV)
-        .collect(ImmutableList.toImmutableList()));
+  protected Visit getVisitResult(Iterable<SkyKey> labelKeys) throws InterruptedException {
+    Map<SkyKey, Iterable<SkyKey>> depsMap = env.getFwdDepLabels(labelKeys);
+    return new Visit(labelKeys, Iterables.concat(depsMap.values()));
   }
 
   @Override
   protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> visitationKeys) {
-    // ParallelTargetVisitorCallback passes in TTV keys.
+    // ParallelTargetVisitorCallback passes in labels.
     Preconditions.checkState(
-        Iterables.all(visitationKeys, SkyQueryEnvironment.IS_TTV), visitationKeys);
+        Iterables.all(visitationKeys, SkyQueryEnvironment.IS_LABEL), visitationKeys);
     return visitationKeys;
   }
 }
