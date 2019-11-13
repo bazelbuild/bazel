@@ -20,8 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Range;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
 import java.util.Collections;
@@ -99,34 +97,20 @@ public class NinjaScope {
   private void expandVariable(String name, Integer offset, NinjaVariableValue value) {
     List<Pair<Integer, String>> targetList = expandedVariables
         .computeIfAbsent(name, k -> Lists.newArrayList());
-    ImmutableSortedKeyListMultimap<String, Range<Integer>> refs = value.getVariables();
-    if (!refs.isEmpty()) {
-      TreeMap<Range<Integer>, String> replacements = Maps.newTreeMap(
-          Comparator.comparing(Range::lowerEndpoint));
-      for (String refName : refs.keys()) {
-        // We are using the start offset of the value holding the reference to the variable.
-        String variable = findExpandedVariable(offset, refName);
-        refs.get(refName)
-            .forEach(range -> replacements.put(range, variable == null ? "" : variable));
-      }
-      String text = value.getText();
-      StringBuilder result = new StringBuilder();
-      int current = 0;
-      for (Range<Integer> range : replacements.keySet()) {
-        if (current < range.lowerEndpoint()) {
-          result.append(text, current, range.lowerEndpoint());
-        }
-        result.append(replacements.get(range));
-        current = range.upperEndpoint();
-      }
-      if (current < text.length()) {
-        result.append(text, current, text.length());
-      }
-      targetList.add(Pair.of(offset, result.toString()));
-    } else {
-      // We already have the value, replacement is not needed.
-      targetList.add(Pair.of(offset, value.getText()));
-    }
+    // Cache expanded variables values to save time replacing several references to the same
+    // variable. This cache is local, it depends on the offset of the variable we are expanding.
+    Map<String, String> cache = Maps.newHashMap();
+    Function<String, String> expander = ref -> {
+      // We are using the start offset of the value holding the reference to the variable.
+      return cache.computeIfAbsent(ref,
+          (key) -> {
+            String expandedVariable = findExpandedVariable(offset, key);
+            // Do the same as in real Ninja implementation: if the variable is not found,
+            // use empty string.
+            return expandedVariable != null ? expandedVariable : "";
+          });
+    };
+    targetList.add(Pair.of(offset, value.getExpandedValue(expander)));
   }
 
   /**

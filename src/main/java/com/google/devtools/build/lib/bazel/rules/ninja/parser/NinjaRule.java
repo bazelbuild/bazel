@@ -38,7 +38,6 @@ public final class NinjaRule {
 
   public String getName() {
     NinjaVariableValue value = Preconditions.checkNotNull(variables.get(NinjaRuleVariable.NAME));
-    Preconditions.checkState(value.getVariables().isEmpty());
-    return value.getText();
+    return value.getRawText();
   }
 }

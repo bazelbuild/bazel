@@ -100,10 +100,18 @@ public class NinjaLexer {
           step.skipComment();
           break;
         case '=':
+          if (expectTextUntilEol) {
+            step.readText();
+            return push(NinjaToken.TEXT);
+          }
           return push(NinjaToken.EQUALS);
         case ':':
           return push(NinjaToken.COLON);
         case '|':
+          if (expectTextUntilEol) {
+            step.readText();
+            return push(NinjaToken.TEXT);
+          }
           if (step.tryReadDoublePipe()) {
             return push(NinjaToken.PIPE2);
           }
@@ -116,10 +124,7 @@ public class NinjaLexer {
             return push(NinjaToken.VARIABLE);
           }
           if (step.tryReadEscapedLiteral()) {
-            return push(NinjaToken.TEXT);
-          }
-          if (expectTextUntilEol) {
-            return push(NinjaToken.TEXT);
+            return push(NinjaToken.ESCAPED_TEXT);
           }
           step.forceError("Bad $-escape (literal $ must be written as $$)");
           return push(NinjaToken.ERROR);
