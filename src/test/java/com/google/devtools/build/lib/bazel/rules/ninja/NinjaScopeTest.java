@@ -241,45 +241,6 @@ public class NinjaScopeTest {
     assertThat(edfVarFromChild2.getRawText()).isEqualTo("22222");
   }
 
-  @Test
-  public void testVariableExpand() throws GenericParsingException {
-    NinjaScope scope = new NinjaScope();
-    scope.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    scope.addVariable("edf", 120, parseValue("=> $abc = ?"));
-    scope.addVariable("abc", 130, NinjaVariableValue.createPlainText("redefined"));
-    scope.addVariable("edf", 180, parseValue("now$: $abc!"));
-
-    scope.expandVariables();
-
-    assertThat(scope.findExpandedVariable(15, "abc")).isEqualTo("abc");
-    assertThat(scope.findExpandedVariable(150, "edf")).isEqualTo("=> abc = ?");
-    assertThat(scope.findExpandedVariable(140, "abc")).isEqualTo("redefined");
-    assertThat(scope.findExpandedVariable(181, "edf")).isEqualTo("now: redefined!");
-  }
-
-  @Test
-  public void testExpandWithParentChild() throws GenericParsingException {
-    NinjaScope parent = new NinjaScope();
-    parent.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    parent.addVariable("edf", 120, parseValue("$abc === ${ abc }"));
-
-    NinjaScope includeScope = parent.createIncludeScope(140);
-    includeScope.addVariable("included", 1, parseValue("<$abc and ${ edf }>"));
-
-    NinjaScope child = new NinjaScope(parent, 150);
-    child.addVariable("subninja", 2, parseValue("$edf = ${ included }*"));
-
-    parent.expandVariables();
-    child.expandVariables();
-
-    assertThat(includeScope.findExpandedVariable(2, "included"))
-        .isEqualTo("<abc and abc === abc>");
-    assertThat(child.findExpandedVariable(3, "subninja"))
-        .isEqualTo("abc === abc = <abc and abc === abc>*");
-    assertThat(parent.findExpandedVariable(150, "included"))
-        .isEqualTo("<abc and abc === abc>");
-  }
-
   private static NinjaRule rule(String name) {
     return rule(name, "command");
   }

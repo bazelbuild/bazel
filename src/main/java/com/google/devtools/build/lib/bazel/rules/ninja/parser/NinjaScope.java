@@ -27,8 +27,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -44,7 +42,6 @@ public class NinjaScope {
 
   private final NavigableMap<Integer, NinjaScope> includedScopes;
   private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
-  private final Map<String, List<Pair<Integer, String>>> expandedVariables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
 
   public NinjaScope() {
@@ -56,7 +53,6 @@ public class NinjaScope {
     this.includePoint = includePoint;
     includedScopes = Maps.newTreeMap();
     variables = Maps.newHashMap();
-    expandedVariables = Maps.newHashMap();
     rules = Maps.newHashMap();
   }
 
@@ -94,44 +90,6 @@ public class NinjaScope {
     }
   }
 
-  private void expandVariable(String name, Integer offset, NinjaVariableValue value) {
-    List<Pair<Integer, String>> targetList = expandedVariables
-        .computeIfAbsent(name, k -> Lists.newArrayList());
-    // Cache expanded variables values to save time replacing several references to the same
-    // variable. This cache is local, it depends on the offset of the variable we are expanding.
-    Map<String, String> cache = Maps.newHashMap();
-    Function<String, String> expander = ref -> {
-      // We are using the start offset of the value holding the reference to the variable.
-      return cache.computeIfAbsent(ref,
-          (key) -> {
-            String expandedVariable = findExpandedVariable(offset, key);
-            // Do the same as in real Ninja implementation: if the variable is not found,
-            // use empty string.
-            return expandedVariable != null ? expandedVariable : "";
-          });
-    };
-    targetList.add(Pair.of(offset, value.getExpandedValue(expander)));
-  }
-
-  /**
-   * Resolve variables inside this scope and included scopes.
-   */
-  public void expandVariables() {
-    TreeMap<Integer, Runnable> resolvables = Maps.newTreeMap();
-    for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
-      String name = entry.getKey();
-      for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
-        Integer offset = pair.getFirst();
-        resolvables.put(offset, () -> expandVariable(name, offset, pair.getSecond()));
-      }
-    }
-    for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
-      resolvables.put(entry.getKey(), () -> entry.getValue().expandVariables());
-    }
-
-    resolvables.values().forEach(Runnable::run);
-  }
-
   /**
    * Finds a variable with the name <code>name</code> to be used in the reference to it at <code>
    * offset</code>. Returns null if nothing was found.
@@ -139,16 +97,6 @@ public class NinjaScope {
   @Nullable
   public NinjaVariableValue findVariable(int offset, String name) {
     return findByNameAndOffsetRecursively(offset, name, scope -> scope.variables);
-  }
-
-  /**
-   * Finds expanded variable with the name <code>name</code> to be used in the reference to it
-   * at <code>offset</code>.
-   * Returns null if nothing was found.
-   */
-  @Nullable
-  public String findExpandedVariable(int offset, String name) {
-    return findByNameAndOffsetRecursively(offset, name, scope -> scope.expandedVariables);
   }
 
   /**
