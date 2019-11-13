@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -70,8 +69,11 @@ class SomePathFunction implements QueryFunction {
           new QueryTaskCallable<Void>() {
             @Override
             public Void call() throws QueryException, InterruptedException {
-              Collection<T> fromValue = fromValueFuture.getIfSuccessful();
-              Collection<T> toValue = toValueFuture.getIfSuccessful();
+              ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+              ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
+
+              env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+
               ((CustomFunctionQueryEnvironment<T>) env)
                   .somePath(fromValue, toValue, expression, callback);
               return null;
