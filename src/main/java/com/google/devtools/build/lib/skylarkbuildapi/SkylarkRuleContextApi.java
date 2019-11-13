@@ -250,7 +250,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "(if no Target is provided) or the sources of Target should be instrumented "
               + "based on the --instrumentation_filter and "
               + "--instrument_test_targets config settings. "
-              + "This differs from <code>coverage_enabled</code> in the"
+              + "This differs from <code>coverage_enabled</code> in the "
               + "<a href=\"configuration.html\">configuration</a>, which notes whether coverage "
               + "data collection is enabled for the entire run, but not whether a specific "
               + "target should be instrumented.",
