@@ -42,9 +42,9 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -194,7 +194,7 @@ public abstract class AndroidSkylarkData
   }
 
   @Override
-  public SkylarkDict<Provider, NativeInfo> mergeResources(
+  public Dict<Provider, NativeInfo> mergeResources(
       AndroidDataContext ctx,
       AndroidManifestInfo manifest,
       Sequence<?> resources, // <ConfiguredTarget>
@@ -208,7 +208,7 @@ public abstract class AndroidSkylarkData
         mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding, location, thread);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
-    return SkylarkDict.of(
+    return Dict.of(
         /* thread = */ null,
         AndroidResourcesInfo.PROVIDER,
         validated.toProvider(),
@@ -271,7 +271,7 @@ public abstract class AndroidSkylarkData
   }
 
   @Override
-  public SkylarkDict<Provider, NativeInfo> processAarImportData(
+  public Dict<Provider, NativeInfo> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
       SpecialArtifact assets,
@@ -306,7 +306,7 @@ public abstract class AndroidSkylarkData
   }
 
   @Override
-  public SkylarkDict<Provider, NativeInfo> processLocalTestData(
+  public Dict<Provider, NativeInfo> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
       Sequence<?> resources, // <ConfiguredTarget>
@@ -314,7 +314,7 @@ public abstract class AndroidSkylarkData
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<?, ?> manifestValues, // <String, String>
+      Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <ConfiguredTarget>
       Sequence<?> noCompressExtensions, // <String>
       Location location,
@@ -369,7 +369,7 @@ public abstract class AndroidSkylarkData
               resourceApk.toResourceInfo(ctx.getLabel()),
               resourceApk.toAssetsInfo(ctx.getLabel()),
               resourceApk.toManifestInfo().get()));
-      return SkylarkDict.copyOf(/* thread = */ null, builder.build());
+      return Dict.copyOf(/* thread = */ null, builder.build());
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -468,7 +468,7 @@ public abstract class AndroidSkylarkData
       Object assetsDir,
       Object manifest,
       Object customPackage,
-      SkylarkDict<?, ?> manifestValues, // <String, String>
+      Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <ConfiguredTarget>
       String manifestMerger,
       Object maybeSettings,
@@ -621,7 +621,7 @@ public abstract class AndroidSkylarkData
     return binaryDataInfo;
   }
 
-  public static SkylarkDict<Provider, NativeInfo> getNativeInfosFrom(
+  public static Dict<Provider, NativeInfo> getNativeInfosFrom(
       ResourceApk resourceApk, Label label) {
     ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
 
@@ -636,7 +636,7 @@ public abstract class AndroidSkylarkData
         getJavaInfoForRClassJar(
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
-    return SkylarkDict.copyOf(/* thread = */ null, builder.build());
+    return Dict.copyOf(/* thread = */ null, builder.build());
   }
 
   /**

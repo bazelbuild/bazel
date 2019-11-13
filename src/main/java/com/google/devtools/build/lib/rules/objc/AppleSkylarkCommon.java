@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -177,8 +177,8 @@ public class AppleSkylarkCommon
 
   @Override
   // This method is registered statically for skylark, and never called directly.
-  public ObjcProvider newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) throws EvalException {
+  public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
+      throws EvalException {
     ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(thread.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
@@ -270,7 +270,7 @@ public class AppleSkylarkCommon
         ImmutableMap.of(
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
-            "output_groups", SkylarkDict.copyOf(thread, outputGroups));
+            "output_groups", Dict.copyOf(thread, outputGroups));
     return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
   }
 }

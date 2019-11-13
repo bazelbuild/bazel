@@ -1054,11 +1054,11 @@ final class StringModule implements SkylarkValue {
       extraKeywords =
           @Param(
               name = "kwargs",
-              type = SkylarkDict.class,
+              type = Dict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useLocation = true)
-  public String format(String self, Sequence<?> args, SkylarkDict<?, ?> kwargs, Location loc)
+  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs, Location loc)
       throws EvalException {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();

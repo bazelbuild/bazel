@@ -430,12 +430,12 @@ public final class StarlarkThread implements Freezable {
                   .equals(((SkylarkNestedSet) otherValue).toCollection())) {
             continue;
           }
-        } else if (value instanceof SkylarkDict) {
-          if (otherValue instanceof SkylarkDict) {
+        } else if (value instanceof Dict) {
+          if (otherValue instanceof Dict) {
             @SuppressWarnings("unchecked")
-            SkylarkDict<Object, Object> thisDict = (SkylarkDict<Object, Object>) value;
+            Dict<Object, Object> thisDict = (Dict<Object, Object>) value;
             @SuppressWarnings("unchecked")
-            SkylarkDict<Object, Object> otherDict = (SkylarkDict<Object, Object>) otherValue;
+            Dict<Object, Object> otherDict = (Dict<Object, Object>) otherValue;
             if (thisDict.size() == otherDict.size()
                 && thisDict.keySet().equals(otherDict.keySet())) {
               boolean foundProblem = false;

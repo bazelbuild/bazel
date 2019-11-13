@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -410,7 +410,7 @@ public interface AndroidDataProcessingApi<
               + " this manifest, so in the future, you may want to use the manifest contained in"
               + " this method's output instead of this one.",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
+  Dict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
       Sequence<?> resources, // <TransitiveInfoCollectionT>
@@ -533,7 +533,7 @@ public interface AndroidDataProcessingApi<
       },
       doc = "Processes assets, resources, and manifest for aar_import targets",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> processAarImportData(
+  Dict<? extends ProviderApi, ? extends StructApi> processAarImportData(
       AndroidDataContextT ctx,
       SpecialFileT resources,
       SpecialFileT assets,
@@ -614,7 +614,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -645,7 +645,7 @@ public interface AndroidDataProcessingApi<
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
+  Dict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
       Sequence<?> resources, // <TransitiveInfoCollectionT>
@@ -653,7 +653,7 @@ public interface AndroidDataProcessingApi<
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<?, ?> manifestValues, // <String, String>
+      Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <TransitiveInfoCollectionT>
       Sequence<?> noCompressExtensions, // <String>
       Location location,
@@ -801,7 +801,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -866,7 +866,7 @@ public interface AndroidDataProcessingApi<
       Object assetsDir,
       Object manifest,
       Object customPackage,
-      SkylarkDict<?, ?> manifestValues, // <String, String>
+      Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <TransitiveInfoCollectionT>
       String manifestMerger,
       Object maybeSettings,

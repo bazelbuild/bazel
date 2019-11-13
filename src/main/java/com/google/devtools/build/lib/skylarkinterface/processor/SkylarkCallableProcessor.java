@@ -94,8 +94,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private SetMultimap<String, String> processedClassMethods;
 
   private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.Sequence<?>";
-  private static final String SKYLARK_DICT =
-      "com.google.devtools.build.lib.syntax.SkylarkDict<?,?>";
+  private static final String SKYLARK_DICT = "com.google.devtools.build.lib.syntax.Dict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
   private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String STARLARK_THREAD =

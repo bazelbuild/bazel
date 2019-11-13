@@ -45,11 +45,11 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -72,7 +72,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   // Arguments
 
-  private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
+  private static boolean containsNonNoneKey(Dict<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Starlark.NONE;
   }
 
@@ -96,7 +96,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -108,7 +108,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread,
       String name)
@@ -120,7 +120,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread,
       String name)
@@ -393,7 +393,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   private static Descriptor createAttrDescriptor(
       String name,
-      SkylarkDict<String, Object> kwargs,
+      Dict<String, Object> kwargs,
       Type<?> type,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -423,7 +423,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   private static Descriptor createNonconfigurableAttrDescriptor(
       String name,
-      SkylarkDict<String, Object> kwargs,
+      Dict<String, Object> kwargs,
       Type<?> type,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -613,7 +613,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       StarlarkThread thread)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.label_list", ast.getLocation());
-    SkylarkDict<String, Object> kwargs =
+    Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
             DEFAULT_ARG,
@@ -663,7 +663,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(
         thread, "attr.label_keyed_string_dict", ast.getLocation());
-    SkylarkDict<String, Object> kwargs =
+    Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
             DEFAULT_ARG,
@@ -762,7 +762,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -790,7 +790,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   @Override
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,

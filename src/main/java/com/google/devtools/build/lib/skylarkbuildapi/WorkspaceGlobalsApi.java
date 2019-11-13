@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
@@ -65,7 +65,7 @@ public interface WorkspaceGlobalsApi {
             positional = false),
         @Param(
             name = "managed_directories",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -81,7 +81,7 @@ public interface WorkspaceGlobalsApi {
       useStarlarkThread = true)
   NoneType workspace(
       String name,
-      SkylarkDict<?, ?> managedDirectories, // <String, Sequence<String>>
+      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
       Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

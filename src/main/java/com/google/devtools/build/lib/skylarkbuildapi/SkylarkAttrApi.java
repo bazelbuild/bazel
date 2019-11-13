@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -611,7 +611,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
@@ -856,7 +856,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = StarlarkFunction.class)
             },
             named = true,
@@ -889,7 +889,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       useStarlarkThread = true)
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -912,7 +912,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = StarlarkFunction.class)
             },
             defaultValue = "{}",
@@ -945,7 +945,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       useStarlarkThread = true)
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,

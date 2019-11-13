@@ -31,7 +31,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A Skylark dictionary (dict).
+ * A Dict is a Starlark dictionary (dict), a mapping from keys to values.
  *
  * <p>Although this implements the {@link Map} interface, it is not mutable via that interface's
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
@@ -69,25 +69,24 @@ import javax.annotation.Nullable;
             + "<p>The <a href=\"globals.html#dict\">dict()</a> global function is documented"
             + " elsewhere.<p>")
 // TODO(b/64208606): eliminate these type parameters as they are wildly unsound.
-// Starlark code may update a StarlarkDict in ways incompatible with its Java
+// Starlark code may update a Dict in ways incompatible with its Java
 // parameterized type. There is no realistic static or dynamic way to prevent
 // this, as Java parameterized types are not accessible at runtime.
 // Every cast to a parameterized type is a lie.
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
-public final class SkylarkDict<K, V> extends MutableMap<K, V>
-    implements Map<K, V>, SkylarkIndexable {
+public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
 
-  private SkylarkDict(@Nullable Mutability mutability) {
+  private Dict(@Nullable Mutability mutability) {
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
-  private SkylarkDict(@Nullable StarlarkThread thread) {
+  private Dict(@Nullable StarlarkThread thread) {
     this.mutability = thread == null ? Mutability.IMMUTABLE : thread.mutability();
   }
 
@@ -220,16 +219,14 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       useLocation = true,
       useStarlarkThread = true)
   @SuppressWarnings("unchecked")
-  public NoneType update(Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
+  public NoneType update(Object args, Dict<?, ?> kwargs, Location loc, StarlarkThread thread)
       throws EvalException {
     // TODO(adonovan): opt: don't materialize dict; call put directly.
 
     // All these types and casts are lies.
-    SkylarkDict<K, V> dict =
-        args instanceof SkylarkDict
-            ? (SkylarkDict<K, V>) args
-            : getDictFromArgs("update", args, loc, thread);
-    dict = SkylarkDict.plus(dict, (SkylarkDict<K, V>) kwargs, thread);
+    Dict<K, V> dict =
+        args instanceof Dict ? (Dict<K, V>) args : getDictFromArgs("update", args, loc, thread);
+    dict = Dict.plus(dict, (Dict<K, V>) kwargs, thread);
     putAll(dict, loc);
     return Starlark.NONE;
   }
@@ -276,59 +273,58 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return StarlarkList.wrapUnsafe(thread, list);
   }
 
-  private static final SkylarkDict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
+  private static final Dict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
 
   /** Returns an immutable empty dict. */
   // Safe because the empty singleton is immutable.
   @SuppressWarnings("unchecked")
-  public static <K, V> SkylarkDict<K, V> empty() {
-    return (SkylarkDict<K, V>) EMPTY;
+  public static <K, V> Dict<K, V> empty() {
+    return (Dict<K, V>) EMPTY;
   }
 
   /** Returns an empty dict with the given {@link Mutability}. */
-  public static <K, V> SkylarkDict<K, V> withMutability(@Nullable Mutability mutability) {
-    return new SkylarkDict<>(mutability);
+  public static <K, V> Dict<K, V> withMutability(@Nullable Mutability mutability) {
+    return new Dict<>(mutability);
   }
 
   /** @return a dict mutable in given environment only */
-  public static <K, V> SkylarkDict<K, V> of(@Nullable StarlarkThread thread) {
-    return new SkylarkDict<>(thread);
+  public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread) {
+    return new Dict<>(thread);
   }
 
   /** @return a dict mutable in given environment only, with given initial key and value */
-  public static <K, V> SkylarkDict<K, V> of(@Nullable StarlarkThread thread, K k, V v) {
-    return SkylarkDict.<K, V>of(thread).putUnsafe(k, v);
+  public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread, K k, V v) {
+    return Dict.<K, V>of(thread).putUnsafe(k, v);
   }
 
   /** @return a dict mutable in given environment only, with two given initial key value pairs */
-  public static <K, V> SkylarkDict<K, V> of(
-      @Nullable StarlarkThread thread, K k1, V v1, K k2, V v2) {
-    return SkylarkDict.<K, V>of(thread).putUnsafe(k1, v1).putUnsafe(k2, v2);
+  public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread, K k1, V v1, K k2, V v2) {
+    return Dict.<K, V>of(thread).putUnsafe(k1, v1).putUnsafe(k2, v2);
   }
 
   // TODO(bazel-team): Make other methods that take in mutabilities instead of environments, make
   // this method public.
   @VisibleForTesting
-  static <K, V> SkylarkDict<K, V> copyOf(
+  static <K, V> Dict<K, V> copyOf(
       @Nullable Mutability mutability, Map<? extends K, ? extends V> m) {
-    return SkylarkDict.<K, V>withMutability(mutability).putAllUnsafe(m);
+    return Dict.<K, V>withMutability(mutability).putAllUnsafe(m);
   }
 
   /** @return a dict mutable in given environment only, with contents copied from given map */
-  public static <K, V> SkylarkDict<K, V> copyOf(
+  public static <K, V> Dict<K, V> copyOf(
       @Nullable StarlarkThread thread, Map<? extends K, ? extends V> m) {
-    return SkylarkDict.<K, V>of(thread).putAllUnsafe(m);
+    return Dict.<K, V>of(thread).putAllUnsafe(m);
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
-  private SkylarkDict<K, V> putUnsafe(K k, V v) {
+  private Dict<K, V> putUnsafe(K k, V v) {
     contents.put(k, v);
     return this;
   }
 
   /** Puts all entries of the given map into the dict, without calling {@link #checkMutable}. */
   @SuppressWarnings("unchecked")
-  private <KK extends K, VV extends V> SkylarkDict<K, V> putAllUnsafe(Map<KK, VV> m) {
+  private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
       contents.put(e.getKey(), (VV) SkylarkType.convertToSkylark(e.getValue(), mutability));
     }
@@ -426,9 +422,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /**
-   * If {@code obj} is a {@code SkylarkDict}, casts it to an unmodifiable {@code Map<K, V>} after
-   * checking that each of its entries has key type {@code keyType} and value type {@code
-   * valueType}. If {@code obj} is {@code None} or null, treats it as an empty dict.
+   * If {@code obj} is a {@code Dict}, casts it to an unmodifiable {@code Map<K, V>} after checking
+   * that each of its entries has key type {@code keyType} and value type {@code valueType}. If
+   * {@code obj} is {@code None} or null, treats it as an empty dict.
    *
    * <p>The returned map may or may not be a view that is affected by updates to the original dict.
    *
@@ -443,8 +439,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     if (EvalUtils.isNullOrNone(obj)) {
       return empty();
     }
-    if (obj instanceof SkylarkDict) {
-      return ((SkylarkDict<?, ?>) obj).getContents(keyType, valueType, description);
+    if (obj instanceof Dict) {
+      return ((Dict<?, ?>) obj).getContents(keyType, valueType, description);
     }
     throw new EvalException(
         null,
@@ -454,8 +450,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   /**
-   * Returns an unmodifiable view of this StarlarkDict coerced to type {@code SkylarkDict<X, Y>},
-   * after superficially checking that all keys and values are of class {@code keyType} and {@code
+   * Returns an unmodifiable view of this Dict coerced to type {@code Dict<X, Y>}, after
+   * superficially checking that all keys and values are of class {@code keyType} and {@code
    * valueType} respectively.
    *
    * <p>The returned map is a view that reflects subsequent updates to the original dict. If such
@@ -486,7 +482,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
         SkylarkType.checkType(e.getValue(), valueType, valueDescription);
       }
     }
-    return Collections.unmodifiableMap((SkylarkDict<X, Y>) this);
+    return Collections.unmodifiableMap((Dict<X, Y>) this);
   }
 
   @Override
@@ -511,18 +507,18 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return this.containsKey(key);
   }
 
-  public static <K, V> SkylarkDict<K, V> plus(
-      SkylarkDict<? extends K, ? extends V> left,
-      SkylarkDict<? extends K, ? extends V> right,
+  public static <K, V> Dict<K, V> plus(
+      Dict<? extends K, ? extends V> left,
+      Dict<? extends K, ? extends V> right,
       @Nullable StarlarkThread thread) {
-    SkylarkDict<K, V> result = SkylarkDict.of(thread);
+    Dict<K, V> result = Dict.of(thread);
     result.putAllUnsafe(left);
     result.putAllUnsafe(right);
     return result;
   }
 
   @SuppressWarnings("unchecked")
-  static <K, V> SkylarkDict<K, V> getDictFromArgs(
+  static <K, V> Dict<K, V> getDictFromArgs(
       String funcname, Object args, Location loc, @Nullable StarlarkThread thread)
       throws EvalException {
     Iterable<?> seq;
@@ -533,7 +529,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
           loc,
           String.format("in %s, got %s, want iterable", funcname, EvalUtils.getDataTypeName(args)));
     }
-    SkylarkDict<K, V> result = SkylarkDict.of(thread);
+    Dict<K, V> result = Dict.of(thread);
     int pos = 0;
     for (Object item : seq) {
       Iterable<?> seq2;

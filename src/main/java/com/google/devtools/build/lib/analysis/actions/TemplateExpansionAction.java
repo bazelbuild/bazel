@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.Collection;
@@ -200,11 +200,11 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public SkylarkDict<String, String> getSkylarkSubstitutions() {
+  public Dict<String, String> getSkylarkSubstitutions() {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());
     }
-    return SkylarkDict.copyOf(null, builder.build());
+    return Dict.copyOf(null, builder.build());
   }
 }

@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** Interface for the "struct" object in the build API. */
 @SkylarkModule(
@@ -103,12 +103,12 @@ public interface StructApi extends SkylarkValue {
         extraKeywords =
             @Param(
                 name = "kwargs",
-                type = SkylarkDict.class,
+                type = Dict.class,
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
         useLocation = true,
         selfCall = true)
     @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
-    public StructApi createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException;
+    public StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException;
   }
 }

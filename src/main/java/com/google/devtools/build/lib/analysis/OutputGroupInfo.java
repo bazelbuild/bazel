@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.HashSet;
@@ -290,8 +290,7 @@ public final class OutputGroupInfo extends NativeInfo
     }
 
     @Override
-    public OutputGroupInfoApi constructor(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException {
       Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();

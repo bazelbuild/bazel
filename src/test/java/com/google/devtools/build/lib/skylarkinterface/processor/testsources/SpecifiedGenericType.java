@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /**
  * Test case for a SkylarkCallable method which has a parameter with an unsafely specified generic
@@ -33,7 +33,7 @@ public class SpecifiedGenericType implements SkylarkValue {
       parameters = {
         @Param(name = "one", type = Sequence.class, named = true),
       })
-  public String specifiedGenericType(SkylarkDict<?, String> one) {
+  public String specifiedGenericType(Dict<?, String> one) {
     return "bar";
   }
 }

@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(
@@ -57,11 +57,11 @@ public interface TemplateVariableInfoApi extends StructApi {
         doc = "The <code>TemplateVariableInfo</code> constructor.",
         documented = false,
         parameters = {
-          @Param(name = "vars", positional = true, named = true, type = SkylarkDict.class),
+          @Param(name = "vars", positional = true, named = true, type = Dict.class),
         },
         selfCall = true,
         useLocation = true)
-    TemplateVariableInfoApi templateVariableInfo(SkylarkDict<?, ?> vars, Location loc)
+    TemplateVariableInfoApi templateVariableInfo(Dict<?, ?> vars, Location loc)
         throws EvalException;
   }
 }

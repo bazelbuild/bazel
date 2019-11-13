@@ -181,7 +181,7 @@ public final class EvalUtils {
         // TODO(adonovan): delete those below, and order those above by cost.
         // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
         || SkylarkInterfaceUtils.getSkylarkModule(c) != null
-        || ImmutableMap.class.isAssignableFrom(c); // will be converted to SkylarkDict
+        || ImmutableMap.class.isAssignableFrom(c); // will be converted to Dict
   }
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
@@ -273,7 +273,7 @@ public final class EvalUtils {
       return "bool";
     } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a Sequence
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a SkylarkDict
+    } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a Dict
       return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // TODO(adonovan): each StarlarkCallable should report its own type string.
@@ -309,9 +309,9 @@ public final class EvalUtils {
       return ((Sequence) o).getImmutableList();
     } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
-      if (o instanceof SkylarkDict) {
-        // SkylarkDicts handle ordering themselves
-        SkylarkDict<?, ?> dict = (SkylarkDict) o;
+      if (o instanceof Dict) {
+        // Dicts handle ordering themselves
+        Dict<?, ?> dict = (Dict) o;
         List<Object> list = Lists.newArrayListWithCapacity(dict.size());
         for (Map.Entry<?, ?> entries : dict.entrySet()) {
           list.add(entries.getKey());
@@ -539,7 +539,7 @@ public final class EvalUtils {
   }
 
   /**
-   * Build a SkylarkDict of kwarg arguments from a list, removing null-s or None-s.
+   * Build a Dict of kwarg arguments from a list, removing null-s or None-s.
    *
    * @param thread the StarlarkThread in which this map can be mutated.
    * @param init a series of key, value pairs (as consecutive arguments) as in {@code optionMap(k1,
@@ -549,7 +549,7 @@ public final class EvalUtils {
    *     <p>Ignore any entry where the value is null or None. Keys cannot be null.
    */
   @SuppressWarnings("unchecked")
-  public static <K, V> SkylarkDict<K, V> optionMap(StarlarkThread thread, Object... init) {
+  public static <K, V> Dict<K, V> optionMap(StarlarkThread thread, Object... init) {
     ImmutableMap.Builder<K, V> b = new ImmutableMap.Builder<>();
     Preconditions.checkState(init.length % 2 == 0);
     for (int i = init.length - 2; i >= 0; i -= 2) {
@@ -559,7 +559,7 @@ public final class EvalUtils {
         b.put(key, value);
       }
     }
-    return SkylarkDict.copyOf(thread, b.build());
+    return Dict.copyOf(thread, b.build());
   }
 
   /**

@@ -40,8 +40,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
     return StarlarkList.of(thread, 1, 2, 3);
   }
 
-  private static SkylarkDict<Object, Object> makeDict(StarlarkThread thread) {
-    return SkylarkDict.of(thread, 1, 1, 2, 2);
+  private static Dict<Object, Object> makeDict(StarlarkThread thread) {
+    return Dict.of(thread, 1, 1, 2, 2);
   }
 
   /** MockClassA */
@@ -99,8 +99,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Tuple.of("1", "2", "3"),
       StarlarkList.of(thread, 1, 2, 3),
       StarlarkList.of(thread, "1", "2", "3"),
-      SkylarkDict.of(thread, "key", 123),
-      SkylarkDict.of(thread, 123, "value"),
+      Dict.of(thread, "key", 123),
+      Dict.of(thread, 123, "value"),
       NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };

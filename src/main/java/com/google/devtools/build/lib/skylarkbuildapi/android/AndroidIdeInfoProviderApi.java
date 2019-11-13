@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
@@ -290,7 +290,7 @@ public interface AndroidIdeInfoProviderApi<
                       + "libs.",
               positional = true,
               named = false,
-              type = SkylarkDict.class,
+              type = Dict.class,
               generic1 = String.class)
         },
         selfCall = true)
@@ -310,7 +310,7 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object signedApk,
         /*noneable*/ Object aar,
         Sequence<?> apksUnderTest, // <FileT>
-        SkylarkDict<?, ?> nativeLibs /* <String, SkylarkNestedSet> */)
+        Dict<?, ?> nativeLibs /* <String, SkylarkNestedSet> */)
         throws EvalException;
   }
 }

@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAspect;
@@ -147,7 +147,7 @@ public class FakeAppleCommon implements AppleCommonApi<
 
   @Override
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) {
+      Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread) {
     return new FakeObjcProvider();
   }
 

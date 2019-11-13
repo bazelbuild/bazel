@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -122,7 +122,7 @@ public interface ConfigGlobalLibraryApi {
       parameters = {
         @Param(
             name = "settings",
-            type = SkylarkDict.class,
+            type = Dict.class,
             positional = false,
             named = true,
             doc =
@@ -135,7 +135,7 @@ public interface ConfigGlobalLibraryApi {
       useLocation = true,
       useStarlarkSemantics = true)
   public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<?, ?> changedSettings, // <String, String> expected
+      Dict<?, ?> changedSettings, // <String, String> expected
       Location location,
       StarlarkSemantics semantics)
       throws EvalException;

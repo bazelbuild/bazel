@@ -411,7 +411,7 @@ public final class CallUtils {
       builder.add(Tuple.copyOf(extraArgs));
     }
     if (acceptsExtraKwargs) {
-      builder.add(SkylarkDict.copyOf(thread, extraKwargs));
+      builder.add(Dict.copyOf(thread, extraKwargs));
     }
     appendExtraInterpreterArgs(builder, method, call, call.getLocation(), thread);
 

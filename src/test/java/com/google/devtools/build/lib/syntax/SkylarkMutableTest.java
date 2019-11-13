@@ -67,7 +67,7 @@ public final class SkylarkMutableTest {
   @Test
   public void testDictViewsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    SkylarkDict<Object, Object> dict = SkylarkDict.copyOf(mutability, ImmutableMap.of(1, 2, 3, 4));
+    Dict<Object, Object> dict = Dict.copyOf(mutability, ImmutableMap.of(1, 2, 3, 4));
     mutability.freeze();
 
     {

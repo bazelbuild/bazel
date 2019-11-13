@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -35,7 +35,7 @@ public class ExtraKeywordsOutOfOrder implements SkylarkValue {
       useLocation = true,
       useStarlarkThread = true)
   public String threeArgMethod(
-      SkylarkDict<?, ?> kwargs, String one, Location location, StarlarkThread thread) {
+      Dict<?, ?> kwargs, String one, Location location, StarlarkThread thread) {
     return "bar";
   }
 }

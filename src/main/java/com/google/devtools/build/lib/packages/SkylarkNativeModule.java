@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicens
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -130,7 +130,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rule", loc);
     PackageContext context = getContext(thread, loc);
     Target target = context.pkgBuilder.getTarget(name);
-    SkylarkDict<String, Object> rule = targetDict(target, loc, thread.mutability());
+    Dict<String, Object> rule = targetDict(target, loc, thread.mutability());
     return rule != null ? rule : Starlark.NONE;
   }
 
@@ -139,16 +139,16 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     For now, we ignore this, since users can implement it in Skylark.
   */
   @Override
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      Location loc, StarlarkThread thread) throws EvalException, InterruptedException {
+  public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
+      throws EvalException, InterruptedException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rules", loc);
     PackageContext context = getContext(thread, loc);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
-    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.withMutability(mu);
+    Dict<String, Dict<String, Object>> rules = Dict.withMutability(mu);
     for (Target t : targets) {
       if (t instanceof Rule) {
-        SkylarkDict<String, Object> rule = targetDict(t, loc, mu);
+        Dict<String, Object> rule = targetDict(t, loc, mu);
         Preconditions.checkNotNull(rule);
         rules.put(t.getName(), rule, loc);
       }
@@ -278,12 +278,12 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   }
 
   @Nullable
-  private static SkylarkDict<String, Object> targetDict(Target target, Location loc, Mutability mu)
+  private static Dict<String, Object> targetDict(Target target, Location loc, Mutability mu)
       throws EvalException {
     if (!(target instanceof Rule)) {
       return null;
     }
-    SkylarkDict<String, Object> values = SkylarkDict.withMutability(mu);
+    Dict<String, Object> values = Dict.withMutability(mu);
 
     Rule rule = (Rule) target;
     AttributeContainer cont = rule.getAttributeContainer();

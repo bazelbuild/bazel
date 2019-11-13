@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /**
  * Fake implementation of {@link OutputGroupInfoApi}.
@@ -46,8 +46,7 @@ public class FakeOutputGroupInfo implements OutputGroupInfoApi {
   public static class FakeOutputGroupInfoProvider implements OutputGroupInfoApiProvider {
 
     @Override
-    public OutputGroupInfoApi constructor(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException {
       return new FakeOutputGroupInfo();
     }
 

@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -63,7 +63,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   @Override
   public NoneType workspace(
       String name,
-      SkylarkDict<?, ?> managedDirectories, // <String, Object>
+      Dict<?, ?> managedDirectories, // <String, Object>
       Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException {

@@ -51,10 +51,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -607,8 +607,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
           ImmutableMap.copyOf(
-              SkylarkDict.castSkylarkDictOrNoneToDict(
-                  envUnchecked, String.class, String.class, "env")));
+              Dict.castSkylarkDictOrNoneToDict(envUnchecked, String.class, String.class, "env")));
     }
     if (progressMessage != Starlark.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
@@ -651,7 +650,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   public void expandTemplate(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location location)
       throws EvalException {

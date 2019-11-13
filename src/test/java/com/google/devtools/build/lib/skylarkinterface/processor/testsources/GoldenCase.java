@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -174,7 +174,7 @@ public class GoldenCase implements SkylarkValue {
   public String twoArgMethodWithParamsAndInfoAndKwargs(
       String one,
       Integer two,
-      SkylarkDict<?, ?> kwargs,
+      Dict<?, ?> kwargs,
       Location location,
       FuncallExpression ast,
       StarlarkThread thread,
@@ -193,7 +193,7 @@ public class GoldenCase implements SkylarkValue {
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one, Integer two, Sequence<?> args, SkylarkDict<?, ?> kwargs, StarlarkThread thread) {
+      String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
     return "yar";
   }
 
@@ -227,9 +227,9 @@ public class GoldenCase implements SkylarkValue {
       documented = false,
       parameters = {
         @Param(name = "one", type = Sequence.class, named = true),
-        @Param(name = "two", type = SkylarkDict.class, named = true),
+        @Param(name = "two", type = Dict.class, named = true),
       })
-  public String methodWithListandDict(Sequence<?> one, SkylarkDict<?, ?> two) {
+  public String methodWithListandDict(Sequence<?> one, Dict<?, ?> two) {
     return "bar";
   }
 }

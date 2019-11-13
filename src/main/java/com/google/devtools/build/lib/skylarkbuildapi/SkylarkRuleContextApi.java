@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -318,11 +318,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public ImmutableList<String> aspectIds() throws EvalException;
 
   @SkylarkCallable(
-    name = "var",
-    structField = true,
-    doc = "Dictionary (String to String) of configuration variables."
-  )
-  public SkylarkDict<String, String> var() throws EvalException;
+      name = "var",
+      structField = true,
+      doc = "Dictionary (String to String) of configuration variables.")
+  public Dict<String, String> var() throws EvalException;
 
   @SkylarkCallable(
     name = "toolchains",
@@ -504,13 +503,13 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             name = "additional_substitutions",
             positional = true,
             named = false,
-            type = SkylarkDict.class,
+            type = Dict.class,
             doc = "Additional substitutions to make beyond the default make variables."),
       })
   public String expandMakeVariables(
       String attributeName,
       String command,
-      final SkylarkDict<?, ?> additionalSubstitutions) // <String, String>
+      final Dict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException;
 
   @SkylarkCallable(
@@ -650,7 +649,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "Whether the action should use the built in shell environment or not."),
         @Param(
             name = "env",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -658,7 +657,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "Sets the dictionary of environment variables."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -814,7 +813,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "The output file, which is a UTF-8 encoded text file."),
         @Param(
             name = "substitutions",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             positional = false,
             doc = "Substitutions to make when expanding the template."),
@@ -832,7 +831,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public NoneType templateAction(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location loc,
       StarlarkThread thread)
@@ -885,13 +884,13 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "symlinks",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "The map of symlinks to be added to the runfiles, prefixed by workspace name."),
         @Param(
             name = "root_symlinks",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "The map of symlinks to be added to the runfiles.")
@@ -902,8 +901,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      SkylarkDict<?, ?> symlinks,
-      SkylarkDict<?, ?> rootSymlinks,
+      Dict<?, ?> symlinks,
+      Dict<?, ?> rootSymlinks,
       Location loc)
       throws EvalException;
 
@@ -945,7 +944,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + " href=\"#expand_location\">ctx.expand_location()</a> for more details."),
         @Param(
             name = "make_variables",
-            type = SkylarkDict.class, // dict(string, string)
+            type = Dict.class, // dict(string, string)
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -961,7 +960,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "List of tools (list of targets)."),
         @Param(
             name = "label_dict",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -970,7 +969,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "(a dict of Label : list of Files)."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -987,8 +986,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       Boolean expandLocations,
       Object makeVariablesUnchecked,
       Sequence<?> tools,
-      SkylarkDict<?, ?> labelDictUnchecked,
-      SkylarkDict<?, ?> executionRequirementsUnchecked,
+      Dict<?, ?> labelDictUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
       Location loc,
       StarlarkThread thread)
       throws EvalException;

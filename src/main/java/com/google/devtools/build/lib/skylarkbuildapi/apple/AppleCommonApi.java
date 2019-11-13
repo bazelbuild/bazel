@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -295,13 +295,13 @@ public interface AppleCommonApi<
       extraKeywords =
           @Param(
               name = "kwargs",
-              type = SkylarkDict.class,
+              type = Dict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useStarlarkThread = true)
   // This method is registered statically for skylark, and never called directly.
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
+      Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "new_dynamic_framework_provider",

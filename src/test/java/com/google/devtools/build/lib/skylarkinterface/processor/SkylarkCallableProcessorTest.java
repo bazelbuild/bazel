@@ -261,7 +261,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Expected parameter index 1 to be the "
-                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,?> type, matching "
+                + "com.google.devtools.build.lib.syntax.Dict<?,?> type, matching "
                 + "extraKeywords, but was java.lang.String");
   }
 
@@ -374,7 +374,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Parameter one has generic type "
-                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,java.lang.String>");
+                + "com.google.devtools.build.lib.syntax.Dict<?,java.lang.String>");
   }
 
   @Test

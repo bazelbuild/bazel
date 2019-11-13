@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -123,8 +123,7 @@ public class WorkspaceFactoryHelper {
   /**
    * Processes {@code repo_mapping} attribute and populates the package builder with the mappings.
    *
-   * @throws EvalException if {@code repo_mapping} is present in kwargs but is not a {@link
-   *     SkylarkDict}
+   * @throws EvalException if {@code repo_mapping} is present in kwargs but is not a {@link Dict}
    */
   public static void addRepoMappings(
       Package.Builder builder,
@@ -134,7 +133,7 @@ public class WorkspaceFactoryHelper {
       throws EvalException, LabelSyntaxException {
 
     if (kwargs.containsKey("repo_mapping")) {
-      if (!(kwargs.get("repo_mapping") instanceof SkylarkDict)) {
+      if (!(kwargs.get("repo_mapping") instanceof Dict)) {
         throw new EvalException(
             location,
             "Invalid value for 'repo_mapping': '"

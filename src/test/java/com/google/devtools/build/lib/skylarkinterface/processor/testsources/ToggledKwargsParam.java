@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -42,7 +42,7 @@ public class ToggledKwargsParam implements SkylarkValue {
               enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API),
       useStarlarkThread = true)
   public String toggledKwargsMethod(
-      String one, Integer two, Sequence<?> args, SkylarkDict<?, ?> kwargs, StarlarkThread thread) {
+      String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
     return "cat";
   }
 }

@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 
 /**
@@ -45,10 +45,9 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     }
 
     @Override
-    public ToolchainInfo toolchainInfo(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
+    public ToolchainInfo toolchainInfo(Dict<?, ?> kwargs, Location loc) throws EvalException {
       Map<String, Object> data =
-          SkylarkDict.castSkylarkDictOrNoneToDict(kwargs, String.class, Object.class, "data");
+          Dict.castSkylarkDictOrNoneToDict(kwargs, String.class, Object.class, "data");
       return ToolchainInfo.create(data, loc);
     }
   }

@@ -439,16 +439,14 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(
-      name = "with_kwargs",
-      documented = false,
-      parameters = {
-        @Param(name = "pos", defaultValue = "False", type = Boolean.class),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-      },
-      extraKeywords = @Param(name = "kwargs")
-    )
-    public String withKwargs(boolean pos, boolean named, SkylarkDict<?, ?> kwargs)
-        throws EvalException {
+        name = "with_kwargs",
+        documented = false,
+        parameters = {
+          @Param(name = "pos", defaultValue = "False", type = Boolean.class),
+          @Param(name = "named", type = Boolean.class, positional = false, named = true),
+        },
+        extraKeywords = @Param(name = "kwargs"))
+    public String withKwargs(boolean pos, boolean named, Dict<?, ?> kwargs) throws EvalException {
       String kwargsString =
           "kwargs("
               + kwargs
@@ -469,7 +467,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         },
         extraPositionals = @Param(name = "args"),
         extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Sequence<?> args, SkylarkDict<?, ?> kwargs)
+    public String withArgsAndKwargs(String foo, Sequence<?> args, Dict<?, ?> kwargs)
         throws EvalException {
       String argsString =
           "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
@@ -1751,10 +1749,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
-    new SkylarkTest().setUp("def func(d):",
-        "  d['b'] = 2",
-        "d = {'a' : 1}",
-        "func(d)").testLookup("d", SkylarkDict.of(null, "a", 1, "b", 2));
+    new SkylarkTest()
+        .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
+        .testLookup("d", Dict.of(null, "a", 1, "b", 2));
   }
 
   @Test

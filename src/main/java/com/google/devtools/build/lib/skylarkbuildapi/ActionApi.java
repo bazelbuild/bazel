@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.io.IOException;
@@ -100,21 +100,21 @@ public interface ActionApi extends SkylarkValue {
   public String getSkylarkContent() throws IOException;
 
   @SkylarkCallable(
-    name = "substitutions",
-    doc =
-        "For actions created by "
-            + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-            + " an immutable dict holding the substitution mapping.",
-    structField = true,
-    allowReturnNones = true)
-  public SkylarkDict<String, String> getSkylarkSubstitutions();
+      name = "substitutions",
+      doc =
+          "For actions created by "
+              + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+              + " an immutable dict holding the substitution mapping.",
+      structField = true,
+      allowReturnNones = true)
+  public Dict<String, String> getSkylarkSubstitutions();
 
   @SkylarkCallable(
-    name = "env",
-    structField = true,
-    doc =
-        "The 'fixed' environment variables for this action. This includes only environment "
-            + "settings which are explicitly set by the action definition, and thus omits settings "
-            + "which are only pre-set in the execution environment.")
-  public SkylarkDict<String, String> getEnv();
+      name = "env",
+      structField = true,
+      doc =
+          "The 'fixed' environment variables for this action. This includes only environment"
+              + " settings which are explicitly set by the action definition, and thus omits"
+              + " settings which are only pre-set in the execution environment.")
+  public Dict<String, String> getEnv();
 }

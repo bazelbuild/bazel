@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -128,11 +128,11 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     Sequence<String> mnemonics = (Sequence<String>) fooProvider.getValue("mnemonics");
     assertThat(mnemonics).containsExactly("MyAction0", "MyAction1");
 
-    Sequence<SkylarkDict<String, String>> envs =
-        (Sequence<SkylarkDict<String, String>>) fooProvider.getValue("envs");
-    assertThat(envs).containsExactly(
-        SkylarkDict.of(null, "foo", "bar", "pet", "puppy"),
-        SkylarkDict.of(null, "pet", "bunny"));
+    Sequence<Dict<String, String>> envs =
+        (Sequence<Dict<String, String>>) fooProvider.getValue("envs");
+    assertThat(envs)
+        .containsExactly(
+            Dict.of(null, "foo", "bar", "pet", "puppy"), Dict.of(null, "pet", "bunny"));
 
     Sequence<Sequence<Artifact>> inputs =
         (Sequence<Sequence<Artifact>>) fooProvider.getValue("inputs");

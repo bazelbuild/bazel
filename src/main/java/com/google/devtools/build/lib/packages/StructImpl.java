@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -252,8 +252,8 @@ public abstract class StructImpl extends Info
         // in the same list but we ignore that for now.
         printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
       }
-    } else if (value instanceof SkylarkDict) {
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+    } else if (value instanceof Dict) {
+      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
         printProtoTextMessage(key, entry, sb, indent, loc, "entry of dictionary");
       }
     } else {
@@ -302,10 +302,10 @@ public abstract class StructImpl extends Info
         printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
       }
       sb.append("}");
-    } else if (value instanceof SkylarkDict) {
+    } else if (value instanceof Dict) {
       sb.append("{");
       String join = "";
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
         sb.append(join);
         join = ",";
         if (!(entry.getKey() instanceof String)) {

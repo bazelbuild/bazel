@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -332,7 +332,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object signedApk,
         Object aar,
         Sequence<?> apksUnderTest, // <Artifact>
-        SkylarkDict<?, ?> nativeLibs) // <String, SkylarkNestedSet>
+        Dict<?, ?> nativeLibs) // <String, SkylarkNestedSet>
         throws EvalException {
       Map<String, SkylarkNestedSet> nativeLibsMap =
           nativeLibs.getContents(String.class, SkylarkNestedSet.class, "native_libs");

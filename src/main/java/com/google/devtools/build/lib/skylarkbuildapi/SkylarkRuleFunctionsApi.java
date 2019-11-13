@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -78,7 +78,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " })</pre></ul>All fields are optional.",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
-              @ParamType(type = SkylarkDict.class)
+              @ParamType(type = Dict.class)
             },
             noneable = true,
             named = true,
@@ -123,7 +123,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "for more information."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",
@@ -140,7 +140,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "outputs",
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
               @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
@@ -385,7 +385,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "target."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",

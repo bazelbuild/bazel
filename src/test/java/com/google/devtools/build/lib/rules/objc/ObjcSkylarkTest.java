@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -367,7 +367,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     Object iosCpu = myInfo.getValue("cpu");
     @SuppressWarnings("unchecked")
-    SkylarkDict<String, String> env = (SkylarkDict<String, String>) myInfo.getValue("env");
+    Dict<String, String> env = (Dict<String, String>) myInfo.getValue("env");
     Object sdkVersion = myInfo.getValue("sdk_version");
 
     assertThat(iosCpu).isEqualTo("i386");

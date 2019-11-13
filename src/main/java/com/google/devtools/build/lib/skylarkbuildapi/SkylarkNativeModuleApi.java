@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a module with native rule and package helper functions. */
@@ -142,8 +142,8 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
               + " it may be expensive especially if called within a loop.</i>",
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      Location loc, StarlarkThread thread) throws EvalException, InterruptedException;
+  public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "package_group",

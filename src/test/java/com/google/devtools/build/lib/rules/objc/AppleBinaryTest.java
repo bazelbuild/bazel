@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1200,8 +1200,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(getSingleArchBinary(lipoAction, "armv7k")).isNotNull();
   }
 
-  private SkylarkDict<String, SkylarkDict<String, Artifact>>
-      generateAppleDebugOutputsSkylarkProviderMap() throws Exception {
+  private Dict<String, Dict<String, Artifact>> generateAppleDebugOutputsSkylarkProviderMap()
+      throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1240,16 +1240,16 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    // This cast is safe: struct providers are represented as SkylarkDict.
+    // This cast is safe: struct providers are represented as Dict.
     @SuppressWarnings("unchecked")
-    SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap =
-        (SkylarkDict<String, SkylarkDict<String, Artifact>>)
+    Dict<String, Dict<String, Artifact>> outputMap =
+        (Dict<String, Dict<String, Artifact>>)
             getMyInfoFromTarget(skylarkTarget).getValue("outputs_map");
     return outputMap;
   }
 
   private void checkAppleDebugSymbolProvider_DsymEntries(
-      SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap, CompilationMode compilationMode)
+      Dict<String, Dict<String, Artifact>> outputMap, CompilationMode compilationMode)
       throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
@@ -1272,7 +1272,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   private void checkAppleDebugSymbolProvider_LinkMapEntries(
-      SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap) throws Exception {
+      Dict<String, Dict<String, Artifact>> outputMap) throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
 
@@ -1323,8 +1323,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "--apple_generate_dsym",
         "--ios_multi_cpus=armv7,arm64,x86_64");
 
-    SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap =
-        generateAppleDebugOutputsSkylarkProviderMap();
+    Dict<String, Dict<String, Artifact>> outputMap = generateAppleDebugOutputsSkylarkProviderMap();
     checkAppleDebugSymbolProvider_DsymEntries(outputMap, CompilationMode.FASTBUILD);
     checkAppleDebugSymbolProvider_LinkMapEntries(outputMap);
   }

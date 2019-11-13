@@ -77,12 +77,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -138,7 +138,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private AspectDescriptor aspectDescriptor;
   private final StarlarkSemantics starlarkSemantics;
 
-  private SkylarkDict<String, String> makeVariables;
+  private Dict<String, String> makeVariables;
   private SkylarkAttributesCollection attributesCollection;
   private SkylarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
@@ -459,7 +459,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         }
       }
 
-      splitAttrInfos.put(attr.getPublicName(), SkylarkDict.copyOf(null, splitPrereqsMap));
+      splitAttrInfos.put(attr.getPublicName(), Dict.copyOf(null, splitPrereqsMap));
     }
 
     return StructProvider.STRUCT.create(
@@ -683,7 +683,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkDict<String, String> var() throws EvalException {
+  public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     return makeVariables;
   }
@@ -816,9 +816,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expandMakeVariables(
-      String attributeName,
-      String command,
-      SkylarkDict<?, ?> additionalSubstitutions) // <String, String>
+      String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
@@ -973,7 +971,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   public NoneType templateAction(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location loc,
       StarlarkThread thread)
@@ -991,8 +989,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      SkylarkDict<?, ?> symlinks,
-      SkylarkDict<?, ?> rootSymlinks,
+      Dict<?, ?> symlinks,
+      Dict<?, ?> rootSymlinks,
       Location loc)
       throws EvalException, ConversionException {
     checkMutable("runfiles");
@@ -1042,8 +1040,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       Boolean expandLocations,
       Object makeVariablesUnchecked,
       Sequence<?> tools,
-      SkylarkDict<?, ?> labelDictUnchecked,
-      SkylarkDict<?, ?> executionRequirementsUnchecked,
+      Dict<?, ?> labelDictUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
       Location loc,
       StarlarkThread thread)
       throws ConversionException, EvalException {
@@ -1074,7 +1072,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
-            SkylarkDict.castSkylarkDictOrNoneToDict(
+            Dict.castSkylarkDictOrNoneToDict(
                 executionRequirementsUnchecked,
                 String.class,
                 String.class,

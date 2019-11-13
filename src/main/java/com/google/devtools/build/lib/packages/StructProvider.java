@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 
 /**
@@ -37,7 +37,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
   }
 
   @Override
-  public StructImpl createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
+  public StructImpl createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException {
     Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
     if (kwargsMap.containsKey("to_json")) {
       throw new EvalException(loc, "cannot override built-in struct function 'to_json'");

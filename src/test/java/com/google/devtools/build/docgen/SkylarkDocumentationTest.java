@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -160,17 +160,16 @@ public class SkylarkDocumentationTest {
   @SkylarkModule(name = "MockClassG", doc = "MockClassG")
   private static class MockClassG implements SkylarkValue {
     @SkylarkCallable(
-      name = "test",
-      doc = "MockClassG#test",
-      parameters = {
-        @Param(name = "a", named = false, positional = true),
-        @Param(name = "b", named = true, positional = true),
-        @Param(name = "c", named = true, positional = false),
-        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
-      },
-      extraKeywords = @Param(name = "myKwargs")
-    )
-    public Integer test(int a, int b, int c, int d, SkylarkDict<?, ?> kwargs) {
+        name = "test",
+        doc = "MockClassG#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraKeywords = @Param(name = "myKwargs"))
+    public Integer test(int a, int b, int c, int d, Dict<?, ?> kwargs) {
       return 0;
     }
   }
@@ -189,7 +188,7 @@ public class SkylarkDocumentationTest {
         },
         extraPositionals = @Param(name = "myArgs"),
         extraKeywords = @Param(name = "myKwargs"))
-    public Integer test(int a, int b, int c, int d, Sequence<?> args, SkylarkDict<?, ?> kwargs) {
+    public Integer test(int a, int b, int c, int d, Sequence<?> args, Dict<?, ?> kwargs) {
       return 0;
     }
   }
@@ -213,7 +212,7 @@ public class SkylarkDocumentationTest {
         },
         extraPositionals = @Param(name = "myArgs"),
         extraKeywords = @Param(name = "myKwargs"))
-    public Integer test(int a, int b, int c, int d, Sequence<?> args, SkylarkDict<?, ?> kwargs) {
+    public Integer test(int a, int b, int c, int d, Sequence<?> args, Dict<?, ?> kwargs) {
       return 0;
     }
   }

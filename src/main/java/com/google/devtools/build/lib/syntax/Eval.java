@@ -277,8 +277,8 @@ final class Eval {
   private static void assignItem(
       Object object, Object key, Object value, StarlarkThread thread, Location loc)
       throws EvalException {
-    if (object instanceof SkylarkDict) {
-      SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
+    if (object instanceof Dict) {
+      Dict<Object, Object> dict = (Dict<Object, Object>) object;
       dict.put(key, value, loc);
     } else if (object instanceof StarlarkList) {
       StarlarkList<Object> list = (StarlarkList<Object>) object;
@@ -442,7 +442,7 @@ final class Eval {
       case DICT_EXPR:
         {
           DictExpression dictexpr = (DictExpression) expr;
-          SkylarkDict<Object, Object> dict = SkylarkDict.of(thread);
+          Dict<Object, Object> dict = Dict.of(thread);
           Location loc = dictexpr.getLocation();
           for (DictExpression.Entry entry : dictexpr.getEntries()) {
             Object k = eval(thread, entry.getKey());
@@ -612,7 +612,7 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread thread, Comprehension comp)
       throws EvalException, InterruptedException {
-    final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(thread) : null;
+    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(thread) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
     // Save values of all variables bound in a 'for' clause

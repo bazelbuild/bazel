@@ -271,7 +271,7 @@ class MethodLibrary {
       useStarlarkThread = true)
   public StarlarkList<?> reversed(Object sequence, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (sequence instanceof SkylarkDict) {
+    if (sequence instanceof Dict) {
       throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
     }
     ArrayDeque<Object> tmpList = new ArrayDeque<>();
@@ -605,14 +605,11 @@ class MethodLibrary {
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkDict<?, ?> dict(
-      Object args, SkylarkDict<?, ?> kwargs, Location loc, StarlarkThread thread)
+  public Dict<?, ?> dict(Object args, Dict<?, ?> kwargs, Location loc, StarlarkThread thread)
       throws EvalException {
-    SkylarkDict<?, ?> argsDict =
-        args instanceof SkylarkDict
-            ? (SkylarkDict) args
-            : SkylarkDict.getDictFromArgs("dict", args, loc, thread);
-    return SkylarkDict.plus(argsDict, kwargs, thread);
+    Dict<?, ?> argsDict =
+        args instanceof Dict ? (Dict) args : Dict.getDictFromArgs("dict", args, loc, thread);
+    return Dict.plus(argsDict, kwargs, thread);
   }
 
   @SkylarkCallable(
@@ -1142,7 +1139,7 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "x",
-            type = SkylarkDict.class,
+            type = Dict.class,
             doc = "The parameter to convert.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
@@ -1154,8 +1151,7 @@ class MethodLibrary {
             named = true)
       },
       useLocation = true)
-  public Object select(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
-      throws EvalException {
+  public Object select(Dict<?, ?> dict, String noMatchError, Location loc) throws EvalException {
     if (dict.isEmpty()) {
       throw new EvalException(
           loc,

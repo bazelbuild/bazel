@@ -20,11 +20,11 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -55,9 +55,9 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
   }
 
   @Override
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      Location loc, StarlarkThread thread) throws EvalException, InterruptedException {
-    return SkylarkDict.of(thread);
+  public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return Dict.of(thread);
   }
 
   @Override

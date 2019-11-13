@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Map;
 import org.junit.Test;
@@ -197,12 +197,12 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            SkylarkDict.of(null, "supports-worker", "1"), noTag, /* allowTagsPropagation */ true);
+            Dict.of(null, "supports-worker", "1"), noTag, /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("supports-worker", "1");
 
     execInfo =
         TargetUtils.getFilteredExecutionInfo(
-            SkylarkDict.of(null, "some-custom-tag", "1", "no-cache", "1"),
+            Dict.of(null, "some-custom-tag", "1", "no-cache", "1"),
             noTag,
             /* allowTagsPropagation */ true);
     assertThat(execInfo).containsExactly("no-cache", "1");
@@ -214,8 +214,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
-    SkylarkDict<String, String> executionRequirementsUnchecked =
-        SkylarkDict.of(null, "no-remote", "1");
+    Dict<String, String> executionRequirementsUnchecked = Dict.of(null, "no-remote", "1");
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -230,8 +229,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
-    SkylarkDict<String, String> executionRequirementsUnchecked =
-        SkylarkDict.of(null, "no-cache", "1");
+    Dict<String, String> executionRequirementsUnchecked = Dict.of(null, "no-cache", "1");
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(
@@ -263,8 +261,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])");
     Rule tag1 = (Rule) getTarget("//tests:tag1");
-    SkylarkDict<String, String> executionRequirementsUnchecked =
-        SkylarkDict.of(null, "no-remote", "1");
+    Dict<String, String> executionRequirementsUnchecked = Dict.of(null, "no-remote", "1");
 
     Map<String, String> execInfo =
         TargetUtils.getFilteredExecutionInfo(

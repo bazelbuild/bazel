@@ -48,10 +48,10 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -288,7 +288,7 @@ public class SkylarkRepositoryContext
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<?, ?> substitutions, // <String, String> expected
+      Dict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -369,7 +369,7 @@ public class SkylarkRepositoryContext
   public SkylarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <SkylarkPath> expected
       Integer timeout,
-      SkylarkDict<?, ?> uncheckedEnvironment, // <String, String> expected
+      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
@@ -510,17 +510,16 @@ public class SkylarkRepositoryContext
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"}) // Explained in method comment
-  private static Map<String, SkylarkDict<?, ?>> getAuthContents(
-      SkylarkDict<?, ?> authUnchecked, @Nullable String description) throws EvalException {
-    // This method would not be worth having (SkylarkDict#getContents could be called
-    // instead), except that some trickery is required to cast Map<String, SkylarkDict> to
-    // Map<String, SkylarkDict<?, ?>>.
+  private static Map<String, Dict<?, ?>> getAuthContents(
+      Dict<?, ?> authUnchecked, @Nullable String description) throws EvalException {
+    // This method would not be worth having (Dict#getContents could be called
+    // instead), except that some trickery is required to cast Map<String, Dict> to
+    // Map<String, Dict<?, ?>>.
 
-    // getContents can only guarantee raw types, so SkylarkDict is the raw type here.
-    Map<String, SkylarkDict> result =
-        authUnchecked.getContents(String.class, SkylarkDict.class, description);
+    // getContents can only guarantee raw types, so Dict is the raw type here.
+    Map<String, Dict> result = authUnchecked.getContents(String.class, Dict.class, description);
 
-    return (Map<String, SkylarkDict<?, ?>>) (Map<String, ? extends SkylarkDict>) result;
+    return (Map<String, Dict<?, ?>>) (Map<String, ? extends Dict>) result;
   }
 
   @Override
@@ -531,7 +530,7 @@ public class SkylarkRepositoryContext
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<?, ?> authUnchecked, // <String, SkylarkDict<?, ?>> expected
+      Dict<?, ?> authUnchecked, // <String, Dict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -589,7 +588,7 @@ public class SkylarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       if (allowFail) {
-        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        Dict<String, Object> dict = Dict.of(null, "success", false);
         return StructProvider.STRUCT.createStruct(dict, null);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -646,7 +645,7 @@ public class SkylarkRepositoryContext
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<?, ?> auth, // <String, SkylarkDict<?, ?>> expected
+      Dict<?, ?> auth, // <String, Dict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
@@ -705,7 +704,7 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
+        Dict<String, Object> dict = Dict.of(null, "success", false);
         return StructProvider.STRUCT.createStruct(dict, null);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -815,7 +814,7 @@ public class SkylarkRepositoryContext
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StructProvider.STRUCT.createStruct(SkylarkDict.copyOf(null, out.build()), null);
+    return StructProvider.STRUCT.createStruct(Dict.copyOf(null, out.build()), null);
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
@@ -965,13 +964,13 @@ public class SkylarkRepositoryContext
    * authentication, adding those headers is enough; for other forms of authentication other
    * measures might be necessary.
    */
-  private static Map<URI, Map<String, String>> getAuthHeaders(Map<String, SkylarkDict<?, ?>> auth)
+  private static Map<URI, Map<String, String>> getAuthHeaders(Map<String, Dict<?, ?>> auth)
       throws RepositoryFunctionException, EvalException {
     ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, SkylarkDict<?, ?>> entry : auth.entrySet()) {
+    for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
-        SkylarkDict<?, ?> authMap = entry.getValue();
+        Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {

@@ -170,8 +170,8 @@ public abstract class SkylarkType {
   @AutoCodec
   public static final SkylarkFunctionType FUNCTION = new SkylarkFunctionType("unknown", TOP);
 
-  /** The DICT type, that contains SkylarkDict */
-  @AutoCodec public static final Simple DICT = Simple.forClass(SkylarkDict.class);
+  /** The DICT type, that contains Dict */
+  @AutoCodec public static final Simple DICT = Simple.forClass(Dict.class);
 
   /** The SEQUENCE type, that contains lists and tuples */
   // TODO(bazel-team): this was added for backward compatibility with the BUILD language,
@@ -774,7 +774,7 @@ public abstract class SkylarkType {
       return object;
     }
     if (object instanceof Map) {
-      return SkylarkDict.<Object, Object>copyOf(mutability, (Map<?, ?>) object);
+      return Dict.<Object, Object>copyOf(mutability, (Map<?, ?>) object);
     }
     // TODO(bazel-team): ensure everything is a SkylarkValue at all times.
     // Preconditions.checkArgument(EvalUtils.isSkylarkAcceptable(

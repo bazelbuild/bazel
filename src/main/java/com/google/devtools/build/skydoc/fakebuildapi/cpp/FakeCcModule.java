@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -103,8 +103,9 @@ public class FakeCcModule
   }
 
   @Override
-  public SkylarkDict<String, String> getEnvironmentVariable(
-      FeatureConfigurationApi featureConfiguration, String actionName,
+  public Dict<String, String> getEnvironmentVariable(
+      FeatureConfigurationApi featureConfiguration,
+      String actionName,
       CcToolchainVariablesApi variables) {
     return null;
   }

@@ -47,10 +47,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -1282,12 +1282,11 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
                 StarlarkList.<Object>of(
                     thread,
                     StructProvider.STRUCT.create(
-                        ImmutableMap.<String, Object>of(
-                            "x", SkylarkDict.<Object, Object>of(thread, 1, 1)),
+                        ImmutableMap.<String, Object>of("x", Dict.<Object, Object>of(thread, 1, 1)),
                         "no field '%s'"),
                     Tuple.of()),
             "b", Tuple.of(),
-            "c", SkylarkDict.<Object, Object>of(thread, 2, 2)),
+            "c", Dict.<Object, Object>of(thread, 2, 2)),
         "no field '%s'");
   }
 

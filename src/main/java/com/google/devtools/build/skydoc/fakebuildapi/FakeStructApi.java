@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -115,7 +115,7 @@ public class FakeStructApi implements StructApi, ClassObject {
   public static class FakeStructProviderApi implements StructProviderApi {
 
     @Override
-    public StructApi createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
+    public StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException {
       return new FakeStructApi(kwargs.getContents(String.class, Object.class, "kwargs"));
     }
 

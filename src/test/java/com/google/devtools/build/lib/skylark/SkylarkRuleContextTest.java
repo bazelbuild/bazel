@@ -47,8 +47,8 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -771,7 +771,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testSkylarkRuleContextGetDefaultShellEnv() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = eval("ruleContext.configuration.default_shell_env");
-    assertThat(result).isInstanceOf(SkylarkDict.class);
+    assertThat(result).isInstanceOf(Dict.class);
   }
 
   @Test
@@ -1867,8 +1867,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     update("actions", provider);
 
     Object mapping = eval("actions.by_file");
-    assertThat(mapping).isInstanceOf(SkylarkDict.class);
-    assertThat((SkylarkDict) mapping).hasSize(1);
+    assertThat(mapping).isInstanceOf(Dict.class);
+    assertThat((Dict) mapping).hasSize(1);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     Object actionUnchecked = eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
@@ -1971,8 +1971,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(ruleContext);
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
-    assertThat(mapUnchecked).isInstanceOf(SkylarkDict.class);
-    SkylarkDict<?, ?> map = (SkylarkDict) mapUnchecked;
+    assertThat(mapUnchecked).isInstanceOf(Dict.class);
+    Dict<?, ?> map = (Dict) mapUnchecked;
     // Should only have the first action because created_actions() was called
     // before the second action was created.
     Object file = eval("ruleContext.attr.dep.out1");
@@ -2069,8 +2069,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setRuleContext(ruleContext);
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
-    assertThat(mapUnchecked).isInstanceOf(SkylarkDict.class);
-    SkylarkDict<?, ?> map = (SkylarkDict) mapUnchecked;
+    assertThat(mapUnchecked).isInstanceOf(Dict.class);
+    Dict<?, ?> map = (Dict) mapUnchecked;
     Object out1 = eval("ruleContext.attr.dep.out1");
     Object out2 = eval("ruleContext.attr.dep.out2");
     Object out3 = eval("ruleContext.attr.dep.out3");
@@ -2173,8 +2173,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(contentUnchecked).isEqualTo("bbbbb\nbcdef\n");
 
     Object substitutionsUnchecked = eval("action.substitutions");
-    assertThat(substitutionsUnchecked).isInstanceOf(SkylarkDict.class);
-    assertThat(substitutionsUnchecked).isEqualTo(SkylarkDict.of(null, "a", "b"));
+    assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
+    assertThat(substitutionsUnchecked).isEqualTo(Dict.of(null, "a", "b"));
   }
 
   private void setUpCoverageInstrumentedTest() throws Exception {
