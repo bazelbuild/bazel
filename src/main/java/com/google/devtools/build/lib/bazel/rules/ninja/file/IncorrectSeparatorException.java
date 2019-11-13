@@ -15,15 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
-/** Interface for determining where the byte sequence should be split into parts. */
-public interface SeparatorPredicate {
-
-  /**
-   * Returns true if the sequence should be split after <code>current</code> byte.
-   *
-   * @param previous previous byte (before current)
-   * @param current current byte
-   * @param next next byte (after current)
-   */
-  boolean test(byte previous, byte current, byte next);
+/** Thrown by {@link BufferSplitter} when incorrect file separators are used ('\r'). */
+public class IncorrectSeparatorException extends GenericParsingException {
+  public IncorrectSeparatorException(String message) {
+    super(message);
+  }
 }
