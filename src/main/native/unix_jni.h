@@ -114,6 +114,14 @@ int portable_pop_disable_sleep();
 // computer put to sleep, etc.) since Bazel started.
 int portable_suspend_count();
 
+// Returns the number of times that the system has received a memory pressure
+// warning notification since Bazel started.
+int portable_memory_pressure_warning_count();
+
+// Returns the number of times that the system has received a memory pressure
+// critical notification since Bazel started.
+int portable_memory_pressure_critical_count();
+
 }  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

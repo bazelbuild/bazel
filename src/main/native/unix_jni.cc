@@ -1126,4 +1126,26 @@ Java_com_google_devtools_build_lib_platform_SuspendCounter_suspendCountJNI(
   return portable_suspend_count();
 }
 
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
+ * Method:    warningCountJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_warningCountJNI(
+    JNIEnv *, jclass) {
+  return portable_memory_pressure_warning_count();
+}
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressure
+ * Method:    criticalCountJNI
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_criticalCountJNI(
+    JNIEnv *, jclass) {
+  return portable_memory_pressure_critical_count();
+}
+
 }  // namespace blaze_jni

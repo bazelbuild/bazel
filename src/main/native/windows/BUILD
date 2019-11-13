@@ -58,6 +58,7 @@ cc_binary(
         "file-jni.cc",
         "jni-util.cc",
         "jni-util.h",
+        "memory_pressure_jni.cc",
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
         "suspend_counter_jni.cc",

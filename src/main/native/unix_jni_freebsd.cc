@@ -109,4 +109,14 @@ int portable_suspend_count() {
   return 0;
 }
 
+int portable_memory_pressure_warning_count() {
+  // Currently not implemented.
+  return 0;
+}
+
+int portable_memory_pressure_critical_count() {
+  // Currently not implemented.
+  return 0;
+}
+
 }  // namespace blaze_jni
