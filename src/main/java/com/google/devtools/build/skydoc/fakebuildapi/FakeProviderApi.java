@@ -34,14 +34,21 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
    */
   private static int idCounter = 0;
 
+  private final String name = "ProviderIdentifier" + idCounter++;
+
   public FakeProviderApi() {
-    super("ProviderIdentifier" + idCounter++, FunctionSignature.KWARGS);
+    super(FunctionSignature.KWARGS);
   }
 
   @Override
   protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return new FakeStructApi();
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   @Override

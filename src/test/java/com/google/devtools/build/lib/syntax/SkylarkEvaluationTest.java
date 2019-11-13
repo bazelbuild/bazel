@@ -2088,7 +2088,12 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
               "values_only_field",
               "fromValues",
               "values_only_method",
-              new BuiltinFunction("values_only_method", FunctionSignature.of()) {
+              new BuiltinFunction(FunctionSignature.of()) {
+                @Override
+                public String getName() {
+                  return "values_only_method";
+                }
+
                 public String invoke() {
                   return "fromValues";
                 }
@@ -2096,7 +2101,12 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
               "collision_field",
               "fromValues",
               "collision_method",
-              new BuiltinFunction("collision_method", FunctionSignature.of()) {
+              new BuiltinFunction(FunctionSignature.of()) {
+                @Override
+                public String getName() {
+                  return "collision_method";
+                }
+
                 public String invoke() {
                   return "fromValues";
                 }

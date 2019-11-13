@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * this class do not need to be serializable because they should effectively be treated as
  * constants.
  */
-public class BuiltinFunction extends BaseFunction {
+public abstract class BuiltinFunction extends BaseFunction {
 
   // Builtins cannot create or modify variable bindings. So it's sufficient to use a shared
   // instance.
@@ -52,9 +52,9 @@ public class BuiltinFunction extends BaseFunction {
   // The returnType of the method.
   private Class<?> returnType;
 
-  /** Creates a BuiltinFunction with the given name and signature. */
-  protected BuiltinFunction(String name, FunctionSignature signature) {
-    super(name, signature);
+  /** Creates a BuiltinFunction with the given signature. */
+  protected BuiltinFunction(FunctionSignature signature) {
+    super(signature);
     initialize();
   }
 

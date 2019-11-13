@@ -18,13 +18,19 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Fake implementation of {@link SkylarkNativeModuleApi}. */
@@ -85,7 +91,31 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
     // as far as native rules are concerned. Returning None on all unsupported invocations of
     // native.[func_name]() is the safest "best effort" approach to implementing a fake for
     // "native".
-    return new FakeStarlarkCallable(name);
+    return new StarlarkCallable() {
+      @Override
+      public Object call(
+          List<Object> args,
+          @Nullable Map<String, Object> kwargs,
+          @Nullable FuncallExpression call,
+          StarlarkThread thread) {
+        return Starlark.NONE;
+      }
+
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Location getLocation() {
+        return Location.BUILTIN;
+      }
+
+      @Override
+      public void repr(SkylarkPrinter printer) {
+        printer.append("<faked no-op function " + name + ">");
+      }
+    };
   }
 
   @Override

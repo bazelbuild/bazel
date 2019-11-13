@@ -261,7 +261,12 @@ public class WorkspaceFactory {
    */
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BuiltinFunction(ruleClassName, FunctionSignature.KWARGS) {
+    return new BuiltinFunction(FunctionSignature.KWARGS) {
+      @Override
+      public String getName() {
+        return ruleClassName;
+      }
+
       public Object invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
           throws EvalException, InterruptedException {
         try {

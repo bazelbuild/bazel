@@ -105,9 +105,14 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     private final Location ruleClassDefinitionLocation;
 
     public RepositoryRuleFunction(RuleClass.Builder builder, Location ruleClassDefinitionLocation) {
-      super("repository_rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.ruleClassDefinitionLocation = ruleClassDefinitionLocation;
+    }
+
+    @Override
+    public String getName() {
+      return "repository_rule";
     }
 
     @Override

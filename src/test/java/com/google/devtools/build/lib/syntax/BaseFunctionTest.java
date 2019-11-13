@@ -34,11 +34,16 @@ public class BaseFunctionTest extends EvaluationTestCase {
 
   /**
    * Handy implementation of {@link BaseFunction} that returns all its args as a list. (We'd use
-   * Sequence.tuple, but it can't handle null.)
+   * Tuple, but it can't handle null.)
    */
   private static class TestingBaseFunction extends BaseFunction {
     TestingBaseFunction(FunctionSignature signature) {
-      super("mixed", signature);
+      super(signature);
+    }
+
+    @Override
+    public String getName() {
+      return "mixed";
     }
 
     @Override

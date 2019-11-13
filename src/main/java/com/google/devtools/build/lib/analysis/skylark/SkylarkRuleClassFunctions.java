@@ -611,7 +611,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         RuleClassType type,
         ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
         Location definitionLocation) {
-      super("rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.type = type;
       this.attributes = attributes;
@@ -621,7 +621,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     /** This is for post-export reconstruction for serialization. */
     private SkylarkRuleFunction(
         RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label skylarkLabel) {
-      super("rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       Preconditions.checkNotNull(
           ruleClass,
           "RuleClass must be non-null as this SkylarkRuleFunction should have been exported.");
@@ -632,6 +632,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       this.type = type;
       this.definitionLocation = definitionLocation;
       this.skylarkLabel = skylarkLabel;
+    }
+
+    @Override
+    public String getName() {
+      return "rule";
     }
 
     @Override

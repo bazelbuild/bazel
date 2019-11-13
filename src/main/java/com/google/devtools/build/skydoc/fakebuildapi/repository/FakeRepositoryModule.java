@@ -95,9 +95,15 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   private static class RepositoryRuleDefinitionIdentifier extends BaseFunction {
 
     private static int idCounter = 0;
+    private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
 
     public RepositoryRuleDefinitionIdentifier() {
-      super("RepositoryRuleDefinitionIdentifier" + idCounter++, FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
+    }
+
+    @Override
+    public String getName() {
+      return name;
     }
   }
 

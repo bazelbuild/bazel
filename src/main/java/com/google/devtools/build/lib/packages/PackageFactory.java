@@ -509,7 +509,12 @@ public final class PackageFactory {
       argumentSpecifiers[i++] = entry.getValue();
     }
 
-    return new BaseFunction("package", FunctionSignature.namedOnly(0, argumentNames)) {
+    return new BaseFunction(FunctionSignature.namedOnly(0, argumentNames)) {
+      @Override
+      public String getName() {
+        return "package";
+      }
+
       @Override
       public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
           throws EvalException {
@@ -566,7 +571,7 @@ public final class PackageFactory {
       RuleClass cl = ruleFactory.getRuleClass(ruleClassName);
       if (cl.getRuleClassType() == RuleClassType.NORMAL
           || cl.getRuleClassType() == RuleClassType.TEST) {
-        result.put(ruleClassName, new BuiltinRuleFunction(ruleClassName, ruleFactory));
+        result.put(ruleClassName, new BuiltinRuleFunction(cl));
       }
     }
     return result.build();
@@ -577,23 +582,17 @@ public final class PackageFactory {
    * com.google.devtools.build.lib.packages.RuleClass}es.
    */
   private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
-    private final String ruleClassName;
     private final RuleClass ruleClass;
 
-    BuiltinRuleFunction(String ruleClassName, RuleFactory ruleFactory) {
-      super(ruleClassName, FunctionSignature.KWARGS);
-      this.ruleClassName = ruleClassName;
-      Preconditions.checkNotNull(ruleFactory, "ruleFactory was null");
-      this.ruleClass = Preconditions.checkNotNull(
-          ruleFactory.getRuleClass(ruleClassName),
-          "No such rule class: %s",
-          ruleClassName);
+    BuiltinRuleFunction(RuleClass ruleClass) {
+      super(FunctionSignature.KWARGS);
+      this.ruleClass = Preconditions.checkNotNull(ruleClass);
     }
 
     @SuppressWarnings("unused")
     public NoneType invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
         throws EvalException, InterruptedException {
-      SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClassName, loc);
+      SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClass.getName(), loc);
       try {
         addRule(getContext(thread, loc), kwargs, loc, thread);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -615,6 +614,11 @@ public final class PackageFactory {
     @Override
     public RuleClass getRuleClass() {
       return ruleClass;
+    }
+
+    @Override
+    public String getName() {
+      return ruleClass.getName();
     }
 
     @Override

@@ -53,14 +53,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   // TODO(adonovan): Turn fields into abstract methods. Make processArguments a static function
   // with multiple parameters, instead of a "mix-in" that accesses instance fields.
 
-  /**
-   * The name of the function.
-   *
-   * <p>For safe extensibility, this class only retrieves name via the accessor {@link #getName}.
-   * This field must be null iff {@link #getName} is overridden.
-   */
-  @Nullable private final String name;
-
   private final FunctionSignature signature;
 
   /**
@@ -70,17 +62,6 @@ public abstract class BaseFunction implements StarlarkCallable {
   // TODO(adonovan): investigate why null elements are permitted. I would expect one non-null
   // element per optional parameter, without exception.
   @Nullable private final List<Object> defaultValues;
-
-  /**
-   * Returns the name of this function.
-   *
-   * <p>A subclass must override this function if a null name is given to this class's constructor.
-   */
-  @Override
-  public String getName() {
-    Preconditions.checkNotNull(name);
-    return name;
-  }
 
   /** Returns the signature of this function. */
   public FunctionSignature getSignature() {
@@ -96,14 +77,8 @@ public abstract class BaseFunction implements StarlarkCallable {
     return defaultValues;
   }
 
-  /**
-   * Constructs a BaseFunction with a given name and signature.
-   *
-   * @param signature the signature with default values and types
-   */
-  protected BaseFunction(
-      @Nullable String name, FunctionSignature signature, @Nullable List<Object> defaultValues) {
-    this.name = name;
+  /** Constructs a BaseFunction with a given signature and default values. */
+  protected BaseFunction(FunctionSignature signature, @Nullable List<Object> defaultValues) {
     this.signature = Preconditions.checkNotNull(signature);
     this.defaultValues = defaultValues;
     if (defaultValues != null) {
@@ -111,14 +86,9 @@ public abstract class BaseFunction implements StarlarkCallable {
     }
   }
 
-  /**
-   * Constructs a BaseFunction with a given name and signature without default values or types.
-   *
-   * @param name the function name; null iff this is a subclass overriding {@link #getName}
-   * @param signature the function signature
-   */
-  protected BaseFunction(@Nullable String name, FunctionSignature signature) {
-    this(name, signature, /*defaultValues=*/ null);
+  /** Constructs a BaseFunction with a given signature without default values. */
+  protected BaseFunction(FunctionSignature signature) {
+    this(signature, /*defaultValues=*/ null);
   }
 
   /**

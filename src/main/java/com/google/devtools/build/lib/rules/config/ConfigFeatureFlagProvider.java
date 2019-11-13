@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 @Immutable
@@ -65,8 +67,10 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     }
 
     @Override
-    protected ConfigFeatureFlagProvider createInstanceFromSkylark(
-        Object[] args, StarlarkThread thread, Location loc) throws EvalException {
+    protected ConfigFeatureFlagProvider call(
+        Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
+        throws EvalException {
+      Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
 
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];

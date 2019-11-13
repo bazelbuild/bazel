@@ -89,7 +89,12 @@ public class SkylarkRepositoryContextTest {
     }
     ruleClassBuilder.setWorkspaceOnly();
     ruleClassBuilder.setConfiguredTargetFunction(
-        new BuiltinFunction("test", FunctionSignature.ANY) {
+        new BuiltinFunction(FunctionSignature.ANY) {
+          @Override
+          public String getName() {
+            return "test";
+          }
+
           public void invoke(
               List<Object> args, Map<String, Object> kwargs, StarlarkThread thread) {}
         });

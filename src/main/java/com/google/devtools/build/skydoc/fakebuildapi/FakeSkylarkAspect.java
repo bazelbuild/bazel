@@ -27,8 +27,15 @@ public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi 
    */
   private static int idCounter = 0;
 
+  private final String name = "AspectIdentifier" + idCounter++;
+
   public FakeSkylarkAspect() {
-    super("AspectIdentifier" + idCounter++, FunctionSignature.KWARGS);
+    super(FunctionSignature.KWARGS);
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   @Override

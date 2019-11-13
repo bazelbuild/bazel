@@ -248,9 +248,15 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   private static class RuleDefinitionIdentifier extends BaseFunction {
 
     private static int idCounter = 0;
+    private final String name = "RuleDefinitionIdentifier" + idCounter++;
 
     public RuleDefinitionIdentifier() {
-      super("RuleDefinitionIdentifier" + idCounter++, FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
+    }
+
+    @Override
+    public String getName() {
+      return name;
     }
   }
 
