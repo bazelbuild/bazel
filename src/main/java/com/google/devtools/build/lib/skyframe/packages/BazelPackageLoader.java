@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
-import com.google.devtools.build.lib.bazel.repository.MavenDownloader;
-import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
@@ -117,7 +115,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       directories,
                       ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES))
               .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
-              .put(MavenServerFunction.NAME, new MavenServerFunction(directories))
               .build());
       addExtraPrecomputedValues(
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
