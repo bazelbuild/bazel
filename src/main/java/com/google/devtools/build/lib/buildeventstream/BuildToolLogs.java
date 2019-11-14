@@ -120,6 +120,10 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
       return localPath;
     }
 
+    public LocalFileCompression getCompression() {
+      return compression;
+    }
+
     LocalFile toLocalFile() {
       return new LocalFile(localPath, fileType, compression);
     }
