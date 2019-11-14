@@ -114,13 +114,13 @@ public class NinjaLexerStepTest {
 
   @Test
   public void testTryReadEscapedLiteral() {
-    doTest("$:", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), ":", false);
-    doTest("$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$", false);
-    doTest("$ ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), " ", false);
+    doTest("$:", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$:", false);
+    doTest("$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$$", false);
+    doTest("$ ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$ ", false);
 
-    doTest("$:a", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), ":", true);
-    doTest("$$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$", true);
-    doTest("$  ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), " ", true);
+    doTest("$:a", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$:", true);
+    doTest("$$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$$", true);
+    doTest("$  ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$ ", true);
 
     doTest("$a", step -> assertThat(step.tryReadEscapedLiteral()).isFalse(), "", true);
   }

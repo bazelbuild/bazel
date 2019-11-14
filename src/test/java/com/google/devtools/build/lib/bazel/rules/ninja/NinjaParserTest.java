@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Range;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,15 +43,15 @@ public class NinjaParserTest {
     doTestSimpleVariable("a=b", "a", "b");
     doTestSimpleVariable("a=b\nc", "a", "b");
     doTestSimpleVariable("a=b # comment", "a", "b");
-    doTestSimpleVariable("a.b.c =    some long    value", "a.b.c", "some long    value");
-    doTestSimpleVariable("a_11_24-rt.15= ^&%$#@", "a_11_24-rt.15", "^&%$");
+    doTestSimpleVariable("a.b.c =    some long:    value", "a.b.c", "some long:    value");
+    doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=");
   }
 
   @Test
   public void testVariableParsingException() {
     doTestVariableParsingException(" ", "Expected identifier, but got indent");
     doTestVariableParsingException("a", "Expected = after 'a'");
-    doTestVariableParsingException("a=:", "Variable 'a' has no value.");
+    doTestVariableParsingException("a=", "Variable 'a' has no value.");
     doTestVariableParsingException(
         "^a=", "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
   }
@@ -73,15 +73,14 @@ public class NinjaParserTest {
 
   @Test
   public void testWithVariablesInValue() throws Exception {
-    doTestWithVariablesInValue("a=$a $b", "a", "$a $b", expectedVariables("a", 2, 4, "b", 5, 7));
-    doTestWithVariablesInValue("a=a_$b_c", "a", "a_$b_c", expectedVariables("b_c", 4, 8));
-    doTestWithVariablesInValue("a=$b a c", "a", "$b a c", expectedVariables("b", 2, 4));
-    doTestWithVariablesInValue("a=a_$b c", "a", "a_$b c", expectedVariables("b", 4, 6));
-    doTestWithVariablesInValue("a=a_${b.d}c", "a", "a_${b.d}c", expectedVariables("b.d", 4, 10));
+    doTestWithVariablesInValue("a=$a $b", "a", "${a} ${b}", ImmutableSortedSet.of("a", "b"));
+    doTestWithVariablesInValue("a=a_$b_c", "a", "a_${b_c}", ImmutableSortedSet.of("b_c"));
+    doTestWithVariablesInValue("a=$b a c", "a", "${b} a c", ImmutableSortedSet.of("b"));
+    doTestWithVariablesInValue("a=a_$b c", "a", "a_${b} c", ImmutableSortedSet.of("b"));
+    doTestWithVariablesInValue("a=a_${b.d}c", "a", "a_${b.d}c", ImmutableSortedSet.of("b.d"));
     doTestWithVariablesInValue(
-        "e=a$b*c${ d }*18", "e", "a$b*c${ d }*18", expectedVariables("b", 3, 5, "d", 7, 13));
-    doTestWithVariablesInValue(
-        "e=a$b*${ b }", "e", "a$b*${ b }", expectedVariables("b", 3, 5, "b", 6, 12));
+        "e=a$b*c${ d }*18", "e", "a${b}*c${d}*18", ImmutableSortedSet.of("b", "d"));
+    doTestWithVariablesInValue("e=a$b*${ b }", "e", "a${b}*${b}", ImmutableSortedSet.of("b"));
   }
 
   @Test
@@ -96,11 +95,13 @@ public class NinjaParserTest {
   @Test
   public void testInclude() throws Exception {
     NinjaVariableValue value1 = createParser("include x/multi words/z").parseIncludeStatement();
-    assertThat(value1.getText()).isEqualTo("x/multi words/z");
+    assertThat(value1.getRawText()).isEqualTo("x/multi words/z");
 
     NinjaVariableValue value2 = createParser("subninja ${x}.ninja").parseSubNinjaStatement();
-    assertThat(value2.getText()).isEqualTo("${x}.ninja");
-    assertThat(value2.getVariables()).containsExactly("x", Range.openClosed(9, 13));
+    assertThat(value2.getRawText()).isEqualTo("${x}.ninja");
+    MockValueExpander expander = new MockValueExpander("###");
+    assertThat(value2.getExpandedValue(expander)).isEqualTo("###x.ninja");
+    assertThat(expander.getRequestedVariables()).containsExactly("x");
   }
 
   @Test
@@ -108,8 +109,12 @@ public class NinjaParserTest {
     GenericParsingException exception1 =
         assertThrows(
             GenericParsingException.class,
-            () -> createParser("include x :").parseIncludeStatement());
-    assertThat(exception1).hasMessageThat().isEqualTo("Expected newline, but got :");
+            () -> createParser("include x $").parseIncludeStatement());
+    assertThat(exception1)
+        .hasMessageThat()
+        .isEqualTo(
+            "Expected newline, but got error: "
+                + "'Bad $-escape (literal $ must be written as $$)'");
 
     GenericParsingException exception2 =
         assertThrows(
@@ -142,8 +147,12 @@ public class NinjaParserTest {
             NinjaRuleVariable.DESCRIPTION,
             NinjaRuleVariable.RSPFILE,
             NinjaRuleVariable.DEPS);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getText()).isEqualTo("testRule");
-    assertThat(variables.get(NinjaRuleVariable.DEPS).getText()).isEqualTo("${abc} $\n ${cde}");
+    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(variables.get(NinjaRuleVariable.DEPS).getRawText()).isEqualTo("${abc} $\n ${cde}");
+    MockValueExpander expander = new MockValueExpander("###");
+    assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
+        .isEqualTo("###abc $\n ###cde");
+    assertThat(expander.getRequestedVariables()).containsExactly("abc", "cde");
   }
 
   @Test
@@ -172,8 +181,11 @@ public class NinjaParserTest {
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);
     assertThat(variable.getSecond()).isNotNull();
-    assertThat(variable.getSecond().getText()).isEqualTo(value);
-    assertThat(variable.getSecond().getVariables()).isEmpty();
+    assertThat(variable.getSecond().getRawText()).isEqualTo(value);
+
+    MockValueExpander expander = new MockValueExpander("###");
+    assertThat(variable.getSecond().getExpandedValue(expander)).isEqualTo(value);
+    assertThat(expander.getRequestedVariables()).isEmpty();
   }
 
   private static void doTestNoValue(String text) {
@@ -183,41 +195,43 @@ public class NinjaParserTest {
     assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
   }
 
-  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
-      String name, int start, int end) {
-    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
-        .put(name, Range.openClosed(start, end))
-        .build();
-  }
-
-  private static ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVariables(
-      String name1, int start1, int end1, String name2, int start2, int end2) {
-    return ImmutableSortedKeyListMultimap.<String, Range<Integer>>builder()
-        .put(name1, Range.openClosed(start1, end1))
-        .put(name2, Range.openClosed(start2, end2))
-        .build();
-  }
-
   private static void doTestWithVariablesInValue(
-      String text,
-      String name,
-      String value,
-      ImmutableSortedKeyListMultimap<String, Range<Integer>> expectedVars)
+      String text, String name, String value, ImmutableSortedSet<String> expectedVars)
       throws GenericParsingException {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);
     assertThat(variable.getSecond()).isNotNull();
-    assertThat(variable.getSecond().getText()).isEqualTo(value);
+    assertThat(variable.getSecond().getRawText()).isEqualTo(value);
 
-    ImmutableSortedKeyListMultimap<String, Range<Integer>> variables =
-        variable.getSecond().getVariables();
-    assertThat(variables).containsExactlyEntriesIn(expectedVars);
+    MockValueExpander expander = new MockValueExpander("###");
+    assertThat(variable.getSecond().getExpandedValue(expander)).contains("###");
+    assertThat(expander.getRequestedVariables()).containsExactlyElementsIn(expectedVars);
   }
 
   private static NinjaParser createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
     return new NinjaParser(lexer);
+  }
+
+  private static class MockValueExpander implements Function<String, String> {
+    private final ImmutableSortedSet.Builder<String> setBuilder;
+    private final String prefix;
+
+    private MockValueExpander(String prefix) {
+      this.prefix = prefix;
+      setBuilder = ImmutableSortedSet.naturalOrder();
+    }
+
+    @Override
+    public String apply(String s) {
+      setBuilder.add(s);
+      return prefix + s;
+    }
+
+    public ImmutableSortedSet<String> getRequestedVariables() {
+      return setBuilder.build();
+    }
   }
 }

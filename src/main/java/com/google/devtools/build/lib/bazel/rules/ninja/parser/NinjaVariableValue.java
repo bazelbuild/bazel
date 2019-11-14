@@ -15,9 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
-import com.google.common.collect.Range;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
-import javax.annotation.concurrent.Immutable;
+import com.google.common.collect.ImmutableList;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Ninja variable value.
@@ -26,30 +26,63 @@ import javax.annotation.concurrent.Immutable;
  * It is expected that those references can be replaced in one step, as all the variables are
  * parsed, so this particular structure is only needed to keep the intermediate state.
  */
-@Immutable
 public final class NinjaVariableValue {
+  /**
+   * List of functions for computing parts of the variable value. For the case of text part, the
+   * function just returns the text literal. For the case of variable reference, function calls the
+   * value expander, passed to it as an argument, to get the variable value, and returns it.
+   *
+   * <p>{@link NinjaVariableValue.Builder#addVariable(String)}
+   */
+  private final ImmutableList<Function<Function<String, String>, String>> parts;
 
-  /** Variable value text. */
-  private final String text;
-  /** Map of variable names to the list of ranges of their usage in the {@link #text}. */
-  private final ImmutableSortedKeyListMultimap<String, Range<Integer>> variables;
-
-  public NinjaVariableValue(
-      String text, ImmutableSortedKeyListMultimap<String, Range<Integer>> variables) {
-    this.text = text;
-    this.variables = variables;
+  private NinjaVariableValue(ImmutableList<Function<Function<String, String>, String>> parts) {
+    this.parts = parts;
   }
 
-  public String getText() {
-    return text;
+  /** Created the value wrapping some plain text. */
+  public static NinjaVariableValue createPlainText(String text) {
+    return builder().addText(text).build();
   }
 
-  public ImmutableSortedKeyListMultimap<String, Range<Integer>> getVariables() {
-    return variables;
+  /** Compute the expanded value, using the passed <code>expander</code> function. */
+  public String getExpandedValue(Function<String, String> expander) {
+    return parts.stream().map(fun -> fun.apply(expander)).collect(Collectors.joining(""));
   }
 
-  @Override
-  public String toString() {
-    return "NinjaVariableValue{" + "text='" + text + '\'' + ", variables=" + variables + '}';
+  /**
+   * Compute the presentation of this value, replacing the variable references with ${reference}.
+   */
+  public String getRawText() {
+    return getExpandedValue(s -> String.format("${%s}", s));
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** Builder class for {@link NinjaVariableValue}. */
+  public static final class Builder {
+    private final ImmutableList.Builder<Function<Function<String, String>, String>> builder;
+
+    private Builder() {
+      this.builder = ImmutableList.builder();
+    }
+
+    /** Add plain text fragment. */
+    public Builder addText(String text) {
+      builder.add(expander -> text);
+      return this;
+    }
+
+    /** Add reference to variable <code>name</code>. */
+    public Builder addVariable(String name) {
+      builder.add(expander -> expander.apply(name));
+      return this;
+    }
+
+    public NinjaVariableValue build() {
+      return new NinjaVariableValue(builder.build());
+    }
   }
 }
