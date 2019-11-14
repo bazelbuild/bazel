@@ -88,7 +88,6 @@ tasks:
       - "//tools/python/..."
       # Some prebuilt jars don't run with Java 11
       - "-//src/test/shell/bazel:external_integration_test"
-      - "-//src/test/shell/bazel:maven_test"
       # Re-enable once bootstrap works with Java 11
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       # TODO(iirina): Re-enable after #7952 was released.

@@ -814,14 +814,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-sh_test(
-    name = "maven_test",
-    size = "large",
-    srcs = ["maven_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
 # To run this test, ensure that maven_dependency_plugin() and
 # android_repositories() in WORKSPACE are uncommented.
 sh_test(

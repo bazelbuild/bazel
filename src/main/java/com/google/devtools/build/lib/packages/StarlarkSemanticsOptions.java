@@ -509,7 +509,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_remove_native_maven_jar",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -517,8 +517,10 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If set to true, the native maven_jar rule is disabled; only the Starlark version "
-              + "will be available")
+          "If set to true, the native maven_jar rule is disabled. Use rules_jvm_external to "
+              + "manage your Maven dependencies transitively. rules_jvm_external also includes "
+              + "a migration tool to automatically convert maven_jar usages to rules_jvm_external "
+              + "Visit https://github.com/bazelbuild/rules_jvm_external for more information.")
   public boolean incompatibleRemoveNativeMavenJar;
 
   @Option(
