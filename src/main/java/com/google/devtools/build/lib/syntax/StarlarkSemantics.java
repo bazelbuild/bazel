@@ -277,7 +277,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleNoTransitiveLoads(true)
           .incompatibleRemapMainRepo(false)
-          .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleRemoveNativeMavenJar(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
           .incompatibleStringJoinRequiresStrings(true)
