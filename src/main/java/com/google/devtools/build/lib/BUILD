@@ -924,7 +924,6 @@ java_library(
             "bazel/repository/**/*.java",
             "bazel/rules/workspace/*.java",
         ],
-        exclude = ["bazel/repository/MavenConnector.java"],
     ),
     resources = [
         "bazel/repository/local_config_platform.WORKSPACE",
@@ -941,7 +940,6 @@ java_library(
         ":build-base",
         ":events",
         ":io",
-        ":maven-connector",
         ":out-err",
         ":packages-internal",
         ":runtime",
@@ -971,15 +969,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party:maven",
         "//third_party:xz",
-    ],
-)
-
-java_library(
-    name = "maven-connector",
-    srcs = ["bazel/repository/MavenConnector.java"],
-    deps = [
-        "//third_party:aether",
-        "//third_party:maven_model",
     ],
 )
 

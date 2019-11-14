@@ -110,8 +110,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
-                      BazelRepositoryModule.repositoryRules(
-                          httpDownloader, new MavenDownloader(repositoryCache)),
+                      BazelRepositoryModule.repositoryRules(),
                       new SkylarkRepositoryFunction(httpDownloader),
                       isFetch,
                       ImmutableMap::of,
