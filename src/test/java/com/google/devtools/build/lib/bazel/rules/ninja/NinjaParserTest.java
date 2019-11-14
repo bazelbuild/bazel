@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -204,12 +205,40 @@ public class NinjaParserTest {
   }
 
   @Test
-  public void testNinjaParsingErrors() {
+  public void testNinjaTargetParsingErrors() {
     testNinjaTargetParsingError("build xxx", "Unexpected end of target");
     testNinjaTargetParsingError("build xxx yyy:", "Expected rule name");
     testNinjaTargetParsingError("build xxx || yyy: command", "Unexpected token: PIPE2");
     testNinjaTargetParsingError("build xxx: command :", "Unexpected token: COLON");
     testNinjaTargetParsingError("build xxx: command | || a", "Expected paths sequence");
+  }
+
+  @Test
+  public void testNinjaTargetsWithVariables() throws GenericParsingException {
+    NinjaScope scope = new NinjaScope();
+    scope.addVariable("output", 1, NinjaVariableValue.createPlainText("out123"));
+    scope.addVariable("input", 2, NinjaVariableValue.createPlainText("in123"));
+
+    scope.expandVariables();
+
+    NinjaTarget target = createParser("build $output : command $input $dir/abcde\n"
+            + "  dir = def$input").parseNinjaTarget(scope, 5);
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("out123"));
+    assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("in123"),
+        PathFragment.create("defin123/abcde"));
+    assertThat(target.getVariables()).containsExactlyEntriesIn(
+        ImmutableSortedMap.of("dir", "defin123"));
+  }
+
+  @Test
+  public void testNinjaTargetsPathWithEscapedSpace() throws GenericParsingException {
+    NinjaTarget target = parseNinjaTarget("build output : command input$ with$ space other");
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
+    assertThat(target.getUsualInputs()).containsExactly(
+        PathFragment.create("input with space"),
+        PathFragment.create("other"));
   }
 
   private static void testNinjaTargetParsingError(String text, String error) {
@@ -219,9 +248,7 @@ public class NinjaParserTest {
   }
 
   private static NinjaTarget parseNinjaTarget(String text) throws GenericParsingException {
-    NinjaParser parser = createParser(text);
-    Function<NinjaVariableValue, String> expander = NinjaVariableValue::getText;
-    return parser.parseNinjaTarget(expander);
+    return createParser(text).parseNinjaTarget(new NinjaScope(), 0);
   }
 
   private static void doTestNinjaRuleParsingException(String text, String message) {

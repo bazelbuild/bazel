@@ -80,6 +80,10 @@ public class NinjaScope {
     return variables;
   }
 
+  public Map<String, List<Pair<Integer, String>>> getExpandedVariables() {
+    return expandedVariables;
+  }
+
   @VisibleForTesting
   public Map<String, List<Pair<Integer, NinjaRule>>> getRules() {
     return rules;
@@ -111,6 +115,8 @@ public class NinjaScope {
 
   /** Resolve variables inside this scope and included scopes. */
   public void expandVariables() {
+    Preconditions.checkState(expandedVariables.isEmpty());
+
     TreeMap<Integer, Runnable> resolvables = Maps.newTreeMap();
     for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
       String name = entry.getKey();

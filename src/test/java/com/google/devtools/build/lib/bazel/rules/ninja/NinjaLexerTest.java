@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
+import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer.TextKind;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -144,7 +145,7 @@ public class NinjaLexerTest {
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
     assertTokenBytes(lexer, NinjaToken.EQUALS, null);
 
-    lexer.expectTextUntilEol();
+    lexer.setExpectedTextKind(TextKind.text);
     assertTokenBytes(lexer, NinjaToken.TEXT, "Any");
     assertTokenBytes(lexer, NinjaToken.TEXT, "text");
     assertTokenBytes(lexer, NinjaToken.TEXT, "^&%=@&!*");

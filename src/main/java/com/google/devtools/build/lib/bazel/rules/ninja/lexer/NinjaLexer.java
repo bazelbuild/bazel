@@ -43,8 +43,8 @@ public class NinjaLexer {
   private NinjaLexerStep step;
   private final List<Pair<Integer, Integer>> ranges;
   private final List<NinjaToken> tokens;
-  /** Flag to give a hint that letters should be interpreted as text, not as identifier. */
-  private boolean expectTextUntilEol;
+  /** Flag to give a hint how letters should be interpreted (as text, identifier, path). */
+  private TextKind expectedTextKind;
 
   /** @param fragment fragment to do the lexing on */
   public NinjaLexer(ByteBufferFragment fragment) {
@@ -90,17 +90,17 @@ public class NinjaLexer {
           step.forceError("Tabs are not allowed, use spaces.");
           return push(NinjaToken.ERROR);
         case '\r':
-          expectTextUntilEol = false;
+          expectedTextKind = TextKind.identifier;
           step.processLineFeedNewLine();
           return push(NinjaToken.NEWLINE);
         case '\n':
-          expectTextUntilEol = false;
+          expectedTextKind = TextKind.identifier;
           return push(NinjaToken.NEWLINE);
         case '#':
           step.skipComment();
           break;
         case '=':
-          if (expectTextUntilEol) {
+          if (TextKind.text.equals(expectedTextKind)) {
             step.readText();
             return push(NinjaToken.TEXT);
           }
@@ -108,7 +108,7 @@ public class NinjaLexer {
         case ':':
           return push(NinjaToken.COLON);
         case '|':
-          if (expectTextUntilEol) {
+          if (TextKind.text.equals(expectedTextKind)) {
             step.readText();
             return push(NinjaToken.TEXT);
           }
@@ -129,8 +129,11 @@ public class NinjaLexer {
           step.forceError("Bad $-escape (literal $ must be written as $$)");
           return push(NinjaToken.ERROR);
         default:
-          if (expectTextUntilEol) {
+          if (TextKind.text.equals(expectedTextKind)) {
             step.readText();
+            return push(NinjaToken.TEXT);
+          } else if (TextKind.path.equals(expectedTextKind)) {
+            step.readPath();
             return push(NinjaToken.TEXT);
           } else {
             step.tryReadIdentifier();
@@ -193,9 +196,9 @@ public class NinjaLexer {
     return Preconditions.checkNotNull(Iterables.getLast(ranges).getSecond());
   }
 
-  /** Give a hint that letters should be interpreted as text, not as identifier. */
-  public void expectTextUntilEol() {
-    this.expectTextUntilEol = true;
+  /** Give a hint how letters should be interpreted (as text, identifier, path). */
+  public void setExpectedTextKind(TextKind expectedTextKind) {
+    this.expectedTextKind = expectedTextKind;
   }
 
   /** Undo the previously read token. */
@@ -204,7 +207,7 @@ public class NinjaLexer {
     ranges.remove(ranges.size() - 1);
     tokens.remove(tokens.size() - 1);
     step = new NinjaLexerStep(fragment, ranges.isEmpty() ? 0 : getLastEnd());
-    expectTextUntilEol = false;
+    expectedTextKind = TextKind.identifier;
   }
 
   public String getError() {
@@ -213,5 +216,9 @@ public class NinjaLexer {
 
   public ByteBufferFragment getFragment() {
     return fragment;
+  }
+
+  public enum TextKind {
+    identifier, path, text
   }
 }
