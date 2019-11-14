@@ -279,7 +279,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
                 additionalInputs.put(actionKey.getDigest(), action);
                 additionalInputs.put(commandHash, command);
-                remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
+                remoteCache.ensureInputsPresent(merkleTree, additionalInputs);
               }
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {

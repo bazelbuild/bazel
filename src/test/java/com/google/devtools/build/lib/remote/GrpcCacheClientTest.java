@@ -298,7 +298,7 @@ public class GrpcCacheClientTest {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(merkleTree, ImmutableMap.of(), execRoot);
+    client.ensureInputsPresent(merkleTree, ImmutableMap.of());
   }
 
   @Test
