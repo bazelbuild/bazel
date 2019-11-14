@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -98,18 +100,13 @@ public class NinjaScope {
     List<Pair<Integer, String>> targetList = expandedVariables
         .computeIfAbsent(name, k -> Lists.newArrayList());
     // Cache expanded variables values to save time replacing several references to the same
-    // variable. This cache is local, it depends on the offset of the variable we are expanding.
+    // variable.
+    // This cache is local to the offset, it depends on the offset of the variable we are expanding.
     Map<String, String> cache = Maps.newHashMap();
-    Function<String, String> expander = ref -> {
-      // We are using the start offset of the value holding the reference to the variable.
-      return cache.computeIfAbsent(ref,
-          (key) -> {
-            String expandedVariable = findExpandedVariable(offset, key);
-            // Do the same as in real Ninja implementation: if the variable is not found,
-            // use empty string.
-            return expandedVariable != null ? expandedVariable : "";
-          });
-    };
+    // We are using the start offset of the value holding the reference to the variable.
+    // Do the same as Ninja implementation: if the variable is not found, use empty string.
+    Function<String, String> expander = ref -> cache.computeIfAbsent(ref,
+        (key) -> nullToEmpty(findExpandedVariable(offset, key)));
     targetList.add(Pair.of(offset, value.getExpandedValue(expander)));
   }
 
