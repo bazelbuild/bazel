@@ -62,8 +62,6 @@ BUILD files without a `load` statement.
 * Workspace
   - [`bind`](be/workspace.html#bind)
   - [`local_repository`](be/workspace.html#local_repository)
-  - [`maven_jar`](be/workspace.html#maven_jar)
-  - [`maven_server`](be/workspace.html#maven_server)
   - [`new_local_repository`](be/workspace.html#new_local_repository)
   - [`xcode_config`](be/workspace.html#xcode_config)
   - [`xcode_version`](be/workspace.html#xcode_version)
