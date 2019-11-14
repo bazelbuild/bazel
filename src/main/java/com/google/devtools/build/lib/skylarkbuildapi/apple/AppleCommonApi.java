@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public interface AppleCommonApi<
         FileApiT extends FileApi,
         ObjcProviderApiT extends ObjcProviderApi<?>,
-        XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
+        XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
     extends SkylarkValue {
 
@@ -222,13 +222,10 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
-      }
-  )
-  public ImmutableMap<String, String> getAppleHostSystemEnv(
-      XcodeConfigProviderApiT xcodeConfig);
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
+      })
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
 
   @SkylarkCallable(
       name = "target_apple_env",
@@ -242,20 +239,17 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
         @Param(
             name = "platform",
             positional = true,
             named = false,
             type = ApplePlatformApi.class,
-            doc = "The apple platform."
-        ),
-      }
-  )
+            doc = "The apple platform."),
+      })
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProviderApiT xcodeConfig, ApplePlatformApiT platform);
+      XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
 
   @SkylarkCallable(
       name = "multi_arch_split",

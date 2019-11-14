@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
@@ -52,11 +52,9 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A class that exposes apple rule implementation internals to skylark.
- */
+/** A class that exposes apple rule implementation internals to skylark. */
 public class AppleSkylarkCommon
-    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigProvider, ApplePlatform> {
+    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigInfo, ApplePlatform> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
@@ -118,7 +116,7 @@ public class AppleSkylarkCommon
 
   @Override
   public Provider getXcodeVersionConfigConstructor() {
-    return XcodeConfigProvider.PROVIDER;
+    return XcodeConfigInfo.PROVIDER;
   }
 
   @Override
@@ -157,14 +155,14 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigProvider xcodeConfig) {
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfo xcodeConfig) {
     return AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion());
   }
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProvider xcodeConfigApi, ApplePlatform platformApi) {
-    XcodeConfigProvider xcodeConfig = (XcodeConfigProvider) xcodeConfigApi;
+      XcodeConfigInfo xcodeConfigApi, ApplePlatform platformApi) {
+    XcodeConfigInfo xcodeConfig = xcodeConfigApi;
     ApplePlatform platform = (ApplePlatform) platformApi;
     return AppleConfiguration.appleTargetPlatformEnv(
         platform, xcodeConfig.getSdkVersionForPlatform(platform));

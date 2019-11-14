@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -38,14 +38,10 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeSplitTransitionProvider
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleStaticLibraryInfo.FakeAppleStaticLibraryInfoProvider;
 
-/**
- * Fake implementation of {@link AppleCommonApi}.
- */
-public class FakeAppleCommon implements AppleCommonApi<
-    FileApi,
-    ObjcProviderApi<?>,
-    XcodeConfigProviderApi<?, ?>,
-    ApplePlatformApi> {
+/** Fake implementation of {@link AppleCommonApi}. */
+public class FakeAppleCommon
+    implements AppleCommonApi<
+        FileApi, ObjcProviderApi<?>, XcodeConfigInfoApi<?, ?>, ApplePlatformApi> {
 
   @Override
   public AppleToolchainApi<?> getAppleToolchain() {
@@ -153,14 +149,12 @@ public class FakeAppleCommon implements AppleCommonApi<
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProviderApi<?, ?> xcodeConfig,
-      ApplePlatformApi platform) {
+      XcodeConfigInfoApi<?, ?> xcodeConfig, ApplePlatformApi platform) {
     return ImmutableMap.of();
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(
-      XcodeConfigProviderApi<?, ?> xcodeConfig) {
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApi<?, ?> xcodeConfig) {
     return ImmutableMap.of();
   }
 }
