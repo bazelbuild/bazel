@@ -106,6 +106,7 @@ public class NinjaTarget {
     return new Builder();
   }
 
+  /** Builder for {@link NinjaTarget}. */
   public static class Builder {
     private String ruleName;
     private final ImmutableSortedKeyListMultimap.Builder<InputKind, PathFragment> inputsBuilder;
