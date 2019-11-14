@@ -189,7 +189,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
     }
 
-    return true;
+    // Returning false allows downstream processors to work on the same annotations
+    return false;
   }
 
   private void verifyNoNameConflict(ExecutableElement methodElement, SkylarkCallable annotation)
