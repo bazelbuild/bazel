@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -241,17 +242,22 @@ public class SkylarkListTest extends EvaluationTestCase {
     StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     mutability.freeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
+    // The casts force selection of the Starlark add/remove methods,
+    // not the disabled ones like List.add(int, Object).
+    // We could enable the List method, but then it would have to
+    // report failures using unchecked exceptions.
+    EvalException e =
+        assertThrows(EvalException.class, () -> list.add((Object) 4, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.add(0, 4, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.add(0, (Object) 4, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     e =
         assertThrows(
-            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), null, mutability));
+            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.remove(0, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.set(0, 10, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.set(0, 10, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
   }
 
@@ -261,7 +267,7 @@ public class SkylarkListTest extends EvaluationTestCase {
     StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     list.unsafeShallowFreeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
+    EvalException e = assertThrows(EvalException.class, () -> list.add((Object) 4, null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
   }
 
@@ -271,7 +277,7 @@ public class SkylarkListTest extends EvaluationTestCase {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
-    mutableList.add("added2", /*loc=*/ null, mutability);
+    mutableList.add("added2", /*loc=*/ null);
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
     assertThat(mutableList).containsExactly("hi", "added2").inOrder();
@@ -285,7 +291,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
     // Big no-no, but we're proving a point.
     wrapped.add("added1");
-    mutableList.add("added2", /*loc=*/ null, mutability);
+    mutableList.add("added2", /*loc=*/ null);
     assertThat(wrapped).containsExactly("hi", "added1", "added2").inOrder();
     assertThat(mutableList).containsExactly("hi", "added1", "added2").inOrder();
   }

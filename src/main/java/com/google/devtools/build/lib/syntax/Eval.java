@@ -250,7 +250,7 @@ final class Eval {
     } else if (expr instanceof IndexExpression) {
       Object object = eval(thread, ((IndexExpression) expr).getObject());
       Object key = eval(thread, ((IndexExpression) expr).getKey());
-      assignItem(object, key, value, thread, loc);
+      assignItem(object, key, value, loc);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
       assignList(list, value, thread, loc);
@@ -274,8 +274,7 @@ final class Eval {
    * @throws EvalException if the object is not a list or dict
    */
   @SuppressWarnings("unchecked")
-  private static void assignItem(
-      Object object, Object key, Object value, StarlarkThread thread, Location loc)
+  private static void assignItem(Object object, Object key, Object value, Location loc)
       throws EvalException {
     if (object instanceof Dict) {
       Dict<Object, Object> dict = (Dict<Object, Object>) object;
@@ -283,7 +282,7 @@ final class Eval {
     } else if (object instanceof StarlarkList) {
       StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
-      list.set(index, value, loc, thread.mutability());
+      list.set(index, value, loc);
     } else {
       throw new EvalException(
           loc,
@@ -345,7 +344,7 @@ final class Eval {
       // Evaluate rhs after lhs.
       Object y = eval(thread, rhs);
       Object z = inplaceBinaryOp(op, x, y, thread, loc);
-      assignItem(object, key, z, thread, loc);
+      assignItem(object, key, z, loc);
     } else if (lhs instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
