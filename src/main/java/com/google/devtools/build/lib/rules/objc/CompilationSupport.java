@@ -131,7 +131,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -993,22 +992,17 @@ public class CompilationSupport {
    *
    * @param compilationArtifacts collection of artifacts required for the compilation
    * @param objcProvider provides all compiling and linking information to register these actions
-   * @param toolchain the toolchain to be used in determining command lines
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
   CompilationSupport registerCompileAndArchiveActions(
-      CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider,
-      CcToolchainProvider toolchain)
+      CompilationArtifacts compilationArtifacts, ObjcProvider objcProvider)
       throws RuleErrorException, InterruptedException {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
         objcProvider,
         ExtraCompileArgs.NONE,
-        ImmutableList.<PathFragment>of(),
-        toolchain,
-        toolchain.getFdoContext());
+        ImmutableList.<PathFragment>of());
   }
 
   /**
@@ -1045,21 +1039,17 @@ public class CompilationSupport {
    * @param objcProvider provides all compiling and linking information to register these actions
    * @param extraCompileArgs args to be added to compile actions
    * @param priorityHeaders priority headers to be included before the dependency headers
-   * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoContext the cpp FDO support provider, may be null
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
-  CompilationSupport registerCompileAndArchiveActions(
+  private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider,
       ExtraCompileArgs extraCompileArgs,
-      Iterable<PathFragment> priorityHeaders,
-      @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoContext fdoContext)
+      Iterable<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
-    Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoContext);
+    Preconditions.checkNotNull(toolchain);
+    Preconditions.checkNotNull(toolchain.getFdoContext());
     ObjcVariablesExtension.Builder extension =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -1082,8 +1072,8 @@ public class CompilationSupport {
               compilationArtifacts,
               extension,
               extraCompileArgs,
-              ccToolchain,
-              fdoContext,
+              toolchain,
+              toolchain.getFdoContext(),
               priorityHeaders,
               LinkTargetType.OBJC_ARCHIVE,
               objList);
@@ -1098,8 +1088,8 @@ public class CompilationSupport {
               compilationArtifacts,
               extension,
               extraCompileArgs,
-              ccToolchain,
-              fdoContext,
+              toolchain,
+              toolchain.getFdoContext(),
               priorityHeaders,
               /* linkType */ null,
               /* linkActionInput */ null);
@@ -1130,9 +1120,7 @@ public class CompilationSupport {
           common.getCompilationArtifacts().get(),
           common.getObjcProvider(),
           extraCompileArgs,
-          priorityHeaders,
-          toolchain,
-          toolchain.getFdoContext());
+          priorityHeaders);
     }
     return this;
   }
@@ -1149,8 +1137,7 @@ public class CompilationSupport {
 
   /**
    * Registers any actions necessary to link this rule and its dependencies. Automatically infers
-   * the toolchain from the configuration of this CompilationSupport - if a different toolchain is
-   * required, use the custom toolchain override.
+   * the toolchain from the configuration of this CompilationSupport.
    *
    * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
    *
@@ -1171,8 +1158,7 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs,
-      CcToolchainProvider toolchain)
+      Iterable<Artifact> extraLinkInputs)
       throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
@@ -1213,7 +1199,6 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoContext fdoContext = toolchain.getFdoContext();
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
@@ -1222,7 +1207,7 @@ public class CompilationSupport {
                 binaryToLink,
                 ruleContext.getConfiguration(),
                 toolchain,
-                fdoContext,
+                toolchain.getFdoContext(),
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
@@ -1350,32 +1335,12 @@ public class CompilationSupport {
    *
    * @param objcProvider provides all compiling and linking information to create this artifact
    * @param outputArchive the output artifact for this action
-   */
-  public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive)
-      throws InterruptedException, RuleErrorException {
-    return registerFullyLinkAction(
-        objcProvider, outputArchive, toolchain, toolchain.getFdoContext());
-  }
-
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all transitive
-   * dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   * @param outputArchive the output artifact for this action
-   * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoContext the cpp FDO support provider, may be null
    * @return this {@link CompilationSupport} instance
    */
-  CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider,
-      Artifact outputArchive,
-      @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoContext fdoContext)
+  CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider, Artifact outputArchive)
       throws InterruptedException, RuleErrorException {
-    Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoContext);
+    Preconditions.checkNotNull(toolchain);
+    Preconditions.checkNotNull(toolchain.getFdoContext());
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -1399,9 +1364,9 @@ public class CompilationSupport {
                 ruleContext.getLabel(),
                 outputArchive,
                 ruleContext.getConfiguration(),
-                ccToolchain,
-                fdoContext,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                toolchain,
+                toolchain.getFdoContext(),
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
@@ -1410,7 +1375,7 @@ public class CompilationSupport {
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
-            .setLinkerFiles(ccToolchain.getLinkerFiles())
+            .setLinkerFiles(toolchain.getLinkerFiles())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
             .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier(libraryIdentifier)

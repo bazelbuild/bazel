@@ -180,15 +180,13 @@ public class MultiArchBinarySupport {
               .build();
 
       compilationSupport
-          .registerCompileAndArchiveActions(
-              compilationArtifacts, objcProvider, dependencySpecificConfiguration.toolchain())
+          .registerCompileAndArchiveActions(compilationArtifacts, objcProvider)
           .registerLinkActions(
               objcProvider,
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
-              extraLinkInputs,
-              dependencySpecificConfiguration.toolchain())
+              extraLinkInputs)
           .validateAttributes();
       ruleContext.assertNoErrors();
     }
