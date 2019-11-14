@@ -22,12 +22,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.StarlarkMutable.MutableMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -75,7 +76,7 @@ import javax.annotation.Nullable;
 // Every cast to a parameterized type is a lie.
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
-public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
+public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkIndexable {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
@@ -88,6 +89,31 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
 
   private Dict(@Nullable StarlarkThread thread) {
     this.mutability = thread == null ? Mutability.IMMUTABLE : thread.mutability();
+  }
+
+  @Override
+  public boolean truth() {
+    return !isEmpty();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean isHashable() {
+    return false; // even a frozen dict is unhashable
+  }
+
+  @Override
+  public int hashCode() {
+    return contents.hashCode(); // not called by Dict.put (because !isHashable)
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return contents.equals(o); // not called by Dict.put (because !isHashable)
   }
 
   @SkylarkCallable(
@@ -107,7 +133,10 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
       },
       allowReturnNones = true,
       useStarlarkThread = true)
-  public Object get(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
+  // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
+  // SkylarkInterfaceUtils.getSkylarkCallable. The two 'get' methods cause it to get
+  // confused as to which one has the annotation. Fix it and remove "2" suffix.
+  public Object get2(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     if (containsKey(key, null, thread)) {
       return this.get(key);
     }
@@ -342,11 +371,6 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     this.mutability = Mutability.IMMUTABLE;
   }
 
-  @Override
-  protected Map<K, V> getContentsUnsafe() {
-    return contents;
-  }
-
   /**
    * Puts an entry into a dict, after validating that mutation is allowed.
    *
@@ -356,7 +380,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the key is invalid or the dict is frozen
    */
   public void put(K key, V value, Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     EvalUtils.checkValidDictKey(key);
     contents.put(key, value);
   }
@@ -370,7 +394,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    */
   public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location loc)
       throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkValidDictKey(k);
@@ -387,7 +411,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the dict is frozen
    */
   V remove(Object key, Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     return contents.remove(key);
   }
 
@@ -407,7 +431,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the dict is frozen
    */
   void clear(Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     contents.clear();
   }
 
@@ -559,4 +583,71 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     return result;
   }
 
+  // java.util.Map accessors
+
+  @Override
+  public boolean containsKey(Object key) {
+    return contents.containsKey(key);
+  }
+
+  @Override
+  public boolean containsValue(Object value) {
+    return contents.containsValue(value);
+  }
+
+  @Override
+  public Set<Map.Entry<K, V>> entrySet() {
+    return Collections.unmodifiableMap(contents).entrySet();
+  }
+
+  @Override
+  public V get(Object key) {
+    return contents.get(key);
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return contents.isEmpty();
+  }
+
+  @Override
+  public Set<K> keySet() {
+    return Collections.unmodifiableMap(contents).keySet();
+  }
+
+  @Override
+  public int size() {
+    return contents.size();
+  }
+
+  @Override
+  public Collection<V> values() {
+    return Collections.unmodifiableMap(contents).values();
+  }
+
+  // disallowed java.util.Map update operations
+
+  @Deprecated
+  @Override
+  public void clear() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public V put(K key, V value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public void putAll(Map<? extends K, ? extends V> map) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public V remove(Object key) {
+    throw new UnsupportedOperationException();
+  }
 }

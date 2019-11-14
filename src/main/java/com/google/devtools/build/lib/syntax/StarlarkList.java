@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public final class StarlarkList<E> extends Sequence<E> {
+public final class StarlarkList<E> extends Sequence<E> implements StarlarkMutable {
 
   private final ArrayList<E> contents;
 
@@ -74,6 +74,16 @@ public final class StarlarkList<E> extends Sequence<E> {
    */
   static <T> StarlarkList<T> wrapUnsafe(@Nullable Mutability mutability, ArrayList<T> rawContents) {
     return new StarlarkList<>(rawContents, mutability);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean isHashable() {
+    return false; // even a frozen list is unhashable in Starlark
   }
 
   /**
@@ -196,7 +206,7 @@ public final class StarlarkList<E> extends Sequence<E> {
    * @param loc the location to use for error reporting
    */
   public void add(E element, Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     contents.add(element);
   }
 
@@ -208,7 +218,7 @@ public final class StarlarkList<E> extends Sequence<E> {
    * @param loc the location to use for error reporting
    */
   public void add(int index, E element, Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     contents.add(index, element);
   }
 
@@ -219,7 +229,7 @@ public final class StarlarkList<E> extends Sequence<E> {
    * @param loc the location to use for error reporting
    */
   public void addAll(Iterable<? extends E> elements, Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     Iterables.addAll(contents, elements);
   }
 
@@ -231,7 +241,7 @@ public final class StarlarkList<E> extends Sequence<E> {
    * @param loc the location to use for error reporting
    */
   public void remove(int index, Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     contents.remove(index);
   }
 
@@ -261,7 +271,7 @@ public final class StarlarkList<E> extends Sequence<E> {
    * @param loc the location to use for error reporting
    */
   public void set(int index, E value, Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     contents.set(index, value);
   }
 
@@ -283,7 +293,7 @@ public final class StarlarkList<E> extends Sequence<E> {
       doc = "Removes all the elements of the list.",
       useLocation = true)
   public NoneType clearMethod(Location loc) throws EvalException {
-    checkMutable(loc, mutability);
+    checkMutable(loc);
     contents.clear();
     return Starlark.NONE;
   }

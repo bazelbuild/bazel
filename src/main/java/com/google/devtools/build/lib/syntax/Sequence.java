@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.StarlarkMutable.BaseMutableList;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
@@ -36,8 +40,7 @@ import javax.annotation.Nullable;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "common type of lists and tuples.")
-public abstract class Sequence<E> extends BaseMutableList<E>
-    implements List<E>, RandomAccess, SkylarkIndexable {
+public abstract class Sequence<E> implements SkylarkValue, List<E>, RandomAccess, SkylarkIndexable {
 
   @Override
   public final boolean truth() {
@@ -90,6 +93,8 @@ public abstract class Sequence<E> extends BaseMutableList<E>
    * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
    * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
    */
+  // TODO(adonovan): remove this method and handle only int*{list,tuple} in EvalUtils.mult.
+  // In particular, reject int*range. (In principal this is a breaking change.)
   public abstract Sequence<E> repeat(int times, Mutability mutability);
 
   @Override
@@ -192,5 +197,143 @@ public abstract class Sequence<E> extends BaseMutableList<E>
   // Mutability or StarlarkThread.
   public static <E> Sequence<E> createImmutable(Iterable<? extends E> contents) {
     return StarlarkList.copyOf(Mutability.IMMUTABLE, contents);
+  }
+
+  // methods of java.util.List
+
+  // read operations
+  //
+  // TODO(adonovan): opt: push all read operations down into the subclasses
+  // (list and tuple), as the getContentsUnsafe abstraction forces the internals
+  // to be expressed in terms of Lists, which requires either a wasteful indirect
+  // representation, or a wasteful lazy allocation of a list wrapper.
+  protected abstract List<E> getContentsUnsafe();
+
+  @Override
+  public boolean contains(@Nullable Object object) {
+    return getContentsUnsafe().contains(object);
+  }
+
+  @Override
+  public boolean containsAll(Collection<?> collection) {
+    return getContentsUnsafe().containsAll(collection);
+  }
+
+  @Override
+  public E get(int i) {
+    return getContentsUnsafe().get(i);
+  }
+
+  @Override
+  public int indexOf(Object element) {
+    return getContentsUnsafe().indexOf(element);
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return getContentsUnsafe().isEmpty();
+  }
+
+  @Override
+  public Iterator<E> iterator() {
+    return Iterators.unmodifiableIterator(getContentsUnsafe().iterator());
+  }
+
+  @Override
+  public int lastIndexOf(Object element) {
+    return getContentsUnsafe().lastIndexOf(element);
+  }
+
+  @Override
+  public ListIterator<E> listIterator() {
+    return Collections.unmodifiableList(getContentsUnsafe()).listIterator();
+  }
+
+  @Override
+  public ListIterator<E> listIterator(int index) {
+    return Collections.unmodifiableList(getContentsUnsafe()).listIterator(index);
+  }
+
+  @Override
+  public List<E> subList(int fromIndex, int toIndex) {
+    return Collections.unmodifiableList(getContentsUnsafe()).subList(fromIndex, toIndex);
+  }
+
+  @Override
+  public int size() {
+    return getContentsUnsafe().size();
+  }
+
+  // toArray() and toArray(T[]) return copies, so we don't need an unmodifiable view.
+  @Override
+  public Object[] toArray() {
+    return getContentsUnsafe().toArray();
+  }
+
+  @Override
+  public <T> T[] toArray(T[] other) {
+    return getContentsUnsafe().toArray(other);
+  }
+
+  // modify operations
+
+  @Deprecated
+  @Override
+  public final boolean add(E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final void add(int index, E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final boolean addAll(int index, Collection<? extends E> elements) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final boolean addAll(Collection<? extends E> collection) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final void clear() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final E remove(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final boolean remove(Object object) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final boolean removeAll(Collection<?> collection) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final boolean retainAll(Collection<?> collection) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public final E set(int index, E element) {
+    throw new UnsupportedOperationException();
   }
 }

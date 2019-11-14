@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.UnmodifiableIterator;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -51,6 +52,7 @@ import java.util.NoSuchElementException;
             + "range(10)[::2]  # range(0, 10, 2)\n"
             + "range(10)[3:0:-1]  # range(3, 0, -1)</pre>"
             + "Ranges are immutable, as in Python 3.")
+@Immutable
 final class RangeList extends Sequence<Integer> {
 
   private final int step;
@@ -199,11 +201,6 @@ final class RangeList extends Sequence<Integer> {
   @Override
   protected List<Integer> getContentsUnsafe() {
     return contents;
-  }
-
-  @Override
-  public Mutability mutability() {
-    return Mutability.IMMUTABLE;
   }
 
   @Override
