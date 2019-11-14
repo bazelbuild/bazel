@@ -23,6 +23,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Ninja target (build statement) representation.
+ */
 public class NinjaTarget {
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
@@ -155,13 +158,23 @@ public class NinjaTarget {
     }
   }
 
+  /**
+   * Enum with possible kinds of inputs.
+   */
   public enum InputKind implements InputOutputKind {
     usual, implicit, orderOnly
   }
 
+  /**
+   * Enum with possible kinds of outputs.
+   */
   public enum OutputKind implements InputOutputKind {
     usual, implicit
   }
 
+  /**
+   * Marker interface, so that it is possible to address {@link InputKind} and {@link OutputKind}
+   * together in one map.
+   */
   public interface InputOutputKind {}
 }

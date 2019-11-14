@@ -218,6 +218,10 @@ public class NinjaLexer {
     return fragment;
   }
 
+  /**
+   * Enum with variants of text fragments parsing: as identifier (most restricted set of symbols),
+   * path (all spaces should be $-escaped, and | symbol has a special meaning), or text.
+   */
   public enum TextKind {
     identifier, path, text
   }
