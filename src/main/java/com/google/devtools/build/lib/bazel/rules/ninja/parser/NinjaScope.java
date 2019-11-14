@@ -94,7 +94,7 @@ public class NinjaScope {
     }
   }
 
-  private void expandVariable(String name, Integer offset, NinjaVariableValue value) {
+  private void expandVariable(String name, int offset, NinjaVariableValue value) {
     List<Pair<Integer, String>> targetList = expandedVariables
         .computeIfAbsent(name, k -> Lists.newArrayList());
     // Cache expanded variables values to save time replacing several references to the same
@@ -121,8 +121,9 @@ public class NinjaScope {
     for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
       String name = entry.getKey();
       for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
-        Integer offset = pair.getFirst();
-        resolvables.put(offset, () -> expandVariable(name, offset, pair.getSecond()));
+        int offset = Preconditions.checkNotNull(pair.getFirst());
+        NinjaVariableValue variableValue = Preconditions.checkNotNull(pair.getSecond());
+        resolvables.put(offset, () -> expandVariable(name, offset, variableValue));
       }
     }
     for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
