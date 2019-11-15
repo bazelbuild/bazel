@@ -515,6 +515,15 @@ public abstract class Type<T> {
     }
 
     @Override
+    public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
+      ImmutableMap.Builder<KeyT, ValueT> output = ImmutableMap.builder();
+      for (Map<KeyT, ValueT> map: iterable){
+        output.putAll(map);
+      }
+      return output.build();
+    }
+
+    @Override
     public Map<KeyT, ValueT> getDefaultValue() {
       return empty;
     }
