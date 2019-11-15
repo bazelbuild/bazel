@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.List;
 
@@ -131,6 +132,7 @@ public final class NinjaTarget {
   /**
    * Enum with possible kinds of inputs.
    */
+  @Immutable
   public enum InputKind implements InputOutputKind {
     USUAL, IMPLICIT, ORDER_ONLY
   }
@@ -138,6 +140,7 @@ public final class NinjaTarget {
   /**
    * Enum with possible kinds of outputs.
    */
+  @Immutable
   public enum OutputKind implements InputOutputKind {
     USUAL, IMPLICIT
   }
@@ -146,5 +149,6 @@ public final class NinjaTarget {
    * Marker interface, so that it is possible to address {@link InputKind} and {@link OutputKind}
    * together in one map.
    */
+  @Immutable
   public interface InputOutputKind {}
 }
