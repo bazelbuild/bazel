@@ -33,6 +33,7 @@ output_paths = [
      lambda x: 'tools/build_defs/repo/BUILD'),
     ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
+    ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*jarjar_command_deploy.jar',

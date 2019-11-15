@@ -289,6 +289,7 @@ EOF
 
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
+  mv -f ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD.tools ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
