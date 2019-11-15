@@ -126,7 +126,7 @@ tooling dependencies with <code>--notool_deps</code> if you care only about
 what is included in the artifact you built, and not every possible job.
 
 <p>To visualize the graph of all dependencies, pipe the bazel query output through
-  the <code>dot</dot> command-line tool:</p>
+  the <code>dot</code> command-line tool:</p>
 <pre>
 $ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tpng > graph.png
 </pre>
