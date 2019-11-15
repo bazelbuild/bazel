@@ -44,7 +44,7 @@ public class NinjaLexer {
   private final List<Pair<Integer, Integer>> ranges;
   private final List<NinjaToken> tokens;
   /** Flag to give a hint how letters should be interpreted (as text, identifier, path). */
-  private TextKind expectedTextKind;
+  private TextKind expectedTextKind = TextKind.IDENTIFIER;
 
   /** @param fragment fragment to do the lexing on */
   public NinjaLexer(ByteBufferFragment fragment) {
@@ -129,22 +129,25 @@ public class NinjaLexer {
           step.forceError("Bad $-escape (literal $ must be written as $$)");
           return push(NinjaToken.ERROR);
         default:
-          if (TextKind.TEXT.equals(expectedTextKind)) {
-            step.readText();
-            return push(NinjaToken.TEXT);
-          } else if (TextKind.PATH.equals(expectedTextKind)) {
-            step.readPath();
-            return push(NinjaToken.TEXT);
-          } else {
-            step.tryReadIdentifier();
-            if (step.getError() == null) {
-              byte[] bytes = step.getBytes();
-              NinjaToken keywordToken = KEYWORD_MAP.get(bytes[0]);
-              if (keywordToken != null && Arrays.equals(keywordToken.getBytes(), bytes)) {
-                return push(keywordToken);
+          switch (expectedTextKind) {
+            case TEXT:
+              step.readText();
+              return push(NinjaToken.TEXT);
+            case PATH:
+              step.readPath();
+              return push(NinjaToken.TEXT);
+            case IDENTIFIER:
+              step.tryReadIdentifier();
+              if (step.getError() == null) {
+                byte[] bytes = step.getBytes();
+                NinjaToken keywordToken = KEYWORD_MAP.get(bytes[0]);
+                if (keywordToken != null && Arrays.equals(keywordToken.getBytes(), bytes)) {
+                  return push(keywordToken);
+                }
               }
-            }
-            return push(NinjaToken.IDENTIFIER);
+              return push(NinjaToken.IDENTIFIER);
+            default:
+              throw new IllegalStateException();
           }
       }
       if (step.canAdvance()) {

@@ -21,13 +21,10 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
-import com.google.errorprone.annotations.Immutable;
 
 /**
  * Ninja target (build statement) representation.
  */
-@Immutable
 public final class NinjaTarget {
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
@@ -84,26 +81,6 @@ public final class NinjaTarget {
     return inputs.get(InputKind.ORDER_ONLY);
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    NinjaTarget that = (NinjaTarget) o;
-    return Objects.equals(ruleName, that.ruleName) &&
-        Objects.equals(inputs, that.inputs) &&
-        Objects.equals(outputs, that.outputs) &&
-        Objects.equals(variables, that.variables);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(ruleName, inputs, outputs, variables);
-  }
-
   public static Builder builder() {
     return new Builder();
   }
@@ -154,7 +131,6 @@ public final class NinjaTarget {
   /**
    * Enum with possible kinds of inputs.
    */
-  @Immutable
   public enum InputKind implements InputOutputKind {
     USUAL, IMPLICIT, ORDER_ONLY
   }
@@ -162,7 +138,6 @@ public final class NinjaTarget {
   /**
    * Enum with possible kinds of outputs.
    */
-  @Immutable
   public enum OutputKind implements InputOutputKind {
     USUAL, IMPLICIT
   }
@@ -171,6 +146,5 @@ public final class NinjaTarget {
    * Marker interface, so that it is possible to address {@link InputKind} and {@link OutputKind}
    * together in one map.
    */
-  @Immutable
   public interface InputOutputKind {}
 }
