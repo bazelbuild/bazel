@@ -135,7 +135,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
-        "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_target_provider_fields=" + rand.nextBoolean(),
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
@@ -186,7 +185,6 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
-        .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableTargetProviderFields(rand.nextBoolean())
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())

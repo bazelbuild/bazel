@@ -591,23 +591,17 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testDepthExceedsLimitDuringIteration() throws Exception {
     NestedSet.setApplicationDepthLimit(2000);
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+    new SkylarkTest()
         .setUp(
             "def create_depset(depth):",
             "  x = depset([0])",
             "  for i in range(1, depth):",
             "    x = depset([i], transitive = [x])",
-            "  for element in x:",
+            "  for element in x.to_list():",
             "    str(x)",
             "  return None")
         .testEval("create_depset(1000)", "None")
         .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
-  }
-
-  @Test
-  public void testListComprehensionsWithNestedSet() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testEval("[x + x for x in depset([1, 2, 3])]", "[2, 4, 6]");
   }
 
   private interface MergeStrategy {

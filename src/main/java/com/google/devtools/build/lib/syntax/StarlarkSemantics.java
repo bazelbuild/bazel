@@ -152,8 +152,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
-  public abstract boolean incompatibleDepsetIsNotIterable();
-
   public abstract boolean incompatibleDepsetUnion();
 
   public abstract boolean incompatibleDisableTargetProviderFields();
@@ -256,7 +254,6 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
@@ -317,8 +314,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
-
-    public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
 

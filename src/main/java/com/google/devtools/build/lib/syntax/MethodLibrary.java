@@ -348,16 +348,6 @@ class MethodLibrary {
       return ((Map<?, ?>) x).size();
     } else if (x instanceof Sequence) {
       return ((Sequence<?>) x).size();
-    } else if (x instanceof SkylarkNestedSet) {
-      if (thread.getSemantics().incompatibleDepsetIsNotIterable()) {
-        throw new EvalException(
-            loc,
-            EvalUtils.getDataTypeName(x)
-                + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
-                + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
-                + "check.");
-      }
-      return ((SkylarkNestedSet) x).toCollection().size();
     } else if (x instanceof Iterable) {
       // Iterables.size() checks if x is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) x);

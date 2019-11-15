@@ -1481,14 +1481,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testInSetDeprecated() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testExpression("'b' in depset(['a', 'b'])", Boolean.TRUE)
-        .testExpression("'c' in depset(['a', 'b'])", Boolean.FALSE)
-        .testExpression("1 in depset(['a', 'b'])", Boolean.FALSE);
-  }
-
-  @Test
   public void testUnionSet() throws Exception {
     new SkylarkTest("--incompatible_depset_union=false")
         .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
@@ -1498,26 +1490,14 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSetIsNotIterable() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=true")
-        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+    new SkylarkTest()
+        .testIfErrorContains("not a collection", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains("not iterable", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not a collection", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not a collection", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
         .testIfErrorContains("not iterable", "len(depset(['a']))");
-  }
-
-  @Test
-  public void testSetIsIterable() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testExpression("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
-        .testExpression("max(depset([1, 2, 3]))", 3)
-        .testExpression("1 in depset([1, 2, 3])", true)
-        .testExpression("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
-        .testExpression("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
-        .testExpression("str([x for x in depset()])", "[]")
-        .testExpression("len(depset(['a']))", 1);
   }
 
   @Test
