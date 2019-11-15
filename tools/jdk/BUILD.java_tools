@@ -1,4 +1,5 @@
 package(default_visibility = ["//visibility:public"])
+exports_files(glob(["**/*.jar"]))
 
 licenses(["notice"])  # Apache 2.0
 
