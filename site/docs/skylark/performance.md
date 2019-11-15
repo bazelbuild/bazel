@@ -92,31 +92,6 @@ accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
 
-### Avoid calling `len(depset)`
-
-It is O(N) to get the number of items in a depset. It is however
-O(1) to check if a depset is empty. This includes checking the truthiness
-of a depset:
-
-```
-def _impl(ctx):
-  args = ctx.actions.args()
-  files = depset(...)
-
-  # Bad, has to iterate over entire depset to get length
-  if len(files) != 0:
-    args.add_all("--files", files)
-
-  # Good, O(1)
-  if files:
-    args.add_all("--files", files)
-
-  # Also good, O(1); works because add_all()'s `omit_if_empty` defaults to true
-  args.add_all("--files", files)
-```
-
-As mentioned above, support for `len(<depset>)` is deprecated.
-
 ### Reduce the number of calls to `depset`
 
 Calling `depset` inside a loop is often a mistake. It can lead to depsets with
