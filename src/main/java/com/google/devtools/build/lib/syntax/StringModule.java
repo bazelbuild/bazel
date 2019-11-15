@@ -360,7 +360,7 @@ final class StringModule implements SkylarkValue {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return StarlarkList.wrapUnsafe(thread, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(
@@ -410,7 +410,7 @@ final class StringModule implements SkylarkValue {
       end = start;
     }
     Collections.reverse(res);
-    return StarlarkList.wrapUnsafe(thread, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(

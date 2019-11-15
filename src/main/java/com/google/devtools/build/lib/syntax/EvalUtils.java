@@ -853,11 +853,11 @@ public final class EvalUtils {
       if (otherFactor instanceof Integer) {
         return Math.multiplyExact(number, (Integer) otherFactor);
       } else if (otherFactor instanceof String) {
-        // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number));
-      } else if (otherFactor instanceof Sequence && !(otherFactor instanceof RangeList)) {
-        // Similar to Python, a factor < 1 leads to an empty string.
-        return ((Sequence<?>) otherFactor).repeat(number, thread.mutability());
+      } else if (otherFactor instanceof Tuple) {
+        return ((Tuple<?>) otherFactor).repeat(number, thread.mutability());
+      } else if (otherFactor instanceof StarlarkList) {
+        return ((StarlarkList<?>) otherFactor).repeat(number, thread.mutability());
       }
     }
     throw unknownBinaryOperator(x, y, TokenKind.STAR, location);

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -191,7 +190,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
     Object key = keySet().iterator().next();
     Object value = get(key);
     remove(key, loc);
-    return Tuple.of(key, value);
+    return Tuple.pair(key, value);
   }
 
   @SkylarkCallable(
@@ -280,11 +279,12 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
               + "</pre>\n",
       useStarlarkThread = true)
   public StarlarkList<?> items(StarlarkThread thread) throws EvalException {
-    ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
-    for (Map.Entry<?, ?> entries : entrySet()) {
-      list.add(Tuple.of(entries.getKey(), entries.getValue()));
+    Object[] array = new Object[size()];
+    int i = 0;
+    for (Map.Entry<?, ?> e : entrySet()) {
+      array[i++] = Tuple.pair(e.getKey(), e.getValue());
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -295,11 +295,12 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
               + "</pre>\n",
       useStarlarkThread = true)
   public StarlarkList<?> keys(StarlarkThread thread) throws EvalException {
-    ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
-    for (Map.Entry<?, ?> entries : entrySet()) {
-      list.add(entries.getKey());
+    Object[] array = new Object[size()];
+    int i = 0;
+    for (Map.Entry<?, ?> e : entrySet()) {
+      array[i++] = e.getKey();
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   private static final Dict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);

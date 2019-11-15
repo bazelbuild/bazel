@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -199,10 +201,10 @@ class MethodLibrary {
       final StarlarkThread thread)
       throws EvalException, InterruptedException {
 
-    ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(iterable, loc, thread));
+    Object[] array = EvalUtils.toCollection(iterable, loc, thread).toArray();
     if (key == Starlark.NONE) {
       try {
-        Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
+        Arrays.sort(array, EvalUtils.SKYLARK_COMPARATOR);
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
@@ -232,7 +234,7 @@ class MethodLibrary {
 
       KeyComparator comp = new KeyComparator();
       try {
-        Collections.sort(list, comp);
+        Arrays.sort(array, comp);
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
@@ -249,9 +251,13 @@ class MethodLibrary {
     }
 
     if (reverse) {
-      Collections.reverse(list);
+      for (int i = 0, j = array.length - 1; i < j; i++, j--) {
+        Object tmp = array[i];
+        array[i] = array[j];
+        array[j] = tmp;
+      }
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -278,7 +284,7 @@ class MethodLibrary {
     for (Object element : EvalUtils.toIterable(sequence, loc, thread)) {
       tmpList.addFirst(element);
     }
-    return StarlarkList.copyOf(thread, tmpList);
+    return StarlarkList.copyOf(thread.mutability(), tmpList);
   }
 
   @SkylarkCallable(
@@ -320,7 +326,7 @@ class MethodLibrary {
       useLocation = true,
       useStarlarkThread = true)
   public StarlarkList<?> list(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    return StarlarkList.copyOf(thread, EvalUtils.toCollection(x, loc, thread));
+    return StarlarkList.copyOf(thread.mutability(), EvalUtils.toCollection(x, loc, thread));
   }
 
   @SkylarkCallable(
@@ -633,13 +639,14 @@ class MethodLibrary {
       useLocation = true)
   public StarlarkList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
       throws EvalException {
-    int count = start;
-    ArrayList<Sequence<?>> result = new ArrayList<>();
-    for (Object obj : EvalUtils.toCollection(input, loc, thread)) {
-      result.add(Tuple.of(count, obj));
-      count++;
+    Collection<?> src = EvalUtils.toCollection(input, loc, thread);
+    Object[] array = new Object[src.size()];
+    int i = 0;
+    for (Object x : src) {
+      array[i] = Tuple.pair(i + start, x);
+      i++;
     }
-    return StarlarkList.wrapUnsafe(thread, result);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -719,7 +726,7 @@ class MethodLibrary {
     if (step == 0) {
       throw new EvalException(loc, "step cannot be 0");
     }
-    return RangeList.of(start, stop, step);
+    return new RangeList(start, stop, step);
   }
 
   /** Returns true if the object has a field of the given name, otherwise false. */
@@ -820,7 +827,7 @@ class MethodLibrary {
       fields.addAll(((ClassObject) object).getFieldNames());
     }
     fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
-    return StarlarkList.copyOf(thread, fields);
+    return StarlarkList.copyOf(thread.mutability(), fields);
   }
 
   @SkylarkCallable(
@@ -1204,7 +1211,7 @@ class MethodLibrary {
         result.add(Tuple.copyOf(elem));
       }
     } while (allHasNext);
-    return StarlarkList.wrapUnsafe(thread, result);
+    return StarlarkList.copyOf(thread.mutability(), result);
   }
 
   /** Skylark int type. */

@@ -547,13 +547,12 @@ final class Eval {
       case LIST_EXPR:
         {
           ListExpression list = (ListExpression) expr;
-          ArrayList<Object> result = new ArrayList<>(list.getElements().size());
-          for (Expression elem : list.getElements()) {
-            result.add(eval(thread, elem));
+          int n = list.getElements().size();
+          Object[] array = new Object[n];
+          for (int i = 0; i < n; i++) {
+            array[i] = eval(thread, list.getElements().get(i));
           }
-          return list.isTuple()
-              ? Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
-              : StarlarkList.wrapUnsafe(thread, result);
+          return list.isTuple() ? Tuple.wrap(array) : StarlarkList.wrap(thread.mutability(), array);
         }
 
       case SLICE:

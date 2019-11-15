@@ -15,9 +15,16 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import java.util.AbstractCollection;
+import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -41,62 +48,70 @@ import java.util.List;
             + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
-public final class Tuple<E> extends Sequence<E> {
+public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
 
-  private final ImmutableList<E> contents;
+  private final Object[] elems;
 
-  private Tuple(ImmutableList<E> contents) {
-    this.contents = contents;
+  private Tuple(Object[] elems) {
+    this.elems = elems;
   }
 
-  /**
-   * A shared instance for the empty tuple.
-   *
-   * <p>This instance should be the only empty tuple.
-   */
-  private static final Tuple<?> EMPTY = new Tuple<>(ImmutableList.of());
+  // The shared (sole) empty tuple.
+  private static final Tuple<?> EMPTY = new Tuple<>(new Object[0]);
 
   /** Returns the empty tuple, cast to have an arbitrary content type. */
   @SuppressWarnings("unchecked")
   public static <T> Tuple<T> empty() {
-    return (Tuple<T>) EMPTY;
+    return (Tuple<T>) EMPTY; // unchecked
   }
 
   /**
-   * Creates a {@code Tuple} from an {@link ImmutableList}, reusing the empty instance if
-   * applicable.
+   * Returns a Tuple that wraps the specified array, which must not be subsequently modified. The
+   * caller is additionally trusted to choose an appropriate type T.
    */
-  private static <T> Tuple<T> create(ImmutableList<T> contents) {
-    if (contents.isEmpty()) {
+  static <T> Tuple<T> wrap(Object[] array) {
+    return array.length == 0 ? empty() : new Tuple<T>(array);
+  }
+
+  /** Returns a tuple containing the given elements. */
+  @SuppressWarnings("unchecked")
+  public static <T> Tuple<T> copyOf(Iterable<? extends T> seq) {
+    if (seq instanceof Tuple) {
+      return (Tuple<T>) seq; // unchecked
+    }
+    return wrap(Iterables.toArray(seq, Object.class));
+  }
+
+  /** Returns a tuple containing the given elements. */
+  public static <T> Tuple<T> of(T... elems) {
+    if (elems.length == 0) {
       return empty();
     }
-    return new Tuple<>(contents);
+    return new Tuple<T>(Arrays.copyOf(elems, elems.length));
   }
 
-  /** Returns a {@code Tuple} whose items are given by an iterable. */
-  public static <T> Tuple<T> copyOf(Iterable<? extends T> contents) {
-    return create(ImmutableList.<T>copyOf(contents));
+  /** Returns a two-element tuple. */
+  public static <T> Tuple<T> pair(T a, T b) {
+    // Equivalent to of(a, b) but avoids variadic array allocation.
+    return wrap(new Object[] {a, b});
   }
 
-  /**
-   * Returns a {@code Tuple} whose items are given by an immutable list.
-   *
-   * <p>This method is a specialization of a {@link #copyOf(Iterable)} that avoids an unnecessary
-   * {@code copyOf} invocation.
-   */
-  public static <T> Tuple<T> copyOf(ImmutableList<T> contents) {
-    return create(contents);
+  /** Returns a three-element tuple. */
+  public static <T> Tuple<T> triple(T a, T b, T c) {
+    // Equivalent to of(a, b, c) but avoids variadic array allocation.
+    return wrap(new Object[] {a, b, c});
   }
 
-  /** Returns a {@code Tuple} with the given items. */
-  public static <T> Tuple<T> of(T... elements) {
-    return Tuple.create(ImmutableList.copyOf(elements));
+  /** Returns a tuple that is the concatenation of two tuples. */
+  public static <T> Tuple<T> concat(Tuple<? extends T> x, Tuple<? extends T> y) {
+    // TODO(adonovan): opt: exploit x + () == x; y + () == y.
+    return wrap(ObjectArrays.concat(x.elems, y.elems, Object.class));
   }
 
   @Override
   public boolean isImmutable() {
-    for (Object item : this) {
-      if (!EvalUtils.isImmutable(item)) {
+    for (Object x : elems) {
+      if (!EvalUtils.isImmutable(x)) {
         return false;
       }
     }
@@ -105,8 +120,8 @@ public final class Tuple<E> extends Sequence<E> {
 
   @Override
   public boolean isHashable() {
-    for (Object item : this) {
-      if (!EvalUtils.isHashable(item)) {
+    for (Object x : elems) {
+      if (!EvalUtils.isHashable(x)) {
         return false;
       }
     }
@@ -114,49 +129,109 @@ public final class Tuple<E> extends Sequence<E> {
   }
 
   @Override
-  public ImmutableList<E> getImmutableList() {
-    return contents;
+  public int hashCode() {
+    return 9857 + 8167 * Arrays.hashCode(elems);
   }
 
   @Override
-  protected List<E> getContentsUnsafe() {
-    return contents;
+  public boolean equals(Object that) {
+    // This slightly violates the java.util.List equivalence contract
+    // because it considers the class, not just the elements.
+    return this == that
+        || (that instanceof Tuple && Arrays.equals(this.elems, ((Tuple) that).elems));
   }
 
-  /** Returns a {@code Tuple} that is the concatenation of two {@code Tuple}s. */
-  public static <T> Tuple<T> concat(Tuple<? extends T> left, Tuple<? extends T> right) {
-    // Build the ImmutableList directly rather than use Iterables.concat, to avoid unnecessary
-    // array resizing.
-    return create(
-        ImmutableList.<T>builderWithExpectedSize(left.size() + right.size())
-            .addAll(left)
-            .addAll(right)
-            .build());
+  @Override
+  @SuppressWarnings("unchecked")
+  public E get(int i) {
+    return (E) elems[i]; // unchecked
+  }
+
+  @Override
+  public int size() {
+    return elems.length;
+  }
+
+  @Override
+  public Tuple<E> subList(int from, int to) {
+    return wrap(Arrays.copyOfRange(elems, from, to));
+  }
+
+  @Override
+  public Object[] toArray() {
+    return Arrays.copyOf(elems, elems.length);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    // TODO(adonovan): when SkylarkPrinter moves into this package,
+    // inline and simplify this, the sole call with isTuple=true.
+    printer.printList(this, /*isTuple=*/ true);
+  }
+
+  // TODO(adonovan): SkylarkValue has 3 String methods yet still we need this fourth. Why?
+  @Override
+  public String toString() {
+    return Printer.repr(this);
+  }
+
+  @Override
+  public ImmutableList<E> getImmutableList() {
+    // Share the array with this (immutable) Tuple.
+    return wrapImmutable(elems);
+  }
+
+  /**
+   * Returns a new ImmutableList<T> backed by {@code array}, which must not be subsequently
+   * modified.
+   */
+  // TODO(adonovan): move this somewhere more appropriate.
+  static <T> ImmutableList<T> wrapImmutable(Object[] array) {
+    // Construct an ImmutableList that shares the array.
+    // ImmutableList relies on the implementation of Collection.toArray
+    // not subsequently modifying the returned array.
+    return ImmutableList.copyOf(
+        new AbstractCollection<T>() {
+          @Override
+          public Object[] toArray() {
+            return array;
+          }
+
+          @Override
+          public int size() {
+            return array.length;
+          }
+
+          @Override
+          public Iterator<T> iterator() {
+            throw new UnsupportedOperationException();
+          }
+        });
   }
 
   @Override
   public Tuple<E> getSlice(
       Object start, Object end, Object step, Location loc, Mutability mutability)
       throws EvalException {
-    List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
-    ImmutableList.Builder<E> builder = ImmutableList.builderWithExpectedSize(sliceIndices.size());
-    // foreach is not used to avoid iterator overhead
-    for (int i = 0; i < sliceIndices.size(); ++i) {
-      builder.add(this.get(sliceIndices.get(i)));
+    // TODO(adonovan): opt: this is horribly inefficient.
+    List<Integer> indices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
+    Object[] res = new Object[indices.size()];
+    for (int i = 0; i < indices.size(); ++i) {
+      res[i] = elems[indices.get(i)];
     }
-    return copyOf(builder.build());
+    return wrap(res);
   }
 
-  @Override
-  public Tuple<E> repeat(int times, Mutability mutability) {
-    if (times <= 0) {
+  /** Returns a Tuple containing n consecutive repeats of this tuple. */
+  public Tuple<E> repeat(int n, Mutability mutability) {
+    if (n <= 0 || isEmpty()) {
       return empty();
     }
-
-    ImmutableList.Builder<E> builder = ImmutableList.builderWithExpectedSize(this.size() * times);
-    for (int i = 0; i < times; i++) {
-      builder.addAll(this);
+    // TODO(adonovan): reject unreasonably large n.
+    Object[] res = new Object[n * elems.length];
+    for (int i = 0; i < n; i++) {
+      System.arraycopy(elems, 0, res, i * elems.length, elems.length);
     }
-    return copyOf(builder.build());
+    return wrap(res);
   }
 }
