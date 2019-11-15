@@ -93,7 +93,7 @@ public abstract class BaseRealSandboxfsProcessTest {
         new PrintWriter(
             new BufferedWriter(
                 new OutputStreamWriter(fakeSandboxfs.getOutputStream(), StandardCharsets.UTF_8)))) {
-      writer.println("#! /bin/sh");
+      writer.println("#! /bin/bash");
 
       // Ignore requests for termination. The real sandboxfs process must be sent a SIGTERM to stop
       // serving, but in our case we want to terminate cleanly after waiting for all input to be
@@ -111,13 +111,36 @@ public abstract class BaseRealSandboxfsProcessTest {
       writer.println("  echo \"${arg}\" >>" + capturedArgs + ";");
       writer.println("done;");
 
-      // Emit all responses first to avoid blocking any reads from the Java side.
+      // Attempt to "parse" requests coming through stdin by just counting brace pairs, assuming
+      // that the input is composed of a stream of JSON objects. Then, for each request, emit one
+      // response.
+      //
+      // We must do this because the unordered response processor required to parse 0.2.0 output
+      // expects responses to come only after their requests have been issued. Ideally we'd match
+      // our mock responses to specific requests to allow for testing of unordered responses, but
+      // for now assume all requests and responses in the test are correctly ordered.
+      //
+      // TODO(jmmv): This has become pretty awful. Should rethink unit testing.
       for (String response : responses) {
-        writer.println("echo '" + response + "';");
+        writer.println("braces=0; started=no");
+        writer.println("while read -d '' -n 1 ch; do");
+        writer.println("  case \"${ch}\" in");
+        writer.println("    '{') braces=$((braces + 1)); started=yes ;;");
+        writer.println("    '[') braces=$((braces + 1)); started=yes ;;");
+        writer.println("    ']') braces=$((braces - 1)) ;;");
+        writer.println("    '}') braces=$((braces - 1)) ;;");
+        writer.println("  esac");
+        writer.println("  [[ \"${ch}\" != '' ]] || ch='\n'");
+        writer.println("  printf '%c' \"${ch}\" >>" + capturedRequests);
+        writer.println("  if [[ \"${started}\" = yes && \"${braces}\" -eq 0 ]]; then");
+        writer.println("    echo '" + response + "';");
+        writer.println("    break;");
+        writer.println("  fi");
+        writer.println("done");
       }
 
-      // And finally capture all requests for later inspection.
-      writer.println("cat >" + capturedRequests + ";");
+      // Capture any stray requests not expected by the test data.
+      writer.println("cat >>" + capturedRequests);
     }
     fakeSandboxfs.setExecutable(true);
 
