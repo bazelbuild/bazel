@@ -208,6 +208,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalAllowTagsPropagation();
 
+  public abstract boolean incompatibleUseCcConfigureFromRulesCc();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -281,6 +283,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
+          .incompatibleUseCcConfigureFromRulesCc(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -367,6 +370,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
+
+    public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract StarlarkSemantics build();
   }

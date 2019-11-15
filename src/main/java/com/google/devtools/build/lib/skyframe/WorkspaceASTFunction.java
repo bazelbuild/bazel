@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -106,11 +107,37 @@ public class WorkspaceASTFunction implements SkyFunction {
           throw resolvedValueError("Failed to parse WORKSPACE file");
         }
       }
+
+      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      String suffix;
+      if (resolvedFile.isPresent()) {
+        suffix = "";
+      } else if (starlarkSemantics == null) {
+        // Starlark semantics was not found, but Skyframe is happy. That means we're in the test
+        // that didn't provide complete Skyframe environment. Just move along.
+        suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
+        // TODO(hlopko): Uncomment once Bazel tests pass with --all_incompatible_changes
+        // } else if (starlarkSemantics.incompatibleUseCcConfigureFromRulesCc()) {
+        //   suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
+      } else if (!ruleClassProvider.getDefaultWorkspaceSuffix().contains("sh_configure")) {
+        // It might look fragile to check for sh_configure in the WORKSPACE file, but it turns
+        // out its the best approximation. The problem is that some tests want the ruleClassProvider
+        // together with logic from BazelRulesModule, some tests only want the
+        // BazelRuleClassProvider and some only a subset of that.
+        suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
+      } else {
+        suffix =
+            ruleClassProvider.getDefaultWorkspaceSuffix()
+                + "\nload('@bazel_tools//tools/cpp:cc_configure.bzl', 'cc_configure')\n\n"
+                + "cc_configure()";
+      }
+
       file =
           StarlarkFile.parseWithPrelude(
-              ParserInput.create(
-                  resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
-                  PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
+              ParserInput.create(suffix, PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
               file.getStatements());
       if (!file.ok()) {
         Event.replayEventsOn(env.getListener(), file.errors());
