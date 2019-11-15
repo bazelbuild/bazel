@@ -284,6 +284,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
+          .incompatibleDisallowDictLookupUnhashableKeys(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
