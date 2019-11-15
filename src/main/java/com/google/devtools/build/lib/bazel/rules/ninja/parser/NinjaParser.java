@@ -65,7 +65,7 @@ public class NinjaParser {
     NinjaVariableValue.Builder varBuilder = NinjaVariableValue.builder();
     int previous = -1;
     while (lexer.hasNextToken()) {
-      lexer.setExpectedTextKind(TextKind.text);
+      lexer.setExpectedTextKind(TextKind.TEXT);
       NinjaToken token = lexer.nextToken();
       if (NinjaToken.VARIABLE.equals(token)) {
         if (previous >= 0) {
@@ -104,7 +104,7 @@ public class NinjaParser {
     NinjaVariableValue.Builder varBuilder = NinjaVariableValue.builder();
     int previous = -1;
     while (lexer.hasNextToken()) {
-      lexer.setExpectedTextKind(TextKind.path);
+      lexer.setExpectedTextKind(TextKind.PATH);
       NinjaToken token = lexer.nextToken();
       if (previous >= 0 && lexer.getLastStart() != previous) {
         // no spaces.
@@ -194,13 +194,13 @@ public class NinjaParser {
   }
 
   private enum NinjaTargetParsingPart {
-    outputs(OutputKind.usual, true),
-    implicitOutputs(OutputKind.implicit, true),
-    inputs(InputKind.usual, false),
-    implicitInputs(InputKind.implicit, false),
-    orderOnlyInputs(InputKind.orderOnly, false),
-    ruleName(null, false),
-    variables(null, false);
+    OUTPUTS(OutputKind.USUAL, true),
+    IMPLICIT_OUTPUTS(OutputKind.IMPLICIT, true),
+    INPUTS(InputKind.USUAL, false),
+    IMPLICIT_INPUTS(InputKind.IMPLICIT, false),
+    ORDER_ONLY_INPUTS(InputKind.ORDER_ONLY, false),
+    RULE_NAME(null, false),
+    VARIABLES(null, false);
 
     @Nullable
     private final InputOutputKind inputOutputKind;
@@ -227,26 +227,26 @@ public class NinjaParser {
    * Mapping for changing the {@link NinjaTargetParsingPart} according to the next separator symbol.
    */
   private final static ImmutableSortedMap<NinjaTargetParsingPart,
-      ImmutableSortedMap<NinjaToken, NinjaTargetParsingPart>> targetPartsTransitionsMap =
+      ImmutableSortedMap<NinjaToken, NinjaTargetParsingPart>> TARGET_PARTS_TRANSITIONS_MAP =
       ImmutableSortedMap.of(
-          NinjaTargetParsingPart.outputs, ImmutableSortedMap.of(
-              NinjaToken.PIPE, NinjaTargetParsingPart.implicitOutputs,
-              NinjaToken.COLON, NinjaTargetParsingPart.ruleName
+          NinjaTargetParsingPart.OUTPUTS, ImmutableSortedMap.of(
+              NinjaToken.PIPE, NinjaTargetParsingPart.IMPLICIT_OUTPUTS,
+              NinjaToken.COLON, NinjaTargetParsingPart.RULE_NAME
           ),
-          NinjaTargetParsingPart.implicitOutputs, ImmutableSortedMap.of(
-              NinjaToken.COLON, NinjaTargetParsingPart.ruleName
+          NinjaTargetParsingPart.IMPLICIT_OUTPUTS, ImmutableSortedMap.of(
+              NinjaToken.COLON, NinjaTargetParsingPart.RULE_NAME
           ),
-          NinjaTargetParsingPart.inputs, ImmutableSortedMap.of(
-              NinjaToken.PIPE, NinjaTargetParsingPart.implicitInputs,
-              NinjaToken.PIPE2, NinjaTargetParsingPart.orderOnlyInputs,
-              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          NinjaTargetParsingPart.INPUTS, ImmutableSortedMap.of(
+              NinjaToken.PIPE, NinjaTargetParsingPart.IMPLICIT_INPUTS,
+              NinjaToken.PIPE2, NinjaTargetParsingPart.ORDER_ONLY_INPUTS,
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.VARIABLES
           ),
-          NinjaTargetParsingPart.implicitInputs, ImmutableSortedMap.of(
-              NinjaToken.PIPE2, NinjaTargetParsingPart.orderOnlyInputs,
-              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          NinjaTargetParsingPart.IMPLICIT_INPUTS, ImmutableSortedMap.of(
+              NinjaToken.PIPE2, NinjaTargetParsingPart.ORDER_ONLY_INPUTS,
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.VARIABLES
           ),
-          NinjaTargetParsingPart.orderOnlyInputs, ImmutableSortedMap.of(
-              NinjaToken.NEWLINE, NinjaTargetParsingPart.variables
+          NinjaTargetParsingPart.ORDER_ONLY_INPUTS, ImmutableSortedMap.of(
+              NinjaToken.NEWLINE, NinjaTargetParsingPart.VARIABLES
           )
       );
 
@@ -325,16 +325,16 @@ public class NinjaParser {
       NinjaTarget.Builder builder) throws GenericParsingException {
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap = Maps.newHashMap();
     boolean ruleNameParsed = false;
-    NinjaTargetParsingPart parsingPart = NinjaTargetParsingPart.outputs;
-    while (lexer.hasNextToken() && !NinjaTargetParsingPart.variables.equals(parsingPart)) {
-      if (NinjaTargetParsingPart.ruleName.equals(parsingPart)) {
+    NinjaTargetParsingPart parsingPart = NinjaTargetParsingPart.OUTPUTS;
+    while (lexer.hasNextToken() && !NinjaTargetParsingPart.VARIABLES.equals(parsingPart)) {
+      if (NinjaTargetParsingPart.RULE_NAME.equals(parsingPart)) {
         ruleNameParsed = true;
         builder.setRuleName(asString(parseExpected(NinjaToken.IDENTIFIER)));
-        parsingPart = NinjaTargetParsingPart.inputs;
+        parsingPart = NinjaTargetParsingPart.INPUTS;
         continue;
       }
       List<NinjaVariableValue> paths = parsePaths();
-      if (paths.isEmpty() && !NinjaTargetParsingPart.inputs.equals(parsingPart)) {
+      if (paths.isEmpty() && !NinjaTargetParsingPart.INPUTS.equals(parsingPart)) {
         throw new GenericParsingException("Expected paths sequence");
       }
       if (!paths.isEmpty()) {
@@ -347,7 +347,7 @@ public class NinjaParser {
         break;
       }
       NinjaToken lexicalSeparator = lexer.nextToken();
-      parsingPart = Preconditions.checkNotNull(targetPartsTransitionsMap.get(parsingPart))
+      parsingPart = Preconditions.checkNotNull(TARGET_PARTS_TRANSITIONS_MAP.get(parsingPart))
           .get(lexicalSeparator);
 
       if (parsingPart == null) {
@@ -358,7 +358,7 @@ public class NinjaParser {
       throw new GenericParsingException("Expected rule name");
     }
     Preconditions.checkState(!lexer.hasNextToken()
-        || NinjaTargetParsingPart.variables.equals(parsingPart));
+        || NinjaTargetParsingPart.VARIABLES.equals(parsingPart));
     return pathValuesMap;
   }
 

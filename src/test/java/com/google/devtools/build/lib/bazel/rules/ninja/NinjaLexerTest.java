@@ -145,7 +145,7 @@ public class NinjaLexerTest {
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
     assertTokenBytes(lexer, NinjaToken.EQUALS, null);
 
-    lexer.setExpectedTextKind(TextKind.text);
+    lexer.setExpectedTextKind(TextKind.TEXT);
     assertTokenBytes(lexer, NinjaToken.TEXT, "Any");
     assertTokenBytes(lexer, NinjaToken.TEXT, "text");
     assertTokenBytes(lexer, NinjaToken.TEXT, "^&%=@&!*");

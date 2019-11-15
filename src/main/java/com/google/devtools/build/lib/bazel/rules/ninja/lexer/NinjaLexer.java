@@ -90,17 +90,17 @@ public class NinjaLexer {
           step.forceError("Tabs are not allowed, use spaces.");
           return push(NinjaToken.ERROR);
         case '\r':
-          expectedTextKind = TextKind.identifier;
+          expectedTextKind = TextKind.IDENTIFIER;
           step.processLineFeedNewLine();
           return push(NinjaToken.NEWLINE);
         case '\n':
-          expectedTextKind = TextKind.identifier;
+          expectedTextKind = TextKind.IDENTIFIER;
           return push(NinjaToken.NEWLINE);
         case '#':
           step.skipComment();
           break;
         case '=':
-          if (TextKind.text.equals(expectedTextKind)) {
+          if (TextKind.TEXT.equals(expectedTextKind)) {
             step.readText();
             return push(NinjaToken.TEXT);
           }
@@ -108,7 +108,7 @@ public class NinjaLexer {
         case ':':
           return push(NinjaToken.COLON);
         case '|':
-          if (TextKind.text.equals(expectedTextKind)) {
+          if (TextKind.TEXT.equals(expectedTextKind)) {
             step.readText();
             return push(NinjaToken.TEXT);
           }
@@ -129,10 +129,10 @@ public class NinjaLexer {
           step.forceError("Bad $-escape (literal $ must be written as $$)");
           return push(NinjaToken.ERROR);
         default:
-          if (TextKind.text.equals(expectedTextKind)) {
+          if (TextKind.TEXT.equals(expectedTextKind)) {
             step.readText();
             return push(NinjaToken.TEXT);
-          } else if (TextKind.path.equals(expectedTextKind)) {
+          } else if (TextKind.PATH.equals(expectedTextKind)) {
             step.readPath();
             return push(NinjaToken.TEXT);
           } else {
@@ -207,7 +207,7 @@ public class NinjaLexer {
     ranges.remove(ranges.size() - 1);
     tokens.remove(tokens.size() - 1);
     step = new NinjaLexerStep(fragment, ranges.isEmpty() ? 0 : getLastEnd());
-    expectedTextKind = TextKind.identifier;
+    expectedTextKind = TextKind.IDENTIFIER;
   }
 
   public String getError() {
@@ -223,6 +223,6 @@ public class NinjaLexer {
    * path (all spaces should be $-escaped, and | symbol has a special meaning), or text.
    */
   public enum TextKind {
-    identifier, path, text
+    IDENTIFIER, PATH, TEXT
   }
 }

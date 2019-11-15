@@ -22,11 +22,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Ninja target (build statement) representation.
  */
-public class NinjaTarget {
+@Immutable
+public final class NinjaTarget {
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
@@ -55,11 +57,11 @@ public class NinjaTarget {
   }
 
   public List<PathFragment> getOutputs() {
-    return outputs.get(OutputKind.usual);
+    return outputs.get(OutputKind.USUAL);
   }
 
   public List<PathFragment> getImplicitOutputs() {
-    return outputs.get(OutputKind.implicit);
+    return outputs.get(OutputKind.IMPLICIT);
   }
 
   public Collection<PathFragment> getAllOutputs() {
@@ -71,15 +73,15 @@ public class NinjaTarget {
   }
 
   public Collection<PathFragment> getUsualInputs() {
-    return inputs.get(InputKind.usual);
+    return inputs.get(InputKind.USUAL);
   }
 
   public Collection<PathFragment> getImplicitInputs() {
-    return inputs.get(InputKind.implicit);
+    return inputs.get(InputKind.IMPLICIT);
   }
 
   public Collection<PathFragment> getOrderOnlyInputs() {
-    return inputs.get(InputKind.orderOnly);
+    return inputs.get(InputKind.ORDER_ONLY);
   }
 
   @Override
@@ -125,16 +127,6 @@ public class NinjaTarget {
       return this;
     }
 
-    public Builder addInputs(InputKind kind, PathFragment... inputs) {
-      inputsBuilder.putAll(kind, inputs);
-      return this;
-    }
-
-    public Builder addOutputs(OutputKind kind, PathFragment... outputs) {
-      outputsBuilder.putAll(kind, outputs);
-      return this;
-    }
-
     public Builder addInputs(InputKind kind, Collection<PathFragment> inputs) {
       inputsBuilder.putAll(kind, inputs);
       return this;
@@ -162,20 +154,23 @@ public class NinjaTarget {
   /**
    * Enum with possible kinds of inputs.
    */
+  @Immutable
   public enum InputKind implements InputOutputKind {
-    usual, implicit, orderOnly
+    USUAL, IMPLICIT, ORDER_ONLY
   }
 
   /**
    * Enum with possible kinds of outputs.
    */
+  @Immutable
   public enum OutputKind implements InputOutputKind {
-    usual, implicit
+    USUAL, IMPLICIT
   }
 
   /**
    * Marker interface, so that it is possible to address {@link InputKind} and {@link OutputKind}
    * together in one map.
    */
+  @Immutable
   public interface InputOutputKind {}
 }
