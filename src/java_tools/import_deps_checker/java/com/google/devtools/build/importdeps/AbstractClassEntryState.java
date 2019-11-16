@@ -55,12 +55,13 @@ public abstract class AbstractClassEntryState {
 
   public abstract Optional<ClassInfo> classInfo();
 
+  public abstract boolean direct();
+
   /** A state to indicate that a class exists. */
   @AutoValue
   public abstract static class ExistingState extends AbstractClassEntryState {
-
-    public static ExistingState create(ClassInfo classInfo) {
-      return new AutoValue_AbstractClassEntryState_ExistingState(Optional.of(classInfo));
+    public static ExistingState create(ClassInfo classInfo, boolean direct) {
+      return new AutoValue_AbstractClassEntryState_ExistingState(Optional.of(classInfo), direct);
     }
 
     @Override
@@ -89,6 +90,11 @@ public abstract class AbstractClassEntryState {
     public Optional<ClassInfo> classInfo() {
       return Optional.empty();
     }
+
+    @Override
+    public boolean direct() {
+      return true;
+    }
   }
 
   /**
@@ -101,7 +107,7 @@ public abstract class AbstractClassEntryState {
     public static IncompleteState create(
         ClassInfo classInfo, ResolutionFailureChain resolutionFailureChain) {
       return new AutoValue_AbstractClassEntryState_IncompleteState(
-          Optional.of(classInfo), resolutionFailureChain);
+          Optional.of(classInfo), /* direct= */ true, resolutionFailureChain);
     }
 
     public abstract ResolutionFailureChain resolutionFailureChain();
