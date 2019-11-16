@@ -115,6 +115,10 @@ if [ -z "${JAVA_HOME-}" ]; then
       JAVA_HOME="/usr/local/openjdk8"
       BASHRC="~/.bashrc"
       ;;
+    openbsd)
+      JAVA_HOME="/usr/local/jdk-1.8.0"
+      BASHRC="~/.bashrc"
+      ;;
     darwin)
       JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" || true
       BASHRC="~/.bash_profile"

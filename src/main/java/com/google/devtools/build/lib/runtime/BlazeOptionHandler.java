@@ -327,6 +327,8 @@ public final class BlazeOptionHandler {
         return "windows";
       case FREEBSD:
         return "freebsd";
+      case OPENBSD:
+        return "openbsd";
       default:
         return OS.getCurrent().getCanonicalName();
     }

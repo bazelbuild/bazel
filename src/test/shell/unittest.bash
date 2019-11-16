@@ -734,9 +734,14 @@ if [ "$UNAME" = "linux" ] || [[ "$UNAME" =~ msys_nt* ]]; then
     function timestamp() {
       echo $(($(date +%s%N)/1000000))
     }
+elif [[ "$UNAME" = "openbsd" ]]; then
+    function timestamp() {
+      # OpenBSD does not have %N, so python is the best we can do.
+      python3 -c 'import time; print(int(round(time.time() * 1000)))'
+    }
 else
     function timestamp() {
-      # OS X and FreeBSD do not have %N so python is the best we can do
+      # OS X and FreeBSD do not have %N, so python is the best we can do.
       python -c 'import time; print(int(round(time.time() * 1000)))'
     }
 fi

@@ -20,6 +20,7 @@ filegroup(
             ":zip-bazel-exe_nojdk",
         ],
         "//src/conditions:freebsd": [],
+        "//src/conditions:openbsd": [],
         "//src/conditions:darwin": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",

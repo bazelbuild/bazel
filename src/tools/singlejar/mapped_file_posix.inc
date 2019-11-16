@@ -24,8 +24,8 @@
 
 #include "src/tools/singlejar/diag.h"
 
-// The implementation is 64-bit Linux or OSX specific.
-#if !((defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)) && \
+// The implementation is specific to 64-bit Linux / OS X / BSD.
+#if !((defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)) && \
       __SIZEOF_POINTER__ == 8)
 #error This code for 64 bit Unix.
 #endif

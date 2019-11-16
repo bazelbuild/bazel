@@ -7,7 +7,9 @@ load(":rule_size_test.bzl", "rule_size_test")
 exports_files(["jdeps_modules.golden"])
 
 # Keep only the first 32 chars (a hex md5sum) and no trailing newline.
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | head -c 32 > $@"
+# Avoid using the `head` tool's `-c` option, since it does not exist on OpenBSD;
+# here we use `dd` instead.
+md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | dd bs=32 count=1 > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(
@@ -40,6 +42,7 @@ filegroup(
         "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5"),
         "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5"),
         "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5"),
+        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5"),
         "//conditions:default": md5_cmd % ("md5sum", "md5sum"),
     }),
 ) for suffix, embedded_tools_target in {
@@ -354,8 +357,8 @@ filegroup(
         ],
     }),
     outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = ["package-bazel.sh"],
+    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
+    tools = [":package_bazel_on_host_platform"],
 ) for suffix, embed in [
     ("_jdk_allmodules", True),
     ("_jdk_minimal", True),
@@ -363,6 +366,16 @@ filegroup(
     ("_notools", False),
     ("_nojdk", True),
 ]]
+
+genrule(
+    name = "package_bazel_on_host_platform",
+    srcs = ["package-bazel.sh"],
+    outs = ["package-bazel-on-host-platform.sh"],
+    cmd = select({
+        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
+        "//conditions:default": "cp $(SRCS) $@",
+    }),
+)
 
 genrule(
     name = "platforms_archive",

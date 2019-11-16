@@ -97,7 +97,7 @@ EOF
 
 function test_remote_grpc_via_unix_socket() {
   case "$PLATFORM" in
-  darwin|freebsd|linux)
+  darwin|freebsd|openbsd|linux)
     ;;
   *)
     return 0

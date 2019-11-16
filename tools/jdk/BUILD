@@ -116,6 +116,11 @@ java_runtime_files(
     srcs = ["include/freebsd/jni_md.h"],
 )
 
+java_runtime_files(
+    name = "jni_md_header-openbsd",
+    srcs = ["include/openbsd/jni_md.h"],
+)
+
 alias(
     name = "java",
     actual = "@local_jdk//:java",
