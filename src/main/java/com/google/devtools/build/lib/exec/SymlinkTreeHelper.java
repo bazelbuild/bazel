@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Helper class responsible for the symlink tree creation. Used to generate runfiles and fileset
@@ -71,10 +71,7 @@ public final class SymlinkTreeHelper {
    * @throws CommandException
    */
   public void createSymlinksUsingCommand(
-      Path execRoot,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      OutErr outErr)
+      Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
       throws CommandException {
     Command command = createCommand(execRoot, binTools, shellEnvironment);
     if (outErr != null) {
@@ -93,7 +90,7 @@ public final class SymlinkTreeHelper {
       Path execRoot,
       OutErr outErr,
       BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
+      Map<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException {
     if (enableRunfiles) {
@@ -114,8 +111,7 @@ public final class SymlinkTreeHelper {
   }
 
   @VisibleForTesting
-  Command createCommand(
-      Path execRoot, BinTools binTools, ImmutableMap<String, String> shellEnvironment) {
+  Command createCommand(Path execRoot, BinTools binTools, Map<String, String> shellEnvironment) {
     Preconditions.checkNotNull(shellEnvironment);
     List<String> args = Lists.newArrayList();
     args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());

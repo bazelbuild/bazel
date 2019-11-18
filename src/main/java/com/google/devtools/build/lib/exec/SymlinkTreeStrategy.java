@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -23,6 +22,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.vfs.OutputService;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -45,7 +46,6 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   public void createSymlinks(
       SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext,
-      ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
@@ -60,6 +60,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
         } else {
+          Map<String, String> resolvedEnv = new LinkedHashMap<>();
+          action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
           SymlinkTreeHelper helper =
               new SymlinkTreeHelper(
                   actionExecutionContext.getInputPath(action.getInputManifest()),
@@ -71,7 +73,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               actionExecutionContext.getExecRoot(),
               actionExecutionContext.getFileOutErr(),
               binTools,
-              shellEnvironment,
+              resolvedEnv,
               enableRunfiles);
         }
       } catch (ExecException e) {

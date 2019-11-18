@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -27,8 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Action responsible for the symlink tree creation.
@@ -105,12 +102,9 @@ public final class SymlinkTreeAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Map<String, String> resolvedEnv = new LinkedHashMap<>();
-    env.resolve(resolvedEnv, actionExecutionContext.getClientEnv());
     actionExecutionContext
         .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(
-            this, actionExecutionContext, ImmutableMap.copyOf(resolvedEnv), enableRunfiles);
+        .createSymlinks(this, actionExecutionContext, enableRunfiles);
     return ActionResult.EMPTY;
   }
 
