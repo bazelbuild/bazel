@@ -516,7 +516,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("4 in range(0, 8, 2)", true)
         .testExpression("4 in range(1, 8, 2)", false)
         .testExpression("range(0, 5, 10) == range(0, 5, 11)", true)
-        .testExpression("range(0, 5, 2) == [0, 2, 4]", false);
+        .testExpression("range(0, 5, 2) == [0, 2, 4]", false)
+        .testExpression("str(list(range(1, 10, 2)))", "[1, 3, 5, 7, 9]")
+        .testExpression("str(range(1, 10, 2)[:99])", "range(1, 11, 2)")
+        .testExpression("range(1, 10, 2) == range(1, 11, 2)", true)
+        .testExpression("range(1, 10, 2) == range(1, 12, 2)", false);
   }
 
   @Test

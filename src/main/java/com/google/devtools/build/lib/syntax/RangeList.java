@@ -91,7 +91,7 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
     if (index < 0 || index >= size()) {
       throw new ArrayIndexOutOfBoundsException(index + ":" + this);
     }
-    return start + step * index;
+    return at(index);
   }
 
   @Override
@@ -152,13 +152,14 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
       throws EvalException {
     Slice slice = Slice.from(size(), start, end, step, loc);
     int substep = slice.step * this.step;
-    // TODO(adonovan): why no bounds check here?
-    int substart = getNoCheck(slice.start);
-    int substop = getNoCheck(slice.stop);
+    // Unlike get, no bounds check is wanted here. Consider:
+    // range(1, 10, 2)[:99] == range(1, 11, 2).
+    int substart = at(slice.start);
+    int substop = at(slice.stop);
     return new RangeList(substart, substop, substep);
   }
 
-  private int getNoCheck(int i) {
+  private int at(int i) {
     return start + step * i;
   }
 

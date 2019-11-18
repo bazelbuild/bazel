@@ -237,6 +237,25 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListAddWithIndex() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mutability);
+    Location loc = null;
+    list.add("a", loc);
+    list.add("b", loc);
+    list.add("c", loc);
+    list.add(0, "d", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"b\", \"c\"]");
+    list.add(2, "e", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"c\"]");
+    list.add(4, "f", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\"]");
+    list.add(6, "g", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\", \"g\"]");
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.add(8, "h", loc));
+  }
+
+  @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
     StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
