@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -987,14 +986,7 @@ public class CppHelper {
         Preconditions.checkNotNull(
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
 
-    if (cppOptions.enableCcToolchainResolution) {
-      return true;
-    }
-
-    // TODO(https://github.com/bazelbuild/bazel/issues/7260): Remove this and the flag.
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
+    return cppOptions.enableCcToolchainResolution;
   }
 
   public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(

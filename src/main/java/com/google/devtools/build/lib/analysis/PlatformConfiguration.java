@@ -90,10 +90,6 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
     return enabledToolchainTypes;
   }
 
-  public boolean isToolchainTypeEnabled(Label toolchainType) {
-    return getEnabledToolchainTypes().contains(toolchainType);
-  }
-
   /**
    * Returns a list of labels referring to additional constraint value targets which should be taken
    * into account when resolving the toolchains/execution platform for the target with the given
