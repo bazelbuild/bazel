@@ -548,7 +548,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
       throws EvalException {
     Iterable<?> seq;
     try {
-      seq = EvalUtils.toIterable(args, loc, thread);
+      seq = EvalUtils.toIterable(args, loc);
     } catch (EvalException ex) {
       throw new EvalException(
           loc,
@@ -559,7 +559,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
     for (Object item : seq) {
       Iterable<?> seq2;
       try {
-        seq2 = EvalUtils.toIterable(item, loc, null);
+        seq2 = EvalUtils.toIterable(item, loc);
       } catch (EvalException ex) {
         throw new EvalException(
             loc,

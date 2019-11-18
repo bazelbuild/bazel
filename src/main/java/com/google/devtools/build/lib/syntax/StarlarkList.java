@@ -403,12 +403,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       name = "extend",
       doc = "Adds all items to the end of the list.",
       parameters = {@Param(name = "items", type = Object.class, doc = "Items to add at the end.")},
-      useLocation = true,
-      useStarlarkThread = true)
-  public NoneType extend(Object items, Location loc, StarlarkThread thread) throws EvalException {
+      useLocation = true)
+  public NoneType extend(Object items, Location loc) throws EvalException {
     @SuppressWarnings("unchecked")
-    Collection<? extends E> src =
-        (Collection<? extends E>) EvalUtils.toCollection(items, loc, thread);
+    Collection<? extends E> src = (Collection<? extends E>) EvalUtils.toCollection(items, loc);
     addAll(src, loc);
     return Starlark.NONE;
   }
