@@ -754,12 +754,17 @@ public class RunCommand implements BlazeCommand  {
   }
 
   /**
-   * Return true iff {@code target} is a rule that has an executable file. This includes
-   * *_test rules, *_binary rules, generated outputs, and inputs.
+   * Return true iff it is possible that {@code target} is a rule that has an executable file. This
+   * *_test rules, *_binary rules, aliases, generated outputs, and inputs.
+   *
+   * <p>Determining definitively whether a rule produces an executable can only be done after
+   * analysis; this is only an early sanity check to quickly catch most mistakes.
    */
   private static boolean isExecutable(Target target) {
-    return isPlainFile(target) || isExecutableNonTestRule(target) || TargetUtils.isTestRule(target)
-        || isAliasRule(target);
+    return isPlainFile(target)
+        || isExecutableNonTestRule(target)
+        || TargetUtils.isTestRule(target)
+        || TargetUtils.isAlias(target);
   }
 
   /**
@@ -779,15 +784,6 @@ public class RunCommand implements BlazeCommand  {
 
   private static boolean isPlainFile(Target target) {
     return (target instanceof OutputFile) || (target instanceof InputFile);
-  }
-
-  private static boolean isAliasRule(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-
-    Rule rule = (Rule) target;
-    return rule.getRuleClass().equals("alias") || rule.getRuleClass().equals("bind");
   }
 
   private String makeErrorMessageForNotHavingASingleTarget(

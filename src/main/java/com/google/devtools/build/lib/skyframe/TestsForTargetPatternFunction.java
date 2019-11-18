@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue.TestSuiteExpansionKey;
+import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue.TestsForTargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,17 +34,19 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * TestSuiteExpansionFunction takes a list of targets and expands all test suites in those targets.
+ * Returns all tests that need to be run when testing is requested for a given set of targets.
+ *
+ * <p>This requires resolving {@code test_suite} rules.
  */
-final class TestSuiteExpansionFunction implements SkyFunction {
+final class TestsForTargetPatternFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
-    TestSuiteExpansionKey expansion = (TestSuiteExpansionKey) key.argument();
+    TestsForTargetPatternKey expansion = (TestsForTargetPatternKey) key.argument();
     ResolvedTargets<Target> targets = labelsToTargets(env, expansion.getTargets(), false);
     List<SkyKey> testsInSuitesKeys = new ArrayList<>();
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestSuiteRule(target)) {
-        testsInSuitesKeys.add(TestsInSuiteValue.key(target, true));
+        testsInSuitesKeys.add(TestExpansionValue.key(target, true));
       }
     }
     Map<SkyKey, SkyValue> testsInSuites = env.getValues(testsInSuitesKeys);
@@ -58,8 +60,8 @@ final class TestSuiteExpansionFunction implements SkyFunction {
       if (TargetUtils.isTestRule(target)) {
         result.add(target.getLabel());
       } else if (TargetUtils.isTestSuiteRule(target)) {
-        TestsInSuiteValue value = (TestsInSuiteValue) testsInSuites.get(
-            TestsInSuiteValue.key(target, true));
+        TestExpansionValue value =
+            (TestExpansionValue) testsInSuites.get(TestExpansionValue.key(target, true));
         if (value != null) {
           result.addAll(value.getLabels().getTargets());
           hasError |= value.getLabels().hasError();
@@ -73,7 +75,7 @@ final class TestSuiteExpansionFunction implements SkyFunction {
     }
     // We use ResolvedTargets in order to associate an error flag; the result should never contain
     // any filtered targets.
-    return new TestSuiteExpansionValue(new ResolvedTargets<>(result, hasError));
+    return new TestsForTargetPatternValue(new ResolvedTargets<>(result, hasError));
   }
 
   static ResolvedTargets<Target> labelsToTargets(

@@ -13,22 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Collection;
+import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * A value referring to a computed set of resolved targets. This is used for the results of target
@@ -36,18 +35,16 @@ import java.util.Collection;
  */
 @Immutable
 @ThreadSafe
-@VisibleForTesting
-public final class TestSuiteExpansionValue implements SkyValue {
+final class TestExpansionValue implements SkyValue {
   private ResolvedTargets<Label> labels;
 
-  TestSuiteExpansionValue(ResolvedTargets<Label> labels) {
+  TestExpansionValue(ResolvedTargets<Label> labels) {
     this.labels = Preconditions.checkNotNull(labels);
   }
 
   public ResolvedTargets<Label> getLabels() {
     return labels;
   }
-
 
   @SuppressWarnings("unused")
   private void writeObject(ObjectOutputStream out) {
@@ -61,46 +58,52 @@ public final class TestSuiteExpansionValue implements SkyValue {
 
   @SuppressWarnings("unused")
   private void readObjectNoData() {
-    throw new UnsupportedOperationException();
+    throw new IllegalStateException();
   }
 
   /**
    * Create a target pattern value key.
    *
-   * @param targets the set of targets to be expanded
+   * @param target the target to be expanded
    */
   @ThreadSafe
-  public static SkyKey key(Collection<Label> targets) {
-    return new TestSuiteExpansionKey(ImmutableSortedSet.copyOf(targets));
+  public static SkyKey key(Target target, boolean strict) {
+    Preconditions.checkState(TargetUtils.isTestSuiteRule(target));
+    return new TestExpansionKey(target.getLabel(), strict);
   }
 
   /** A list of targets of which all test suites should be expanded. */
-  @AutoCodec
   @ThreadSafe
-  static final class TestSuiteExpansionKey implements SkyKey {
-    private final ImmutableSortedSet<Label> targets;
+  static final class TestExpansionKey implements SkyKey, Serializable {
+    private final Label label;
+    private final boolean strict;
 
-    public TestSuiteExpansionKey(ImmutableSortedSet<Label> targets) {
-      this.targets = targets;
+    public TestExpansionKey(Label label, boolean strict) {
+      this.label = label;
+      this.strict = strict;
     }
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.TEST_SUITE_EXPANSION;
+      return SkyFunctions.TESTS_IN_SUITE;
     }
 
-    public ImmutableSet<Label> getTargets() {
-      return targets;
+    public Label getLabel() {
+      return label;
+    }
+
+    public boolean isStrict() {
+      return strict;
     }
 
     @Override
     public String toString() {
-      return "ExpandTestSuites(" + targets.toString() + ")";
+      return "TestsInSuite(" + label + ", strict=" + strict + ")";
     }
 
     @Override
     public int hashCode() {
-      return targets.hashCode();
+      return Objects.hash(label, strict);
     }
 
     @Override
@@ -108,11 +111,11 @@ public final class TestSuiteExpansionValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestSuiteExpansionKey)) {
+      if (!(obj instanceof TestExpansionKey)) {
         return false;
       }
-      TestSuiteExpansionKey other = (TestSuiteExpansionKey) obj;
-      return other.targets.equals(targets);
+      TestExpansionKey other = (TestExpansionKey) obj;
+      return other.label.equals(label) && other.strict == strict;
     }
   }
 }

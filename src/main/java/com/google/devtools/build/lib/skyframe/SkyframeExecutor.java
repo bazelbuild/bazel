@@ -509,8 +509,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
             hardcodedBlacklistedPackagePrefixes, additionalBlacklistedPackagePrefixesFile));
-    map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
-    map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());
+    map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
+    map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
     map.put(
         SkyFunctions.PREPARE_ANALYSIS_PHASE,
@@ -2760,7 +2760,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new TransitiveTargetCycleReporter(packageManager),
         new ActionArtifactCycleReporter(packageManager),
         new ConfiguredTargetCycleReporter(packageManager),
-        new TestSuiteCycleReporter(packageManager),
+        new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?

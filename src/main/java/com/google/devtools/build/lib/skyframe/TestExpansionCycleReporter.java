@@ -15,29 +15,29 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.TestsInSuiteValue.TestsInSuiteKey;
+import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Reports cycles occurring in during the expansion of <code>test_suite</code> rules. */
-class TestSuiteCycleReporter extends AbstractLabelCycleReporter {
+class TestExpansionCycleReporter extends AbstractLabelCycleReporter {
 
-  public TestSuiteCycleReporter(PackageProvider packageProvider) {
+  public TestExpansionCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
   }
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return cycleInfo.getCycle().stream().allMatch(TestsInSuiteKey.class::isInstance);
+    return cycleInfo.getCycle().stream().allMatch(TestExpansionKey.class::isInstance);
   }
 
   @Override
   protected boolean shouldSkip(SkyKey key) {
-    return !(key instanceof TestsInSuiteKey);
+    return !(key instanceof TestExpansionKey);
   }
 
   @Override
   protected Label getLabel(SkyKey key) {
-    return ((TestsInSuiteKey) key).getTestSuiteLabel();
+    return ((TestExpansionKey) key).getLabel();
   }
 }

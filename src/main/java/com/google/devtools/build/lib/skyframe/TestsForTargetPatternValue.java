@@ -13,21 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.util.Objects;
+import java.util.Collection;
 
 /**
  * A value referring to a computed set of resolved targets. This is used for the results of target
@@ -35,10 +36,11 @@ import java.util.Objects;
  */
 @Immutable
 @ThreadSafe
-final class TestsInSuiteValue implements SkyValue {
+@VisibleForTesting
+public final class TestsForTargetPatternValue implements SkyValue {
   private ResolvedTargets<Label> labels;
 
-  TestsInSuiteValue(ResolvedTargets<Label> labels) {
+  TestsForTargetPatternValue(ResolvedTargets<Label> labels) {
     this.labels = Preconditions.checkNotNull(labels);
   }
 
@@ -58,54 +60,46 @@ final class TestsInSuiteValue implements SkyValue {
 
   @SuppressWarnings("unused")
   private void readObjectNoData() {
-    throw new IllegalStateException();
+    throw new UnsupportedOperationException();
   }
 
   /**
    * Create a target pattern value key.
    *
-   * @param testSuiteTarget the test suite target to be expanded
+   * @param targets the set of targets to be expanded
    */
   @ThreadSafe
-  public static SkyKey key(Target testSuiteTarget, boolean strict) {
-    Preconditions.checkState(TargetUtils.isTestSuiteRule(testSuiteTarget));
-    return new TestsInSuiteKey(testSuiteTarget.getLabel(), strict);
+  public static SkyKey key(Collection<Label> targets) {
+    return new TestsForTargetPatternKey(ImmutableSortedSet.copyOf(targets));
   }
 
-  /**
-   * A list of targets of which all test suites should be expanded.
-   */
+  /** A list of targets of which all test suites should be expanded. */
+  @AutoCodec
   @ThreadSafe
-  static final class TestsInSuiteKey implements SkyKey, Serializable {
-    private final Label testSuiteLabel;
-    private final boolean strict;
+  static final class TestsForTargetPatternKey implements SkyKey {
+    private final ImmutableSortedSet<Label> targets;
 
-    public TestsInSuiteKey(Label testSuiteLabel, boolean strict) {
-      this.testSuiteLabel = testSuiteLabel;
-      this.strict = strict;
+    public TestsForTargetPatternKey(ImmutableSortedSet<Label> targets) {
+      this.targets = targets;
     }
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.TESTS_IN_SUITE;
+      return SkyFunctions.TEST_SUITE_EXPANSION;
     }
 
-    public Label getTestSuiteLabel() {
-      return testSuiteLabel;
-    }
-
-    public boolean isStrict() {
-      return strict;
+    public ImmutableSet<Label> getTargets() {
+      return targets;
     }
 
     @Override
     public String toString() {
-      return "TestsInSuite(" + testSuiteLabel.toString() + ", strict=" + strict + ")";
+      return "ExpandTestSuites(" + targets.toString() + ")";
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(testSuiteLabel, strict);
+      return targets.hashCode();
     }
 
     @Override
@@ -113,11 +107,11 @@ final class TestsInSuiteValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestsInSuiteKey)) {
+      if (!(obj instanceof TestsForTargetPatternKey)) {
         return false;
       }
-      TestsInSuiteKey other = (TestsInSuiteKey) obj;
-      return other.testSuiteLabel.equals(testSuiteLabel) && other.strict == strict;
+      TestsForTargetPatternKey other = (TestsForTargetPatternKey) obj;
+      return other.targets.equals(targets);
     }
   }
 }

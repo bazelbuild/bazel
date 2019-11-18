@@ -18,17 +18,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.skyframe.TestsInSuiteValue.TestsInSuiteKey;
+import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -44,25 +43,25 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
- * TestsInSuiteFunction takes a single test_suite target and expands all of the tests it contains,
+ * TestExpansionFunction takes a single test_suite target and expands all of the tests it contains,
  * possibly recursively.
  */
 // TODO(ulfjack): What about test_suite rules that include each other.
-final class TestsInSuiteFunction implements SkyFunction {
+final class TestExpansionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
-    TestsInSuiteKey expansion = (TestsInSuiteKey) key.argument();
-    SkyKey packageKey = PackageValue.key(expansion.getTestSuiteLabel().getPackageIdentifier());
+    TestExpansionKey expansion = (TestExpansionKey) key.argument();
+    SkyKey packageKey = PackageValue.key(expansion.getLabel().getPackageIdentifier());
     PackageValue pkg = (PackageValue) env.getValue(packageKey);
     if (env.valuesMissing()) {
       return null;
     }
-    Rule testSuite = pkg.getPackage().getRule(expansion.getTestSuiteLabel().getName());
-    ResolvedTargets<Label> result = computeTestsInSuite(env, testSuite, expansion.isStrict());
+    Rule rule = pkg.getPackage().getRule(expansion.getLabel().getName());
+    ResolvedTargets<Label> result = computeExpandedTests(env, rule, expansion.isStrict());
     if (env.valuesMissing()) {
       return null;
     }
-    return new TestsInSuiteValue(result);
+    return new TestExpansionValue(result);
   }
 
   private static Set<Label> toLabels(Set<Target> targets) {
@@ -70,40 +69,45 @@ final class TestsInSuiteFunction implements SkyFunction {
   }
 
   /**
-   * Populates 'result' with all the tests associated with the specified 'testSuite'. Throws an
-   * exception if any target is missing.
+   * Populates 'result' with all the tests associated with the specified 'rule'. Throws an exception
+   * if any target is missing.
    *
    * <p>CAUTION! Keep this logic consistent with {@code TestSuite}!
    */
-  private static ResolvedTargets<Label> computeTestsInSuite(
-      Environment env, Rule testSuite, boolean strict) throws InterruptedException {
+  private static ResolvedTargets<Label> computeExpandedTests(
+      Environment env, Rule rule, boolean strict) throws InterruptedException {
     Set<Target> result = new HashSet<>();
     boolean hasError = false;
 
-    List<Target> testsAndSuites = new ArrayList<>();
-    // Note that testsAndSuites can contain input file targets; the test_suite rule does not
+    List<Target> prerequisites = new ArrayList<>();
+    // Note that prerequisites can contain input file targets; the test_suite rule does not
     // restrict the set of targets that can appear in tests or suites.
-    hasError |= getPrerequisites(env, testSuite, "tests", testsAndSuites);
+    hasError |= getPrerequisites(env, rule, "tests", prerequisites);
 
     // 1. Add all tests
-    for (Target test : testsAndSuites) {
+    for (Target test : prerequisites) {
       if (TargetUtils.isTestRule(test)) {
         result.add(test);
       } else if (strict && !TargetUtils.isTestSuiteRule(test)) {
         // If strict mode is enabled, then give an error for any non-test, non-test-suite targets.
         // TODO(ulfjack): We need to throw to end the process if we happen to be in --nokeep_going,
         // but we can't know whether or not we are at this point.
-        env.getListener().handle(Event.error(testSuite.getLocation(),
-            "in test_suite rule '" + testSuite.getLabel()
-            + "': expecting a test or a test_suite rule but '" + test.getLabel()
-            + "' is not one."));
+        env.getListener()
+            .handle(
+                Event.error(
+                    rule.getLocation(),
+                    "in test_suite rule '"
+                        + rule.getLabel()
+                        + "': expecting a test or a test_suite rule but '"
+                        + test.getLabel()
+                        + "' is not one."));
         hasError = true;
       }
     }
 
     // 2. Add implicit dependencies on tests in same package, if any.
     List<Target> implicitTests = new ArrayList<>();
-    hasError |= getPrerequisites(env, testSuite, "$implicit_tests", implicitTests);
+    hasError |= getPrerequisites(env, rule, "$implicit_tests", implicitTests);
     for (Target target : implicitTests) {
       // The Package construction of $implicit_tests ensures that this check never fails, but we
       // add it here anyway for compatibility with future code.
@@ -113,17 +117,17 @@ final class TestsInSuiteFunction implements SkyFunction {
     }
 
     // 3. Filter based on tags, size, env.
-    TestTargetUtils.filterTests(testSuite, result);
+    TestTargetUtils.filterTests(rule, result);
 
-    // 4. Expand all suites recursively, collecting labels.
+    // 4. Expand all rules recursively, collecting labels.
     ResolvedTargets.Builder<Label> labelsBuilder = ResolvedTargets.builder();
     // Don't set filtered targets; they would be removed from the containing test suite.
     labelsBuilder.merge(new ResolvedTargets<>(toLabels(result), ImmutableSet.of(), hasError));
 
-    for (Target suite : testsAndSuites) {
+    for (Target suite : prerequisites) {
       if (TargetUtils.isTestSuiteRule(suite)) {
-        TestsInSuiteValue value =
-            (TestsInSuiteValue) env.getValue(TestsInSuiteValue.key(suite, strict));
+        TestExpansionValue value =
+            (TestExpansionValue) env.getValue(TestExpansionValue.key(suite, strict));
         if (value == null) {
           continue;
         }
@@ -136,19 +140,24 @@ final class TestsInSuiteFunction implements SkyFunction {
 
   /**
    * Adds the set of targets found in the attribute named {@code attrName}, which must be of label
-   * list type, of the {@code test_suite} rule named {@code testSuite}. Returns true if the method
-   * found a problem during the lookup process; the actual error message is reported to the
+   * or label list type, of the {@code test_suite} rule named {@code testSuite}. Returns true if the
+   * method found a problem during the lookup process; the actual error message is reported to the
    * environment.
    */
   private static boolean getPrerequisites(
-      Environment env, Rule testSuite, String attrName, List<Target> targets)
+      Environment env, Rule rule, String attrName, List<Target> targets)
       throws InterruptedException {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     List<Label> labels =
-        NonconfigurableAttributeMapper.of(testSuite).get(attrName, BuildType.LABEL_LIST);
+        mapper.visitLabels(mapper.getAttributeDefinition(attrName)).stream()
+            .map(e -> e.getLabel())
+            .collect(Collectors.toList());
+
     Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
+
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
         env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);
     if (env.valuesMissing()) {
