@@ -30,10 +30,20 @@ installed for Bazel to work.
 
 ### Step 1: Install required packages
 
-First, install the prerequisites: `pkg-config`, `zip`, `g++`, `zlib1g-dev`, `unzip`, and `python3`.
+Bazel needs a C++ compiler and unzip / zip in order to work:
 
 ```bash
-sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python3
+sudo apt-get install g++ unzip zip
+```
+
+If you want to build Java code using Bazel, install a JDK:
+
+```bash
+# Ubuntu 16.04 (LTS) uses OpenJDK 8 by default:
+sudo apt-get install openjdk-8-jdk
+
+# Ubuntu 18.04 (LTS) uses OpenJDK 11 by default:
+sudo apt-get install openjdk-11-jdk
 ```
 
 ### Step 2: Download Bazel
@@ -70,7 +80,10 @@ You can also add this command to your `~/.bashrc` file.
 
 ### Step 1: Install the JDK (optional)
 
-If you want to build Java code using Bazel, install a JDK:
+Bazel includes a private, bundled JRE as its runtime and doesn't require you to
+install any specific version of Java.
+
+However, if you want to build Java code using Bazel, you have to install a JDK.
 
 ```bash
 # Ubuntu 16.04 (LTS) uses OpenJDK 8 by default:
@@ -85,12 +98,18 @@ sudo apt-get install openjdk-11-jdk
 **Note:** This is a one-time setup step.
 
 ```bash
-echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 sudo apt-get install curl
 curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
+echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 ```
 
-If you want to install the testing version of Bazel, replace `stable` with `testing`.
+Note: The component name "jdk1.8" is kept for legacy reasons only and doesn't
+relate to supported or included JDK versions anymore. In the past, when Bazel
+did not yet bundle a private JRE, we had two release versions, one compatible
+with JDK 7 and one with JDK 8. However, since we dropped Java 7 support and
+started bundling a private runtime, Bazel releases are Java version agnostic.
+Changing the "jdk1.8" component name would break existing users of the repo
+though.
 
 ### Step 3: Install and update Bazel
 
