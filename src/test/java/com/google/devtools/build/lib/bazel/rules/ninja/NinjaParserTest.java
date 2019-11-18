@@ -221,14 +221,31 @@ public class NinjaParserTest {
 
     scope.expandVariables();
 
+    // Variables, defined inside build statement, are used for input and output paths,
+    // but not for the values of the other variables.
+    // Test it.
     NinjaTarget target = createParser("build $output : command $input $dir/abcde\n"
-            + "  dir = def$input").parseNinjaTarget(scope, 5);
+            + "  dir = def$input\n  empty = '$dir'").parseNinjaTarget(scope, 5);
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("out123"));
     assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("in123"),
         PathFragment.create("defin123/abcde"));
     assertThat(target.getVariables()).containsExactlyEntriesIn(
-        ImmutableSortedMap.of("dir", "defin123"));
+        ImmutableSortedMap.of("dir", "defin123", "empty", "''"));
+  }
+
+  @Test
+  public void testPseudoCyclesOfVariables() {
+    NinjaScope scope = new NinjaScope();
+    scope.addVariable("output", 1, NinjaVariableValue.builder()
+        .addText("'out'")
+        .addVariable("input").build());
+    scope.addVariable("input", 2, NinjaVariableValue.builder()
+        .addText("'in'")
+        .addVariable("output").build());
+    scope.expandVariables();
+    assertThat(scope.findExpandedVariable(3, "input")).isEqualTo("'in''out'");
+    assertThat(scope.findExpandedVariable(3, "output")).isEqualTo("'out'");
   }
 
   @Test
@@ -248,7 +265,9 @@ public class NinjaParserTest {
   }
 
   private static NinjaTarget parseNinjaTarget(String text) throws GenericParsingException {
-    return createParser(text).parseNinjaTarget(new NinjaScope(), 0);
+    NinjaScope fileScope = new NinjaScope();
+    fileScope.expandVariables();
+    return createParser(text).parseNinjaTarget(fileScope, 0);
   }
 
   private static void doTestNinjaRuleParsingException(String text, String message) {

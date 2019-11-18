@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -44,9 +45,10 @@ public class NinjaScope {
   @Nullable private final Integer includePoint;
 
   private final NavigableMap<Integer, NinjaScope> includedScopes;
-  private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
-  private final Map<String, List<Pair<Integer, String>>> expandedVariables;
-  private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
+  protected final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
+  private Map<String, List<Pair<Integer, String>>> expandedVariables;
+  protected final Map<String, List<Pair<Integer, NinjaRule>>> rules;
+  private boolean isExpanded;
 
   public NinjaScope() {
     this(null, null);
@@ -61,27 +63,42 @@ public class NinjaScope {
     rules = Maps.newHashMap();
   }
 
+  private NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint,
+      ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
+    this.parentScope = parentScope;
+    this.includePoint = includePoint;
+    includedScopes = Maps.newTreeMap();
+    variables = Maps.newHashMap();
+    this.expandedVariables = expandedVariables;
+    rules = Maps.newHashMap();
+    isExpanded = true;
+  }
+
+  NinjaScope createTargetsScope(
+      ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
+    return new NinjaScope(this, Integer.MAX_VALUE, expandedVariables);
+  }
+
   public NinjaScope createIncludeScope(int offset) {
+    Preconditions.checkState(!isExpanded);
     NinjaScope includeScope = new NinjaScope(this, offset);
     includedScopes.put(offset, includeScope);
     return includeScope;
   }
 
   public void addVariable(String name, int offset, NinjaVariableValue value) {
+    Preconditions.checkState(!isExpanded);
     variables.computeIfAbsent(name, k -> Lists.newArrayList()).add(Pair.of(offset, value));
   }
 
   public void addRule(int offset, NinjaRule rule) {
+    Preconditions.checkState(!isExpanded);
     rules.computeIfAbsent(rule.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, rule));
   }
 
   @VisibleForTesting
   public Map<String, List<Pair<Integer, NinjaVariableValue>>> getVariables() {
     return variables;
-  }
-
-  public Map<String, List<Pair<Integer, String>>> getExpandedVariables() {
-    return expandedVariables;
   }
 
   @VisibleForTesting
@@ -99,9 +116,16 @@ public class NinjaScope {
     }
   }
 
-  private void expandVariable(String name, int offset, NinjaVariableValue value) {
-    List<Pair<Integer, String>> targetList =
-        expandedVariables.computeIfAbsent(name, k -> Lists.newArrayList());
+  /**
+   * Expands variable value at the given offset.
+   * If some of the variable references, used in the value, can not be found, uses an empty string
+   * as their value.
+   *
+   * This method is used either on already expanded scope, or in the process of the scope expansion
+   * in {@link #expandVariables}.
+   */
+  public String getExpandedValue(int offset, NinjaVariableValue value) {
+    Preconditions.checkState(isExpanded);
     // Cache expanded variables values to save time replacing several references to the same
     // variable.
     // This cache is local to the offset, it depends on the offset of the variable we are expanding.
@@ -110,12 +134,14 @@ public class NinjaScope {
     // Do the same as Ninja implementation: if the variable is not found, use empty string.
     Function<String, String> expander =
         ref -> cache.computeIfAbsent(ref, (key) -> nullToEmpty(findExpandedVariable(offset, key)));
-    targetList.add(Pair.of(offset, value.getExpandedValue(expander)));
+    return value.getExpandedValue(expander);
   }
 
   /** Resolve variables inside this scope and included scopes. */
   public void expandVariables() {
-    Preconditions.checkState(expandedVariables.isEmpty());
+    Preconditions.checkState(!isExpanded);
+    /* To allow assertion in {@link #getExpandedValue} to pass. */
+    isExpanded = true;
 
     TreeMap<Integer, Runnable> resolvables = Maps.newTreeMap();
     for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
@@ -123,7 +149,9 @@ public class NinjaScope {
       for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
         int offset = Preconditions.checkNotNull(pair.getFirst());
         NinjaVariableValue variableValue = Preconditions.checkNotNull(pair.getSecond());
-        resolvables.put(offset, () -> expandVariable(name, offset, variableValue));
+        resolvables.put(offset, () ->
+            expandedVariables.computeIfAbsent(name, k -> Lists.newArrayList())
+                .add(Pair.of(offset, getExpandedValue(offset, variableValue))));
       }
     }
     for (Map.Entry<Integer, NinjaScope> entry : includedScopes.entrySet()) {
@@ -131,6 +159,8 @@ public class NinjaScope {
     }
 
     resolvables.values().forEach(Runnable::run);
+    expandedVariables = ImmutableSortedMap.copyOf(expandedVariables);
+    variables.clear();
   }
 
   /**

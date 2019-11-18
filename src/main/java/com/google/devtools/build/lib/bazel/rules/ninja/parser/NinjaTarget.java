@@ -27,65 +27,6 @@ import java.util.List;
  * Ninja target (build statement) representation.
  */
 public final class NinjaTarget {
-  private final String ruleName;
-  private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
-  private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
-  private final ImmutableSortedMap<String, String> variables;
-
-  public NinjaTarget(String ruleName,
-      ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
-      ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
-      ImmutableSortedMap<String, String> variables) {
-    this.ruleName = ruleName;
-    this.inputs = inputs;
-    this.outputs = outputs;
-    this.variables = variables;
-  }
-
-  public String getRuleName() {
-    return ruleName;
-  }
-
-  public ImmutableSortedMap<String, String> getVariables() {
-    return variables;
-  }
-
-  public boolean hasInputs() {
-    return !inputs.isEmpty();
-  }
-
-  public List<PathFragment> getOutputs() {
-    return outputs.get(OutputKind.USUAL);
-  }
-
-  public List<PathFragment> getImplicitOutputs() {
-    return outputs.get(OutputKind.IMPLICIT);
-  }
-
-  public Collection<PathFragment> getAllOutputs() {
-    return outputs.values();
-  }
-
-  public Collection<PathFragment> getAllInputs() {
-    return inputs.values();
-  }
-
-  public Collection<PathFragment> getUsualInputs() {
-    return inputs.get(InputKind.USUAL);
-  }
-
-  public Collection<PathFragment> getImplicitInputs() {
-    return inputs.get(InputKind.IMPLICIT);
-  }
-
-  public Collection<PathFragment> getOrderOnlyInputs() {
-    return inputs.get(InputKind.ORDER_ONLY);
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
   /** Builder for {@link NinjaTarget}. */
   public static class Builder {
     private String ruleName;
@@ -151,4 +92,63 @@ public final class NinjaTarget {
    */
   @Immutable
   public interface InputOutputKind {}
+
+  private final String ruleName;
+  private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
+  private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
+  private final ImmutableSortedMap<String, String> variables;
+
+  public NinjaTarget(String ruleName,
+      ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
+      ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
+      ImmutableSortedMap<String, String> variables) {
+    this.ruleName = ruleName;
+    this.inputs = inputs;
+    this.outputs = outputs;
+    this.variables = variables;
+  }
+
+  public String getRuleName() {
+    return ruleName;
+  }
+
+  public ImmutableSortedMap<String, String> getVariables() {
+    return variables;
+  }
+
+  public boolean hasInputs() {
+    return !inputs.isEmpty();
+  }
+
+  public List<PathFragment> getOutputs() {
+    return outputs.get(OutputKind.USUAL);
+  }
+
+  public List<PathFragment> getImplicitOutputs() {
+    return outputs.get(OutputKind.IMPLICIT);
+  }
+
+  public Collection<PathFragment> getAllOutputs() {
+    return outputs.values();
+  }
+
+  public Collection<PathFragment> getAllInputs() {
+    return inputs.values();
+  }
+
+  public Collection<PathFragment> getUsualInputs() {
+    return inputs.get(InputKind.USUAL);
+  }
+
+  public Collection<PathFragment> getImplicitInputs() {
+    return inputs.get(InputKind.IMPLICIT);
+  }
+
+  public Collection<PathFragment> getOrderOnlyInputs() {
+    return inputs.get(InputKind.ORDER_ONLY);
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
 }

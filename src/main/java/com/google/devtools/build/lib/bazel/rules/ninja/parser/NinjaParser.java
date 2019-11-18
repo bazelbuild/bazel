@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -250,7 +249,9 @@ public class NinjaParser {
           )
       );
 
-  /** Parses Ninja target using <code>variableExpander</code> to expand variables. */
+  /** Parses Ninja target using {@link NinjaScope} of the file, where it is defined,
+   * to expand variables.
+   **/
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
       throws GenericParsingException {
     NinjaTarget.Builder builder = NinjaTarget.builder();
@@ -259,28 +260,13 @@ public class NinjaParser {
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
         parseTargetDependenciesPart(builder);
 
-    NinjaScope targetScope = new NinjaScope(fileScope, offset);
-    int offsetAtTheEndOfTarget = parseTargetVariables(offset, targetScope);
+    NinjaScope targetScope = parseTargetVariables(offset, fileScope, builder);
 
-    targetScope.expandVariables();
-    Map<String, List<Pair<Integer, String>>> expandedVariables = targetScope.getExpandedVariables();
-    for (Map.Entry<String, List<Pair<Integer, String>>> entry : expandedVariables.entrySet()) {
-      List<Pair<Integer, String>> values = entry.getValue();
-      String name = entry.getKey();
-      if (values.size() > 1) {
-        throw new GenericParsingException(
-            String.format("Variable '%s' can not be redefined inside build block.", name));
-      }
-      builder.addVariable(name, values.get(0).getSecond());
-    }
-
-    // Use offset in the end of the target, so that paths of this target could use the variables,
-    // defined in this target.
-    Function<String, String> expander = (name) ->
-        targetScope.findExpandedVariable(offsetAtTheEndOfTarget, name);
+    // Variables from the build statement can be used in the input and output paths, so
+    // we are using targetScope to resolve paths values.
     for (Map.Entry<InputOutputKind, List<NinjaVariableValue>> entry : pathValuesMap.entrySet()) {
       List<PathFragment> paths = entry.getValue().stream()
-          .map(value -> PathFragment.create(value.getExpandedValue(expander)))
+          .map(value -> PathFragment.create(targetScope.getExpandedValue(Integer.MAX_VALUE, value)))
           .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
@@ -294,26 +280,42 @@ public class NinjaParser {
   }
 
   /**
-   * We are using the {@link NinjaScope} for recording the variable values, because they can refer
-   * to the global file-level variables, and we already implemented the logic for expanding those.
+   * We resolve build statement variables values, using the file scope: build statement
+   * variable values can not refer to each other.
+   * Then we are constructing the target's {@link NinjaScope} with already expanded variables;
+   * it will be used for resolving target's input and output paths (which can also refer to
+   * file-level variables, so we better reuse resolve logic that we already have in NinjaScope).
+   *
+   * As we expand variable values, we are adding them to {@link NinjaTarget.Builder}.
    *
    * Ninja targets can not refer to the rule's variables values, because the rule variables are only
    * expanded when the rule is used, and the rule is used for already parsed target.
    * However, target's variables can override values of rule's variables.
+   *
+   * @return Ninja scope for expanding input and output paths of that statement
    */
-  private int parseTargetVariables(int offset, NinjaScope targetScope)
+  private NinjaScope parseTargetVariables(
+      int offset,
+      NinjaScope fileScope,
+      NinjaTarget.Builder builder)
       throws GenericParsingException {
-    int varOffset = 1;
+    Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
     while (lexer.hasNextToken()) {
       parseExpected(NinjaToken.INDENT);
+
       Pair<String, NinjaVariableValue> pair = parseVariable();
-      targetScope.addVariable(Preconditions.checkNotNull(pair.getFirst()),
-          offset + varOffset++, Preconditions.checkNotNull(pair.getSecond()));
+      String name = Preconditions.checkNotNull(pair.getFirst());
+      NinjaVariableValue value = Preconditions.checkNotNull(pair.getSecond());
+      String expandedValue = fileScope.getExpandedValue(offset, value);
+      expandedVariables.computeIfAbsent(name, k -> Lists.newArrayList())
+          .add(Pair.of(0, expandedValue));
+      builder.addVariable(name, expandedValue);
+
       if (lexer.hasNextToken()) {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return offset + varOffset;
+    return fileScope.createTargetsScope(ImmutableSortedMap.copyOf(expandedVariables));
   }
 
   /**
