@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -111,6 +112,15 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
    * PathConverter} unless you have returned a corresponding {@link LocalFile} object here.
    */
   default Collection<LocalFile> referencedLocalFiles() {
+    return ImmutableList.of();
+  }
+
+  /**
+   * Returns a collection of URI futures corresponding to in-flight file uploads.
+   *
+   * <p>The files here are considered "remote" in that they may not correspond to on-disk files.
+   */
+  default Collection<ListenableFuture<String>> remoteUploads() {
     return ImmutableList.of();
   }
 

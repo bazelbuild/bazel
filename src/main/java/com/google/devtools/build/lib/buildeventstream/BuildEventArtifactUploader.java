@@ -14,11 +14,18 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.Maps;
+import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
@@ -32,6 +39,40 @@ public interface BuildEventArtifactUploader {
    * as it should appear in the BEP.
    */
   ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
+
+  /** The timeout on individual file uploads, or null if none. */
+  @Nullable
+  default Duration timeout() {
+    return null;
+  }
+
+  /** The context associated with an in-flight remote upload. */
+  interface UploadContext {
+
+    /** The {@link OutputStream} to stream the file contents to. */
+    OutputStream getOutputStream();
+
+    /** The future URI of the completed upload. */
+    ListenableFuture<String> uriFuture();
+  }
+
+  /** Initiate a streaming upload to the remote storage. */
+  default UploadContext startUpload(LocalFileType type) {
+    return EMPTY_UPLOAD;
+  }
+
+  UploadContext EMPTY_UPLOAD =
+      new UploadContext() {
+        @Override
+        public OutputStream getOutputStream() {
+          return ByteStreams.nullOutputStream();
+        }
+
+        @Override
+        public ListenableFuture<String> uriFuture() {
+          return Futures.immediateFailedFuture(new IOException("No available uploader"));
+        }
+      };
 
   /**
    * Shutdown any resources associated with the uploader.

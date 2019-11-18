@@ -237,14 +237,16 @@ abstract class FileTransport implements BuildEventTransport {
       BuildEvent event, ArtifactGroupNamer namer) {
     checkNotNull(event);
 
+    ListenableFuture<PathConverter> converterFuture =
+        uploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
     return Futures.transform(
-        uploader.uploadReferencedLocalFiles(event.referencedLocalFiles()),
-        pathConverter -> {
+        Futures.allAsList(converterFuture, Futures.successfulAsList(event.remoteUploads())),
+        results -> {
           BuildEventContext context =
               new BuildEventContext() {
                 @Override
                 public PathConverter pathConverter() {
-                  return pathConverter;
+                  return Futures.getUnchecked(converterFuture);
                 }
 
                 @Override

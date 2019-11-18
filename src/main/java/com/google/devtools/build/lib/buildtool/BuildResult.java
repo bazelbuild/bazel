@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
@@ -294,7 +296,7 @@ public final class BuildResult {
    */
   public static final class BuildToolLogCollection {
     private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
-    private final List<Pair<String, String>> directUris = new ArrayList<>();
+    private final List<Pair<String, ListenableFuture<String>>> futureUris = new ArrayList<>();
     private final List<LogFileEntry> localFiles = new ArrayList<>();
     private boolean frozen;
 
@@ -316,7 +318,13 @@ public final class BuildResult {
 
     public BuildToolLogCollection addUri(String name, String uri) {
       Preconditions.checkState(!frozen);
-      this.directUris.add(Pair.of(name, uri));
+      this.futureUris.add(Pair.of(name, Futures.immediateFuture(uri)));
+      return this;
+    }
+
+    public BuildToolLogCollection addUriFuture(String name, ListenableFuture<String> uriFuture) {
+      Preconditions.checkState(!frozen);
+      this.futureUris.add(Pair.of(name, uriFuture));
       return this;
     }
 
@@ -333,7 +341,7 @@ public final class BuildResult {
 
     public BuildToolLogs toEvent() {
       Preconditions.checkState(frozen);
-      return new BuildToolLogs(directValues, directUris, localFiles);
+      return new BuildToolLogs(directValues, futureUris, localFiles);
     }
 
     /** For debugging. */
@@ -341,7 +349,7 @@ public final class BuildResult {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("directValues", directValues)
-          .add("directUris", directUris)
+          .add("futureUris", futureUris)
           .add("localFiles", localFiles)
           .toString();
     }
