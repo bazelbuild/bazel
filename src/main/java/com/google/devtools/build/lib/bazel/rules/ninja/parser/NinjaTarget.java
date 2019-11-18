@@ -27,12 +27,12 @@ import com.google.errorprone.annotations.Immutable;
 /**
  * Ninja target (build statement) representation.
  */
-@Immutable
 public final class NinjaTarget {
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
   private final ImmutableSortedMap<String, String> variables;
+  private final int hash;
 
   public NinjaTarget(String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
@@ -42,6 +42,7 @@ public final class NinjaTarget {
     this.inputs = inputs;
     this.outputs = outputs;
     this.variables = variables;
+    this.hash = Objects.hash(ruleName, inputs, outputs, variables);
   }
 
   public String getRuleName() {
@@ -82,26 +83,6 @@ public final class NinjaTarget {
 
   public Collection<PathFragment> getOrderOnlyInputs() {
     return inputs.get(InputKind.ORDER_ONLY);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    NinjaTarget that = (NinjaTarget) o;
-    return Objects.equals(ruleName, that.ruleName) &&
-        Objects.equals(inputs, that.inputs) &&
-        Objects.equals(outputs, that.outputs) &&
-        Objects.equals(variables, that.variables);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(ruleName, inputs, outputs, variables);
   }
 
   public static Builder builder() {
