@@ -40,7 +40,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:0.17.1 \
+  l.gcr.io/google/bazel:latest \
   --output_user_root=/tmp/build_output \
   build //absl/...
 ```
@@ -56,7 +56,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:0.17.1 \
+  l.gcr.io/google/bazel:latest \
   --output_user_root=/tmp/build_output \
   build --config=<asan/tsan/msan> -- //absl/... -//absl/types:variant_test
 ```
@@ -71,7 +71,7 @@ container, build results will be cached.
 Start a shell in the Bazel container:
 
 ```bash
-docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:0.17.1
+docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
 ```
 
 Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
@@ -101,7 +101,7 @@ root@5a99103747c6:~/abseil-cpp# bazel build --config=<asan/tsan/msan> -- //absl/
 If you haven't already, start an interactive shell inside the Bazel container.
 
 ```bash
-docker run -it --entrypoint=/bin/bash l.gcr.io/google/bazel:0.17.1
+docker run -it --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
 root@5a99103747c6:/#
 ```
 
