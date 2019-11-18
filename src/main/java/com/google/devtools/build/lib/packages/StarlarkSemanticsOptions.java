@@ -493,6 +493,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleRemapMainRepo;
 
   @Option(
+      name = "incompatible_remove_enabled_toolchain_types",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the platform configuration fragment cannot access the (deprecated) list"
+              + " of enabled toolchain types.")
+  public boolean incompatibleRemoveEnabledToolchainTypes;
+
+  @Option(
       name = "incompatible_remove_native_maven_jar",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -643,6 +657,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
             .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
             .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
+            .incompatibleRemoveEnabledToolchainTypes(incompatibleRemoveEnabledToolchainTypes)
             .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
             .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)

@@ -66,6 +66,8 @@ public abstract class StarlarkSemantics {
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
+    INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES(
+        StarlarkSemantics::incompatibleRemoveEnabledToolchainTypes),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -184,6 +186,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemapMainRepo();
 
+  public abstract boolean incompatibleRemoveEnabledToolchainTypes();
+
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
   public abstract boolean incompatibleRestrictNamedParams();
@@ -270,6 +274,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleRemapMainRepo(true)
+          .incompatibleRemoveEnabledToolchainTypes(false)
           .incompatibleRemoveNativeMavenJar(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
@@ -346,6 +351,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleRemapMainRepo(boolean value);
+
+    public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 

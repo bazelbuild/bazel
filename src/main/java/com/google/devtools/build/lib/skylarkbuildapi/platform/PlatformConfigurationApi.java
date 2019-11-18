@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.List;
 
 /** The platform configuration. */
@@ -46,6 +47,7 @@ public interface PlatformConfigurationApi extends SkylarkValue {
   @SkylarkCallable(
       name = "enabled_toolchain_types",
       structField = true,
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES,
       doc = "The set of toolchain types enabled for platform-based toolchain selection.")
   List<Label> getEnabledToolchainTypes();
 }
