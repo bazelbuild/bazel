@@ -377,7 +377,11 @@ public class SkylarkRepositoryContext
   }
 
   boolean isRemotable() {
-    return (Boolean) rule.getAttributeContainer().getAttr("$remotable");
+    Object remotable = rule.getAttributeContainer().getAttr("$remotable");
+    if (remotable != null) {
+      return (Boolean) remotable;
+    }
+    return false;
   }
 
   private boolean canExecuteRemote() {
