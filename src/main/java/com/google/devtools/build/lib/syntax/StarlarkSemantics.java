@@ -190,8 +190,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRunShellCommandString();
 
-  public abstract boolean incompatibleStringJoinRequiresStrings();
-
   public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
   public abstract boolean internalSkylarkFlagTestCanary();
@@ -273,7 +271,6 @@ public abstract class StarlarkSemantics {
           .incompatibleRemoveNativeMavenJar(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
-          .incompatibleStringJoinRequiresStrings(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -352,8 +349,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
-
-    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
 

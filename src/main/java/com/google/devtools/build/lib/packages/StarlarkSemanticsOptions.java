@@ -330,21 +330,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisallowLegacyJavaInfo;
 
   @Option(
-      name = "incompatible_string_join_requires_strings",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the argument of `string.join` must be an iterable whose elements are "
-              + "strings. If set to false, elements are first converted to string. "
-              + "See https://github.com/bazelbuild/bazel/issues/7802")
-  public boolean incompatibleStringJoinRequiresStrings;
-
-  @Option(
       name = "incompatible_disallow_struct_provider_syntax",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -646,7 +631,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
             .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
-            .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
             .incompatibleVisibilityPrivateAttributesAtDefinition(
                 incompatibleVisibilityPrivateAttributesAtDefinition)
             .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
