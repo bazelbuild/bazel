@@ -1047,7 +1047,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       throws ConversionException, EvalException {
     checkMutable("resolve_command");
     Label ruleLabel = getLabel();
-    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, thread);
+    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
@@ -1115,8 +1115,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    * Returns a corresponding map where any sets are replaced by iterables.
    */
   // TODO(bazel-team): find a better way to typecheck this argument.
-  private static Map<Label, Iterable<Artifact>> checkLabelDict(
-      Map<?, ?> labelDict, Location loc, StarlarkThread thread) throws EvalException {
+  private static Map<Label, Iterable<Artifact>> checkLabelDict(Map<?, ?> labelDict, Location loc)
+      throws EvalException {
     Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
@@ -1126,12 +1126,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
       Iterable<?> valIter;
-      try {
-        valIter = EvalUtils.toIterableStrict(val, loc, thread);
-      } catch (EvalException ex) {
-        // EvalException is thrown only if the type is wrong.
+      if (val instanceof Iterable) {
+        valIter = (Iterable<?>) val;
+      } else {
         throw new EvalException(
-            loc, Printer.format("invalid value %r in 'label_dict': " + ex, val));
+            loc,
+            Printer.format(
+                "invalid value %r in 'label_dict': expected iterable, but got '%s'",
+                val, EvalUtils.getDataTypeName(val)));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {

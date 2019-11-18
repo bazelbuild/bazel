@@ -21,11 +21,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -580,11 +582,25 @@ public abstract class Type<T> {
     public List<ElemT> convert(Object x, Object what, Object context)
         throws ConversionException {
       Iterable<?> iterable;
-      try {
-        iterable = EvalUtils.toIterableStrict(x, null, null);
-      } catch (EvalException ex) {
+
+      if (x instanceof Iterable) {
+        iterable = (Iterable<?>) x;
+      } else if (x instanceof SkylarkNestedSet) {
+        try {
+          iterable = ((SkylarkNestedSet) x).toCollection();
+        } catch (NestedSetDepthException exception) {
+          throw new ConversionException(
+              "depset exceeded maximum depth "
+                  + exception.getDepthLimit()
+                  + ". This was only discovered when attempting to flatten the depset for"
+                  + " iteration, as the size of depsets is unknown until flattening. See"
+                  + " https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+                  + "solutions.");
+        }
+      } else {
         throw new ConversionException(this, x, what);
       }
+
       int index = 0;
       List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
       ListConversionContext conversionContext = new ListConversionContext(what);

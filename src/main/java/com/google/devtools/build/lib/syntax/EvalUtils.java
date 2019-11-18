@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -329,29 +328,6 @@ public final class EvalUtils {
     }
   }
 
-  // TODO(laurentlb): Get rid of this function.
-  private static Collection<?> nestedSetToCollection(
-      SkylarkNestedSet set, Location loc, @Nullable StarlarkThread thread) throws EvalException {
-    if (thread != null) {
-      throw new EvalException(
-          loc,
-          "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
-              + "--incompatible_depset_is_not_iterable=false to temporarily disable this check.");
-    }
-    try {
-      return set.toCollection();
-    } catch (NestedSetDepthException exception) {
-      throw new EvalException(
-          loc,
-          "depset exceeded maximum depth "
-              + exception.getDepthLimit()
-              + ". This was only discovered when attempting to flatten the depset for iteration, "
-              + "as the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.");
-    }
-  }
-
   public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
     if (o instanceof Iterable) {
       return (Iterable<?>) o;
@@ -360,34 +336,6 @@ public final class EvalUtils {
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
-    }
-  }
-
-  /**
-   * Given an {@link Iterable}, returns it as-is. Given a {@link SkylarkNestedSet}, returns its
-   * contents as an iterable. Throws {@link EvalException} for any other value.
-   *
-   * <p>This is a kludge for the change that made {@code SkylarkNestedSet} not implement {@code
-   * Iterable}. It is different from {@link #toIterable} in its behavior for strings and other types
-   * that are not strictly Java-iterable.
-   *
-   * @throws EvalException if {@code o} is not an iterable or set
-   * @deprecated avoid writing APIs that implicitly treat depsets as iterables. It encourages
-   *     unnecessary flattening of depsets.
-   *     <p>TODO(bazel-team): Remove this if/when implicit iteration over {@code SkylarkNestedSet}
-   *     is no longer supported.
-   */
-  @Deprecated
-  public static Iterable<?> toIterableStrict(
-      Object o, Location loc, @Nullable StarlarkThread thread) throws EvalException {
-    if (o instanceof Iterable) {
-      return (Iterable<?>) o;
-    } else if (o instanceof SkylarkNestedSet) {
-      return nestedSetToCollection((SkylarkNestedSet) o, loc, thread);
-    } else {
-      throw new EvalException(loc,
-          "expected Iterable or depset, but got '" + getDataTypeName(o) + "' (strings and maps "
-          + "are not allowed here)");
     }
   }
 
