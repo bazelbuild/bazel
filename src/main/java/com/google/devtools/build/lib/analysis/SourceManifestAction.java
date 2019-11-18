@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -109,8 +108,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  @VisibleForSerialization
-  SourceManifestAction(
+  public SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
     super(owner, getDependencies(runfiles), primaryOutput, false);
     this.manifestWriter = manifestWriter;
@@ -283,102 +281,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
         // Source-only symlink manifest has root-relative paths and does not include absolute paths.
         return true;
       }
-    }
-  }
-
-  /** Creates an action for the given runfiles. */
-  public static SourceManifestAction forRunfiles(ManifestType manifestType, ActionOwner owner,
-      Artifact output, Runfiles runfiles) {
-    return new SourceManifestAction(manifestType, owner, output, runfiles);
-  }
-
-  /**
-   * Builder class to construct {@link SourceManifestAction} instances.
-   */
-  public static final class Builder {
-    private final ManifestWriter manifestWriter;
-    private final ActionOwner owner;
-    private final Artifact output;
-    private final Runfiles.Builder runfilesBuilder;
-
-    public Builder(String prefix, ManifestType manifestType, ActionOwner owner, Artifact output,
-                   boolean legacyExternalRunfiles) {
-      this(manifestType, owner, output, new Runfiles.Builder(prefix, legacyExternalRunfiles));
-    }
-
-    public Builder(
-        ManifestType manifestType,
-        ActionOwner owner,
-        Artifact output,
-        Runfiles.Builder runfilesBuilder) {
-      this.manifestWriter = manifestType;
-      this.owner = owner;
-      this.output = output;
-      this.runfilesBuilder = runfilesBuilder;
-    }
-
-    @VisibleForTesting  // Only used for testing.
-    Builder(String prefix, ManifestWriter manifestWriter, ActionOwner owner, Artifact output) {
-      this.runfilesBuilder = new Runfiles.Builder(prefix, false);
-      this.manifestWriter = manifestWriter;
-      this.owner = owner;
-      this.output = output;
-    }
-
-    public SourceManifestAction build() {
-      return new SourceManifestAction(manifestWriter, owner, output, runfilesBuilder.build());
-    }
-
-    /**
-     * Adds a set of symlinks from the artifacts' root-relative paths to the
-     * artifacts themselves.
-     */
-    public Builder addSymlinks(Iterable<Artifact> artifacts) {
-      runfilesBuilder.addArtifacts(artifacts);
-      return this;
-    }
-
-    /**
-     * Adds a map of symlinks.
-     */
-    public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
-      runfilesBuilder.addSymlinks(symlinks);
-      return this;
-    }
-
-    /**
-     * Adds a single symlink.
-     */
-    public Builder addSymlink(PathFragment link, Artifact target) {
-      runfilesBuilder.addSymlink(link, target);
-      return this;
-    }
-
-    /**
-     * <p>Adds a mapping of Artifacts to the directory above the normal symlink
-     * forest base.
-     */
-    public Builder addRootSymlinks(Map<PathFragment, Artifact> rootSymlinks) {
-      runfilesBuilder.addRootSymlinks(rootSymlinks);
-      return this;
-    }
-
-    /**
-     * Set the empty files supplier for the manifest, see {@link Runfiles.EmptyFilesSupplier}
-     * for more details.
-     */
-    public Builder setEmptyFilesSupplier(Runfiles.EmptyFilesSupplier supplier) {
-      runfilesBuilder.setEmptyFilesSupplier(supplier);
-      return this;
-    }
-
-    /**
-     * Adds a runfiles pruning manifest.
-     */
-    @VisibleForTesting
-    Builder addPruningManifest(Runfiles.PruningManifest manifest) {
-      runfilesBuilder.addPruningManifest(manifest);
-      return this;
     }
   }
 }
