@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +47,7 @@ public final class NinjaVariableValue {
   }
 
   /** Compute the expanded value, using the passed <code>expander</code> function. */
+  @VisibleForTesting
   public String getExpandedValue(Function<String, String> expander) {
     return parts.stream().map(fun -> fun.apply(expander)).collect(Collectors.joining(""));
   }

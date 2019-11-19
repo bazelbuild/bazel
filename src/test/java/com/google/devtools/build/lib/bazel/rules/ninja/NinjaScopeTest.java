@@ -292,6 +292,6 @@ public class NinjaScopeTest {
   private static NinjaVariableValue parseValue(String text) throws GenericParsingException {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(bb, 0, bb.limit()));
-    return new NinjaParser(lexer).parseVariableValue(true, "test");
+    return new NinjaParser(lexer).parseVariableValue("test");
   }
 }
