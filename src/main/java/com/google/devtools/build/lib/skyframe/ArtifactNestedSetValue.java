@@ -24,13 +24,4 @@ import com.google.devtools.build.skyframe.SkyValue;
 @Immutable
 @ThreadSafe
 public class ArtifactNestedSetValue implements SkyValue {
-
-  private static ArtifactNestedSetValue singleton = null;
-
-  static ArtifactNestedSetValue createOrGetInstance() {
-    if (singleton == null) {
-      singleton = new ArtifactNestedSetValue();
-    }
-    return singleton;
-  }
 }
