@@ -123,6 +123,10 @@ public final class SymlinkTreeAction extends AbstractAction {
     return filesetTree;
   }
 
+  public boolean enableRunfiles() {
+    return enableRunfiles;
+  }
+
   @Override
   public String getMnemonic() {
     return "SymlinkTree";
@@ -159,7 +163,7 @@ public final class SymlinkTreeAction extends AbstractAction {
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext
         .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(this, actionExecutionContext, enableRunfiles);
+        .createSymlinks(this, actionExecutionContext);
     return ActionResult.EMPTY;
   }
 
