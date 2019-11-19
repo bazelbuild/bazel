@@ -60,9 +60,9 @@ EOF
 
 setup_mock() {
   # Setup a mock workspace.
-  mkdir workspace workspace/subdir
-  touch workspace/{BUILD,WORKSPACE}
-  touch workspace/subdir/BUILD
+  mkdir ws ws/subdir
+  touch ws/{BUILD,WORKSPACE}
+  touch ws/subdir/BUILD
 
   # Setup a mock "/usr/bin" folder with the wrapper and some "Bazel" binaries.
   mkdir bin
@@ -72,7 +72,7 @@ setup_mock() {
   mock_bazel "bin/bazel-1.0.1"
   mock_bazel "bin/bazel-real"
 
-  cd workspace
+  cd ws
 }
 
 test_use_bazel_version_envvar() {
