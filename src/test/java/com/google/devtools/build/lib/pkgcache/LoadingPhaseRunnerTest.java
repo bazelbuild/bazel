@@ -82,7 +82,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkyframeExecutor#loadTargetPatterns}. */
+/** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
 @RunWith(JUnit4.class)
 public class LoadingPhaseRunnerTest {
 
@@ -1308,7 +1308,7 @@ public class LoadingPhaseRunnerTest {
       sync();
       storedErrors.clear();
       TargetPatternPhaseValue result =
-          skyframeExecutor.loadTargetPatterns(
+          skyframeExecutor.loadTargetPatternsWithFilters(
               storedErrors,
               ImmutableList.copyOf(patterns),
               relativeWorkingDirectory,

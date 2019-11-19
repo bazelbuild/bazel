@@ -1818,7 +1818,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = Options.getDefaults(AnalysisOptions.class);
 
     TargetPatternPhaseValue loadingResult =
-        skyframeExecutor.loadTargetPatterns(
+        skyframeExecutor.loadTargetPatternsWithFilters(
             reporter,
             targets,
             PathFragment.EMPTY_FRAGMENT,
