@@ -806,4 +806,18 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("depset exceeded maximum depth 2000", "str(too_deep_depset)")
         .testIfErrorContains("depset exceeded maximum depth 2000", "too_deep_depset.to_list()");
   }
+
+  @Test
+  public void testDepsetDebugDepth() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new SkylarkTest("--debug_depset_depth=true")
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  return x")
+        .testEval("str(create_depset(900))[0:6]", "'depset'")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
+  }
 }
