@@ -54,10 +54,8 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -138,13 +136,9 @@ public class SkylarkRepositoryContext
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
       if (!name.equals("$local")) {
-        Object val = attrs.getObject(name);
+        // Attribute values should be type safe
         attrBuilder.put(
-            Attribute.getSkylarkName(name),
-            val == null
-                ? Starlark.NONE
-                // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
+            Attribute.getSkylarkName(name), Starlark.fromJava(attrs.getObject(name), null));
       }
     }
     attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");

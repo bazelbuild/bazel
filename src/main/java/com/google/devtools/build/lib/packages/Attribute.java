@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -1287,8 +1288,8 @@ public final class Attribute implements Comparable<Attribute> {
    * must be true:
    *
    * <ol>
-   * <li>The other attribute must be declared in the computed default's constructor
-   * <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
+   *   <li>The other attribute must be declared in the computed default's constructor
+   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
    * </ol>
    *
    * <p>The reason for enforced declarations is that, since attribute values might be configurable,
@@ -1300,7 +1301,7 @@ public final class Attribute implements Comparable<Attribute> {
    *
    * <p>Implementations of this interface must be immutable.
    */
-  public abstract static class ComputedDefault {
+  public abstract static class ComputedDefault implements SkylarkValue {
     private final ImmutableList<String> dependencies;
 
     /**
@@ -1610,7 +1611,7 @@ public final class Attribute implements Comparable<Attribute> {
    *     Label}, or a {@link List} of {@link Label} objects.
    */
   @Immutable
-  public abstract static class LateBoundDefault<FragmentT, ValueT> {
+  public abstract static class LateBoundDefault<FragmentT, ValueT> implements SkylarkValue {
     /**
      * Functional interface for computing the value of a late-bound attribute.
      *

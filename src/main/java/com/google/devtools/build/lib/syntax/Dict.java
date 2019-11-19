@@ -356,7 +356,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
   @SuppressWarnings("unchecked")
   private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
-      contents.put(e.getKey(), (VV) SkylarkType.convertToSkylark(e.getValue(), mutability));
+      contents.put(e.getKey(), (VV) Starlark.fromJava(e.getValue(), mutability));
     }
     return this;
   }

@@ -181,7 +181,7 @@ public final class SkylarkNestedSet implements SkylarkValue {
   // TODO(adonovan): enforce that we never construct a SkylarkNestedSet with a StarlarkType
   // that represents a non-Skylark type (e.g. NestedSet<PathFragment>).
   // One way to do that is to disallow constructing StarlarkTypes for classes
-  // that would fail isSkylarkAcceptable; however remains the problem that
+  // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
   public static <T> SkylarkNestedSet of(SkylarkType contentType, NestedSet<T> set) {
     return new SkylarkNestedSet(contentType, set, null, null);

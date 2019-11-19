@@ -30,9 +30,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollection
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -166,12 +164,8 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
       // Skylark as a Map<String, Label>; this special case preserves that behavior temporarily.
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
-        attrBuilder.put(
-            skyname,
-            val == null
-                ? Starlark.NONE
-                // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val, (StarlarkThread) null));
+        // Attribute values should be type safe
+        attrBuilder.put(skyname, Starlark.fromJava(val, null));
         return;
       }
       if (a.isExecutable()) {
@@ -227,8 +221,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        attrBuilder.put(
-            skyname, SkylarkType.convertToSkylark(builder.build(), (StarlarkThread) null));
+        attrBuilder.put(skyname, Starlark.fromJava(builder.build(), null));
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target :

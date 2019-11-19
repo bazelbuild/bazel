@@ -146,7 +146,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     public void value() {}
     @SkylarkCallable(name = "return_bad", documented = false)
     public Bad returnBad() {
-      return new Bad();
+      return new Bad(); // not a legal Starlark value
     }
     @SkylarkCallable(name = "struct_field", documented = false, structField = true)
     public String structField() {
@@ -520,7 +520,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     public Object getValue(String name) {
       switch (name) {
         case "field": return "a";
-        case "nset": return NestedSetBuilder.stableOrder().build();
+        case "nset":
+          return NestedSetBuilder.stableOrder().build(); // not a legal Starlark value
         default: return null;
       }
     }
@@ -1457,11 +1458,15 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testJavaFunctionReturnsMutableObject() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfExactError(
-            "method 'return_bad' returns an object of invalid type Bad", "mock.return_bad()");
+  public void testJavaFunctionReturnsIllegalValue() throws Exception {
+    update("mock", new Mock());
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> eval("mock.return_bad()"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "cannot expose internal type to Starlark: class"
+                + " com.google.devtools.build.lib.syntax.SkylarkEvaluationTest$Bad");
   }
 
   @Test
@@ -1501,10 +1506,15 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testClassObjectCannotAccessNestedSet() throws Exception {
-    new SkylarkTest()
-        .update("mock", new MockClassObject())
-        .testIfErrorContains("internal error: type 'NestedSet' is not allowed", "v = mock.nset");
+  public void testFieldReturnsNestedSet() throws Exception {
+    update("mock", new MockClassObject());
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> eval("mock.nset"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "cannot expose internal type to Starlark: class"
+                + " com.google.devtools.build.lib.collect.nestedset.NestedSet");
   }
 
   @Test

@@ -21,16 +21,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -553,9 +547,6 @@ public abstract class SkylarkType {
     public static SkylarkType of(SkylarkType t1, SkylarkType t2) {
       return of(ImmutableList.of(t1, t2));
     }
-    public static SkylarkType of(Class<?> t1, Class<?> t2) {
-      return of(Simple.forClass(t1), Simple.forClass(t2));
-    }
   }
 
   // TODO(adonovan): eliminate this function: a value may belong to many types.
@@ -728,63 +719,9 @@ public abstract class SkylarkType {
     return (Map<KEY_TYPE, VALUE_TYPE>) obj;
   }
 
-  private static Class<?> getGenericTypeFromMethod(Method method) {
-    // This is where we can infer generic type information, so SkylarkNestedSets can be
-    // created in a safe way. Eventually we should probably do something with Lists and Maps too.
-    ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
-    Type type = t.getActualTypeArguments()[0];
-    if (type instanceof Class) {
-      return (Class<?>) type;
-    }
-    if (type instanceof WildcardType) {
-      WildcardType wildcard = (WildcardType) type;
-      Type upperBound = wildcard.getUpperBounds()[0];
-      if (upperBound instanceof Class) {
-        // i.e. List<? extends SuperClass>
-        return (Class<?>) upperBound;
-      }
-    }
-    // It means someone annotated a method with @SkylarkCallable with no specific generic type info.
-    // We shouldn't annotate methods which return List<?> or List<T>.
-    throw new IllegalStateException("Cannot infer type from method signature " + method);
-  }
-
-  /** Converts an object retrieved from a Java method to a Skylark-compatible type. */
-  static Object convertToSkylark(Object object, Method method, @Nullable StarlarkThread thread) {
-    if (object instanceof NestedSet<?>) {
-      return SkylarkNestedSet.of(
-          SkylarkType.of(getGenericTypeFromMethod(method)), (NestedSet<?>) object);
-    }
-    return convertToSkylark(object, thread);
-  }
-
-  /** Converts an object to a Skylark-compatible type if possible. */
-  public static Object convertToSkylark(Object object, @Nullable StarlarkThread thread) {
-    return convertToSkylark(object, thread == null ? null : thread.mutability());
-  }
-
-  /**
-   * Converts an object to a Skylark-compatible type if possible.
-   */
-  public static Object convertToSkylark(Object object, @Nullable Mutability mutability) {
-    if (object instanceof List && !(object instanceof Sequence)) {
-      return StarlarkList.copyOf(mutability, (List<?>) object);
-    }
-    if (object instanceof SkylarkValue) {
-      return object;
-    }
-    if (object instanceof Map) {
-      return Dict.<Object, Object>copyOf(mutability, (Map<?, ?>) object);
-    }
-    // TODO(bazel-team): ensure everything is a SkylarkValue at all times.
-    // Preconditions.checkArgument(EvalUtils.isSkylarkAcceptable(
-    //    object.getClass()),
-    //    "invalid object %s of class %s not convertible to a Skylark value",
-    //    object,
-    //    object.getClass());
-    return object;
-  }
-
+  // TODO(adonovan): eliminate 4 uses outside this package and make it private.
+  // The check is trivial (instanceof) and clients can usually produce a better
+  // error in context, without prematurely constructing a description.
   public static void checkType(Object object, Class<?> type, @Nullable Object description)
       throws EvalException {
     if (!type.isInstance(object)) {

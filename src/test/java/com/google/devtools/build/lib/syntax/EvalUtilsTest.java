@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -101,7 +100,6 @@ public class EvalUtilsTest extends EvaluationTestCase {
       StarlarkList.of(thread, "1", "2", "3"),
       Dict.of(thread, "key", 123),
       Dict.of(thread, 123, "value"),
-      NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 
