@@ -686,12 +686,14 @@ std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
   typedef std::basic_string<C> Str;
   static const Str kDot(1, '.');
   static const Str kDotDot(2, '.');
-  std::vector<std::pair<Str::size_type, Str::size_type> > segments;
-  Str::size_type seg_start = Str::npos;
+  std::vector<std::pair<typename Str::size_type, typename Str::size_type> >
+      segments;
+  typename Str::size_type seg_start = Str::npos;
   bool first = true;
   bool abs = false;
   bool starts_with_dot = false;
-  for (Str::size_type i = HasUncPrefix(p.c_str()) ? 4 : 0; i <= p.size(); ++i) {
+  for (typename Str::size_type i = HasUncPrefix(p.c_str()) ? 4 : 0;
+       i <= p.size(); ++i) {
     if (seg_start == Str::npos) {
       if (i < p.size() && p[i] != '/' && p[i] != '\\') {
         seg_start = i;
@@ -699,7 +701,7 @@ std::basic_string<C> NormalizeImpl(const std::basic_string<C>& p) {
     } else {
       if (i == p.size() || (p[i] == '/' || p[i] == '\\')) {
         // The current character ends a segment.
-        Str::size_type len = i - seg_start;
+        typename Str::size_type len = i - seg_start;
         if (first) {
           first = false;
           abs = len == 2 &&
