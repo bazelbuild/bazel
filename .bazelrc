@@ -1,3 +1,7 @@
+# Test using the execution transition.
+# DO NOT SUBMIT
+startup --incompatible_enable_execution_transition
+
 # Flags for Android
 build --android_aapt=aapt2 # Turn aapt2 on by default for Bazel's own Android builds and tests.
 
