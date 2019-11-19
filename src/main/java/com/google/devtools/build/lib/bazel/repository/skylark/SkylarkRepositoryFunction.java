@@ -147,6 +147,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               timeoutScaling,
               markerData);
 
+      if (starlarkSemantics.experimentalRepoRemoteExec()) {
+        // If a rule is declared remotable then invalidate it if remote execution gets
+        // enabled or disabled.
+        PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
+      }
+
       // Since restarting a repository function can be really expensive, we first ensure that
       // all label-arguments can be resolved to paths.
       try {

@@ -1473,6 +1473,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.REMOTE_OUTPUTS_MODE.set(injectable(), remoteOutputsMode);
   }
 
+  private void setRemoteExecutionEnabled(boolean enabled) {
+    PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
+  }
+
   /** Called each time there is a new top-level host configuration. */
   protected void updateTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {}
 
@@ -2672,6 +2676,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     } catch (UserExecException e) {
       throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR, e);
     }
+    setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
