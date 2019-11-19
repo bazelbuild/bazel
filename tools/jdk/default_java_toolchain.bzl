@@ -62,7 +62,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     ],
     "javac_supports_workers": 1,
     "jvm_opts": select({
-        "//src/conditions:openbsd": JDK8_JVM_OPTS,
+        "@bazel_tools//src/conditions:openbsd": JDK8_JVM_OPTS,
         "//conditions:default": JDK9_JVM_OPTS,
     }),
     "misc": DEFAULT_JAVACOPTS,
