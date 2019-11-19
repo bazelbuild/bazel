@@ -35,10 +35,14 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -278,12 +282,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return moduleInvocationPolicy;
   }
 
+  private BuildEventArtifactUploader newUploader(
+      CommandEnvironment env, String buildEventUploadStrategy) {
+    return getBuildEventArtifactUploaderFactoryMap().select(buildEventUploadStrategy).create(env);
+  }
+
   /** Configure profiling based on the provided options. */
-  Path initProfiler(
-      EventHandler eventHandler,
+  ProfilerStartedEvent initProfiler(
+      ExtendedEventHandler eventHandler,
       BlazeWorkspace workspace,
       CommonCommandOptions options,
-      UUID buildID,
+      BuildEventProtocolOptions bepOptions,
+      CommandEnvironment env,
       long execStartTimeNanos,
       long waitTimeInMs) {
     OutputStream out = null;
@@ -291,6 +301,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     Path profilePath = null;
+    String profileName = null;
+    UploadContext streamingContext = null;
     try {
       if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
         if (options.enableTracerCompression == TriState.YES
@@ -303,15 +315,23 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+          out = profilePath.getOutputStream();
         } else {
-          String profileName = "command.profile";
+          profileName = "command.profile";
           if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
             profileName = "command.profile.gz";
           }
-          profilePath = workspace.getOutputBase().getRelative(profileName);
+          if (bepOptions.streamingLogFileUploads) {
+            BuildEventArtifactUploader buildEventArtifactUploader =
+                newUploader(env, bepOptions.buildEventUploadStrategy);
+            streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG);
+            out = streamingContext.getOutputStream();
+          } else {
+            profilePath = workspace.getOutputBase().getRelative(profileName);
+            out = profilePath.getOutputStream();
+          }
         }
-        out = profilePath.getOutputStream();
-        if (options.announceProfilePath) {
+        if (profilePath != null && options.announceProfilePath) {
           eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         }
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
@@ -354,7 +374,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             format,
             getProductName(),
             workspace.getOutputBase().toString(),
-            buildID,
+            env.getCommandId(),
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
@@ -399,7 +419,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return profilePath;
+    return new ProfilerStartedEvent(profileName, profilePath, streamingContext);
   }
 
   public FileSystem getFileSystem() {

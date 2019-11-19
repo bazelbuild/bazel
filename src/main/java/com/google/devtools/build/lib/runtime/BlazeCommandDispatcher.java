@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
@@ -312,16 +313,17 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
     // the afterCommand call in the finally block below.
-    Path profilePath =
+    ProfilerStartedEvent profilerStartedEvent =
         runtime.initProfiler(
             storedEventHandler,
             workspace,
             commonOptions,
-            env.getCommandId(),
+            options.getOptions(BuildEventProtocolOptions.class),
+            env,
             execStartTimeNanos,
             waitTimeInMs);
     if (commonOptions.postProfileStartedEvent) {
-      storedEventHandler.post(new ProfilerStartedEvent(profilePath));
+      storedEventHandler.post(profilerStartedEvent);
     }
 
     BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
