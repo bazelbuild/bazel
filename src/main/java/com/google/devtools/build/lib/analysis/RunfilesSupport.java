@@ -374,11 +374,11 @@ public final class RunfilesSupport {
         .registerAction(
             new SymlinkTreeAction(
                 context.getActionOwner(),
+                config,
                 inputManifest,
+                runfiles,
                 outputManifest,
-                /*filesetTree=*/ false,
-                config.getActionEnvironment(),
-                config.runfilesEnabled()));
+                /*filesetTree=*/ false));
     return outputManifest;
   }
 
