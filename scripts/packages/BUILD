@@ -41,6 +41,14 @@ filegroup(
     }),
 )
 
+filegroup(
+    name = "wrapper",
+    srcs = ["bazel.sh"],
+    visibility = [
+        "//src/test/shell/bazel:__subpackages__",
+    ]
+)
+
 sh_binary(
     name = "package-info-generator",
     srcs = ["package_info_generator.sh"],

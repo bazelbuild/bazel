@@ -145,6 +145,19 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_wrapper_test",
+    srcs = ["bazel_wrapper_test.sh"],
+    data = [
+        ":test-deps",
+        "//scripts/packages:wrapper",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",  # wrapper is not used on Windows
+    ],
+)
+
+sh_test(
     name = "bazel_java_test_no_windows",
     size = "large",
     timeout = "eternal",
