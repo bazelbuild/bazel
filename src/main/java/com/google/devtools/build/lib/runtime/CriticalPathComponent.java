@@ -165,26 +165,26 @@ public class CriticalPathComponent {
   }
 
   /**
-   * An action can run multiple spawns. Those calls can be sequential or parallel. If action is a
-   * sequence of calls we aggregate the SpawnMetrics of all the SpawnResults. If there are multiples
-   * of the same action run in parallel, we keep the maximum runtime SpawnMetrics. We will also set
-   * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
-   * it exists.
+   * An action can run multiple spawns. Those calls can be sequential or parallel. If it is a
+   * sequence of calls we should aggregate the metrics by collecting all the SpawnResults, if they
+   * are run in parallel we should keep the maximum runtime spawn. We will also set the
+   * longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases.
    */
-  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
+  void addSpawnResult(SpawnResult spawnResult) {
     if (this.phaseChange) {
       this.totalSpawnMetrics =
           SpawnMetrics.aggregateMetrics(
               ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
-      this.phaseMaxMetrics = metrics;
+      this.phaseMaxMetrics = spawnResult.getMetrics();
       this.phaseChange = false;
-    } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
-      this.phaseMaxMetrics = metrics;
+    } else if (spawnResult.getMetrics().totalTime().compareTo(this.phaseMaxMetrics.totalTime())
+        > 0) {
+      this.phaseMaxMetrics = spawnResult.getMetrics();
     }
 
-    if (runnerName != null && metrics.totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
-      this.longestPhaseSpawnRunnerName = runnerName;
-      this.longestRunningTotalDuration = metrics.totalTime();
+    if (spawnResult.getMetrics().totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
+      this.longestPhaseSpawnRunnerName = spawnResult.getRunnerName();
+      this.longestRunningTotalDuration = spawnResult.getMetrics().totalTime();
     }
   }
 

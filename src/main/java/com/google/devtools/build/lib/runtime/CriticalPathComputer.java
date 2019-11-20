@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -133,7 +132,6 @@ public class CriticalPathComputer {
     return outputArtifactToComponent;
   }
 
-  /** Changes the phase of the action */
   @Subscribe
   @AllowConcurrentEvents
   public void nextCriticalPathPhase(SpawnExecutedEvent.ChangePhase phase) {
@@ -160,7 +158,7 @@ public class CriticalPathComputer {
         Preconditions.checkNotNull(outputArtifactToComponent.get(primaryOutput));
 
     SpawnResult spawnResult = event.getSpawnResult();
-    stats.addSpawnResult(spawnResult.getMetrics(), spawnResult.getRunnerName());
+    stats.addSpawnResult(spawnResult);
   }
 
   /** Returns the list of components using the most memory. */
@@ -196,19 +194,8 @@ public class CriticalPathComputer {
         .map((e) -> e.getValue());
   }
 
-  /** Creates a CriticalPathComponent and adds the duration of input discovery and changes phase. */
-  @Subscribe
-  @AllowConcurrentEvents
-  public void discoverInputs(DiscoveredInputsEvent event) {
-    CriticalPathComponent stats =
-        tryAddComponent(createComponent(event.getAction(), event.getStartTimeNanos()));
-    stats.addSpawnResult(event.getMetrics(), null);
-    stats.changePhase();
-  }
-
   /**
-   * Record an action that has started to run. If the CriticalPathComponent has not been created,
-   * initialize it.
+   * Record an action that has started to run.
    *
    * @param event information about the started action
    */
@@ -290,8 +277,8 @@ public class CriticalPathComputer {
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
     Action action = event.getAction();
-    CriticalPathComponent component =
-        tryAddComponent(createComponent(action, event.getNanoTimeStart()));
+    CriticalPathComponent component
+        = tryAddComponent(createComponent(action, event.getNanoTimeStart()));
     finalizeActionStat(event.getNanoTimeStart(), action, component);
   }
 
