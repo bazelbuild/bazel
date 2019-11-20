@@ -1536,6 +1536,121 @@ EOF
   rm -rf $cache
 }
 
+function test_repo_remote_exec() {
+  # Test that repository_ctx.execute can execute a command remotely.
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  res = ctx.execute(["/bin/bash", "-c", "echo -n $BAZEL_REMOTE_PLATFORM"])
+  if res.return_code != 0:
+    fail("Return code 0 expected, but was " + res.exit_code)
+
+  entries = res.stdout.split(",")
+  if len(entries) != 2:
+    fail("Two platform kv pairs expected. Got:" + str(entries))
+  if entries[0] != "ISA=x86-64":
+    fail("'ISA' expected in remote platform'")
+  if entries[1] != "OSFamily=Linux":
+    fail("'OSFamily' expected in remote platform'")
+
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+  exec_properties = {
+    "OSFamily" : "Linux",
+    "ISA" : "x86-64",
+  }
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all
+}
+
+function test_repo_remote_exec_path_argument() {
+  # Test that repository_ctx.execute fails with a descriptive error message
+  # if a path argument is provided. The upload of files as part of command
+  # execution is not yet supported.
+
+  touch BUILD
+
+  echo "hello world" > input.txt
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["cat", ctx.path("input.txt")])
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all  >& $TEST_log && fail "Should fail" || true
+
+  expect_log "/input.txt"
+  expect_log "Paths are not supported for repository rules marked as remotable."
+}
+
+function test_repo_remote_exec_timeout() {
+  # Test that a remote job is killed if it exceeds the timeout.
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["/bin/bash","-c",
+    "for i in {1..3}; do echo \"Sleeping $i...\" && sleep 1; done"], timeout=1)
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all >& $TEST_log && fail "Should fail" || true
+
+  expect_log "exceeded deadline"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

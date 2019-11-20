@@ -135,7 +135,11 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Command command =
         RemoteSpawnRunner.buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            platform,
+            /* workingDirectory= */ null);
     RemoteOutputsMode remoteOutputsMode = options.remoteOutputsMode;
     Action action =
         RemoteSpawnRunner.buildAction(
