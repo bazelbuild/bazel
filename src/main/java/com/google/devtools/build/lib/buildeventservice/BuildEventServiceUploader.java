@@ -94,7 +94,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private static final int DELAY_MILLIS = 1000;
 
   private final BuildEventServiceClient besClient;
-  private final BuildEventArtifactUploader localFileUploader;
+  private final BuildEventArtifactUploader buildEventUploader;
   private final BuildEventServiceProtoUtil besProtoUtil;
   private final BuildEventProtocolOptions buildEventProtocolOptions;
   private final boolean publishLifecycleEvents;
@@ -154,7 +154,7 @@ public final class BuildEventServiceUploader implements Runnable {
       ArtifactGroupNamer namer,
       EventBus eventBus) {
     this.besClient = besClient;
-    this.localFileUploader = localFileUploader;
+    this.buildEventUploader = localFileUploader;
     this.besProtoUtil = besProtoUtil;
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
@@ -168,8 +168,8 @@ public final class BuildEventServiceUploader implements Runnable {
         () -> halfCloseFuture.setFuture(closeFuture), MoreExecutors.directExecutor());
   }
 
-  BuildEventArtifactUploader getLocalFileUploader() {
-    return localFileUploader;
+  BuildEventArtifactUploader getBuildEventUploader() {
+    return buildEventUploader;
   }
 
   /** Enqueues an event for uploading to a BES backend. */
@@ -177,7 +177,7 @@ public final class BuildEventServiceUploader implements Runnable {
     // This needs to happen outside a synchronized block as it may trigger
     // stdout/stderr and lead to a deadlock. See b/109725432
     ListenableFuture<PathConverter> localFileUploadFuture =
-        localFileUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        buildEventUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
 
     // The generation of the sequence number and the addition to the {@link #eventQueue} should be
     // atomic since BES expects the events in that exact order.
@@ -317,7 +317,7 @@ public final class BuildEventServiceUploader implements Runnable {
       logger.severe("BES upload failed due to a RuntimeException / Error. This is a bug.");
       throw e;
     } finally {
-      localFileUploader.shutdown();
+      buildEventUploader.shutdown();
       MoreExecutors.shutdownAndAwaitTermination(timeoutExecutor, 0, TimeUnit.MILLISECONDS);
       closeFuture.set(null);
     }
@@ -613,19 +613,9 @@ public final class BuildEventServiceUploader implements Runnable {
       throws LocalFileUploadException, InterruptedException {
     try {
       // Wait for the local file and pending remote uploads to complete.
-      ListenableFuture<?> remoteUploads =
-          Futures.successfulAsList(orderedBuildEvent.getEvent().remoteUploads());
-
-      if (localFileUploader.timeout() != null) {
-        remoteUploads =
-            Futures.withTimeout(
-                remoteUploads,
-                localFileUploader.timeout().toMillis(),
-                TimeUnit.MILLISECONDS,
-                timeoutExecutor);
-      }
-      // TODO(bazel-team): Consider failing softy if remote upload fails.
-      remoteUploads.get();
+      buildEventUploader
+          .waitForRemoteUploads(orderedBuildEvent.getEvent().remoteUploads(), timeoutExecutor)
+          .get();
       return orderedBuildEvent.localFileUploadProgress().get();
     } catch (ExecutionException e) {
       logger.log(

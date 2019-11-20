@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -41,12 +41,6 @@ public interface BuildEventArtifactUploader {
    * as it should appear in the BEP.
    */
   ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
-
-  /** The timeout on individual file uploads, or null if none. */
-  @Nullable
-  default Duration timeout() {
-    return null;
-  }
 
   /** The context associated with an in-flight remote upload. */
   interface UploadContext {
@@ -108,5 +102,15 @@ public interface BuildEventArtifactUploader {
       localFileMap.putIfAbsent(localFile.path, localFile);
     }
     return upload(localFileMap);
+  }
+
+  /**
+   * Blocks on the completion of pending remote uploads, enforcing the relevant timeout if
+   * applicable.
+   */
+  default ListenableFuture<?> waitForRemoteUploads(
+      Collection<ListenableFuture<String>> remoteUploads,
+      ScheduledExecutorService timeoutExecutor) {
+    return Futures.allAsList(remoteUploads);
   }
 }

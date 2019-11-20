@@ -93,11 +93,17 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
       String name = directFuturePair.getFirst();
       ListenableFuture<String> directFuture = directFuturePair.getSecond();
       try {
-        toolLogs.addLog(
-            BuildEventStreamProtos.File.newBuilder()
-                .setName(name)
-                .setUri(Futures.getDone(directFuture))
-                .build());
+        String uri =
+            directFuture.isDone() && !directFuture.isCancelled()
+                ? Futures.getDone(directFuture)
+                : null;
+        if (uri != null) {
+          toolLogs.addLog(
+              BuildEventStreamProtos.File.newBuilder()
+                  .setName(name)
+                  .setUri(Futures.getDone(directFuture))
+                  .build());
+        }
       } catch (ExecutionException e) {
         logger.log(Level.WARNING, "Skipping build tool log upload " + name, e);
       }
