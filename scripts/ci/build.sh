@@ -212,7 +212,15 @@ function ensure_gpg_secret_key_imported() {
 function print_new_release_content() {
   local distribution="$1"
   # Print the headers of the original Release file
-  head -n 7 dists/${1}/Release 2>>1
+  cat <<EOF
+Origin: Bazel Authors
+Label: Bazel
+Codename: $1
+Date: $(date -u "+%a, %d %b %Y %H:%M:%S UTC")
+Architectures: amd64
+Components: jdk1.8
+Description: Bazel APT Repository
+EOF
   metadata_files=("jdk1.8/binary-amd64/Packages" "jdk1.8/binary-amd64/Packages.gz" "jdk1.8/binary-amd64/Release" "jdk1.8/source/Sources.gz" "jdk1.8/source/Release")
   # Re-generate hashes for all metadata fiels
   echo MD5Sum:
@@ -265,27 +273,24 @@ function add_versioned_deb_pkg() {
   local distribution="$1"
   local deb_pkg_name="$2"
   # Extract the original package
-  mkdir -p deb-output
-  dpkg-deb -R "${deb_pkg_name}" deb-output
+  mkdir -p deb-old
+  dpkg-deb -R "${deb_pkg_name}" deb-old
 
   # Get bazel version
-  bazel_version=$(grep "Version:" deb-output/DEBIAN/control | cut -d " " -f2)
+  bazel_version=$(grep "Version:" deb-old/DEBIAN/control | cut -d " " -f2)
   bazel_version=${bazel_version/\~/}
 
-  # Change package name to bazel-{bazel_version}
-  versioned_deb_pkg_name="bazel-${bazel_version}-versioned-package-amd64.deb"
-  sed -i "s/Package:\ bazel/Package:\ bazel-${bazel_version}/g" "deb-output/DEBIAN/control"
-
-  # Delete conffiles, bash completion files and bash wrapper to avoid conflict when mulitple versions are installed.
-  rm "deb-output/DEBIAN/conffiles"
-  rm -r "deb-output/etc"
-  rm -f "deb-output/usr/bin/bazel"
+  # Generate new control file
+  mkdir -p deb-new/DEBIAN
+  sed "s/Package:\ bazel/Package:\ bazel-${bazel_version}/g" "deb-old/DEBIAN/control" > "deb-new/DEBIAN/control"
 
   # Rename the actual Bazel binary to bazel-${bazel_version}
-  mv "deb-output/usr/bin/bazel-real" "deb-output/usr/bin/bazel-${bazel_version}"
+  mkdir -p deb-new/usr/bin
+  cp "deb-old/usr/bin/bazel-real" "deb-new/usr/bin/bazel-${bazel_version}"
 
   # Re-pack the debian package and add it to the repo
-  dpkg-deb -b deb-output "${versioned_deb_pkg_name}"
+  versioned_deb_pkg_name="bazel-${bazel_version}-versioned-package-amd64.deb"
+  dpkg-deb -b deb-new "${versioned_deb_pkg_name}"
   reprepro -C jdk1.8 includedeb "${distribution}" "${versioned_deb_pkg_name}"
 }
 
