@@ -201,14 +201,6 @@ public class Package {
    */
   private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
-  /**
-   * The names of the package() attributes that declare default values for rule
-   * {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} and {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * values when not explicitly specified.
-   */
-  public static final String DEFAULT_COMPATIBLE_WITH_ATTRIBUTE = "default_compatible_with";
-  public static final String DEFAULT_RESTRICTED_TO_ATTRIBUTE = "default_restricted_to";
-
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
 

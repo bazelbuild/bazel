@@ -231,15 +231,16 @@ public final class PackageFactory {
    * explicitly specified.
    */
   private static class DefaultCompatibleWith extends PackageArgument<List<Label>> {
+    private static final String DEFAULT_COMPATIBLE_WITH_ATTRIBUTE = "default_compatible_with";
+
     private DefaultCompatibleWith() {
-      super(Package.DEFAULT_COMPATIBLE_WITH_ATTRIBUTE, BuildType.LABEL_LIST);
+      super(DEFAULT_COMPATIBLE_WITH_ATTRIBUTE, BuildType.LABEL_LIST);
     }
 
     @Override
     protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
-      pkgBuilder.setDefaultCompatibleWith(value, Package.DEFAULT_COMPATIBLE_WITH_ATTRIBUTE,
-          location);
+      pkgBuilder.setDefaultCompatibleWith(value, DEFAULT_COMPATIBLE_WITH_ATTRIBUTE, location);
     }
   }
 
@@ -249,14 +250,16 @@ public final class PackageFactory {
    * explicitly specified.
    */
   private static class DefaultRestrictedTo extends PackageArgument<List<Label>> {
+    private static final String DEFAULT_RESTRICTED_TO_ATTRIBUTE = "default_restricted_to";
+
     private DefaultRestrictedTo() {
-      super(Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, BuildType.LABEL_LIST);
+      super(DEFAULT_RESTRICTED_TO_ATTRIBUTE, BuildType.LABEL_LIST);
     }
 
     @Override
     protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
-      pkgBuilder.setDefaultRestrictedTo(value, Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
+      pkgBuilder.setDefaultRestrictedTo(value, DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
     }
   }
 
