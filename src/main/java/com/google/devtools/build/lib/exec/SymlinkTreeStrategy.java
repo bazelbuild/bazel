@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
@@ -22,6 +24,9 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -52,8 +57,25 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
+          Map<PathFragment, Path> symlinks = null;
+          if (action.getRunfiles() != null) {
+            try {
+              symlinks =
+                  Maps.transformValues(
+                      action
+                          .getRunfiles()
+                          .getRunfilesInputs(
+                              actionExecutionContext.getEventHandler(),
+                              action.getOwner().getLocation(),
+                              actionExecutionContext.getPathResolver()),
+                      (artifact) -> artifact.getPath());
+            } catch (IOException e) {
+              throw new EnvironmentalExecException(e);
+            }
+          }
           outputService.createSymlinkTree(
               actionExecutionContext.getInputPath(action.getInputManifest()),
+              symlinks,
               actionExecutionContext.getInputPath(action.getOutputManifest()),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
