@@ -262,7 +262,8 @@ function merge_previous_dists() {
 
 # Create a debian package with version in package name and add it to the repo
 function add_versioned_deb_pkg() {
-  local deb_pkg_name="$1"
+  local distribution="$1"
+  local deb_pkg_name="$2"
   # Extract the original package
   mkdir -p deb-output
   dpkg-deb -R "${deb_pkg_name}" deb-output
@@ -339,7 +340,7 @@ EOF
   reprepro -C jdk1.8 includedeb "${distribution}" "${deb_pkg_name}"
   reprepro -C jdk1.8 includedsc "${distribution}" "${deb_dsc_name}"
 
-  add_versioned_deb_pkg "${deb_pkg_name}"
+  add_versioned_deb_pkg "${distribution}" "${deb_pkg_name}"
 
   merge_previous_dists "${distribution}"
 
