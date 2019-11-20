@@ -372,11 +372,7 @@ sh_test(
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
-    # Temporarily disable on CI because zlib.net is down.
-    tags = [
-        "manual",
-        "no_windows",
-    ],  # Doesn't work on Windows for unknown reason
+    tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
 )
 
 sh_test(
