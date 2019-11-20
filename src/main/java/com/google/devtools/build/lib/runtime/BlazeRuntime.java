@@ -327,7 +327,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
-            streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG);
+            streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
             out = streamingContext.getOutputStream();
           } else {
             profilePath = workspace.getOutputBase().getRelative(profileName);

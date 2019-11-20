@@ -21,10 +21,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
@@ -50,14 +52,22 @@ public interface BuildEventArtifactUploader {
   interface UploadContext {
 
     /** The {@link OutputStream} to stream the file contents to. */
+    @Nullable
     OutputStream getOutputStream();
 
     /** The future URI of the completed upload. */
     ListenableFuture<String> uriFuture();
   }
 
-  /** Initiate a streaming upload to the remote storage. */
-  default UploadContext startUpload(LocalFileType type) {
+  /**
+   * Initiate a streaming upload to the remote storage.
+   *
+   * <p>If inputSupplier is null, the caller is expected to write to the {@link
+   * UploadContext#getOutputStream()}. If inputSupplier is non-null, {@link
+   * UploadContext#getOutputStream()} is null.
+   */
+  default UploadContext startUpload(
+      LocalFileType type, @Nullable Supplier<InputStream> inputSupplier) {
     return EMPTY_UPLOAD;
   }
 
