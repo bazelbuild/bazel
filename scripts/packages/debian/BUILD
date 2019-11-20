@@ -69,7 +69,7 @@ genrule(
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
-    built_using = "bazel (HEAD)",
+    built_using = "bazel",
     conffiles = [
         "etc/bash_completion.d/bazel",
         "etc/bazel.bazelrc",
@@ -80,7 +80,6 @@ pkg_deb(
         "g++",
         "zlib1g-dev",
         "unzip",
-        "python",
     ],
     description_file = "description",
     homepage = "http://bazel.build",

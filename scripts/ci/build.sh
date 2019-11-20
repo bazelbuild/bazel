@@ -208,6 +208,86 @@ function ensure_gpg_secret_key_imported() {
   fi
 }
 
+# Generate new content of Release file
+function print_new_release_content() {
+  local distribution="$1"
+  # Print the headers of the original Release file
+  head -n 7 dists/${1}/Release 2>>1
+  metadata_files=("jdk1.8/binary-amd64/Packages" "jdk1.8/binary-amd64/Packages.gz" "jdk1.8/binary-amd64/Release" "jdk1.8/source/Sources.gz" "jdk1.8/source/Release")
+  # Re-generate hashes for all metadata fiels
+  echo MD5Sum:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(md5sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+  echo SHA1:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(sha1sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+  echo SHA256:
+   for file in ${metadata_files[*]}; do
+    path="dists/${distribution}/$file"
+    echo "" "$(sha256sum ${path} | cut -d " " -f1)" "$(ls -l ${path} | cut -d " " -f5)" "$file"
+   done
+}
+
+# Merge metadata with previous distribution
+function merge_previous_dists() {
+  local distribution="$1"
+  # Download the metadata info from previous distrubution
+  mkdir -p previous
+  gsutil -m cp -r "gs://bazel-apt/dists" "./previous"
+
+  # Merge Packages and Packages.gz file
+  cat "previous/dists/${distribution}/jdk1.8/binary-amd64/Packages" >> "dists/${distribution}/jdk1.8/binary-amd64/Packages"
+  gzip -9c "dists/${distribution}/jdk1.8/binary-amd64/Packages" > "dists/${distribution}/jdk1.8/binary-amd64/Packages.gz"
+
+  # Merge Sources.gz file
+  gunzip "previous/dists/${distribution}/jdk1.8/source/Sources.gz"
+  gunzip "dists/${distribution}/jdk1.8/source/Sources.gz"
+  cat "previous/dists/${distribution}/jdk1.8/source/Sources" >> "dists/${distribution}/jdk1.8/source/Sources"
+  gzip -9c "dists/${distribution}/jdk1.8/source/Sources" > "dists/${distribution}/jdk1.8/source/Sources.gz"
+  rm -f "dists/${distribution}/jdk1.8/source/Sources"
+
+  # Update Release file
+  print_new_release_content "${distribution}" > "dists/${distribution}/Release.new"
+  mv "dists/${distribution}/Release.new" "dists/${distribution}/Release"
+
+  # Generate new signatures for Release file
+  rm -f "dists/stable/InRelease" "dists/stable/Release.gpg"
+  gpg --output "dists/stable/InRelease" --clear-sign "dists/stable/Release"
+  gpg --output "dists/stable/Release.gpg" --detach-sign "dists/stable/Release"
+}
+
+# Create a debian package with version in package name and add it to the repo
+function add_versioned_deb_pkg() {
+  local deb_pkg_name="$1"
+  # Extract the original package
+  mkdir -p deb-output
+  dpkg-deb -R "${deb_pkg_name}" deb-output
+
+  # Get bazel version
+  bazel_version=$(grep "Version:" deb-output/DEBIAN/control | cut -d " " -f2)
+  bazel_version=${bazel_version/\~/}
+
+  # Change package name to bazel-{bazel_version}
+  versioned_deb_pkg_name="bazel-${bazel_version}-versioned-package-amd64.deb"
+  sed -i "s/Package:\ bazel/Package:\ bazel-${bazel_version}/g" "deb-output/DEBIAN/control"
+
+  # Delete conffiles, bash completion files and bash wrapper to avoid conflict when mulitple versions are installed.
+  rm "deb-output/DEBIAN/conffiles"
+  rm -r "deb-output/etc"
+  rm -f "deb-output/usr/bin/bazel"
+
+  # Rename the actual Bazel binary to bazel-${bazel_version}
+  mv "deb-output/usr/bin/bazel-real" "deb-output/usr/bin/bazel-${bazel_version}"
+
+  # Re-pack the debian package and add it to the repo
+  dpkg-deb -b deb-output "${versioned_deb_pkg_name}"
+  reprepro -C jdk1.8 includedeb "${distribution}" "${versioned_deb_pkg_name}"
+}
+
 function create_apt_repository() {
   mkdir conf
   cat > conf/distributions <<EOF
@@ -258,6 +338,10 @@ EOF
 
   reprepro -C jdk1.8 includedeb "${distribution}" "${deb_pkg_name}"
   reprepro -C jdk1.8 includedsc "${distribution}" "${deb_dsc_name}"
+
+  add_versioned_deb_pkg "${deb_pkg_name}"
+
+  merge_previous_dists "${distribution}"
 
   gsutil -m cp -r dists pool "gs://bazel-apt"
 }
