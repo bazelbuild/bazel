@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -49,7 +48,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
   FileT getSrcJar();
 
   @SkylarkCallable(name = "inputs", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getInputs();
+  SkylarkNestedSet /*<FileT>*/ getInputsForStarlark();
 
   /** The provider implementing this can construct the GeneratedExtensionRegistryProvider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)

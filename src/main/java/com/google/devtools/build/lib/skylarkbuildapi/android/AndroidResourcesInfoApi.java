@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -74,7 +73,7 @@ public interface AndroidResourcesInfoApi<
       doc = "Returns the transitive ResourceContainers for the label.",
       documented = false,
       structField = true)
-  NestedSet<ValidatedAndroidDataT> getTransitiveAndroidResources();
+  SkylarkNestedSet /*<ValidatedAndroidDataT>*/ getTransitiveAndroidResourcesForStarlark();
 
   /** Returns the immediate ResourceContainers for the label. */
   @SkylarkCallable(
@@ -82,44 +81,44 @@ public interface AndroidResourcesInfoApi<
       doc = "Returns the immediate ResourceContainers for the label.",
       documented = false,
       structField = true)
-  NestedSet<ValidatedAndroidDataT> getDirectAndroidResources();
+  SkylarkNestedSet /*<ValidatedAndroidDataT>*/ getDirectAndroidResourcesForStarlark();
 
   @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveResources();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveResourcesForStarlark();
 
   @SkylarkCallable(name = "transitive_manifests", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveManifests();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveManifestsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_aapt2_r_txt",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveAapt2RTxt();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveAapt2RTxtForStarlark();
 
   // TODO(b/132383435): remove this
   @SkylarkCallable(name = "validation_artifacts", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveAapt2ValidationArtifacts();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveAapt2ValidationArtifactsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_symbols_bin",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveSymbolsBin();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveSymbolsBinForStarlark();
 
   @SkylarkCallable(
       name = "transitive_compiled_symbols",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveCompiledSymbols();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveCompiledSymbolsForStarlark();
 
   @SkylarkCallable(name = "transitive_static_lib", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveStaticLib();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveStaticLibForStarlark();
 
   @SkylarkCallable(name = "transitive_r_txt", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveRTxt();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveRTxtForStarlark();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
   @SkylarkModule(

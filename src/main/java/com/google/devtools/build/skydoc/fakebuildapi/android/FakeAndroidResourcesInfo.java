@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
@@ -53,52 +52,53 @@ public class FakeAndroidResourcesInfo
   }
 
   @Override
-  public NestedSet<FakeValidatedAndroidDataApi> getTransitiveAndroidResources() {
+  public SkylarkNestedSet /*<FakeValidatedAndroidDataApi>*/
+      getTransitiveAndroidResourcesForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FakeValidatedAndroidDataApi> getDirectAndroidResources() {
+  public SkylarkNestedSet /*<FakeValidatedAndroidDataApi>*/ getDirectAndroidResourcesForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveResources() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveResourcesForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveManifests() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveManifestsForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveAapt2RTxt() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveAapt2RTxtForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveAapt2ValidationArtifacts() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveAapt2ValidationArtifactsForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveSymbolsBin() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveSymbolsBinForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveCompiledSymbols() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveCompiledSymbolsForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveStaticLib() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveStaticLibForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveRTxt() {
+  public SkylarkNestedSet /*<FileApi>*/ getTransitiveRTxtForStarlark() {
     return null;
   }
 

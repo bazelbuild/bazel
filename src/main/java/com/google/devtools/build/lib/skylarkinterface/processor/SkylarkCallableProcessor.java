@@ -37,8 +37,11 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /**
@@ -74,6 +77,8 @@ import javax.tools.Diagnostic;
  *   <li>A method annotated with selfCall=true must have a non-empty name.
  *   <li>A method annotated with selfCall=true must have structField=false.
  *   <li>The method's class must implement SkylarkValue.
+ *   <li>The class of the declared result type, if final, must be accepted by {@link
+ *       Starlark#fromJava}.
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
@@ -84,7 +89,6 @@ import javax.tools.Diagnostic;
   "com.google.devtools.build.lib.skylarkinterface.SkylarkModule"
 })
 public final class SkylarkCallableProcessor extends AbstractProcessor {
-  private ProcessingEnvironment env;
   private Messager messager;
 
   // A set containing the names of all classes which have a method with @SkylarkCallable.selfCall.
@@ -92,6 +96,9 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   // A multimap where keys are class names, and values are the callable method names identified in
   // that class (where "method name" is @SkylarkCallable.name").
   private SetMultimap<String, String> processedClassMethods;
+
+  private Types types;
+  private Elements elements;
 
   private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.Sequence<?>";
   private static final String SKYLARK_DICT = "com.google.devtools.build.lib.syntax.Dict<?,?>";
@@ -101,8 +108,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       "com.google.devtools.build.lib.syntax.StarlarkThread";
   private static final String STARLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.StarlarkSemantics";
-  private static final String SKYLARK_VALUE =
-      "com.google.devtools.build.lib.skylarkinterface.SkylarkValue";
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -112,22 +117,30 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   @Override
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
-    this.env = env;
+    this.types = env.getTypeUtils();
+    this.elements = env.getElementUtils();
     messager = env.getMessager();
     classesWithSelfcall = new HashSet<>();
     processedClassMethods = LinkedHashMultimap.create();
   }
 
+  private TypeMirror getType(String name) {
+    return elements.getTypeElement(name).asType();
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    TypeMirror stringType = getType("java.lang.String");
+    TypeMirror integerType = getType("java.lang.Integer");
+    TypeMirror booleanType = getType("java.lang.Boolean");
+    TypeMirror listType = getType("java.util.List");
+    TypeMirror mapType = getType("java.util.Map");
+    TypeMirror skylarkValueType =
+        getType("com.google.devtools.build.lib.skylarkinterface.SkylarkValue");
+
     // Ensure SkylarkModule-annotated classes implement SkylarkValue.
-    TypeElement skylarkValueType = env.getElementUtils().getTypeElement(SKYLARK_VALUE);
-    if (skylarkValueType == null) {
-      messager.printMessage(Diagnostic.Kind.ERROR, "no SkylarkValue type in compilation unit");
-      return true;
-    }
     for (Element cls : roundEnv.getElementsAnnotatedWith(SkylarkModule.class)) {
-      if (!env.getTypeUtils().isAssignable(cls.asType(), skylarkValueType.asType())) {
+      if (!types.isAssignable(cls.asType(), skylarkValueType)) {
         error(
             cls,
             String.format(
@@ -175,11 +188,31 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         error(exception.methodElement, exception.errorMessage);
       }
 
+      // Verify that result type, if final, might satisfy Starlark.fromJava.
+      // (If the type is non-final we can't prove that all subclasses are invalid.)
+      TypeMirror ret = methodElement.getReturnType();
+      if (ret.getKind() == TypeKind.DECLARED) {
+        DeclaredType obj = (DeclaredType) ret;
+        if (obj.asElement().getModifiers().contains(Modifier.FINAL)
+            && !types.isSameType(ret, stringType)
+            && !types.isSameType(ret, integerType)
+            && !types.isSameType(ret, booleanType)
+            && !types.isAssignable(obj, skylarkValueType)
+            && !types.isAssignable(obj, listType)
+            && !types.isAssignable(obj, mapType)) {
+          error(
+              methodElement,
+              String.format(
+                  "@SkylarkCallable-annotated method %s returns %s, which has no legal Starlark"
+                      + " values (see Starlark.fromJava)",
+                  methodElement.getSimpleName(), ret));
+        }
+      }
+
       // Check that the method's class is SkylarkGlobalLibrary-annotated,
       // or implements SkylarkValue, or an error has already been reported.
       Element cls = methodElement.getEnclosingElement();
-      if (okClasses.add(cls)
-          && !env.getTypeUtils().isAssignable(cls.asType(), skylarkValueType.asType())) {
+      if (okClasses.add(cls) && !types.isAssignable(cls.asType(), skylarkValueType)) {
         error(
             cls,
             String.format(

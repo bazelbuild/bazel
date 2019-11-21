@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -35,7 +34,7 @@ public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructAp
   public static final String NAME = "ProguardSpecProvider";
 
   @SkylarkCallable(name = "specs", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getTransitiveProguardSpecs();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveProguardSpecsForStarlark();
 
   /** The provider implementing this can construct the ProguardSpecProvider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)

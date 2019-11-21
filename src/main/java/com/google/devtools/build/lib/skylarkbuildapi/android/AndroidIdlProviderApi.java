@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -48,7 +47,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       structField = true,
       doc = "Returns a depset of strings of all the idl import roots.",
       documented = false)
-  NestedSet<String> getTransitiveIdlImportRoots();
+  SkylarkNestedSet /*<String>*/ getTransitiveIdlImportRootsForStarlark();
 
   /** The IDL files in the transitive closure. */
   @SkylarkCallable(
@@ -56,7 +55,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       structField = true,
       doc = "Returns a depset of artifacts of all the idl imports.",
       documented = false)
-  NestedSet<FileT> getTransitiveIdlImports();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveIdlImportsForStarlark();
 
   /** The IDL jars in the transitive closure, both class and source jars. */
   @SkylarkCallable(
@@ -64,7 +63,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       structField = true,
       doc = "Returns a depset of artifacts of all the idl class and source jars.",
       documented = false)
-  NestedSet<FileT> getTransitiveIdlJars();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveIdlJarsForStarlark();
 
   /** The preprocessed IDL files in the transitive closure. */
   @SkylarkCallable(
@@ -72,7 +71,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
       structField = true,
       doc = "Returns a depset of artifacts of all the idl preprocessed files.",
       documented = false)
-  NestedSet<FileT> getTransitiveIdlPreprocessed();
+  SkylarkNestedSet /*<FileT>*/ getTransitiveIdlPreprocessedForStarlark();
 
   /** The provider implementing this can construct the AndroidIdlInfo provider. */
   @SkylarkModule(

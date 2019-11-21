@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -113,7 +112,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public NestedSet<FileApi> getGopackageFiles(
+  public SkylarkNestedSet /*<FileApi>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
     return null;
   }

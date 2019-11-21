@@ -17,14 +17,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 
 /**
@@ -165,36 +161,8 @@ public final class MethodDescriptor {
       }
     }
 
-    // TODO(adonovan): eliminate this hack.
-    // There are about a dozen methods that return NestedSet directly.
-    if (result instanceof NestedSet<?>) {
-      return SkylarkNestedSet.of(resultType(), (NestedSet<?>) result);
-    }
-
     // Careful: thread may be null when we are called by invokeStructField.
     return Starlark.fromJava(result, thread != null ? thread.mutability() : null);
-  }
-
-  // legacy hack for NestedSet
-  private SkylarkType resultType() {
-    // This is where we can infer generic type information, so SkylarkNestedSets can be
-    // created in a safe way. Eventually we should probably do something with Lists and Maps too.
-    ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
-    Type type = t.getActualTypeArguments()[0];
-    if (type instanceof Class) {
-      return SkylarkType.of((Class<?>) type);
-    }
-    if (type instanceof WildcardType) {
-      WildcardType wildcard = (WildcardType) type;
-      Type upperBound = wildcard.getUpperBounds()[0];
-      if (upperBound instanceof Class) {
-        // i.e. List<? extends SuperClass>
-        return SkylarkType.of((Class<?>) upperBound);
-      }
-    }
-    // It means someone annotated a method with @SkylarkCallable with no specific generic type info.
-    // We shouldn't annotate methods which return List<?> or List<T>.
-    throw new IllegalStateException("Cannot infer type from method signature " + method);
   }
 
   /** @see SkylarkCallable#name() */

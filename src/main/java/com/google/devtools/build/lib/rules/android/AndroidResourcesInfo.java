@@ -111,52 +111,93 @@ public class AndroidResourcesInfo extends NativeInfo
   }
 
   @Override
+  public SkylarkNestedSet /*<ValidatedAndroidResources>*/
+      getTransitiveAndroidResourcesForStarlark() {
+    return SkylarkNestedSet.of(ValidatedAndroidResources.class, transitiveAndroidResources);
+  }
+
   public NestedSet<ValidatedAndroidResources> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   @Override
+  public SkylarkNestedSet /*<ValidatedAndroidResources>*/ getDirectAndroidResourcesForStarlark() {
+    return SkylarkNestedSet.of(ValidatedAndroidResources.class, directAndroidResources);
+  }
+
   public NestedSet<ValidatedAndroidResources> getDirectAndroidResources() {
     return directAndroidResources;
   }
 
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveResourcesForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveResources);
+  }
+
   public NestedSet<Artifact> getTransitiveResources() {
     return transitiveResources;
   }
 
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveManifestsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveManifests);
+  }
+
   public NestedSet<Artifact> getTransitiveManifests() {
     return transitiveManifests;
   }
 
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveAapt2RTxtForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveAapt2RTxt);
+  }
+
   public NestedSet<Artifact> getTransitiveAapt2RTxt() {
     return transitiveAapt2RTxt;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveAapt2ValidationArtifacts() {
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveAapt2ValidationArtifactsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveAapt2ValidationArtifacts);
+  }
+
+  NestedSet<Artifact> getTransitiveAapt2ValidationArtifacts() {
     return transitiveAapt2ValidationArtifacts;
   }
 
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveSymbolsBinForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveSymbolsBin);
+  }
+
   public NestedSet<Artifact> getTransitiveSymbolsBin() {
     return transitiveSymbolsBin;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveCompiledSymbols() {
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveCompiledSymbolsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveCompiledSymbols);
+  }
+
+  NestedSet<Artifact> getTransitiveCompiledSymbols() {
     return transitiveCompiledSymbols;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveStaticLib() {
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveStaticLibForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveStaticLib);
+  }
+
+  NestedSet<Artifact> getTransitiveStaticLib() {
     return transitiveStaticLib;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveRTxt() {
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveRTxtForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveRTxt);
+  }
+
+  NestedSet<Artifact> getTransitiveRTxt() {
     return transitiveRTxt;
   }
 

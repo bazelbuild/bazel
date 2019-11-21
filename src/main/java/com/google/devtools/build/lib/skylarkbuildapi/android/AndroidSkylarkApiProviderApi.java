@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -125,7 +124,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends Sky
       structField = true,
       doc = "Returns resources defined by this target.",
       documented = false)
-  NestedSet<FileT> getResources();
+  SkylarkNestedSet /*<FileT>*/ getResources();
 
   @SkylarkCallable(
       name = "resource_jar",

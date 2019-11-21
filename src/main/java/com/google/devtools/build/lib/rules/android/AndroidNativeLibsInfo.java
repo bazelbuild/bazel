@@ -43,7 +43,11 @@ public final class AndroidNativeLibsInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<Artifact> getNativeLibs() {
+  public SkylarkNestedSet /*<Artifact>*/ getNativeLibsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, nativeLibs);
+  }
+
+  NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
   }
 

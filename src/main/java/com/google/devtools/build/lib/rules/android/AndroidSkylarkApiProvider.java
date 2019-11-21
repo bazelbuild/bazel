@@ -97,8 +97,9 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public NestedSet<Artifact> getResources() {
-    return collectDirectArtifacts(ValidatedAndroidResources::getResources);
+  public SkylarkNestedSet /*<Artifact>*/ getResources() {
+    return SkylarkNestedSet.of(
+        Artifact.TYPE, collectDirectArtifacts(ValidatedAndroidResources::getResources));
   }
 
   @Override

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -42,14 +43,22 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveHeaders() {
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveHeadersForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, getTransitiveHeaders());
+  }
+
+  NestedSet<Artifact> getTransitiveHeaders() {
     CcCompilationContext ccCompilationContext =
         getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
     return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
   @Override
-  public NestedSet<Artifact> getLibraries() {
+  public SkylarkNestedSet /*<Artifact>*/ getLibrariesForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, getLibraries());
+  }
+
+  NestedSet<Artifact> getLibraries() {
     NestedSetBuilder<Artifact> libs = NestedSetBuilder.linkOrder();
     CcInfo ccInfo = getInfo().get(CcInfo.PROVIDER);
     if (ccInfo == null) {

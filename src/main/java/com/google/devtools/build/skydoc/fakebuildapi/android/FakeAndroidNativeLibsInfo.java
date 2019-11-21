@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeAndroidNativeLibsInfo implements AndroidNativeLibsInfoApi<FileApi> {
 
   @Override
-  public NestedSet<FileApi> getNativeLibs() {
+  public SkylarkNestedSet /*<FileApi>*/ getNativeLibsForStarlark() {
     return null;
   }
 

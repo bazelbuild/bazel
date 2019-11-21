@@ -112,7 +112,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainVariablesApi getCompileBuildVariables(
-      CcToolchainProviderApi ccToolchainProvider,
+      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
       FeatureConfigurationApi featureConfiguration,
       Object sourceFile,
       Object outputFile,
@@ -129,12 +129,21 @@ public class FakeCcModule
   }
 
   @Override
-  public CcToolchainVariablesApi getLinkBuildVariables(CcToolchainProviderApi ccToolchainProvider,
-      FeatureConfigurationApi featureConfiguration, Object librarySearchDirectories,
-      Object runtimeLibrarySearchDirectories, Object userLinkFlags, Object outputFile,
-      Object paramFile, Object defFile, boolean isUsingLinkerNotArchiver,
-      boolean isCreatingSharedLibrary, boolean mustKeepDebug, boolean useTestOnlyFlags,
-      boolean isStaticLinkingMode) throws EvalException {
+  public CcToolchainVariablesApi getLinkBuildVariables(
+      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
+      FeatureConfigurationApi featureConfiguration,
+      Object librarySearchDirectories,
+      Object runtimeLibrarySearchDirectories,
+      Object userLinkFlags,
+      Object outputFile,
+      Object paramFile,
+      Object defFile,
+      boolean isUsingLinkerNotArchiver,
+      boolean isCreatingSharedLibrary,
+      boolean mustKeepDebug,
+      boolean useTestOnlyFlags,
+      boolean isStaticLinkingMode)
+      throws EvalException {
     return null;
   }
 
@@ -144,7 +153,7 @@ public class FakeCcModule
   }
 
   @Override
-  public LibraryToLinkApi createLibraryLinkerInput(
+  public LibraryToLinkApi<FileApi> createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -170,7 +179,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcLinkingContextApi createCcLinkingInfo(
+  public CcLinkingContextApi<FileApi> createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
@@ -199,7 +208,8 @@ public class FakeCcModule
   }
 
   @Override
-  public String legacyCcFlagsMakeVariable(CcToolchainProviderApi ccToolchain) {
+  public String legacyCcFlagsMakeVariable(
+      CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
     return "";
   }
 

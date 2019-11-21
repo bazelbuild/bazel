@@ -71,6 +71,10 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
 
   /** @return the proto jars used to generate the registry. */
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getInputsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, inputs);
+  }
+
   public NestedSet<Artifact> getInputs() {
     return inputs;
   }

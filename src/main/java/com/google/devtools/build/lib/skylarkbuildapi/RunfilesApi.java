@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** An interface for a set of runfiles. */
 @SkylarkModule(
@@ -33,27 +33,25 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 public interface RunfilesApi extends SkylarkValue {
 
   @SkylarkCallable(
-    name = "files",
-    doc = "Returns the set of runfiles as files.",
-    structField = true
-  )
-  public NestedSet<? extends FileApi> getArtifacts();
+      name = "files",
+      doc = "Returns the set of runfiles as files.",
+      structField = true)
+  public SkylarkNestedSet /*<? extends FileApi>*/ getArtifactsForStarlark();
 
   @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
-  public NestedSet<? extends SymlinkEntryApi> getSymlinks();
+  public SkylarkNestedSet /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
 
   @SkylarkCallable(
       name = "root_symlinks",
       doc = "Returns the set of root symlinks.",
       structField = true)
-  public NestedSet<? extends SymlinkEntryApi> getRootSymlinks();
+  public SkylarkNestedSet /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
 
   @SkylarkCallable(
-    name = "empty_filenames",
-    doc = "Returns names of empty files to create.",
-    structField = true
-  )
-  public NestedSet<String> getEmptyFilenames();
+      name = "empty_filenames",
+      doc = "Returns names of empty files to create.",
+      structField = true)
+  public SkylarkNestedSet /*<String>*/ getEmptyFilenamesForStarlark();
 
   @SkylarkCallable(
     name = "merge",

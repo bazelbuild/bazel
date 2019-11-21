@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -79,6 +80,10 @@ public class AndroidLibraryAarInfo extends NativeInfo
   }
 
   @Override
+  public SkylarkNestedSet /*<Artifact>*/ getTransitiveAarArtifactsForStarlark() {
+    return SkylarkNestedSet.of(Artifact.TYPE, transitiveAarArtifacts);
+  }
+
   public NestedSet<Artifact> getTransitiveAarArtifacts() {
     return transitiveAarArtifacts;
   }

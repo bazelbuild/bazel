@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -46,7 +45,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
       structField = true)
-  NestedSet<FileT> getNativeLibs();
+  SkylarkNestedSet /*<FileT>*/ getNativeLibsForStarlark();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
   @SkylarkModule(

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
@@ -213,6 +213,6 @@ public interface GoWrapCcHelperApi<
             named = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
       })
-  public NestedSet<FileT> getGopackageFiles(
+  public SkylarkNestedSet /*<FileT>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextT skylarkRuleContext, FileT skylarkGopkg);
 }

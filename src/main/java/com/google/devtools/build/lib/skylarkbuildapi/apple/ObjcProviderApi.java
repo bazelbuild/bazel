@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -34,12 +33,13 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 )
 public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue {
 
-  @SkylarkCallable(name = "define",
+  @SkylarkCallable(
+      name = "define",
       structField = true,
-      doc = "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
-          + "all invocations of the compiler for this target and all depending targets."
-  )
-  public NestedSet<String> define();
+      doc =
+          "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
+              + "all invocations of the compiler for this target and all depending targets.")
+  public SkylarkNestedSet /*<String>*/ defineForStarlark();
 
   @SkylarkCallable(
       name = "dynamic_framework_file",
@@ -47,32 +47,33 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       doc =
           "The library files in .framework directories belonging to a dynamically linked "
               + "framework.")
-  public NestedSet<FileApiT> dynamicFrameworkFile();
+  public SkylarkNestedSet /*<FileApiT>*/ dynamicFrameworkFileForStarlark();
 
-  @SkylarkCallable(name = "exported_debug_artifacts",
+  @SkylarkCallable(
+      name = "exported_debug_artifacts",
       structField = true,
-      doc = "Debug files that should be exported by the top-level target."
-  )
-  public NestedSet<FileApiT> exportedDebugArtifacts();
+      doc = "Debug files that should be exported by the top-level target.")
+  public SkylarkNestedSet /*<FileApiT>*/ exportedDebugArtifacts();
 
-  @SkylarkCallable(name = "framework_search_path_only",
+  @SkylarkCallable(
+      name = "framework_search_path_only",
       structField = true,
-      doc = "Exec paths of .framework directories corresponding to frameworks to include "
-          + "in search paths, but not to link."
-  )
-  public SkylarkNestedSet frameworkSearchPathOnly();
+      doc =
+          "Exec paths of .framework directories corresponding to frameworks to include "
+              + "in search paths, but not to link.")
+  public SkylarkNestedSet /*<String>*/ frameworkSearchPathOnly();
 
-  @SkylarkCallable(name = "force_load_library",
+  @SkylarkCallable(
+      name = "force_load_library",
       structField = true,
-      doc = "Libraries to load with -force_load."
-  )
-  public NestedSet<FileApiT> forceLoadLibrary();
+      doc = "Libraries to load with -force_load.")
+  public SkylarkNestedSet /*<FileApiT>*/ forceLoadLibrary();
 
-  @SkylarkCallable(name = "header",
+  @SkylarkCallable(
+      name = "header",
       structField = true,
-      doc = "All header files. These may be either public or private headers."
-  )
-  public NestedSet<FileApiT> header();
+      doc = "All header files. These may be either public or private headers.")
+  public SkylarkNestedSet /*<FileApiT>*/ headerForStarlark();
 
   @SkylarkCallable(
       name = "direct_headers",
@@ -82,11 +83,11 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
               + "These may be either public or private headers.")
   public Sequence<FileApiT> directHeaders();
 
-  @SkylarkCallable(name = "imported_library",
+  @SkylarkCallable(
+      name = "imported_library",
       structField = true,
-      doc = "Imported precompiled static libraries (.a files) to be linked into the binary."
-  )
-  public NestedSet<FileApiT> importedLibrary();
+      doc = "Imported precompiled static libraries (.a files) to be linked into the binary.")
+  public SkylarkNestedSet /*<FileApiT>*/ importedLibrary();
 
   @SkylarkCallable(name = "include",
       structField = true,
@@ -107,51 +108,50 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public SkylarkNestedSet iquote();
 
-  @SkylarkCallable(name = "j2objc_library",
+  @SkylarkCallable(
+      name = "j2objc_library",
       structField = true,
-      doc = "Static libraries that are built from J2ObjC-translated Java code."
-  )
-  public NestedSet<FileApiT> j2objcLibrary();
+      doc = "Static libraries that are built from J2ObjC-translated Java code.")
+  public SkylarkNestedSet /*<FileApiT>*/ j2objcLibrary();
 
-  @SkylarkCallable(name = "jre_library",
+  @SkylarkCallable(
+      name = "jre_library",
       structField = true,
-      doc = "J2ObjC JRE emulation libraries and their dependencies."
-  )
-  public NestedSet<FileApiT> jreLibrary();
+      doc = "J2ObjC JRE emulation libraries and their dependencies.")
+  public SkylarkNestedSet /*<FileApiT>*/ jreLibrary();
 
-  @SkylarkCallable(name = "library",
+  @SkylarkCallable(
+      name = "library",
       structField = true,
-      doc = "Library (.a) files compiled by dependencies of the current target."
-  )
-  public NestedSet<FileApiT> library();
+      doc = "Library (.a) files compiled by dependencies of the current target.")
+  public SkylarkNestedSet /*<FileApiT>*/ library();
 
-  @SkylarkCallable(name = "link_inputs",
+  @SkylarkCallable(
+      name = "link_inputs",
       structField = true,
-      doc = "Link time artifacts from dependencies that do not fall into any other category such "
-          + "as libraries or archives. This catch-all provides a way to add arbitrary data (e.g. "
-          + "Swift AST files) to the linker. The rule that adds these is also responsible to "
-          + "add the necessary linker flags to 'linkopt'."
-  )
-  public NestedSet<FileApiT> linkInputs();
+      doc =
+          "Link time artifacts from dependencies that do not fall into any other category such as"
+              + " libraries or archives. This catch-all provides a way to add arbitrary data (e.g."
+              + " Swift AST files) to the linker. The rule that adds these is also responsible to"
+              + " add the necessary linker flags to 'linkopt'.")
+  public SkylarkNestedSet /*<FileApiT>*/ linkInputs();
 
-  @SkylarkCallable(name = "linked_binary",
+  @SkylarkCallable(
+      name = "linked_binary",
       structField = true,
-      doc = "Single-architecture linked binaries to be combined for the final multi-architecture "
-          + "binary."
-  )
-  public NestedSet<FileApiT> linkedBinary();
+      doc =
+          "Single-architecture linked binaries to be combined for the final multi-architecture "
+              + "binary.")
+  public SkylarkNestedSet /*<FileApiT>*/ linkedBinary();
 
-  @SkylarkCallable(name = "linkmap_file",
+  @SkylarkCallable(
+      name = "linkmap_file",
       structField = true,
-      doc = "Single-architecture link map for a binary."
-  )
-  public NestedSet<FileApiT> linkmapFile();
+      doc = "Single-architecture link map for a binary.")
+  public SkylarkNestedSet /*<FileApiT>*/ linkmapFile();
 
-  @SkylarkCallable(name = "linkopt",
-      structField = true,
-      doc = "Linking options."
-  )
-  public NestedSet<String> linkopt();
+  @SkylarkCallable(name = "linkopt", structField = true, doc = "Linking options.")
+  public SkylarkNestedSet /*<String>*/ linkopt();
 
   @SkylarkCallable(
       name = "merge_zip",
@@ -160,13 +160,13 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
           "Merge zips to include in the bundle. The entries of these zip files are included "
               + "in the final bundle with the same path. The entries in the merge zips should not "
               + "include the bundle root path (e.g. 'Foo.app').")
-  public NestedSet<FileApiT> mergeZip();
+  public SkylarkNestedSet /*<FileApiT>*/ mergeZip();
 
-  @SkylarkCallable(name = "module_map",
+  @SkylarkCallable(
+      name = "module_map",
       structField = true,
-      doc = "Clang module maps, used to enforce proper use of private header files."
-  )
-  public NestedSet<FileApiT> moduleMap();
+      doc = "Clang module maps, used to enforce proper use of private header files.")
+  public SkylarkNestedSet /*<FileApiT>*/ moduleMap();
 
   @SkylarkCallable(
       name = "direct_module_maps",
@@ -176,29 +176,29 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
               + "Used to enforce proper use of private header files and for Swift compilation.")
   public Sequence<FileApiT> directModuleMaps();
 
-  @SkylarkCallable(name = "multi_arch_dynamic_libraries",
+  @SkylarkCallable(
+      name = "multi_arch_dynamic_libraries",
       structField = true,
-      doc = "Combined-architecture dynamic libraries to include in the final bundle."
-  )
-  public NestedSet<FileApiT> multiArchDynamicLibraries();
+      doc = "Combined-architecture dynamic libraries to include in the final bundle.")
+  public SkylarkNestedSet /*<FileApiT>*/ multiArchDynamicLibraries();
 
-  @SkylarkCallable(name = "multi_arch_linked_archives",
+  @SkylarkCallable(
+      name = "multi_arch_linked_archives",
       structField = true,
-      doc = "Combined-architecture archives to include in the final bundle."
-  )
-  public NestedSet<FileApiT> multiArchLinkedArchives();
+      doc = "Combined-architecture archives to include in the final bundle.")
+  public SkylarkNestedSet /*<FileApiT>*/ multiArchLinkedArchives();
 
-  @SkylarkCallable(name = "multi_arch_linked_binaries",
+  @SkylarkCallable(
+      name = "multi_arch_linked_binaries",
       structField = true,
-      doc = "Combined-architecture binaries to include in the final bundle."
-  )
-  public NestedSet<FileApiT> multiArchLinkedBinaries();
+      doc = "Combined-architecture binaries to include in the final bundle.")
+  public SkylarkNestedSet /*<FileApiT>*/ multiArchLinkedBinaries();
 
-  @SkylarkCallable(name = "sdk_dylib",
+  @SkylarkCallable(
+      name = "sdk_dylib",
       structField = true,
-      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'."
-  )
-  public NestedSet<String> sdkDylib();
+      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'.")
+  public SkylarkNestedSet /*<String>*/ sdkDylib();
 
   @SkylarkCallable(name = "sdk_framework",
       structField = true,
@@ -206,11 +206,8 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
   )
   public SkylarkNestedSet sdkFramework();
 
-  @SkylarkCallable(name = "source",
-      structField = true,
-      doc = "All transitive source files."
-  )
-  public NestedSet<FileApiT> source();
+  @SkylarkCallable(name = "source", structField = true, doc = "All transitive source files.")
+  public SkylarkNestedSet /*<FileApiT>*/ sourceForStarlark();
 
   @SkylarkCallable(
       name = "direct_sources",
@@ -222,14 +219,15 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "static_framework_file",
       structField = true,
       doc = "The library files in .framework directories that should be statically linked.")
-  public NestedSet<FileApiT> staticFrameworkFile();
+  public SkylarkNestedSet /*<FileApiT>*/ staticFrameworkFileForStarlark();
 
-  @SkylarkCallable(name = "umbrella_header",
+  @SkylarkCallable(
+      name = "umbrella_header",
       structField = true,
-      doc = "Clang umbrella header. Public headers are #included in umbrella headers to be "
-          + "compatible with J2ObjC segmented headers."
-  )
-  public NestedSet<FileApiT> umbrellaHeader();
+      doc =
+          "Clang umbrella header. Public headers are #included in umbrella headers to be "
+              + "compatible with J2ObjC segmented headers.")
+  public SkylarkNestedSet /*<FileApiT>*/ umbrellaHeader();
 
   @SkylarkCallable(
       name = "weak_sdk_framework",
@@ -244,23 +242,23 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "dynamic_framework_names",
       structField = true,
       doc = "Returns all names of dynamic frameworks in this provider.")
-  public NestedSet<String> dynamicFrameworkNames();
+  public SkylarkNestedSet /*<String>*/ dynamicFrameworkNamesForStarlark();
 
   @SkylarkCallable(
       name = "dynamic_framework_paths",
       structField = true,
       doc = "Returns all framework paths to dynamic frameworks in this provider.")
-  public NestedSet<String> dynamicFrameworkPaths();
+  public SkylarkNestedSet /*<String>*/ dynamicFrameworkPathsForStarlark();
 
   @SkylarkCallable(
       name = "static_framework_names",
       structField = true,
       doc = "Returns all names of static frameworks in this provider.")
-  public NestedSet<String> staticFrameworkNames();
+  public SkylarkNestedSet /*<String>*/ staticFrameworkNamesForStarlark();
 
   @SkylarkCallable(
       name = "static_framework_paths",
       structField = true,
       doc = "Returns all framework paths to static frameworks in this provider.")
-  public NestedSet<String> staticFrameworkPaths();
+  public SkylarkNestedSet /*<String>*/ staticFrameworkPathsForStarlark();
 }
