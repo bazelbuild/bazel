@@ -189,7 +189,7 @@ easier but should be set before shipping.""",
         doc = "Location of the .netrc file to use for authentication",
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded
+        doc = """A canonical id of the archive downloaded.
 
 If specified and non-empty, bazel will not take a the archive from cache,
 unless is was added to the cache by a request with the same canonical id.
