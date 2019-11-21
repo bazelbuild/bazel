@@ -155,7 +155,8 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testListConcat() throws Exception {
-    assertThat(eval("[1, 2] + [3, 4]")).isEqualTo(Sequence.createImmutable(Tuple.of(1, 2, 3, 4)));
+    assertThat(eval("[1, 2] + [3, 4]"))
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
   }
 
   @Test
@@ -317,7 +318,8 @@ public class SkylarkListTest extends EvaluationTestCase {
   public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = StarlarkList.copyOf(thread, Tuple.of(1, 2, 3)).getClass();
+    Class<?> mutableListClass =
+        StarlarkList.copyOf(thread.mutability(), Tuple.of(1, 2, 3)).getClass();
 
     assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(StarlarkList.class);
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);

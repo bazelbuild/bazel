@@ -42,9 +42,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -366,8 +366,7 @@ public class SkylarkDebugServerTest {
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(
-                        getValueProto("x", Sequence.createImmutable(ImmutableList.of(1, 2, 3)))))
+                    .addBinding(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3))))
             .build());
   }
 
@@ -391,7 +390,7 @@ public class SkylarkDebugServerTest {
     Value xValue = frames.getFrame(0).getScope(0).getBinding(0);
 
     assertValuesEqualIgnoringId(
-        xValue, getValueProto("x", Sequence.createImmutable(ImmutableList.of(1, 2, 3))));
+        xValue, getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3)));
 
     List<Value> children = getChildren(xValue);
 
@@ -522,7 +521,7 @@ public class SkylarkDebugServerTest {
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", Sequence.createImmutable(ImmutableList.of(5, 6))));
+        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 5, 6)));
   }
 
   @Test
@@ -556,7 +555,7 @@ public class SkylarkDebugServerTest {
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", Sequence.createImmutable(ImmutableList.of(1, 2, 3, 4))));
+        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4)));
   }
 
   @Test

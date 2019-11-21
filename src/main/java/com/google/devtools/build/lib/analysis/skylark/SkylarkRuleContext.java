@@ -211,7 +211,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          outputs.addOutput(attrName, Sequence.createImmutable(artifacts));
+          outputs.addOutput(attrName, StarlarkList.immutableCopyOf(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -444,7 +444,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           value = splitPrereq.getValue().get(0);
         } else {
           // BuildType.LABEL_LIST
-          value = Sequence.createImmutable(splitPrereq.getValue());
+          value = StarlarkList.immutableCopyOf(splitPrereq.getValue());
         }
 
         if (splitPrereq.getKey().isPresent()) {
@@ -708,7 +708,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     } catch (TokenizationException e) {
       throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return Sequence.createImmutable(options);
+    return StarlarkList.immutableCopyOf(options);
   }
 
   @Override
@@ -1088,8 +1088,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.<Object>of(
-        StarlarkList.copyOf(thread, inputs),
-        StarlarkList.copyOf(thread, argv),
+        StarlarkList.copyOf(thread.mutability(), inputs),
+        StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 

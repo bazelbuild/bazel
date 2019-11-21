@@ -44,8 +44,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSe
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -209,7 +211,7 @@ public abstract class AndroidSkylarkData
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
     return Dict.of(
-        /* thread = */ null,
+        (Mutability) null,
         AndroidResourcesInfo.PROVIDER,
         validated.toProvider(),
         JavaInfo.PROVIDER,
@@ -434,9 +436,9 @@ public abstract class AndroidSkylarkData
     return makeBinarySettings(
         ctx,
         Starlark.NONE,
-        Sequence.createImmutable(ImmutableList.of()),
-        Sequence.createImmutable(ImmutableList.of()),
-        Sequence.createImmutable(ImmutableList.of()),
+        StarlarkList.empty(),
+        StarlarkList.empty(),
+        StarlarkList.empty(),
         "auto",
         location,
         thread);
@@ -756,7 +758,7 @@ public abstract class AndroidSkylarkData
 
   public static <T extends NativeInfo> Sequence<T> getProviders(
       List<ConfiguredTarget> targets, NativeProvider<T> provider) {
-    return Sequence.createImmutable(
+    return StarlarkList.immutableCopyOf(
         targets.stream()
             .map(target -> target.get(provider))
             .filter(Objects::nonNull)
@@ -765,7 +767,7 @@ public abstract class AndroidSkylarkData
 
   protected static <T extends NativeInfo> Sequence<T> getProviders(
       List<ConfiguredTarget> targets, BuiltinProvider<T> provider) {
-    return Sequence.createImmutable(
+    return StarlarkList.immutableCopyOf(
         targets.stream()
             .map(target -> target.get(provider))
             .filter(Objects::nonNull)

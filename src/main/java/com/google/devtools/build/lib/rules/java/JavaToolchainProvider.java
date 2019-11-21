@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Iterator;
 import javax.annotation.Nullable;
 
@@ -415,7 +416,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   @Override
   public Sequence<String> getSkylarkJvmOptions() {
-    return Sequence.createImmutable(getJvmOptions());
+    return StarlarkList.immutableCopyOf(getJvmOptions());
   }
 
   @Override
@@ -423,5 +424,3 @@ public class JavaToolchainProvider extends ToolchainInfo
     return SkylarkNestedSet.of(Artifact.class, getTools());
   }
 }
-
-

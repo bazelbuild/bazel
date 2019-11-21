@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -132,7 +133,8 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         (Sequence<Dict<String, String>>) fooProvider.getValue("envs");
     assertThat(envs)
         .containsExactly(
-            Dict.of(null, "foo", "bar", "pet", "puppy"), Dict.of(null, "pet", "bunny"));
+            Dict.of((Mutability) null, "foo", "bar", "pet", "puppy"),
+            Dict.of((Mutability) null, "pet", "bunny"));
 
     Sequence<Sequence<Artifact>> inputs =
         (Sequence<Sequence<Artifact>>) fooProvider.getValue("inputs");

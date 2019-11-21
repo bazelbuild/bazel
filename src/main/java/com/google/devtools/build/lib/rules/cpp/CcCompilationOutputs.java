@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -109,17 +110,17 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
         thread.getSemantics(),
         location,
         ((Label) thread.getGlobals().getLabel()).getPackageIdentifier().toString());
-    return Sequence.createImmutable(getObjectFiles(usePic));
+    return StarlarkList.immutableCopyOf(getObjectFiles(usePic));
   }
 
   @Override
   public Sequence<Artifact> getSkylarkObjects(Location location) throws EvalException {
-    return Sequence.createImmutable(getObjectFiles(/* usePic= */ false));
+    return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ false));
   }
 
   @Override
   public Sequence<Artifact> getSkylarkPicObjects(Location location) throws EvalException {
-    return Sequence.createImmutable(getObjectFiles(/* usePic= */ true));
+    return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ true));
   }
 
   /** Returns information about bitcode object files resulting from compilation. */

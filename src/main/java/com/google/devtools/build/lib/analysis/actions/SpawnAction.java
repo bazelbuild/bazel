@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -254,13 +255,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     for (CommandLineAndParamFileInfo commandLine : commandLines.getCommandLines()) {
       result.add(Args.forRegisteredAction(commandLine, directoryInputs));
     }
-    return Sequence.createImmutable(result.build());
+    return StarlarkList.immutableCopyOf(result.build());
   }
 
   @Override
   public Sequence<String> getSkylarkArgv() throws EvalException {
     try {
-      return Sequence.createImmutable(getArguments());
+      return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }
@@ -597,7 +598,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
       return inputs;
     }

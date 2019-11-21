@@ -45,8 +45,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -59,7 +60,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -376,7 +376,7 @@ public class SkylarkRepositoryContextTest {
             "$remotable",
             true,
             "exec_properties",
-            Dict.of(null, "OSFamily", "Linux"));
+            Dict.of((Mutability) null, "OSFamily", "Linux"));
 
     RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =
@@ -397,7 +397,7 @@ public class SkylarkRepositoryContextTest {
     // Act
     SkylarkExecutionResult skylarkExecutionResult =
         context.execute(
-            Sequence.createImmutable(Arrays.asList("/bin/cmd", "arg1")),
+            StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
             /*timeout=*/ 10,
             /* uncheckedEnvironment=*/ Dict.empty(),
             /* quiet= */ true,

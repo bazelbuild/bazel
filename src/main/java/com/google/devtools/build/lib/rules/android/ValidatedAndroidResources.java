@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -214,7 +215,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
 
   @Override
   public Sequence<Artifact> getResourcesList() {
-    return Sequence.createImmutable(getResources());
+    return StarlarkList.immutableCopyOf(getResources());
   }
 
   public ValidatedAndroidResources filter(

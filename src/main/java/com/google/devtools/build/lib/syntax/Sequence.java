@@ -137,14 +137,4 @@ public interface Sequence<E> extends SkylarkValue, List<E>, RandomAccess, Skylar
       throws EvalException {
     return castList(this, type, description);
   }
-
-  /**
-   * Creates an immutable StarlarkList with the given elements.
-   *
-   * <p>The caller must ensure that the elements of {@code contents} are not mutable.
-   */
-  // TODO(adonovan): move to StarlarkList.
-  public static <E> Sequence<E> createImmutable(Iterable<? extends E> contents) {
-    return StarlarkList.copyOf(Mutability.IMMUTABLE, contents);
-  }
 }

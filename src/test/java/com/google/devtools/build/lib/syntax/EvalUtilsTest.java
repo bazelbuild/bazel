@@ -36,7 +36,7 @@ import org.junit.runners.JUnit4;
 public class EvalUtilsTest extends EvaluationTestCase {
 
   private static StarlarkList<Object> makeList(StarlarkThread thread) {
-    return StarlarkList.of(thread, 1, 2, 3);
+    return StarlarkList.of(thread == null ? null : thread.mutability(), 1, 2, 3);
   }
 
   private static Dict<Object, Object> makeDict(StarlarkThread thread) {
@@ -96,8 +96,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
-      StarlarkList.of(thread, 1, 2, 3),
-      StarlarkList.of(thread, "1", "2", "3"),
+      StarlarkList.of(thread.mutability(), 1, 2, 3),
+      StarlarkList.of(thread.mutability(), "1", "2", "3"),
       Dict.of(thread, "key", 123),
       Dict.of(thread, 123, "value"),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),

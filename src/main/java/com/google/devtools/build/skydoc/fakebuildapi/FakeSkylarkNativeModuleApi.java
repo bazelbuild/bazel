@@ -45,7 +45,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
       Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return StarlarkList.of(thread);
+    return StarlarkList.of(thread.mutability());
   }
 
   @Override

@@ -439,7 +439,7 @@ public final class SkylarkNestedSet implements SkylarkValue {
   public StarlarkList<Object> toList(Location location, StarlarkThread thread)
       throws EvalException {
     try {
-      return StarlarkList.copyOf(thread, this.toCollection());
+      return StarlarkList.copyOf(thread.mutability(), this.toCollection());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           location,

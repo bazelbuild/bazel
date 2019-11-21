@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
@@ -665,9 +666,9 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   @SuppressWarnings({"rawtypes", "unchecked"})
   public <E> Sequence<E> getDirect(Key<E> key) {
     if (directItems.containsKey(key)) {
-      return Sequence.createImmutable((List) directItems.get(key));
+      return StarlarkList.immutableCopyOf((List) directItems.get(key));
     }
-    return Sequence.createImmutable(ImmutableList.of());
+    return StarlarkList.empty();
   }
 
   /**

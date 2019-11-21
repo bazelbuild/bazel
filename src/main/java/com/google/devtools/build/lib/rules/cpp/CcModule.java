@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -168,7 +169,7 @@ public abstract class CcModule
   @Override
   public Sequence<String> getExecutionRequirements(
       FeatureConfigurationForStarlark featureConfiguration, String actionName) {
-    return Sequence.createImmutable(
+    return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
   }
 
@@ -190,7 +191,7 @@ public abstract class CcModule
       String actionName,
       CcToolchainVariables variables)
       throws EvalException {
-    return Sequence.createImmutable(
+    return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getCommandLine(actionName, variables));
   }
 

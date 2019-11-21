@@ -1084,7 +1084,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "    modified_list = v + ['extra_string']",
             "  return modified_list",
             "m = func(mock)")
-        .testLookup("m", StarlarkList.of(thread, "b", "c", "extra_string"));
+        .testLookup("m", StarlarkList.of(thread.mutability(), "b", "c", "extra_string"));
   }
 
   @Test
@@ -1555,7 +1555,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return value",
             "",
             "f()[1] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
 
     // Check key position.
     new SkylarkTest()
@@ -1568,7 +1568,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return 1",
             "",
             "value[f()] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
   }
 
   @Test
@@ -1608,8 +1608,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "",
             "f(ordinary)[0] = g(ordinary)[1]",
             "f(augmented)[0] += g(augmented)[1]")
-        .testLookup("ordinary", StarlarkList.of(thread, "g", "f")) // This order is consistent
-        .testLookup("augmented", StarlarkList.of(thread, "f", "g")); // with Python
+        .testLookup(
+            "ordinary", StarlarkList.of(thread.mutability(), "g", "f")) // This order is consistent
+        .testLookup("augmented", StarlarkList.of(thread.mutability(), "f", "g")); // with Python
   }
 
   @Test
@@ -1741,7 +1742,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
     new SkylarkTest()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
-        .testLookup("d", Dict.of(null, "a", 1, "b", 2));
+        .testLookup("d", Dict.of((Mutability) null, "a", 1, "b", 2));
   }
 
   @Test

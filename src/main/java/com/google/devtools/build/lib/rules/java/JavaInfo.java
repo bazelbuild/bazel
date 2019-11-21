@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.ArrayList;
 import java.util.List;
@@ -293,7 +294,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     JavaSourceJarsProvider provider = providers.getProvider(JavaSourceJarsProvider.class);
     ImmutableList<Artifact> sourceJars =
         provider == null ? ImmutableList.of() : provider.getSourceJars();
-    return Sequence.createImmutable(sourceJars);
+    return StarlarkList.immutableCopyOf(sourceJars);
   }
 
   @Override
@@ -313,7 +314,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
   @Override
   public Sequence<Artifact> getRuntimeOutputJars() {
-    return Sequence.createImmutable(getDirectRuntimeJars());
+    return StarlarkList.immutableCopyOf(getDirectRuntimeJars());
   }
 
   public ImmutableList<Artifact> getDirectRuntimeJars() {

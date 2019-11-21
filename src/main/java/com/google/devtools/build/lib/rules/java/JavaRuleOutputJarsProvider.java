@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -88,7 +89,7 @@ public final class JavaRuleOutputJarsProvider
     @Nullable
     @Override
     public Sequence<Artifact> getSrcJarsSkylark() {
-      return Sequence.createImmutable(srcJars);
+      return StarlarkList.immutableCopyOf(srcJars);
     }
 
     public Iterable<Artifact> getSrcJars() {

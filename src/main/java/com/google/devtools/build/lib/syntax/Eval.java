@@ -684,7 +684,7 @@ final class Eval {
       thread.updateInternal(name, value);
     }
 
-    return comp.isDict() ? dict : StarlarkList.copyOf(thread, list);
+    return comp.isDict() ? dict : StarlarkList.copyOf(thread.mutability(), list);
   }
 
   /** Returns an exception which should be thrown instead of the original one. */
