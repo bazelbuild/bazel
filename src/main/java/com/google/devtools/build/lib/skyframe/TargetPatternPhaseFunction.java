@@ -123,7 +123,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     Map<Label, SkyKey> testExpansionKeys = new LinkedHashMap<>();
     if (targets != null) {
       for (Target target : targets.getTargets()) {
-        if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
+        if (options.isExpandTestSuites()
+            && (TargetUtils.isTestSuiteRule(target) || TargetUtils.isAlias(target))) {
           Label label = target.getLabel();
           SkyKey testExpansionKey = TestsForTargetPatternValue.key(ImmutableSet.of(label));
           testExpansionKeys.put(label, testExpansionKey);

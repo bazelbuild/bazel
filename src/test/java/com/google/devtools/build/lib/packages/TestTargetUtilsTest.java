@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -166,19 +165,12 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
   }
 
-  private static final Function<Target, Label> TO_LABEL =
-      new Function<Target, Label>() {
-        @Override
-        public Label apply(Target input) {
-          return input.getLabel();
-        }
-      };
-
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
     ImmutableSet<Label> expectedLabels =
-        ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
-    ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
+        ImmutableSet.copyOf(Iterables.transform(expected, Target::getLabel));
+    ImmutableSet<Label> suiteLabels =
+        ImmutableSet.copyOf(Iterables.transform(suites, Target::getLabel));
     SkyKey key = TestsForTargetPatternValue.key(suiteLabels);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()

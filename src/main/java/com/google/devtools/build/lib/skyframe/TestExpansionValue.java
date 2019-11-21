@@ -30,8 +30,9 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * A value referring to a computed set of resolved targets. This is used for the results of target
- * pattern parsing.
+ * A value containing all the tests expanded from a single rule.
+ *
+ * <p>The rule in question should be a {@code test_suite} or {@code alias}.
  */
 @Immutable
 @ThreadSafe
@@ -64,11 +65,11 @@ final class TestExpansionValue implements SkyValue {
   /**
    * Create a target pattern value key.
    *
-   * @param target the target to be expanded
+   * @param target the test suite target to be expanded
    */
   @ThreadSafe
   public static SkyKey key(Target target, boolean strict) {
-    Preconditions.checkState(TargetUtils.isTestSuiteRule(target));
+    Preconditions.checkState(TargetUtils.isTestSuiteRule(target) || TargetUtils.isAlias(target));
     return new TestExpansionKey(target.getLabel(), strict);
   }
 
@@ -98,7 +99,7 @@ final class TestExpansionValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "TestsInSuite(" + label + ", strict=" + strict + ")";
+      return "TestExpansionKey(" + label + ", strict=" + strict + ")";
     }
 
     @Override
