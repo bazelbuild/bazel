@@ -406,43 +406,13 @@ public abstract class CcModule
     PathFragment dynamicLibraryPathFragment = null;
     if (!Strings.isNullOrEmpty(dynamicLibraryPath)) {
       dynamicLibraryPathFragment = PathFragment.create(dynamicLibraryPath);
-      if (dynamicLibraryPathFragment.isEmpty() || dynamicLibraryPathFragment.isAbsolute() || dynamicLibraryPathFragment.containsUplevelReferences()) {
-        throw new EvalException(
-            location,
-            String.format(
-                "dynamic_library_symlink_path must be a relative file path. Got '%s'",
-                dynamicLibraryPathFragment));
-      }
-      if (!Link.ONLY_SHARED_LIBRARY_FILETYPES.matches(dynamicLibraryPathFragment.getBaseName())) {
-        extensionErrorsBuilder.append(
-            String.format(
-                "'%s' %s %s",
-                dynamicLibraryPathFragment,
-                extensionErrorMessage,
-                Link.ONLY_SHARED_LIBRARY_FILETYPES));
-        extensionErrorsBuilder.append(LINE_SEPARATOR.value());
-      }
+      validateSymlinkPath(location, "dynamic_library_symlink_path", dynamicLibraryPathFragment, Link.ONLY_SHARED_LIBRARY_FILETYPES, extensionErrorsBuilder);
     }
 
     PathFragment interfaceLibraryPathFragment = null;
     if (!Strings.isNullOrEmpty(interfaceLibraryPath)) {
       interfaceLibraryPathFragment = PathFragment.create(interfaceLibraryPath);
-      if (interfaceLibraryPathFragment.isEmpty() || interfaceLibraryPathFragment.isAbsolute() || interfaceLibraryPathFragment.containsUplevelReferences()) {
-        throw new EvalException(
-            location,
-            String.format(
-                "interface_library_symlink_path must be a relative file path. Got '%s'",
-                interfaceLibraryPathFragment));
-      }
-      if (!Link.ONLY_INTERFACE_LIBRARY_FILETYPES.matches(interfaceLibraryPathFragment.getBaseName())) {
-        extensionErrorsBuilder.append(
-            String.format(
-                "'%s' %s %s",
-                interfaceLibraryPathFragment,
-                extensionErrorMessage,
-                Link.ONLY_INTERFACE_LIBRARY_FILETYPES));
-        extensionErrorsBuilder.append(LINE_SEPARATOR.value());
-      }
+      validateSymlinkPath(location, "interface_library_symlink_path", interfaceLibraryPathFragment, Link.ONLY_INTERFACE_LIBRARY_FILETYPES, extensionErrorsBuilder);
     }
 
     Artifact notNullArtifactForIdentifier = null;
@@ -590,6 +560,24 @@ public abstract class CcModule
         .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
         .setAlwayslink(alwayslink)
         .build();
+  }
+
+  private static void validateSymlinkPath(Location location, String attrName, PathFragment symlinkPath, FileTypeSet filetypes, StringBuilder errorsBuilder) throws EvalException {
+    String extensionErrorMessage = "does not have any of the allowed extensions";
+    if (symlinkPath.isEmpty() || symlinkPath.isAbsolute() || symlinkPath.containsUplevelReferences()) {
+      throw new EvalException(
+              location,
+              String.format("%s must be a relative file path. Got '%s'", attrName, symlinkPath));
+    }
+    if (!filetypes.matches(symlinkPath.getBaseName())) {
+      errorsBuilder.append(
+              String.format(
+                      "'%s' %s %s",
+                      symlinkPath,
+                      extensionErrorMessage,
+                      filetypes));
+      errorsBuilder.append(LINE_SEPARATOR.value());
+    }
   }
 
   @Override
