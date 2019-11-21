@@ -404,7 +404,7 @@ public abstract class CcModule
     String extensionErrorMessage = "does not have any of the allowed extensions";
 
     PathFragment dynamicLibraryPathFragment = null;
-    if (dynamicLibraryPath != null && !dynamicLibraryPath.isEmpty()) {
+    if (!Strings.isNullOrEmpty(dynamicLibraryPath)) {
       dynamicLibraryPathFragment = PathFragment.create(dynamicLibraryPath);
       if (dynamicLibraryPathFragment.isEmpty() || dynamicLibraryPathFragment.isAbsolute() || dynamicLibraryPathFragment.containsUplevelReferences()) {
         throw new EvalException(
@@ -425,7 +425,7 @@ public abstract class CcModule
     }
 
     PathFragment interfaceLibraryPathFragment = null;
-    if (interfaceLibraryPath != null && !interfaceLibraryPath.isEmpty()) {
+    if (!Strings.isNullOrEmpty(interfaceLibraryPath)) {
       interfaceLibraryPathFragment = PathFragment.create(interfaceLibraryPath);
       if (interfaceLibraryPathFragment.isEmpty() || interfaceLibraryPathFragment.isAbsolute() || interfaceLibraryPathFragment.containsUplevelReferences()) {
         throw new EvalException(
