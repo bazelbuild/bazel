@@ -92,16 +92,6 @@ public class Package {
    */
   private final PackageIdentifier packageIdentifier;
 
-  /**
-   * The name of the package, e.g. "foo/bar".
-   */
-  private final String name;
-
-  /**
-   * Like name, but in the form of a PathFragment.
-   */
-  private final PathFragment nameFragment;
-
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
 
@@ -227,8 +217,6 @@ public class Package {
   protected Package(PackageIdentifier packageId, String runfilesPrefix) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
-    this.nameFragment = packageId.getPackageFragment();
-    this.name = nameFragment.getPathString();
   }
 
   /** Returns this packages' identifier. */
@@ -454,14 +442,14 @@ public class Package {
    * may not be unique!
    */
   public String getName() {
-    return name;
+    return packageIdentifier.getPackageFragment().getPathString();
   }
 
   /**
    * Like {@link #getName}, but has type {@code PathFragment}.
    */
   public PathFragment getNameFragment() {
-    return nameFragment;
+    return packageIdentifier.getPackageFragment();
   }
 
   /**
@@ -595,12 +583,22 @@ public class Package {
       // it's invalid on Windows.
       suffix = "";
     } else if (filename.isDirectory()) {
-      suffix = "; however, a source directory of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD, or define a "
-          + "filegroup?)";
+      suffix =
+          "; however, a source directory of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD, or define a "
+              + "filegroup?)";
     } else if (filename.exists()) {
-      suffix = "; however, a source file of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD?)";
+      suffix =
+          "; however, a source file of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD?)";
     } else {
       suffix = SpellChecker.didYouMean(targetName, targets.keySet());
     }
@@ -618,7 +616,7 @@ public class Package {
     String msg =
         String.format(
             "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, name, suffix, filename.asPath().getPathString());
+            targetName, getName(), suffix, filename.asPath().getPathString());
     return new NoSuchTargetException(label, msg);
   }
 
@@ -710,7 +708,9 @@ public class Package {
 
   @Override
   public String toString() {
-    return "Package(" + name + ")="
+    return "Package("
+        + getName()
+        + ")="
         + (targets != null ? getTargets(Rule.class) : "initializing...");
   }
 
