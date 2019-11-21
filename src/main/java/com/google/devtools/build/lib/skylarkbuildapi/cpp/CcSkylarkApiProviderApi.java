@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
 @SkylarkModule(
@@ -39,7 +39,7 @@ public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkV
           "Returns a <a href=\"depset.html\">depset</a> of headers that have been declared in the "
               + " <code>src</code> or <code>headers</code> attribute"
               + "(possibly empty but never <code>None</code>).")
-  public SkylarkNestedSet /*<FileT>*/ getTransitiveHeadersForStarlark();
+  public Depset /*<FileT>*/ getTransitiveHeadersForStarlark();
 
   @SkylarkCallable(
       name = "libs",
@@ -49,7 +49,7 @@ public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkV
               + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
               + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
               + "(possibly empty but never <code>None</code>)")
-  public SkylarkNestedSet /*<FileT>*/ getLibrariesForStarlark();
+  public Depset /*<FileT>*/ getLibrariesForStarlark();
 
   @SkylarkCallable(
       name = "link_flags",

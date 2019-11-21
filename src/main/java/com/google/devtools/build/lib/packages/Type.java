@@ -23,11 +23,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -585,9 +585,9 @@ public abstract class Type<T> {
 
       if (x instanceof Iterable) {
         iterable = (Iterable<?>) x;
-      } else if (x instanceof SkylarkNestedSet) {
+      } else if (x instanceof Depset) {
         try {
-          iterable = ((SkylarkNestedSet) x).toCollection();
+          iterable = ((Depset) x).toCollection();
         } catch (NestedSetDepthException exception) {
           throw new ConversionException(
               "depset exceeded maximum depth "

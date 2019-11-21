@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -84,7 +85,6 @@ import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -1009,7 +1009,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((SkylarkNestedSet) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Skylark code directly manipulates symlinks, activate more stringent validity checking.
@@ -1066,7 +1066,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
     List<Artifact> inputs = new ArrayList<>();
     // TODO(lberki): This flattens a NestedSet.
-    // However, we can't turn this into a SkylarkNestedSet because it's an incompatible change to
+    // However, we can't turn this into a Depset because it's an incompatible change to
     // Skylark.
     Iterables.addAll(inputs, helper.getResolvedTools());
 
@@ -1101,8 +1101,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.<Object>of(
-        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
-        helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getSkylarkSemantics() {
@@ -1111,8 +1110,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   /**
    * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
-   * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
-   * Returns a corresponding map where any sets are replaced by iterables.
+   * {@link Iterable} or {@link Depset} type, and raises {@link EvalException} otherwise. Returns a
+   * corresponding map where any sets are replaced by iterables.
    */
   // TODO(bazel-team): find a better way to typecheck this argument.
   private static Map<Label, Iterable<Artifact>> checkLabelDict(Map<?, ?> labelDict, Location loc)

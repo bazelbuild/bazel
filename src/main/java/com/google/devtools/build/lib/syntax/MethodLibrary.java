@@ -981,7 +981,7 @@ class MethodLibrary {
             named = true,
             positional = false,
             type = Sequence.class,
-            generic1 = SkylarkNestedSet.class,
+            generic1 = Depset.class,
             noneable = true,
             doc = "A list of depsets whose elements will become indirect elements of the depset.",
             defaultValue = "None"),
@@ -1001,7 +1001,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkSemantics = true)
-  public SkylarkNestedSet depset(
+  public Depset depset(
       Object x,
       String orderString,
       Object direct,
@@ -1011,7 +1011,7 @@ class MethodLibrary {
       StarlarkSemantics semantics)
       throws EvalException {
     Order order;
-    SkylarkNestedSet result;
+    Depset result;
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
@@ -1052,10 +1052,10 @@ class MethodLibrary {
     return result;
   }
 
-  private static SkylarkNestedSet depsetConstructor(
+  private static Depset depsetConstructor(
       Object direct, Order order, Object transitive, Location loc) throws EvalException {
 
-    if (direct instanceof SkylarkNestedSet) {
+    if (direct instanceof Depset) {
       throw new EvalException(
           loc,
           "parameter 'direct' must contain a list of elements, and may "
@@ -1063,12 +1063,11 @@ class MethodLibrary {
               + "by setting --incompatible_disable_depset_inputs=false");
     }
 
-    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order, loc);
     for (Object directElement : listFromNoneable(direct, Object.class, "direct")) {
       builder.addDirect(directElement);
     }
-    for (SkylarkNestedSet transitiveSet :
-        listFromNoneable(transitive, SkylarkNestedSet.class, "transitive")) {
+    for (Depset transitiveSet : listFromNoneable(transitive, Depset.class, "transitive")) {
       builder.addTransitive(transitiveSet);
     }
     return builder.build();
@@ -1084,13 +1083,13 @@ class MethodLibrary {
     }
   }
 
-  private static SkylarkNestedSet legacyDepsetConstructor(
+  private static Depset legacyDepsetConstructor(
       Object items, Order order, Object direct, Object transitive, Location loc)
       throws EvalException {
 
     if (transitive == Starlark.NONE && direct == Starlark.NONE) {
       // Legacy behavior.
-      return SkylarkNestedSet.of(order, items, loc);
+      return Depset.of(order, items, loc);
     }
 
     if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
@@ -1108,18 +1107,18 @@ class MethodLibrary {
       directElements = ((Sequence<?>) items).getContents(Object.class, "items");
     }
 
-    Iterable<SkylarkNestedSet> transitiveList;
+    Iterable<Depset> transitiveList;
     if (transitive != Starlark.NONE) {
       SkylarkType.checkType(transitive, Sequence.class, "transitive");
-      transitiveList = ((Sequence<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
+      transitiveList = ((Sequence<?>) transitive).getContents(Depset.class, "transitive");
     } else {
       transitiveList = ImmutableList.of();
     }
-    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order, loc);
     for (Object directElement : directElements) {
       builder.addDirect(directElement);
     }
-    for (SkylarkNestedSet transitiveSet : transitiveList) {
+    for (Depset transitiveSet : transitiveList) {
       builder.addTransitive(transitiveSet);
     }
     return builder.build();

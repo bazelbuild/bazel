@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoPro
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -32,22 +32,22 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public class FakeJavaInfo implements JavaInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet /*<File>*/ getTransitiveRuntimeJars() {
+  public Depset /*<File>*/ getTransitiveRuntimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveCompileTimeJars() {
+  public Depset getTransitiveCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getCompileTimeJars() {
+  public Depset getCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getFullCompileTimeJars() {
+  public Depset getFullCompileTimeJars() {
     return null;
   }
 
@@ -77,22 +77,22 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public SkylarkNestedSet /*<File>*/ getTransitiveDeps() {
+  public Depset /*<File>*/ getTransitiveDeps() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet /*<File>*/ getTransitiveRuntimeDeps() {
+  public Depset /*<File>*/ getTransitiveRuntimeDeps() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet /*<File>*/ getTransitiveSourceJars() {
+  public Depset /*<File>*/ getTransitiveSourceJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet /*<Label>*/ getTransitiveExports() {
+  public Depset /*<Label>*/ getTransitiveExports() {
     return null;
   }
 

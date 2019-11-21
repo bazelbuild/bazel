@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Interface for a store of information needed for C++ compilation aggregated across dependencies.
@@ -36,7 +36,7 @@ public interface CcCompilationContextApi extends SkylarkValue {
           "Returns the set of defines needed to compile this target. Each define is a string."
               + " These values are propagated to the target's transitive dependencies.",
       structField = true)
-  SkylarkNestedSet getSkylarkDefines();
+  Depset getSkylarkDefines();
 
   @SkylarkCallable(
       name = "local_defines",
@@ -44,13 +44,13 @@ public interface CcCompilationContextApi extends SkylarkValue {
           "Returns the set of defines needed to compile this target. Each define is a string."
               + " These values are not propagated to the target's transitive dependencies.",
       structField = true)
-  SkylarkNestedSet getSkylarkNonTransitiveDefines();
+  Depset getSkylarkNonTransitiveDefines();
 
   @SkylarkCallable(
       name = "headers",
       doc = "Returns the set of headers needed to compile this target.",
       structField = true)
-  SkylarkNestedSet getSkylarkHeaders();
+  Depset getSkylarkHeaders();
 
   @SkylarkCallable(
       name = "system_includes",
@@ -59,7 +59,7 @@ public interface CcCompilationContextApi extends SkylarkValue {
               + " brackets, e.g. #include <foo/bar/header.h>. They can be either relative to the"
               + " exec root or absolute. Usually passed with -isystem.",
       structField = true)
-  SkylarkNestedSet getSkylarkSystemIncludeDirs();
+  Depset getSkylarkSystemIncludeDirs();
 
   @SkylarkCallable(
       name = "framework_includes",
@@ -67,7 +67,7 @@ public interface CcCompilationContextApi extends SkylarkValue {
           "Returns the set of search paths (as strings) for framework header files. Usually passed"
               + " with -F.",
       structField = true)
-  SkylarkNestedSet getSkylarkFrameworkIncludeDirs();
+  Depset getSkylarkFrameworkIncludeDirs();
 
   @SkylarkCallable(
       name = "includes",
@@ -75,7 +75,7 @@ public interface CcCompilationContextApi extends SkylarkValue {
           "Returns the set of search paths (as strings) for header files referenced both by angle"
               + " bracket and quotes. Usually passed with -I.",
       structField = true)
-  SkylarkNestedSet getSkylarkIncludeDirs();
+  Depset getSkylarkIncludeDirs();
 
   @SkylarkCallable(
       name = "quote_includes",
@@ -84,5 +84,5 @@ public interface CcCompilationContextApi extends SkylarkValue {
               + " e.g. #include \"foo/bar/header.h\". They can be either relative to the exec root"
               + " or absolute. Usually passed with -iquote.",
       structField = true)
-  SkylarkNestedSet getSkylarkQuoteIncludeDirs();
+  Depset getSkylarkQuoteIncludeDirs();
 }

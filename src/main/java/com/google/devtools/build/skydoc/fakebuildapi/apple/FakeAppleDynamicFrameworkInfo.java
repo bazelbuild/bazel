@@ -19,19 +19,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Fake implementation of {@link AppleDynamicFrameworkInfoApi}. */
 public class FakeAppleDynamicFrameworkInfo implements AppleDynamicFrameworkInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet /*<String>*/ getDynamicFrameworkDirs() {
+  public Depset /*<String>*/ getDynamicFrameworkDirs() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet /*<FileApi>*/ getDynamicFrameworkFiles() {
+  public Depset /*<FileApi>*/ getDynamicFrameworkFiles() {
     return null;
   }
 

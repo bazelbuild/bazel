@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
@@ -213,6 +213,6 @@ public interface GoWrapCcHelperApi<
             named = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
       })
-  public SkylarkNestedSet /*<FileT>*/ getGopackageFilesForStarlark(
+  public Depset /*<FileT>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextT skylarkRuleContext, FileT skylarkGopkg);
 }

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
@@ -56,8 +56,8 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
    * implicit targets, for example, deploy jars.
    */
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getFilesToBuildForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, filesToBuild);
+  public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
+    return Depset.of(Artifact.TYPE, filesToBuild);
   }
 
   public NestedSet<Artifact> getFilesToBuild() {

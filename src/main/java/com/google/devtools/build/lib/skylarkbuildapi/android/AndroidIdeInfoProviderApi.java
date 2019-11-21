@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -169,7 +169,7 @@ public interface AndroidIdeInfoProviderApi<
 
   /** A map, keyed on architecture, of the native libs for the app, if any. */
   @SkylarkCallable(name = "native_libs", structField = true, doc = "", documented = false)
-  ImmutableMap<String, SkylarkNestedSet> getNativeLibsSkylark();
+  ImmutableMap<String, Depset> getNativeLibsSkylark();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
   @SkylarkModule(
@@ -310,7 +310,7 @@ public interface AndroidIdeInfoProviderApi<
         /*noneable*/ Object signedApk,
         /*noneable*/ Object aar,
         Sequence<?> apksUnderTest, // <FileT>
-        Dict<?, ?> nativeLibs /* <String, SkylarkNestedSet> */)
+        Dict<?, ?> nativeLibs /* <String, Depset> */)
         throws EvalException;
   }
 }

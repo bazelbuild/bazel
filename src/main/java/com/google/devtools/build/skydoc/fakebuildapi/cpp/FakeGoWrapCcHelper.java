@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderAp
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Fake implementation of {@link GoWrapCcHelperApi}. */
@@ -112,7 +112,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public SkylarkNestedSet /*<FileApi>*/ getGopackageFilesForStarlark(
+  public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
     return null;
   }
@@ -125,8 +125,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-      SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
     return null;
   }
 
@@ -149,7 +148,7 @@ public class FakeGoWrapCcHelper
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes) {
+      SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 
@@ -159,7 +158,7 @@ public class FakeGoWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi wrapperCcCompilationContext,
-      SkylarkNestedSet swigIncludes,
+      Depset swigIncludes,
       FileApi swigSource,
       Sequence<?> subParameters,
       FileApi ccFile,
@@ -167,7 +166,7 @@ public class FakeGoWrapCcHelper
       Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
-      SkylarkNestedSet auxiliaryInputs,
+      Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool) {}
 }

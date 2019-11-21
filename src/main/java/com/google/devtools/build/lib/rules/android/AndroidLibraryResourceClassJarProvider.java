@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * A provider which contains the resource class jars from android_library rules. See {@link
@@ -52,8 +52,8 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getResourceClassJarsForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, resourceClassJars);
+  public Depset /*<Artifact>*/ getResourceClassJarsForStarlark() {
+    return Depset.of(Artifact.TYPE, resourceClassJars);
   }
 
   public NestedSet<Artifact> getResourceClassJars() {
@@ -73,8 +73,7 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
     }
 
     @Override
-    public AndroidLibraryResourceClassJarProvider create(SkylarkNestedSet jars)
-        throws EvalException {
+    public AndroidLibraryResourceClassJarProvider create(Depset jars) throws EvalException {
       return new AndroidLibraryResourceClassJarProvider(
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(jars.getSetFromParam(Artifact.class, "jars"))

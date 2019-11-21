@@ -51,11 +51,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -203,8 +203,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   public void doNothing(String mnemonic, Object inputs, Location location) throws EvalException {
     context.checkMutable("actions.do_nothing");
     NestedSet<Artifact> inputSet =
-        inputs instanceof SkylarkNestedSet
-            ? ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs")
+        inputs instanceof Depset
+            ? ((Depset) inputs).getSetFromParam(Artifact.class, "inputs")
             : NestedSetBuilder.<Artifact>compileOrder()
                 .addAll(((Sequence<?>) inputs).getContents(Artifact.class, "inputs"))
                 .build();
@@ -499,8 +499,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       inputArtifacts = ((Sequence<?>) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      NestedSet<Artifact> inputSet =
-          ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs");
+      NestedSet<Artifact> inputSet = ((Depset) inputs).getSetFromParam(Artifact.class, "inputs");
       builder.addTransitiveInputs(inputSet);
       inputArtifacts = inputSet;
     }
@@ -536,7 +535,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (toolsUnchecked instanceof Sequence) {
         toolsIterable = ((Sequence<?>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet();
+        toolsIterable = ((Depset) toolsUnchecked).getSet();
       }
       for (Object toolUnchecked : toolsIterable) {
         if (toolUnchecked instanceof Artifact) {

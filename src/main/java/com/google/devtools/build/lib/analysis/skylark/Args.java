@@ -30,11 +30,11 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -279,7 +279,7 @@ public abstract class Args implements CommandLineArgsApi {
       if (argName != null) {
         commandLine.add(argName);
       }
-      if (value instanceof SkylarkNestedSet || value instanceof Sequence) {
+      if (value instanceof Depset || value instanceof Sequence) {
         throw new EvalException(
             loc,
             "Args#add doesn't accept vectorized arguments. "
@@ -399,8 +399,8 @@ public abstract class Args implements CommandLineArgsApi {
         Location loc)
         throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof SkylarkNestedSet) {
-        SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
+      if (value instanceof Depset) {
+        Depset skylarkNestedSet = ((Depset) value);
         NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
@@ -444,7 +444,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     private void validateValues(Object values, Location loc) throws EvalException {
-      if (!(values instanceof Sequence || values instanceof SkylarkNestedSet)) {
+      if (!(values instanceof Sequence || values instanceof Depset)) {
         throw new EvalException(
             loc,
             String.format(

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -110,8 +110,8 @@ public final class AndroidAssetsInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<ParsedAndroidAssets>*/ getDirectParsedAssetsForStarlark() {
-    return SkylarkNestedSet.of(ParsedAndroidAssets.class, directParsedAssets);
+  public Depset /*<ParsedAndroidAssets>*/ getDirectParsedAssetsForStarlark() {
+    return Depset.of(ParsedAndroidAssets.class, directParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getDirectParsedAssets() {
@@ -129,8 +129,8 @@ public final class AndroidAssetsInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<ParsedAndroidAssets>*/ getTransitiveParsedAssetsForStarlark() {
-    return SkylarkNestedSet.of(ParsedAndroidAssets.class, transitiveParsedAssets);
+  public Depset /*<ParsedAndroidAssets>*/ getTransitiveParsedAssetsForStarlark() {
+    return Depset.of(ParsedAndroidAssets.class, transitiveParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getTransitiveParsedAssets() {
@@ -138,8 +138,8 @@ public final class AndroidAssetsInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getAssetsForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, transitiveAssets);
+  public Depset /*<Artifact>*/ getAssetsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveAssets);
   }
 
   public NestedSet<Artifact> getAssets() {
@@ -147,8 +147,8 @@ public final class AndroidAssetsInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getSymbolsForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, transitiveSymbols);
+  public Depset /*<Artifact>*/ getSymbolsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveSymbols);
   }
 
   public NestedSet<Artifact> getSymbols() {
@@ -162,8 +162,8 @@ public final class AndroidAssetsInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getCompiledSymbolsForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, transitiveCompiledSymbols);
+  public Depset /*<Artifact>*/ getCompiledSymbolsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveCompiledSymbols);
   }
 
   NestedSet<Artifact> getCompiledSymbols() {
@@ -182,11 +182,11 @@ public final class AndroidAssetsInfo extends NativeInfo
     public AndroidAssetsInfo createInfo(
         Label label,
         Object validationResult,
-        SkylarkNestedSet directParsedAssets,
-        SkylarkNestedSet transitiveParsedAssets,
-        SkylarkNestedSet transitiveAssets,
-        SkylarkNestedSet transitiveSymbols,
-        SkylarkNestedSet transitiveCompiledSymbols)
+        Depset directParsedAssets,
+        Depset transitiveParsedAssets,
+        Depset transitiveAssets,
+        Depset transitiveSymbols,
+        Depset transitiveCompiledSymbols)
         throws EvalException {
       return new AndroidAssetsInfo(
           label,
@@ -198,8 +198,8 @@ public final class AndroidAssetsInfo extends NativeInfo
           nestedSet(transitiveCompiledSymbols, Artifact.class, "transitive_compiled_symbols"));
     }
 
-    private static <T> NestedSet<T> nestedSet(
-        SkylarkNestedSet from, Class<T> with, String fieldName) throws EvalException {
+    private static <T> NestedSet<T> nestedSet(Depset from, Class<T> with, String fieldName)
+        throws EvalException {
       return NestedSetBuilder.<T>naiveLinkOrder()
           .addTransitive(from.getSetFromParam(with, fieldName))
           .build();

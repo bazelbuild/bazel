@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
 
 /**
@@ -41,7 +41,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
       doc =
           "The framework path names used as link inputs in order to link against the dynamic "
               + "framework.")
-  public SkylarkNestedSet /*<String>*/ getDynamicFrameworkDirs();
+  public Depset /*<String>*/ getDynamicFrameworkDirs();
 
   /**
    * Returns the full set of artifacts that should be included as inputs to link against the dynamic
@@ -53,7 +53,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
       doc =
           "The full set of files that should be included as inputs to link against the "
               + "dynamic framework.")
-  public SkylarkNestedSet /*<FileApiT>*/ getDynamicFrameworkFiles();
+  public Depset /*<FileApiT>*/ getDynamicFrameworkFiles();
 
   /**
    * Returns the multi-architecture dylib binary of the dynamic framework. May return null if

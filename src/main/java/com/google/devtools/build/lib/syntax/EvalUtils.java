@@ -98,7 +98,7 @@ public final class EvalUtils {
           if (o1 instanceof ClassObject) {
             throw new ComparisonException("Cannot compare structs");
           }
-          if (o1 instanceof SkylarkNestedSet) {
+          if (o1 instanceof Depset) {
             throw new ComparisonException("Cannot compare depsets");
           }
           try {
@@ -144,7 +144,7 @@ public final class EvalUtils {
    * @param o an Object
    * @return true if the object is known to be an immutable value.
    */
-  // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s.
+  // NB: This is used as the basis for accepting objects in Depset-s.
   public static boolean isImmutable(Object o) {
     if (o instanceof SkylarkValue) {
       return ((SkylarkValue) o).isImmutable();
@@ -159,7 +159,7 @@ public final class EvalUtils {
    * @param c a Class
    * @return true if the class is known to represent only recursively immutable values.
    */
-  // NB: This is used as the basis for accepting objects in SkylarkNestedSet-s,
+  // NB: This is used as the basis for accepting objects in Depset-s,
   // as well as for accepting objects as keys for Skylark dict-s.
   private static boolean isImmutable(Class<?> c) {
     return c.isAnnotationPresent(Immutable.class) // TODO(bazel-team): beware of containers!
@@ -218,8 +218,8 @@ public final class EvalUtils {
   public static String getDataTypeName(Object object, boolean fullDetails) {
     Preconditions.checkNotNull(object);
     if (fullDetails) {
-      if (object instanceof SkylarkNestedSet) {
-        SkylarkNestedSet set = (SkylarkNestedSet) object;
+      if (object instanceof Depset) {
+        Depset set = (Depset) object;
         return "depset of " + set.getContentType() + "s";
       }
       if (object instanceof SelectorList) {
@@ -693,7 +693,7 @@ public final class EvalUtils {
     }
 
     // TODO(bazel-team): Remove deprecated operator.
-    if (x instanceof SkylarkNestedSet) {
+    if (x instanceof Depset) {
       if (thread.getSemantics().incompatibleDepsetUnion()) {
         throw new EvalException(
             location,
@@ -702,7 +702,7 @@ public final class EvalUtils {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
+      return Depset.of((Depset) x, y, location);
     }
     throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
   }
@@ -712,7 +712,7 @@ public final class EvalUtils {
       throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       return ((Integer) x) | ((Integer) y);
-    } else if (x instanceof SkylarkNestedSet) {
+    } else if (x instanceof Depset) {
       if (thread.getSemantics().incompatibleDepsetUnion()) {
         throw new EvalException(
             location,
@@ -721,7 +721,7 @@ public final class EvalUtils {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return SkylarkNestedSet.of((SkylarkNestedSet) x, y, location);
+      return Depset.of((Depset) x, y, location);
     }
     throw unknownBinaryOperator(x, y, TokenKind.PIPE, location);
   }

@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Command line args module. */
 @SkylarkModule(
@@ -248,7 +248,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
             name = "values",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             doc = "The list, tuple, or depset whose items will be appended."),
@@ -398,7 +398,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
             name = "values",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             doc = "The list, tuple, or depset whose items will be joined."),

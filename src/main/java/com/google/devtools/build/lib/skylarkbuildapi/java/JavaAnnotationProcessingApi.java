@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
 
 /**
@@ -64,7 +64,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Returns a transitive set of class file jars resulting from annotation "
               + "processing of this rule and its dependencies.")
-  public SkylarkNestedSet /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
+  public Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_source_jars",
@@ -72,13 +72,13 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Returns a transitive set of source archives resulting from annotation processing "
               + "of this rule and its dependencies.")
-  public SkylarkNestedSet /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
+  public Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
 
   @SkylarkCallable(
       name = "processor_classpath",
       structField = true,
       doc = "Returns a classpath of annotation processors applied to this rule.")
-  public SkylarkNestedSet /*<FileTypeT>*/ getProcessorClasspathForStarlark();
+  public Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
 
   @SkylarkCallable(
     name = "processor_classnames",

@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -388,8 +388,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkLinkerInputs() {
-    return SkylarkNestedSet.of(LinkerInput.class, linkerInputs);
+  public Depset getSkylarkLinkerInputs() {
+    return Depset.of(LinkerInput.class, linkerInputs);
   }
 
   @Override
@@ -401,15 +401,15 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public Object getSkylarkLibrariesToLink(StarlarkThread thread) {
     // TODO(plf): Flag can be removed already.
     if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
-      return SkylarkNestedSet.of(LibraryToLink.class, getLibraries());
+      return Depset.of(LibraryToLink.class, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());
     }
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkNonCodeInputs() {
-    return SkylarkNestedSet.of(Artifact.class, getNonCodeInputs());
+  public Depset getSkylarkNonCodeInputs() {
+    return Depset.of(Artifact.class, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {

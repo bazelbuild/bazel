@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Arrays;
 import org.junit.Before;
@@ -292,18 +292,18 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return o.toString();
                 }))
         .containsExactly("//test:xxx", "//test:yyy");
     Object ruleKinds = configuredAspect.get("rule_kinds");
-    assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
-    assertThat(((SkylarkNestedSet) ruleKinds).toCollection()).containsExactly("java_library");
+    assertThat(ruleKinds).isInstanceOf(Depset.class);
+    assertThat(((Depset) ruleKinds).toCollection()).containsExactly("java_library");
   }
 
   @Test
@@ -349,12 +349,14 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object nameSet = configuredAspect.get("target_labels");
-    ImmutableList<String> names = ImmutableList.copyOf(transform(
-        ((SkylarkNestedSet) nameSet).toCollection(),
-        o -> {
-          assertThat(o).isInstanceOf(Label.class);
-          return ((Label) o).getName();
-        }));
+    ImmutableList<String> names =
+        ImmutableList.copyOf(
+            transform(
+                ((Depset) nameSet).toCollection(),
+                o -> {
+                  assertThat(o).isInstanceOf(Label.class);
+                  return ((Label) o).getName();
+                }));
 
     assertThat(names).containsAtLeast("xxx", "yyy");
     // Third is the C++ toolchain; its name changes between Blaze and Bazel.
@@ -594,10 +596,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object names = target.get("rule_deps");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return o.toString();
@@ -1640,7 +1642,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
     AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
-    SkylarkNestedSet ruleInfoValue = (SkylarkNestedSet) configuredTarget.get("rule_info");
+    Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
     assertThat(ruleInfoValue.getSet(String.class))
         .containsExactlyElementsIn(Arrays.asList(expectedLabels));
   }
@@ -1712,8 +1714,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "main_rule(name = 'main', deps = [':rbin', ':rgen'])");
     AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    NestedSet<Artifact> aspectFiles =
-        ((SkylarkNestedSet) target.get("aspect_files")).getSet(Artifact.class);
+    NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
     assertThat(transform(aspectFiles, Artifact::getFilename))
         .containsExactly("aspect-output-rbin", "aspect-output-rgen");
     for (Artifact aspectFile : aspectFiles) {
@@ -1900,10 +1901,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return ((Label) o).getName();
@@ -2582,7 +2583,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     SkylarkKey pCollector =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
-    assertThat(((SkylarkNestedSet) collector.getValue("visited")).toCollection())
+    assertThat(((Depset) collector.getValue("visited")).toCollection())
         .containsExactly(
             Label.parseAbsolute("//test:referenced_from_aspect_only", ImmutableMap.of()),
             Label.parseAbsolute("//test:bar", ImmutableMap.of()),

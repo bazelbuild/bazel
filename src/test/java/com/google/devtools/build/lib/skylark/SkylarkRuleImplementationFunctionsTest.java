@@ -58,11 +58,11 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -750,7 +750,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    executable = 'dummy',",
         ")");
     assertArtifactFilenames(
-        ((SkylarkNestedSet) lookup("inputs")).getSet(Artifact.class),
+        ((Depset) lookup("inputs")).getSet(Artifact.class),
         "mytool.sh",
         "mytool",
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
@@ -992,7 +992,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testFilesForRuleConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = eval("ruleContext.attr.srcs[0].files");
-    assertThat(ActionsTestUtil.baseNamesOf(((SkylarkNestedSet) result).getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("a.txt");
   }
 
@@ -1072,7 +1072,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
-    assertThat(myInfo.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
     assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Starlark.NONE);
   }
@@ -1152,7 +1152,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
-    assertThat(myInfo.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
   }
 
@@ -1243,7 +1243,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
                 String::valueOf))
         .isEmpty();
 
-    assertThat(myInfo.getValue("file_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("file_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("file_files_to_run")).isInstanceOf(FilesToRunProvider.class);
   }
 
@@ -1796,7 +1796,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testFilesForFileConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
     Object result = eval("ruleContext.attr.srcs[0].files");
-    assertThat(ActionsTestUtil.baseNamesOf(((SkylarkNestedSet) result).getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("libjl.jar");
   }
 

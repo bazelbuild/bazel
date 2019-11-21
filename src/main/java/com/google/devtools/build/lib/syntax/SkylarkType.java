@@ -167,8 +167,8 @@ public abstract class SkylarkType {
   /** The TUPLE type, that contains all Tuple-s */
   @AutoCodec static final Simple TUPLE = Simple.forClass(Tuple.class);
 
-  /** The SET type, that contains all SkylarkNestedSets, and the generic combinator for them */
-  @AutoCodec static final Simple SET = Simple.forClass(SkylarkNestedSet.class);
+  /** The SET type, that contains all Depsets, and the generic combinator for them */
+  @AutoCodec static final Simple SET = Simple.forClass(Depset.class);
 
   // Common subclasses of SkylarkType
 
@@ -297,7 +297,7 @@ public abstract class SkylarkType {
   static class Combination extends SkylarkType {
     // For the moment, we can only combine a Simple type with a Simple type,
     // and the first one has to be a Java generic class,
-    // and in practice actually one of Sequence or SkylarkNestedSet
+    // and in practice actually one of Sequence or Depset
     private final SkylarkType genericType; // actually always a Simple, for now.
     private final SkylarkType argType; // not always Simple
 
@@ -514,7 +514,7 @@ public abstract class SkylarkType {
   }
 
   // TODO(adonovan): eliminate this function: a value may belong to many types.
-  // This function is used to infer the type to use for a SkylarkNestedSet from its first
+  // This function is used to infer the type to use for a Depset from its first
   // element, but this may be unsound in general (e.g. in the presence of sum types).
   static SkylarkType of(Object object) {
     return of(object.getClass());
@@ -522,7 +522,7 @@ public abstract class SkylarkType {
 
   /** Returns the type for a Java class. */
   public static SkylarkType of(Class<?> type) {
-    if (SkylarkNestedSet.class.isAssignableFrom(type)) { // just an optimization
+    if (Depset.class.isAssignableFrom(type)) { // just an optimization
       return SET;
     } else if (BaseFunction.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
@@ -598,8 +598,8 @@ public abstract class SkylarkType {
   // Utility functions regarding types
 
   private static SkylarkType getGenericArgType(Object value) {
-    if (value instanceof SkylarkNestedSet) {
-      return ((SkylarkNestedSet) value).getContentType();
+    if (value instanceof Depset) {
+      return ((Depset) value).getContentType();
     } else {
       return TOP;
     }

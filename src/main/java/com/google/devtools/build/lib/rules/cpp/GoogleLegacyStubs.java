@@ -36,9 +36,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
@@ -68,8 +68,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-        SkylarkRuleContextApi skylarkRuleContext) {
+    public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
       return null;
     }
 
@@ -94,7 +93,7 @@ public final class GoogleLegacyStubs {
 
     @Override
     public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-        SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes)
+        SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -105,7 +104,7 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
         FeatureConfigurationApi featureConfiguration,
         CcCompilationContextApi wrapperCcCompilationContext,
-        SkylarkNestedSet swigIncludes,
+        Depset swigIncludes,
         FileApi swigSource,
         Sequence<?> subParameters, // <String>
         FileApi ccFile,
@@ -113,7 +112,7 @@ public final class GoogleLegacyStubs {
         Sequence<?> outputFiles, // <FileApi>
         Object outDir,
         Object javaDir,
-        SkylarkNestedSet auxiliaryInputs,
+        Depset auxiliaryInputs,
         String swigAttributeName,
         Object zipTool)
         throws EvalException, InterruptedException {}
@@ -140,14 +139,14 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public SkylarkNestedSet getTransitivePythonSources(
+    public Depset getTransitivePythonSources(
         SkylarkRuleContextApi skylarkRuleContext, FileApi pyFile) {
       return null;
     }
 
     @Override
     public RunfilesApi getPythonRunfiles(
-        SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet filesToBuild) {
+        SkylarkRuleContextApi skylarkRuleContext, Depset filesToBuild) {
       return null;
     }
 
@@ -238,7 +237,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public SkylarkNestedSet /*<FileApi>*/ getGopackageFilesForStarlark(
+    public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
         SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
       return null;
     }

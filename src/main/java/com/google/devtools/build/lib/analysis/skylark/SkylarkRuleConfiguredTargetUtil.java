@@ -52,12 +52,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -297,10 +297,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
       }
       return nestedSetBuilder.build();
     } else {
-      SkylarkNestedSet artifactsSet =
+      Depset artifactsSet =
           SkylarkType.cast(
               objects,
-              SkylarkNestedSet.class,
+              Depset.class,
               Artifact.class,
               loc,
               typeErrorMessage,
@@ -308,7 +308,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
               EvalUtils.getDataTypeName(objects, true));
       try {
         return artifactsSet.getSet(Artifact.class);
-      } catch (SkylarkNestedSet.TypeException exception) {
+      } catch (Depset.TypeException exception) {
         throw new EvalException(
             loc,
             String.format(
@@ -515,7 +515,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static void parseDefaultProviderFields(
       StructImpl provider, SkylarkRuleContext context, RuleConfiguredTargetBuilder builder)
       throws EvalException {
-    SkylarkNestedSet files = null;
+    Depset files = null;
     Runfiles statelessRunfiles = null;
     Runfiles dataRunfiles = null;
     Runfiles defaultRunfiles = null;
@@ -539,7 +539,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       // TODO(cparsons): Look into deprecating this option.
       for (String field : provider.getFieldNames()) {
         if (field.equals("files")) {
-          files = cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc);
+          files = cast("files", provider, Depset.class, Artifact.class, loc);
         } else if (field.equals("runfiles")) {
           statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
         } else if (field.equals("data_runfiles")) {
@@ -620,7 +620,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       RuleContext ruleContext,
       Location loc,
       Artifact executable,
-      @Nullable SkylarkNestedSet files,
+      @Nullable Depset files,
       Runfiles statelessRunfiles,
       Runfiles dataRunfiles,
       Runfiles defaultRunfiles)
@@ -638,7 +638,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       try {
         // If we specify files_to_build we don't have the executable in it by default.
         builder.setFilesToBuild(files.getSet(Artifact.class));
-      } catch (SkylarkNestedSet.TypeException exception) {
+      } catch (Depset.TypeException exception) {
         throw new EvalException(loc, "'files' field must be a depset of 'file'", exception);
       }
     }

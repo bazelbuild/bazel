@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -92,7 +92,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
 
   /** Returns the BR files from this rule and its dependencies. */
   @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
-  SkylarkNestedSet /*<T>*/ getTransitiveBRFilesForStarlark();
+  Depset /*<T>*/ getTransitiveBRFilesForStarlark();
 
   /**
    * Returns a NestedSet containing the label and java package for this rule and its transitive
@@ -103,7 +103,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
       structField = true,
       doc = "",
       documented = false)
-  SkylarkNestedSet /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark();
+  Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark();
 
   /**
    * Returns the label and java package for this rule and any rules that this rule exports.

@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /** A representation of the concept "this builds these files". */
 @SkylarkModule(
@@ -43,5 +43,5 @@ public interface FileProviderApi extends SkylarkValue {
    * implicit targets, for example, deploy jars.
    */
   @SkylarkCallable(name = "files_to_build", documented = false, structField = true)
-  SkylarkNestedSet /*<? extends FileApi>*/ getFilesToBuildForStarlark();
+  Depset /*<? extends FileApi>*/ getFilesToBuildForStarlark();
 }

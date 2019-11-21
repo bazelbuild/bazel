@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -43,8 +43,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getTransitiveHeadersForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, getTransitiveHeaders());
+  public Depset /*<Artifact>*/ getTransitiveHeadersForStarlark() {
+    return Depset.of(Artifact.TYPE, getTransitiveHeaders());
   }
 
   NestedSet<Artifact> getTransitiveHeaders() {
@@ -54,8 +54,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getLibrariesForStarlark() {
-    return SkylarkNestedSet.of(Artifact.TYPE, getLibraries());
+  public Depset /*<Artifact>*/ getLibrariesForStarlark() {
+    return Depset.of(Artifact.TYPE, getLibraries());
   }
 
   NestedSet<Artifact> getLibraries() {

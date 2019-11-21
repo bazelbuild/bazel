@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /** An interface for a set of runfiles. */
 @SkylarkModule(
@@ -36,22 +36,22 @@ public interface RunfilesApi extends SkylarkValue {
       name = "files",
       doc = "Returns the set of runfiles as files.",
       structField = true)
-  public SkylarkNestedSet /*<? extends FileApi>*/ getArtifactsForStarlark();
+  public Depset /*<? extends FileApi>*/ getArtifactsForStarlark();
 
   @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
-  public SkylarkNestedSet /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
+  public Depset /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
 
   @SkylarkCallable(
       name = "root_symlinks",
       doc = "Returns the set of root symlinks.",
       structField = true)
-  public SkylarkNestedSet /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
+  public Depset /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
 
   @SkylarkCallable(
       name = "empty_filenames",
       doc = "Returns names of empty files to create.",
       structField = true)
-  public SkylarkNestedSet /*<String>*/ getEmptyFilenamesForStarlark();
+  public Depset /*<String>*/ getEmptyFilenamesForStarlark();
 
   @SkylarkCallable(
     name = "merge",

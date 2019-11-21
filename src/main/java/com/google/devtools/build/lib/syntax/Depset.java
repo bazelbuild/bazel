@@ -32,12 +32,18 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * A generic, type-safe {@link NestedSet} wrapper for Skylark.
+ * A Depset is a Starlark value that wraps a {@link NestedSet}.
  *
- * <p>The content type of a non-empty {@code SkylarkNestedSet} is determined by its first element.
- * All elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may
- * be combined with any other depset.
+ * <p>A NestedSet has a type parameter that describes, at compile time, the elements of the set. By
+ * contrast, a Depset has a value, {@link #getContentType}, that describes the elements during
+ * execution. This type symbol permits the element type of a Depset value to be queried, after the
+ * type parameter has been erased, without visiting each element of the often-vast data structure.
+ *
+ * <p>The content type of a non-empty {@code Depset} is determined by its first element. All
+ * elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may be
+ * combined with any other depset.
  */
+// TODO(adonovan): move to lib.packages, as this is a Bazelism.
 @SkylarkModule(
     name = "depset",
     category = SkylarkModuleCategory.BUILTIN,
@@ -83,14 +89,14 @@ import javax.annotation.Nullable;
             + " may interfere with the ordering semantics.")
 @Immutable
 @AutoCodec
-public final class SkylarkNestedSet implements SkylarkValue {
+public final class Depset implements SkylarkValue {
   private final SkylarkType contentType;
   private final NestedSet<?> set;
   @Nullable private final ImmutableList<Object> items;
   @Nullable private final ImmutableList<NestedSet<?>> transitiveItems;
 
   @AutoCodec.VisibleForSerialization
-  SkylarkNestedSet(
+  Depset(
       SkylarkType contentType,
       NestedSet<?> set,
       ImmutableList<Object> items,
@@ -101,12 +107,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
     this.transitiveItems = transitiveItems;
   }
 
-  static SkylarkNestedSet of(
-      Order order,
-      SkylarkType contentType,
-      Object item,
-      Location loc,
-      @Nullable SkylarkNestedSet left)
+  static Depset of(
+      Order order, SkylarkType contentType, Object item, Location loc, @Nullable Depset left)
       throws EvalException {
     ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
     ImmutableList.Builder<NestedSet<?>> transitiveItemsBuilder = ImmutableList.builder();
@@ -119,8 +121,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
       }
     }
     // Adding the item
-    if (item instanceof SkylarkNestedSet) {
-      SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
+    if (item instanceof Depset) {
+      Depset nestedSet = (Depset) item;
       if (!nestedSet.isEmpty()) {
         contentType = checkType(contentType, nestedSet.contentType, loc);
         transitiveItemsBuilder.add(nestedSet.set);
@@ -151,42 +153,41 @@ public final class SkylarkNestedSet implements SkylarkValue {
       // Order mismatch between item and builder.
       throw new EvalException(loc, e.getMessage());
     }
-    return new SkylarkNestedSet(contentType, builder.build(), items, transitiveItems);
+    return new Depset(contentType, builder.build(), items, transitiveItems);
   }
 
-  static SkylarkNestedSet of(Order order, Object item, Location loc) throws EvalException {
+  static Depset of(Order order, Object item, Location loc) throws EvalException {
     // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if item is an empty SkylarkNestedSet or Sequence.
+    // (should be BOTTOM) if item is an empty Depset or Sequence.
     return of(order, SkylarkType.TOP, item, loc, null);
   }
 
-  static SkylarkNestedSet of(SkylarkNestedSet left, Object right, Location loc)
-      throws EvalException {
+  static Depset of(Depset left, Object right, Location loc) throws EvalException {
     return of(left.set.getOrder(), left.contentType, right, loc, left);
   }
 
   /**
-   * Returns a type-safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   * Returns a type-safe Depset. Use this instead of the constructor if possible.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
    */
-  // TODO(adonovan): enforce that we never construct a SkylarkNestedSet with a StarlarkType
+  // TODO(adonovan): enforce that we never construct a Depset with a StarlarkType
   // that represents a non-Skylark type (e.g. NestedSet<PathFragment>).
   // One way to do that is to disallow constructing StarlarkTypes for classes
   // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
-  public static <T> SkylarkNestedSet of(SkylarkType contentType, NestedSet<T> set) {
-    return new SkylarkNestedSet(contentType, set, null, null);
+  public static <T> Depset of(SkylarkType contentType, NestedSet<T> set) {
+    return new Depset(contentType, set, null, null);
   }
 
   /**
-   * Returns a type safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   * Returns a type safe Depset. Use this instead of the constructor if possible.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
    */
-  public static <T> SkylarkNestedSet of(Class<T> contentType, NestedSet<T> set) {
+  public static <T> Depset of(Class<T> contentType, NestedSet<T> set) {
     return of(SkylarkType.of(contentType), set);
   }
 
@@ -316,8 +317,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
    *
    * <p>If the parameter's value is None, returns an empty nested set.
    *
-   * @throws EvalException if the parameter is neither None nor a SkylarkNestedSet, or if it is a
-   *     SkylarkNestedSet of an unexpected type
+   * @throws EvalException if the parameter is neither None nor a Depset, or if it is a Depset of an
+   *     unexpected type
    */
   // TODO(b/140932420): Better noneable handling should prevent instanceof checking.
   public static <T> NestedSet<T> getSetFromNoneableParam(
@@ -325,8 +326,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
     if (depsetOrNone == Starlark.NONE) {
       return NestedSetBuilder.<T>emptySet(Order.STABLE_ORDER);
     }
-    if (depsetOrNone instanceof SkylarkNestedSet) {
-      SkylarkNestedSet depset = (SkylarkNestedSet) depsetOrNone;
+    if (depsetOrNone instanceof Depset) {
+      Depset depset = (Depset) depsetOrNone;
       return depset.getSetFromParam(expectedType, fieldName);
     } else {
       throw new EvalException(
@@ -386,7 +387,7 @@ public final class SkylarkNestedSet implements SkylarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkNestedSet union(Object newElements, Location loc, StarlarkThread thread)
+  public Depset union(Object newElements, Location loc, StarlarkThread thread)
       throws EvalException {
     if (thread.getSemantics().incompatibleDepsetUnion()) {
       throw new EvalException(
@@ -397,9 +398,9 @@ public final class SkylarkNestedSet implements SkylarkValue {
               + "to temporarily disable this check.");
     }
     // newElements' type is Object because of the polymorphism on unioning two
-    // SkylarkNestedSets versus a set and another kind of iterable.
+    // Depsets versus a set and another kind of iterable.
     // Can't use EvalUtils#toIterable since that would discard this information.
-    return SkylarkNestedSet.of(this, newElements, loc);
+    return Depset.of(this, newElements, loc);
   }
 
   @SkylarkCallable(
@@ -439,10 +440,10 @@ public final class SkylarkNestedSet implements SkylarkValue {
   }
 
   /**
-   * Builder for {@link SkylarkNestedSet}.
+   * Builder for {@link Depset}.
    *
-   * <p>Use this to construct typesafe Skylark nested sets (depsets).
-   * Encapsulates content type checking logic.
+   * <p>Use this to construct typesafe Skylark nested sets (depsets). Encapsulates content type
+   * checking logic.
    */
   public static final class Builder {
 
@@ -469,7 +470,7 @@ public final class SkylarkNestedSet implements SkylarkValue {
     }
 
     /** Adds a transitive set, checking that its type is equal to the elements already added. */
-    public Builder addTransitive(SkylarkNestedSet transitive) throws EvalException {
+    public Builder addTransitive(Depset transitive) throws EvalException {
       if (transitive.isEmpty()) {
         return this;
       }
@@ -485,8 +486,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
       return this;
     }
 
-    public SkylarkNestedSet build() {
-      return new SkylarkNestedSet(contentType, builder.build(), null, null);
+    public Depset build() {
+      return new Depset(contentType, builder.build(), null, null);
     }
   }
 

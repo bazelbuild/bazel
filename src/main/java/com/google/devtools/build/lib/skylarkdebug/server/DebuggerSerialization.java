@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
@@ -55,7 +55,7 @@ final class DebuggerSerialization {
   }
 
   private static boolean hasChildren(Object value) {
-    if (value instanceof SkylarkNestedSet) {
+    if (value instanceof Depset) {
       return true;
     }
     if (value instanceof NestedSetView) {
@@ -83,8 +83,8 @@ final class DebuggerSerialization {
   }
 
   static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Object value) {
-    if (value instanceof SkylarkNestedSet) {
-      return getChildren(objectMap, (SkylarkNestedSet) value);
+    if (value instanceof Depset) {
+      return getChildren(objectMap, (Depset) value);
     }
     if (value instanceof NestedSetView) {
       return getChildren(objectMap, (NestedSetView) value);
@@ -161,8 +161,7 @@ final class DebuggerSerialization {
     return children.build();
   }
 
-  private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, SkylarkNestedSet nestedSet) {
+  private static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Depset nestedSet) {
     return ImmutableList.<Value>builder()
         .add(
             Value.newBuilder()

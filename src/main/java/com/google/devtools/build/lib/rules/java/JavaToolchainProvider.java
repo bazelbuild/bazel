@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Iterator;
 import javax.annotation.Nullable;
@@ -410,8 +410,8 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkBootclasspath() {
-    return SkylarkNestedSet.of(Artifact.class, getBootclasspath());
+  public Depset getSkylarkBootclasspath() {
+    return Depset.of(Artifact.class, getBootclasspath());
   }
 
   @Override
@@ -420,7 +420,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkTools() {
-    return SkylarkNestedSet.of(Artifact.class, getTools());
+  public Depset getSkylarkTools() {
+    return Depset.of(Artifact.class, getTools());
   }
 }

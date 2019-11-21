@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Fake implementation of {@link AndroidNativeLibsInfoApi}.
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeAndroidNativeLibsInfo implements AndroidNativeLibsInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet /*<FileApi>*/ getNativeLibsForStarlark() {
+  public Depset /*<FileApi>*/ getNativeLibsForStarlark() {
     return null;
   }
 
@@ -51,8 +51,7 @@ public class FakeAndroidNativeLibsInfo implements AndroidNativeLibsInfoApi<FileA
       implements AndroidNativeLibsInfoApiProvider {
 
     @Override
-    public AndroidNativeLibsInfoApi<?> createInfo(SkylarkNestedSet nativeLibs)
-        throws EvalException {
+    public AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException {
       return new FakeAndroidNativeLibsInfo();
     }
 

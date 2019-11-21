@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /** Info object propagating information about protocol buffer sources. */
 @SkylarkModule(
@@ -43,7 +43,7 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       name = "transitive_imports",
       doc = "Transitive imports including weak dependencies.",
       structField = true)
-  public SkylarkNestedSet /*<FileT>*/ getTransitiveImports();
+  public Depset /*<FileT>*/ getTransitiveImports();
 
   @SkylarkCallable(
       name = "transitive_sources",
@@ -52,7 +52,7 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   // TODO(bazel-team): The difference between transitive imports and transitive proto sources
   // should never be used by Skylark or by an Aspect. One of these two should be removed,
   // preferably soon, before Skylark users start depending on them.
-  public SkylarkNestedSet /*<FileT>*/ getTransitiveProtoSourcesForStarlark();
+  public Depset /*<FileT>*/ getTransitiveProtoSourcesForStarlark();
 
   @SkylarkCallable(
       name = "direct_sources",
@@ -67,7 +67,7 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
               + "that has no sources, it contains the check_deps_sources "
               + "from this library's direct deps.",
       structField = true)
-  public SkylarkNestedSet /*<FileT>*/ getStrictImportableProtoSourcesForDependentsForStarlark();
+  public Depset /*<FileT>*/ getStrictImportableProtoSourcesForDependentsForStarlark();
 
   @SkylarkCallable(
       name = "direct_descriptor_set",
@@ -87,13 +87,13 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
               + " as passing --include_imports to proto-compiler. Will be empty if no"
               + " dependencies.",
       structField = true)
-  public SkylarkNestedSet /*<FileT>*/ getTransitiveDescriptorSetsForStarlark();
+  public Depset /*<FileT>*/ getTransitiveDescriptorSetsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_proto_path",
       doc = "A set of proto source roots collected from the transitive closure of this rule.",
       structField = true)
-  public SkylarkNestedSet /*<String>*/ getTransitiveProtoSourceRootsForStarlark();
+  public Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark();
 
   @SkylarkCallable(
       name = "proto_source_root",

@@ -24,12 +24,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -562,7 +562,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             name = "inputs",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -586,7 +586,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             name = "tools",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "unbound",
@@ -778,7 +778,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             name = "inputs",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             named = true,
@@ -853,7 +853,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         // Also, allow empty set for init
         @Param(
             name = "transitive_files",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = FileApi.class,
             noneable = true,
             defaultValue = "None",

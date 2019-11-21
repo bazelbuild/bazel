@@ -423,11 +423,9 @@ public final class StarlarkThread implements Freezable {
         if (value.equals(otherValue)) {
           continue;
         }
-        if (value instanceof SkylarkNestedSet) {
-          if (otherValue instanceof SkylarkNestedSet
-              && ((SkylarkNestedSet) value)
-                  .toCollection()
-                  .equals(((SkylarkNestedSet) otherValue).toCollection())) {
+        if (value instanceof Depset) {
+          if (otherValue instanceof Depset
+              && ((Depset) value).toCollection().equals(((Depset) otherValue).toCollection())) {
             continue;
           }
         } else if (value instanceof Dict) {

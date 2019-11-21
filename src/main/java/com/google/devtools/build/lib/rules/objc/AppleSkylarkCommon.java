@@ -43,10 +43,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
@@ -204,11 +204,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkFiles)
       throws EvalException {
     NestedSet<String> frameworkDirs =
-        SkylarkNestedSet.getSetFromNoneableParam(
-            dynamicFrameworkDirs, String.class, "framework_dirs");
+        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        SkylarkNestedSet.getSetFromNoneableParam(
-            dynamicFrameworkFiles, Artifact.class, "framework_files");
+        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(
@@ -262,7 +260,7 @@ public class AppleSkylarkCommon
     // of plain NestedSets because the Skylark caller may want to return this directly from their
     // implementation function.
     Map<String, SkylarkValue> outputGroups =
-        Maps.transformValues(output.getOutputGroups(), v -> SkylarkNestedSet.of(Artifact.class, v));
+        Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.class, v));
 
     ImmutableMap<String, Object> fields =
         ImmutableMap.of(

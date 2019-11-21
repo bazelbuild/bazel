@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Provides information about flavors for all built protos. */
 @SkylarkModule(
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface ProtoRegistryProviderApi<FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(name = "jars", documented = false, doc = "", structField = true)
-  SkylarkNestedSet /*<FileT>*/ getJars();
+  Depset /*<FileT>*/ getJars();
 
   @SkylarkCallable(name = "flavors", documented = false, doc = "", structField = true)
   Sequence<String> getFlavors();

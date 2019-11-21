@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,8 +61,7 @@ public final class DebuggerSerializationTest {
   @Test
   public void testSimpleNestedSet() {
     Set<String> children = ImmutableSet.of("a", "b");
-    SkylarkNestedSet set =
-        SkylarkNestedSet.of(Object.class, NestedSetBuilder.stableOrder().addAll(children).build());
+    Depset set = Depset.of(Object.class, NestedSetBuilder.stableOrder().addAll(children).build());
 
     Value value = getValueProto("name", set);
 
@@ -89,8 +88,8 @@ public final class DebuggerSerializationTest {
     NestedSet<String> innerNestedSet =
         NestedSetBuilder.<String>stableOrder().add("inner1").add("inner2").build();
     ImmutableSet<String> directChildren = ImmutableSet.of("a", "b");
-    SkylarkNestedSet outerSet =
-        SkylarkNestedSet.of(
+    Depset outerSet =
+        Depset.of(
             String.class,
             NestedSetBuilder.<String>linkOrder()
                 .addAll(directChildren)

@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -151,7 +151,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "inputs",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             named = true,
@@ -228,7 +228,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "inputs",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -267,7 +267,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "tools",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             named = true,
@@ -382,7 +382,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "inputs",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -393,7 +393,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "tools",
             allowedTypes = {
               @ParamType(type = Sequence.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "unbound",

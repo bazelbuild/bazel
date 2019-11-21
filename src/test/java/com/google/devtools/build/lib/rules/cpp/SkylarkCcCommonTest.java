@@ -50,11 +50,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -117,7 +117,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    SkylarkNestedSet allFiles = (SkylarkNestedSet) getMyInfoFromTarget(r).getValue("all_files");
+    Depset allFiles = (Depset) getMyInfoFromTarget(r).getValue("all_files");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
@@ -161,8 +161,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
     SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
-    SkylarkNestedSet staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
-    SkylarkNestedSet dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+    Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
+    Depset dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
     assertThat(staticRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
     assertThat(dynamicRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
@@ -176,8 +176,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     invalidatePackages();
     r = getConfiguredTarget("//a:r");
     cruleInfo = (SkylarkInfo) r.get(key);
-    staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
-    dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+    staticRuntimeLib = (Depset) cruleInfo.getValue("static");
+    dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
@@ -1119,7 +1119,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     StructImpl myInfo = getMyInfoFromTarget(getConfiguredTarget("//a:r"));
 
     List<Artifact> mergedHeaders =
-        ((SkylarkNestedSet) myInfo.getValue("merged_headers")).getSet(Artifact.class).toList();
+        ((Depset) myInfo.getValue("merged_headers")).getSet(Artifact.class).toList();
     assertThat(
             mergedHeaders.stream()
                 .map(Artifact::getFilename)
@@ -1127,28 +1127,24 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsAtLeast("header.h", "dep1.h", "dep2.h");
 
     List<String> mergedDefines =
-        ((SkylarkNestedSet) myInfo.getValue("merged_defines")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_defines")).getSet(String.class).toList();
     assertThat(mergedDefines).containsAtLeast("MYDEFINE", "DEP1", "DEP2");
     assertThat(mergedDefines).doesNotContain("LOCALDEP1");
 
     List<String> mergedSystemIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_system_includes"))
-            .getSet(String.class)
-            .toList();
+        ((Depset) myInfo.getValue("merged_system_includes")).getSet(String.class).toList();
     assertThat(mergedSystemIncludes).containsAtLeast("foo/bar", "a/dep1/baz", "a/dep2/qux");
 
     List<String> mergedIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_includes")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_includes")).getSet(String.class).toList();
     assertThat(mergedIncludes).contains("baz/qux");
 
     List<String> mergedQuoteIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
     assertThat(mergedQuoteIncludes).contains("quux/abc");
 
     List<String> mergedFrameworkIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_framework_includes"))
-            .getSet(String.class)
-            .toList();
+        ((Depset) myInfo.getValue("merged_framework_includes")).getSet(String.class).toList();
     assertThat(mergedFrameworkIncludes).contains("fuux/fgh");
   }
 
@@ -1297,7 +1293,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
-    SkylarkNestedSet librariesToLink = info.getValue("libraries_to_link", SkylarkNestedSet.class);
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
             librariesToLink.toCollection(LibraryToLink.class).stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -1339,15 +1335,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (Sequence<String>) info.getValue("user_link_flags", Sequence.class);
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
-    SkylarkNestedSet additionalInputs = info.getValue("additional_inputs", SkylarkNestedSet.class);
+    Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
     assertThat(
             additionalInputs.toCollection(Artifact.class).stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("b.lds", "d.lds");
     Collection<LibraryToLink> librariesToLink =
-        info.getValue("libraries_to_link", SkylarkNestedSet.class)
-            .toCollection(LibraryToLink.class);
+        info.getValue("libraries_to_link", Depset.class).toCollection(LibraryToLink.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)

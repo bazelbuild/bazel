@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Provides information about generated proto extensions. */
 @SkylarkModule(
@@ -48,7 +48,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
   FileT getSrcJar();
 
   @SkylarkCallable(name = "inputs", structField = true, doc = "", documented = false)
-  SkylarkNestedSet /*<FileT>*/ getInputsForStarlark();
+  Depset /*<FileT>*/ getInputsForStarlark();
 
   /** The provider implementing this can construct the GeneratedExtensionRegistryProvider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)
@@ -87,7 +87,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
               doc = "Proto jars used to generate the registry",
               positional = true,
               named = false,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
         },
         selfCall = true)
@@ -95,11 +95,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
         objectType = GeneratedExtensionRegistryProviderApi.class,
         receiverNameForDoc = NAME)
     GeneratedExtensionRegistryProviderApi<FileT> create(
-        Label generatingRuleLabel,
-        boolean isLite,
-        FileT classJar,
-        FileT srcJar,
-        SkylarkNestedSet inputs)
+        Label generatingRuleLabel, boolean isLite, FileT classJar, FileT srcJar, Depset inputs)
         throws EvalException;
   }
 }
