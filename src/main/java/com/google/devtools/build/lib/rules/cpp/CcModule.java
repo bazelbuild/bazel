@@ -509,6 +509,13 @@ public abstract class CcModule
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         if (dynamicLibraryPathFragment != null) {
+          if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+            throw new EvalException(
+                location,
+                String.format(
+                    "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
+                    dynamicLibrary.getRootRelativePath()));
+          }
           dynamicLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
                   /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
@@ -534,6 +541,13 @@ public abstract class CcModule
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
         if (interfaceLibraryPathFragment != null) {
+          if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+            throw new EvalException(
+                location,
+                String.format(
+                    "interface_library must not be a symbolic link in the solib directory. Got '%s'",
+                    interfaceLibrary.getRootRelativePath()));
+          }
           interfaceLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
                   /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
