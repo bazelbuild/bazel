@@ -1324,6 +1324,46 @@ EOF
     //a:foo || "Failed to build //a:foo"
 }
 
+function test_testxml_download_toplevel() {
+  # Test that a test action generating its own test.xml file works with
+  # --remote_download_toplevel.
+  mkdir -p a
+
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+
+cat > "$XML_OUTPUT_FILE" <<EOF2
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="0">
+    <testcase name="test_case" status="run">
+      <system-out>test_case succeeded.</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
+EOF2
+EOF
+
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<EOF
+sh_test(
+  name = 'test',
+  srcs = [ 'test.sh' ],
+)
+EOF
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      //a:test \
+      || fail "Failed to run //a:test with remote execution"
+
+  TESTXML="bazel-testlogs/a/test/test.xml"
+  assert_contains "test_case succeeded" "$TESTXML"
+}
+
+
 function test_tag_no_remote_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
