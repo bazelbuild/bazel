@@ -334,7 +334,9 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
-  public void asyncCompletedUploadDoesNotReWrite() throws Exception {
+  public void concurrentlyCompletedUploadIsNotRetried() throws Exception {
+    // Test that after an upload has failed and the QueryWriteStatus call returns
+    // that the upload has completed that we'll not retry the upload.
     Context prevContext = withEmptyMetadata.attach();
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
