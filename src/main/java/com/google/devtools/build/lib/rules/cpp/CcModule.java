@@ -407,12 +407,19 @@ public abstract class CcModule
     if (dynamicLibraryPath != null && !dynamicLibraryPath.isEmpty()) {
       dynamicLibraryPathFragment = PathFragment.create(dynamicLibraryPath);
       if (dynamicLibraryPathFragment.isEmpty() || dynamicLibraryPathFragment.isAbsolute() || dynamicLibraryPathFragment.containsUplevelReferences()) {
-        throw new EvalException(location, String.format("dynamic_library_symlink_path must be a relative file path. Got '%s'", dynamicLibraryPathFragment.toString()));
+        throw new EvalException(
+            location,
+            String.format(
+                "dynamic_library_symlink_path must be a relative file path. Got '%s'",
+                dynamicLibraryPathFragment));
       }
       if (!Link.ONLY_SHARED_LIBRARY_FILETYPES.matches(dynamicLibraryPathFragment.getBaseName())) {
-        String extensions = Link.ONLY_SHARED_LIBRARY_FILETYPES.toString();
         extensionErrorsBuilder.append(
-            String.format("'%s' %s %s", dynamicLibraryPathFragment.toString(), extensionErrorMessage, extensions));
+            String.format(
+                "'%s' %s %s",
+                dynamicLibraryPathFragment,
+                extensionErrorMessage,
+                Link.ONLY_SHARED_LIBRARY_FILETYPES));
         extensionErrorsBuilder.append(LINE_SEPARATOR.value());
       }
     }
@@ -421,12 +428,19 @@ public abstract class CcModule
     if (interfaceLibraryPath != null && !interfaceLibraryPath.isEmpty()) {
       interfaceLibraryPathFragment = PathFragment.create(interfaceLibraryPath);
       if (interfaceLibraryPathFragment.isEmpty() || interfaceLibraryPathFragment.isAbsolute() || interfaceLibraryPathFragment.containsUplevelReferences()) {
-        throw new EvalException(location, String.format("interface_library_symlink_path must be a relative file path. Got '%s'", interfaceLibraryPathFragment.toString()));
+        throw new EvalException(
+            location,
+            String.format(
+                "interface_library_symlink_path must be a relative file path. Got '%s'",
+                interfaceLibraryPathFragment));
       }
       if (!Link.ONLY_INTERFACE_LIBRARY_FILETYPES.matches(interfaceLibraryPathFragment.getBaseName())) {
-        String extensions = Link.ONLY_INTERFACE_LIBRARY_FILETYPES.toString();
         extensionErrorsBuilder.append(
-            String.format("'%s' %s %s", interfaceLibraryPathFragment.toString(), extensionErrorMessage, extensions));
+            String.format(
+                "'%s' %s %s",
+                interfaceLibraryPathFragment,
+                extensionErrorMessage,
+                Link.ONLY_INTERFACE_LIBRARY_FILETYPES));
         extensionErrorsBuilder.append(LINE_SEPARATOR.value());
       }
     }
