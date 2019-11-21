@@ -246,8 +246,8 @@ public class NinjaParser {
                   ImmutableSortedMap.of(NinjaToken.NEWLINE, NinjaTargetParsingPart.VARIABLES));
 
   /**
-   * Parses Ninja target using {@link NinjaScope} of the file, where it is defined, to expand
-   * variables.
+   * Parses Ninja target using {@link NinjaScope} of the file, where it is defined,
+   * to expand variables.
    */
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
       throws GenericParsingException {
@@ -284,7 +284,7 @@ public class NinjaParser {
    * values can not refer to each other. Then we are constructing the target's {@link NinjaScope}
    * with already expanded variables; it will be used for resolving target's input and output paths
    * (which can also refer to file-level variables, so we better reuse resolve logic that we already
-   * have in NinjaScope).
+   * have in NinjaResolvedScope).
    *
    * <p>As we expand variable values, we are adding them to {@link NinjaTarget.Builder}.
    *

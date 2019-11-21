@@ -20,9 +20,11 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
@@ -173,7 +175,7 @@ public class NinjaParserTest {
   }
 
   @Test
-  public void testNinjaTargets() throws GenericParsingException {
+  public void testNinjaTargets() throws Exception {
     NinjaTarget target = parseNinjaTarget("build output: command input");
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
@@ -214,12 +216,13 @@ public class NinjaParserTest {
   }
 
   @Test
-  public void testNinjaTargetsWithVariables() throws GenericParsingException {
-    NinjaScope scope = new NinjaScope();
-    scope.addVariable("output", 1, NinjaVariableValue.createPlainText("out123"));
-    scope.addVariable("input", 2, NinjaVariableValue.createPlainText("in123"));
+  public void testNinjaTargetsWithVariables() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable("output", 1, NinjaVariableValue.createPlainText("out123"));
+    parseResult.addVariable("input", 2, NinjaVariableValue.createPlainText("in123"));
 
-    scope.expandVariables();
+    NinjaScope scope = new NinjaScope();
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
 
     // Variables, defined inside build statement, are used for input and output paths,
     // but not for the values of the other variables.
@@ -238,19 +241,20 @@ public class NinjaParserTest {
   }
 
   @Test
-  public void testPseudoCyclesOfVariables() {
-    NinjaScope scope = new NinjaScope();
-    scope.addVariable(
+  public void testPseudoCyclesOfVariables() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable(
         "output", 1, NinjaVariableValue.builder().addText("'out'").addVariable("input").build());
-    scope.addVariable(
+    parseResult.addVariable(
         "input", 2, NinjaVariableValue.builder().addText("'in'").addVariable("output").build());
-    scope.expandVariables();
+    NinjaScope scope = new NinjaScope();
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
     assertThat(scope.findExpandedVariable(3, "input")).isEqualTo("'in''out'");
     assertThat(scope.findExpandedVariable(3, "output")).isEqualTo("'out'");
   }
 
   @Test
-  public void testNinjaTargetsPathWithEscapedSpace() throws GenericParsingException {
+  public void testNinjaTargetsPathWithEscapedSpace() throws Exception {
     NinjaTarget target = parseNinjaTarget("build output : command input$ with$ space other");
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
@@ -264,9 +268,8 @@ public class NinjaParserTest {
     assertThat(exception).hasMessageThat().isEqualTo(error);
   }
 
-  private static NinjaTarget parseNinjaTarget(String text) throws GenericParsingException {
+  private static NinjaTarget parseNinjaTarget(String text) throws Exception {
     NinjaScope fileScope = new NinjaScope();
-    fileScope.expandVariables();
     return createParser(text).parseNinjaTarget(fileScope, 0);
   }
 
@@ -277,7 +280,7 @@ public class NinjaParserTest {
   }
 
   private static void doTestSimpleVariable(String text, String name, String value)
-      throws GenericParsingException {
+      throws Exception {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);
@@ -298,7 +301,7 @@ public class NinjaParserTest {
 
   private static void doTestWithVariablesInValue(
       String text, String name, String value, ImmutableSortedSet<String> expectedVars)
-      throws GenericParsingException {
+      throws Exception {
     NinjaParser parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);

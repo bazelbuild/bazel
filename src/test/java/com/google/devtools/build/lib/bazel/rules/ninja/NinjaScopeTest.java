@@ -20,9 +20,10 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
@@ -37,20 +38,21 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope} */
+/** Tests for {@link NinjaScope} */
 @RunWith(JUnit4.class)
 public class NinjaScopeTest {
   @Test
   public void testSortVariables() {
-    NinjaScope scope = new NinjaScope();
-    scope.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
-    scope.addVariable("abc", 1, NinjaVariableValue.createPlainText("cba1"));
-    scope.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
+    parseResult.addVariable("abc", 1, NinjaVariableValue.createPlainText("cba1"));
+    parseResult.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
 
-    scope.sortResults();
+    parseResult.sortResults();
 
     List<Integer> offsets =
-        scope.getVariables().get("abc").stream().map(Pair::getFirst).collect(Collectors.toList());
+        parseResult.getVariables().get("abc")
+            .stream().map(Pair::getFirst).collect(Collectors.toList());
     assertThat(offsets).isInOrder();
   }
 
@@ -59,15 +61,15 @@ public class NinjaScopeTest {
     // We can just use the same rule value here.
     NinjaRule rule = rule("rule1");
 
-    NinjaScope scope = new NinjaScope();
-    scope.addRule(10, rule);
-    scope.addRule(1115, rule);
-    scope.addRule(5, rule);
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addRule(10, rule);
+    parseResult.addRule(1115, rule);
+    parseResult.addRule(5, rule);
 
-    scope.sortResults();
+    parseResult.sortResults();
 
     List<Integer> offsets =
-        scope.getRules().get(rule.getName()).stream()
+        parseResult.getRules().get(rule.getName()).stream()
             .map(Pair::getFirst)
             .collect(Collectors.toList());
     assertThat(offsets).isInOrder();
@@ -78,19 +80,20 @@ public class NinjaScopeTest {
     NinjaRule rule1 = rule("rule1");
     NinjaRule rule2 = rule("rule2");
 
-    NinjaScope scope1 = new NinjaScope();
-    scope1.addRule(10, rule1);
-    scope1.addVariable("from1", 7, NinjaVariableValue.createPlainText("111"));
-    scope1.addVariable("abc", 5, NinjaVariableValue.createPlainText("5"));
-    scope1.addVariable("abc", 115, NinjaVariableValue.createPlainText("7"));
+    NinjaFileParseResult parseResult1 = new NinjaFileParseResult();
+    parseResult1.addRule(10, rule1);
+    parseResult1.addVariable("from1", 7, NinjaVariableValue.createPlainText("111"));
+    parseResult1.addVariable("abc", 5, NinjaVariableValue.createPlainText("5"));
+    parseResult1.addVariable("abc", 115, NinjaVariableValue.createPlainText("7"));
 
-    NinjaScope scope2 = new NinjaScope();
-    scope2.addRule(10, rule2);
-    scope2.addVariable("from2", 20017, NinjaVariableValue.createPlainText("222"));
-    scope2.addVariable("abc", 2005, NinjaVariableValue.createPlainText("15"));
-    scope2.addVariable("abc", 20015, NinjaVariableValue.createPlainText("17"));
+    NinjaFileParseResult parseResult2 = new NinjaFileParseResult();
+    parseResult2.addRule(10, rule2);
+    parseResult2.addVariable("from2", 20017, NinjaVariableValue.createPlainText("222"));
+    parseResult2.addVariable("abc", 2005, NinjaVariableValue.createPlainText("15"));
+    parseResult2.addVariable("abc", 20015, NinjaVariableValue.createPlainText("17"));
 
-    NinjaScope result = NinjaScope.mergeScopeParts(ImmutableList.of(scope1, scope2));
+    NinjaFileParseResult result = NinjaFileParseResult.mergeFileParts(
+        ImmutableList.of(parseResult1, parseResult2));
     assertThat(result.getRules()).hasSize(2);
     assertThat(result.getRules()).containsKey("rule1");
     assertThat(result.getRules()).containsKey("rule2");
@@ -106,53 +109,52 @@ public class NinjaScopeTest {
   }
 
   @Test
-  public void testFindVariable() {
+  public void testFindVariable() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
+    parseResult.addVariable("abc", 5, NinjaVariableValue.createPlainText("cba1"));
+    parseResult.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
+
+    parseResult.sortResults();
     NinjaScope scope = new NinjaScope();
-    scope.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
-    scope.addVariable("abc", 5, NinjaVariableValue.createPlainText("cba1"));
-    scope.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
 
-    scope.sortResults();
+    assertThat(scope.findExpandedVariable(1, "not_there")).isNull();
+    assertThat(scope.findExpandedVariable(1, "abc")).isNull();
+    assertThat(scope.findExpandedVariable(6, "abc")).isEqualTo("cba1");
 
-    assertThat(scope.findVariable(1, "not_there")).isNull();
-    assertThat(scope.findVariable(1, "abc")).isNull();
-    NinjaVariableValue abc = scope.findVariable(6, "abc");
-    assertThat(abc).isNotNull();
-    assertThat(abc.getRawText()).isEqualTo("cba1");
-
-    abc = scope.findVariable(13, "abc");
-    assertThat(abc).isNotNull();
-    assertThat(abc.getRawText()).isEqualTo("cba");
-
-    abc = scope.findVariable(130, "abc");
-    assertThat(abc).isNotNull();
-    assertThat(abc.getRawText()).isEqualTo("cba2");
+    assertThat(scope.findExpandedVariable(13, "abc")).isEqualTo("cba");
+    assertThat(scope.findExpandedVariable(130, "abc")).isEqualTo("cba2");
   }
 
   @Test
-  public void testFindVariableErrors() {
-    NinjaScope scope = new NinjaScope();
-    scope.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
-    scope.addVariable("abc", 5, NinjaVariableValue.createPlainText("cba1"));
-    scope.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
+  public void testFindVariableErrors() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("cba"));
+    parseResult.addVariable("abc", 5, NinjaVariableValue.createPlainText("cba1"));
+    parseResult.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
 
-    scope.sortResults();
+    parseResult.sortResults();
+    NinjaScope scope = new NinjaScope();
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
 
     IllegalStateException exception =
-        assertThrows(IllegalStateException.class, () -> scope.findVariable(5, "abc"));
+        assertThrows(IllegalStateException.class, () -> scope.findExpandedVariable(5, "abc"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("Trying to interpret declaration as reference.");
   }
 
   @Test
-  public void testFindRule() {
-    NinjaScope scope = new NinjaScope();
-    scope.addRule(10, rule("rule1", "10"));
-    scope.addRule(1115, rule("rule1", "1115"));
-    scope.addRule(5, rule("rule1", "5"));
+  public void testFindRule() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addRule(10, rule("rule1", "10"));
+    parseResult.addRule(1115, rule("rule1", "1115"));
+    parseResult.addRule(5, rule("rule1", "5"));
 
-    scope.sortResults();
+    parseResult.sortResults();
+    NinjaScope scope = new NinjaScope();
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
 
     assertThat(scope.findRule(1, "non-existent")).isNull();
     assertThat(scope.findRule(1, "rule1")).isNull();
@@ -167,89 +169,92 @@ public class NinjaScopeTest {
   }
 
   @Test
-  public void testFindVariableInParentScope() {
-    NinjaScope parent = new NinjaScope();
-    parent.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    parent.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
-    parent.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
+  public void testFindVariableInParentScope() throws Exception {
+    NinjaFileParseResult parentParseResult = new NinjaFileParseResult();
+    parentParseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
+    parentParseResult.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
+    parentParseResult.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
 
     // This is subninja scope, not include scope.
-    NinjaScope child = new NinjaScope(parent, 140);
+    NinjaFileParseResult childParseResult = new NinjaFileParseResult();
+    parentParseResult.addSubNinjaScope(140, scope -> childParseResult);
     // Shadows this variable from parent.
-    child.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
+    childParseResult.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
 
-    NinjaVariableValue abcVar = child.findVariable(2, "abc");
-    assertThat(abcVar).isNotNull();
-    assertThat(abcVar.getRawText()).isEqualTo("abc");
-
-    NinjaVariableValue edfVar = child.findVariable(2, "edf");
-    assertThat(edfVar).isNotNull();
-    assertThat(edfVar.getRawText()).isEqualTo("11111");
-
-    assertThat(child.findVariable(2, "xyz")).isNull();
-  }
-
-  @Test
-  public void testFindVariableInIncludedScope() {
-    NinjaScope parent = new NinjaScope();
-    parent.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    parent.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
-    parent.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
-
-    NinjaScope child = parent.createIncludeScope(140);
-    // Shadows this variable from parent.
-    child.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
-    child.addVariable("child", 2, NinjaVariableValue.createPlainText("child"));
-
-    NinjaScope child2 = parent.createIncludeScope(200);
-    child2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
-
-    NinjaVariableValue edfVar = parent.findVariable(160, "edf");
-    assertThat(edfVar).isNotNull();
-    assertThat(edfVar.getRawText()).isEqualTo("11111");
-
-    NinjaVariableValue edfVarFromChild2 = parent.findVariable(220, "edf");
-    assertThat(edfVarFromChild2).isNotNull();
-    assertThat(edfVarFromChild2.getRawText()).isEqualTo("22222");
-
-    NinjaVariableValue edfVarBefore = parent.findVariable(125, "edf");
-    assertThat(edfVarBefore).isNotNull();
-    assertThat(edfVarBefore.getRawText()).isEqualTo("edf");
-
-    NinjaVariableValue childVar = parent.findVariable(145, "child");
-    assertThat(childVar).isNotNull();
-    assertThat(childVar.getRawText()).isEqualTo("child");
-  }
-
-  @Test
-  public void testFindInRecursivelyIncluded() {
-    NinjaScope parent = new NinjaScope();
-    parent.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    parent.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
-    parent.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
-
-    NinjaScope child = parent.createIncludeScope(140);
-    // Shadows this variable from parent.
-    child.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
-    child.addVariable("child", 2, NinjaVariableValue.createPlainText("child"));
-
-    NinjaScope child2 = child.createIncludeScope(3);
-    child2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
-
-    NinjaVariableValue edfVarFromChild2 = parent.findVariable(220, "edf");
-    assertThat(edfVarFromChild2).isNotNull();
-    assertThat(edfVarFromChild2.getRawText()).isEqualTo("22222");
-  }
-
-  @Test
-  public void testVariableExpand() throws GenericParsingException {
+    parentParseResult.sortResults();
     NinjaScope scope = new NinjaScope();
-    scope.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    scope.addVariable("edf", 120, parseValue("=> $abc = ?"));
-    scope.addVariable("abc", 130, NinjaVariableValue.createPlainText("redefined"));
-    scope.addVariable("edf", 180, parseValue("now$: $abc!"));
+    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
 
-    scope.expandVariables();
+    assertThat(scope.getSubNinjaScopes()).hasSize(1);
+    NinjaScope child = scope.getSubNinjaScopes().iterator().next();
+
+    assertThat(child.findExpandedVariable(2, "abc")).isEqualTo("abc");
+    assertThat(child.findExpandedVariable(2, "edf")).isEqualTo("11111");
+    assertThat(child.findExpandedVariable(2, "xyz")).isNull();
+  }
+
+  @Test
+  public void testfindExpandedVariableInIncludedScope() throws Exception {
+    NinjaFileParseResult parentParseResult = new NinjaFileParseResult();
+    parentParseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
+    parentParseResult.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
+    parentParseResult.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
+
+    NinjaFileParseResult childParseResult = new NinjaFileParseResult();
+    parentParseResult.addIncludeScope(140, scope -> childParseResult);
+    // Shadows this variable from parent.
+    childParseResult.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
+    childParseResult.addVariable("child", 2, NinjaVariableValue.createPlainText("child"));
+
+    NinjaFileParseResult childParseResult2 = new NinjaFileParseResult();
+    parentParseResult.addIncludeScope(200, scope -> childParseResult2);
+    childParseResult2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
+
+    parentParseResult.sortResults();
+    NinjaScope scope = new NinjaScope();
+    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
+
+    assertThat(scope.findExpandedVariable(160, "edf")).isEqualTo("11111");
+    assertThat(scope.findExpandedVariable(220, "edf")).isEqualTo("22222");
+    assertThat(scope.findExpandedVariable(125, "edf")).isEqualTo("edf");
+    assertThat(scope.findExpandedVariable(145, "child")).isEqualTo("child");
+  }
+
+  @Test
+  public void testFindInRecursivelyIncluded() throws Exception {
+    NinjaFileParseResult parentParseResult = new NinjaFileParseResult();
+    parentParseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
+    parentParseResult.addVariable("edf", 120, NinjaVariableValue.createPlainText("edf"));
+    parentParseResult.addVariable("xyz", 1000, NinjaVariableValue.createPlainText("xyz"));
+
+    NinjaFileParseResult childParseResult1 = new NinjaFileParseResult();
+    parentParseResult.addIncludeScope(140, scope -> childParseResult1);
+    // Shadows this variable from parent.
+    childParseResult1.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
+    childParseResult1.addVariable("child", 2, NinjaVariableValue.createPlainText("child"));
+
+    NinjaFileParseResult childParseResult2 = new NinjaFileParseResult();
+    childParseResult1.addIncludeScope(3, scope -> childParseResult2);
+    childParseResult2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
+
+    parentParseResult.sortResults();
+    NinjaScope scope = new NinjaScope();
+    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
+
+    assertThat(scope.findExpandedVariable(220, "edf")).isEqualTo("22222");
+  }
+
+  @Test
+  public void testVariableExpand() throws Exception {
+    NinjaFileParseResult parseResult = new NinjaFileParseResult();
+    parseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
+    parseResult.addVariable("edf", 120, parseValue("=> $abc = ?"));
+    parseResult.addVariable("abc", 130, NinjaVariableValue.createPlainText("redefined"));
+    parseResult.addVariable("edf", 180, parseValue("now$: $abc!"));
+
+    parseResult.sortResults();
+    NinjaScope scope = new NinjaScope();
+    parseResult.expandIntoScope(scope, Maps.newHashMap());
 
     assertThat(scope.findExpandedVariable(15, "abc")).isEqualTo("abc");
     assertThat(scope.findExpandedVariable(150, "edf")).isEqualTo("=> abc = ?");
@@ -258,24 +263,33 @@ public class NinjaScopeTest {
   }
 
   @Test
-  public void testExpandWithParentChild() throws GenericParsingException {
-    NinjaScope parent = new NinjaScope();
-    parent.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
-    parent.addVariable("edf", 120, parseValue("$abc === ${ abc }"));
+  public void testExpandWithParentChild() throws Exception {
+    NinjaFileParseResult parentParseResult = new NinjaFileParseResult();
+    parentParseResult.addVariable("abc", 12, NinjaVariableValue.createPlainText("abc"));
+    parentParseResult.addVariable("edf", 120, parseValue("$abc === ${ abc }"));
 
-    NinjaScope includeScope = parent.createIncludeScope(140);
-    includeScope.addVariable("included", 1, parseValue("<$abc and ${ edf }>"));
+    NinjaFileParseResult includeParseResult = new NinjaFileParseResult();
+    parentParseResult.addIncludeScope(140, scope -> includeParseResult);
+    includeParseResult.addVariable("included", 1, parseValue("<$abc and ${ edf }>"));
 
-    NinjaScope child = new NinjaScope(parent, 150);
-    child.addVariable("subninja", 2, parseValue("$edf = ${ included }*"));
+    NinjaFileParseResult childParseResult = new NinjaFileParseResult();
+    parentParseResult.addSubNinjaScope(150, scope -> childParseResult);
+    childParseResult.addVariable("subninja", 2, parseValue("$edf = ${ included }*"));
 
-    parent.expandVariables();
-    child.expandVariables();
+    parentParseResult.sortResults();
+    NinjaScope parentScope = new NinjaScope();
+    parentParseResult.expandIntoScope(parentScope, Maps.newHashMap());
+
+    assertThat(parentScope.getIncludedScopes()).hasSize(1);
+    NinjaScope includeScope = parentScope.getIncludedScopes().iterator().next();
+    assertThat(parentScope.getSubNinjaScopes()).hasSize(1);
+    NinjaScope childScope = parentScope.getSubNinjaScopes().iterator().next();
 
     assertThat(includeScope.findExpandedVariable(2, "included")).isEqualTo("<abc and abc === abc>");
-    assertThat(child.findExpandedVariable(3, "subninja"))
+    assertThat(childScope.findExpandedVariable(3, "subninja"))
         .isEqualTo("abc === abc = <abc and abc === abc>*");
-    assertThat(parent.findExpandedVariable(150, "included")).isEqualTo("<abc and abc === abc>");
+    assertThat(parentScope.findExpandedVariable(150, "included"))
+        .isEqualTo("<abc and abc === abc>");
   }
 
   private static NinjaRule rule(String name) {
@@ -289,7 +303,7 @@ public class NinjaScopeTest {
             NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
   }
 
-  private static NinjaVariableValue parseValue(String text) throws GenericParsingException {
+  private static NinjaVariableValue parseValue(String text) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(bb, 0, bb.limit()));
     return new NinjaParser(lexer).parseVariableValue("test");

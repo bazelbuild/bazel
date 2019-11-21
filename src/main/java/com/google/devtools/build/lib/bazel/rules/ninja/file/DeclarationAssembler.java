@@ -74,7 +74,11 @@ public class DeclarationAssembler {
     Preconditions.checkArgument(!list.isEmpty());
     ByteFragmentAtOffset first = list.get(0);
     if (list.size() == 1) {
-      declarationConsumer.declaration(first);
+      try {
+        declarationConsumer.declaration(first);
+      } catch (java.io.IOException e) {
+        e.printStackTrace();
+      }
       return;
     }
 
@@ -119,12 +123,20 @@ public class DeclarationAssembler {
         // There should always be a previous fragment, as we are checking non-intersecting ranges,
         // starting from the connection point between first and second fragments.
         Preconditions.checkState(idx > previousEnd);
-        declarationConsumer.declaration(
-            new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, idx + 1)));
+        try {
+          declarationConsumer.declaration(
+              new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, idx + 1)));
+        } catch (java.io.IOException e) {
+          e.printStackTrace();
+        }
         previousEnd = idx + 1;
       }
     }
-    declarationConsumer.declaration(
-        new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, merged.length())));
+    try {
+      declarationConsumer.declaration(
+          new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, merged.length())));
+    } catch (java.io.IOException e) {
+      e.printStackTrace();
+    }
   }
 }
