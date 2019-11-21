@@ -606,6 +606,7 @@ java_library(
             "rules/repository/*.java",
             "skyframe/*.java",
             "skyframe/actiongraph/*.java",
+            "skyframe/actiongraph/v2/*.java",
         ],
         allow_empty = True,
         exclude = [
@@ -682,6 +683,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:spawn_java_proto",

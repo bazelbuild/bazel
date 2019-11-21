@@ -159,25 +159,45 @@ public class ActionGraphQueryEnvironment
           BuildConfiguration hostConfiguration,
           @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
           PackageManager packageManager) {
-    return ImmutableList.of(
-        new ActionGraphProtoOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            OutputType.BINARY,
-            actionFilters),
-        new ActionGraphProtoOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            OutputType.TEXT,
-            actionFilters),
-        new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
+    return aqueryOptions.protoV2
+        ? ImmutableList.of(
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                ActionGraphProtoV2OutputFormatterCallback.OutputType.BINARY,
+                actionFilters),
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                ActionGraphProtoV2OutputFormatterCallback.OutputType.TEXT,
+                actionFilters),
+            new ActionGraphTextOutputFormatterCallback(
+                eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters))
+        : ImmutableList.of(
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.BINARY,
+                actionFilters),
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.TEXT,
+                actionFilters),
+            new ActionGraphTextOutputFormatterCallback(
+                eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }
 
   @Override
