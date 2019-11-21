@@ -1406,4 +1406,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
   }
+
+  boolean incompatibleProhibitAapt1() {
+    return incompatibleProhibitAapt1;
+  }
 }
