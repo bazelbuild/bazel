@@ -46,6 +46,41 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class NinjaPipelineTest {
+  private static class Tester {
+    private final Path dir;
+    private final ListeningExecutorService service;
+
+    Tester() throws IOException, DefaultHashFunctionNotSetException {
+      service =
+          MoreExecutors.listeningDecorator(
+              Executors.newFixedThreadPool(
+                  25,
+                  new ThreadFactoryBuilder()
+                      .setNameFormat(NinjaPipelineTest.class.getSimpleName() + "-%d")
+                      .build()));
+      java.nio.file.Path tmpDir = Files.createTempDirectory("test");
+      dir = new JavaIoFileSystem().getPath(tmpDir.toString());
+    }
+
+    ListeningExecutorService getService() {
+      return service;
+    }
+
+    Path writeTmpFile(
+        String name,
+        String... lines) throws IOException {
+      Path path = dir.getRelative(name);
+      FileSystemUtils.writeContent(path, String.join("\n", lines)
+          .getBytes(StandardCharsets.ISO_8859_1));
+      return path;
+    }
+
+    public void tearDown() throws IOException {
+      ExecutorUtil.interruptibleShutdown(service);
+      dir.deleteTree();
+    }
+  }
+
   private Tester tester;
 
   @Before
@@ -124,7 +159,7 @@ public class NinjaPipelineTest {
     checkTargets(targets);
   }
 
-  private void checkTargets(List<NinjaTarget> targets) {
+  private static void checkTargets(List<NinjaTarget> targets) {
     assertThat(targets).hasSize(2);
     for (NinjaTarget target : targets) {
       if (target.getAllOutputs().contains(PathFragment.create("t1"))) {
@@ -135,41 +170,6 @@ public class NinjaPipelineTest {
       } else {
         fail();
       }
-    }
-  }
-
-  private static class Tester {
-    private final Path dir;
-    private ListeningExecutorService service;
-
-    Tester() throws IOException, DefaultHashFunctionNotSetException {
-      service =
-          MoreExecutors.listeningDecorator(
-              Executors.newFixedThreadPool(
-                  25,
-                  new ThreadFactoryBuilder()
-                      .setNameFormat(NinjaPipelineTest.class.getSimpleName() + "-%d")
-                      .build()));
-      java.nio.file.Path tmpDir = Files.createTempDirectory("test");
-      dir = new JavaIoFileSystem().getPath(tmpDir.toString());
-    }
-
-    ListeningExecutorService getService() {
-      return service;
-    }
-
-    Path writeTmpFile(
-        String name,
-        String... lines) throws IOException {
-      Path path = dir.getRelative(name);
-      FileSystemUtils.writeContent(path, String.join("\n", lines)
-          .getBytes(StandardCharsets.ISO_8859_1));
-      return path;
-    }
-
-    public void tearDown() throws IOException {
-      ExecutorUtil.interruptibleShutdown(service);
-      dir.deleteTree();
     }
   }
 }

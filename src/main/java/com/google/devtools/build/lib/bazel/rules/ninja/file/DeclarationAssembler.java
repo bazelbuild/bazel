@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -50,7 +51,8 @@ public class DeclarationAssembler {
    * @param fragments list of {@link ByteFragmentAtOffset} - pieces on the bounds of sub-fragments.
    * @throws GenericParsingException thrown by delegate {@link #declarationConsumer}
    */
-  public void wrapUp(List<ByteFragmentAtOffset> fragments) throws GenericParsingException {
+  public void wrapUp(List<ByteFragmentAtOffset> fragments)
+      throws GenericParsingException, IOException {
     fragments.sort(Comparator.comparingInt(ByteFragmentAtOffset::getRealStartOffset));
 
     List<ByteFragmentAtOffset> list = Lists.newArrayList();
@@ -70,15 +72,12 @@ public class DeclarationAssembler {
     }
   }
 
-  private void sendMerged(List<ByteFragmentAtOffset> list) throws GenericParsingException {
+  private void sendMerged(List<ByteFragmentAtOffset> list)
+      throws GenericParsingException, IOException {
     Preconditions.checkArgument(!list.isEmpty());
     ByteFragmentAtOffset first = list.get(0);
     if (list.size() == 1) {
-      try {
-        declarationConsumer.declaration(first);
-      } catch (java.io.IOException e) {
-        e.printStackTrace();
-      }
+      declarationConsumer.declaration(first);
       return;
     }
 
@@ -123,20 +122,12 @@ public class DeclarationAssembler {
         // There should always be a previous fragment, as we are checking non-intersecting ranges,
         // starting from the connection point between first and second fragments.
         Preconditions.checkState(idx > previousEnd);
-        try {
-          declarationConsumer.declaration(
-              new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, idx + 1)));
-        } catch (java.io.IOException e) {
-          e.printStackTrace();
-        }
+        declarationConsumer.declaration(
+            new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, idx + 1)));
         previousEnd = idx + 1;
       }
     }
-    try {
-      declarationConsumer.declaration(
-          new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, merged.length())));
-    } catch (java.io.IOException e) {
-      e.printStackTrace();
-    }
+    declarationConsumer.declaration(
+        new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, merged.length())));
   }
 }

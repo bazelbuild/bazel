@@ -93,14 +93,16 @@ public class NinjaFileParseResult {
     Preconditions.checkState(!parts.isEmpty());
     NinjaFileParseResult result = new NinjaFileParseResult();
     for (NinjaFileParseResult part : parts) {
-      for (String name : part.variables.keySet()) {
+      for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : part.variables.entrySet()) {
+        String name = entry.getKey();
         result
             .variables
             .computeIfAbsent(name, k -> Lists.newArrayList())
-            .addAll(part.variables.get(name));
+            .addAll(entry.getValue());
       }
-      for (String name : part.rules.keySet()) {
-        result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(part.rules.get(name));
+      for (Map.Entry<String, List<Pair<Integer, NinjaRule>>> entry : part.rules.entrySet()) {
+        String name = entry.getKey();
+        result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
       result.targets.addAll(part.targets);
       result.includedFilesFutures.putAll(part.includedFilesFutures);
