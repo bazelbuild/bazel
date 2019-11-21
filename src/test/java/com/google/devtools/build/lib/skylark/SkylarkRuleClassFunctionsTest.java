@@ -1267,8 +1267,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testNsetBadMutableItem() throws Exception {
-    checkEvalErrorContains("depsets cannot contain mutable items", "depset([([],)])");
-    checkEvalErrorContains("depsets cannot contain mutable items", "depset([struct(a=[])])");
+    checkEvalErrorContains("unhashable type: 'tuple'", "depset([([],)])");
+    checkEvalErrorContains("unhashable type: 'struct'", "depset([struct(a=[])])");
   }
 
   private static StructImpl makeStruct(String field, Object value) {

@@ -34,14 +34,9 @@ import javax.annotation.Nullable;
 /**
  * A generic, type-safe {@link NestedSet} wrapper for Skylark.
  *
- * <p>The content type of a {@code SkylarkNestedSet} is the intersection of the {@link SkylarkType}
- * of each of its elements. It is an error if this intersection is {@link SkylarkType#BOTTOM}. An
- * empty set has a content type of {@link SkylarkType#TOP}.
- *
- * <p>It is also an error if this type has a non-bottom intersection with {@link SkylarkType#DICT}
- * or {@link SkylarkType#LIST}, unless the set is empty.
- *
- * <p>TODO(bazel-team): Decide whether this restriction is still useful.
+ * <p>The content type of a non-empty {@code SkylarkNestedSet} is determined by its first element.
+ * All elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may
+ * be combined with any other depset.
  */
 @SkylarkModule(
     name = "depset",
@@ -51,8 +46,10 @@ import javax.annotation.Nullable;
             + " defined traversal order. Commonly used for accumulating data from transitive"
             + " dependencies in rules and aspects. For more information see <a"
             + " href=\"../depsets.md\">here</a>."
-            + " <p>Depsets are not implemented as hash sets and do"
-            + " not support fast membership tests. If you need a general set datatype, you can"
+            + " <p>The elements of a depset must be hashable and all of the same type (as"
+            + " defined by the built-in type(x) function), but depsets are not simply"
+            + " hash sets and do not support fast membership tests."
+            + " If you need a general set datatype, you can"
             + " simulate one using a dictionary where all keys map to <code>True</code>."
             + "<p>Depsets are immutable. They should be created using their <a"
             + " href=\"globals.html#depset\">constructor function</a> and merged or augmented with"
@@ -125,19 +122,15 @@ public final class SkylarkNestedSet implements SkylarkValue {
     if (item instanceof SkylarkNestedSet) {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
-        contentType = getTypeAfterInsert(
-            contentType, nestedSet.contentType, /*lastInsertedType=*/ null, loc);
+        contentType = checkType(contentType, nestedSet.contentType, loc);
         transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof Sequence) {
-      SkylarkType lastInsertedType = null;
-      // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
-      for (Object object : (Sequence) item) {
-        SkylarkType elemType = SkylarkType.of(object);
-        contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
-        lastInsertedType = elemType;
-        checkImmutable(object, loc);
-        itemsBuilder.add(object);
+      for (Object x : (Sequence) item) {
+        EvalUtils.checkValidDictKey(x);
+        SkylarkType xt = SkylarkType.of(x);
+        contentType = checkType(contentType, xt, loc);
+        itemsBuilder.add(x);
       }
     } else {
       throw new EvalException(
@@ -197,58 +190,28 @@ public final class SkylarkNestedSet implements SkylarkValue {
     return of(SkylarkType.of(contentType), set);
   }
 
-  private static final SkylarkType DICT_LIST_UNION =
-      SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST);
-
   /**
    * Checks that an item type is allowed in a given set type, and returns the type of a new depset
    * with that item inserted.
    */
-  private static SkylarkType getTypeAfterInsert(
-      SkylarkType depsetType, SkylarkType itemType, SkylarkType lastInsertedType, Location loc)
+  private static SkylarkType checkType(SkylarkType depsetType, SkylarkType itemType, Location loc)
       throws EvalException {
-    if (lastInsertedType != null && lastInsertedType.equals(itemType)) {
-      // Fast path, type shouldn't have changed, so no need to check.
-      // TODO(bazel-team): Make skylark type checking less expensive.
-      return depsetType;
-    }
-
-    // Check not dict or list.
-    if (SkylarkType.intersection(DICT_LIST_UNION, itemType) != SkylarkType.BOTTOM) {
-      throw new EvalException(
-          loc, String.format("depsets cannot contain items of type '%s'", itemType));
-    }
-
-    SkylarkType resultType = SkylarkType.intersection(depsetType, itemType);
-
-    // New depset type should follow the following rules:
-    // 1. Only empty depsets may be of type TOP.
-    // 2. If the previous depset type fully contains the new item type, then the depset type is
-    //    retained.
-    // 3. If the item type fully contains the old depset type, then the depset type becomes the
-    //    item type. (The depset type becomes less strict.)
-    // 4. Otherwise, the insert is invalid.
-    if (depsetType == SkylarkType.TOP) {
-      return resultType;
-    } else if (resultType.equals(itemType)) {
-      return depsetType;
-    } else if (resultType.equals(depsetType)) {
+    // An initially empty depset takes its type from the first element added.
+    // Otherwise, the types of the item and depset must match exactly.
+    //
+    // TODO(adonovan): why is the empty depset TOP, not BOTTOM?
+    // T ^ TOP == TOP, whereas T ^ BOTTOM == T.
+    // This can't be changed without breaking callers of getContentType who
+    // expect to see TOP. Maybe this is minor, but it at least would require
+    // changes to EvalUtils#getDataTypeName so that it
+    // can continue to print "depset of Objects" instead of "depset of EmptyTypes".
+    // Better yet, break the behavior and change it to "empty depset".
+    if (depsetType == SkylarkType.TOP || depsetType.equals(itemType)) {
       return itemType;
-    } else {
-      throw new EvalException(
-          loc,
-          String.format(
-              "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
     }
-  }
-
-  /**
-   * Throws EvalException if a given value is mutable.
-   */
-  private static void checkImmutable(Object o, Location loc) throws EvalException {
-    if (!EvalUtils.isImmutable(o)) {
-      throw new EvalException(loc, "depsets cannot contain mutable items");
-    }
+    throw new EvalException(
+        loc,
+        String.format("cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
   }
 
   /**
@@ -275,6 +238,20 @@ public final class SkylarkNestedSet implements SkylarkValue {
   // The precondition ensures generic type safety, and sets are immutable.
   @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
+    // TODO(adonovan): eliminate this function and toCollection in favor of ones
+    // that accept a SkylarkType augmented with a type parameter so that it acts
+    // like a "reified generic": whereas a Class symbol can express only the
+    // top-level value tag, a SkylarkType could express an entire type such as
+    // Set<List<String+Integer>>, and act as a "witness" or existential type to
+    // unlock the untyped nested set. For example:
+    //
+    //  public <T> NestedSet<T> getSet(SkylarkType<NestedSet<T>> witness) throws TypeException {
+    //     if (this.type.matches(witness)) {
+    //         return witness.convert(this);
+    //     }
+    //     throw TypeException;
+    // }
+
     checkHasContentType(type);
     return (NestedSet<T>) set;
   }
@@ -473,8 +450,8 @@ public final class SkylarkNestedSet implements SkylarkValue {
     private final NestedSetBuilder<Object> builder;
     /** Location for error messages */
     private final Location location;
+
     private SkylarkType contentType = SkylarkType.TOP;
-    private SkylarkType lastInsertedType = null;
 
     private Builder(Order order, Location location) {
       this.order = order;
@@ -482,30 +459,22 @@ public final class SkylarkNestedSet implements SkylarkValue {
       this.builder = new NestedSetBuilder<>(order);
     }
 
-    /**
-     * Add a direct element, checking its type to be compatible to already added
-     * elements and transitive sets.
-     */
-    public Builder addDirect(Object direct) throws EvalException {
-      SkylarkType elemType = SkylarkType.of(direct);
-      contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, location);
-      lastInsertedType = elemType;
-      builder.add(direct);
+    /** Adds a direct element, checking that its type is equal to the elements already added. */
+    public Builder addDirect(Object x) throws EvalException {
+      EvalUtils.checkValidDictKey(x);
+      SkylarkType xt = SkylarkType.of(x);
+      this.contentType = checkType(contentType, xt, location);
+      builder.add(x);
       return this;
     }
 
-    /**
-     * Add a transitive set, checking its content type to be compatible to already added
-     * elements and transitive sets.
-     */
+    /** Adds a transitive set, checking that its type is equal to the elements already added. */
     public Builder addTransitive(SkylarkNestedSet transitive) throws EvalException {
       if (transitive.isEmpty()) {
         return this;
       }
 
-      contentType = getTypeAfterInsert(
-          contentType, transitive.getContentType(), lastInsertedType, this.location);
-      lastInsertedType = transitive.getContentType();
+      this.contentType = checkType(contentType, transitive.getContentType(), location);
 
       if (!order.isCompatible(transitive.getOrder())) {
         throw new EvalException(location,

@@ -62,7 +62,7 @@ public class AppleSkylarkCommon
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
-      "Value for key %s must be a set of %s, instead found set of %s.";
+      "Value for key %s must be a set of %s, instead found %s.";
 
   @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =

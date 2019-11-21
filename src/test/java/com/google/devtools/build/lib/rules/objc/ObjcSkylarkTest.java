@@ -1025,7 +1025,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            String.format(AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "string"));
+            String.format(
+                AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "depset of strings"));
   }
 
   @Test

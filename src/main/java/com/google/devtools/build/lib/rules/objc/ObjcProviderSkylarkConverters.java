@@ -107,7 +107,6 @@ public class ObjcProviderSkylarkConverters {
       return convertPathFragmentsToSkylark((NestedSet<PathFragment>) javaValue);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
       NestedSet<String> nestedSet =
@@ -135,7 +134,6 @@ public class ObjcProviderSkylarkConverters {
       return SkylarkNestedSet.of(String.class, result.build());
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
       NestedSet<String> nestedSet =
@@ -162,8 +160,7 @@ public class ObjcProviderSkylarkConverters {
                 BAD_SET_TYPE_ERROR,
                 keyName,
                 EvalUtils.getDataTypeNameFromClass(expectedSetType),
-                EvalUtils.getDataTypeNameFromClass(
-                    ((SkylarkNestedSet) toCheck).getContentType().getType())),
+                EvalUtils.getDataTypeName(toCheck, /*fullDetails=*/ true)),
             exception);
       }
     } else {
