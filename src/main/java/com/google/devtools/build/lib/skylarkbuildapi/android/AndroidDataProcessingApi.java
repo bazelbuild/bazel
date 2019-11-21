@@ -710,15 +710,6 @@ public interface AndroidDataProcessingApi<
             doc =
                 "A list of file extension to leave uncompressed in apk. Templates must be"
                     + " expanded before passing this value in."),
-        @Param(
-            name = "aapt_version",
-            positional = false,
-            defaultValue = "'auto'",
-            type = String.class,
-            named = true,
-            doc =
-                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
-                    + " supported."),
       },
       useLocation = true,
       useStarlarkThread = true,
@@ -732,7 +723,6 @@ public interface AndroidDataProcessingApi<
       Sequence<?> resourceConfigurationFilters, // <String>
       Sequence<?> densities, // <String>
       Sequence<?> noCompressExtensions, // <String>
-      String aaptVersionString,
       Location location,
       StarlarkThread thread)
       throws EvalException;

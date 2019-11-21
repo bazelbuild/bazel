@@ -393,33 +393,22 @@ public abstract class AndroidSkylarkData
       Sequence<?> resourceConfigurationFilters, // <String>
       Sequence<?> densities, // <String>
       Sequence<?> noCompressExtensions, // <String>
-      String aaptVersionString,
       Location location,
       StarlarkThread thread)
       throws EvalException {
+    AndroidAaptVersion aaptVersion = AndroidAaptVersion.AAPT2;
 
-    SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
-    AndroidAaptVersion aaptVersion;
-
-    try {
-      aaptVersion =
-          AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString);
-
-      return new BinaryDataSettings(
-          aaptVersion,
-          fromNoneableOrDefault(
-              shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
-          ResourceFilterFactory.from(
-              aaptVersion,
-              resourceConfigurationFilters.getContents(
-                  String.class, "resource_configuration_filters"),
-              densities.getContents(String.class, "densities")),
-          ImmutableList.copyOf(
-              noCompressExtensions.getContents(String.class, "nocompress_extensions")));
-    } catch (RuleErrorException e) {
-      throw handleRuleException(errorReporter, e);
-    }
+    return new BinaryDataSettings(
+        aaptVersion,
+        fromNoneableOrDefault(
+            shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
+        ResourceFilterFactory.from(
+            aaptVersion,
+            resourceConfigurationFilters.getContents(
+                String.class, "resource_configuration_filters"),
+            densities.getContents(String.class, "densities")),
+        ImmutableList.copyOf(
+            noCompressExtensions.getContents(String.class, "nocompress_extensions")));
   }
 
   @Override
@@ -439,7 +428,6 @@ public abstract class AndroidSkylarkData
         StarlarkList.empty(),
         StarlarkList.empty(),
         StarlarkList.empty(),
-        "auto",
         location,
         thread);
   }
