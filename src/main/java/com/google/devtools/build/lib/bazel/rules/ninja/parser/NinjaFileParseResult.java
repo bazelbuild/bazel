@@ -30,6 +30,13 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+/**
+ * Class to hold information about different declarations in Ninja file during parsing.
+ *
+ * Included files (with include or subninja statements) are kept in form of promises:
+ * {@link NinjaPromise<NinjaFileParseResult>}, since for their parsing we may need to first
+ * resolve the variables in the current file.
+ */
 public class NinjaFileParseResult {
   private final NavigableMap<String, List<Pair<Integer, NinjaVariableValue>>> variables;
   private final NavigableMap<String, List<Pair<Integer, NinjaRule>>> rules;
@@ -152,10 +159,19 @@ public class NinjaFileParseResult {
     }
   }
 
+  /**
+   * Interface for getting the result of lazy parsing of Ninja file in the context of
+   * {@link NinjaScope}.
+   *
+   * @param <T> result of parsing.
+   */
   public interface NinjaPromise<T> {
     T compute(NinjaScope scope) throws GenericParsingException, InterruptedException, IOException;
   }
 
+  /**
+   * Interface for getting result of lazy parsing of Ninja declaration.
+   */
   public interface NinjaCallable {
     void call() throws GenericParsingException, InterruptedException, IOException;
   }
