@@ -195,7 +195,9 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
       // Find all local_repository rules in the WORKSPACE, and check if any have a "path" attribute
       // the same as the requested directory.
       Iterable<Rule> localRepositories =
-          externalPackage.getRulesMatchingRuleClass(LocalRepositoryRule.NAME);
+          Iterables.filter(
+              externalPackage.getTargets(Rule.class),
+              rule -> LocalRepositoryRule.NAME.equals(rule.getRuleClass()));
       Rule rule =
           Iterables.find(
               localRepositories,

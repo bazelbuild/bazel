@@ -528,15 +528,8 @@ public class Package {
    * for walking through the dependency graph of a target.
    * Fails if the target is not a Rule.
    */
-  @VisibleForTesting // Should be package-private
   public Rule getRule(String targetName) {
     return (Rule) targets.get(targetName);
-  }
-
-  /** Returns all rules in the package that match the given rule class. */
-  public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
-    Iterable<Rule> targets = getTargets(Rule.class);
-    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
   }
 
   /**
