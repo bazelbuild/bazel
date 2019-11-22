@@ -452,9 +452,9 @@ public final class Depset implements SkylarkValue {
 
     /** Adds a direct element, checking that its type is equal to the elements already added. */
     public Builder addDirect(Object x) throws EvalException {
-      // TODO(adonovan): this check causes depset(Target) to fail (see reviewlog).
-      // Investigate how/why user code is exploiting the weak check.
-      // EvalUtils.checkValidDictKey(x);
+      // In case of problems, see b/144992997 or github.com/bazelbuild/bazel/issues/10289.
+      EvalUtils.checkValidDictKey(x);
+
       SkylarkType xt = SkylarkType.of(x);
       this.contentType = checkType(contentType, xt);
       builder.add(x);
