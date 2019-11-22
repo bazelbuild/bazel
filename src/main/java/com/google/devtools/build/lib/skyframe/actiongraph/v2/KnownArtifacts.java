@@ -20,18 +20,24 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContai
 /** Cache for Artifacts in the action graph. */
 public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifact> {
 
+  private final KnownPathFragments knownPathFragments;
+
   KnownArtifacts(ActionGraphContainer.Builder actionGraphBuilder) {
     super(actionGraphBuilder);
+    knownPathFragments = new KnownPathFragments(actionGraphBuilder);
   }
 
   @Override
   AnalysisProtosV2.Artifact createProto(Artifact artifact, Long id) {
-    return AnalysisProtosV2.Artifact.newBuilder()
-        .setId(id)
-        .setExecPath(artifact.getExecPathString())
-        .setIsTreeArtifact(artifact.isTreeArtifact())
-        .build();
+    AnalysisProtosV2.Artifact.Builder artifactProtoBuilder =
+        AnalysisProtosV2.Artifact.newBuilder()
+            .setId(id)
+            .setIsTreeArtifact(artifact.isTreeArtifact());
+
+    Long pathFragmentId = knownPathFragments.dataToId(artifact.getExecPath());
+    return artifactProtoBuilder.setPathFragmentId(pathFragmentId).build();
   }
+
 
   @Override
   void addToActionGraphBuilder(AnalysisProtosV2.Artifact artifactProto) {

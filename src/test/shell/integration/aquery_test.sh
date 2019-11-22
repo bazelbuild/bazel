@@ -1090,7 +1090,6 @@ genrule(
     cmd = "echo unused > $(OUTS)",
 )
 EOF
-  echo "hello aquery" > "$pkg/in.txt"
   bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" \
     || fail "Expected success"
 
@@ -1100,8 +1099,9 @@ EOF
   # Verify than ids come in integers instead of strings.
   assert_contains "id: 1" output
   assert_not_contains "id: \"1\"" output
-  assert_contains "exec_path: \"$pkg/dummy.txt\"" output
-  assert_contains "nemonic: \"Genrule\"" output
+  assert_contains "path_fragments {" output
+  assert_contains "label: \"dummy.txt\"" output
+  assert_contains "mnemonic: \"Genrule\"" output
   assert_contains "mnemonic: \".*-fastbuild\"" output
   assert_contains "echo unused" output
 }
