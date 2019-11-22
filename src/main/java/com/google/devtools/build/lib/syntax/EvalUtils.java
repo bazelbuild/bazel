@@ -702,7 +702,7 @@ public final class EvalUtils {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return Depset.of((Depset) x, y, location);
+      return Depset.unionOf((Depset) x, y);
     }
     throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
   }
@@ -721,7 +721,7 @@ public final class EvalUtils {
                 + "recommendations. Use --incompatible_depset_union=false "
                 + "to temporarily disable this check.");
       }
-      return Depset.of((Depset) x, y, location);
+      return Depset.unionOf((Depset) x, y);
     }
     throw unknownBinaryOperator(x, y, TokenKind.PIPE, location);
   }

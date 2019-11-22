@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthE
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -107,8 +106,8 @@ public final class Depset implements SkylarkValue {
     this.transitiveItems = transitiveItems;
   }
 
-  static Depset of(
-      Order order, SkylarkType contentType, Object item, Location loc, @Nullable Depset left)
+  private static Depset create(
+      Order order, SkylarkType contentType, Object item, @Nullable Depset left)
       throws EvalException {
     ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
     ImmutableList.Builder<NestedSet<?>> transitiveItemsBuilder = ImmutableList.builder();
@@ -124,19 +123,19 @@ public final class Depset implements SkylarkValue {
     if (item instanceof Depset) {
       Depset nestedSet = (Depset) item;
       if (!nestedSet.isEmpty()) {
-        contentType = checkType(contentType, nestedSet.contentType, loc);
+        contentType = checkType(contentType, nestedSet.contentType);
         transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
         EvalUtils.checkValidDictKey(x);
         SkylarkType xt = SkylarkType.of(x);
-        contentType = checkType(contentType, xt, loc);
+        contentType = checkType(contentType, xt);
         itemsBuilder.add(x);
       }
     } else {
       throw new EvalException(
-          loc,
+          null,
           String.format(
               "cannot union value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
     }
@@ -151,23 +150,25 @@ public final class Depset implements SkylarkValue {
       }
     } catch (IllegalArgumentException e) {
       // Order mismatch between item and builder.
-      throw new EvalException(loc, e.getMessage());
+      throw new EvalException(null, e.getMessage());
     }
     return new Depset(contentType, builder.build(), items, transitiveItems);
   }
 
-  static Depset of(Order order, Object item, Location loc) throws EvalException {
+  // implementation of deprecated depset(x) constructor
+  static Depset legacyOf(Order order, Object items) throws EvalException {
     // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if item is an empty Depset or Sequence.
-    return of(order, SkylarkType.TOP, item, loc, null);
+    // (should be BOTTOM) if items is an empty Depset or Sequence.
+    return create(order, SkylarkType.TOP, items, null);
   }
 
-  static Depset of(Depset left, Object right, Location loc) throws EvalException {
-    return of(left.set.getOrder(), left.contentType, right, loc, left);
+  // implementation of deprecated depset+x, depset.union(x), depset|x
+  static Depset unionOf(Depset left, Object right) throws EvalException {
+    return create(left.set.getOrder(), left.contentType, right, left);
   }
 
   /**
-   * Returns a type-safe Depset. Use this instead of the constructor if possible.
+   * Returns a Depset that wraps the specified NestedSet.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
@@ -182,20 +183,20 @@ public final class Depset implements SkylarkValue {
   }
 
   /**
-   * Returns a type safe Depset. Use this instead of the constructor if possible.
+   * Returns a Depset that wraps the specified NestedSet.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
    */
   public static <T> Depset of(Class<T> contentType, NestedSet<T> set) {
-    return of(SkylarkType.of(contentType), set);
+    return new Depset(SkylarkType.of(contentType), set, null, null);
   }
 
   /**
    * Checks that an item type is allowed in a given set type, and returns the type of a new depset
    * with that item inserted.
    */
-  private static SkylarkType checkType(SkylarkType depsetType, SkylarkType itemType, Location loc)
+  private static SkylarkType checkType(SkylarkType depsetType, SkylarkType itemType)
       throws EvalException {
     // An initially empty depset takes its type from the first element added.
     // Otherwise, the types of the item and depset must match exactly.
@@ -211,7 +212,7 @@ public final class Depset implements SkylarkValue {
       return itemType;
     }
     throw new EvalException(
-        loc,
+        null,
         String.format("cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
   }
 
@@ -385,13 +386,11 @@ public final class Depset implements SkylarkValue {
       parameters = {
         @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public Depset union(Object newElements, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public Depset union(Object newElements, StarlarkThread thread) throws EvalException {
     if (thread.getSemantics().incompatibleDepsetUnion()) {
       throw new EvalException(
-          loc,
+          null,
           "depset method `.union` has been removed. See "
               + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
               + "recommendations. Use --incompatible_depset_union=false "
@@ -400,7 +399,7 @@ public final class Depset implements SkylarkValue {
     // newElements' type is Object because of the polymorphism on unioning two
     // Depsets versus a set and another kind of iterable.
     // Can't use EvalUtils#toIterable since that would discard this information.
-    return Depset.of(this, newElements, loc);
+    return Depset.unionOf(this, newElements);
   }
 
   @SkylarkCallable(
@@ -412,15 +411,13 @@ public final class Depset implements SkylarkValue {
               + "</code>-ordered depsets, and for elements of child depsets whose order differs "
               + "from that of the parent depset. The list is a copy; modifying it has no effect "
               + "on the depset and vice versa.",
-      useStarlarkThread = true,
-      useLocation = true)
-  public StarlarkList<Object> toList(Location location, StarlarkThread thread)
-      throws EvalException {
+      useStarlarkThread = true)
+  public StarlarkList<Object> toList(StarlarkThread thread) throws EvalException {
     try {
       return StarlarkList.copyOf(thread.mutability(), this.toCollection());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
-          location,
+          null,
           "depset exceeded maximum depth "
               + exception.getDepthLimit()
               + ". This was only discovered when attempting to flatten the depset for to_list(), "
@@ -430,13 +427,9 @@ public final class Depset implements SkylarkValue {
     }
   }
 
-  /**
-   * Create a {@link Builder} with specified order.
-   *
-   * <p>The {@code Builder} will use {@code location} to report errors.
-   */
-  public static Builder builder(Order order, Location location) {
-    return new Builder(order, location);
+  /** Create a {@link Builder} with specified order. */
+  public static Builder builder(Order order) {
+    return new Builder(order);
   }
 
   /**
@@ -449,14 +442,11 @@ public final class Depset implements SkylarkValue {
 
     private final Order order;
     private final NestedSetBuilder<Object> builder;
-    /** Location for error messages */
-    private final Location location;
 
     private SkylarkType contentType = SkylarkType.TOP;
 
-    private Builder(Order order, Location location) {
+    private Builder(Order order) {
       this.order = order;
-      this.location = location;
       this.builder = new NestedSetBuilder<>(order);
     }
 
@@ -466,7 +456,7 @@ public final class Depset implements SkylarkValue {
       // Investigate how/why user code is exploiting the weak check.
       // EvalUtils.checkValidDictKey(x);
       SkylarkType xt = SkylarkType.of(x);
-      this.contentType = checkType(contentType, xt, location);
+      this.contentType = checkType(contentType, xt);
       builder.add(x);
       return this;
     }
@@ -477,12 +467,14 @@ public final class Depset implements SkylarkValue {
         return this;
       }
 
-      this.contentType = checkType(contentType, transitive.getContentType(), location);
+      this.contentType = checkType(contentType, transitive.getContentType());
 
       if (!order.isCompatible(transitive.getOrder())) {
-        throw new EvalException(location,
-            String.format("Order '%s' is incompatible with order '%s'",
-                          order.getSkylarkName(), transitive.getOrder().getSkylarkName()));
+        throw new EvalException(
+            null,
+            String.format(
+                "Order '%s' is incompatible with order '%s'",
+                order.getSkylarkName(), transitive.getOrder().getSkylarkName()));
       }
       builder.addTransitive(transitive.getSet());
       return this;

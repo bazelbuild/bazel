@@ -999,7 +999,6 @@ class MethodLibrary {
             valueWhenDisabled = "[]",
             named = true),
       },
-      useLocation = true,
       useStarlarkSemantics = true)
   public Depset depset(
       Object x,
@@ -1007,7 +1006,6 @@ class MethodLibrary {
       Object direct,
       Object transitive,
       Object items,
-      Location loc,
       StarlarkSemantics semantics)
       throws EvalException {
     Order order;
@@ -1015,27 +1013,27 @@ class MethodLibrary {
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
-      throw new EvalException(loc, ex);
+      throw new EvalException(null, ex);
     }
 
     if (semantics.incompatibleDisableDepsetItems()) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
           throw new EvalException(
-              loc, "parameter 'direct' cannot be specified both positionally and by keyword");
+              null, "parameter 'direct' cannot be specified both positionally and by keyword");
         }
         direct = x;
       }
-      result = depsetConstructor(direct, order, transitive, loc);
+      result = depsetConstructor(direct, order, transitive);
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptySkylarkList(items)) {
           throw new EvalException(
-              loc, "parameter 'items' cannot be specified both positionally and by keyword");
+              null, "parameter 'items' cannot be specified both positionally and by keyword");
         }
         items = x;
       }
-      result = legacyDepsetConstructor(items, order, direct, transitive, loc);
+      result = legacyDepsetConstructor(items, order, direct, transitive);
     }
 
     if (semantics.debugDepsetDepth()) {
@@ -1052,18 +1050,18 @@ class MethodLibrary {
     return result;
   }
 
-  private static Depset depsetConstructor(
-      Object direct, Order order, Object transitive, Location loc) throws EvalException {
+  private static Depset depsetConstructor(Object direct, Order order, Object transitive)
+      throws EvalException {
 
     if (direct instanceof Depset) {
       throw new EvalException(
-          loc,
+          null,
           "parameter 'direct' must contain a list of elements, and may "
               + "no longer accept a depset. The deprecated behavior may be temporarily re-enabled "
               + "by setting --incompatible_disable_depset_inputs=false");
     }
 
-    Depset.Builder builder = Depset.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order);
     for (Object directElement : listFromNoneable(direct, Object.class, "direct")) {
       builder.addDirect(directElement);
     }
@@ -1084,17 +1082,16 @@ class MethodLibrary {
   }
 
   private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive, Location loc)
-      throws EvalException {
+      Object items, Order order, Object direct, Object transitive) throws EvalException {
 
     if (transitive == Starlark.NONE && direct == Starlark.NONE) {
       // Legacy behavior.
-      return Depset.of(order, items, loc);
+      return Depset.legacyOf(order, items);
     }
 
     if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
       throw new EvalException(
-          loc, "Do not pass both 'direct' and 'items' argument to depset constructor.");
+          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
 
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
@@ -1114,7 +1111,7 @@ class MethodLibrary {
     } else {
       transitiveList = ImmutableList.of();
     }
-    Depset.Builder builder = Depset.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order);
     for (Object directElement : directElements) {
       builder.addDirect(directElement);
     }

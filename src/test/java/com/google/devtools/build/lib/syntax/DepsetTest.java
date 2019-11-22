@@ -493,15 +493,15 @@ public class DepsetTest extends EvaluationTestCase {
     //  (b) at least one order is "default"
 
     for (Order first : Order.values()) {
-      Depset s1 = Depset.of(first, Tuple.of("1", "11"), null);
+      Depset s1 = Depset.legacyOf(first, Tuple.of("1", "11"));
 
       for (Order second : Order.values()) {
-        Depset s2 = Depset.of(second, Tuple.of("2", "22"), null);
+        Depset s2 = Depset.legacyOf(second, Tuple.of("2", "22"));
 
         boolean compatible = true;
 
         try {
-          Depset.of(s1, s2, null);
+          Depset.unionOf(s1, s2);
         } catch (Exception ex) {
           compatible = false;
         }
@@ -525,9 +525,9 @@ public class DepsetTest extends EvaluationTestCase {
         new MergeStrategy() {
           @Override
           public Depset merge(Depset[] sets) throws Exception {
-            Depset union = Depset.of(sets[0], sets[1], null);
-            union = Depset.of(union, sets[2], null);
-            union = Depset.of(union, sets[3], null);
+            Depset union = Depset.unionOf(sets[0], sets[1]);
+            union = Depset.unionOf(union, sets[2]);
+            union = Depset.unionOf(union, sets[3]);
 
             return union;
           }
@@ -546,9 +546,9 @@ public class DepsetTest extends EvaluationTestCase {
         new MergeStrategy() {
           @Override
           public Depset merge(Depset[] sets) throws Exception {
-            Depset leftUnion = Depset.of(sets[0], sets[1], null);
-            Depset rightUnion = Depset.of(sets[2], sets[3], null);
-            Depset union = Depset.of(leftUnion, rightUnion, null);
+            Depset leftUnion = Depset.unionOf(sets[0], sets[1]);
+            Depset rightUnion = Depset.unionOf(sets[2], sets[3]);
+            Depset union = Depset.unionOf(leftUnion, rightUnion);
 
             return union;
           }
@@ -567,9 +567,9 @@ public class DepsetTest extends EvaluationTestCase {
         new MergeStrategy() {
           @Override
           public Depset merge(Depset[] sets) throws Exception {
-            Depset union = Depset.of(sets[2], sets[3], null);
-            union = Depset.of(sets[1], union, null);
-            union = Depset.of(sets[0], union, null);
+            Depset union = Depset.unionOf(sets[2], sets[3]);
+            union = Depset.unionOf(sets[1], union);
+            union = Depset.unionOf(sets[0], union);
 
             return union;
           }
@@ -624,10 +624,10 @@ public class DepsetTest extends EvaluationTestCase {
 
   private Depset[] makeFourSets(Order order) throws Exception {
     return new Depset[] {
-      Depset.of(order, Tuple.of("1", "11"), null),
-      Depset.of(order, Tuple.of("2", "22"), null),
-      Depset.of(order, Tuple.of("3", "33"), null),
-      Depset.of(order, Tuple.of("4", "44"), null)
+      Depset.legacyOf(order, Tuple.of("1", "11")),
+      Depset.legacyOf(order, Tuple.of("2", "22")),
+      Depset.legacyOf(order, Tuple.of("3", "33")),
+      Depset.legacyOf(order, Tuple.of("4", "44"))
     };
   }
 }
