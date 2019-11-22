@@ -64,7 +64,7 @@ public class ObjcProviderSkylarkConverters {
     for (PathFragment path : pathFragments) {
       result.add(path.getSafePathString());
     }
-    return Depset.of(String.class, result.build());
+    return Depset.of(SkylarkType.STRING, result.build());
   }
 
   /** A converter for ObjcProvider values. */
@@ -128,7 +128,7 @@ public class ObjcProviderSkylarkConverters {
       for (SdkFramework framework : (Iterable<SdkFramework>) javaValue) {
         result.add(framework.getName());
       }
-      return Depset.of(String.class, result.build());
+      return Depset.of(SkylarkType.STRING, result.build());
     }
 
     @Override

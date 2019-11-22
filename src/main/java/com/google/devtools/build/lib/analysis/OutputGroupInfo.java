@@ -248,7 +248,7 @@ public final class OutputGroupInfo extends NativeInfo
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
-      return Depset.of(Artifact.class, result);
+      return Depset.of(Artifact.TYPE, result);
     } else {
       throw new EvalException(loc, String.format(
           "Output group %s not present", key
@@ -272,7 +272,7 @@ public final class OutputGroupInfo extends NativeInfo
     if (result == null) {
       return null;
     }
-    return Depset.of(Artifact.class, result);
+    return Depset.of(Artifact.TYPE, result);
   }
 
   @Override

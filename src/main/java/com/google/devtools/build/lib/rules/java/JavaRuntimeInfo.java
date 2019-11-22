@@ -161,7 +161,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
 
   @Override
   public Depset skylarkJavaBaseInputs() {
-    return Depset.of(Artifact.class, javaBaseInputs());
+    return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 
   // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality

@@ -411,7 +411,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   @Override
   public Depset getSkylarkBootclasspath() {
-    return Depset.of(Artifact.class, getBootclasspath());
+    return Depset.of(Artifact.TYPE, getBootclasspath());
   }
 
   @Override
@@ -421,6 +421,6 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   @Override
   public Depset getSkylarkTools() {
-    return Depset.of(Artifact.class, getTools());
+    return Depset.of(Artifact.TYPE, getTools());
   }
 }

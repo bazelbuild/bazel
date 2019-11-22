@@ -409,7 +409,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getSkylarkNonCodeInputs() {
-    return Depset.of(Artifact.class, getNonCodeInputs());
+    return Depset.of(Artifact.TYPE, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {

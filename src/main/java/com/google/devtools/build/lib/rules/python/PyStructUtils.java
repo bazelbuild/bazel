@@ -75,7 +75,8 @@ public class PyStructUtils {
     // TRANSITIVE_SOURCES is mandatory
     builder.put(USES_SHARED_LIBRARIES, false);
     builder.put(
-        IMPORTS, Depset.of(String.class, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
+        IMPORTS,
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
     builder.put(HAS_PY2_ONLY_SOURCES, false);
     builder.put(HAS_PY3_ONLY_SOURCES, false);
     DEFAULTS = builder.build();
@@ -227,7 +228,7 @@ public class PyStructUtils {
     private Builder() {}
 
     public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
-      this.transitiveSources = Depset.of(Artifact.class, transitiveSources);
+      this.transitiveSources = Depset.of(Artifact.TYPE, transitiveSources);
       return this;
     }
 
@@ -237,7 +238,7 @@ public class PyStructUtils {
     }
 
     public Builder setImports(NestedSet<String> imports) {
-      this.imports = Depset.of(String.class, imports);
+      this.imports = Depset.of(SkylarkType.STRING, imports);
       return this;
     }
 

@@ -46,7 +46,7 @@ public final class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       FilesToRunProvider filesToRunProvider) {
     this(
         Location.BUILTIN,
-        Depset.of(Artifact.class, fileProvider.getFilesToBuild()),
+        Depset.of(Artifact.TYPE, fileProvider.getFilesToBuild()),
         Runfiles.EMPTY,
         (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDataRunfiles(),
         (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDefaultRunfiles(),

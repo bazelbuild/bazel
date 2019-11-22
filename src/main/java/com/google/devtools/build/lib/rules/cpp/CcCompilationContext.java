@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -139,7 +140,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   @Override
   public Depset getSkylarkDefines() {
-    return Depset.of(String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+    return Depset.of(SkylarkType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
   }
 
   @Override
@@ -150,7 +151,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   @Override
   public Depset getSkylarkHeaders() {
-    return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
+    return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
   }
 
   @Override

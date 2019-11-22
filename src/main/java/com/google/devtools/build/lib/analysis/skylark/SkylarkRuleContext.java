@@ -1101,7 +1101,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.<Object>of(
-        Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getSkylarkSemantics() {

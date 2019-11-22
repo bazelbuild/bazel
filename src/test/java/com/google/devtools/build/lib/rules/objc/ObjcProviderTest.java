@@ -115,7 +115,7 @@ public class ObjcProviderTest {
   public void directFieldsAddFromSkylark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
-    Depset set = Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+    Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     ObjcProvider.Builder builder = objcProviderBuilder();
     builder.addElementsFromSkylark(ObjcProvider.SOURCE, set);
     builder.addElementsFromSkylark(ObjcProvider.HEADER, set);

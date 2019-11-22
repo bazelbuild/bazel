@@ -53,7 +53,7 @@ public interface TransitiveInfoCollection
     NestedSet<Artifact> result = provider != null
         ? provider.getOutputGroup(group)
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    return Depset.of(Artifact.class, result);
+    return Depset.of(Artifact.TYPE, result);
   }
 
   /**

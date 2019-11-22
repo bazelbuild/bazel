@@ -521,12 +521,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getSkylarkInputs() {
-    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
+    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
   }
 
   @Override
   public Depset getSkylarkOutputs() {
-    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
+    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override

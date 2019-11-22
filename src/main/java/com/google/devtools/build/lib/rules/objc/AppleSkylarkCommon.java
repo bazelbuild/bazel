@@ -260,7 +260,7 @@ public class AppleSkylarkCommon
     // of plain NestedSets because the Skylark caller may want to return this directly from their
     // implementation function.
     Map<String, SkylarkValue> outputGroups =
-        Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.class, v));
+        Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.TYPE, v));
 
     ImmutableMap<String, Object> fields =
         ImmutableMap.of(

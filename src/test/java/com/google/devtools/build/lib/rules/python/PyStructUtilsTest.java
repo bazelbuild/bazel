@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
 import com.google.devtools.build.lib.vfs.Root;
@@ -64,11 +65,11 @@ public class PyStructUtilsTest extends FoundationTestCase {
     Map<String, Object> fields = new LinkedHashMap<>();
     fields.put(
         PyStructUtils.TRANSITIVE_SOURCES,
-        Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+        Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
     fields.put(PyStructUtils.USES_SHARED_LIBRARIES, false);
     fields.put(
         PyStructUtils.IMPORTS,
-        Depset.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
     fields.put(PyStructUtils.HAS_PY2_ONLY_SOURCES, false);
     fields.put(PyStructUtils.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
@@ -105,7 +106,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     StructImpl info =
         makeStruct(
-            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.class, sources)));
+            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.TYPE, sources)));
     assertThat(PyStructUtils.getTransitiveSources(info)).isSameInstanceAs(sources);
   }
 
@@ -128,7 +129,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     NestedSet<Artifact> sources = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     StructImpl info =
         makeStruct(
-            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.class, sources)));
+            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.TYPE, sources)));
     assertThrowsEvalExceptionContaining(
         () -> PyStructUtils.getTransitiveSources(info),
         "Incompatible depset order for 'transitive_sources': expected 'default' or 'postorder', "
@@ -158,7 +159,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getImports_Good() throws Exception {
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
-        makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, Depset.of(String.class, imports)));
+        makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, Depset.of(SkylarkType.STRING, imports)));
     assertThat(PyStructUtils.getImports(info)).isSameInstanceAs(imports);
   }
 

@@ -83,7 +83,7 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
-    return Depset.of(SkylarkType.of(Artifact.class), dynamicFrameworkFiles);
+    return Depset.of(Artifact.TYPE, dynamicFrameworkFiles);
   }
 
   @Override

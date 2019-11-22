@@ -80,7 +80,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
         /*location=*/ null,
         /*interpreterPath=*/ null,
         interpreter,
-        Depset.of(Artifact.class, files),
+        Depset.of(Artifact.TYPE, files),
         pythonVersion);
   }
 
@@ -211,7 +211,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
 
       if (isInBuildRuntime) {
         if (filesDepset == null) {
-          filesDepset = Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+          filesDepset = Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
         return new PyRuntimeInfo(
             loc, /*interpreterPath=*/ null, interpreter, filesDepset, parsedPythonVersion);

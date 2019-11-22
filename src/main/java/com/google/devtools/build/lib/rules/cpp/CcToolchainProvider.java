@@ -429,7 +429,7 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   @Override
   public Depset getAllFilesForStarlark() {
-    return Depset.of(Artifact.class, getAllFiles());
+    return Depset.of(Artifact.TYPE, getAllFiles());
   }
 
   @Override
