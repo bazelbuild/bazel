@@ -57,7 +57,7 @@ public class CriticalPathComponent {
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  private volatile boolean isRunning = true;
+  private volatile boolean isRunning = false;
 
   /** We keep here the critical path time for the most expensive child. */
   private long childAggregatedElapsedTime = 0;
@@ -138,6 +138,20 @@ public class CriticalPathComponent {
     return action;
   }
 
+  /**
+   * This is called by {@link CriticalPathComputer#actionStarted} to start running the action. The
+   * three scenarios where this would occur is:
+   *
+   * <ol>
+   *   <li>A new CriticalPathComponent is created and should start running.
+   *   <li>A CriticalPathComponent has been created with discover inputs and beginning to execute.
+   *   <li>An action was rewound and starts again.
+   * </ol>
+   */
+  void startRunning() {
+    isRunning = true;
+  }
+
   public boolean isRunning() {
     return isRunning;
   }
@@ -165,26 +179,26 @@ public class CriticalPathComponent {
   }
 
   /**
-   * An action can run multiple spawns. Those calls can be sequential or parallel. If it is a
-   * sequence of calls we should aggregate the metrics by collecting all the SpawnResults, if they
-   * are run in parallel we should keep the maximum runtime spawn. We will also set the
-   * longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases.
+   * An action can run multiple spawns. Those calls can be sequential or parallel. If action is a
+   * sequence of calls we aggregate the SpawnMetrics of all the SpawnResults. If there are multiples
+   * of the same action run in parallel, we keep the maximum runtime SpawnMetrics. We will also set
+   * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
+   * it exists.
    */
-  void addSpawnResult(SpawnResult spawnResult) {
+  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
     if (this.phaseChange) {
       this.totalSpawnMetrics =
           SpawnMetrics.aggregateMetrics(
               ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
-      this.phaseMaxMetrics = spawnResult.getMetrics();
+      this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (spawnResult.getMetrics().totalTime().compareTo(this.phaseMaxMetrics.totalTime())
-        > 0) {
-      this.phaseMaxMetrics = spawnResult.getMetrics();
+    } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
+      this.phaseMaxMetrics = metrics;
     }
 
-    if (spawnResult.getMetrics().totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
-      this.longestPhaseSpawnRunnerName = spawnResult.getRunnerName();
-      this.longestRunningTotalDuration = spawnResult.getMetrics().totalTime();
+    if (runnerName != null && metrics.totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
+      this.longestPhaseSpawnRunnerName = runnerName;
+      this.longestRunningTotalDuration = metrics.totalTime();
     }
   }
 

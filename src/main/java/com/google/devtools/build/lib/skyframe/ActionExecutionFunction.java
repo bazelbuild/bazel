@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.causes.Cause;
@@ -78,6 +80,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -820,6 +823,10 @@ public class ActionExecutionFunction implements SkyFunction {
                 e,
                 action,
                 /*catastrophe=*/ false);
+          } finally {
+            state.discoveredInputsDuration =
+                state.discoveredInputsDuration.plus(
+                    Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime));
           }
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
@@ -855,6 +862,16 @@ public class ActionExecutionFunction implements SkyFunction {
           // Set the MetadataHandler to accept output information.
           metadataHandler.discardOutputMetadata();
       }
+      // When discover inputs completes, post an event with the duration values.
+      env.getListener()
+          .post(
+              new DiscoveredInputsEvent(
+                  new SpawnMetrics.Builder()
+                      .setParseTime(state.discoveredInputsDuration)
+                      .setTotalTime(state.discoveredInputsDuration)
+                      .build(),
+                  action,
+                  actionStartTime));
     }
 
     try {
@@ -1332,6 +1349,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Token token = null;
     Iterable<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
+    Duration discoveredInputsDuration = Duration.ZERO;
 
     /**
      * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid
