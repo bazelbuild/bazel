@@ -90,9 +90,6 @@ final class HttpStream extends FilterInputStream {
 
         if (checksum.isPresent()) {
           stream = new HashInputStream(stream, checksum.get());
-          if (retrier != null) {
-            retrier.disabled = true;
-          }
           byte[] buffer = new byte[PRECHECK_BYTES];
           int read = 0;
           while (read < PRECHECK_BYTES) {
@@ -108,9 +105,6 @@ final class HttpStream extends FilterInputStream {
             stream = ByteStreams.limit(new ByteArrayInputStream(buffer), read);
           } else {
             stream = new SequenceInputStream(new ByteArrayInputStream(buffer), stream);
-            if (retrier != null) {
-              retrier.disabled = false;
-            }
           }
         }
       } catch (Exception e) {
