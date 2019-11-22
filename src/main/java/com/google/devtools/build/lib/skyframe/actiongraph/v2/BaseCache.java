@@ -29,7 +29,9 @@ abstract class BaseCache<K, P> {
   }
 
   private long generateNextId() {
-    return cache.size();
+    // protobuf interprets the value 0 as "default value" for uint64, thus treating the field as
+    // "unset". We should start from 1 instead.
+    return cache.size() + 1L;
   }
 
   protected K transformToKey(K data) {
@@ -37,6 +39,10 @@ abstract class BaseCache<K, P> {
     return data;
   }
 
+  /**
+   * Store the data in the internal cache, if it's not yet present. Return the generated id. Ids are
+   * positive and unique.
+   */
   Long dataToId(K data) {
     K key = transformToKey(data);
     Long id = cache.get(key);
