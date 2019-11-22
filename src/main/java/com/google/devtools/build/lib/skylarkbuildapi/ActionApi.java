@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.io.IOException;
 
@@ -50,16 +50,16 @@ public interface ActionApi extends SkylarkValue {
   public abstract String getMnemonic();
 
   @SkylarkCallable(
-    name = "inputs",
-    doc = "A set of the input files of this action.",
-    structField = true)
-  public SkylarkNestedSet getSkylarkInputs();
+      name = "inputs",
+      doc = "A set of the input files of this action.",
+      structField = true)
+  public Depset getSkylarkInputs();
 
   @SkylarkCallable(
-    name = "outputs",
-    doc = "A set of the output files of this action.",
-    structField = true)
-  public SkylarkNestedSet getSkylarkOutputs();
+      name = "outputs",
+      doc = "A set of the output files of this action.",
+      structField = true)
+  public Depset getSkylarkOutputs();
 
   @SkylarkCallable(
       name = "argv",

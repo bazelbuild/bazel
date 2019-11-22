@@ -91,7 +91,7 @@ public final class FilteringPolicies {
   private static class FilterTests extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return TargetUtils.isTestOrTestSuiteRule(target)
+      return (TargetUtils.isTestOrTestSuiteRule(target) || TargetUtils.isAlias(target))
           && FILTER_MANUAL.shouldRetain(target, explicit);
     }
   }

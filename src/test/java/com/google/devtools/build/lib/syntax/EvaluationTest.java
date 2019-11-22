@@ -283,7 +283,7 @@ public class EvaluationTest extends EvaluationTestCase {
     // list
     Object x = eval("[1,2] + [3,4]");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertThat(x).isEqualTo(StarlarkList.of(thread, 1, 2, 3, 4));
+    assertThat(x).isEqualTo(StarlarkList.of(thread.mutability(), 1, 2, 3, 4));
     assertThat(EvalUtils.isImmutable(x)).isFalse();
 
     // tuple
@@ -475,7 +475,7 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testListConcatenation() throws Exception {
     newTest()
-        .testExpression("[1, 2] + [3, 4]", StarlarkList.of(thread, 1, 2, 3, 4))
+        .testExpression("[1, 2] + [3, 4]", StarlarkList.of(thread.mutability(), 1, 2, 3, 4))
         .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
         .testIfExactError(
             "unsupported operand type(s) for +: 'list' and 'tuple'", "[1, 2] + (3, 4)")
@@ -485,16 +485,17 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListMultiply() throws Exception {
+    Mutability mu = thread.mutability();
     newTest()
-        .testExpression("[1, 2, 3] * 1", StarlarkList.of(thread, 1, 2, 3))
-        .testExpression("[1, 2] * 2", StarlarkList.of(thread, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 3", StarlarkList.of(thread, 1, 2, 1, 2, 1, 2))
-        .testExpression("[1, 2] * 4", StarlarkList.of(thread, 1, 2, 1, 2, 1, 2, 1, 2))
-        .testExpression("[8] * 5", StarlarkList.of(thread, 8, 8, 8, 8, 8))
+        .testExpression("[1, 2, 3] * 1", StarlarkList.of(mu, 1, 2, 3))
+        .testExpression("[1, 2] * 2", StarlarkList.of(mu, 1, 2, 1, 2))
+        .testExpression("[1, 2] * 3", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2))
+        .testExpression("[1, 2] * 4", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2, 1, 2))
+        .testExpression("[8] * 5", StarlarkList.of(mu, 8, 8, 8, 8, 8))
         .testExpression("[    ] * 10", StarlarkList.empty())
         .testExpression("[1, 2] * 0", StarlarkList.empty())
         .testExpression("[1, 2] * -4", StarlarkList.empty())
-        .testExpression("2 * [1, 2]", StarlarkList.of(thread, 1, 2, 1, 2))
+        .testExpression("2 * [1, 2]", StarlarkList.of(mu, 1, 2, 1, 2))
         .testExpression("10 * []", StarlarkList.empty())
         .testExpression("0 * [1, 2]", StarlarkList.empty())
         .testExpression("-4 * [1, 2]", StarlarkList.empty());
@@ -569,7 +570,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testListComprehensionOnDictionaryCompositeExpression() throws Exception {
     new BuildTest()
         .setUp("d = {1:'a',2:'b'}", "l = [d[x] for x in d]")
-        .testLookup("l", StarlarkList.of(thread, "a", "b"));
+        .testLookup("l", StarlarkList.of(thread.mutability(), "a", "b"));
   }
 
   @Test

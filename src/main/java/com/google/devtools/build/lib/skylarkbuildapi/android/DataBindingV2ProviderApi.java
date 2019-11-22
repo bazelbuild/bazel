@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
@@ -92,18 +92,18 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
 
   /** Returns the BR files from this rule and its dependencies. */
   @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
-  NestedSet<T> getTransitiveBRFiles();
+  Depset /*<T>*/ getTransitiveBRFilesForStarlark();
 
   /**
    * Returns a NestedSet containing the label and java package for this rule and its transitive
    * dependencies.
-   * */
+   */
   @SkylarkCallable(
       name = "transitive_label_and_java_packages",
       structField = true,
       doc = "",
       documented = false)
-  NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages();
+  Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark();
 
   /**
    * Returns the label and java package for this rule and any rules that this rule exports.

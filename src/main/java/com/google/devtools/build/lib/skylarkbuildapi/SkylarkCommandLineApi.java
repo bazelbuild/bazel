@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Interface for a module associated with creating efficient command lines. */
 @SkylarkModule(
@@ -41,9 +41,9 @@ public interface SkylarkCommandLineApi extends SkylarkValue {
         @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
         @Param(
             name = "files",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = FileApi.class,
             doc = "the files to concatenate.")
       })
-  public String joinPaths(String separator, SkylarkNestedSet files) throws EvalException;
+  public String joinPaths(String separator, Depset files) throws EvalException;
 }

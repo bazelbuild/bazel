@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -21,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -46,7 +45,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
       structField = true)
-  NestedSet<FileT> getNativeLibs();
+  Depset /*<FileT>*/ getNativeLibsForStarlark();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
   @SkylarkModule(
@@ -64,13 +63,13 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
         parameters = {
           @Param(
               name = "native_libs",
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class,
               named = true,
               doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
-    public AndroidNativeLibsInfoApi<?> createInfo(SkylarkNestedSet nativeLibs) throws EvalException;
+    public AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException;
   }
 }

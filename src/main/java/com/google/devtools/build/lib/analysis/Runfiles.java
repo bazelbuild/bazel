@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
@@ -336,6 +338,10 @@ public final class Runfiles implements RunfilesApi {
    * pruning manifest candidates.
    */
   @Override
+  public Depset /*<Artifact>*/ getArtifactsForStarlark() {
+    return Depset.of(Artifact.TYPE, getArtifacts());
+  }
+
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts.addTransitive(unconditionalArtifacts);
@@ -347,11 +353,19 @@ public final class Runfiles implements RunfilesApi {
 
   /** Returns the symlinks. */
   @Override
+  public Depset /*<SymlinkEntry>*/ getSymlinksForStarlark() {
+    return Depset.of(SymlinkEntry.class, symlinks);
+  }
+
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
   }
 
   @Override
+  public Depset /*<String>*/ getEmptyFilenamesForStarlark() {
+    return Depset.of(SkylarkType.STRING, getEmptyFilenames());
+  }
+
   public NestedSet<String> getEmptyFilenames() {
     Set<PathFragment> manifestKeys =
         Streams.concat(
@@ -574,6 +588,10 @@ public final class Runfiles implements RunfilesApi {
 
   /** Returns the root symlinks. */
   @Override
+  public Depset /*<SymlinkEntry>*/ getRootSymlinksForStarlark() {
+    return Depset.of(SymlinkEntry.class, rootSymlinks);
+  }
+
   public NestedSet<SymlinkEntry> getRootSymlinks() {
     return rootSymlinks;
   }

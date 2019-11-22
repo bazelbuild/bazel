@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import javax.annotation.Nullable;
 
@@ -77,13 +77,13 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   }
 
   @Override
-  public SkylarkNestedSet /*<String>*/ getDynamicFrameworkDirs() {
-    return SkylarkNestedSet.of(SkylarkType.STRING, dynamicFrameworkDirs);
+  public Depset /*<String>*/ getDynamicFrameworkDirs() {
+    return Depset.of(SkylarkType.STRING, dynamicFrameworkDirs);
   }
 
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getDynamicFrameworkFiles() {
-    return SkylarkNestedSet.of(SkylarkType.of(Artifact.class), dynamicFrameworkFiles);
+  public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
+    return Depset.of(SkylarkType.of(Artifact.class), dynamicFrameworkFiles);
   }
 
   @Override

@@ -33,6 +33,30 @@ import javax.annotation.Nullable;
 /** Utilities for accessing platform properties. */
 public final class PlatformUtils {
 
+  private static void sortPlatformProperties(Platform.Builder builder) {
+    List<Platform.Property> properties =
+        Ordering.from(Comparator.comparing(Platform.Property::getName))
+            .sortedCopy(builder.getPropertiesList());
+    builder.clearProperties();
+    builder.addAllProperties(properties);
+  }
+
+  @Nullable
+  public static Platform buildPlatformProto(Map<String, String> executionProperties) {
+    if (executionProperties.isEmpty()) {
+      return null;
+    }
+    Platform.Builder builder = Platform.newBuilder();
+    for (Map.Entry<String, String> keyValue : executionProperties.entrySet()) {
+      Property property =
+          Property.newBuilder().setName(keyValue.getKey()).setValue(keyValue.getValue()).build();
+      builder.addProperties(property);
+    }
+
+    sortPlatformProperties(builder);
+    return builder.build();
+  }
+
   @Nullable
   public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
@@ -73,12 +97,7 @@ public final class PlatformUtils {
       }
     }
 
-    // Sort the properties.
-    List<Platform.Property> properties =
-        Ordering.from(Comparator.comparing(Platform.Property::getName))
-            .sortedCopy(platformBuilder.getPropertiesList());
-    platformBuilder.clearProperties();
-    platformBuilder.addAllProperties(properties);
+    sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
   }
 }

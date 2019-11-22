@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -248,7 +248,7 @@ public final class OutputGroupInfo extends NativeInfo
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
-      return SkylarkNestedSet.of(Artifact.class, result);
+      return Depset.of(Artifact.class, result);
     } else {
       throw new EvalException(loc, String.format(
           "Output group %s not present", key
@@ -272,7 +272,7 @@ public final class OutputGroupInfo extends NativeInfo
     if (result == null) {
       return null;
     }
-    return SkylarkNestedSet.of(Artifact.class, result);
+    return Depset.of(Artifact.class, result);
   }
 
   @Override

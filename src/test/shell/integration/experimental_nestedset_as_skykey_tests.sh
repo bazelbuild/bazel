@@ -203,5 +203,41 @@ EOF
   [[ $regular == $back_to_zero ]] || fail "number of nodes and edges on skyframe should be the same"
 }
 
+function test_experimental_nested_set_as_skykey_dirty_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+load(":foo.bzl", "foo_library", "foo_binary")
+py_binary(
+    name = "foocc",
+    srcs = ["foocc.py"],
+)
+
+foo_library(
+    name = "a",
+    srcs = ["1.a"],
+)
+
+foo_library(
+    name = "b",
+    srcs = ["1.b"],
+    deps = [":a"],
+)
+foo_binary(
+    name = "c",
+    srcs = ["c.foo"],
+    deps = [":b"],
+)
+EOF
+  touch foo/1.a foo/1.b foo/c.foo
+
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c || fail "build failed"
+  # Deliberately breaking the file.
+  echo omgomgomg >> foo/foocc.py
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c && fail "Expected failure"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
+
 
 run_suite "Integration tests of ${PRODUCT_NAME} with NestedSet as SkyKey."

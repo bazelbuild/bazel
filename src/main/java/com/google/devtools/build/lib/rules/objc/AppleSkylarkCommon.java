@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
@@ -43,20 +43,18 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A class that exposes apple rule implementation internals to skylark.
- */
+/** A class that exposes apple rule implementation internals to skylark. */
 public class AppleSkylarkCommon
-    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigProvider, ApplePlatform> {
+    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigInfo, ApplePlatform> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
@@ -64,7 +62,7 @@ public class AppleSkylarkCommon
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
-      "Value for key %s must be a set of %s, instead found set of %s.";
+      "Value for key %s must be a set of %s, instead found %s.";
 
   @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =
@@ -118,7 +116,7 @@ public class AppleSkylarkCommon
 
   @Override
   public Provider getXcodeVersionConfigConstructor() {
-    return XcodeConfigProvider.PROVIDER;
+    return XcodeConfigInfo.PROVIDER;
   }
 
   @Override
@@ -157,14 +155,14 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigProvider xcodeConfig) {
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfo xcodeConfig) {
     return AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion());
   }
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProvider xcodeConfigApi, ApplePlatform platformApi) {
-    XcodeConfigProvider xcodeConfig = (XcodeConfigProvider) xcodeConfigApi;
+      XcodeConfigInfo xcodeConfigApi, ApplePlatform platformApi) {
+    XcodeConfigInfo xcodeConfig = xcodeConfigApi;
     ApplePlatform platform = (ApplePlatform) platformApi;
     return AppleConfiguration.appleTargetPlatformEnv(
         platform, xcodeConfig.getSdkVersionForPlatform(platform));
@@ -206,11 +204,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkFiles)
       throws EvalException {
     NestedSet<String> frameworkDirs =
-        SkylarkNestedSet.getSetFromNoneableParam(
-            dynamicFrameworkDirs, String.class, "framework_dirs");
+        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        SkylarkNestedSet.getSetFromNoneableParam(
-            dynamicFrameworkFiles, Artifact.class, "framework_files");
+        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(
@@ -264,7 +260,7 @@ public class AppleSkylarkCommon
     // of plain NestedSets because the Skylark caller may want to return this directly from their
     // implementation function.
     Map<String, SkylarkValue> outputGroups =
-        Maps.transformValues(output.getOutputGroups(), v -> SkylarkNestedSet.of(Artifact.class, v));
+        Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.class, v));
 
     ImmutableMap<String, Object> fields =
         ImmutableMap.of(

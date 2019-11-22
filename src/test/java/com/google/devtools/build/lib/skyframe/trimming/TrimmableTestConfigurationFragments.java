@@ -61,9 +61,9 @@ import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
@@ -679,8 +679,8 @@ public final class TrimmableTestConfigurationFragments {
           ToolchainInfo toolchainInfo = toolchainContext.forToolchainType(toolchainType);
           try {
             filesToBuild.addTransitive(
-                ((SkylarkNestedSet) toolchainInfo.getValue("files")).getSet(Artifact.class));
-          } catch (EvalException | SkylarkNestedSet.TypeException ex) {
+                ((Depset) toolchainInfo.getValue("files")).getSet(Artifact.class));
+          } catch (EvalException | Depset.TypeException ex) {
             throw new AssertionError(ex);
           }
         }

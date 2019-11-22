@@ -96,7 +96,7 @@ final class Eval {
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = eval(thread, node.getCollection());
-    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), thread);
+    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation());
     EvalUtils.lock(o, node.getLocation());
     try {
       for (Object it : col) {
@@ -301,7 +301,7 @@ final class Eval {
   private static void assignList(
       ListExpression list, Object value, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
-    Collection<?> collection = EvalUtils.toCollection(value, loc, thread);
+    Collection<?> collection = EvalUtils.toCollection(value, loc);
     int len = list.getElements().size();
     if (len == 0) {
       throw new EvalException(
@@ -360,7 +360,7 @@ final class Eval {
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
     if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
       StarlarkList<?> list = (StarlarkList) x;
-      list.extend(y, location, thread);
+      list.extend(y, location);
       return list;
     }
     return EvalUtils.binaryOp(op, x, y, thread, location);
@@ -547,13 +547,12 @@ final class Eval {
       case LIST_EXPR:
         {
           ListExpression list = (ListExpression) expr;
-          ArrayList<Object> result = new ArrayList<>(list.getElements().size());
-          for (Expression elem : list.getElements()) {
-            result.add(eval(thread, elem));
+          int n = list.getElements().size();
+          Object[] array = new Object[n];
+          for (int i = 0; i < n; i++) {
+            array[i] = eval(thread, list.getElements().get(i));
           }
-          return list.isTuple()
-              ? Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
-              : StarlarkList.wrapUnsafe(thread, result);
+          return list.isTuple() ? Tuple.wrap(array) : StarlarkList.wrap(thread.mutability(), array);
         }
 
       case SLICE:
@@ -643,7 +642,7 @@ final class Eval {
 
             Object iterable = eval(thread, forClause.getIterable());
             Location loc = comp.getLocation();
-            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, thread);
+            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc);
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
@@ -685,7 +684,7 @@ final class Eval {
       thread.updateInternal(name, value);
     }
 
-    return comp.isDict() ? dict : StarlarkList.copyOf(thread, list);
+    return comp.isDict() ? dict : StarlarkList.copyOf(thread.mutability(), list);
   }
 
   /** Returns an exception which should be thrown instead of the original one. */

@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPlugi
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -314,13 +315,10 @@ public class JavaCompileAction extends AbstractAction
             actionExecutionContext.getContext(JavaCompileActionContext.class);
         try {
           reducedClasspath = getReducedClasspath(actionExecutionContext, context);
-          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
         } catch (IOException e) {
-          // There was an error reading some of the dependent .jdeps files. Fall back to a
-          // compilation with the full classpath.
-          reducedClasspath = null;
-          spawn = getFullSpawn(actionExecutionContext);
+          throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
         }
+        spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
       } else {
         reducedClasspath = null;
         spawn = getFullSpawn(actionExecutionContext);
@@ -448,7 +446,6 @@ public class JavaCompileAction extends AbstractAction
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
       return inputs;
     }
@@ -478,7 +475,7 @@ public class JavaCompileAction extends AbstractAction
   @Override
   public Sequence<String> getSkylarkArgv() throws EvalException {
     try {
-      return Sequence.createImmutable(getArguments());
+      return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }

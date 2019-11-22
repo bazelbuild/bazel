@@ -57,6 +57,8 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
@@ -323,6 +325,14 @@ public class BazelRepositoryModule extends BlazeModule {
         outputVerificationRules =
             ImmutableSet.copyOf(repoOptions.experimentalVerifyRepositoryRules);
       }
+
+      RepositoryRemoteExecutorFactory remoteExecutorFactory =
+          env.getRuntime().getRepositoryRemoteExecutorFactory();
+      RepositoryRemoteExecutor remoteExecutor = null;
+      if (remoteExecutorFactory != null) {
+        remoteExecutor = remoteExecutorFactory.create();
+      }
+      skylarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
     }
   }
 

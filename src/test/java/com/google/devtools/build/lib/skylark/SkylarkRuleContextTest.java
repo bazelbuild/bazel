@@ -47,9 +47,10 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -1923,8 +1924,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     update("action1", eval("ruleContext.attr.dep[Actions].by_file[file1]"));
     update("action2", eval("ruleContext.attr.dep[Actions].by_file[file2]"));
 
-    assertThat(eval("action1.inputs")).isInstanceOf(SkylarkNestedSet.class);
-    assertThat(eval("action1.outputs")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(eval("action1.inputs")).isInstanceOf(Depset.class);
+    assertThat(eval("action1.outputs")).isInstanceOf(Depset.class);
 
     assertThat(eval("action1.argv")).isEqualTo(Starlark.NONE);
     assertThat(eval("action2.content")).isEqualTo(Starlark.NONE);
@@ -2174,7 +2175,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     Object substitutionsUnchecked = eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
-    assertThat(substitutionsUnchecked).isEqualTo(Dict.of(null, "a", "b"));
+    assertThat(substitutionsUnchecked).isEqualTo(Dict.of((Mutability) null, "a", "b"));
   }
 
   private void setUpCoverageInstrumentedTest() throws Exception {

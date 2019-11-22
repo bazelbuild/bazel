@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -23,6 +22,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.vfs.OutputService;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -43,10 +44,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   @Override
   public void createSymlinks(
-      SymlinkTreeAction action,
-      ActionExecutionContext actionExecutionContext,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
@@ -59,25 +57,30 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               actionExecutionContext.getInputPath(action.getOutputManifest()),
               action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
+        } else if (!action.enableRunfiles()) {
+          createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
         } else {
-          SymlinkTreeHelper helper =
-              new SymlinkTreeHelper(
-                  actionExecutionContext.getInputPath(action.getInputManifest()),
-                  actionExecutionContext
-                      .getInputPath(action.getOutputManifest())
-                      .getParentDirectory(),
-                  action.isFilesetTree());
-          helper.createSymlinks(
-              actionExecutionContext.getExecRoot(),
-              actionExecutionContext.getFileOutErr(),
-              binTools,
-              shellEnvironment,
-              enableRunfiles);
+          Map<String, String> resolvedEnv = new LinkedHashMap<>();
+          action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
+          createSymlinkTreeHelper(action, actionExecutionContext)
+              .createSymlinksUsingCommand(
+                  actionExecutionContext.getExecRoot(),
+                  binTools,
+                  resolvedEnv,
+                  actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
       }
     }
+  }
+
+  private static SymlinkTreeHelper createSymlinkTreeHelper(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
+    return new SymlinkTreeHelper(
+        actionExecutionContext.getInputPath(action.getInputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
+        action.isFilesetTree());
   }
 }

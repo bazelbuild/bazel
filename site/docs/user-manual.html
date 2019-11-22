@@ -2815,13 +2815,6 @@ adb -s deadbeef install ...
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>
 
 <p>
-  WARNING: <code class='flag'>--batch</code> is deprecated. For build isolation, we recommend
-  using the command option  <code class='flag'>--nokeep_state_after_build</code>, which guarantees
-  that no incremental in-memory state is kept between builds. In order to restart the
-  Bazel server and JVM after a build, please explicitly do so using the "shutdown" command.
-</p>
-
-<p>
   Batch mode causes Bazel to not use the standard client/server mode described
   <a href='guide.html#client/server'>above</a>, instead running a bazel java process for a
   single command, which has been used for more predictable semantics with respect
@@ -2843,6 +2836,17 @@ adb -s deadbeef install ...
   Therefore, using batch mode often makes more sense in cases where performance
   is less critical, such as continuous builds.
 </p>
+
+<p>
+  <i>WARNING:</i> <code class='flag'>--batch</code> is sufficiently slower than standard
+  client/server mode. Additionally it might not support all of the features and optimizations which
+  are made possible by a persistent Bazel server. If you're using <code class='flag'>--batch</code>
+  for the purpose of build isolation, we recommend using the command option
+  <code class='flag'>--nokeep_state_after_build</code>, which guarantees that no incremental
+  in-memory state is kept between builds. In order to restart the Bazel server and JVM after a
+  build, please explicitly do so using the "shutdown" command.
+</p>
+
 
 <h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs <var>n</var></code></h4>
 <p>

@@ -146,7 +146,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     public void value() {}
     @SkylarkCallable(name = "return_bad", documented = false)
     public Bad returnBad() {
-      return new Bad();
+      return new Bad(); // not a legal Starlark value
     }
     @SkylarkCallable(name = "struct_field", documented = false, structField = true)
     public String structField() {
@@ -520,7 +520,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     public Object getValue(String name) {
       switch (name) {
         case "field": return "a";
-        case "nset": return NestedSetBuilder.stableOrder().build();
+        case "nset":
+          return NestedSetBuilder.stableOrder().build(); // not a legal Starlark value
         default: return null;
       }
     }
@@ -1083,7 +1084,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "    modified_list = v + ['extra_string']",
             "  return modified_list",
             "m = func(mock)")
-        .testLookup("m", StarlarkList.of(thread, "b", "c", "extra_string"));
+        .testLookup("m", StarlarkList.of(thread.mutability(), "b", "c", "extra_string"));
   }
 
   @Test
@@ -1457,11 +1458,15 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testJavaFunctionReturnsMutableObject() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .testIfExactError(
-            "method 'return_bad' returns an object of invalid type Bad", "mock.return_bad()");
+  public void testJavaFunctionReturnsIllegalValue() throws Exception {
+    update("mock", new Mock());
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> eval("mock.return_bad()"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "cannot expose internal type to Starlark: class"
+                + " com.google.devtools.build.lib.syntax.SkylarkEvaluationTest$Bad");
   }
 
   @Test
@@ -1481,14 +1486,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testInSetDeprecated() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testExpression("'b' in depset(['a', 'b'])", Boolean.TRUE)
-        .testExpression("'c' in depset(['a', 'b'])", Boolean.FALSE)
-        .testExpression("1 in depset(['a', 'b'])", Boolean.FALSE);
-  }
-
-  @Test
   public void testUnionSet() throws Exception {
     new SkylarkTest("--incompatible_depset_union=false")
         .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
@@ -1498,33 +1495,26 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSetIsNotIterable() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=true")
-        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+    new SkylarkTest()
+        .testIfErrorContains("not a collection", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains("not iterable", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not a collection", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not a collection", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
         .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
 
   @Test
-  public void testSetIsIterable() throws Exception {
-    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
-        .testExpression("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
-        .testExpression("max(depset([1, 2, 3]))", 3)
-        .testExpression("1 in depset([1, 2, 3])", true)
-        .testExpression("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
-        .testExpression("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
-        .testExpression("str([x for x in depset()])", "[]")
-        .testExpression("len(depset(['a']))", 1);
-  }
-
-  @Test
-  public void testClassObjectCannotAccessNestedSet() throws Exception {
-    new SkylarkTest()
-        .update("mock", new MockClassObject())
-        .testIfErrorContains("internal error: type 'NestedSet' is not allowed", "v = mock.nset");
+  public void testFieldReturnsNestedSet() throws Exception {
+    update("mock", new MockClassObject());
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> eval("mock.nset"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "cannot expose internal type to Starlark: class"
+                + " com.google.devtools.build.lib.collect.nestedset.NestedSet");
   }
 
   @Test
@@ -1565,7 +1555,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return value",
             "",
             "f()[1] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
 
     // Check key position.
     new SkylarkTest()
@@ -1578,7 +1568,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return 1",
             "",
             "value[f()] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread, 1));
+        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
   }
 
   @Test
@@ -1618,8 +1608,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "",
             "f(ordinary)[0] = g(ordinary)[1]",
             "f(augmented)[0] += g(augmented)[1]")
-        .testLookup("ordinary", StarlarkList.of(thread, "g", "f")) // This order is consistent
-        .testLookup("augmented", StarlarkList.of(thread, "f", "g")); // with Python
+        .testLookup(
+            "ordinary", StarlarkList.of(thread.mutability(), "g", "f")) // This order is consistent
+        .testLookup("augmented", StarlarkList.of(thread.mutability(), "f", "g")); // with Python
   }
 
   @Test
@@ -1751,7 +1742,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
     new SkylarkTest()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
-        .testLookup("d", Dict.of(null, "a", 1, "b", 2));
+        .testLookup("d", Dict.of((Mutability) null, "a", 1, "b", 2));
   }
 
   @Test

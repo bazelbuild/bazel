@@ -70,7 +70,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     if (getObjectFiles() == null) {
       return StarlarkList.empty();
     }
-    return Sequence.createImmutable(getObjectFiles());
+    return StarlarkList.immutableCopyOf(getObjectFiles());
   }
 
   @Nullable
@@ -92,7 +92,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     if (getPicObjectFiles() == null) {
       return StarlarkList.empty();
     }
-    return Sequence.createImmutable(getPicObjectFiles());
+    return StarlarkList.immutableCopyOf(getPicObjectFiles());
   }
 
   @Nullable

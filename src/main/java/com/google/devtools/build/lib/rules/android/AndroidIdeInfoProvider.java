@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -301,10 +301,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   }
 
   @Override
-  public ImmutableMap<String, SkylarkNestedSet> getNativeLibsSkylark() {
-    ImmutableMap.Builder<String, SkylarkNestedSet> builder = ImmutableMap.builder();
+  public ImmutableMap<String, Depset> getNativeLibsSkylark() {
+    ImmutableMap.Builder<String, Depset> builder = ImmutableMap.builder();
     for (Map.Entry<String, NestedSet<Artifact>> entry : getNativeLibs().entrySet()) {
-      builder.put(entry.getKey(), SkylarkNestedSet.of(Artifact.class, entry.getValue()));
+      builder.put(entry.getKey(), Depset.of(Artifact.class, entry.getValue()));
     }
     return builder.build();
   }
@@ -332,13 +332,13 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object signedApk,
         Object aar,
         Sequence<?> apksUnderTest, // <Artifact>
-        Dict<?, ?> nativeLibs) // <String, SkylarkNestedSet>
+        Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
-      Map<String, SkylarkNestedSet> nativeLibsMap =
-          nativeLibs.getContents(String.class, SkylarkNestedSet.class, "native_libs");
+      Map<String, Depset> nativeLibsMap =
+          nativeLibs.getContents(String.class, Depset.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, SkylarkNestedSet> entry : nativeLibsMap.entrySet()) {
+      for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {
         builder.put(
             entry.getKey(), entry.getValue().getSetFromParam(Artifact.class, "native_libs"));
       }

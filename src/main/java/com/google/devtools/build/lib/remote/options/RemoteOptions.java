@@ -365,7 +365,11 @@ public final class RemoteOptions extends OptionsBase {
   public int maxOutboundMessageSize = 1024 * 1024;
 
   public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
+    return !Strings.isNullOrEmpty(remoteCache) || isRemoteExecutionEnabled();
+  }
+
+  public boolean isRemoteExecutionEnabled() {
+    return !Strings.isNullOrEmpty(remoteExecutor);
   }
 
   /**

@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -316,10 +316,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "quote_include_directories",
             doc = "Depset of quote include directories.",
@@ -327,10 +324,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "system_include_directories",
             doc = "Depset of system include directories.",
@@ -338,10 +332,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "framework_include_directories",
             doc = "Depset of framework include directories.",
@@ -349,10 +340,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "preprocessor_defines",
             doc = "Depset of preprocessor defines.",
@@ -360,10 +348,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "use_pic",
             doc = "When true the compilation will generate position independent code.",
@@ -416,10 +401,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "runtime_library_search_directories",
             doc = "Depset of directories where loader will look for libraries at runtime.",
@@ -427,10 +409,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of additional link flags (linkopts).",
@@ -621,10 +600,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
@@ -632,10 +608,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
@@ -643,10 +616,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
   LinkerInputT createLinkerInput(
       Label owner,
@@ -670,10 +640,7 @@ public interface CcModuleApi<
             named = true,
             enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
             valueWhenDisabled = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "libraries_to_link",
             doc = "List of <code>LibraryToLink</code>.",

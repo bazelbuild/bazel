@@ -155,7 +155,8 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testListConcat() throws Exception {
-    assertThat(eval("[1, 2] + [3, 4]")).isEqualTo(Sequence.createImmutable(Tuple.of(1, 2, 3, 4)));
+    assertThat(eval("[1, 2] + [3, 4]"))
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
   }
 
   @Test
@@ -237,6 +238,25 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListAddWithIndex() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mutability);
+    Location loc = null;
+    list.add("a", loc);
+    list.add("b", loc);
+    list.add("c", loc);
+    list.add(0, "d", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"b\", \"c\"]");
+    list.add(2, "e", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"c\"]");
+    list.add(4, "f", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\"]");
+    list.add(6, "g", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\", \"g\"]");
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.add(8, "h", loc));
+  }
+
+  @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
     StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
@@ -284,23 +304,22 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testWrapUnsafeTakesOwnershipOfPassedArrayList() throws EvalException {
-    ArrayList<String> wrapped = Lists.newArrayList("hi");
+  public void testWrapTakesOwnershipOfArray() throws EvalException {
+    String[] wrapped = {"hello"};
     Mutability mutability = Mutability.create("test");
-    StarlarkList<String> mutableList = StarlarkList.wrapUnsafe(mutability, wrapped);
+    StarlarkList<String> mutableList = StarlarkList.wrap(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
-    wrapped.add("added1");
-    mutableList.add("added2", /*loc=*/ null);
-    assertThat(wrapped).containsExactly("hi", "added1", "added2").inOrder();
-    assertThat(mutableList).containsExactly("hi", "added1", "added2").inOrder();
+    wrapped[0] = "goodbye";
+    assertThat(mutableList).containsExactly("goodbye");
   }
 
   @Test
   public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = StarlarkList.copyOf(thread, Tuple.of(1, 2, 3)).getClass();
+    Class<?> mutableListClass =
+        StarlarkList.copyOf(thread.mutability(), Tuple.of(1, 2, 3)).getClass();
 
     assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(StarlarkList.class);
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);

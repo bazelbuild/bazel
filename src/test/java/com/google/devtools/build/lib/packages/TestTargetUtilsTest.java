@@ -15,23 +15,19 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
+import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -157,18 +153,6 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testExpandTestSuites() throws Exception {
-    assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(test1, test2));
-    assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(suite));
-    assertExpandedSuites(
-        Sets.newHashSet(test1, test2, test1b), Sets.newHashSet(test1, suite, test1b));
-    // The large test if returned as filtered from the test_suite rule, but should still be in the
-    // result set as it's explicitly added.
-    assertExpandedSuites(
-        Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
-  }
-
-  @Test
   public void testSkyframeExpandTestSuites() throws Exception {
     assertExpandedSuitesSkyframe(
         Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(test1, test2));
@@ -181,77 +165,23 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
   }
 
-  @Test
-  public void testExpandTestSuitesKeepGoing() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
-    ResolvedTargets<Target> actual =
-        TestTargetUtils.expandTestSuites(
-            getPackageManager(),
-            reporter,
-            Sets.newHashSet(getTarget("//broken")),
-            /*strict=*/ false,
-            /* keepGoing= */ true);
-    assertThat(actual.hasError()).isTrue();
-    assertThat(actual.getTargets()).isEmpty();
-  }
-
-  private void assertExpandedSuites(Iterable<Target> expected, Collection<Target> suites)
-      throws Exception {
-    ResolvedTargets<Target> actual =
-        TestTargetUtils.expandTestSuites(
-            getPackageManager(), reporter, suites, /*strict=*/ false, /* keepGoing= */ true);
-    assertThat(actual.hasError()).isFalse();
-    assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
-  }
-
-  private static final Function<Target, Label> TO_LABEL =
-      new Function<Target, Label>() {
-        @Override
-        public Label apply(Target input) {
-          return input.getLabel();
-        }
-      };
-
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
     ImmutableSet<Label> expectedLabels =
-        ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
-    ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
-    SkyKey key = TestSuiteExpansionValue.key(suiteLabels);
+        ImmutableSet.copyOf(Iterables.transform(expected, Target::getLabel));
+    ImmutableSet<Label> suiteLabels =
+        ImmutableSet.copyOf(Iterables.transform(suites, Target::getLabel));
+    SkyKey key = TestsForTargetPatternValue.key(suiteLabels);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
             .setEventHander(reporter)
             .build();
-    EvaluationResult<TestSuiteExpansionValue> result =
+    EvaluationResult<TestsForTargetPatternValue> result =
         getSkyframeExecutor().getDriver().evaluate(ImmutableList.of(key), evaluationContext);
     ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);
-  }
-
-  @Test
-  public void testExpandTestSuitesInterrupted() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
-    try {
-      TestTargetUtils.expandTestSuites(
-          new TargetProvider() {
-            @Override
-            public Target getTarget(ExtendedEventHandler eventHandler, Label label)
-                throws InterruptedException {
-              throw new InterruptedException();
-            }
-          },
-          reporter,
-          Sets.newHashSet(getTarget("//broken")),
-          /*strict=*/ false,
-          /* keepGoing= */ true);
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().isNotNull();
-    }
-    assertThat(Thread.currentThread().isInterrupted()).isTrue();
   }
 }

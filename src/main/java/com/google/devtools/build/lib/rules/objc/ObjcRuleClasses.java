@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
@@ -146,18 +146,19 @@ public class ObjcRuleClasses {
    * which contain information about the target and host architectures.
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(
-      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
+      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
     return spawnOnDarwinActionBuilder()
-        .setEnvironment(appleToolchainEnvironment(xcodeConfigProvider, targetPlatform));
+        .setEnvironment(appleToolchainEnvironment(xcodeConfigInfo, targetPlatform));
   }
 
   /** Returns apple environment variables that are typically needed by the apple toolchain. */
   static ImmutableMap<String, String> appleToolchainEnvironment(
-      XcodeConfigProvider xcodeConfigProvider, ApplePlatform targetPlatform) {
+      XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
-        .putAll(AppleConfiguration.appleTargetPlatformEnv(
-            targetPlatform, xcodeConfigProvider.getSdkVersionForPlatform(targetPlatform)))
-        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigProvider.getXcodeVersion()))
+        .putAll(
+            AppleConfiguration.appleTargetPlatformEnv(
+                targetPlatform, xcodeConfigInfo.getSdkVersionForPlatform(targetPlatform)))
+        .putAll(AppleConfiguration.getXcodeVersionEnv(xcodeConfigInfo.getXcodeVersion()))
         .build();
   }
 

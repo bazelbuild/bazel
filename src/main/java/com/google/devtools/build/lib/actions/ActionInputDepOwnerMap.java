@@ -33,6 +33,10 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
 
   @Override
   public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
+    return addOwner(input, depOwner);
+  }
+
+  public boolean addOwner(ActionInput input, @Nullable Artifact depOwner) {
     if (depOwner == null || !inputsOfInterest.contains(input)) {
       return false;
     }

@@ -334,6 +334,65 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void concurrentlyCompletedUploadIsNotRetried() throws Exception {
+    // Test that after an upload has failed and the QueryWriteStatus call returns
+    // that the upload has completed that we'll not retry the upload.
+    Context prevContext = withEmptyMetadata.attach();
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 1, retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    AtomicInteger numWriteCalls = new AtomicInteger(0);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            numWriteCalls.getAndIncrement();
+            streamObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {}
+            };
+          }
+
+          @Override
+          public void queryWriteStatus(
+              QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> response) {
+            response.onNext(
+                QueryWriteStatusResponse.newBuilder()
+                    .setCommittedSize(blob.length)
+                    .setComplete(true)
+                    .build());
+            response.onCompleted();
+          }
+        });
+
+    uploader.uploadBlob(hash, chunker, true);
+
+    // This test should not have triggered any retries.
+    assertThat(numWriteCalls.get()).isEqualTo(1);
+
+    blockUntilInternalStateConsistent(uploader);
+
+    withEmptyMetadata.detach(prevContext);
+  }
+
+  @Test
   public void unimplementedQueryShouldRestartUpload() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);

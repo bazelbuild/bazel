@@ -117,7 +117,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
     // Only commit to the map when every value is present.
     artifactSkyKeyToValueOrException.putAll(directArtifactsEvalResult);
-    return ArtifactNestedSetValue.createOrGetInstance();
+    return new ArtifactNestedSetValue();
   }
 
   public static ArtifactNestedSetFunction getInstance() {

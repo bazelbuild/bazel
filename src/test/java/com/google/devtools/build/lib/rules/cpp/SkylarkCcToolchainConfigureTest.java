@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -28,24 +29,25 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
 
   @Test
   public void testSplitEscaped() throws Exception {
+    Mutability mu = null;
     newTest()
-        .testExpression("split_escaped('a:b:c', ':')", StarlarkList.of(thread, "a", "b", "c"))
-        .testExpression("split_escaped('a%:b', ':')", StarlarkList.of(thread, "a:b"))
-        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(thread, "a%b"))
-        .testExpression("split_escaped('a:::b', ':')", StarlarkList.of(thread, "a", "", "", "b"))
-        .testExpression("split_escaped('a:b%:c', ':')", StarlarkList.of(thread, "a", "b:c"))
-        .testExpression("split_escaped('a%%:b:c', ':')", StarlarkList.of(thread, "a%", "b", "c"))
-        .testExpression("split_escaped(':a', ':')", StarlarkList.of(thread, "", "a"))
-        .testExpression("split_escaped('a:', ':')", StarlarkList.of(thread, "a", ""))
-        .testExpression("split_escaped('::a::', ':')", StarlarkList.of(thread, "", "", "a", "", ""))
-        .testExpression("split_escaped('%%%:a%%%%:b', ':')", StarlarkList.of(thread, "%:a%%", "b"))
-        .testExpression("split_escaped('', ':')", StarlarkList.of(thread))
-        .testExpression("split_escaped('%', ':')", StarlarkList.of(thread, "%"))
-        .testExpression("split_escaped('%%', ':')", StarlarkList.of(thread, "%"))
-        .testExpression("split_escaped('%:', ':')", StarlarkList.of(thread, ":"))
-        .testExpression("split_escaped(':', ':')", StarlarkList.of(thread, "", ""))
-        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(thread, "a%b"))
-        .testExpression("split_escaped('a%:', ':')", StarlarkList.of(thread, "a:"));
+        .testExpression("split_escaped('a:b:c', ':')", StarlarkList.of(mu, "a", "b", "c"))
+        .testExpression("split_escaped('a%:b', ':')", StarlarkList.of(mu, "a:b"))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a:::b', ':')", StarlarkList.of(mu, "a", "", "", "b"))
+        .testExpression("split_escaped('a:b%:c', ':')", StarlarkList.of(mu, "a", "b:c"))
+        .testExpression("split_escaped('a%%:b:c', ':')", StarlarkList.of(mu, "a%", "b", "c"))
+        .testExpression("split_escaped(':a', ':')", StarlarkList.of(mu, "", "a"))
+        .testExpression("split_escaped('a:', ':')", StarlarkList.of(mu, "a", ""))
+        .testExpression("split_escaped('::a::', ':')", StarlarkList.of(mu, "", "", "a", "", ""))
+        .testExpression("split_escaped('%%%:a%%%%:b', ':')", StarlarkList.of(mu, "%:a%%", "b"))
+        .testExpression("split_escaped('', ':')", StarlarkList.of(mu))
+        .testExpression("split_escaped('%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%:', ':')", StarlarkList.of(mu, ":"))
+        .testExpression("split_escaped(':', ':')", StarlarkList.of(mu, "", ""))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
   private ModalTestCase newTest(String... skylarkOptions) throws IOException {

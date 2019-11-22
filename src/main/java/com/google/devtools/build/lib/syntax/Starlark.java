@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -76,6 +77,51 @@ public final class Starlark {
         .put("None", Starlark.NONE);
     addMethods(env, new MethodLibrary());
     return env.build();
+  }
+
+  /**
+   * Reports whether the argument is a legal Starlark value: a string, boolean, integer, or
+   * StarlarkValue.
+   */
+  public static boolean valid(Object x) {
+    return x instanceof SkylarkValue
+        || x instanceof String
+        || x instanceof Boolean
+        || x instanceof Integer;
+  }
+
+  /**
+   * Returns {@code x} if it is a {@link #valid} Starlark value, otherwise throws
+   * IllegalArgumentException.
+   */
+  public static <T> T checkValid(T x) {
+    if (!valid(x)) {
+      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+    }
+    return x;
+  }
+
+  /**
+   * Converts a Java value {@code x} to a Starlark one, if x is not already a valid Starlark value.
+   * A Java List or Map is converted to a Starlark list or dict, respectively, and null becomes
+   * {@link #NONE}. Any other non-Starlark value causes the function to throw
+   * IllegalArgumentException.
+   *
+   * <p>This function is applied to the results of @SkylarkCallable-annotated Java methods.
+   */
+  public static Object fromJava(Object x, @Nullable Mutability mutability) {
+    if (x == null) {
+      return NONE;
+    } else if (Starlark.valid(x)) {
+      return x;
+    } else if (x instanceof List) {
+      return StarlarkList.copyOf(mutability, (List<?>) x);
+    } else if (x instanceof Map) {
+      return Dict.copyOf(mutability, (Map<?, ?>) x);
+    } else {
+      throw new IllegalArgumentException(
+          "cannot expose internal type to Starlark: " + x.getClass());
+    }
   }
 
   /**

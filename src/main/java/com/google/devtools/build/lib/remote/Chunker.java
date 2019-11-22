@@ -218,7 +218,7 @@ public final class Chunker {
     return new Chunk(blob, offsetBefore);
   }
 
-  private long bytesLeft() {
+  public long bytesLeft() {
     return getSize() - getOffset();
   }
 

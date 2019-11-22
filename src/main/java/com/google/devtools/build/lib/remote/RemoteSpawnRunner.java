@@ -33,6 +33,7 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -211,7 +212,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Command command =
         buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            platform,
+            /* workingDirectory= */ null);
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
@@ -496,7 +501,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
-      @Nullable Platform platform) {
+      @Nullable Platform platform,
+      @Nullable String workingDirectory) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -521,6 +527,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
       command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
+    }
+
+    if (!Strings.isNullOrEmpty(workingDirectory)) {
+      command.setWorkingDirectory(workingDirectory);
     }
     return command.build();
   }

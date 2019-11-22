@@ -354,7 +354,7 @@ public final class RunfilesSupport {
     context
         .getAnalysisEnvironment()
         .registerAction(
-            SourceManifestAction.forRunfiles(
+            new SourceManifestAction(
                 ManifestType.SOURCE_SYMLINKS, context.getActionOwner(), inputManifest, runfiles));
 
     if (!createSymlinks) {
@@ -374,11 +374,11 @@ public final class RunfilesSupport {
         .registerAction(
             new SymlinkTreeAction(
                 context.getActionOwner(),
+                config,
                 inputManifest,
+                runfiles,
                 outputManifest,
-                /*filesetTree=*/ false,
-                config.getActionEnvironment(),
-                config.runfilesEnabled()));
+                /*filesetTree=*/ false));
     return outputManifest;
   }
 
@@ -402,7 +402,7 @@ public final class RunfilesSupport {
     context
         .getAnalysisEnvironment()
         .registerAction(
-            SourceManifestAction.forRunfiles(
+            new SourceManifestAction(
                 ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
     return sourceOnlyManifest;
   }

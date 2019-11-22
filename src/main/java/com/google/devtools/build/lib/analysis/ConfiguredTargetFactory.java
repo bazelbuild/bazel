@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -317,10 +318,11 @@ public final class ConfiguredTargetFactory {
     // Add directly required fragments:
 
     // Fragments explicitly required by this rule:
-    directlyRequiredFragments.forEach(fragment -> requiredFragments.add(fragment.getSimpleName()));
+    directlyRequiredFragments.forEach(
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
     // Fragments universally required by all rules:
     universallyRequiredFragments.forEach(
-        fragment -> requiredFragments.add(fragment.getSimpleName()));
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
     // Fragments required by config_conditions this rule select()s on:
     configConditions.forEach(
         configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));

@@ -25,15 +25,16 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -48,10 +49,15 @@ import javax.annotation.Nullable;
  * Implementation of the {@code Args} Starlark type, which, in a builder-like pattern, encapsulates
  * the data needed to build all or part of a command line.
  */
-public abstract class Args extends StarlarkMutable implements CommandLineArgsApi {
+public abstract class Args implements CommandLineArgsApi {
 
   private Args() {
     // Ensure Args subclasses are defined only in this file.
+  }
+
+  @Override
+  public boolean isHashable() {
+    return false; // even a frozen Args is not hashable
   }
 
   @Override
@@ -119,6 +125,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
    * A frozen (immutable) representation of {@link Args}, constructed from an already-built command
    * line.
    */
+  @Immutable
   private static class FrozenArgs extends Args {
     private final CommandLine commandLine;
     private final ParamFileInfo paramFileInfo;
@@ -156,11 +163,6 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     @Nullable
     public ParamFileInfo getParamFileInfo() {
       return paramFileInfo;
-    }
-
-    @Override
-    public Mutability mutability() {
-      return Mutability.IMMUTABLE;
     }
 
     @Override
@@ -227,9 +229,8 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
   }
 
   /** Args module. */
-  private static class MutableArgs extends Args {
+  private static class MutableArgs extends Args implements StarlarkMutable {
     private final Mutability mutability;
-    private final StarlarkSemantics starlarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
@@ -266,9 +267,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object mapFn,
         Location loc)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable(loc);
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
@@ -280,7 +279,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       if (argName != null) {
         commandLine.add(argName);
       }
-      if (value instanceof SkylarkNestedSet || value instanceof Sequence) {
+      if (value instanceof Depset || value instanceof Sequence) {
         throw new EvalException(
             loc,
             "Args#add doesn't accept vectorized arguments. "
@@ -317,9 +316,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object terminateWith,
         Location loc)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable(loc);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -359,9 +356,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Boolean expandDirectories,
         Location loc)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable(loc);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -404,8 +399,8 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Location loc)
         throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof SkylarkNestedSet) {
-        SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
+      if (value instanceof Depset) {
+        Depset skylarkNestedSet = ((Depset) value);
         NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
@@ -449,7 +444,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     }
 
     private void validateValues(Object values, Location loc) throws EvalException {
-      if (!(values instanceof Sequence || values instanceof SkylarkNestedSet)) {
+      if (!(values instanceof Sequence || values instanceof Depset)) {
         throw new EvalException(
             loc,
             String.format(
@@ -517,9 +512,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable(/*loc=*/ null);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -535,9 +528,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable(/*loc=*/ null);
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":
@@ -557,7 +548,6 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
 
     private MutableArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
-      this.starlarkSemantics = starlarkSemantics;
       this.commandLine = new SkylarkCustomCommandLine.Builder(starlarkSemantics);
     }
 

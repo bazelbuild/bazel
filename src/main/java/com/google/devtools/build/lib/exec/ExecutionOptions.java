@@ -130,6 +130,14 @@ public class ExecutionOptions extends OptionsBase {
               + "This is implied by --subcommands.")
   public boolean materializeParamFiles;
 
+  @Option(
+      name = "experimental_materialize_param_files_directly",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If materializing param files, do so with direct writes to disk.")
+  public boolean materializeParamFilesDirectly;
+
   public boolean shouldMaterializeParamFiles() {
     // Implied by --subcommands
     return materializeParamFiles || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE;

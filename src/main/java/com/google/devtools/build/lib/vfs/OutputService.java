@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -180,6 +181,13 @@ public interface OutputService {
       MetadataConsumer consumer,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {}
+
+  /**
+   * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
+   * lost inputs.
+   */
+  default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
+      throws LostInputsActionExecutionException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;

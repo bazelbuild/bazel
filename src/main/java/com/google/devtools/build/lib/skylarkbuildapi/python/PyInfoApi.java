@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Provider instance for the Python rules. */
 @SkylarkModule(
@@ -40,7 +40,7 @@ public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
           "A (<code>postorder</code>-compatible) depset of <code>.py</code> files appearing in the "
               + "target's <code>srcs</code> and the <code>srcs</code> of the target's transitive "
               + "<code>deps</code>.")
-  SkylarkNestedSet getTransitiveSources();
+  Depset getTransitiveSources();
 
   @SkylarkCallable(
       name = "uses_shared_libraries",
@@ -62,7 +62,7 @@ public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
               + ""
               + "<p>The order of the depset is not guaranteed and may be changed in the future. It "
               + "is recommended to use <code>default</code> order (the default).")
-  SkylarkNestedSet getImports();
+  Depset getImports();
 
   @SkylarkCallable(
       name = "has_py2_only_sources",
@@ -86,7 +86,7 @@ public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
         parameters = {
           @Param(
               name = "transitive_sources",
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class,
               positional = false,
               named = true,
@@ -100,7 +100,7 @@ public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
               doc = "The value for the new object's <code>uses_shared_libraries</code> field."),
           @Param(
               name = "imports",
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = String.class,
               positional = false,
               named = true,
@@ -125,7 +125,7 @@ public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
         useLocation = true)
     @SkylarkConstructor(objectType = PyInfoApi.class, receiverNameForDoc = "PyInfo")
     PyInfoApi<?> constructor(
-        SkylarkNestedSet transitiveSources,
+        Depset transitiveSources,
         boolean usesSharedLibraries,
         Object importsUncast,
         boolean hasPy2OnlySources,

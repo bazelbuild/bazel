@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -82,6 +82,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -447,31 +448,8 @@ public class ActionExecutionFunction implements SkyFunction {
 
     RewindPlan rewindPlan = null;
     try {
-      // Reconstruct the relationship between lost inputs and this action's direct deps if any of
-      // the lost inputs came from runfiles:
-      ActionInputDepOwners runfilesDepOwners;
-      Set<ActionInput> lostRunfiles = e.getInputOwners().getRunfilesInputsAndOwners();
-      if (!lostRunfiles.isEmpty()) {
-        try {
-          runfilesDepOwners =
-              getInputDepOwners(
-                  env,
-                  action,
-                  inputDeps,
-                  allInputs,
-                  action.discoversInputs()
-                      ? ImmutableSet.copyOf(action.getMandatoryInputs())
-                      : null,
-                  lostRunfiles);
-        } catch (ActionExecutionException unexpected) {
-          // getInputDepOwners should not be able to throw, because it does the same work as
-          // checkInputs, so if getInputDepOwners throws then checkInputs should have thrown, and if
-          // checkInputs threw then we shouldn't have reached this point in action execution.
-          throw new IllegalStateException(unexpected);
-        }
-      } else {
-        runfilesDepOwners = ActionInputDepOwners.EMPTY_INSTANCE;
-      }
+      ActionInputDepOwners inputDepOwners =
+          createAugmentedInputDepOwners(e, action, env, inputDeps, allInputs);
 
       // Collect the set of direct deps of this action which may be responsible for the lost inputs,
       // some of which may be discovered.
@@ -498,7 +476,7 @@ public class ActionExecutionFunction implements SkyFunction {
       try {
         rewindPlan =
             actionRewindStrategy.getRewindPlan(
-                action, actionLookupData, failedActionDeps, e, runfilesDepOwners, env);
+                action, actionLookupData, failedActionDeps, e, inputDepOwners, env);
       } catch (ActionExecutionException rewindingFailedException) {
         // This call to processAndGetExceptionToThrow will emit an ActionExecutedEvent and report
         // the error. The previous call to processAndGetExceptionToThrow didn't.
@@ -530,6 +508,57 @@ public class ActionExecutionFunction implements SkyFunction {
             .post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
       }
     }
+  }
+
+  /**
+   * Returns an augmented version of {@code e.getOwners()}'s {@link ActionInputDepOwners}, adding
+   * ownership information from {@code inputDeps}.
+   *
+   * <p>This compensates for how the ownership information in {@code e.getOwners()} is potentially
+   * incomplete. E.g., it may lack knowledge of a runfiles middleman owning a fileset, even if it
+   * knows that fileset owns a lost input.
+   */
+  private static ActionInputDepOwners createAugmentedInputDepOwners(
+      LostInputsActionExecutionException e,
+      Action action,
+      Environment env,
+      Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
+      Iterable<Artifact> allInputs)
+      throws InterruptedException {
+
+    Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
+    ActionInputDepOwners owners = e.getOwners();
+    for (ActionInput lostInput : e.getLostInputs().values()) {
+      lostInputsAndOwnersSoFar.add(lostInput);
+      lostInputsAndOwnersSoFar.addAll(owners.getDepOwners(lostInput));
+    }
+
+    ActionInputDepOwnerMap inputDepOwners;
+    try {
+      inputDepOwners =
+          getInputDepOwners(
+              env,
+              action,
+              inputDeps,
+              allInputs,
+              action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null,
+              lostInputsAndOwnersSoFar);
+    } catch (ActionExecutionException unexpected) {
+      // getInputDepOwners should not be able to throw, because it does the same work as
+      // checkInputs, so if getInputDepOwners throws then checkInputs should have thrown, and if
+      // checkInputs threw then we shouldn't have reached this point in action execution.
+      throw new IllegalStateException(unexpected);
+    }
+
+    // Ownership information from inputDeps may be incomplete. Notably, it does not expand
+    // filesets. Fileset and other ownership relationships should have been captured in the
+    // exception's ActionInputDepOwners, and this copies that knowledge into the augmented version.
+    for (ActionInput lostInput : e.getLostInputs().values()) {
+      for (Artifact depOwner : owners.getDepOwners(lostInput)) {
+        inputDepOwners.addOwner(lostInput, depOwner);
+      }
+    }
+    return inputDepOwners;
   }
 
   @Nullable
@@ -1080,7 +1109,7 @@ public class ActionExecutionFunction implements SkyFunction {
   /**
    * Reconstructs the relationships between lost inputs and the direct deps responsible for them.
    */
-  private static ActionInputDepOwners getInputDepOwners(
+  private static ActionInputDepOwnerMap getInputDepOwners(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,

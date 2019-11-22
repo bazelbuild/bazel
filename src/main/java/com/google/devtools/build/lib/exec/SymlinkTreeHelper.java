@@ -15,10 +15,9 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Helper class responsible for the symlink tree creation. Used to generate runfiles and fileset
@@ -61,30 +61,6 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates a symlink tree using a CommandBuilder. This means that the symlink tree will always be
-   * present on the developer's workstation. Useful when running commands locally.
-   *
-   * <p>Warning: this method REALLY executes the command on the box Bazel is running on, without any
-   * kind of synchronization, locking, or anything else.
-   *
-   * @param config the configuration that is used for creating the symlink tree.
-   * @throws CommandException
-   */
-  public void createSymlinksUsingCommand(
-      Path execRoot,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      OutErr outErr)
-      throws CommandException {
-    Command command = createCommand(execRoot, binTools, shellEnvironment);
-    if (outErr != null) {
-      command.execute(outErr.getOutputStream(), outErr.getErrorStream());
-    } else {
-      command.execute();
-    }
-  }
-
-  /**
    * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
    *
    * @param enableRunfiles If {@code false} only the output manifest is created.
@@ -93,29 +69,51 @@ public final class SymlinkTreeHelper {
       Path execRoot,
       OutErr outErr,
       BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
+      Map<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException {
     if (enableRunfiles) {
-      try {
-        createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-      } catch (CommandException e) {
-        throw new UserExecException(CommandUtils.describeCommandFailure(true, e), e);
-      }
+      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
     } else {
-      // Pretend we created the runfiles tree by copying the manifest
-      try {
-        symlinkTreeRoot.createDirectoryAndParents();
-        FileSystemUtils.copyFile(inputManifest, symlinkTreeRoot.getChild("MANIFEST"));
-      } catch (IOException e) {
-        throw new UserExecException(e.getMessage(), e);
+      copyManifest();
+    }
+  }
+
+  /** Copies the input manifest to the output manifest. */
+  public void copyManifest() throws ExecException {
+    // Pretend we created the runfiles tree by copying the manifest
+    try {
+      symlinkTreeRoot.createDirectoryAndParents();
+      FileSystemUtils.copyFile(inputManifest, symlinkTreeRoot.getChild("MANIFEST"));
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e);
+    }
+  }
+
+  /**
+   * Creates a symlink tree using a CommandBuilder. This means that the symlink tree will always be
+   * present on the developer's workstation. Useful when running commands locally.
+   *
+   * <p>Warning: this method REALLY executes the command on the box Bazel is running on, without any
+   * kind of synchronization, locking, or anything else.
+   */
+  public void createSymlinksUsingCommand(
+      Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
+      throws EnvironmentalExecException {
+    Command command = createCommand(execRoot, binTools, shellEnvironment);
+    try {
+      if (outErr != null) {
+        command.execute(outErr.getOutputStream(), outErr.getErrorStream());
+      } else {
+        command.execute();
       }
+    } catch (CommandException e) {
+      throw new EnvironmentalExecException(CommandUtils.describeCommandFailure(true, e), e);
     }
   }
 
   @VisibleForTesting
-  Command createCommand(
-      Path execRoot, BinTools binTools, ImmutableMap<String, String> shellEnvironment) {
+  Command createCommand(Path execRoot, BinTools binTools, Map<String, String> shellEnvironment) {
     Preconditions.checkNotNull(shellEnvironment);
     List<String> args = Lists.newArrayList();
     args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());

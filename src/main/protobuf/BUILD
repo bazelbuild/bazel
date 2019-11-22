@@ -1,13 +1,12 @@
 load("@rules_java//java:defs.bzl", "java_proto_library")
-
-package(default_visibility = ["//visibility:public"])
-
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("//third_party/protobuf/3.6.1:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//visibility:public"])
 
 exports_files(
     ["execution_statitics.proto"],
@@ -72,6 +71,30 @@ java_proto_library(
 java_library_srcs(
     name = "analysis_java_proto_srcs",
     deps = [":analysis_java_proto"],
+)
+
+proto_library(
+    name = "analysis_v2_proto",
+    srcs = ["analysis_v2.proto"],
+    deps = [":build_proto"],
+)
+
+py_proto_library(
+    name = "analysis_v2_py_proto",
+    srcs = ["analysis_v2.proto"],
+    default_runtime = "//third_party/protobuf:protobuf_python",
+    protoc = "//third_party/protobuf:protoc",
+    deps = [":build_pb_py"],
+)
+
+java_proto_library(
+    name = "analysis_v2_java_proto",
+    deps = [":analysis_v2_proto"],
+)
+
+java_library_srcs(
+    name = "analysis_v2_java_proto_srcs",
+    deps = [":analysis_v2_java_proto"],
 )
 
 # This new option tagging method is in flux while being applied to the options
@@ -201,6 +224,7 @@ filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
         ":analysis_java_proto_srcs",
+        ":analysis_v2_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":option_filters_java_proto_srcs",

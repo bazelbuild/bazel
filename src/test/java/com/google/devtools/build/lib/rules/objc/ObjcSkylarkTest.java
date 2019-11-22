@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -96,8 +96,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
-    SkylarkNestedSet skylarkLibraries = (SkylarkNestedSet) myInfo.getValue("found_libs");
-    SkylarkNestedSet skylarkHdrs = (SkylarkNestedSet) myInfo.getValue("found_hdrs");
+    Depset skylarkLibraries = (Depset) myInfo.getValue("found_libs");
+    Depset skylarkHdrs = (Depset) myInfo.getValue("found_hdrs");
 
     assertThat(ActionsTestUtil.baseArtifactNames(skylarkLibraries.getSet(Artifact.class)))
         .contains("liblib.a");
@@ -137,7 +137,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//test:test");
     StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
-    SkylarkNestedSet defineSet = (SkylarkNestedSet) myInfo.getValue("define");
+    Depset defineSet = (Depset) myInfo.getValue("define");
 
     assertThat(defineSet.getSet(String.class)).containsExactly("mock_define");
   }
@@ -1025,7 +1025,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            String.format(AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "string"));
+            String.format(
+                AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "depset of strings"));
   }
 
   @Test
@@ -1088,8 +1089,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   srcs = ['a.m'],",
         ")");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    SkylarkNestedSet emptyValue =
-        (SkylarkNestedSet) getMyInfoFromTarget(skylarkTarget).getValue("empty_value");
+    Depset emptyValue = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("empty_value");
     assertThat(emptyValue.toCollection()).isEmpty();
   }
 
@@ -1126,8 +1126,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    SkylarkNestedSet sdkFrameworks =
-        (SkylarkNestedSet) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
+    Depset sdkFrameworks = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
     assertThat(sdkFrameworks.toCollection()).containsAtLeast("Accelerate", "GLKit");
   }
 

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 
@@ -107,7 +108,8 @@ public class BazelCcModule extends CcModule
         disallowNopicOutputs,
         /* grepIncludes= */ null,
         /* headersForClifDoNotUseThisParam= */ ImmutableList.of(),
-        Sequence.createImmutable(additionalInputs.getContents(Artifact.class, "additional_inputs")),
+        StarlarkList.immutableCopyOf(
+            additionalInputs.getContents(Artifact.class, "additional_inputs")),
         location,
         /* thread= */ null);
   }

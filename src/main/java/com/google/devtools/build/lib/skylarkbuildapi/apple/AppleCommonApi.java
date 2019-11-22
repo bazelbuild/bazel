@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public interface AppleCommonApi<
         FileApiT extends FileApi,
         ObjcProviderApiT extends ObjcProviderApi<?>,
-        XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
+        XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
     extends SkylarkValue {
 
@@ -222,13 +222,10 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
-      }
-  )
-  public ImmutableMap<String, String> getAppleHostSystemEnv(
-      XcodeConfigProviderApiT xcodeConfig);
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
+      })
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
 
   @SkylarkCallable(
       name = "target_apple_env",
@@ -242,20 +239,17 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
         @Param(
             name = "platform",
             positional = true,
             named = false,
             type = ApplePlatformApi.class,
-            doc = "The apple platform."
-        ),
-      }
-  )
+            doc = "The apple platform."),
+      })
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProviderApiT xcodeConfig, ApplePlatformApiT platform);
+      XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
 
   @SkylarkCallable(
       name = "multi_arch_split",
@@ -325,7 +319,7 @@ public interface AppleCommonApi<
                     + "dependencies linked into the binary."),
         @Param(
             name = "framework_dirs",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = String.class,
             named = true,
             noneable = true,
@@ -336,7 +330,7 @@ public interface AppleCommonApi<
                     + "framework."),
         @Param(
             name = "framework_files",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = FileApi.class,
             named = true,
             noneable = true,

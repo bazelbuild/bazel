@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
@@ -67,8 +67,8 @@ public final class AnalysisFailureInfo extends Info
   }
 
   @Override
-  public SkylarkNestedSet /*<AnalysisFailure>*/ getCauses() {
-    return SkylarkNestedSet.of(SkylarkType.of(AnalysisFailure.class), causes);
+  public Depset /*<AnalysisFailure>*/ getCauses() {
+    return Depset.of(SkylarkType.of(AnalysisFailure.class), causes);
   }
 
   public NestedSet<AnalysisFailure> getCausesNestedSet() {

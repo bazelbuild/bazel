@@ -1014,6 +1014,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
 
+      host.incompatibleProhibitAapt1 = incompatibleProhibitAapt1;
+
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
       return host;
@@ -1403,5 +1405,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  boolean incompatibleProhibitAapt1() {
+    return incompatibleProhibitAapt1;
   }
 }

@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Fake implementation of {@link ObjcProviderApi}.
@@ -27,32 +26,32 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
-  public NestedSet<String> define() {
+  public Depset /*<String>*/ defineForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> dynamicFrameworkFile() {
+  public Depset /*<FileApi>*/ dynamicFrameworkFileForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> exportedDebugArtifacts() {
+  public Depset /*<FileApi>*/ exportedDebugArtifacts() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet frameworkSearchPathOnly() {
+  public Depset frameworkSearchPathOnly() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> forceLoadLibrary() {
+  public Depset /*<FileApi>*/ forceLoadLibrary() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> header() {
+  public Depset /*<FileApi>*/ headerForStarlark() {
     return null;
   }
 
@@ -62,67 +61,67 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> importedLibrary() {
+  public Depset /*<FileApi>*/ importedLibrary() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet include() {
+  public Depset include() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet includeSystem() {
+  public Depset includeSystem() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet iquote() {
+  public Depset iquote() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> j2objcLibrary() {
+  public Depset /*<FileApi>*/ j2objcLibrary() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> jreLibrary() {
+  public Depset /*<FileApi>*/ jreLibrary() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> library() {
+  public Depset /*<FileApi>*/ library() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> linkInputs() {
+  public Depset /*<FileApi>*/ linkInputs() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> linkedBinary() {
+  public Depset /*<FileApi>*/ linkedBinary() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> linkmapFile() {
+  public Depset /*<FileApi>*/ linkmapFile() {
     return null;
   }
 
   @Override
-  public NestedSet<String> linkopt() {
+  public Depset /*<String>*/ linkopt() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> mergeZip() {
+  public Depset /*<FileApi>*/ mergeZip() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> moduleMap() {
+  public Depset /*<FileApi>*/ moduleMap() {
     return null;
   }
 
@@ -132,32 +131,32 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> multiArchDynamicLibraries() {
+  public Depset /*<FileApi>*/ multiArchDynamicLibraries() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> multiArchLinkedArchives() {
+  public Depset /*<FileApi>*/ multiArchLinkedArchives() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> multiArchLinkedBinaries() {
+  public Depset /*<FileApi>*/ multiArchLinkedBinaries() {
     return null;
   }
 
   @Override
-  public NestedSet<String> sdkDylib() {
+  public Depset /*<String>*/ sdkDylib() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet sdkFramework() {
+  public Depset sdkFramework() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> source() {
+  public Depset /*<FileApi>*/ sourceForStarlark() {
     return null;
   }
 
@@ -167,37 +166,37 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> staticFrameworkFile() {
+  public Depset /*<FileApi>*/ staticFrameworkFileForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> umbrellaHeader() {
+  public Depset /*<FileApi>*/ umbrellaHeader() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet weakSdkFramework() {
+  public Depset weakSdkFramework() {
     return null;
   }
 
   @Override
-  public NestedSet<String> dynamicFrameworkNames() {
+  public Depset /*<String>*/ dynamicFrameworkNamesForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<String> dynamicFrameworkPaths() {
+  public Depset /*<String>*/ dynamicFrameworkPathsForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<String> staticFrameworkNames() {
+  public Depset /*<String>*/ staticFrameworkNamesForStarlark() {
     return null;
   }
 
   @Override
-  public NestedSet<String> staticFrameworkPaths() {
+  public Depset /*<String>*/ staticFrameworkPathsForStarlark() {
     return null;
   }
 

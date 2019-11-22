@@ -32,67 +32,71 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * A generic, type-safe {@link NestedSet} wrapper for Skylark.
+ * A Depset is a Starlark value that wraps a {@link NestedSet}.
  *
- * <p>The content type of a {@code SkylarkNestedSet} is the intersection of the {@link SkylarkType}
- * of each of its elements. It is an error if this intersection is {@link SkylarkType#BOTTOM}. An
- * empty set has a content type of {@link SkylarkType#TOP}.
+ * <p>A NestedSet has a type parameter that describes, at compile time, the elements of the set. By
+ * contrast, a Depset has a value, {@link #getContentType}, that describes the elements during
+ * execution. This type symbol permits the element type of a Depset value to be queried, after the
+ * type parameter has been erased, without visiting each element of the often-vast data structure.
  *
- * <p>It is also an error if this type has a non-bottom intersection with {@link SkylarkType#DICT}
- * or {@link SkylarkType#LIST}, unless the set is empty.
- *
- * <p>TODO(bazel-team): Decide whether this restriction is still useful.
+ * <p>The content type of a non-empty {@code Depset} is determined by its first element. All
+ * elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may be
+ * combined with any other depset.
  */
+// TODO(adonovan): move to lib.packages, as this is a Bazelism.
 @SkylarkModule(
-  name = "depset",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "<p>A specialized data structure that supports efficient merge operations and has a defined "
-          + "traversal order. Commonly used for accumulating data from transitive dependencies in "
-          + "rules and aspects. For more information see <a href=\"../depsets.md\">here</a>."
-          + "<p>"
-          + "Depsets are not implemented as hash sets and do not support fast membership tests. If "
-          + "you need a general set datatype, you can simulate one using a dictionary where all "
-          + "keys map to <code>True</code>."
-          + "<p>"
-          + "Depsets are immutable. They should be created using their "
-          + "<a href=\"globals.html#depset\">constructor function</a> and merged or augmented with "
-          + "other depsets via the <code>transitive</code> argument. There are other deprecated "
-          + "methods (<code>|</code> and <code>+</code> operators, <code>union</code> method) that "
-          + "will eventually go away."
-          + "<p>"
-          + "The <code>order</code> parameter determines the kind of traversal that is done to "
-          + "convert the depset to an iterable. There are four possible values:"
-          + "<ul>"
-          + "<li><code>\"default\"</code> (formerly <code>\"stable\"</code>): Order is unspecified "
-          + "(but deterministic).</li>"
-          + "<li><code>\"postorder\"</code> (formerly <code>\"compile\"</code>): A left-to-right "
-          + "post-ordering. Precisely, this recursively traverses all children leftmost-first, "
-          + "then the direct elements leftmost-first.</li>"
-          + "<li><code>\"preorder\"</code> (formerly <code>\"naive_link\"</code>): A left-to-right "
-          + "pre-ordering. Precisely, this traverses the direct elements leftmost-first, then "
-          + "recursively traverses the children leftmost-first.</li>"
-          + "<li><code>\"topological\"</code> (formerly <code>\"link\"</code>): A topological "
-          + "ordering from the root down to the leaves. There is no left-to-right guarantee.</li>"
-          + "</ul>"
-          + "<p>"
-          + "Two depsets may only be merged if either both depsets have the same order, or one of "
-          + "them has <code>\"default\"</code> order. In the latter case the resulting depset's "
-          + "order will be the same as the other's order."
-          + "<p>"
-          + "Depsets may contain duplicate values but these will be suppressed when iterating "
-          + "(using <code>to_list()</code>). Duplicates may interfere with the ordering semantics."
-)
+    name = "depset",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "<p>A specialized data structure that supports efficient merge operations and has a"
+            + " defined traversal order. Commonly used for accumulating data from transitive"
+            + " dependencies in rules and aspects. For more information see <a"
+            + " href=\"../depsets.md\">here</a>."
+            + " <p>The elements of a depset must be hashable and all of the same type (as"
+            + " defined by the built-in type(x) function), but depsets are not simply"
+            + " hash sets and do not support fast membership tests."
+            + " If you need a general set datatype, you can"
+            + " simulate one using a dictionary where all keys map to <code>True</code>."
+            + "<p>Depsets are immutable. They should be created using their <a"
+            + " href=\"globals.html#depset\">constructor function</a> and merged or augmented with"
+            + " other depsets via the <code>transitive</code> argument. There are other deprecated"
+            + " methods (<code>|</code> and <code>+</code> operators, <code>union</code> method)"
+            + " that will eventually go away."
+            + "<p>The <code>order</code> parameter determines the"
+            + " kind of traversal that is done to convert the depset to an iterable. There are"
+            + " four possible values:"
+            + "<ul><li><code>\"default\"</code> (formerly"
+            + " <code>\"stable\"</code>): Order is unspecified (but"
+            + " deterministic).</li>"
+            + "<li><code>\"postorder\"</code> (formerly"
+            + " <code>\"compile\"</code>): A left-to-right post-ordering. Precisely, this"
+            + " recursively traverses all children leftmost-first, then the direct elements"
+            + " leftmost-first.</li>"
+            + "<li><code>\"preorder\"</code> (formerly"
+            + " <code>\"naive_link\"</code>): A left-to-right pre-ordering. Precisely, this"
+            + " traverses the direct elements leftmost-first, then recursively traverses the"
+            + " children leftmost-first.</li>"
+            + "<li><code>\"topological\"</code> (formerly"
+            + " <code>\"link\"</code>): A topological ordering from the root down to the leaves."
+            + " There is no left-to-right guarantee.</li>"
+            + "</ul>"
+            + "<p>Two depsets may only be merged if"
+            + " either both depsets have the same order, or one of them has"
+            + " <code>\"default\"</code> order. In the latter case the resulting depset's order"
+            + " will be the same as the other's order."
+            + "<p>Depsets may contain duplicate values but"
+            + " these will be suppressed when iterating (using <code>to_list()</code>). Duplicates"
+            + " may interfere with the ordering semantics.")
 @Immutable
 @AutoCodec
-public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
+public final class Depset implements SkylarkValue {
   private final SkylarkType contentType;
   private final NestedSet<?> set;
   @Nullable private final ImmutableList<Object> items;
   @Nullable private final ImmutableList<NestedSet<?>> transitiveItems;
 
   @AutoCodec.VisibleForSerialization
-  SkylarkNestedSet(
+  Depset(
       SkylarkType contentType,
       NestedSet<?> set,
       ImmutableList<Object> items,
@@ -103,12 +107,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     this.transitiveItems = transitiveItems;
   }
 
-  static SkylarkNestedSet of(
-      Order order,
-      SkylarkType contentType,
-      Object item,
-      Location loc,
-      @Nullable SkylarkNestedSet left)
+  static Depset of(
+      Order order, SkylarkType contentType, Object item, Location loc, @Nullable Depset left)
       throws EvalException {
     ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
     ImmutableList.Builder<NestedSet<?>> transitiveItemsBuilder = ImmutableList.builder();
@@ -121,22 +121,18 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       }
     }
     // Adding the item
-    if (item instanceof SkylarkNestedSet) {
-      SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
+    if (item instanceof Depset) {
+      Depset nestedSet = (Depset) item;
       if (!nestedSet.isEmpty()) {
-        contentType = getTypeAfterInsert(
-            contentType, nestedSet.contentType, /*lastInsertedType=*/ null, loc);
+        contentType = checkType(contentType, nestedSet.contentType, loc);
         transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof Sequence) {
-      SkylarkType lastInsertedType = null;
-      // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
-      for (Object object : (Sequence) item) {
-        SkylarkType elemType = SkylarkType.of(object);
-        contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
-        lastInsertedType = elemType;
-        checkImmutable(object, loc);
-        itemsBuilder.add(object);
+      for (Object x : (Sequence) item) {
+        EvalUtils.checkValidDictKey(x);
+        SkylarkType xt = SkylarkType.of(x);
+        contentType = checkType(contentType, xt, loc);
+        itemsBuilder.add(x);
       }
     } else {
       throw new EvalException(
@@ -157,97 +153,66 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       // Order mismatch between item and builder.
       throw new EvalException(loc, e.getMessage());
     }
-    return new SkylarkNestedSet(contentType, builder.build(), items, transitiveItems);
+    return new Depset(contentType, builder.build(), items, transitiveItems);
   }
 
-  static SkylarkNestedSet of(Order order, Object item, Location loc) throws EvalException {
+  static Depset of(Order order, Object item, Location loc) throws EvalException {
     // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if item is an empty SkylarkNestedSet or Sequence.
+    // (should be BOTTOM) if item is an empty Depset or Sequence.
     return of(order, SkylarkType.TOP, item, loc, null);
   }
 
-  static SkylarkNestedSet of(SkylarkNestedSet left, Object right, Location loc)
-      throws EvalException {
+  static Depset of(Depset left, Object right, Location loc) throws EvalException {
     return of(left.set.getOrder(), left.contentType, right, loc, left);
   }
 
   /**
-   * Returns a type-safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   * Returns a type-safe Depset. Use this instead of the constructor if possible.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
    */
-  // TODO(adonovan): enforce that we never construct a SkylarkNestedSet with a StarlarkType
+  // TODO(adonovan): enforce that we never construct a Depset with a StarlarkType
   // that represents a non-Skylark type (e.g. NestedSet<PathFragment>).
   // One way to do that is to disallow constructing StarlarkTypes for classes
-  // that would fail isSkylarkAcceptable; however remains the problem that
+  // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
-  public static <T> SkylarkNestedSet of(SkylarkType contentType, NestedSet<T> set) {
-    return new SkylarkNestedSet(contentType, set, null, null);
+  public static <T> Depset of(SkylarkType contentType, NestedSet<T> set) {
+    return new Depset(contentType, set, null, null);
   }
 
   /**
-   * Returns a type safe SkylarkNestedSet. Use this instead of the constructor if possible.
+   * Returns a type safe Depset. Use this instead of the constructor if possible.
    *
    * <p>This operation is type-safe only if the specified element type is appropriate for every
    * element of the set.
    */
-  public static <T> SkylarkNestedSet of(Class<T> contentType, NestedSet<T> set) {
+  public static <T> Depset of(Class<T> contentType, NestedSet<T> set) {
     return of(SkylarkType.of(contentType), set);
   }
-
-  private static final SkylarkType DICT_LIST_UNION =
-      SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST);
 
   /**
    * Checks that an item type is allowed in a given set type, and returns the type of a new depset
    * with that item inserted.
    */
-  private static SkylarkType getTypeAfterInsert(
-      SkylarkType depsetType, SkylarkType itemType, SkylarkType lastInsertedType, Location loc)
+  private static SkylarkType checkType(SkylarkType depsetType, SkylarkType itemType, Location loc)
       throws EvalException {
-    if (lastInsertedType != null && lastInsertedType.equals(itemType)) {
-      // Fast path, type shouldn't have changed, so no need to check.
-      // TODO(bazel-team): Make skylark type checking less expensive.
-      return depsetType;
-    }
-
-    // Check not dict or list.
-    if (SkylarkType.intersection(DICT_LIST_UNION, itemType) != SkylarkType.BOTTOM) {
-      throw new EvalException(
-          loc, String.format("depsets cannot contain items of type '%s'", itemType));
-    }
-
-    SkylarkType resultType = SkylarkType.intersection(depsetType, itemType);
-
-    // New depset type should follow the following rules:
-    // 1. Only empty depsets may be of type TOP.
-    // 2. If the previous depset type fully contains the new item type, then the depset type is
-    //    retained.
-    // 3. If the item type fully contains the old depset type, then the depset type becomes the
-    //    item type. (The depset type becomes less strict.)
-    // 4. Otherwise, the insert is invalid.
-    if (depsetType == SkylarkType.TOP) {
-      return resultType;
-    } else if (resultType.equals(itemType)) {
-      return depsetType;
-    } else if (resultType.equals(depsetType)) {
+    // An initially empty depset takes its type from the first element added.
+    // Otherwise, the types of the item and depset must match exactly.
+    //
+    // TODO(adonovan): why is the empty depset TOP, not BOTTOM?
+    // T ^ TOP == TOP, whereas T ^ BOTTOM == T.
+    // This can't be changed without breaking callers of getContentType who
+    // expect to see TOP. Maybe this is minor, but it at least would require
+    // changes to EvalUtils#getDataTypeName so that it
+    // can continue to print "depset of Objects" instead of "depset of EmptyTypes".
+    // Better yet, break the behavior and change it to "empty depset".
+    if (depsetType == SkylarkType.TOP || depsetType.equals(itemType)) {
       return itemType;
-    } else {
-      throw new EvalException(
-          loc,
-          String.format(
-              "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
     }
-  }
-
-  /**
-   * Throws EvalException if a given value is mutable.
-   */
-  private static void checkImmutable(Object o, Location loc) throws EvalException {
-    if (!EvalUtils.isImmutable(o)) {
-      throw new EvalException(loc, "depsets cannot contain mutable items");
-    }
+    throw new EvalException(
+        loc,
+        String.format("cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
   }
 
   /**
@@ -274,6 +239,20 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   // The precondition ensures generic type safety, and sets are immutable.
   @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
+    // TODO(adonovan): eliminate this function and toCollection in favor of ones
+    // that accept a SkylarkType augmented with a type parameter so that it acts
+    // like a "reified generic": whereas a Class symbol can express only the
+    // top-level value tag, a SkylarkType could express an entire type such as
+    // Set<List<String+Integer>>, and act as a "witness" or existential type to
+    // unlock the untyped nested set. For example:
+    //
+    //  public <T> NestedSet<T> getSet(SkylarkType<NestedSet<T>> witness) throws TypeException {
+    //     if (this.type.matches(witness)) {
+    //         return witness.convert(this);
+    //     }
+    //     throw TypeException;
+    // }
+
     checkHasContentType(type);
     return (NestedSet<T>) set;
   }
@@ -338,8 +317,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
    *
    * <p>If the parameter's value is None, returns an empty nested set.
    *
-   * @throws EvalException if the parameter is neither None nor a SkylarkNestedSet, or if it is a
-   *     SkylarkNestedSet of an unexpected type
+   * @throws EvalException if the parameter is neither None nor a Depset, or if it is a Depset of an
+   *     unexpected type
    */
   // TODO(b/140932420): Better noneable handling should prevent instanceof checking.
   public static <T> NestedSet<T> getSetFromNoneableParam(
@@ -347,8 +326,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     if (depsetOrNone == Starlark.NONE) {
       return NestedSetBuilder.<T>emptySet(Order.STABLE_ORDER);
     }
-    if (depsetOrNone instanceof SkylarkNestedSet) {
-      SkylarkNestedSet depset = (SkylarkNestedSet) depsetOrNone;
+    if (depsetOrNone instanceof Depset) {
+      Depset depset = (Depset) depsetOrNone;
       return depset.getSetFromParam(expectedType, fieldName);
     } else {
       throw new EvalException(
@@ -397,11 +376,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     printer.append(")");
   }
 
-  @Override
-  public final boolean containsKey(Object key, Location loc) throws EvalException {
-    return set.toList().contains(key);
-  }
-
   @SkylarkCallable(
       name = "union",
       doc =
@@ -413,7 +387,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public SkylarkNestedSet union(Object newElements, Location loc, StarlarkThread thread)
+  public Depset union(Object newElements, Location loc, StarlarkThread thread)
       throws EvalException {
     if (thread.getSemantics().incompatibleDepsetUnion()) {
       throw new EvalException(
@@ -424,9 +398,9 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
               + "to temporarily disable this check.");
     }
     // newElements' type is Object because of the polymorphism on unioning two
-    // SkylarkNestedSets versus a set and another kind of iterable.
+    // Depsets versus a set and another kind of iterable.
     // Can't use EvalUtils#toIterable since that would discard this information.
-    return SkylarkNestedSet.of(this, newElements, loc);
+    return Depset.of(this, newElements, loc);
   }
 
   @SkylarkCallable(
@@ -443,7 +417,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   public StarlarkList<Object> toList(Location location, StarlarkThread thread)
       throws EvalException {
     try {
-      return StarlarkList.copyOf(thread, this.toCollection());
+      return StarlarkList.copyOf(thread.mutability(), this.toCollection());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           location,
@@ -466,10 +440,10 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   }
 
   /**
-   * Builder for {@link SkylarkNestedSet}.
+   * Builder for {@link Depset}.
    *
-   * <p>Use this to construct typesafe Skylark nested sets (depsets).
-   * Encapsulates content type checking logic.
+   * <p>Use this to construct typesafe Skylark nested sets (depsets). Encapsulates content type
+   * checking logic.
    */
   public static final class Builder {
 
@@ -477,8 +451,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     private final NestedSetBuilder<Object> builder;
     /** Location for error messages */
     private final Location location;
+
     private SkylarkType contentType = SkylarkType.TOP;
-    private SkylarkType lastInsertedType = null;
 
     private Builder(Order order, Location location) {
       this.order = order;
@@ -486,30 +460,24 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       this.builder = new NestedSetBuilder<>(order);
     }
 
-    /**
-     * Add a direct element, checking its type to be compatible to already added
-     * elements and transitive sets.
-     */
-    public Builder addDirect(Object direct) throws EvalException {
-      SkylarkType elemType = SkylarkType.of(direct);
-      contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, location);
-      lastInsertedType = elemType;
-      builder.add(direct);
+    /** Adds a direct element, checking that its type is equal to the elements already added. */
+    public Builder addDirect(Object x) throws EvalException {
+      // TODO(adonovan): this check causes depset(Target) to fail (see reviewlog).
+      // Investigate how/why user code is exploiting the weak check.
+      // EvalUtils.checkValidDictKey(x);
+      SkylarkType xt = SkylarkType.of(x);
+      this.contentType = checkType(contentType, xt, location);
+      builder.add(x);
       return this;
     }
 
-    /**
-     * Add a transitive set, checking its content type to be compatible to already added
-     * elements and transitive sets.
-     */
-    public Builder addTransitive(SkylarkNestedSet transitive) throws EvalException {
+    /** Adds a transitive set, checking that its type is equal to the elements already added. */
+    public Builder addTransitive(Depset transitive) throws EvalException {
       if (transitive.isEmpty()) {
         return this;
       }
 
-      contentType = getTypeAfterInsert(
-          contentType, transitive.getContentType(), lastInsertedType, this.location);
-      lastInsertedType = transitive.getContentType();
+      this.contentType = checkType(contentType, transitive.getContentType(), location);
 
       if (!order.isCompatible(transitive.getOrder())) {
         throw new EvalException(location,
@@ -520,8 +488,8 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       return this;
     }
 
-    public SkylarkNestedSet build() {
-      return new SkylarkNestedSet(contentType, builder.build(), null, null);
+    public Depset build() {
+      return new Depset(contentType, builder.build(), null, null);
     }
   }
 

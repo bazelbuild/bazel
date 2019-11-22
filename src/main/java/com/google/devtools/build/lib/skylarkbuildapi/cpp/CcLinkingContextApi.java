@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -51,12 +51,12 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends SkylarkValue
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)
-  SkylarkNestedSet getSkylarkNonCodeInputs();
+  Depset getSkylarkNonCodeInputs();
 
   @SkylarkCallable(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
-  SkylarkNestedSet getSkylarkLinkerInputs();
+  Depset getSkylarkLinkerInputs();
 }

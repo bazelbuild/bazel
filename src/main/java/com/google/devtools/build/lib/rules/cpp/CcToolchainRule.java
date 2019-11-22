@@ -224,22 +224,15 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
-
-        <p>Currently also used for archiving actions
-         (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("linker_files", LABEL)

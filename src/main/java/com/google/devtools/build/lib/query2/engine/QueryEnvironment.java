@@ -559,6 +559,9 @@ public interface QueryEnvironment<T> {
      */
     boolean isTestSuite(T target);
 
+    /** Returns whether the given target is an alias rule. */
+    boolean isAlias(T target);
+
     /**
      * If the attribute of the given name on the given target is a label or label list, then this
      * method returns the list of corresponding target instances. Otherwise returns an empty list.
@@ -567,7 +570,7 @@ public interface QueryEnvironment<T> {
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */
-    Iterable<T> getLabelListAttr(
+    Iterable<T> getPrerequisites(
         QueryExpression caller, T target, String attrName, String errorMsgPrefix)
         throws QueryException, InterruptedException;
 

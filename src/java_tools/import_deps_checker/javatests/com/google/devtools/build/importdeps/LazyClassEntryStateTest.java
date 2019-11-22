@@ -39,11 +39,12 @@ public class LazyClassEntryStateTest {
 
   @Test
   public void testExistingState() {
-    ExistingState state = ExistingState.create(LIST_CLASS_INFO);
+    ExistingState state = ExistingState.create(LIST_CLASS_INFO, /* direct= */ true);
 
     assertThat(state.isExistingState()).isTrue();
     assertThat(state.isIncompleteState()).isFalse();
     assertThat(state.isMissingState()).isFalse();
+    assertThat(state.direct()).isTrue();
 
     assertThat(state.asExistingState()).isSameInstanceAs(state);
     assertThrows(IllegalStateException.class, () -> state.asIncompleteState());

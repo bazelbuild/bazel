@@ -56,6 +56,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)

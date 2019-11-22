@@ -37,17 +37,16 @@ import java.util.Collection;
 @Immutable
 @ThreadSafe
 @VisibleForTesting
-public final class TestSuiteExpansionValue implements SkyValue {
+public final class TestsForTargetPatternValue implements SkyValue {
   private ResolvedTargets<Label> labels;
 
-  TestSuiteExpansionValue(ResolvedTargets<Label> labels) {
+  TestsForTargetPatternValue(ResolvedTargets<Label> labels) {
     this.labels = Preconditions.checkNotNull(labels);
   }
 
   public ResolvedTargets<Label> getLabels() {
     return labels;
   }
-
 
   @SuppressWarnings("unused")
   private void writeObject(ObjectOutputStream out) {
@@ -71,16 +70,16 @@ public final class TestSuiteExpansionValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(Collection<Label> targets) {
-    return new TestSuiteExpansionKey(ImmutableSortedSet.copyOf(targets));
+    return new TestsForTargetPatternKey(ImmutableSortedSet.copyOf(targets));
   }
 
   /** A list of targets of which all test suites should be expanded. */
   @AutoCodec
   @ThreadSafe
-  static final class TestSuiteExpansionKey implements SkyKey {
+  static final class TestsForTargetPatternKey implements SkyKey {
     private final ImmutableSortedSet<Label> targets;
 
-    public TestSuiteExpansionKey(ImmutableSortedSet<Label> targets) {
+    public TestsForTargetPatternKey(ImmutableSortedSet<Label> targets) {
       this.targets = targets;
     }
 
@@ -108,10 +107,10 @@ public final class TestSuiteExpansionValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestSuiteExpansionKey)) {
+      if (!(obj instanceof TestsForTargetPatternKey)) {
         return false;
       }
-      TestSuiteExpansionKey other = (TestSuiteExpansionKey) obj;
+      TestsForTargetPatternKey other = (TestsForTargetPatternKey) obj;
       return other.targets.equals(targets);
     }
   }

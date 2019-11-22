@@ -60,12 +60,15 @@ public abstract class StarlarkSemantics {
     EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
     EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
+    EXPERIMENTAL_REPO_REMOTE_EXEC(StarlarkSemantics::experimentalRepoRemoteExec),
     INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
     INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
+    INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES(
+        StarlarkSemantics::incompatibleRemoveEnabledToolchainTypes),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -128,6 +131,8 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean debugDepsetDepth();
+
   public abstract boolean experimentalActionArgs();
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
@@ -150,9 +155,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalCcSharedLibrary();
 
-  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
+  public abstract boolean experimentalRepoRemoteExec();
 
-  public abstract boolean incompatibleDepsetIsNotIterable();
+  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetUnion();
 
@@ -186,11 +191,11 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemapMainRepo();
 
+  public abstract boolean incompatibleRemoveEnabledToolchainTypes();
+
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
-
-  public abstract boolean incompatibleStringJoinRequiresStrings();
 
   public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
@@ -205,6 +210,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
   public abstract boolean experimentalAllowTagsPropagation();
+
+  public abstract boolean incompatibleUseCcConfigureFromRulesCc();
 
   @Memoized
   @Override
@@ -239,6 +246,7 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .debugDepsetDepth(false)
           .experimentalActionArgs(false)
           .experimentalAllowTagsPropagation(false)
           .experimentalAspectOutputPropagation(false)
@@ -251,8 +259,8 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
+          .experimentalRepoRemoteExec(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
@@ -269,15 +277,17 @@ public abstract class StarlarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleRemapMainRepo(true)
+          .incompatibleRemoveEnabledToolchainTypes(false)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
-          .incompatibleStringJoinRequiresStrings(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleDisallowDictLookupUnhashableKeys(false)
+          .incompatibleUseCcConfigureFromRulesCc(false)
+          .incompatibleDisallowDictLookupUnhashableKeys(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -285,6 +295,8 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder debugDepsetDepth(boolean value);
+
     public abstract Builder experimentalActionArgs(boolean value);
 
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
@@ -309,9 +321,9 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 
-    public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
+    public abstract Builder experimentalRepoRemoteExec(boolean value);
 
-    public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
+    public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
@@ -345,11 +357,11 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
+    public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
+
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
-
-    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
 
     public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
 
@@ -362,6 +374,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
+
+    public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract StarlarkSemantics build();
   }

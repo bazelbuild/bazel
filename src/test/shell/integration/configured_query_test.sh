@@ -399,7 +399,10 @@ cc_library(
 
 config_setting(
     name = "py_reading_condition",
-    values = {"build_python_zip": "1"}
+    values = {
+      "build_python_zip": "1",
+      "shell_executable": "foo"
+    }
 )
 
 cc_library(
@@ -418,9 +421,11 @@ EOF
   assert_not_contains "//$pkg:cclib .*PythonOptions" output
 
   assert_contains "//$pkg:py_reading_condition .*PythonOptions" output
+  assert_contains "//$pkg:py_reading_condition .*ShellConfiguration\$Options" output
 
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
   assert_contains "//$pkg:cclib_with_select .*PythonOptions" output
+  assert_contains "//$pkg:cclib_with_select .*ShellConfiguration\$Options" output
 }
 
 function test_show_config_fragments_select_on_starlark_option() {

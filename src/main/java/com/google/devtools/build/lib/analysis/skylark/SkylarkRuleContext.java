@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -84,7 +85,6 @@ import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -211,7 +211,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          outputs.addOutput(attrName, Sequence.createImmutable(artifacts));
+          outputs.addOutput(attrName, StarlarkList.immutableCopyOf(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -444,7 +444,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           value = splitPrereq.getValue().get(0);
         } else {
           // BuildType.LABEL_LIST
-          value = Sequence.createImmutable(splitPrereq.getValue());
+          value = StarlarkList.immutableCopyOf(splitPrereq.getValue());
         }
 
         if (splitPrereq.getKey().isPresent()) {
@@ -708,7 +708,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     } catch (TokenizationException e) {
       throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return Sequence.createImmutable(options);
+    return StarlarkList.immutableCopyOf(options);
   }
 
   @Override
@@ -1009,7 +1009,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((SkylarkNestedSet) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Skylark code directly manipulates symlinks, activate more stringent validity checking.
@@ -1047,7 +1047,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       throws ConversionException, EvalException {
     checkMutable("resolve_command");
     Label ruleLabel = getLabel();
-    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, thread);
+    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
@@ -1066,7 +1066,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
     List<Artifact> inputs = new ArrayList<>();
     // TODO(lberki): This flattens a NestedSet.
-    // However, we can't turn this into a SkylarkNestedSet because it's an incompatible change to
+    // However, we can't turn this into a Depset because it's an incompatible change to
     // Skylark.
     Iterables.addAll(inputs, helper.getResolvedTools());
 
@@ -1088,8 +1088,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.<Object>of(
-        StarlarkList.copyOf(thread, inputs),
-        StarlarkList.copyOf(thread, argv),
+        StarlarkList.copyOf(thread.mutability(), inputs),
+        StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 
@@ -1101,8 +1101,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.<Object>of(
-        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
-        helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getSkylarkSemantics() {
@@ -1111,12 +1110,12 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   /**
    * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
-   * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
-   * Returns a corresponding map where any sets are replaced by iterables.
+   * {@link Iterable} or {@link Depset} type, and raises {@link EvalException} otherwise. Returns a
+   * corresponding map where any sets are replaced by iterables.
    */
   // TODO(bazel-team): find a better way to typecheck this argument.
-  private static Map<Label, Iterable<Artifact>> checkLabelDict(
-      Map<?, ?> labelDict, Location loc, StarlarkThread thread) throws EvalException {
+  private static Map<Label, Iterable<Artifact>> checkLabelDict(Map<?, ?> labelDict, Location loc)
+      throws EvalException {
     Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
@@ -1126,12 +1125,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
       Iterable<?> valIter;
-      try {
-        valIter = EvalUtils.toIterableStrict(val, loc, thread);
-      } catch (EvalException ex) {
-        // EvalException is thrown only if the type is wrong.
+      if (val instanceof Iterable) {
+        valIter = (Iterable<?>) val;
+      } else {
         throw new EvalException(
-            loc, Printer.format("invalid value %r in 'label_dict': " + ex, val));
+            loc,
+            Printer.format(
+                "invalid value %r in 'label_dict': expected iterable, but got '%s'",
+                val, EvalUtils.getDataTypeName(val)));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {

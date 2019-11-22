@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -288,7 +289,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         foundMismatch = true;
         continue;
       }
-      requiredFragmentOptions.add(optionClass.getSimpleName());
+      requiredFragmentOptions.add(ClassName.getSimpleNameWithOuter(optionClass));
 
       SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
       if (selectRestriction != null) {

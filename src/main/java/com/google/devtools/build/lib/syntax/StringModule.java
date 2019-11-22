@@ -109,22 +109,19 @@ final class StringModule implements SkylarkValue {
             type = Object.class,
             doc = "The objects to join.")
       },
-      useLocation = true,
-      useStarlarkThread = true)
-  public String join(String self, Object elements, Location loc, StarlarkThread thread)
-      throws EvalException {
-    Collection<?> items = EvalUtils.toCollection(elements, loc, thread);
-    if (thread.getSemantics().incompatibleStringJoinRequiresStrings()) {
-      for (Object item : items) {
-        if (!(item instanceof String)) {
-          throw new EvalException(
-              loc,
-              "sequence element must be a string (got '"
-                  + EvalUtils.getDataTypeName(item)
-                  + "'). See https://github.com/bazelbuild/bazel/issues/7802 for information about "
-                  + "--incompatible_string_join_requires_strings.");
-        }
+      useLocation = true)
+  public String join(String self, Object elements, Location loc) throws EvalException {
+    Collection<?> items = EvalUtils.toCollection(elements, loc);
+    int i = 0;
+    for (Object item : items) {
+      if (!(item instanceof String)) {
+        throw new EvalException(
+            loc,
+            String.format(
+                "expected string for sequence element %d, got '%s'",
+                i, EvalUtils.getDataTypeName(item)));
       }
+      i++;
     }
     return Joiner.on(self).join(items);
   }
@@ -360,7 +357,7 @@ final class StringModule implements SkylarkValue {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return StarlarkList.wrapUnsafe(thread, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(
@@ -410,7 +407,7 @@ final class StringModule implements SkylarkValue {
       end = start;
     }
     Collections.reverse(res);
-    return StarlarkList.wrapUnsafe(thread, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(
@@ -782,7 +779,7 @@ final class StringModule implements SkylarkValue {
         result.add(line);
       }
     }
-    return Sequence.createImmutable(result);
+    return StarlarkList.immutableCopyOf(result);
   }
 
   @SkylarkCallable(
@@ -970,7 +967,7 @@ final class StringModule implements SkylarkValue {
     for (char c : self.toCharArray()) {
       builder.add(String.valueOf(c));
     }
-    return Sequence.createImmutable(builder.build());
+    return StarlarkList.immutableCopyOf(builder.build());
   }
 
   @SkylarkCallable(

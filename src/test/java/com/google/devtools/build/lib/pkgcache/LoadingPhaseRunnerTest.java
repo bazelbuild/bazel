@@ -82,7 +82,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkyframeExecutor#loadTargetPatterns}. */
+/** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
 @RunWith(JUnit4.class)
 public class LoadingPhaseRunnerTest {
 
@@ -481,6 +481,48 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
         .containsExactly(Label.parseAbsoluteUnchecked("//cc:tests"));
+  }
+
+  @Test
+  public void testAliasedBuildTestsOnly() throws Exception {
+    tester.addFile(
+        "t/BUILD",
+        "sh_test(name='t', srcs=['t.sh'])",
+        "sh_binary(name='b', srcs=['b.sh'])",
+        "alias(name='ta', actual=':t')",
+        "alias(name='ba', actual=':b')");
+    tester.useLoadingOptions("--build_tests_only");
+    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//t:ta", "//t:ba"));
+    assertThat(loadingResult.getTargetLabels()).containsExactlyElementsIn(getLabels("//t:t"));
+  }
+
+  @Test
+  public void testAliasedTestExpansion() throws Exception {
+    tester.addFile("sh/BUILD", "sh_test(name='t', srcs=['t.sh'])", "alias(name='a', actual=':t')");
+    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a"));
+    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
+  }
+
+  @Test
+  public void testAliasedTestSuite() throws Exception {
+    tester.addFile(
+        "sh/BUILD",
+        "sh_test(name='t', srcs=['t.sh'])",
+        "test_suite(name='ts', tests=[':t'])",
+        "alias(name='a', actual=':ts')");
+    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a"));
+    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
+  }
+
+  @Test
+  public void testDoubleAliasedTestExpansion() throws Exception {
+    tester.addFile(
+        "sh/BUILD",
+        "sh_test(name='t', srcs=['t.sh'])",
+        "alias(name='a1', actual=':t')",
+        "alias(name='a2', actual=':a1')");
+    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a2"));
+    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
   }
 
   @Test
@@ -1308,7 +1350,7 @@ public class LoadingPhaseRunnerTest {
       sync();
       storedErrors.clear();
       TargetPatternPhaseValue result =
-          skyframeExecutor.loadTargetPatterns(
+          skyframeExecutor.loadTargetPatternsWithFilters(
               storedErrors,
               ImmutableList.copyOf(patterns),
               relativeWorkingDirectory,

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -68,6 +70,103 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+  }
+
+  @Test
+  public void xcodeVersionConfig_isFunction() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='1.1',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9'))]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+    assertThat(info.getValue("xcode_version"))
+        .isEqualTo(
+            new XcodeConfigInfo(
+                DottedVersion.fromStringUnchecked("1.1"),
+                DottedVersion.fromStringUnchecked("1.2"),
+                DottedVersion.fromStringUnchecked("1.3"),
+                DottedVersion.fromStringUnchecked("1.4"),
+                DottedVersion.fromStringUnchecked("1.5"),
+                DottedVersion.fromStringUnchecked("1.6"),
+                DottedVersion.fromStringUnchecked("1.7"),
+                DottedVersion.fromStringUnchecked("1.8"),
+                DottedVersion.fromStringUnchecked("1.9")));
+  }
+
+  @Test
+  public void xcodeVersionConfig_throwsOnBadInput() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='not a valid dotted version',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9'))]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
+    assertContainsEvent("Dotted version components must all be of the form");
+    assertContainsEvent("got 'not a valid dotted version'");
+  }
+
+  @Test
+  public void xcodeVersionConfig_exposesExpectedAttributes() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='1.1',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9')",
+        "  return [result(xcode_version=xcode_version.xcode_version(),"
+            + " min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+    assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.9");
+    assertThat(info.getValue("min_os").toString()).isEqualTo("1.8");
   }
 
   @Test
@@ -761,13 +860,13 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     return provider.getSdkVersionForPlatform(platform);
   }
 
   private DottedVersion getMinimumOsVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     return provider.getMinimumOsForPlatformType(platform.getType());
   }
 
@@ -777,7 +876,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private void assertXcodeVersion(String version, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
   }
 

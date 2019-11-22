@@ -516,7 +516,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("4 in range(0, 8, 2)", true)
         .testExpression("4 in range(1, 8, 2)", false)
         .testExpression("range(0, 5, 10) == range(0, 5, 11)", true)
-        .testExpression("range(0, 5, 2) == [0, 2, 4]", false);
+        .testExpression("range(0, 5, 2) == [0, 2, 4]", false)
+        .testExpression("str(list(range(1, 10, 2)))", "[1, 3, 5, 7, 9]")
+        .testExpression("str(range(1, 10, 2)[:99])", "range(1, 11, 2)")
+        .testExpression("range(1, 10, 2) == range(1, 11, 2)", true)
+        .testExpression("range(1, 10, 2) == range(1, 12, 2)", false);
   }
 
   @Test
@@ -748,15 +752,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringJoinRequiresStrings() throws Exception {
-    new SkylarkTest("--incompatible_string_join_requires_strings")
+    new SkylarkTest()
         .testIfErrorContains(
-            "sequence element must be a string (got 'int')", "', '.join(['foo', 2])");
-  }
-
-  @Test
-  public void testStringJoinDoesNotRequireStrings() throws Exception {
-    new SkylarkTest("--incompatible_string_join_requires_strings=false")
-        .testEval("', '.join(['foo', 2])", "'foo, 2'");
+            "expected string for sequence element 1, got 'int'", "', '.join(['foo', 2])");
   }
 
   @Test
@@ -807,5 +805,19 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("depset exceeded maximum depth 2000", "print(too_deep_depset)")
         .testIfErrorContains("depset exceeded maximum depth 2000", "str(too_deep_depset)")
         .testIfErrorContains("depset exceeded maximum depth 2000", "too_deep_depset.to_list()");
+  }
+
+  @Test
+  public void testDepsetDebugDepth() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new SkylarkTest("--debug_depset_depth=true")
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  return x")
+        .testEval("str(create_depset(900))[0:6]", "'depset'")
+        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
   }
 }

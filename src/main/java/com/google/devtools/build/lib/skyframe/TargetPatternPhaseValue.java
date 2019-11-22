@@ -166,6 +166,19 @@ public final class TargetPatternPhaseValue implements SkyValue {
         testFilter);
   }
 
+  /**
+   * Creates a new target pattern sky key which represents the given target patterns without
+   * attempting to filter them in any way (for example, ignores options such as only loading tests).
+   *
+   * @param targetPatterns list of targets to evaluate
+   * @param offset relative path to the working directory
+   */
+  @ThreadSafe
+  public static SkyKey keyWithoutFilters(ImmutableList<String> targetPatterns, String offset) {
+    return new TargetPatternPhaseKey(
+        targetPatterns, offset, false, false, false, ImmutableList.of(), false, false, null);
+  }
+
   /** The configuration needed to run the target pattern evaluation phase. */
   @ThreadSafe
   @VisibleForSerialization

@@ -198,7 +198,6 @@ function test_nobatch() {
   local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
   assert_equals "$pid1" "$pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_not_log "WARNING.* --batch mode is deprecated."
 }
 
 # Regression test for #1875189, "bazel client should pass through '--help' like
@@ -229,7 +228,6 @@ function test_batch() {
   local pid2=$(bazel --batch info server_pid 2> $TEST_log)
   assert_not_equals "$pid1" "$pid2"
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "WARNING.* --batch mode is deprecated."
 }
 
 function test_cmdline_not_written_in_batch_mode() {

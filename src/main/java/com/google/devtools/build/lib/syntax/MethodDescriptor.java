@@ -150,6 +150,9 @@ public final class MethodDescriptor {
       return Starlark.NONE;
     }
     if (result == null) {
+      // TODO(adonovan): eliminate allowReturnNones. Given that we convert
+      // String/Integer/Boolean/List/Map, it seems obtuse to crash instead
+      // of converting null too.
       if (isAllowReturnNones()) {
         return Starlark.NONE;
       } else {
@@ -157,15 +160,9 @@ public final class MethodDescriptor {
             "method invocation returned None: " + getName() + Tuple.copyOf(Arrays.asList(args)));
       }
     }
-    // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
-    result = SkylarkType.convertToSkylark(result, method, thread);
-    if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-      throw new EvalException(
-          loc,
-          Printer.format(
-              "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
-    }
-    return result;
+
+    // Careful: thread may be null when we are called by invokeStructField.
+    return Starlark.fromJava(result, thread != null ? thread.mutability() : null);
   }
 
   /** @see SkylarkCallable#name() */

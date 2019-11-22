@@ -17,23 +17,24 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
 /**
  * The set of Apple versions computed from command line options and the {@code xcode_config} rule.
  */
 @Immutable
-public class XcodeConfigProvider extends NativeInfo
-    implements XcodeConfigProviderApi<ApplePlatform, ApplePlatform.PlatformType> {
+public class XcodeConfigInfo extends NativeInfo
+    implements XcodeConfigInfoApi<ApplePlatform, PlatformType> {
   /** Skylark name for this provider. */
   public static final String SKYLARK_NAME = "XcodeVersionConfig";
 
-  /** Provider identifier for {@link XcodeConfigProvider}. */
-  public static final NativeProvider<XcodeConfigProvider> PROVIDER =
-      new NativeProvider<XcodeConfigProvider>(XcodeConfigProvider.class, SKYLARK_NAME) {};
+  /** Provider identifier for {@link XcodeConfigInfo}. */
+  public static final BuiltinProvider<XcodeConfigInfo> PROVIDER = new XcodeConfigProvider();
 
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOsVersion;
@@ -45,11 +46,15 @@ public class XcodeConfigProvider extends NativeInfo
   private final DottedVersion macosMinimumOsVersion;
   @Nullable private final DottedVersion xcodeVersion;
 
-  public XcodeConfigProvider(
-      DottedVersion iosSdkVersion, DottedVersion iosMinimumOsVersion,
-      DottedVersion watchosSdkVersion, DottedVersion watchosMinimumOsVersion,
-      DottedVersion tvosSdkVersion, DottedVersion tvosMinimumOsVersion,
-      DottedVersion macosSdkVersion, DottedVersion macosMinimumOsVersion,
+  public XcodeConfigInfo(
+      DottedVersion iosSdkVersion,
+      DottedVersion iosMinimumOsVersion,
+      DottedVersion watchosSdkVersion,
+      DottedVersion watchosMinimumOsVersion,
+      DottedVersion tvosSdkVersion,
+      DottedVersion tvosMinimumOsVersion,
+      DottedVersion macosSdkVersion,
+      DottedVersion macosMinimumOsVersion,
       DottedVersion xcodeVersion) {
     super(PROVIDER);
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
@@ -63,6 +68,43 @@ public class XcodeConfigProvider extends NativeInfo
     this.xcodeVersion = xcodeVersion;
   }
 
+  /** Provider for class {@link XcodeConfigInfo} objects. */
+  private static class XcodeConfigProvider extends BuiltinProvider<XcodeConfigInfo>
+      implements XcodeConfigProviderApi {
+    XcodeConfigInfo xcodeConfigInfo;
+
+    private XcodeConfigProvider() {
+      super(SKYLARK_NAME, XcodeConfigInfo.class);
+    }
+
+    @Override
+    public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+        String iosSdkVersion,
+        String iosMinimumOsVersion,
+        String watchosSdkVersion,
+        String watchosMinimumOsVersion,
+        String tvosSdkVersion,
+        String tvosMinimumOsVersion,
+        String macosSdkVersion,
+        String macosMinimumOsVersion,
+        String xcodeVersion)
+        throws EvalException {
+      try {
+        return new XcodeConfigInfo(
+            DottedVersion.fromString(iosSdkVersion),
+            DottedVersion.fromString(iosMinimumOsVersion),
+            DottedVersion.fromString(watchosSdkVersion),
+            DottedVersion.fromString(watchosMinimumOsVersion),
+            DottedVersion.fromString(tvosSdkVersion),
+            DottedVersion.fromString(tvosMinimumOsVersion),
+            DottedVersion.fromString(macosSdkVersion),
+            DottedVersion.fromString(macosMinimumOsVersion),
+            DottedVersion.fromString(xcodeVersion));
+      } catch (DottedVersion.InvalidDottedVersionException e) {
+        throw new EvalException(null, e);
+      }
+    }
+  }
   /**
    * Returns the value of the xcode version, if available. This is determined based on a combination
    * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
@@ -90,9 +132,8 @@ public class XcodeConfigProvider extends NativeInfo
         return watchosMinimumOsVersion;
       case MACOS:
         return macosMinimumOsVersion;
-      default:
-        throw new IllegalArgumentException("Unhandled platform type: " + platformType);
     }
+    throw new IllegalArgumentException("Unhandled platform type: " + platformType);
   }
 
   /**
@@ -113,13 +154,12 @@ public class XcodeConfigProvider extends NativeInfo
         return watchosSdkVersion;
       case MACOS:
         return macosSdkVersion;
-      default:
-        throw new IllegalArgumentException("Unhandled platform: " + platform);
     }
+    throw new IllegalArgumentException("Unhandled platform: " + platform);
   }
 
-  public static XcodeConfigProvider fromRuleContext(RuleContext ruleContext) {
+  public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, Mode.TARGET, XcodeConfigProvider.PROVIDER);
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, Mode.TARGET, XcodeConfigInfo.PROVIDER);
   }
 }

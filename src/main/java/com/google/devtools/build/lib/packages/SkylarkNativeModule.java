@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -121,7 +120,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       throw new EvalException(loc, "illegal argument in call to glob", e);
     }
 
-    return StarlarkList.copyOf(thread, matches);
+    return StarlarkList.copyOf(thread.mutability(), matches);
   }
 
   @Override
@@ -385,7 +384,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
         m.put(key, mapVal);
       }
-      return SkylarkType.convertToSkylark(m, mu);
+      return Starlark.fromJava(m, mu);
     }
     if (val.getClass().isAnonymousClass()) {
       // Computed defaults. They will be represented as

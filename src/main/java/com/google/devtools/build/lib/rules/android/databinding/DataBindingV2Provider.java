@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
@@ -75,6 +76,10 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveBRFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveBRFiles);
+  }
+
   public NestedSet<Artifact> getTransitiveBRFiles() {
     return transitiveBRFiles;
   }
@@ -86,6 +91,10 @@ public final class DataBindingV2Provider extends NativeInfo
   }
 
   @Override
+  public Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark() {
+    return Depset.of(LabelJavaPackagePair.class, transitiveLabelAndJavaPackages);
+  }
+
   public NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages() {
     return transitiveLabelAndJavaPackages;
   }
@@ -96,6 +105,7 @@ public final class DataBindingV2Provider extends NativeInfo
       Artifact brFile,
       String label,
       String javaPackage,
+      // ugh these *Api types do not help one bit
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
       Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports) {
 
@@ -126,7 +136,8 @@ public final class DataBindingV2Provider extends NativeInfo
 
     if (databindingV2ProvidersInDeps != null) {
 
-      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInDeps) {
+      for (DataBindingV2ProviderApi<Artifact> p : databindingV2ProvidersInDeps) {
+        DataBindingV2Provider provider = (DataBindingV2Provider) p;
         brFiles.addTransitive(provider.getTransitiveBRFiles());
         transitiveLabelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
@@ -136,7 +147,8 @@ public final class DataBindingV2Provider extends NativeInfo
 
       // Add all of the information from providers from exported targets, so that targets which
       // depend on this target appear to depend on the exported targets.
-      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInExports) {
+      for (DataBindingV2ProviderApi<Artifact> p : databindingV2ProvidersInExports) {
+        DataBindingV2Provider provider = (DataBindingV2Provider) p;
         setterStoreFiles.addAll(provider.getSetterStores());
         classInfoFiles.addAll(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());

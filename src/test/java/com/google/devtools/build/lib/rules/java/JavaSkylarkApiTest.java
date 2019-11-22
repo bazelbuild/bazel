@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.ArrayList;
@@ -315,12 +315,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet transitiveRuntimeJars =
-        ((SkylarkNestedSet) info.getValue("transitive_runtime_jars"));
-    SkylarkNestedSet transitiveCompileTimeJars =
-        ((SkylarkNestedSet) info.getValue("transitive_compile_time_jars"));
-    SkylarkNestedSet compileJars = ((SkylarkNestedSet) info.getValue("compile_jars"));
-    SkylarkNestedSet fullCompileJars = ((SkylarkNestedSet) info.getValue("full_compile_jars"));
+    Depset transitiveRuntimeJars = ((Depset) info.getValue("transitive_runtime_jars"));
+    Depset transitiveCompileTimeJars = ((Depset) info.getValue("transitive_compile_time_jars"));
+    Depset compileJars = ((Depset) info.getValue("compile_jars"));
+    Depset fullCompileJars = ((Depset) info.getValue("full_compile_jars"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = ((Sequence<Artifact>) info.getValue("source_jars"));
     JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
@@ -1069,16 +1067,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .containsExactly("com.google.process.stuff");
     assertThat(
             Iterables.transform(
-                ((SkylarkNestedSet) info.getValue("processor_classpath")).toCollection(),
+                ((Depset) info.getValue("processor_classpath")).toCollection(),
                 o -> ((Artifact) o).getFilename()))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_class_jars")).toCollection())
         .hasSize(3); // from to_be_processed, dep, and export
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_class_jars")).toCollection())
         .contains(info.getValue("class_jar"));
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_source_jars")).toCollection())
         .hasSize(3); // from to_be_processed, dep, and export
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_source_jars")).toCollection())
         .contains(info.getValue("source_jar"));
   }
 
@@ -1123,11 +1121,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet rawMyCompileJars = (SkylarkNestedSet) (info.getValue("compile_jars"));
-    SkylarkNestedSet rawMyTransitiveRuntimeJars =
-        (SkylarkNestedSet) (info.getValue("transitive_runtime_jars"));
-    SkylarkNestedSet rawMyTransitiveCompileTimeJars =
-        (SkylarkNestedSet) (info.getValue("transitive_compile_time_jars"));
+    Depset rawMyCompileJars = (Depset) info.getValue("compile_jars");
+    Depset rawMyTransitiveRuntimeJars = (Depset) info.getValue("transitive_runtime_jars");
+    Depset rawMyTransitiveCompileTimeJars = (Depset) info.getValue("transitive_compile_time_jars");
 
     NestedSet<Artifact> myCompileJars = rawMyCompileJars.getSet(Artifact.class);
     NestedSet<Artifact> myTransitiveRuntimeJars = rawMyTransitiveRuntimeJars.getSet(Artifact.class);
@@ -1379,7 +1375,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1412,7 +1408,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1445,7 +1441,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1478,7 +1474,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet exports = (SkylarkNestedSet) (info.getValue("property"));
+    Depset exports = (Depset) info.getValue("property");
 
     assertThat(exports.getSet(Label.class))
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
@@ -2275,7 +2271,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     useConfiguration(
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    SkylarkNestedSet files = (SkylarkNestedSet) ct.get("files");
+    Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toCollection(Artifact.class))).containsExactly("a/a.txt");
   }
 }

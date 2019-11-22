@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -37,7 +36,7 @@ import org.junit.runners.JUnit4;
 public class EvalUtilsTest extends EvaluationTestCase {
 
   private static StarlarkList<Object> makeList(StarlarkThread thread) {
-    return StarlarkList.of(thread, 1, 2, 3);
+    return StarlarkList.of(thread == null ? null : thread.mutability(), 1, 2, 3);
   }
 
   private static Dict<Object, Object> makeDict(StarlarkThread thread) {
@@ -97,11 +96,10 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
-      StarlarkList.of(thread, 1, 2, 3),
-      StarlarkList.of(thread, "1", "2", "3"),
+      StarlarkList.of(thread.mutability(), 1, 2, 3),
+      StarlarkList.of(thread.mutability(), "1", "2", "3"),
       Dict.of(thread, "key", 123),
       Dict.of(thread, 123, "value"),
-      NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 

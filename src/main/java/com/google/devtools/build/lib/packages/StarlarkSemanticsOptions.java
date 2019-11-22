@@ -64,6 +64,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "debug_depset_depth",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {},
+      help =
+          "Enables an expensive additional check that causes depset construction to fail fast if "
+              + "the depset's depth would exceed the limit specified by "
+              + "`--nested_set_depth_limit`. Ordinarily this failure occurs only when the depset "
+              + "is flattened, which may be far from its point of creation.")
+  public boolean debugDepsetDepth;
+
+  @Option(
       name = "experimental_action_args",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -182,6 +195,17 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalCcSharedLibrary;
 
   @Option(
+      name = "experimental_repo_remote_exec",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help = "If set to true, repository_rule gains some remote execution capabilities.")
+  public boolean experimentalRepoRemoteExec;
+
+  @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -223,21 +247,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
               + "Use the `depset` constructor instead.")
   public boolean incompatibleDepsetUnion;
-
-  @Option(
-      name = "incompatible_depset_is_not_iterable",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, depset type is not iterable. For loops and functions expecting an "
-              + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
-              + "convert to a list.")
-  public boolean incompatibleDepsetIsNotIterable;
 
   @Option(
       name = "incompatible_disable_target_provider_fields",
@@ -306,7 +315,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "incompatible_disallow_dict_lookup_unhashable_keys",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -343,21 +352,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "Deprecated. No-op.")
   // TODO(elenairina): Move option to graveyard after the flag is removed from the global blazerc.
   public boolean incompatibleDisallowLegacyJavaInfo;
-
-  @Option(
-      name = "incompatible_string_join_requires_strings",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the argument of `string.join` must be an iterable whose elements are "
-              + "strings. If set to false, elements are first converted to string. "
-              + "See https://github.com/bazelbuild/bazel/issues/7802")
-  public boolean incompatibleStringJoinRequiresStrings;
 
   @Option(
       name = "incompatible_disallow_struct_provider_syntax",
@@ -508,6 +502,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleRemapMainRepo;
 
   @Option(
+      name = "incompatible_remove_enabled_toolchain_types",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the platform configuration fragment cannot access the (deprecated) list"
+              + " of enabled toolchain types.")
+  public boolean incompatibleRemoveEnabledToolchainTypes;
+
+  @Option(
       name = "incompatible_run_shell_command_string",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -541,6 +549,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "doesn't selectively decide which flags go to the param file and which don't.  "
               + "See https://github.com/bazelbuild/bazel/issues/7670 for details.")
   public boolean incompatibleDoNotSplitLinkingCmdline;
+
+  @Option(
+      name = "incompatible_use_cc_configure_from_rules_cc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "When true, Bazel will no longer allow using cc_configure from @bazel_tools. "
+              + "Please see https://github.com/bazelbuild/bazel/issues/10134 for details and "
+              + "migration instructions.")
+  public boolean incompatibleUseCcConfigureFromRulesCc;
 
   @Option(
       name = "incompatible_restrict_named_params",
@@ -595,6 +618,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
+            .debugDepsetDepth(debugDepsetDepth)
             .experimentalActionArgs(experimentalActionArgs)
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
@@ -608,8 +632,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
+            .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
-            .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
@@ -628,13 +652,14 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
             .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
             .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
+            .incompatibleRemoveEnabledToolchainTypes(incompatibleRemoveEnabledToolchainTypes)
             .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
-            .incompatibleStringJoinRequiresStrings(incompatibleStringJoinRequiresStrings)
             .incompatibleVisibilityPrivateAttributesAtDefinition(
                 incompatibleVisibilityPrivateAttributesAtDefinition)
             .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
             .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
+            .incompatibleUseCcConfigureFromRulesCc(incompatibleUseCcConfigureFromRulesCc)
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleDisallowDictLookupUnhashableKeys(

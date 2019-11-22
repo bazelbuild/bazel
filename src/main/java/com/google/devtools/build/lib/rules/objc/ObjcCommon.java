@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -29,13 +28,11 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKMAP_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
@@ -96,11 +93,6 @@ public final class ObjcCommon {
     private final StarlarkSemantics semantics;
     private final BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
-    private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
-    private Iterable<SdkFramework> extraWeakSdkFrameworks = ImmutableList.of();
-    private Iterable<String> extraSdkDylibs = ImmutableList.of();
-    private Iterable<Artifact> staticFrameworkImports = ImmutableList.of();
-    private Iterable<Artifact> dynamicFrameworkImports = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
@@ -108,13 +100,11 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> repropagatedModuleMapObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
-    private Iterable<PathFragment> directDependencyIncludes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
-    private Optional<Artifact> linkmapFile = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
 
@@ -144,41 +134,6 @@ public final class ObjcCommon {
           "compilationAttributes is already set to: %s",
           this.compilationAttributes);
       this.compilationAttributes = Optional.of(baseCompilationAttributes);
-      return this;
-    }
-
-    Builder addExtraSdkFrameworks(Iterable<SdkFramework> extraSdkFrameworks) {
-      this.extraSdkFrameworks = Iterables.concat(this.extraSdkFrameworks, extraSdkFrameworks);
-      return this;
-    }
-
-    Builder addExtraWeakSdkFrameworks(Iterable<SdkFramework> extraWeakSdkFrameworks) {
-      this.extraWeakSdkFrameworks =
-          Iterables.concat(this.extraWeakSdkFrameworks, extraWeakSdkFrameworks);
-      return this;
-    }
-
-    Builder addExtraSdkDylibs(Iterable<String> extraSdkDylibs) {
-      this.extraSdkDylibs = Iterables.concat(this.extraSdkDylibs, extraSdkDylibs);
-      return this;
-    }
-
-    /**
-     * Add the library files corresponding to static frameworks. They must be contained in {@code
-     * .frameworks} directories and the binaries should be statically linked.
-     */
-    Builder addStaticFrameworkImports(Iterable<Artifact> frameworkImports) {
-      this.staticFrameworkImports = Iterables.concat(this.staticFrameworkImports, frameworkImports);
-      return this;
-    }
-
-    /**
-     * Add the library files corresponding to dynamic frameworks. They must be contained in {@code
-     * .frameworks} directories and the binaries should be dynamically linked.
-     */
-    Builder addDynamicFrameworkImports(Iterable<Artifact> frameworkImports) {
-      this.dynamicFrameworkImports =
-          Iterables.concat(this.dynamicFrameworkImports, frameworkImports);
       return this;
     }
 
@@ -267,13 +222,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    /** Adds header search paths that will only be visible by strict dependents of the provider. */
-    public Builder addDirectDependencyIncludes(Iterable<PathFragment> directDependencyIncludes) {
-      this.directDependencyIncludes =
-          Iterables.concat(this.directDependencyIncludes, directDependencyIncludes);
-      return this;
-    }
-
     public Builder addDefines(Iterable<String> defines) {
       this.defines = Iterables.concat(this.defines, defines);
       return this;
@@ -332,27 +280,13 @@ public final class ObjcCommon {
       return this;
     }
 
-    /**
-     * Sets a linkmap file generated by this rule to be propagated to dependers.
-     */
-    Builder setLinkmapFile(Artifact linkmapFile) {
-      this.linkmapFile = Optional.of(linkmapFile);
-      return this;
-    }
-
     ObjcCommon build() {
 
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder(semantics)
               .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-              .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
-              .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
-              .addAll(SDK_DYLIB, extraSdkDylibs)
-              .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
-              .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
               .addAll(INCLUDE, includes)
               .add(IQUOTE, buildConfiguration.getGenfilesFragment())
-              .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders);
 
@@ -484,9 +418,7 @@ public final class ObjcCommon {
         }
       }
 
-      objcProvider
-          .addAll(LINKED_BINARY, linkedBinary.asSet())
-          .addAll(LINKMAP_FILE, linkmapFile.asSet());
+      objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
     }
@@ -514,11 +446,6 @@ public final class ObjcCommon {
     }
   }
 
-  static final FileType BUNDLE_CONTAINER_TYPE = FileType.of(".bundle");
-
-  static final FileType ASSET_CATALOG_CONTAINER_TYPE = FileType.of(".xcassets");
-
-  public static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final ObjcProvider objcProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
@@ -604,20 +531,6 @@ public final class ObjcCommon {
       }
     }
     return Optional.absent();
-  }
-
-  /**
-   * Returns all directories matching {@code containerType} that contain the items in
-   * {@code artifacts}. This function ignores artifacts that are not in any directory matching
-   * {@code containerType}.
-   */
-  static Iterable<PathFragment> uniqueContainers(
-      Iterable<Artifact> artifacts, FileType containerType) {
-    ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
-    for (Artifact artifact : artifacts) {
-      containers.addAll(ObjcCommon.nearestContainerMatching(containerType, artifact).asSet());
-    }
-    return containers.build();
   }
 
   /**

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -67,9 +66,7 @@ public abstract class StructImpl extends Info
     Preconditions.checkNotNull(values);
     ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(
-          Attribute.getSkylarkName(e.getKey()),
-          SkylarkType.convertToSkylark(e.getValue(), (StarlarkThread) null));
+      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
     return builder.build();
   }

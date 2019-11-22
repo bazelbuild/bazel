@@ -123,9 +123,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     Map<Label, SkyKey> testExpansionKeys = new LinkedHashMap<>();
     if (targets != null) {
       for (Target target : targets.getTargets()) {
-        if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
+        if (options.isExpandTestSuites()
+            && (TargetUtils.isTestSuiteRule(target) || TargetUtils.isAlias(target))) {
           Label label = target.getLabel();
-          SkyKey testExpansionKey = TestSuiteExpansionValue.key(ImmutableSet.of(label));
+          SkyKey testExpansionKey = TestsForTargetPatternValue.key(ImmutableSet.of(label));
           testExpansionKeys.put(label, testExpansionKey);
         }
       }
@@ -199,8 +200,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey =
             Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
-        TestSuiteExpansionValue testExpansion =
-            (TestSuiteExpansionValue) expandedTests.get(expansionKey);
+        TestsForTargetPatternValue testExpansion =
+            (TestsForTargetPatternValue) expandedTests.get(expansionKey);
         expandedLabelsBuilder.merge(testExpansion.getLabels());
       } else {
         expandedLabelsBuilder.add(target.getLabel());
@@ -208,7 +209,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
     ResolvedTargets<Label> targetLabels = expandedLabelsBuilder.build();
     ResolvedTargets<Target> expandedTargets =
-        TestSuiteExpansionFunction.labelsToTargets(
+        TestsForTargetPatternFunction.labelsToTargets(
             env, targetLabels.getTargets(), targetLabels.hasError());
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
@@ -335,8 +336,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         continue;
       }
       // TODO(ulfjack): This is terribly inefficient.
-      ResolvedTargets<Target> asTargets = TestSuiteExpansionFunction.labelsToTargets(
-          env, value.getTargets().getTargets(), value.getTargets().hasError());
+      ResolvedTargets<Target> asTargets =
+          TestsForTargetPatternFunction.labelsToTargets(
+              env, value.getTargets().getTargets(), value.getTargets().hasError());
       if (asTargets == null) {
         continue;
       }
@@ -427,7 +429,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         // Skip.
         continue;
       }
-      expandedSuiteKeys.add(TestSuiteExpansionValue.key(value.getTargets().getTargets()));
+      expandedSuiteKeys.add(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
     }
     Map<SkyKey, SkyValue> expandedSuites = env.getValues(expandedSuiteKeys);
     if (env.valuesMissing()) {
@@ -444,11 +446,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         continue;
       }
 
-      TestSuiteExpansionValue expandedSuitesValue = (TestSuiteExpansionValue) expandedSuites.get(
-          TestSuiteExpansionValue.key(value.getTargets().getTargets()));
+      TestsForTargetPatternValue expandedSuitesValue =
+          (TestsForTargetPatternValue)
+              expandedSuites.get(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
       if (pattern.isNegative()) {
         ResolvedTargets<Target> negativeTargets =
-            TestSuiteExpansionFunction.labelsToTargets(
+            TestsForTargetPatternFunction.labelsToTargets(
                 env,
                 expandedSuitesValue.getLabels().getTargets(),
                 expandedSuitesValue.getLabels().hasError());
@@ -456,7 +459,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         testTargetsBuilder.mergeError(negativeTargets.hasError());
       } else {
         ResolvedTargets<Target> positiveTargets =
-            TestSuiteExpansionFunction.labelsToTargets(
+            TestsForTargetPatternFunction.labelsToTargets(
                 env,
                 expandedSuitesValue.getLabels().getTargets(),
                 expandedSuitesValue.getLabels().hasError());

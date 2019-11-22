@@ -47,19 +47,20 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1259,34 +1260,34 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
     exec("def func():", "  return depset([struct(a='a')])", "s = func()");
-    Collection<?> result = ((SkylarkNestedSet) lookup("s")).toCollection();
+    Collection<?> result = ((Depset) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }
 
   @Test
   public void testNsetBadMutableItem() throws Exception {
-    checkEvalErrorContains("depsets cannot contain mutable items", "depset([([],)])");
-    checkEvalErrorContains("depsets cannot contain mutable items", "depset([struct(a=[])])");
+    checkEvalErrorContains("unhashable type: 'tuple'", "depset([([],)])");
+    checkEvalErrorContains("unhashable type: 'struct'", "depset([struct(a=[])])");
   }
 
   private static StructImpl makeStruct(String field, Object value) {
     return StructProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }
 
-  private static StructImpl makeBigStruct(StarlarkThread thread) {
+  private static StructImpl makeBigStruct(@Nullable Mutability mu) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
     return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             "a",
                 StarlarkList.<Object>of(
-                    thread,
+                    mu,
                     StructProvider.STRUCT.create(
-                        ImmutableMap.<String, Object>of("x", Dict.<Object, Object>of(thread, 1, 1)),
+                        ImmutableMap.<String, Object>of("x", Dict.<Object, Object>of(mu, 1, 1)),
                         "no field '%s'"),
                     Tuple.of()),
             "b", Tuple.of(),
-            "c", Dict.<Object, Object>of(thread, 2, 2)),
+            "c", Dict.<Object, Object>of(mu, 2, 2)),
         "no field '%s'");
   }
 
@@ -1295,8 +1296,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", 1))).isTrue();
   }
 
-  private static StarlarkList<Object> makeList(StarlarkThread thread) {
-    return StarlarkList.<Object>of(thread, 1, 2, 3);
+  private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
+    return StarlarkList.<Object>of(mu, 1, 2, 3);
   }
 
   @Test
@@ -1305,9 +1306,10 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(null)))).isTrue();
     assertThat(EvalUtils.isImmutable(makeBigStruct(null))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(ev.getStarlarkThread())))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(ev.getStarlarkThread())))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeBigStruct(ev.getStarlarkThread()))).isFalse();
+    Mutability mu = ev.getStarlarkThread().mutability();
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(mu)))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(mu)))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeBigStruct(mu))).isFalse();
   }
 
   @Test

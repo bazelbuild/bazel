@@ -296,7 +296,7 @@ dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff602
 in an internal
 [`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
 
-However, bazel allows the exeuction of arbitrary commands in repository rules,
+However, bazel allows the execution of arbitrary commands in repository rules,
 without knowing if they call out to the network. Therefore, bazel has no option
 to enforce builds being fully offline. So testing if a build works correctly
 offline requires external blocking of the network, as bazel does in its

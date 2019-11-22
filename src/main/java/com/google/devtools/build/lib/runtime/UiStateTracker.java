@@ -869,7 +869,8 @@ class UiStateTracker {
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
     mostRecentTest = summary;
-    if (summary.getStatus() != BlazeTestStatus.PASSED) {
+    if ((summary.getStatus() != BlazeTestStatus.PASSED)
+        && (summary.getStatus() != BlazeTestStatus.FLAKY)) {
       failedTests++;
     }
   }

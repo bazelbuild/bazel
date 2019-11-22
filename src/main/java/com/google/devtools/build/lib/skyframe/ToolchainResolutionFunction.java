@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -521,10 +522,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
   /** Exception used when a toolchain type is required but no matching toolchain is found. */
   static final class UnresolvedToolchainsException extends ToolchainException {
     UnresolvedToolchainsException(List<Label> missingToolchainTypes) {
-      super(
-          String.format(
-              "no matching toolchains found for types %s",
-              missingToolchainTypes.stream().map(Label::toString).collect(joining(", "))));
+      super(getMessage(missingToolchainTypes));
+    }
+
+    private static String getMessage(List<Label> missingToolchainTypes) {
+      if (missingToolchainTypes.size() == 1
+          && Iterables.getOnlyElement(missingToolchainTypes)
+              .toString()
+              .equals("@bazel_tools//tools/cpp:toolchain_type")) {
+        return "No matching toolchains found for types @bazel_tools//tools/cpp:toolchain_type. "
+            + "Maybe --incompatible_use_cc_configure_from_rules_cc has been flipped and there "
+            + "is no default C++ toolchain added in the WORKSPACE file? See "
+            + "https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
+            + "instructions.";
+      }
+
+      return String.format(
+          "no matching toolchains found for types %s",
+          missingToolchainTypes.stream().map(Label::toString).collect(joining(", ")));
     }
   }
 

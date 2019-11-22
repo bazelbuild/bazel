@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
 
 /**
@@ -76,16 +76,14 @@ public final class JavaCompilationInfoProvider
 
   @Override
   @Nullable
-  public SkylarkNestedSet /*<Artifact>*/ getRuntimeClasspath() {
-    return runtimeClasspath == null ? null : SkylarkNestedSet.of(Artifact.TYPE, runtimeClasspath);
+  public Depset /*<Artifact>*/ getRuntimeClasspath() {
+    return runtimeClasspath == null ? null : Depset.of(Artifact.TYPE, runtimeClasspath);
   }
 
   @Override
   @Nullable
-  public SkylarkNestedSet /*<Artifact>*/ getCompilationClasspath() {
-    return compilationClasspath == null
-        ? null
-        : SkylarkNestedSet.of(Artifact.TYPE, compilationClasspath);
+  public Depset /*<Artifact>*/ getCompilationClasspath() {
+    return compilationClasspath == null ? null : Depset.of(Artifact.TYPE, compilationClasspath);
   }
 
   @Override

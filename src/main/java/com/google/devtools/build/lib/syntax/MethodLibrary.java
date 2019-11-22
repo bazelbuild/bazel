@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -60,11 +62,10 @@ class MethodLibrary {
               + "min([5, 6, 3]) == 3</pre>",
       extraPositionals =
           @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
-      useLocation = true,
-      useStarlarkThread = true)
-  public Object min(Sequence<?> args, Location loc, StarlarkThread thread) throws EvalException {
+      useLocation = true)
+  public Object min(Sequence<?> args, Location loc) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, thread);
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
     } catch (ComparisonException e) {
       throw new EvalException(loc, e);
     }
@@ -80,25 +81,22 @@ class MethodLibrary {
               + "max([5, 6, 3]) == 6</pre>",
       extraPositionals =
           @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
-      useLocation = true,
-      useStarlarkThread = true)
-  public Object max(Sequence<?> args, Location loc, StarlarkThread thread) throws EvalException {
+      useLocation = true)
+  public Object max(Sequence<?> args, Location loc) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, thread);
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
     } catch (ComparisonException e) {
       throw new EvalException(loc, e);
     }
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static Object findExtreme(
-      Sequence<?> args, Ordering<Object> maxOrdering, Location loc, StarlarkThread thread)
+  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering, Location loc)
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     try {
-      Iterable<?> items =
-          (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc, thread) : args;
+      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
       throw new EvalException(loc, "expected at least one item", ex);
@@ -121,10 +119,9 @@ class MethodLibrary {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
-      useLocation = true,
-      useStarlarkThread = true)
-  public Boolean all(Object collection, Location loc, StarlarkThread thread) throws EvalException {
-    return !hasElementWithBooleanValue(collection, false, loc, thread);
+      useLocation = true)
+  public Boolean all(Object collection, Location loc) throws EvalException {
+    return !hasElementWithBooleanValue(collection, false, loc);
   }
 
   @SkylarkCallable(
@@ -143,15 +140,14 @@ class MethodLibrary {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
-      useLocation = true,
-      useStarlarkThread = true)
-  public Boolean any(Object collection, Location loc, StarlarkThread thread) throws EvalException {
-    return hasElementWithBooleanValue(collection, true, loc, thread);
+      useLocation = true)
+  public Boolean any(Object collection, Location loc) throws EvalException {
+    return hasElementWithBooleanValue(collection, true, loc);
   }
 
-  private static boolean hasElementWithBooleanValue(
-      Object collection, boolean value, Location loc, StarlarkThread thread) throws EvalException {
-    Iterable<?> iterable = EvalUtils.toIterable(collection, loc, thread);
+  private static boolean hasElementWithBooleanValue(Object collection, boolean value, Location loc)
+      throws EvalException {
+    Iterable<?> iterable = EvalUtils.toIterable(collection, loc);
     for (Object obj : iterable) {
       if (Starlark.truth(obj) == value) {
         return true;
@@ -199,10 +195,10 @@ class MethodLibrary {
       final StarlarkThread thread)
       throws EvalException, InterruptedException {
 
-    ArrayList<?> list = new ArrayList<>(EvalUtils.toCollection(iterable, loc, thread));
+    Object[] array = EvalUtils.toCollection(iterable, loc).toArray();
     if (key == Starlark.NONE) {
       try {
-        Collections.sort(list, EvalUtils.SKYLARK_COMPARATOR);
+        Arrays.sort(array, EvalUtils.SKYLARK_COMPARATOR);
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
@@ -232,7 +228,7 @@ class MethodLibrary {
 
       KeyComparator comp = new KeyComparator();
       try {
-        Collections.sort(list, comp);
+        Arrays.sort(array, comp);
       } catch (EvalUtils.ComparisonException e) {
         throw new EvalException(loc, e);
       }
@@ -249,9 +245,13 @@ class MethodLibrary {
     }
 
     if (reverse) {
-      Collections.reverse(list);
+      for (int i = 0, j = array.length - 1; i < j; i++, j--) {
+        Object tmp = array[i];
+        array[i] = array[j];
+        array[j] = tmp;
+      }
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -275,10 +275,10 @@ class MethodLibrary {
       throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
     }
     ArrayDeque<Object> tmpList = new ArrayDeque<>();
-    for (Object element : EvalUtils.toIterable(sequence, loc, thread)) {
+    for (Object element : EvalUtils.toIterable(sequence, loc)) {
       tmpList.addFirst(element);
     }
-    return StarlarkList.copyOf(thread, tmpList);
+    return StarlarkList.copyOf(thread.mutability(), tmpList);
   }
 
   @SkylarkCallable(
@@ -296,10 +296,9 @@ class MethodLibrary {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },
-      useLocation = true,
-      useStarlarkThread = true)
-  public Tuple<?> tuple(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    return Tuple.copyOf(EvalUtils.toCollection(x, loc, thread));
+      useLocation = true)
+  public Tuple<?> tuple(Object x, Location loc) throws EvalException {
+    return Tuple.copyOf(EvalUtils.toCollection(x, loc));
   }
 
   @SkylarkCallable(
@@ -320,7 +319,7 @@ class MethodLibrary {
       useLocation = true,
       useStarlarkThread = true)
   public StarlarkList<?> list(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    return StarlarkList.copyOf(thread, EvalUtils.toCollection(x, loc, thread));
+    return StarlarkList.copyOf(thread.mutability(), EvalUtils.toCollection(x, loc));
   }
 
   @SkylarkCallable(
@@ -342,16 +341,6 @@ class MethodLibrary {
       return ((Map<?, ?>) x).size();
     } else if (x instanceof Sequence) {
       return ((Sequence<?>) x).size();
-    } else if (x instanceof SkylarkNestedSet) {
-      if (thread.getSemantics().incompatibleDepsetIsNotIterable()) {
-        throw new EvalException(
-            loc,
-            EvalUtils.getDataTypeName(x)
-                + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
-                + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
-                + "check.");
-      }
-      return ((SkylarkNestedSet) x).toCollection().size();
     } else if (x instanceof Iterable) {
       // Iterables.size() checks if x is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) x);
@@ -633,13 +622,14 @@ class MethodLibrary {
       useLocation = true)
   public StarlarkList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
       throws EvalException {
-    int count = start;
-    ArrayList<Sequence<?>> result = new ArrayList<>();
-    for (Object obj : EvalUtils.toCollection(input, loc, thread)) {
-      result.add(Tuple.of(count, obj));
-      count++;
+    Collection<?> src = EvalUtils.toCollection(input, loc);
+    Object[] array = new Object[src.size()];
+    int i = 0;
+    for (Object x : src) {
+      array[i] = Tuple.pair(i + start, x);
+      i++;
     }
-    return StarlarkList.wrapUnsafe(thread, result);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -719,7 +709,7 @@ class MethodLibrary {
     if (step == 0) {
       throw new EvalException(loc, "step cannot be 0");
     }
-    return RangeList.of(start, stop, step);
+    return new RangeList(start, stop, step);
   }
 
   /** Returns true if the object has a field of the given name, otherwise false. */
@@ -820,7 +810,7 @@ class MethodLibrary {
       fields.addAll(((ClassObject) object).getFieldNames());
     }
     fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
-    return StarlarkList.copyOf(thread, fields);
+    return StarlarkList.copyOf(thread.mutability(), fields);
   }
 
   @SkylarkCallable(
@@ -991,7 +981,7 @@ class MethodLibrary {
             named = true,
             positional = false,
             type = Sequence.class,
-            generic1 = SkylarkNestedSet.class,
+            generic1 = Depset.class,
             noneable = true,
             doc = "A list of depsets whose elements will become indirect elements of the depset.",
             defaultValue = "None"),
@@ -1011,7 +1001,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkSemantics = true)
-  public SkylarkNestedSet depset(
+  public Depset depset(
       Object x,
       String orderString,
       Object direct,
@@ -1021,6 +1011,7 @@ class MethodLibrary {
       StarlarkSemantics semantics)
       throws EvalException {
     Order order;
+    Depset result;
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
@@ -1035,7 +1026,7 @@ class MethodLibrary {
         }
         direct = x;
       }
-      return depsetConstructor(direct, order, transitive, loc);
+      result = depsetConstructor(direct, order, transitive, loc);
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptySkylarkList(items)) {
@@ -1044,14 +1035,27 @@ class MethodLibrary {
         }
         items = x;
       }
-      return legacyDepsetConstructor(items, order, direct, transitive, loc);
+      result = legacyDepsetConstructor(items, order, direct, transitive, loc);
     }
+
+    if (semantics.debugDepsetDepth()) {
+      // Flatten the underlying nested set. If the set exceeds the depth limit, then this will
+      // throw a NestedSetDepthException.
+      // This is an extremely inefficient check and should be only done in the
+      // "--debug_depset_depth" mode.
+      try {
+        result.getSet().toList();
+      } catch (NestedSetDepthException ex) {
+        throw new EvalException(null, "depset exceeded maximum depth " + ex.getDepthLimit());
+      }
+    }
+    return result;
   }
 
-  private static SkylarkNestedSet depsetConstructor(
+  private static Depset depsetConstructor(
       Object direct, Order order, Object transitive, Location loc) throws EvalException {
 
-    if (direct instanceof SkylarkNestedSet) {
+    if (direct instanceof Depset) {
       throw new EvalException(
           loc,
           "parameter 'direct' must contain a list of elements, and may "
@@ -1059,12 +1063,11 @@ class MethodLibrary {
               + "by setting --incompatible_disable_depset_inputs=false");
     }
 
-    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order, loc);
     for (Object directElement : listFromNoneable(direct, Object.class, "direct")) {
       builder.addDirect(directElement);
     }
-    for (SkylarkNestedSet transitiveSet :
-        listFromNoneable(transitive, SkylarkNestedSet.class, "transitive")) {
+    for (Depset transitiveSet : listFromNoneable(transitive, Depset.class, "transitive")) {
       builder.addTransitive(transitiveSet);
     }
     return builder.build();
@@ -1080,13 +1083,13 @@ class MethodLibrary {
     }
   }
 
-  private static SkylarkNestedSet legacyDepsetConstructor(
+  private static Depset legacyDepsetConstructor(
       Object items, Order order, Object direct, Object transitive, Location loc)
       throws EvalException {
 
     if (transitive == Starlark.NONE && direct == Starlark.NONE) {
       // Legacy behavior.
-      return SkylarkNestedSet.of(order, items, loc);
+      return Depset.of(order, items, loc);
     }
 
     if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
@@ -1104,18 +1107,18 @@ class MethodLibrary {
       directElements = ((Sequence<?>) items).getContents(Object.class, "items");
     }
 
-    Iterable<SkylarkNestedSet> transitiveList;
+    Iterable<Depset> transitiveList;
     if (transitive != Starlark.NONE) {
       SkylarkType.checkType(transitive, Sequence.class, "transitive");
-      transitiveList = ((Sequence<?>) transitive).getContents(SkylarkNestedSet.class, "transitive");
+      transitiveList = ((Sequence<?>) transitive).getContents(Depset.class, "transitive");
     } else {
       transitiveList = ImmutableList.of();
     }
-    SkylarkNestedSet.Builder builder = SkylarkNestedSet.builder(order, loc);
+    Depset.Builder builder = Depset.builder(order, loc);
     for (Object directElement : directElements) {
       builder.addDirect(directElement);
     }
-    for (SkylarkNestedSet transitiveSet : transitiveList) {
+    for (Depset transitiveSet : transitiveList) {
       builder.addTransitive(transitiveSet);
     }
     return builder.build();
@@ -1186,7 +1189,7 @@ class MethodLibrary {
       throws EvalException {
     Iterator<?>[] iterators = new Iterator<?>[args.size()];
     for (int i = 0; i < args.size(); i++) {
-      iterators[i] = EvalUtils.toIterable(args.get(i), loc, thread).iterator();
+      iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
     }
     ArrayList<Tuple<?>> result = new ArrayList<>();
     boolean allHasNext;
@@ -1204,7 +1207,7 @@ class MethodLibrary {
         result.add(Tuple.copyOf(elem));
       }
     } while (allHasNext);
-    return StarlarkList.wrapUnsafe(thread, result);
+    return StarlarkList.copyOf(thread.mutability(), result);
   }
 
   /** Skylark int type. */

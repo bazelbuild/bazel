@@ -47,11 +47,11 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     }
 
     //
-    //  CAUTION!  Keep this logic consistent with lib.query2.TestsExpression!
+    //  CAUTION!  Keep this logic consistent with lib.query2.TestsFunction!
     //
 
-    List<String> tagsAttribute = new ArrayList<>(
-        ruleContext.attributes().get("tags", Type.STRING_LIST));
+    List<String> tagsAttribute =
+        new ArrayList<>(ruleContext.attributes().get("tags", Type.STRING_LIST));
     // TODO(ulfjack): This is inconsistent with the other places that do test_suite expansion.
     tagsAttribute.remove("manual");
     Pair<Collection<String>, Collection<String>> requiredExcluded =

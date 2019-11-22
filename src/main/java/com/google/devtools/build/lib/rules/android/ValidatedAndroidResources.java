@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -60,6 +61,39 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   public static ValidatedAndroidResources validateFrom(
       AndroidDataContext dataContext, MergedAndroidResources merged, AndroidAaptVersion aaptVersion)
       throws InterruptedException {
+    if (dataContext.getAndroidConfig().incompatibleProhibitAapt1()) {
+      Artifact rTxtOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT);
+      Artifact sourceJarOut =
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
+      Artifact apkOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK);
+
+      BusyBoxActionBuilder.create(dataContext, "LINK_STATIC_LIBRARY")
+          .addAapt(AndroidAaptVersion.AAPT2)
+          .addInput("--libraries", dataContext.getSdk().getAndroidJar())
+          .addInput("--compiled", merged.getCompiledSymbols())
+          .addInput("--manifest", merged.getManifest())
+          // Sets an alternative java package for the generated R.java
+          // this allows android rules to generate resources outside of the java{,tests} tree.
+          .maybeAddFlag("--packageForR", merged.getJavaPackage())
+          .addTransitiveVectoredInput(
+              "--compiledDep", merged.getResourceDependencies().getTransitiveCompiledSymbols())
+          .addOutput("--sourceJarOut", sourceJarOut)
+          .addOutput("--rTxtOut", rTxtOut)
+          .addOutput("--staticLibraryOut", apkOut)
+          .buildAndRegister("Linking static android resource library", "AndroidResourceLink");
+
+      return of(
+          merged,
+          rTxtOut,
+          sourceJarOut,
+          apkOut,
+          // TODO: remove below three when incompatibleProhibitAapt1 is on by default.
+          rTxtOut,
+          sourceJarOut,
+          apkOut,
+          dataContext.getAndroidConfig().useRTxtFromMergedResources());
+    }
+
     AndroidResourceValidatorActionBuilder builder =
         new AndroidResourceValidatorActionBuilder()
             .setJavaPackage(merged.getJavaPackage())
@@ -150,6 +184,8 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     return sourceJar;
   }
 
+  // TODO(b/30307842,b/119560471): remove this; it was added for no reason, but persists because
+  // the Starlark API is not noneable.
   @Override
   public Artifact getApk() {
     return apk;
@@ -179,7 +215,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
 
   @Override
   public Sequence<Artifact> getResourcesList() {
-    return Sequence.createImmutable(getResources());
+    return StarlarkList.immutableCopyOf(getResources());
   }
 
   public ValidatedAndroidResources filter(

@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 
@@ -362,10 +362,7 @@ public interface BazelCcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = SkylarkNestedSet.class),
-              @ParamType(type = NoneType.class)
-            }),
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
         @Param(
             name = "pic_objects",
             doc = "List of pic object files.",
@@ -373,10 +370,7 @@ public interface BazelCcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = SkylarkNestedSet.class),
-              @ParamType(type = NoneType.class)
-            }),
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
       })
   CompilationOutputsT createCompilationOutputsFromSkylark(
       Object objectsObject, Object picObjectsObject, Location location) throws EvalException;

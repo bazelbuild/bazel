@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -520,15 +520,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkInputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getInputs()));
+  public Depset getSkylarkInputs() {
+    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkOutputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getOutputs()));
+  public Depset getSkylarkOutputs() {
+    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override

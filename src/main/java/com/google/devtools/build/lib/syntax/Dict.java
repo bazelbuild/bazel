@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.StarlarkMutable.MutableMap;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -75,7 +75,7 @@ import javax.annotation.Nullable;
 // Every cast to a parameterized type is a lie.
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
-public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
+public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkIndexable {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
@@ -86,8 +86,35 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 
+  /** @deprecated use {@code new Dict(thread.mutability())} instead. */
+  @Deprecated
   private Dict(@Nullable StarlarkThread thread) {
     this.mutability = thread == null ? Mutability.IMMUTABLE : thread.mutability();
+  }
+
+  @Override
+  public boolean truth() {
+    return !isEmpty();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean isHashable() {
+    return false; // even a frozen dict is unhashable
+  }
+
+  @Override
+  public int hashCode() {
+    return contents.hashCode(); // not called by Dict.put (because !isHashable)
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return contents.equals(o); // not called by Dict.put (because !isHashable)
   }
 
   @SkylarkCallable(
@@ -107,7 +134,10 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
       },
       allowReturnNones = true,
       useStarlarkThread = true)
-  public Object get(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
+  // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
+  // SkylarkInterfaceUtils.getSkylarkCallable. The two 'get' methods cause it to get
+  // confused as to which one has the annotation. Fix it and remove "2" suffix.
+  public Object get2(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     if (containsKey(key, null, thread)) {
       return this.get(key);
     }
@@ -162,7 +192,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     Object key = keySet().iterator().next();
     Object value = get(key);
     remove(key, loc);
-    return Tuple.of(key, value);
+    return Tuple.pair(key, value);
   }
 
   @SkylarkCallable(
@@ -239,7 +269,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
               + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
       useStarlarkThread = true)
   public StarlarkList<?> invoke(StarlarkThread thread) throws EvalException {
-    return StarlarkList.copyOf(thread, values());
+    return StarlarkList.copyOf(thread.mutability(), values());
   }
 
   @SkylarkCallable(
@@ -251,11 +281,12 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
               + "</pre>\n",
       useStarlarkThread = true)
   public StarlarkList<?> items(StarlarkThread thread) throws EvalException {
-    ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
-    for (Map.Entry<?, ?> entries : entrySet()) {
-      list.add(Tuple.of(entries.getKey(), entries.getValue()));
+    Object[] array = new Object[size()];
+    int i = 0;
+    for (Map.Entry<?, ?> e : entrySet()) {
+      array[i++] = Tuple.pair(e.getKey(), e.getValue());
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
@@ -266,11 +297,12 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
               + "</pre>\n",
       useStarlarkThread = true)
   public StarlarkList<?> keys(StarlarkThread thread) throws EvalException {
-    ArrayList<Object> list = Lists.newArrayListWithCapacity(size());
-    for (Map.Entry<?, ?> entries : entrySet()) {
-      list.add(entries.getKey());
+    Object[] array = new Object[size()];
+    int i = 0;
+    for (Map.Entry<?, ?> e : entrySet()) {
+      array[i++] = e.getKey();
     }
-    return StarlarkList.wrapUnsafe(thread, list);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   private static final Dict<?, ?> EMPTY = withMutability(Mutability.IMMUTABLE);
@@ -287,19 +319,48 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     return new Dict<>(mutability);
   }
 
-  /** @return a dict mutable in given environment only */
+  /**
+   * @return a dict mutable in given environment only
+   * @deprecated use {@code of(thread.mutability())} instead.
+   */
+  @Deprecated
   public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread) {
     return new Dict<>(thread);
   }
 
-  /** @return a dict mutable in given environment only, with given initial key and value */
+  /** Returns a dict mutable in given environment only. */
+  public static <K, V> Dict<K, V> of(@Nullable Mutability mu) {
+    return new Dict<>(mu);
+  }
+
+  /**
+   * Returns a dict mutable in given environment only, with given initial key and value.
+   *
+   * @deprecated use {@code of(thread.mutability(), k, v)} instead.
+   */
+  @Deprecated
   public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread, K k, V v) {
     return Dict.<K, V>of(thread).putUnsafe(k, v);
   }
 
-  /** @return a dict mutable in given environment only, with two given initial key value pairs */
+  /**
+   * Returns a dict mutable in given environment only, with two given initial key value pairs.
+   *
+   * @deprecated use {@code of(thread.mutability(), k1, v2, k2, v2)}.
+   */
+  @Deprecated
   public static <K, V> Dict<K, V> of(@Nullable StarlarkThread thread, K k1, V v1, K k2, V v2) {
     return Dict.<K, V>of(thread).putUnsafe(k1, v1).putUnsafe(k2, v2);
+  }
+
+  /** Returns a dict mutable in given environment only, with given initial key and value */
+  public static <K, V> Dict<K, V> of(@Nullable Mutability mu, K k, V v) {
+    return Dict.<K, V>of(mu).putUnsafe(k, v);
+  }
+
+  /** Returns a dict mutable in given environment only, with two given initial key value pairs. */
+  public static <K, V> Dict<K, V> of(@Nullable Mutability mu, K k1, V v1, K k2, V v2) {
+    return Dict.<K, V>of(mu).putUnsafe(k1, v1).putUnsafe(k2, v2);
   }
 
   // TODO(bazel-team): Make other methods that take in mutabilities instead of environments, make
@@ -310,7 +371,11 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     return Dict.<K, V>withMutability(mutability).putAllUnsafe(m);
   }
 
-  /** @return a dict mutable in given environment only, with contents copied from given map */
+  /**
+   * @return a dict mutable in given environment only, with contents copied from given map
+   * @deprecated use {@code copyOf(thread.mutability(), m)} when available.
+   */
+  @Deprecated
   public static <K, V> Dict<K, V> copyOf(
       @Nullable StarlarkThread thread, Map<? extends K, ? extends V> m) {
     return Dict.<K, V>of(thread).putAllUnsafe(m);
@@ -326,7 +391,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
   @SuppressWarnings("unchecked")
   private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
-      contents.put(e.getKey(), (VV) SkylarkType.convertToSkylark(e.getValue(), mutability));
+      contents.put(e.getKey(), (VV) Starlark.fromJava(e.getValue(), mutability));
     }
     return this;
   }
@@ -342,11 +407,6 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     this.mutability = Mutability.IMMUTABLE;
   }
 
-  @Override
-  protected Map<K, V> getContentsUnsafe() {
-    return contents;
-  }
-
   /**
    * Puts an entry into a dict, after validating that mutation is allowed.
    *
@@ -356,7 +416,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the key is invalid or the dict is frozen
    */
   public void put(K key, V value, Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     EvalUtils.checkValidDictKey(key);
     contents.put(key, value);
   }
@@ -370,7 +430,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    */
   public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location loc)
       throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkValidDictKey(k);
@@ -387,7 +447,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the dict is frozen
    */
   V remove(Object key, Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     return contents.remove(key);
   }
 
@@ -407,7 +467,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
    * @throws EvalException if the dict is frozen
    */
   void clear(Location loc) throws EvalException {
-    checkMutable(loc, this.mutability);
+    checkMutable(loc);
     contents.clear();
   }
 
@@ -523,7 +583,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
       throws EvalException {
     Iterable<?> seq;
     try {
-      seq = EvalUtils.toIterable(args, loc, thread);
+      seq = EvalUtils.toIterable(args, loc);
     } catch (EvalException ex) {
       throw new EvalException(
           loc,
@@ -534,7 +594,7 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     for (Object item : seq) {
       Iterable<?> seq2;
       try {
-        seq2 = EvalUtils.toIterable(item, loc, null);
+        seq2 = EvalUtils.toIterable(item, loc);
       } catch (EvalException ex) {
         throw new EvalException(
             loc,
@@ -559,4 +619,71 @@ public final class Dict<K, V> extends MutableMap<K, V> implements Map<K, V>, Sky
     return result;
   }
 
+  // java.util.Map accessors
+
+  @Override
+  public boolean containsKey(Object key) {
+    return contents.containsKey(key);
+  }
+
+  @Override
+  public boolean containsValue(Object value) {
+    return contents.containsValue(value);
+  }
+
+  @Override
+  public Set<Map.Entry<K, V>> entrySet() {
+    return Collections.unmodifiableMap(contents).entrySet();
+  }
+
+  @Override
+  public V get(Object key) {
+    return contents.get(key);
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return contents.isEmpty();
+  }
+
+  @Override
+  public Set<K> keySet() {
+    return Collections.unmodifiableMap(contents).keySet();
+  }
+
+  @Override
+  public int size() {
+    return contents.size();
+  }
+
+  @Override
+  public Collection<V> values() {
+    return Collections.unmodifiableMap(contents).values();
+  }
+
+  // disallowed java.util.Map update operations
+
+  @Deprecated
+  @Override
+  public void clear() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public V put(K key, V value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public void putAll(Map<? extends K, ? extends V> map) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Deprecated
+  @Override
+  public V remove(Object key) {
+    throw new UnsupportedOperationException();
+  }
 }

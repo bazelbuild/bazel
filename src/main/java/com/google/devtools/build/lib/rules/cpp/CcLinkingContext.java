@@ -30,9 +30,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
@@ -199,7 +200,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public Sequence<LibraryToLink> getSkylarkLibrariesToLink(StarlarkThread thread) {
-      return Sequence.createImmutable(getLibraries());
+      return StarlarkList.immutableCopyOf(getLibraries());
     }
 
     public List<LinkOptions> getUserLinkFlags() {
@@ -208,7 +209,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public Sequence<String> getSkylarkUserLinkFlags() {
-      return Sequence.createImmutable(
+      return StarlarkList.immutableCopyOf(
           getUserLinkFlags().stream()
               .map(LinkOptions::get)
               .flatMap(Collection::stream)
@@ -221,7 +222,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public Sequence<Artifact> getSkylarkNonCodeInputs() {
-      return Sequence.createImmutable(getNonCodeInputs());
+      return StarlarkList.immutableCopyOf(getNonCodeInputs());
     }
 
     public List<Linkstamp> getLinkstamps() {
@@ -387,28 +388,28 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkLinkerInputs() {
-    return SkylarkNestedSet.of(LinkerInput.class, linkerInputs);
+  public Depset getSkylarkLinkerInputs() {
+    return Depset.of(LinkerInput.class, linkerInputs);
   }
 
   @Override
   public Sequence<String> getSkylarkUserLinkFlags() {
-    return Sequence.createImmutable(getFlattenedUserLinkFlags());
+    return StarlarkList.immutableCopyOf(getFlattenedUserLinkFlags());
   }
 
   @Override
   public Object getSkylarkLibrariesToLink(StarlarkThread thread) {
     // TODO(plf): Flag can be removed already.
     if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
-      return SkylarkNestedSet.of(LibraryToLink.class, getLibraries());
+      return Depset.of(LibraryToLink.class, getLibraries());
     } else {
-      return Sequence.createImmutable(getLibraries().toList());
+      return StarlarkList.immutableCopyOf(getLibraries().toList());
     }
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkNonCodeInputs() {
-    return SkylarkNestedSet.of(Artifact.class, getNonCodeInputs());
+  public Depset getSkylarkNonCodeInputs() {
+    return Depset.of(Artifact.class, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
