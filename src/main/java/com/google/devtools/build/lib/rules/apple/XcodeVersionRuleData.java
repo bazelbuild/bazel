@@ -48,7 +48,6 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
     DottedVersion xcodeVersion =
         DottedVersion.fromStringUnchecked(
             attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
-    boolean isLocal = attrMapper.get(XcodeVersionRule.IS_LOCAL_ATTR_NAME, Type.BOOLEAN);
     String iosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     String watchosSdkVersionString =
@@ -61,7 +60,6 @@ public class XcodeVersionRuleData implements TransitiveInfoProvider {
     this.xcodeVersionProperties =
         new XcodeVersionProperties(
             xcodeVersion,
-            isLocal,
             iosSdkVersionString,
             watchosSdkVersionString,
             tvosSdkVersionString,
