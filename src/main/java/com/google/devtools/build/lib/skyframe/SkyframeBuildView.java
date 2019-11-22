@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -179,90 +180,60 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Describes the change between the current configuration collection and the incoming one,
-   * limiting the number of options listed based on maxDifferencesToShow. Returns {@code null} if
-   * the configurations have not changed in a way that requires the analysis cache to be
-   * invalidated.
+   * Returns a description of the analysis-cache affecting changes between the current configuration
+   * collection and the incoming one.
+   *
+   * @param maxDifferencesToShow the maximum number of change-affecting options to include in the
+   *     returned description
+   * @return a description or {@code null} if the configurations have not changed in a way that
+   *     requires the analysis cache to be invalidated
    */
+  @Nullable
   private String describeConfigurationDifference(
       BuildConfigurationCollection configurations, int maxDifferencesToShow) {
     if (this.configurations == null) {
-      // no configurations currently, no need to drop anything
       return null;
     }
     if (configurations.equals(this.configurations)) {
-      // exact same configurations, no need to drop anything
       return null;
     }
+
     ImmutableList<BuildConfiguration> oldTargetConfigs =
         this.configurations.getTargetConfigurations();
     ImmutableList<BuildConfiguration> newTargetConfigs = configurations.getTargetConfigurations();
-    // Only compare the first configurations of each set regardless of whether there are more. All
-    // options other than cpu will be identical across configurations; only --experimental_multi_cpu
-    // (which is checked for below) can add more configurations, and it only sets --cpu.
-    // We don't need to check the host configuration because it's derived from the target options.
+
+    // TODO(schmitt): We are only checking the first of the new configurations, even though (through
+    //  split transitions) we could have more than one. There is some special handling for
+    //  --cpu changing below but other options may also be changed and should be covered.
     BuildConfiguration oldConfig = oldTargetConfigs.get(0);
     BuildConfiguration newConfig = newTargetConfigs.get(0);
     OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
-    Stream<OptionDefinition> optionsWithCacheInvalidatingDifferences =
-        diff.getFirst().keySet().stream()
-            .filter(
-                (definition) ->
-                    ruleClassProvider.shouldInvalidateCacheForOptionDiff(
-                        newConfig.getOptions(),
-                        definition,
-                        diff.getFirst().get(definition),
-                        Iterables.getOnlyElement(diff.getSecond().get(definition))));
 
-    // --experimental_multi_cpu is currently the only way to have multiple configurations, but this
-    // code is unable to see whether or how it is set, only infer it from the presence of multiple
-    // configurations before or after the values changed and look at what the cpus of those
-    // configurations are set to.
-    if (Math.max(oldTargetConfigs.size(), newTargetConfigs.size()) > 1) {
-      // Ignore changes to --cpu for consistency - depending on the old and new values of
-      // --experimental_multi_cpu and how the order of configurations falls, we may or may not
-      // register a --cpu change in the diff, and --experimental_multi_cpu overrides --cpu
-      // anyway so it's redundant information as long as we have --experimental_multi_cpu change
-      // detection.
-      optionsWithCacheInvalidatingDifferences =
-          optionsWithCacheInvalidatingDifferences.filter(
-              (definition) -> !CoreOptions.CPU.equals(definition));
-      ImmutableSet<String> oldCpus =
-          oldTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
-      ImmutableSet<String> newCpus =
-          newTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
-      if (!Objects.equals(oldCpus, newCpus)) {
-        // --experimental_multi_cpu has changed, so inject that in the diff stream.
-        optionsWithCacheInvalidatingDifferences =
-            Stream.concat(
-                Stream.of(BuildRequestOptions.EXPERIMENTAL_MULTI_CPU),
-                optionsWithCacheInvalidatingDifferences);
-      }
+    ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
+        getNativeCacheInvalidatingDifferences(oldTargetConfigs, newTargetConfigs, newConfig, diff);
+    if (nativeCacheInvalidatingDifferences.isEmpty()
+        && diff.getChangedStarlarkOptions().isEmpty()) {
+      // The configuration may have changed, but none of the changes required a cache reset. For
+      // example, test trimming was turned on and a test option changed. In this case, nothing needs
+      // to be done.
+      return null;
     }
+
     if (maxDifferencesToShow == 0) {
-      // with maxDifferencesToShow = 0, we're only concerned with whether _any_ option has changed,
-      // so we don't need to do the option name transformation, and we only need to apply the
-      // predicate until it finds one option that needs to be invalidated. Laziness go!
-      return optionsWithCacheInvalidatingDifferences.findAny().isPresent()
-          ? "Build options have changed"
-          : null;
+      return "Build options have changed";
     }
-    // Otherwise, we go through the entire diff to generate a complete sorted list of option names.
-    // Being lazy by applying a limit here could lead to inconsistent options being shown for
-    // different values of maxDifferencesToShow here - the options displayed in the truncated list
-    // would be dependent on the order in which the diff items are returned from keySet(), even
-    // though the list is sorted.
+
     ImmutableList<String> relevantDifferences =
-        optionsWithCacheInvalidatingDifferences
-            .map((definition) -> "--" + definition.getOptionName())
+        Streams.concat(
+                diff.getChangedStarlarkOptions().stream().map(Label::getCanonicalForm),
+                nativeCacheInvalidatingDifferences.stream().map(OptionDefinition::getOptionName))
+            .map(s -> "--" + s)
+            // Sorting the list to ensure that (if truncated through maxDifferencesToShow) the
+            // options in the message remain stable.
             .sorted()
             .collect(toImmutableList());
-    if (relevantDifferences.isEmpty()) {
-      // The configuration may have changed, but the predicate didn't think any of the changes
-      // required a cache reset. For example, test trimming was turned on and a test option changed.
-      // In this case, nothing needs to be done.
-      return null;
-    } else if (maxDifferencesToShow > 0 && relevantDifferences.size() > maxDifferencesToShow) {
+
+    if (maxDifferencesToShow > 0 && relevantDifferences.size() > maxDifferencesToShow) {
       return String.format(
           "Build options %s%s and %d more have changed",
           Joiner.on(", ").join(relevantDifferences.subList(0, maxDifferencesToShow)),
@@ -282,6 +253,51 @@ public final class SkyframeBuildView {
     }
   }
 
+  // TODO(schmitt): This method assumes that the only option that can cause multiple target
+  //  configurations is --cpu which (with the presence of split transitions) is no longer true.
+  private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
+      ImmutableList<BuildConfiguration> oldTargetConfigs,
+      ImmutableList<BuildConfiguration> newTargetConfigs,
+      BuildConfiguration newConfig,
+      OptionsDiff diff) {
+    Stream<OptionDefinition> nativeCacheInvalidatingDifferences =
+        diff.getFirst().keySet().stream()
+            .filter(
+                (definition) ->
+                    ruleClassProvider.shouldInvalidateCacheForOptionDiff(
+                        newConfig.getOptions(),
+                        definition,
+                        diff.getFirst().get(definition),
+                        Iterables.getOnlyElement(diff.getSecond().get(definition))));
+
+    // --experimental_multi_cpu is currently the only way to have multiple configurations, but this
+    // code is unable to see whether or how it is set, only infer it from the presence of multiple
+    // configurations before or after the values changed and look at what the cpus of those
+    // configurations are set to.
+    if (Math.max(oldTargetConfigs.size(), newTargetConfigs.size()) > 1) {
+      // Ignore changes to --cpu for consistency - depending on the old and new values of
+      // --experimental_multi_cpu and how the order of configurations falls, we may or may not
+      // register a --cpu change in the diff, and --experimental_multi_cpu overrides --cpu
+      // anyway so it's redundant information as long as we have --experimental_multi_cpu change
+      // detection.
+      nativeCacheInvalidatingDifferences =
+          nativeCacheInvalidatingDifferences.filter(
+              (definition) -> !CoreOptions.CPU.equals(definition));
+      ImmutableSet<String> oldCpus =
+          oldTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+      ImmutableSet<String> newCpus =
+          newTargetConfigs.stream().map(BuildConfiguration::getCpu).collect(toImmutableSet());
+      if (!Objects.equals(oldCpus, newCpus)) {
+        // --experimental_multi_cpu has changed, so inject that in the diff stream.
+        nativeCacheInvalidatingDifferences =
+            Stream.concat(
+                Stream.of(BuildRequestOptions.EXPERIMENTAL_MULTI_CPU),
+                nativeCacheInvalidatingDifferences);
+      }
+    }
+    return nativeCacheInvalidatingDifferences.collect(toImmutableSet());
+  }
+
   /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
   public void setConfigurations(
@@ -297,9 +313,13 @@ public final class SkyframeBuildView {
     } else {
       String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
       if (diff != null) {
-        // Clearing cached ConfiguredTargets when the configuration changes is not required for
-        // correctness, but prevents unbounded memory usage.
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
+        // Note that clearing the analysis cache is currently required for correctness. It is also
+        // helpful to save memory.
+        //
+        // If we had more memory, fixing the correctness issue (see also b/144932999) would allow us
+        // to not invalidate the cache, leading to potentially better performance on incremental
+        // builds.
         skyframeExecutor.handleAnalysisInvalidatingChange();
       }
     }
