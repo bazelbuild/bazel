@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
@@ -270,6 +271,15 @@ final class HttpConnectorMultiplexer {
         HttpStream result;
         try {
           result = establishConnection(work.url, work.checksum, work.authHeaders);
+        } catch (SocketTimeoutException e) {
+          // SocketTimeoutException derives from InterruptedIOException, but its occurrence
+          // is truly exceptional, so we handle it separately here. Failing to do so hides
+          // our exception from the user s/t they only see an inscrutable "thread
+          // interrupted" message instead.
+          synchronized (context) {
+            context.errors.add(e);
+            continue;
+          }
         } catch (InterruptedIOException e) {
           // The parent thread got its result from another thread and killed this one.
           synchronized (context) {
