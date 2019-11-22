@@ -71,8 +71,8 @@ pkg_deb(
     architecture = "amd64",
     built_using = "bazel",
     conffiles = [
-        "etc/bash_completion.d/bazel",
-        "etc/bazel.bazelrc",
+        "/etc/bash_completion.d/bazel",
+        "/etc/bazel.bazelrc",
     ],
     data = ":debian-data",
     depends = [
@@ -82,7 +82,7 @@ pkg_deb(
         "unzip",
     ],
     description_file = "description",
-    homepage = "http://bazel.build",
+    homepage = "https://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
     suggests = [
