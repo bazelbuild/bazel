@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -163,7 +162,7 @@ public abstract class AbstractConfiguredTarget
     }
     throw new EvalException(
         loc,
-        Printer.format(
+        Starlark.format(
             "%r%s doesn't contain declared provider '%s'",
             this,
             getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",

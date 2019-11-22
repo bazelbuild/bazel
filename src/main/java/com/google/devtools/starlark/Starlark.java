@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.BufferedReader;
@@ -103,7 +102,7 @@ class Starlark {
       try {
         Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
         if (result != null) {
-          System.out.println(Printer.repr(result));
+          System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
         }
       } catch (SyntaxError ex) {
         for (Event ev : ex.errors()) {

@@ -73,7 +73,7 @@ public final class SelectorValue implements SkylarkValue {
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   @Override

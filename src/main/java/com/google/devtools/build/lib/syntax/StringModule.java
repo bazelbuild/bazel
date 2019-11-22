@@ -703,7 +703,7 @@ final class StringModule implements SkylarkValue {
       throws EvalException {
     int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
     if (res < 0) {
-      throw new EvalException(loc, Printer.format("substring %r not found in %r", sub, self));
+      throw new EvalException(loc, Starlark.format("substring %r not found in %r", sub, self));
     }
     return res;
   }
@@ -743,7 +743,7 @@ final class StringModule implements SkylarkValue {
       throws EvalException {
     int res = stringFind(true, self, sub, start, end, "'end' argument to index");
     if (res < 0) {
-      throw new EvalException(loc, Printer.format("substring %r not found in %r", sub, self));
+      throw new EvalException(loc, Starlark.format("substring %r not found in %r", sub, self));
     }
     return res;
   }

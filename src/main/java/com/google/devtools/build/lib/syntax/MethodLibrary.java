@@ -241,7 +241,7 @@ class MethodLibrary {
       }
     } else {
       throw new EvalException(
-          loc, Printer.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
+          loc, Starlark.format("%r object is not callable", EvalUtils.getDataTypeName(key)));
     }
 
     if (reverse) {
@@ -366,7 +366,7 @@ class MethodLibrary {
       useLocation = true)
   public String str(Object x, Location loc) throws EvalException {
     try {
-      return Printer.str(x);
+      return Starlark.str(x);
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           loc,
@@ -393,7 +393,7 @@ class MethodLibrary {
             noneable = true)
       })
   public String repr(Object x) {
-    return Printer.repr(x);
+    return Starlark.repr(x);
   }
 
   @SkylarkCallable(
@@ -496,7 +496,7 @@ class MethodLibrary {
       } else if (x instanceof Integer) {
         return (Integer) x;
       }
-      throw new EvalException(loc, Printer.format("%r is not of type string or int or bool", x));
+      throw new EvalException(loc, Starlark.format("%r is not of type string or int or bool", x));
     }
   }
 
@@ -505,7 +505,7 @@ class MethodLibrary {
 
     boolean isNegative = false;
     if (string.isEmpty()) {
-      throw new EvalException(loc, Printer.format("string argument to int() cannot be empty"));
+      throw new EvalException(loc, Starlark.format("string argument to int() cannot be empty"));
     }
     char c = string.charAt(0);
     if (c == '+') {
@@ -526,7 +526,7 @@ class MethodLibrary {
           // to confusion between octal and decimal).
           throw new EvalException(
               loc,
-              Printer.format(
+              Starlark.format(
                   "cannot infer base for int() when value begins with a 0: %r", stringForErrors));
         }
         base = 10;
@@ -541,7 +541,7 @@ class MethodLibrary {
       } else if (base != expectedBase) {
         throw new EvalException(
             loc,
-            Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors));
+            Starlark.format("invalid literal for int() with base %d: %r", base, stringForErrors));
       }
     }
 
@@ -556,7 +556,7 @@ class MethodLibrary {
     } catch (NumberFormatException | ArithmeticException e) {
       throw new EvalException(
           loc,
-          Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors),
+          Starlark.format("invalid literal for int() with base %d: %r", base, stringForErrors),
           e);
     }
   }
@@ -840,7 +840,7 @@ class MethodLibrary {
       },
       useLocation = true)
   public NoneType fail(Object msg, Object attr, Location loc) throws EvalException {
-    String str = Printer.str(msg);
+    String str = Starlark.str(msg);
     if (attr != Starlark.NONE) {
       str = String.format("attribute %s: %s", attr, str);
     }

@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -199,7 +199,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    return Printer.format(
+    return Starlark.format(
         "%r (rule '%s') doesn't have provider '%s'", this, getRuleClassString(), name);
   }
 

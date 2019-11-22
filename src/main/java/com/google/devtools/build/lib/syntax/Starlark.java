@@ -142,6 +142,26 @@ public final class Starlark {
     }
   }
 
+  /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
+  public static String str(Object x) {
+    return Printer.getPrinter().str(x).toString();
+  }
+
+  /** Returns the string form of a value as if by the Starlark expression {@code repr(x)}. */
+  public static String repr(Object x) {
+    return Printer.getPrinter().repr(x).toString();
+  }
+
+  /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
+  public static String format(String pattern, Object... arguments) {
+    return Printer.getPrinter().format(pattern, arguments).toString();
+  }
+
+  /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
+  public static String formatWithList(String pattern, List<?> arguments) {
+    return Printer.getPrinter().formatWithList(pattern, arguments).toString();
+  }
+
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
    * of value {@code v}. The class of {@code v} must have or inherit a {@code SkylarkModule} or

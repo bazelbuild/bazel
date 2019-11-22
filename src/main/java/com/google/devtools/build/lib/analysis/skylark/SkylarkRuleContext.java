@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -1120,7 +1119,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
-        throw new EvalException(loc, Printer.format("invalid key %r in 'label_dict'", key));
+        throw new EvalException(loc, Starlark.format("invalid key %r in 'label_dict'", key));
       }
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
@@ -1130,13 +1129,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       } else {
         throw new EvalException(
             loc,
-            Printer.format(
+            Starlark.format(
                 "invalid value %r in 'label_dict': expected iterable, but got '%s'",
                 val, EvalUtils.getDataTypeName(val)));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
-          throw new EvalException(loc, Printer.format("invalid value %r in 'label_dict'", val));
+          throw new EvalException(loc, Starlark.format("invalid value %r in 'label_dict'", val));
         }
         files.add((Artifact) file);
       }

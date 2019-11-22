@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollecti
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
@@ -249,7 +249,7 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Printer.str(this);
+    return Starlark.str(this);
   }
 
   @Override

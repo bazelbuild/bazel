@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -206,7 +206,7 @@ public abstract class PackageFactoryTestBase {
             includes,
             excludes,
             excludeDirs,
-            Printer.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
+            Starlark.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
 
     Package pkg = evaluated.first;
     GlobCache globCache = evaluated.second;
@@ -238,7 +238,7 @@ public abstract class PackageFactoryTestBase {
     Path file =
         scratch.file(
             "/globs/BUILD",
-            Printer.format(
+            Starlark.format(
                 "result = glob(%r, exclude=%r, exclude_directories=%r)",
                 includes, excludes, excludeDirs ? 1 : 0),
             resultAssertion);

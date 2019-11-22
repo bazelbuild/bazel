@@ -172,7 +172,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   // TODO(adonovan): SkylarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   @Override

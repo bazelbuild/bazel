@@ -194,7 +194,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   // TODO(adonovan): SkylarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
@@ -334,7 +334,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
         return Starlark.NONE;
       }
     }
-    throw new EvalException(loc, Printer.format("item %r not found in list", x));
+    throw new EvalException(loc, Starlark.format("item %r not found in list", x));
   }
 
   /**
@@ -433,7 +433,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
         return i;
       }
     }
-    throw new EvalException(loc, Printer.format("item %r not found in list", x));
+    throw new EvalException(loc, Starlark.format("item %r not found in list", x));
   }
 
   @SkylarkCallable(

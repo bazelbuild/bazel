@@ -41,44 +41,44 @@ public class PrinterTest {
   public void testPrinter() throws Exception {
     // Note that prettyPrintValue and printValue only differ on behaviour of
     // labels and strings at toplevel.
-    assertThat(Printer.str(createObjWithStr())).isEqualTo("<str marker>");
-    assertThat(Printer.repr(createObjWithStr())).isEqualTo("<repr marker>");
+    assertThat(Starlark.str(createObjWithStr())).isEqualTo("<str marker>");
+    assertThat(Starlark.repr(createObjWithStr())).isEqualTo("<repr marker>");
 
-    assertThat(Printer.str("foo\nbar")).isEqualTo("foo\nbar");
-    assertThat(Printer.repr("foo\nbar")).isEqualTo("\"foo\\nbar\"");
-    assertThat(Printer.str("'")).isEqualTo("'");
-    assertThat(Printer.repr("'")).isEqualTo("\"'\"");
-    assertThat(Printer.str("\"")).isEqualTo("\"");
-    assertThat(Printer.repr("\"")).isEqualTo("\"\\\"\"");
-    assertThat(Printer.str(3)).isEqualTo("3");
-    assertThat(Printer.repr(3)).isEqualTo("3");
-    assertThat(Printer.repr(Starlark.NONE)).isEqualTo("None");
+    assertThat(Starlark.str("foo\nbar")).isEqualTo("foo\nbar");
+    assertThat(Starlark.repr("foo\nbar")).isEqualTo("\"foo\\nbar\"");
+    assertThat(Starlark.str("'")).isEqualTo("'");
+    assertThat(Starlark.repr("'")).isEqualTo("\"'\"");
+    assertThat(Starlark.str("\"")).isEqualTo("\"");
+    assertThat(Starlark.repr("\"")).isEqualTo("\"\\\"\"");
+    assertThat(Starlark.str(3)).isEqualTo("3");
+    assertThat(Starlark.repr(3)).isEqualTo("3");
+    assertThat(Starlark.repr(Starlark.NONE)).isEqualTo("None");
 
-    assertThat(Printer.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
-    assertThat(Printer.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
+    assertThat(Starlark.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
+    assertThat(Starlark.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
         .isEqualTo("Label(\"//x:x\")");
 
     List<?> list = StarlarkList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
 
-    assertThat(Printer.str(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Printer.repr(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Printer.str(StarlarkList.of(null, 1, tuple, 3)))
+    assertThat(Starlark.str(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Starlark.repr(Tuple.of(1, list, 3))).isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Starlark.str(StarlarkList.of(null, 1, tuple, 3)))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
-    assertThat(Printer.repr(StarlarkList.of(null, 1, tuple, 3)))
+    assertThat(Starlark.repr(StarlarkList.of(null, 1, tuple, 3)))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
 
     Map<Object, Object> dict =
         ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", StarlarkList.of(null));
-    assertThat(Printer.str(dict))
+    assertThat(Starlark.str(dict))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
-    assertThat(Printer.repr(dict))
+    assertThat(Starlark.repr(dict))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
   }
 
   private void checkFormatPositionalFails(String errorMessage, String format, Object... arguments) {
     IllegalFormatException e =
-        assertThrows(IllegalFormatException.class, () -> Printer.format(format, arguments));
+        assertThrows(IllegalFormatException.class, () -> Starlark.format(format, arguments));
     assertThat(e).hasMessageThat().isEqualTo(errorMessage);
   }
 
@@ -89,33 +89,33 @@ public class PrinterTest {
     map.put(3, 3);
     map.put("foo", 42);
     map.put(7, "bar");
-    assertThat(Printer.str(map)).isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
+    assertThat(Starlark.str(map)).isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
   }
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertThat(Printer.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
-    assertThat(Printer.format("%s %d", "foo", 3)).isEqualTo("foo 3");
+    assertThat(Starlark.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
+    assertThat(Starlark.format("%s %d", "foo", 3)).isEqualTo("foo 3");
 
-    assertThat(Printer.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
+    assertThat(Starlark.format("%s %s %s", 1, null, 3)).isEqualTo("1 null 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertThat(Printer.formatWithList("", Tuple.of())).isEmpty();
-    assertThat(Printer.format("%s", "foo")).isEqualTo("foo");
-    assertThat(Printer.format("%s", 3.14159)).isEqualTo("3.14159");
+    assertThat(Starlark.formatWithList("", Tuple.of())).isEmpty();
+    assertThat(Starlark.format("%s", "foo")).isEqualTo("foo");
+    assertThat(Starlark.format("%s", 3.14159)).isEqualTo("3.14159");
     checkFormatPositionalFails("not all arguments converted during string formatting",
         "%s", 1, 2, 3);
-    assertThat(Printer.format("%%%s", "foo")).isEqualTo("%foo");
+    assertThat(Starlark.format("%%%s", "foo")).isEqualTo("%foo");
     checkFormatPositionalFails("not all arguments converted during string formatting",
         "%%s", "foo");
     checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
         "% %s", "foo");
-    assertThat(Printer.format("%s", StarlarkList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
-    assertThat(Printer.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
-    assertThat(Printer.format("%s", StarlarkList.of(null))).isEqualTo("[]");
-    assertThat(Printer.format("%s", Tuple.of())).isEqualTo("()");
-    assertThat(Printer.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
+    assertThat(Starlark.format("%s", StarlarkList.of(null, 1, 2, 3))).isEqualTo("[1, 2, 3]");
+    assertThat(Starlark.format("%s", Tuple.of(1, 2, 3))).isEqualTo("(1, 2, 3)");
+    assertThat(Starlark.format("%s", StarlarkList.of(null))).isEqualTo("[]");
+    assertThat(Starlark.format("%s", Tuple.of())).isEqualTo("()");
+    assertThat(Starlark.format("%% %d %r %s", 1, "2", "3")).isEqualTo("% 1 \"2\" 3");
 
     checkFormatPositionalFails(
         "invalid argument \"1\" for format pattern %d",

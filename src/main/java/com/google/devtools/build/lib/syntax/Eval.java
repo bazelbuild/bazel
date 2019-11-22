@@ -450,7 +450,7 @@ final class Eval {
             dict.put(k, v, loc);
             if (dict.size() == before) {
               throw new EvalException(
-                  loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
+                  loc, "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
             }
           }
           return dict;

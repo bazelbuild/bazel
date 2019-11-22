@@ -557,7 +557,7 @@ public final class BuildType {
 
     @Override
     public String toString() {
-      return Printer.repr(this);
+      return Starlark.repr(this);
     }
 
     @Override

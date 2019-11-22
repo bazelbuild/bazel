@@ -384,7 +384,7 @@ public final class StarlarkThread implements Freezable {
       return obj1.equals(obj2)
           || (obj1 instanceof SkylarkValue
               && obj2 instanceof SkylarkValue
-              && Printer.repr(obj1).equals(Printer.repr(obj2)));
+              && Starlark.repr(obj1).equals(Starlark.repr(obj2)));
     }
 
     /**
@@ -456,10 +456,10 @@ public final class StarlarkThread implements Freezable {
             String.format(
                 "%s: this one has %s (class %s, %s), but given one has %s (class %s, %s)",
                 name,
-                Printer.repr(value),
+                Starlark.repr(value),
                 value.getClass().getName(),
                 value,
-                Printer.repr(otherValue),
+                Starlark.repr(otherValue),
                 otherValue.getClass().getName(),
                 otherValue));
       }
@@ -795,7 +795,7 @@ public final class StarlarkThread implements Freezable {
       // imported from a parent StarlarkThread by updating the current StarlarkThread, which will
       // not trigger a MutabilityException.
       throw new AssertionError(
-          Printer.format("Can't update %s to %r in frozen environment", varname, value), e);
+          Starlark.format("Can't update %s to %r in frozen environment", varname, value), e);
     }
     return this;
   }

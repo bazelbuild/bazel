@@ -353,7 +353,7 @@ public final class Depset implements SkylarkValue {
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   public Order getOrder() {

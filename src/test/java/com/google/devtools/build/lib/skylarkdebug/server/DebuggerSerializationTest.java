@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -263,7 +263,7 @@ public final class DebuggerSerializationTest {
 
   private static void assertTypeAndDescription(Object object, Value value) {
     assertThat(value.getType()).isEqualTo(EvalUtils.getDataTypeName(object));
-    assertThat(value.getDescription()).isEqualTo(Printer.repr(object));
+    assertThat(value.getDescription()).isEqualTo(Starlark.repr(object));
   }
 
   /**

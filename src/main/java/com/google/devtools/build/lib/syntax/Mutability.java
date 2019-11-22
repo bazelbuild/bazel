@@ -239,7 +239,7 @@ public final class Mutability implements AutoCloseable {
     List<Location> locList = lockedItems.get(object);
     if (!locList.remove(loc)) {
       throw new IllegalArgumentException(
-          Printer.format(
+          Starlark.format(
               "trying to unlock an object for a location at which it was not locked (%r)", loc));
     }
     if (locList.isEmpty()) {

@@ -692,7 +692,7 @@ public abstract class SkylarkType {
     if (!type.isInstance(object)) {
       throw new EvalException(
           null,
-          Printer.format(
+          Starlark.format(
               "expected type '%r' %sbut got type '%s' instead",
               type,
               description == null ? "" : String.format("for %s ", description),

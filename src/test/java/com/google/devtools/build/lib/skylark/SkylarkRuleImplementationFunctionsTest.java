@@ -645,7 +645,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   private void assertMatches(String description, String expectedPattern, String computedValue)
       throws Exception {
     assertWithMessage(
-            Printer.format(
+            Starlark.format(
                 "%s %r did not match pattern '%s'", description, computedValue, expectedPattern))
         .that(Pattern.matches(expectedPattern, computedValue))
         .isTrue();
@@ -2900,7 +2900,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) eval("args");
-    assertThat(Printer.debugPrint(args)).isEqualTo("--foo --bar");
+    assertThat(Printer.getPrinter().debugPrint(args).toString()).isEqualTo("--foo --bar");
   }
 
   @Test

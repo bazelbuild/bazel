@@ -120,9 +120,11 @@ public interface Sequence<E> extends SkylarkValue, List<E>, RandomAccess, Skylar
     if (obj instanceof Sequence) {
       return ((Sequence<?>) obj).getContents(type, description);
     }
-    throw new EvalException(null,
-        String.format("Illegal argument: %s is not of expected type list or NoneType",
-            description == null ? Printer.repr(obj) : String.format("'%s'", description)));
+    throw new EvalException(
+        null,
+        String.format(
+            "Illegal argument: %s is not of expected type list or NoneType",
+            description == null ? Starlark.repr(obj) : String.format("'%s'", description)));
   }
 
   /**

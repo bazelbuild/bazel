@@ -252,7 +252,7 @@ public class SkylarkSignatureProcessor {
               + " %s",
           name,
           param.name(),
-          Printer.repr(defaultValue),
+          Starlark.repr(defaultValue),
           enforcedType);
     }
     return officialType;

@@ -165,7 +165,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
     if (defaultValue != Starlark.UNBOUND) {
       return defaultValue;
     }
-    throw new EvalException(loc, Printer.format("KeyError: %r", key));
+    throw new EvalException(loc, Starlark.format("KeyError: %r", key));
   }
 
   @SkylarkCallable(
@@ -426,7 +426,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   /**
@@ -454,7 +454,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
         null,
         String.format(
             "%s is not of expected type dict or NoneType",
-            description == null ? Printer.repr(obj) : String.format("'%s'", description)));
+            description == null ? Starlark.repr(obj) : String.format("'%s'", description)));
   }
 
   /**
@@ -480,10 +480,10 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
   @SuppressWarnings("unchecked")
   public <X, Y> Map<X, Y> getContents(
       Class<X> keyType, Class<Y> valueType, @Nullable String description) throws EvalException {
-    Object keyDescription = description == null
-        ? null : Printer.formattable("'%s' key", description);
-    Object valueDescription = description == null
-        ? null : Printer.formattable("'%s' value", description);
+    Object keyDescription =
+        description == null ? null : Printer.formattable("'%s' key", description);
+    Object valueDescription =
+        description == null ? null : Printer.formattable("'%s' value", description);
     for (Map.Entry<?, ?> e : this.entrySet()) {
       SkylarkType.checkType(e.getKey(), keyType, keyDescription);
       if (e.getValue() != null) {
@@ -496,7 +496,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
   @Override
   public final Object getIndex(Object key, Location loc) throws EvalException {
     if (!this.containsKey(key)) {
-      throw new EvalException(loc, Printer.format("key %r not found in dictionary", key));
+      throw new EvalException(loc, Starlark.format("key %r not found in dictionary", key));
     }
     return this.get(key);
   }

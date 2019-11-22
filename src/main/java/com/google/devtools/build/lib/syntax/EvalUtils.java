@@ -114,7 +114,7 @@ public final class EvalUtils {
   static void checkHashable(Object x) throws EvalException {
     if (!isHashable(x)) {
       throw new EvalException(
-          null, Printer.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
+          null, Starlark.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
     }
   }
 
@@ -796,9 +796,9 @@ public final class EvalUtils {
       String pattern = (String) x;
       try {
         if (y instanceof Tuple) {
-          return Printer.formatWithList(pattern, (Tuple) y);
+          return Starlark.formatWithList(pattern, (Tuple) y);
         }
-        return Printer.format(pattern, y);
+        return Starlark.format(pattern, y);
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }

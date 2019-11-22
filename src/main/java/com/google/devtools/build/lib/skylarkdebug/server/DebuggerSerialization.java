@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +51,7 @@ final class DebuggerSerialization {
     if (value instanceof String) {
       return (String) value;
     }
-    return Printer.repr(value);
+    return Starlark.repr(value);
   }
 
   private static boolean hasChildren(Object value) {

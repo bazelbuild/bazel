@@ -347,7 +347,7 @@ public abstract class BaseFunction implements StarlarkCallable {
 
   private String printDefaultValue(int i) {
     Object v = defaultValues != null ? defaultValues.get(i) : null;
-    return v != null ? Printer.repr(v) : null;
+    return v != null ? Starlark.repr(v) : null;
   }
 
   @Override

@@ -23,7 +23,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +42,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getErrorMessageFormatForUnknownField())
         .isEqualTo("Object has no '%s' attribute.");
     assertThat(provider.isImmutable()).isFalse();
-    assertThat(Printer.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThrows(
         IllegalStateException.class,
         () -> provider.getKey());
@@ -59,7 +59,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getErrorMessageFormatForUnknownField())
         .isEqualTo("'prov' object has no attribute '%s'");
     assertThat(provider.isImmutable()).isTrue();
-    assertThat(Printer.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
   }
 
