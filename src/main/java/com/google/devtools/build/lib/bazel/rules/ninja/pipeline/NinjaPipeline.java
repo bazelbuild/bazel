@@ -122,12 +122,13 @@ public class NinjaPipeline {
    * file parsing result in the parent file {@link NinjaFileParseResult} structure.
    */
   public NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
-      NinjaVariableValue value, Integer offset) {
-    if (value.isPrimitive()) {
+      NinjaVariableValue value, Integer offset) throws IOException {
+    if (value.doesNotReferenceVariables()) {
       // If the value of the path is already known, we can immediately schedule parsing
       // of the child Ninja file.
       Path path = basePath.getRelative(value.getRawText());
-      return (scope) -> getFutureResult(scheduleParsing(path));
+      ListenableFuture<NinjaFileParseResult> parsingFuture = scheduleParsing(path);
+      return (scope) -> getFutureResult(parsingFuture);
     } else {
       // If the value of the child path refers some variables in the parent scope, resolve it,
       // when the lambda is called, schedule the parsing and wait for it's completion.
@@ -157,7 +158,7 @@ public class NinjaPipeline {
               pieces.add(parseResult);
               return new NinjaDeclarationConsumer(NinjaPipeline.this, parseResult);
             }, service, NinjaSeparatorFinder.INSTANCE);
-        return NinjaFileParseResult.mergeFileParts(pieces);
+        return NinjaFileParseResult.merge(pieces);
       }
     });
   }

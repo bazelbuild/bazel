@@ -38,6 +38,23 @@ import java.util.TreeMap;
  * resolve the variables in the current file.
  */
 public class NinjaFileParseResult {
+  /**
+   * Interface for getting the result of lazy parsing of Ninja file in the context of
+   * {@link NinjaScope}.
+   *
+   * @param <T> result of parsing.
+   */
+  public interface NinjaPromise<T> {
+    T compute(NinjaScope scope) throws GenericParsingException, InterruptedException, IOException;
+  }
+
+  /**
+   * Interface for getting result of lazy parsing of Ninja declaration.
+   */
+  public interface NinjaCallable {
+    void call() throws GenericParsingException, InterruptedException, IOException;
+  }
+
   private final NavigableMap<String, List<Pair<Integer, NinjaVariableValue>>> variables;
   private final NavigableMap<String, List<Pair<Integer, NinjaRule>>> rules;
   private final List<ByteFragmentAtOffset> targets;
@@ -96,8 +113,10 @@ public class NinjaFileParseResult {
     }
   }
 
-  public static NinjaFileParseResult mergeFileParts(Collection<NinjaFileParseResult> parts) {
-    Preconditions.checkState(!parts.isEmpty());
+  public static NinjaFileParseResult merge(Collection<NinjaFileParseResult> parts) {
+    if (parts.isEmpty()) {
+      return new NinjaFileParseResult();
+    }
     NinjaFileParseResult result = new NinjaFileParseResult();
     for (NinjaFileParseResult part : parts) {
       for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : part.variables.entrySet()) {
@@ -119,6 +138,11 @@ public class NinjaFileParseResult {
     return result;
   }
 
+  /**
+   * Recursively expands variables in the Ninja file and all files it includes (and subninja's).
+   * Fills in passed {@link NinjaScope} with the expanded variables and rules, and
+   * <code>rawTargets</code> - map of NinjaScope to list of fragments with unparsed Ninja targets.
+   */
   public void expandIntoScope(NinjaScope scope,
       Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
       throws InterruptedException, GenericParsingException, IOException {
@@ -157,22 +181,5 @@ public class NinjaFileParseResult {
     for (NinjaCallable ninjaCallable : resolvables.values()) {
       ninjaCallable.call();
     }
-  }
-
-  /**
-   * Interface for getting the result of lazy parsing of Ninja file in the context of
-   * {@link NinjaScope}.
-   *
-   * @param <T> result of parsing.
-   */
-  public interface NinjaPromise<T> {
-    T compute(NinjaScope scope) throws GenericParsingException, InterruptedException, IOException;
-  }
-
-  /**
-   * Interface for getting result of lazy parsing of Ninja declaration.
-   */
-  public interface NinjaCallable {
-    void call() throws GenericParsingException, InterruptedException, IOException;
   }
 }

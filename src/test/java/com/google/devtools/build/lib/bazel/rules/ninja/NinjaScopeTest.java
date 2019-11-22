@@ -92,7 +92,7 @@ public class NinjaScopeTest {
     parseResult2.addVariable("abc", 2005, NinjaVariableValue.createPlainText("15"));
     parseResult2.addVariable("abc", 20015, NinjaVariableValue.createPlainText("17"));
 
-    NinjaFileParseResult result = NinjaFileParseResult.mergeFileParts(
+    NinjaFileParseResult result = NinjaFileParseResult.merge(
         ImmutableList.of(parseResult1, parseResult2));
     assertThat(result.getRules()).hasSize(2);
     assertThat(result.getRules()).containsKey("rule1");

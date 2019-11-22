@@ -70,8 +70,12 @@ public class NinjaPipelineTest {
         String name,
         String... lines) throws IOException {
       Path path = dir.getRelative(name);
-      FileSystemUtils.writeContent(path, String.join("\n", lines)
-          .getBytes(StandardCharsets.ISO_8859_1));
+      if (lines.length > 0) {
+        FileSystemUtils.writeContent(path, String.join("\n", lines)
+            .getBytes(StandardCharsets.ISO_8859_1));
+      } else {
+        FileSystemUtils.createEmptyFile(path);
+      }
       return path;
     }
 
@@ -157,6 +161,14 @@ public class NinjaPipelineTest {
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
     List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
+  }
+
+  @Test
+  public void testEmptyFile() throws Exception {
+    Path vfsPath = tester.writeTmpFile("test.ninja");
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    assertThat(targets).isEmpty();
   }
 
   private static void checkTargets(List<NinjaTarget> targets) {

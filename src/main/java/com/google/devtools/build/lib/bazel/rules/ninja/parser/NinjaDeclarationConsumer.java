@@ -55,7 +55,7 @@ public class NinjaDeclarationConsumer implements DeclarationConsumer {
     NinjaParser parser = new NinjaParser(lexer);
 
     if (!lexer.hasNextToken()) {
-      throw new GenericParsingException("Empty fragment passed as declaration.");
+      throw new IllegalStateException("Empty fragment passed as declaration.");
     }
     NinjaToken token = lexer.nextToken();
     int declarationStart = offset + lexer.getLastStart();
@@ -74,8 +74,7 @@ public class NinjaDeclarationConsumer implements DeclarationConsumer {
         throw new GenericParsingException(lexer.getError());
       case ZERO:
       case EOF:
-        throw new IllegalStateException("Unexpected end of file.");
-
+        return;
       case INCLUDE:
         NinjaVariableValue includeStatement = parser.parseIncludeStatement();
         NinjaPromise<NinjaFileParseResult> includeFuture =
@@ -98,14 +97,5 @@ public class NinjaDeclarationConsumer implements DeclarationConsumer {
       default:
         throw new UnsupportedOperationException("To be implemented.");
     }
-  }
-
-  NinjaFileParseResult getParseResult() {
-    return parseResult;
-  }
-
-  public static List<NinjaFileParseResult> mergeResults(List<NinjaDeclarationConsumer> consumers) {
-    return consumers.stream()
-            .map(NinjaDeclarationConsumer::getParseResult).collect(Collectors.toList());
   }
 }

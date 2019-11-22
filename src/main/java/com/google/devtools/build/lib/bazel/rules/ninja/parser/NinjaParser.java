@@ -284,7 +284,7 @@ public class NinjaParser {
    * values can not refer to each other. Then we are constructing the target's {@link NinjaScope}
    * with already expanded variables; it will be used for resolving target's input and output paths
    * (which can also refer to file-level variables, so we better reuse resolve logic that we already
-   * have in NinjaResolvedScope).
+   * have in NinjaScope).
    *
    * <p>As we expand variable values, we are adding them to {@link NinjaTarget.Builder}.
    *
