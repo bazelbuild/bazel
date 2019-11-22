@@ -2690,6 +2690,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  /**
+   * Updates the nestedset size threshold if the flag value changed.
+   *
+   * @return whether an update was made.
+   */
+  protected static boolean nestedSetAsSkyKeyThresholdUpdatedAndReset(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return false;
+    }
+    return ArtifactNestedSetFunction.sizeThresholdUpdatedTo(
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
+  }
+
   protected void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
