@@ -144,7 +144,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     PackageContext context = getContext(thread, loc);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
-    Dict<String, Dict<String, Object>> rules = Dict.withMutability(mu);
+    Dict<String, Dict<String, Object>> rules = Dict.of(mu);
     for (Target t : targets) {
       if (t instanceof Rule) {
         Dict<String, Object> rule = targetDict(t, loc, mu);
@@ -282,7 +282,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     if (!(target instanceof Rule)) {
       return null;
     }
-    Dict<String, Object> values = Dict.withMutability(mu);
+    Dict<String, Object> values = Dict.of(mu);
 
     Rule rule = (Rule) target;
     AttributeContainer cont = rule.getAttributeContainer();

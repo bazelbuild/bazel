@@ -156,7 +156,7 @@ public class FunctionTransitionUtil {
     LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(starlarkTransition.getInputs());
 
     try (Mutability mutability = Mutability.create("build_settings")) {
-      Dict<String, Object> dict = Dict.withMutability(mutability);
+      Dict<String, Object> dict = Dict.of(mutability);
 
       // Add native options
       for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,12 +36,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class EvalUtilsTest extends EvaluationTestCase {
 
-  private static StarlarkList<Object> makeList(StarlarkThread thread) {
-    return StarlarkList.of(thread == null ? null : thread.mutability(), 1, 2, 3);
+  private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
+    return StarlarkList.of(mu, 1, 2, 3);
   }
 
-  private static Dict<Object, Object> makeDict(StarlarkThread thread) {
-    return Dict.of(thread, 1, 1, 2, 2);
+  private static Dict<Object, Object> makeDict(@Nullable Mutability mu) {
+    return Dict.of(mu, 1, 1, 2, 2);
   }
 
   /** MockClassA */
@@ -73,18 +74,17 @@ public class EvalUtilsTest extends EvaluationTestCase {
   public void testDatatypeMutabilityShallow() throws Exception {
     assertThat(EvalUtils.isImmutable(Tuple.of(1, 2, 3))).isTrue();
 
-    // Mutability depends on the environment.
     assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
     assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeList(thread))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(thread))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeList(thread.mutability()))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(thread.mutability()))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
-    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
+    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(null)))).isTrue();
 
-    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(thread)))).isFalse();
+    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(thread.mutability())))).isFalse();
   }
 
   @Test
@@ -98,8 +98,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Tuple.of("1", "2", "3"),
       StarlarkList.of(thread.mutability(), 1, 2, 3),
       StarlarkList.of(thread.mutability(), "1", "2", "3"),
-      Dict.of(thread, "key", 123),
-      Dict.of(thread, 123, "value"),
+      Dict.of(thread.mutability(), "key", 123),
+      Dict.of(thread.mutability(), 123, "value"),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 

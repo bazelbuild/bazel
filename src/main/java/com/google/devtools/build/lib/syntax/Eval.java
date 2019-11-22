@@ -441,7 +441,7 @@ final class Eval {
       case DICT_EXPR:
         {
           DictExpression dictexpr = (DictExpression) expr;
-          Dict<Object, Object> dict = Dict.of(thread);
+          Dict<Object, Object> dict = Dict.of(thread.mutability());
           Location loc = dictexpr.getLocation();
           for (DictExpression.Entry entry : dictexpr.getEntries()) {
             Object k = eval(thread, entry.getKey());
@@ -610,7 +610,7 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread thread, Comprehension comp)
       throws EvalException, InterruptedException {
-    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(thread) : null;
+    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(thread.mutability()) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
     // Save values of all variables bound in a 'for' clause
@@ -666,7 +666,7 @@ final class Eval {
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(thread, body.getKey());
-          EvalUtils.checkValidDictKey(k);
+          EvalUtils.checkHashable(k);
           Object v = eval(thread, body.getValue());
           dict.put(k, v, comp.getLocation());
         } else {

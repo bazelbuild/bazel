@@ -195,7 +195,7 @@ public class EvaluationTest extends EvaluationTestCase {
               final Map<String, Object> kwargs,
               FuncallExpression ast,
               StarlarkThread thread) {
-            return Dict.copyOf(thread, kwargs);
+            return Dict.copyOf(thread.mutability(), kwargs);
           }
         };
 

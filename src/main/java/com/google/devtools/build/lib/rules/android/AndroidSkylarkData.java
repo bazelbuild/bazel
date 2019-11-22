@@ -371,7 +371,7 @@ public abstract class AndroidSkylarkData
               resourceApk.toResourceInfo(ctx.getLabel()),
               resourceApk.toAssetsInfo(ctx.getLabel()),
               resourceApk.toManifestInfo().get()));
-      return Dict.copyOf(/* thread = */ null, builder.build());
+      return Dict.copyOf((Mutability) null, builder.build());
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -626,7 +626,7 @@ public abstract class AndroidSkylarkData
         getJavaInfoForRClassJar(
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
-    return Dict.copyOf(/* thread = */ null, builder.build());
+    return Dict.copyOf((Mutability) null, builder.build());
   }
 
   /**

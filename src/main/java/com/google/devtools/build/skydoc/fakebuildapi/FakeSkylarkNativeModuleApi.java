@@ -57,7 +57,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
   @Override
   public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return Dict.of(thread);
+    return Dict.of(thread.mutability());
   }
 
   @Override

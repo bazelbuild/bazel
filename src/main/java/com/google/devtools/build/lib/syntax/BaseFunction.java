@@ -175,8 +175,7 @@ public abstract class BaseFunction implements StarlarkCallable {
       }
       // If there's a kwarg, it's empty.
       if (hasKwargs) {
-        // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwargIndex] = Dict.of(thread);
+        arguments[kwargIndex] = Dict.of(thread.mutability());
       }
     } else if (hasKwargs && numNamedParams == 0) {
       // Easy case (2b): there are no named parameters, but there is a **kwargs.
@@ -185,10 +184,10 @@ public abstract class BaseFunction implements StarlarkCallable {
       // Also note that no named parameters means no mandatory parameters that weren't passed,
       // and no missing optional parameters for which to use a default. Thus, no loops.
       // NB: not 2a means kwarg isn't null
-      arguments[kwargIndex] = Dict.copyOf(thread, kwargs);
+      arguments[kwargIndex] = Dict.copyOf(thread.mutability(), kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      Dict<String, Object> kwArg = hasKwargs ? Dict.of(thread) : Dict.empty();
+      Dict<String, Object> kwArg = hasKwargs ? Dict.of(thread.mutability()) : Dict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
@@ -227,8 +226,7 @@ public abstract class BaseFunction implements StarlarkCallable {
         }
       }
       if (hasKwargs) {
-        // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwargIndex] = Dict.copyOf(thread, kwArg);
+        arguments[kwargIndex] = Dict.copyOf(thread.mutability(), kwArg);
       }
 
       // Check that all mandatory parameters were filled in general case 2c.

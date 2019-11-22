@@ -596,9 +596,11 @@ class MethodLibrary {
       useStarlarkThread = true)
   public Dict<?, ?> dict(Object args, Dict<?, ?> kwargs, Location loc, StarlarkThread thread)
       throws EvalException {
-    Dict<?, ?> argsDict =
-        args instanceof Dict ? (Dict) args : Dict.getDictFromArgs("dict", args, loc, thread);
-    return Dict.plus(argsDict, kwargs, thread);
+    Dict<?, ?> dict =
+        args instanceof Dict
+            ? (Dict) args
+            : Dict.getDictFromArgs("dict", args, loc, thread.mutability());
+    return Dict.plus(dict, kwargs, thread.mutability());
   }
 
   @SkylarkCallable(

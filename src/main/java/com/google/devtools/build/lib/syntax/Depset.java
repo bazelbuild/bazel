@@ -128,7 +128,7 @@ public final class Depset implements SkylarkValue {
       }
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
-        EvalUtils.checkValidDictKey(x);
+        EvalUtils.checkHashable(x);
         SkylarkType xt = SkylarkType.of(x);
         contentType = checkType(contentType, xt);
         itemsBuilder.add(x);
@@ -453,7 +453,7 @@ public final class Depset implements SkylarkValue {
     /** Adds a direct element, checking that its type is equal to the elements already added. */
     public Builder addDirect(Object x) throws EvalException {
       // In case of problems, see b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      EvalUtils.checkValidDictKey(x);
+      EvalUtils.checkHashable(x);
 
       SkylarkType xt = SkylarkType.of(x);
       this.contentType = checkType(contentType, xt);

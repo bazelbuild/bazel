@@ -266,7 +266,7 @@ public class AppleSkylarkCommon
         ImmutableMap.of(
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
-            "output_groups", Dict.copyOf(thread, outputGroups));
+            "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
     return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
   }
 }
