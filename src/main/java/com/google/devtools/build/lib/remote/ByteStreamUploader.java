@@ -353,7 +353,12 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       AtomicLong committedOffset = new AtomicLong(0);
       return Futures.transformAsync(
           retrier.executeAsync(
-              () -> ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff)),
+              () -> {
+                if (committedOffset.get() < chunker.getSize()) {
+                  return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
+                }
+                return Futures.immediateFuture(null);
+              },
               progressiveBackoff),
           (result) -> {
             long committedSize = committedOffset.get();
