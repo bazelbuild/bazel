@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
@@ -124,7 +124,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<output file target " + getLabel() + ">");
   }
 }

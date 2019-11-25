@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -187,11 +186,11 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.printList(this, /*isTuple=*/ false);
   }
 
-  // TODO(adonovan): SkylarkValue has 3 String methods yet still we need this fourth. Why?
+  // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
     return Starlark.repr(this);

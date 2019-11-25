@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Info object representing data about a specific platform. */
@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public interface ConstraintCollectionApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
-    extends SkylarkIndexable, SkylarkValue {
+    extends SkylarkIndexable, StarlarkValue {
 
   @SkylarkCallable(
       name = "constraint_settings",

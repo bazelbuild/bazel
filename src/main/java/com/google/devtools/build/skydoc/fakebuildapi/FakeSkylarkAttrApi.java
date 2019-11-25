@@ -17,10 +17,10 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -231,7 +231,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Returns a list of provider name groups, given the value of a Starlark attribute's "providers"

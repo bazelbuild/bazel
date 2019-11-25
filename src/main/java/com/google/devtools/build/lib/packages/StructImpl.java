@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -170,7 +170,7 @@ public abstract class StructImpl extends Info
    * is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.

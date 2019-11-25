@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -395,11 +395,11 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
     if (val instanceof License) {
       // License is deprecated as a Starlark type, so omit this type from Starlark values
-      // to avoid exposing these objects, even though they are technically SkylarkValue.
+      // to avoid exposing these objects, even though they are technically StarlarkValue.
       return null;
     }
 
-    if (val instanceof SkylarkValue) {
+    if (val instanceof StarlarkValue) {
       return val;
     }
 

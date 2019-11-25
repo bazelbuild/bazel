@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** The type of the Starlark None value. */
 @SkylarkModule(name = "NoneType", documented = false, doc = "The type of the Starlark None value.")
 @Immutable
-public final class NoneType implements SkylarkValue {
+public final class NoneType implements StarlarkValue {
 
   static final NoneType NONE = new NoneType();
 
@@ -44,7 +42,7 @@ public final class NoneType implements SkylarkValue {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("None");
   }
 }

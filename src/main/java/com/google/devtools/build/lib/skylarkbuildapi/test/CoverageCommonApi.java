@@ -19,16 +19,16 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @SkylarkModule(
     name = "coverage_common",
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "instrumented_files_info",

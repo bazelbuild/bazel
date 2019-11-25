@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Contains information about instrumented files sources and instrumentation metadata. */
 @SkylarkModule(
@@ -27,4 +27,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "for purposes of code coverage. Rule targets which return an instance of this "
             + "provider signal to the build system that certain sources should be targeted for "
             + "code coverage analysis.")
-public interface InstrumentedFilesInfoApi extends SkylarkValue {}
+public interface InstrumentedFilesInfoApi extends StarlarkValue {}

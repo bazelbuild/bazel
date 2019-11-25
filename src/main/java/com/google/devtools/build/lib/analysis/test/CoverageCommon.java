@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
@@ -102,7 +102,7 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<coverage_common>");
   }
 }

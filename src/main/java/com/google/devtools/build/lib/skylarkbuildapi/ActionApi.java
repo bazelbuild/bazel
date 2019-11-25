@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 
 /** Interface for actions in Skylark. */
@@ -40,7 +40,7 @@ import java.io.IOException;
             + "reference</a> for creating actions."
             + "<p>Some fields of this object are only applicable for certain kinds of actions. "
             + "Fields that are inapplicable are set to <code>None</code>.")
-public interface ActionApi extends SkylarkValue {
+public interface ActionApi extends StarlarkValue {
 
   @SkylarkCallable(
     name = "mnemonic",

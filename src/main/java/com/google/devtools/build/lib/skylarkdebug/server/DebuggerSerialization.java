@@ -19,7 +19,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
@@ -73,9 +73,9 @@ final class DebuggerSerialization {
     if (value.getClass().isArray()) {
       return Array.getLength(value) > 0;
     }
-    if (value instanceof ClassObject || value instanceof SkylarkValue) {
+    if (value instanceof ClassObject || value instanceof StarlarkValue) {
       // assuming ClassObject's have at least one child as a temporary optimization
-      // TODO(bazel-team): remove once child-listing logic is moved to SkylarkValue
+      // TODO(bazel-team): remove once child-listing logic is moved to StarlarkValue
       return true;
     }
     // fallback to assuming there are no children
@@ -101,12 +101,12 @@ final class DebuggerSerialization {
     if (value.getClass().isArray()) {
       return getArrayChildren(objectMap, value);
     }
-    // TODO(bazel-team): move child-listing logic to SkylarkValue where practical
+    // TODO(bazel-team): move child-listing logic to StarlarkValue where practical
     if (value instanceof ClassObject) {
       return getChildren(objectMap, (ClassObject) value);
     }
-    if (value instanceof SkylarkValue) {
-      return getChildren(objectMap, (SkylarkValue) value);
+    if (value instanceof StarlarkValue) {
+      return getChildren(objectMap, (StarlarkValue) value);
     }
     // fallback to assuming there are no children
     return ImmutableList.of();
@@ -137,7 +137,7 @@ final class DebuggerSerialization {
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, SkylarkValue skylarkValue) {
+      ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
     Set<String> fieldNames;
     try {
       fieldNames = CallUtils.getStructFieldNames(skylarkValue.getClass());

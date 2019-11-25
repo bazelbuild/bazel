@@ -18,14 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A configuration fragment for Swift tools. */
 @SkylarkModule(
     name = "swift",
     doc = "A configuration fragment for Swift tools.",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public interface SwiftConfigurationApi extends SkylarkValue {
+public interface SwiftConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(
     name = "copts",

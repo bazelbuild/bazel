@@ -30,10 +30,10 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import javax.annotation.Nullable;
 
 /**
@@ -164,7 +164,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
   }
 }

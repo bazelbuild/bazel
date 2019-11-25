@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper object containing CC linking info objects. */
 @SkylarkModule(
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Helper class containing CC linking providers.")
-public interface LinkingInfoApi extends SkylarkValue {
+public interface LinkingInfoApi extends StarlarkValue {
 
   @SkylarkCallable(name = "linking_context", structField = true, documented = false)
   CcLinkingContextApi<?> getCcLinkingContext();

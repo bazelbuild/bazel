@@ -17,9 +17,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Validated Android data which can be merged together with assets from dependencies. */
@@ -38,7 +38,7 @@ public interface ValidatedAndroidDataApi<
                     FileT,
                     ? extends ValidatedAndroidDataApi<FileT, AndroidResourcesInfoT>,
                     ? extends AndroidManifestInfoApi<FileT>>>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "to_provider",

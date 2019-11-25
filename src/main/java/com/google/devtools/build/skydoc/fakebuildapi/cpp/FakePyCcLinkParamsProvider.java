@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link PyCcLinkParamsProviderApi}. */
 public class FakePyCcLinkParamsProvider implements PyCcLinkParamsProviderApi {
@@ -39,12 +39,12 @@ public class FakePyCcLinkParamsProvider implements PyCcLinkParamsProviderApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link PyCcLinkParamsProviderApi.Provider}. */
   public static class Provider implements PyCcLinkParamsProviderApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

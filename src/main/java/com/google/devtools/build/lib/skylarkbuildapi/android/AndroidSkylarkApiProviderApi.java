@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
             + "provides this struct, accessible as a <code>android</code> field on a "
             + "<a href=\"Target.html\">target</a>.",
     documented = false)
-public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkValue {
+public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "apk",
@@ -153,7 +153,7 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends Sky
               + "it, you will be broken when it is removed."
               + "Provides access to information about Android rules.",
       documented = false)
-  interface IdlInfoApi<FileT extends FileApi> extends SkylarkValue {
+  interface IdlInfoApi<FileT extends FileApi> extends StarlarkValue {
     @SkylarkCallable(
         name = "import_root",
         structField = true,

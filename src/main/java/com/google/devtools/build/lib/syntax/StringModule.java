@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -64,7 +63,7 @@ import java.util.regex.Pattern;
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
-final class StringModule implements SkylarkValue {
+final class StringModule implements StarlarkValue {
 
   static final StringModule INSTANCE = new StringModule();
 

@@ -18,11 +18,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<FileT extends FileApi> extends SkylarkValue {
+public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",

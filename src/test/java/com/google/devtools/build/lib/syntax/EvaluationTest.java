@@ -17,8 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
@@ -657,10 +655,10 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest().testExpression("not 'a' in ['a'] or 0", 0);
   }
 
-  private SkylarkValue createObjWithStr() {
-    return new SkylarkValue() {
+  private StarlarkValue createObjWithStr() {
+    return new StarlarkValue() {
       @Override
-      public void repr(SkylarkPrinter printer) {
+      public void repr(Printer printer) {
         printer.append("<str marker>");
       }
     };

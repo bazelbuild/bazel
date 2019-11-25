@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
@@ -260,7 +260,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
 
     @Override
     public Object getIndex(Object key, Location loc) {

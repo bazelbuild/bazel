@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + " created with <code>analysis_test=True</code> <b>must</b> return an instance of"
             + " this provider, and non-analysis-phase test rules <b>cannot</b> return this "
             + "provider.")
-public interface AnalysisTestResultInfoApi extends SkylarkValue {
+public interface AnalysisTestResultInfoApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "success",

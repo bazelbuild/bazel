@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainTypeInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.Objects;
 
 /** A provider that supplies information about a specific toolchain type. */
@@ -59,7 +59,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.format("ToolchainTypeInfo(%s)", typeLabel);
   }
 

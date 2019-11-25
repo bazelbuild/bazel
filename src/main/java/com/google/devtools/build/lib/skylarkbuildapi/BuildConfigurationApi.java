@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a configuration object which holds information about the build environment. */
 @SkylarkModule(
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
         "This object holds information about the environment in which the build is running. See"
             + " the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the"
             + " general concept of configurations.")
-public interface BuildConfigurationApi extends SkylarkValue {
+public interface BuildConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
   @Deprecated

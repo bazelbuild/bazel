@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 
-/** A SkylarkCallable-annotated method whose class doesn't implement SkylarkValue. */
+/** A SkylarkCallable-annotated method whose class doesn't implement StarlarkValue. */
 class DoesntImplementSkylarkValue {
   @SkylarkCallable(name = "x", documented = false)
   public Object x() {

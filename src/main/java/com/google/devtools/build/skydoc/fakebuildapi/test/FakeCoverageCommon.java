@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Fake implementation of {@link CoverageCommonApi}. */
@@ -35,5 +35,5 @@ public class FakeCoverageCommon implements CoverageCommonApi<SkylarkRuleContextA
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

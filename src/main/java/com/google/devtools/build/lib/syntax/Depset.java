@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -89,7 +87,7 @@ import javax.annotation.Nullable;
             + " may interfere with the ordering semantics.")
 @Immutable
 @AutoCodec
-public final class Depset implements SkylarkValue {
+public final class Depset implements StarlarkValue {
   private final SkylarkType contentType;
   private final NestedSet<?> set;
   @Nullable private final ImmutableList<Object> items;
@@ -391,7 +389,7 @@ public final class Depset implements SkylarkValue {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("depset(");
     printer.printList(set, "[", ", ", "]", null);
     Order order = getOrder();

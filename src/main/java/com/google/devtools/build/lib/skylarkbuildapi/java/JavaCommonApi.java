@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Utilities for Java compilation support in Skylark. */
 @SkylarkModule(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
@@ -42,7 +42,7 @@ public interface JavaCommonApi<
         JavaRuntimeT extends JavaRuntimeInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi,
         SkylarkActionFactoryT extends SkylarkActionFactoryApi>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "provider",

@@ -74,20 +74,20 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -272,13 +272,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   /**
    * Represents `ctx.outputs`.
    *
-   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created
-   * lazily on-demand.
+   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created lazily
+   * on-demand.
    *
-   * <p>Note: There is only one {@code Outputs} object per rule context, so default
-   * (object identity) equals and hashCode suffice.
+   * <p>Note: There is only one {@code Outputs} object per rule context, so default (object
+   * identity) equals and hashCode suffice.
    */
-  private static class Outputs implements ClassObject, SkylarkValue {
+  private static class Outputs implements ClassObject, StarlarkValue {
     private final Map<String, Object> outputs;
     private final SkylarkRuleContext context;
     private boolean executableCreated = false;
@@ -338,7 +338,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       if (isImmutable()) {
         printer.append("ctx.outputs(for ");
         printer.append(context.ruleLabelCanonicalName);
@@ -474,7 +474,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     if (isForAspect) {
       printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
     } else {
@@ -500,7 +500,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkValue createdActions() throws EvalException {
+  public StarlarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(

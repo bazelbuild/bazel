@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -177,7 +176,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @SkylarkModule(name = "AStruct", documented = false, doc = "")
-  static final class AStruct implements ClassObject, SkylarkValue {
+  static final class AStruct implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {
       switch (name) {

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Utilites related to C++ support. */
@@ -51,7 +51,7 @@ public interface CcModuleApi<
         SkylarkRuleContextT extends SkylarkRuleContextApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "CcToolchainInfo",

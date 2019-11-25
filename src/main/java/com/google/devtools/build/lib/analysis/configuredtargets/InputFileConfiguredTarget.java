@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Objects;
 
 /**
@@ -39,7 +39,7 @@ import java.util.Objects;
  * here and is always set to <b>null</b>.
  */
 @AutoCodec
-public final class InputFileConfiguredTarget extends FileConfiguredTarget implements SkylarkValue {
+public final class InputFileConfiguredTarget extends FileConfiguredTarget implements StarlarkValue {
   private final SourceArtifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
@@ -96,7 +96,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<input file target " + getLabel() + ">");
   }
 

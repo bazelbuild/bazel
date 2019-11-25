@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
@@ -48,7 +48,7 @@ public class AnalysisFailure implements AnalysisFailureApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<AnalyisFailure object>");
   }
 

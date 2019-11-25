@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -372,7 +372,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
    * @param <P> type of Provider
    * @param <S> type of returned NestedSet items
    */
-  private <P extends TransitiveInfoProvider, S extends SkylarkValue>
+  private <P extends TransitiveInfoProvider, S extends StarlarkValue>
       NestedSet<S> getProviderAsNestedSet(
           Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
 

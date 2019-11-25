@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkinterface;
+package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
 /** Base interface for all Starlark values besides boxed Java primitives. */
-public interface SkylarkValue {
+public interface StarlarkValue {
 
   /**
    * Prints an official representation of object x.
@@ -28,7 +28,7 @@ public interface SkylarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void repr(SkylarkPrinter printer) {
+  default void repr(Printer printer) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
 
@@ -39,7 +39,7 @@ public interface SkylarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void str(SkylarkPrinter printer) {
+  default void str(Printer printer) {
     repr(printer);
   }
 
@@ -55,7 +55,7 @@ public interface SkylarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void debugPrint(SkylarkPrinter printer) {
+  default void debugPrint(Printer printer) {
     str(printer);
   }
 

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Type encapsulating build variables. */
 @SkylarkModule(
@@ -24,4 +24,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Class encapsulating cc_toolchain variables.")
-public interface CcToolchainVariablesApi extends SkylarkValue {}
+public interface CcToolchainVariablesApi extends StarlarkValue {}

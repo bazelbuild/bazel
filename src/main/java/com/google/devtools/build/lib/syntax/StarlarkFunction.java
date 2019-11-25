@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
@@ -98,7 +97,7 @@ public final class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     Object label = this.definitionGlobals.getLabel();
 
     printer.append("<function " + getName());

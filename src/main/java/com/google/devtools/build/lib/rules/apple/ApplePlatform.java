@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -188,7 +188,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(toString());
   }
 
@@ -252,7 +252,7 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append(toString());
     }
   }

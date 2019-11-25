@@ -20,7 +20,6 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
 import java.util.Arrays;
@@ -163,13 +162,13 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
-    // TODO(adonovan): when SkylarkPrinter moves into this package,
+  public void repr(Printer printer) {
+    // TODO(adonovan): when Printer moves into this package,
     // inline and simplify this, the sole call with isTuple=true.
     printer.printList(this, /*isTuple=*/ true);
   }
 
-  // TODO(adonovan): SkylarkValue has 3 String methods yet still we need this fourth. Why?
+  // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
     return Starlark.repr(this);

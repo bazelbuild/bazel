@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -207,7 +207,7 @@ public final class DebuggerSerializationTest {
   }
 
   @Test
-  public void testSkylarkValue() {
+  public void testStarlarkValue() {
     DummyType dummy = new DummyType();
 
     Value value = getValueProto("name", dummy);
@@ -215,9 +215,9 @@ public final class DebuggerSerializationTest {
     assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
   }
 
-  private static class DummyType implements SkylarkValue {
+  private static class DummyType implements StarlarkValue {
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("DummyType");
     }
 
@@ -240,9 +240,9 @@ public final class DebuggerSerializationTest {
     assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
   }
 
-  private static class DummyTypeWithException implements SkylarkValue {
+  private static class DummyTypeWithException implements StarlarkValue {
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("DummyTypeWithException");
     }
 

@@ -23,8 +23,8 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkInfo.Layout;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -123,7 +123,7 @@ public class SkylarkInfoTest {
   @Test
   public void mutableIfContentsAreMutable() throws Exception {
     SkylarkProvider provider = makeExportedProvider();
-    SkylarkValue v = new SkylarkValue() {};
+    StarlarkValue v = new StarlarkValue() {};
     SkylarkInfo mapInfo = makeSchemalessInfoWithF1F2Values(provider, 5, v);
     SkylarkInfo compactInfo = makeSchemafulInfoWithF1F2Values(provider, 5, v);
     assertThat(mapInfo.isImmutable()).isFalse();

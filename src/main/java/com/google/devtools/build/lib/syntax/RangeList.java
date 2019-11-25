@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -164,7 +163,7 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     if (step == 1) {
       printer.format("range(%d, %d)", start, stop);
     } else {

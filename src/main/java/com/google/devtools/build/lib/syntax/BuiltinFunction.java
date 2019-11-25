@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -229,7 +228,7 @@ public abstract class BuiltinFunction extends BaseFunction {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<built-in function " + getName() + ">");
   }
 }

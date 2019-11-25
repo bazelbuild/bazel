@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollectionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.HashSet;
@@ -122,7 +122,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<rule collection for " + skylarkRuleContext.getRuleLabelCanonicalName() + ">");
   }
 

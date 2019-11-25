@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -420,7 +419,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.printList(entrySet(), "{", ", ", "}", null);
   }
 

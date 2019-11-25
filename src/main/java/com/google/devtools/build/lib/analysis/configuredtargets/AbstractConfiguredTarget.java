@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -260,7 +260,7 @@ public abstract class AbstractConfiguredTarget
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<unknown target " + getLabel() + ">");
   }
 }

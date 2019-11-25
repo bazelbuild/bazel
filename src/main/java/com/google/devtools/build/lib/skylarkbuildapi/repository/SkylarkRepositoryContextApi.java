@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
             + " as an argument to the <code>implementation</code> function when you create a"
             + " repository rule.")
 public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "name",

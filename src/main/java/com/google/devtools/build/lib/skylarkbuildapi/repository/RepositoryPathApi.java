@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 
 /** A structure representing a file to be used inside a repository. */
@@ -28,7 +28,7 @@ import java.io.IOException;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A structure representing a file to be used inside a repository.")
 public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<?>>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
     name = "basename",

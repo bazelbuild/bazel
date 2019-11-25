@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Fake implementation of {@link AndroidDeviceBrokerInfoApi}.
@@ -35,7 +35,7 @@ public class FakeAndroidDeviceBrokerInfo implements AndroidDeviceBrokerInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link AndroidDeviceBrokerInfoApiProvider}.
@@ -49,6 +49,6 @@ public class FakeAndroidDeviceBrokerInfo implements AndroidDeviceBrokerInfoApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

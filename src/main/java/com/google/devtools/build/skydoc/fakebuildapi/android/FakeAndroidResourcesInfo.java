@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Fake implementation of {@link AndroidResourcesInfoApi}. */
@@ -112,7 +112,7 @@ public class FakeAndroidResourcesInfo
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link AndroidResourcesInfoApiProvider}. */
   public static class FakeAndroidResourcesInfoProvider
@@ -141,7 +141,7 @@ public class FakeAndroidResourcesInfo
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 
   /** Fake implementation of {@link ValidatedAndroidDataApi}. */
@@ -223,6 +223,6 @@ public class FakeAndroidResourcesInfo
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

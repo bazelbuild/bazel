@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
 @SkylarkModule(
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     category = SkylarkModuleCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcCompilationOutputsApi<FileT extends FileApi> extends SkylarkValue {
+public interface CcCompilationOutputsApi<FileT extends FileApi> extends StarlarkValue {
 
   /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
   @SkylarkCallable(

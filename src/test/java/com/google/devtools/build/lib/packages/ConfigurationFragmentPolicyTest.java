@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,13 +35,13 @@ import org.junit.runners.JUnit4;
 public final class ConfigurationFragmentPolicyTest {
 
   @SkylarkModule(name = "test_fragment", doc = "first fragment")
-  private static final class TestFragment implements SkylarkValue {}
+  private static final class TestFragment implements StarlarkValue {}
 
   @SkylarkModule(name = "other_fragment", doc = "second fragment")
-  private static final class OtherFragment implements SkylarkValue {}
+  private static final class OtherFragment implements StarlarkValue {}
 
   @SkylarkModule(name = "unknown_fragment", doc = "useless waste of permgen")
-  private static final class UnknownFragment implements SkylarkValue {}
+  private static final class UnknownFragment implements StarlarkValue {}
 
   @Test
   public void testMissingFragmentPolicy() throws Exception {

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** A configuration fragment for Objective C. */
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
 public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "ios_simulator_device",

@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * An interface for an info type that provides all compiling and linking information in the
@@ -29,9 +29,8 @@ import com.google.devtools.build.lib.syntax.Sequence;
 @SkylarkModule(
     name = "ObjcProvider",
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider for compilation and linking of objc."
-)
-public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue {
+    doc = "A provider for compilation and linking of objc.")
+public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "define",

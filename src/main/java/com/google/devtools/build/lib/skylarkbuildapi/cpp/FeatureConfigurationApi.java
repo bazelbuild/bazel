@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Class used to construct command lines from CROSSTOOL features. */
 @SkylarkModule(
     name = "FeatureConfiguration",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Class used to construct command lines from CROSSTOOL features.")
-public interface FeatureConfigurationApi extends SkylarkValue {}
+public interface FeatureConfigurationApi extends StarlarkValue {}

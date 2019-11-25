@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * The "attr" module of the Build API.
@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "<p>See the Rules page for more on "
             + "<a href='../rules.$DOC_EXT#attributes'>defining</a> and "
             + "<a href='../rules.$DOC_EXT#implementation-function'>using</a> attributes.")
-public interface SkylarkAttrApi extends SkylarkValue {
+public interface SkylarkAttrApi extends StarlarkValue {
 
   // dependency and output attributes
   static final String LABEL_PARAGRAPH =
@@ -997,5 +997,5 @@ public interface SkylarkAttrApi extends SkylarkValue {
               + "module to create an Attribute. They are only for use with a "
               + "<a href=\"globals.html#rule\">rule</a> or an "
               + "<a href=\"globals.html#aspect\">aspect</a>.")
-  public static interface Descriptor extends SkylarkValue {}
+  public static interface Descriptor extends StarlarkValue {}
 }

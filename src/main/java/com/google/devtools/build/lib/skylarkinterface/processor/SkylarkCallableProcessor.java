@@ -66,7 +66,7 @@ import javax.tools.Diagnostic;
  *       exclusively.
  *   <li>Noneable parameters must have Java parameter type Object, as the actual value may be either
  *       {@code None} or some other value, which do not share a superclass other than Object (or
- *       SkylarkValue, which is typically no more descriptive than Object).
+ *       StarlarkValue, which is typically no more descriptive than Object).
  *   <li>Each parameter must be positional or named (or both).
  *   <li>Positional-only parameters must be specified before any named parameters.
  *   <li>Positional parameters must be specified before any non-positional parameters.
@@ -76,7 +76,7 @@ import javax.tools.Diagnostic;
  *   <li>Each class may only have one annotated method with selfCall=true.
  *   <li>A method annotated with selfCall=true must have a non-empty name.
  *   <li>A method annotated with selfCall=true must have structField=false.
- *   <li>The method's class must implement SkylarkValue.
+ *   <li>The method's class must implement StarlarkValue.
  *   <li>The class of the declared result type, if final, must be accepted by {@link
  *       Starlark#fromJava}.
  * </ul>
@@ -135,16 +135,15 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     TypeMirror booleanType = getType("java.lang.Boolean");
     TypeMirror listType = getType("java.util.List");
     TypeMirror mapType = getType("java.util.Map");
-    TypeMirror skylarkValueType =
-        getType("com.google.devtools.build.lib.skylarkinterface.SkylarkValue");
+    TypeMirror skylarkValueType = getType("com.google.devtools.build.lib.syntax.StarlarkValue");
 
-    // Ensure SkylarkModule-annotated classes implement SkylarkValue.
+    // Ensure SkylarkModule-annotated classes implement StarlarkValue.
     for (Element cls : roundEnv.getElementsAnnotatedWith(SkylarkModule.class)) {
       if (!types.isAssignable(cls.asType(), skylarkValueType)) {
         error(
             cls,
             String.format(
-                "class %s has @SkylarkModule annotation but does not implement SkylarkValue",
+                "class %s has @SkylarkModule annotation but does not implement StarlarkValue",
                 cls.getSimpleName()));
       }
     }
@@ -152,7 +151,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     // TODO(adonovan): reject a SkylarkCallable-annotated method whose class doesn't have (or
     // inherit) a SkylarkModule documentation annotation.
 
-    // Only SkylarkGlobalLibrary-annotated classes, and those that implement SkylarkValue,
+    // Only SkylarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
     // are allowed SkylarkCallable-annotated methods.
     Set<Element> okClasses =
         new HashSet<>(roundEnv.getElementsAnnotatedWith(SkylarkGlobalLibrary.class));
@@ -210,14 +209,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
 
       // Check that the method's class is SkylarkGlobalLibrary-annotated,
-      // or implements SkylarkValue, or an error has already been reported.
+      // or implements StarlarkValue, or an error has already been reported.
       Element cls = methodElement.getEnclosingElement();
       if (okClasses.add(cls) && !types.isAssignable(cls.asType(), skylarkValueType)) {
         error(
             cls,
             String.format(
                 "method %s has @SkylarkCallable annotation but enclosing class %s does not"
-                    + " implement SkylarkValue nor has @SkylarkGlobalLibrary annotation",
+                    + " implement StarlarkValue nor has @SkylarkGlobalLibrary annotation",
                 methodElement.getSimpleName(), cls.getSimpleName()));
       }
     }

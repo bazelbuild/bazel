@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which specifies skylark-info parameters (for example
  * StarlarkThread) before other parameters.
  */
-public class SkylarkInfoBeforeParams implements SkylarkValue {
+public class SkylarkInfoBeforeParams implements StarlarkValue {
 
   @SkylarkCallable(
       name = "skylark_info_wrong_order",

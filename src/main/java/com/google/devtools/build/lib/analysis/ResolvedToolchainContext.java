@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Printer;
 import javax.annotation.Nullable;
 
 /**
@@ -146,7 +146,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<toolchain_context.resolved_labels: ");
     printer.append(
         toolchains().keySet().stream()

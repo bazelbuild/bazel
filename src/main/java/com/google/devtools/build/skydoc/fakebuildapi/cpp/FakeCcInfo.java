@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Fake implementation of {@link CcInfoApi}. */
@@ -46,7 +46,7 @@ public class FakeCcInfo implements CcInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link CcInfoApi.Provider}. */
   public static class Provider implements CcInfoApi.Provider {
@@ -59,6 +59,6 @@ public class FakeCcInfo implements CcInfoApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

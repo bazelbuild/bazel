@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidApplicationResourceInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link AndroidDeviceBrokerInfoApi}. */
 public class FakeAndroidApplicationResourceInfo implements AndroidDeviceBrokerInfoApi {
@@ -36,14 +36,14 @@ public class FakeAndroidApplicationResourceInfo implements AndroidDeviceBrokerIn
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link AndroidApplicationResourceInfoApiProvider}. */
   public static class FakeAndroidApplicationResourceInfoProvider
       implements AndroidApplicationResourceInfoApiProvider<FileApi> {
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
 
     @Override
     public AndroidApplicationResourceInfoApi<FileApi> createInfo(

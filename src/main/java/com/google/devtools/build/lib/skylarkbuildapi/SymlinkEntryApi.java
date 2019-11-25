@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a single runfiles symlink represented by a link name and target. */
 @SkylarkModule(
     name = "SymlinkEntry",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A single runfiles symlink represented by a link name and target.")
-public interface SymlinkEntryApi extends SkylarkValue {
+public interface SymlinkEntryApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "path",

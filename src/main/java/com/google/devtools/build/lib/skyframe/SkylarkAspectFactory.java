@@ -33,13 +33,13 @@ import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 
 /** A factory for aspects that are defined in Skylark. */
@@ -191,11 +191,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private static void addOutputGroups(Object value, Location loc, ConfiguredAspect.Builder builder)
       throws EvalException {
-    Map<String, SkylarkValue> outputGroups =
-        SkylarkType.castMap(value, String.class, SkylarkValue.class, "output_groups");
+    Map<String, StarlarkValue> outputGroups =
+        SkylarkType.castMap(value, String.class, StarlarkValue.class, "output_groups");
 
     for (String outputGroup : outputGroups.keySet()) {
-      SkylarkValue objects = outputGroups.get(outputGroup);
+      StarlarkValue objects = outputGroups.get(outputGroup);
 
       builder.addOutputGroup(
           outputGroup,

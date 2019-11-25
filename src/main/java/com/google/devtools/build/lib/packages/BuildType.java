@@ -29,13 +29,12 @@ import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -488,11 +487,11 @@ public final class BuildType {
   }
 
   /**
-   * Holds an ordered collection of {@link Selector}s. This is used to support
-   * {@code attr = rawValue + select(...) + select(...) + ..."} syntax. For consistency's
-   * sake, raw values are stored as selects with only a default condition.
+   * Holds an ordered collection of {@link Selector}s. This is used to support {@code attr =
+   * rawValue + select(...) + select(...) + ..."} syntax. For consistency's sake, raw values are
+   * stored as selects with only a default condition.
    */
-  public static final class SelectorList<T> implements SkylarkValue {
+  public static final class SelectorList<T> implements StarlarkValue {
     private final Type<T> originalType;
     private final List<Selector<T>> elements;
 
@@ -561,7 +560,7 @@ public final class BuildType {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       // Convert to a lib.syntax.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();

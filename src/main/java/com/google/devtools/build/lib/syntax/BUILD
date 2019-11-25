@@ -130,6 +130,7 @@ java_library(
         "StarlarkList.java",
         "StarlarkMutable.java",
         "StarlarkThread.java",
+        "StarlarkValue.java",
         "StringModule.java",
         "Tuple.java",
     ],

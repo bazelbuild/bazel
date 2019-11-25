@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a build target. */
 @SkylarkModule(
@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
             + " rule targets all additional providers provided by this target are accessible as"
             + " <code>struct</code> fields. These extra providers are defined in the"
             + " <code>struct</code> returned by the rule implementation function.</li></ul>")
-public interface TransitiveInfoCollectionApi extends SkylarkValue {
+public interface TransitiveInfoCollectionApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "output_group",

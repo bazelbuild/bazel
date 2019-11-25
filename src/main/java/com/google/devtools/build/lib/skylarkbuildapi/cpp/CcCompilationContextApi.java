@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Interface for a store of information needed for C++ compilation aggregated across dependencies.
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.Depset;
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
-public interface CcCompilationContextApi extends SkylarkValue {
+public interface CcCompilationContextApi extends StarlarkValue {
   @SkylarkCallable(
       name = "defines",
       doc =

@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -62,6 +61,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -237,11 +237,11 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static void addOutputGroups(Object value, Location loc,
       RuleConfiguredTargetBuilder builder)
       throws EvalException {
-    Map<String, SkylarkValue> outputGroups =
-        SkylarkType.castMap(value, String.class, SkylarkValue.class, "output_groups");
+    Map<String, StarlarkValue> outputGroups =
+        SkylarkType.castMap(value, String.class, StarlarkValue.class, "output_groups");
 
     for (String outputGroup : outputGroups.keySet()) {
-      SkylarkValue objects = outputGroups.get(outputGroup);
+      StarlarkValue objects = outputGroups.get(outputGroup);
       NestedSet<Artifact> artifacts = convertToOutputGroupValue(loc, outputGroup, objects);
       builder.addOutputGroup(outputGroup, artifacts);
     }

@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -69,7 +69,7 @@ public class FakeStructApi implements StructApi, ClassObject {
 
   /** Converts the object to string using Starlark syntax. */
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     List<String> fieldNames;
     try {
       fieldNames = Ordering.natural().sortedCopy(getFieldNames());
@@ -120,7 +120,7 @@ public class FakeStructApi implements StructApi, ClassObject {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }
 

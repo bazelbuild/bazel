@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.Collection;
@@ -132,8 +131,8 @@ public final class EvalUtils {
    * @return true if the object is known to be a hashable value.
    */
   public static boolean isHashable(Object o) {
-    if (o instanceof SkylarkValue) {
-      return ((SkylarkValue) o).isHashable();
+    if (o instanceof StarlarkValue) {
+      return ((StarlarkValue) o).isHashable();
     }
     return isImmutable(o.getClass());
   }
@@ -146,8 +145,8 @@ public final class EvalUtils {
    */
   // NB: This is used as the basis for accepting objects in Depset-s.
   public static boolean isImmutable(Object o) {
-    if (o instanceof SkylarkValue) {
-      return ((SkylarkValue) o).isImmutable();
+    if (o instanceof StarlarkValue) {
+      return ((StarlarkValue) o).isImmutable();
     }
     return isImmutable(o.getClass());
   }
@@ -191,14 +190,14 @@ public final class EvalUtils {
       return c;
     }
     // TODO(bazel-team): We should require all Skylark-addressable values that aren't builtin types
-    // (String/Boolean/Integer) to implement SkylarkValue. We should also require them to have a
+    // (String/Boolean/Integer) to implement StarlarkValue. We should also require them to have a
     // (possibly inherited) @SkylarkModule annotation.
     Class<?> parent = SkylarkInterfaceUtils.getParentWithSkylarkModule(c);
     if (parent != null) {
       return parent;
     }
     Preconditions.checkArgument(
-        SkylarkValue.class.isAssignableFrom(c),
+        StarlarkValue.class.isAssignableFrom(c),
         "%s is not allowed as a Starlark value (getSkylarkType() failed)",
         c);
     return c;

@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderAp
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Tuple;
 
@@ -250,7 +250,7 @@ public final class GoogleLegacyStubs {
   public static class PyWrapCcInfoProvider implements PyWrapCcInfoApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<unknown object>");
     }
   }
@@ -262,7 +262,7 @@ public final class GoogleLegacyStubs {
   public static class PyCcLinkParamsProvider implements PyCcLinkParamsProviderApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<unknown object>");
     }
   }

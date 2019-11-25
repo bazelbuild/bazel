@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessi
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -107,7 +107,7 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link JavaInfoProviderApi}.
@@ -131,6 +131,6 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

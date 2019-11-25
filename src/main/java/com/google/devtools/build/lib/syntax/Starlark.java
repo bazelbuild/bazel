@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +43,7 @@ public final class Starlark {
   public static final Object UNBOUND = new UnboundMarker();
 
   @Immutable
-  private static final class UnboundMarker implements SkylarkValue {
+  private static final class UnboundMarker implements StarlarkValue {
     private UnboundMarker() {}
 
     @Override
@@ -59,7 +57,7 @@ public final class Starlark {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<unbound>");
     }
   }
@@ -84,7 +82,7 @@ public final class Starlark {
    * StarlarkValue.
    */
   public static boolean valid(Object x) {
-    return x instanceof SkylarkValue
+    return x instanceof StarlarkValue
         || x instanceof String
         || x instanceof Boolean
         || x instanceof Integer;
@@ -131,8 +129,8 @@ public final class Starlark {
   public static boolean truth(Object x) {
     if (x instanceof Boolean) {
       return (Boolean) x;
-    } else if (x instanceof SkylarkValue) {
-      return ((SkylarkValue) x).truth();
+    } else if (x instanceof StarlarkValue) {
+      return ((StarlarkValue) x).truth();
     } else if (x instanceof String) {
       return !((String) x).isEmpty();
     } else if (x instanceof Integer) {

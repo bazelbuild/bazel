@@ -20,11 +20,11 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Command line args module. */
 @SkylarkModule(
@@ -110,7 +110,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
             + "  ...\n"
             + ")\n"
             + "</pre>")
-public interface CommandLineArgsApi extends SkylarkValue {
+public interface CommandLineArgsApi extends StarlarkValue {
   @SkylarkCallable(
       name = "add",
       doc =

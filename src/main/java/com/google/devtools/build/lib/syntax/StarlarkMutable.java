@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 
@@ -24,7 +23,7 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
  * {@link Mutability}.
  */
 // TODO(adonovan): merge with Freezable once StarlarkThread and Frame no longer implement Freezable.
-public interface StarlarkMutable extends Freezable, SkylarkValue {
+public interface StarlarkMutable extends Freezable, StarlarkValue {
 
   /**
    * Throws an exception if this object is not mutable.

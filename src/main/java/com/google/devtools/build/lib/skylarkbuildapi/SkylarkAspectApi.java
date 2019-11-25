@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The interface for skylark-defined aspects in the Build API. */
 @SkylarkModule(
@@ -26,4 +26,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
         "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
             + "documentation of the aspect function</a> or the "
             + "<a href=\"../aspects.md\">introduction to Aspects</a>.")
-public interface SkylarkAspectApi extends SkylarkValue {}
+public interface SkylarkAspectApi extends StarlarkValue {}

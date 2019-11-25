@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -382,8 +381,8 @@ public final class StarlarkThread implements Freezable {
     private static boolean skylarkObjectsProbablyEqual(Object obj1, Object obj2) {
       // TODO(b/76154791): check this more carefully.
       return obj1.equals(obj2)
-          || (obj1 instanceof SkylarkValue
-              && obj2 instanceof SkylarkValue
+          || (obj1 instanceof StarlarkValue
+              && obj2 instanceof StarlarkValue
               && Starlark.repr(obj1).equals(Starlark.repr(obj2)));
     }
 

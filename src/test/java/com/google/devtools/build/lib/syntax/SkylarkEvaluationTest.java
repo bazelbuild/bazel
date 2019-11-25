@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.List;
@@ -118,7 +117,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "Mock", doc = "")
-  class Mock implements SkylarkValue {
+  class Mock implements StarlarkValue {
     @SkylarkCallable(
         name = "MockFn",
         selfCall = true,
@@ -178,18 +177,22 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     public String function() {
       return "a";
     }
+
     @SuppressWarnings("unused")
-    @SkylarkCallable(name = "nullfunc_failing",
+    @SkylarkCallable(
+        name = "nullfunc_failing",
         parameters = {
           @Param(name = "p1", type = String.class),
           @Param(name = "p2", type = Integer.class),
         },
-        documented = false, allowReturnNones = false)
-    public SkylarkValue nullfuncFailing(String p1, Integer p2) {
+        documented = false,
+        allowReturnNones = false)
+    public StarlarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
+
     @SkylarkCallable(name = "nullfunc_working", documented = false, allowReturnNones = true)
-    public SkylarkValue nullfuncWorking() {
+    public StarlarkValue nullfuncWorking() {
       return null;
     }
     @SkylarkCallable(name = "voidfunc", documented = false)
@@ -423,8 +426,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         useStarlarkThread = true)
     public String withArgsAndThread(
         Integer pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
-      String argsString =
-          "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
+      String argsString = debugPrintArgs(args);
       return "with_args_and_thread("
           + pos1
           + ", "
@@ -469,8 +471,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         extraKeywords = @Param(name = "kwargs"))
     public String withArgsAndKwargs(String foo, Sequence<?> args, Dict<?, ?> kwargs)
         throws EvalException {
-      String argsString =
-          "args(" + args.stream().map(Printer::debugPrint).collect(joining(", ")) + ")";
+      String argsString = debugPrintArgs(args);
       String kwargsString =
           "kwargs("
               + kwargs
@@ -494,8 +495,19 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
   }
 
+  private static String debugPrintArgs(Iterable<?> args) {
+    Printer p = Printer.getPrinter();
+    p.append("args(");
+    String sep = "";
+    for (Object arg : args) {
+      p.append(sep).debugPrint(arg);
+      sep = ", ";
+    }
+    return p.append(")").toString();
+  }
+
   @SkylarkModule(name = "MockInterface", doc = "")
-  static interface MockInterface extends SkylarkValue {
+  static interface MockInterface extends StarlarkValue {
     @SkylarkCallable(name = "is_empty_interface",
         parameters = { @Param(name = "str", type = String.class) },
         documented = false)
@@ -515,7 +527,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "MockClassObject", documented = false, doc = "")
-  static final class MockClassObject implements ClassObject, SkylarkValue {
+  static final class MockClassObject implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {
       switch (name) {
@@ -538,7 +550,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SkylarkModule(name = "ParamterizedMock", doc = "")
-  static interface ParameterizedApi<ObjectT> extends SkylarkValue {
+  static interface ParameterizedApi<ObjectT> extends StarlarkValue {
     @SkylarkCallable(
         name = "method",
         documented = false,

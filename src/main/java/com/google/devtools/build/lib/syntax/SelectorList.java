@@ -19,8 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,12 +40,11 @@ import java.util.Objects;
  * </pre>
  */
 @SkylarkModule(
-  name = "select",
-  doc = "A selector between configuration-dependent entities.",
-  documented = false
-)
+    name = "select",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
 @AutoCodec
-public final class SelectorList implements SkylarkValue {
+public final class SelectorList implements StarlarkValue {
   // TODO(build-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
   // operators, which is a non-trivial problem.
@@ -168,7 +165,7 @@ public final class SelectorList implements SkylarkValue {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.printList(elements, "", " + ", "", null);
   }
 

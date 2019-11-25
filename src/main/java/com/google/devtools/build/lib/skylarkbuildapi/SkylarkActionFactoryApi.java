@@ -20,13 +20,13 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Module providing functions to create actions. */
 @SkylarkModule(
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     doc =
         "Module providing functions to create actions. "
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
-public interface SkylarkActionFactoryApi extends SkylarkValue {
+public interface SkylarkActionFactoryApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "declare_file",

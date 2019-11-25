@@ -20,8 +20,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.IllegalFormatException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -166,7 +164,7 @@ public class PrinterTest {
             "}");
   }
 
-  private SkylarkPrinter makeSimplifiedFormatPrinter() {
+  private Printer makeSimplifiedFormatPrinter() {
     return new Printer.BasePrinter(new StringBuilder(), /*simplifiedFormatStrings=*/ true);
   }
 
@@ -184,15 +182,15 @@ public class PrinterTest {
         () -> makeSimplifiedFormatPrinter().format("Disallowed: %d", 5));
   }
 
-  private SkylarkValue createObjWithStr() {
-    return new SkylarkValue() {
+  private StarlarkValue createObjWithStr() {
+    return new StarlarkValue() {
       @Override
-      public void repr(SkylarkPrinter printer) {
+      public void repr(Printer printer) {
         printer.append("<repr marker>");
       }
 
       @Override
-      public void str(SkylarkPrinter printer) {
+      public void str(Printer printer) {
         printer.append("<str marker>");
       }
     };

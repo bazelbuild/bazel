@@ -22,16 +22,16 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Provider instance for the Python rules. */
 @SkylarkModule(
     name = "PyInfo",
     doc = "Encapsulates information provided by the Python rules.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface PyInfoApi<FileT extends FileApi> extends SkylarkValue {
+public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "transitive_sources",

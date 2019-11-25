@@ -21,11 +21,11 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Helper class for the C++ aspects of {py,java,go}_wrap_cc. Provides methods to create the swig and
@@ -43,7 +43,7 @@ public interface WrapCcHelperApi<
         FileT extends FileApi,
         CcCompilationContextT extends CcCompilationContextApi,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "feature_configuration",

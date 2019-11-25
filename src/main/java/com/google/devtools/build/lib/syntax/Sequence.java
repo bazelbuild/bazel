@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.Collections;
 import java.util.List;
 import java.util.RandomAccess;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "common type of lists and tuples.")
-public interface Sequence<E> extends SkylarkValue, List<E>, RandomAccess, SkylarkIndexable {
+public interface Sequence<E> extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable {
 
   @Override
   default boolean truth() {

@@ -18,22 +18,21 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
- * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled
- * with the {@link Target} and {@link BuildConfiguration} objects it was created from.
+ * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the
+ * {@link Target} and {@link BuildConfiguration} objects it was created from.
  *
- * <p>This interface is supposed to only be used in {@link BuildView} and above. In particular,
- * rule implementations should not be able to access the {@link ConfiguredTarget} objects
- * associated with their direct dependencies, only the corresponding
- * {@link TransitiveInfoCollection}s. Also, {@link ConfiguredTarget} objects should not be
- * accessible from the action graph.
+ * <p>This interface is supposed to only be used in {@link BuildView} and above. In particular, rule
+ * implementations should not be able to access the {@link ConfiguredTarget} objects associated with
+ * their direct dependencies, only the corresponding {@link TransitiveInfoCollection}s. Also, {@link
+ * ConfiguredTarget} objects should not be accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject, SkylarkValue {
+public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject, StarlarkValue {
 
   /**
    *  All <code>ConfiguredTarget</code>s have a "label" field.

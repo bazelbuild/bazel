@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Provider.Key;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -225,7 +225,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<merged target " + getLabel() + ">");
   }
 

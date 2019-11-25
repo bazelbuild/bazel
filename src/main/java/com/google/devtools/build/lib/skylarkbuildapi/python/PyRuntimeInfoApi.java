@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Provider instance for {@code py_runtime}. */
@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
             + "wrapper script that is capable of running a Python script passed on the command "
             + "line, following the same conventions as the standard CPython interpreter.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
+public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "interpreter_path",

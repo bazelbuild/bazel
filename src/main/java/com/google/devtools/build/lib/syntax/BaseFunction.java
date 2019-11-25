@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -356,7 +355,7 @@ public abstract class BaseFunction implements StarlarkCallable {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<function " + getName() + ">");
   }
 

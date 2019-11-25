@@ -15,9 +15,9 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link SkylarkAspectApi}. */
 public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi {
@@ -39,5 +39,5 @@ public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi 
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

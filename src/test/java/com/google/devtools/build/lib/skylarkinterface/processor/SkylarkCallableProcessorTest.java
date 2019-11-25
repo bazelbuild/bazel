@@ -389,14 +389,14 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
-  public void testDoesntImplementSkylarkValue() throws Exception {
+  public void testDoesntImplementStarlarkValue() throws Exception {
     assertAbout(javaSource())
         .that(getFile("DoesntImplementSkylarkValue.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
             "method x has @SkylarkCallable annotation but enclosing class"
-                + " DoesntImplementSkylarkValue does not implement SkylarkValue nor has"
+                + " DoesntImplementSkylarkValue does not implement StarlarkValue nor has"
                 + " @SkylarkGlobalLibrary annotation");
   }
 }

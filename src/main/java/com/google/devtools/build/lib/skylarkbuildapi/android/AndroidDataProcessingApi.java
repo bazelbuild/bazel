@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
 @SkylarkModule(
@@ -49,7 +49,7 @@ public interface AndroidDataProcessingApi<
         AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi<?>,
         AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi<?>,
         ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "assets_from_deps",

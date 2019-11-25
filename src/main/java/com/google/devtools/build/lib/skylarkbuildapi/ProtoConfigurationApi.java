@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A configuration fragment representing protocol buffers. */
 @SkylarkModule(
     name = "proto",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment representing protocol buffers.")
-public interface ProtoConfigurationApi extends SkylarkValue {}
+public interface ProtoConfigurationApi extends StarlarkValue {}

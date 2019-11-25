@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -83,7 +82,7 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<built-in function " + methodName + ">");
   }
 }

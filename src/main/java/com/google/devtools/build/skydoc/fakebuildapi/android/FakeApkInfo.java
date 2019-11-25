@@ -17,9 +17,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Fake implementation of {@link ApkInfoApi}.
@@ -57,7 +57,7 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link ApkInfoApiProvider}.
@@ -70,6 +70,6 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
 public class FakePyWrapCcInfo implements PyWrapCcInfoApi {
@@ -30,7 +30,7 @@ public class FakePyWrapCcInfo implements PyWrapCcInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   @Override
   public String toProto(Location loc) throws EvalException {
@@ -46,6 +46,6 @@ public class FakePyWrapCcInfo implements PyWrapCcInfoApi {
   public static class Provider implements PyWrapCcInfoApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

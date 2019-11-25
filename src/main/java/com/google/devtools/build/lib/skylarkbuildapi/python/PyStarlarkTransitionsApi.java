@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.python;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * DO NOT USE. Skarlark module exposing Python transitions for Python 2 to 3 migration purposes
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
         "DO NOT USE. This is intended for Python 2 to 3 migration purposes only. If you depend"
             + " on it, you will be broken when it is removed.",
     documented = false)
-public interface PyStarlarkTransitionsApi extends SkylarkValue {
+public interface PyStarlarkTransitionsApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "cfg",
@@ -42,5 +42,5 @@ public interface PyStarlarkTransitionsApi extends SkylarkValue {
       documented = false,
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public SkylarkValue getTransition();
+  public StarlarkValue getTransition();
 }
