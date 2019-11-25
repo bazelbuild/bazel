@@ -352,7 +352,7 @@ public class CompilationSupport {
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     if (pchHdr != null) {
-      result.addNonModuleMapHeader(pchHdr);
+      result.addAdditionalInputs(ImmutableList.of(pchHdr));
     }
 
     if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
