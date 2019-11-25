@@ -272,7 +272,8 @@ public final class RemoteModule extends BlazeModule {
             new GrpcRemoteExecutor(
                 execChannel.retain(),
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
-                execRetrier);
+                execRetrier,
+                remoteOptions);
         execChannel.release();
         RemoteExecutionCache remoteCache =
             new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
