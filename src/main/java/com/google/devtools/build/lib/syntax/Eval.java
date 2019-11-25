@@ -96,10 +96,10 @@ final class Eval {
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = eval(thread, node.getCollection());
-    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation());
+    Iterable<?> seq = Starlark.toIterable(o);
     EvalUtils.lock(o, node.getLocation());
     try {
-      for (Object it : col) {
+      for (Object it : seq) {
         assign(node.getLHS(), it, thread, node.getLocation());
 
         switch (execStatementsInternal(node.getBlock())) {
@@ -642,7 +642,7 @@ final class Eval {
 
             Object iterable = eval(thread, forClause.getIterable());
             Location loc = comp.getLocation();
-            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc);
+            Iterable<?> listValue = Starlark.toIterable(iterable);
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
@@ -788,7 +788,7 @@ final class Eval {
         posargs.add(value);
       } else if (arg instanceof Argument.Star) {
         // f(*args): expand args
-        if (!(value instanceof Iterable)) {
+        if (!(value instanceof StarlarkIterable)) {
           throw new EvalException(
               call.getLocation(),
               "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));

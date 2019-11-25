@@ -140,6 +140,22 @@ public final class Starlark {
     }
   }
 
+  /**
+   * Returns an iterable view of {@code x} if it is an iterable Starlark value; throws EvalException
+   * otherwise.
+   *
+   * <p>Whereas the interpreter temporarily freezes the iterable value using {@link EvalUtils#lock}
+   * and {@link EvalUtils#unlock} while iterating in {@code for} loops and comprehensions, iteration
+   * using this method does not freeze the value. Callers should exercise care not to mutate the
+   * underlying object during iteration.
+   */
+  public static Iterable<?> toIterable(Object x) throws EvalException {
+    if (x instanceof StarlarkIterable) {
+      return (Iterable<?>) x;
+    }
+    throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+  }
+
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
   public static String str(Object x) {
     return Printer.getPrinter().str(x).toString();

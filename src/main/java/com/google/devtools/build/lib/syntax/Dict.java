@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,8 @@ import javax.annotation.Nullable;
 
 /**
  * A Dict is a Starlark dictionary (dict), a mapping from keys to values.
+ *
+ * <p>Dicts are iterable in both Java and Starlark; the iterator yields successive keys.
  *
  * <p>Although this implements the {@link Map} interface, it is not mutable via that interface's
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
@@ -73,7 +76,8 @@ import javax.annotation.Nullable;
 // Every cast to a parameterized type is a lie.
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
-public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkIndexable {
+public final class Dict<K, V>
+    implements Map<K, V>, StarlarkMutable, SkylarkIndexable, StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
@@ -107,6 +111,11 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
   @Override
   public boolean equals(Object o) {
     return contents.equals(o); // not called by Dict.put (because !isHashable)
+  }
+
+  @Override
+  public Iterator<K> iterator() {
+    return contents.keySet().iterator();
   }
 
   @SkylarkCallable(
@@ -529,7 +538,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
       String funcname, Object args, Location loc, @Nullable Mutability mu) throws EvalException {
     Iterable<?> seq;
     try {
-      seq = EvalUtils.toIterable(args, loc);
+      seq = Starlark.toIterable(args);
     } catch (EvalException ex) {
       throw new EvalException(
           loc,
@@ -540,7 +549,7 @@ public final class Dict<K, V> implements Map<K, V>, StarlarkMutable, SkylarkInde
     for (Object item : seq) {
       Iterable<?> seq2;
       try {
-        seq2 = EvalUtils.toIterable(item, loc);
+        seq2 = Starlark.toIterable(item);
       } catch (EvalException ex) {
         throw new EvalException(
             loc,

@@ -300,17 +300,6 @@ public final class EvalUtils {
     }
   }
 
-  public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
-    if (o instanceof Iterable) {
-      return (Iterable<?>) o;
-    } else if (o instanceof Map) {
-      return toCollection(o, loc);
-    } else {
-      throw new EvalException(loc,
-          "type '" + getDataTypeName(o) + "' is not iterable");
-    }
-  }
-
   public static void lock(Object object, Location loc) {
     if (object instanceof StarlarkMutable) {
       StarlarkMutable x = (StarlarkMutable) object;

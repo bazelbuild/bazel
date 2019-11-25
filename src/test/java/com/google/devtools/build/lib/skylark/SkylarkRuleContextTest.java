@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1867,9 +1868,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(((StructImpl) provider).getProvider()).isEqualTo(ActionsProvider.INSTANCE);
     update("actions", provider);
 
-    Object mapping = eval("actions.by_file");
-    assertThat(mapping).isInstanceOf(Dict.class);
-    assertThat((Dict) mapping).hasSize(1);
+    Map<?, ?> mapping = (Dict<?, ?>) eval("actions.by_file");
+    assertThat(mapping).hasSize(1);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     Object actionUnchecked = eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
@@ -1973,7 +1973,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
-    Dict<?, ?> map = (Dict) mapUnchecked;
+    Map<?, ?> map = (Dict) mapUnchecked;
     // Should only have the first action because created_actions() was called
     // before the second action was created.
     Object file = eval("ruleContext.attr.dep.out1");
@@ -2071,7 +2071,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
-    Dict<?, ?> map = (Dict) mapUnchecked;
+    Map<?, ?> map = (Dict) mapUnchecked;
     Object out1 = eval("ruleContext.attr.dep.out1");
     Object out2 = eval("ruleContext.attr.dep.out2");
     Object out3 = eval("ruleContext.attr.dep.out3");

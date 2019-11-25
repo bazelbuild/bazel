@@ -1249,7 +1249,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   private void checkAppleDebugSymbolProvider_DsymEntries(
-      Dict<String, Dict<String, Artifact>> outputMap, CompilationMode compilationMode)
+      Map<String, Dict<String, Artifact>> outputMap, CompilationMode compilationMode)
       throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
@@ -1272,7 +1272,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   private void checkAppleDebugSymbolProvider_LinkMapEntries(
-      Dict<String, Dict<String, Artifact>> outputMap) throws Exception {
+      Map<String, Dict<String, Artifact>> outputMap) throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
 

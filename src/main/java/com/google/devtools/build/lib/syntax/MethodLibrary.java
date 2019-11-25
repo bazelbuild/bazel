@@ -94,7 +94,7 @@ class MethodLibrary {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     try {
-      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc) : args;
+      Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
       throw new EvalException(loc, "expected at least one item", ex);
@@ -116,10 +116,9 @@ class MethodLibrary {
             doc = "A string or a collection of elements.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
-      },
-      useLocation = true)
-  public Boolean all(Object collection, Location loc) throws EvalException {
-    return !hasElementWithBooleanValue(collection, false, loc);
+      })
+  public Boolean all(Object collection) throws EvalException {
+    return !hasElementWithBooleanValue(collection, false);
   }
 
   @SkylarkCallable(
@@ -137,17 +136,15 @@ class MethodLibrary {
             doc = "A string or a collection of elements.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
-      },
-      useLocation = true)
-  public Boolean any(Object collection, Location loc) throws EvalException {
-    return hasElementWithBooleanValue(collection, true, loc);
+      })
+  public Boolean any(Object collection) throws EvalException {
+    return hasElementWithBooleanValue(collection, true);
   }
 
-  private static boolean hasElementWithBooleanValue(Object collection, boolean value, Location loc)
+  private static boolean hasElementWithBooleanValue(Object seq, boolean value)
       throws EvalException {
-    Iterable<?> iterable = EvalUtils.toIterable(collection, loc);
-    for (Object obj : iterable) {
-      if (Starlark.truth(obj) == value) {
+    for (Object x : Starlark.toIterable(seq)) {
+      if (Starlark.truth(x) == value) {
         return true;
       }
     }
@@ -265,15 +262,13 @@ class MethodLibrary {
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public StarlarkList<?> reversed(Object sequence, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public StarlarkList<?> reversed(Object sequence, StarlarkThread thread) throws EvalException {
     if (sequence instanceof Dict) {
-      throw new EvalException(loc, "Argument to reversed() must be a sequence, not a dictionary.");
+      throw new EvalException(null, "Argument to reversed() must be a sequence, not a dictionary.");
     }
     ArrayDeque<Object> tmpList = new ArrayDeque<>();
-    for (Object element : EvalUtils.toIterable(sequence, loc)) {
+    for (Object element : Starlark.toIterable(sequence)) {
       tmpList.addFirst(element);
     }
     return StarlarkList.copyOf(thread.mutability(), tmpList);
@@ -339,7 +334,7 @@ class MethodLibrary {
       return ((Map<?, ?>) x).size();
     } else if (x instanceof Sequence) {
       return ((Sequence<?>) x).size();
-    } else if (x instanceof Iterable) {
+    } else if (x instanceof StarlarkIterable) {
       // Iterables.size() checks if x is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) x);
     } else {
@@ -1170,13 +1165,11 @@ class MethodLibrary {
               + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
               + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
       extraPositionals = @Param(name = "args", doc = "lists to zip."),
-      useLocation = true,
       useStarlarkThread = true)
-  public StarlarkList<?> zip(Sequence<?> args, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public StarlarkList<?> zip(Sequence<?> args, StarlarkThread thread) throws EvalException {
     Iterator<?>[] iterators = new Iterator<?>[args.size()];
     for (int i = 0; i < args.size(); i++) {
-      iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
+      iterators[i] = Starlark.toIterable(args.get(i)).iterator();
     }
     ArrayList<Tuple<?>> result = new ArrayList<>();
     boolean allHasNext;

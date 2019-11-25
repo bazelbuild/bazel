@@ -127,6 +127,7 @@ java_library(
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",
+        "StarlarkIterable.java",
         "StarlarkList.java",
         "StarlarkMutable.java",
         "StarlarkThread.java",

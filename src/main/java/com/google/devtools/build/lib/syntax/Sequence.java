@@ -24,7 +24,7 @@ import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
 /**
- * A Sequence is a finite sequence of Starlark values, such as a list or tuple.
+ * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
  *
  * <p>Although this implements the {@link List} interface, it is not mutable via that interface's
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
@@ -34,7 +34,8 @@ import javax.annotation.Nullable;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "common type of lists and tuples.")
-public interface Sequence<E> extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable {
+public interface Sequence<E>
+    extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable, StarlarkIterable<E> {
 
   @Override
   default boolean truth() {

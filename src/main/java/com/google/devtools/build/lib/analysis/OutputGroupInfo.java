@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIterable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -60,7 +61,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class OutputGroupInfo extends NativeInfo
-    implements SkylarkIndexable, Iterable<String>, OutputGroupInfoApi {
+    implements SkylarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String SKYLARK_NAME = "output_groups";
 
   public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();

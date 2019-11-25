@@ -421,7 +421,7 @@ public final class Depset implements StarlarkValue {
     }
     // newElements' type is Object because of the polymorphism on unioning two
     // Depsets versus a set and another kind of iterable.
-    // Can't use EvalUtils#toIterable since that would discard this information.
+    // Can't use Starlark#toIterable since that would discard this information.
     return Depset.unionOf(this, newElements);
   }
 
