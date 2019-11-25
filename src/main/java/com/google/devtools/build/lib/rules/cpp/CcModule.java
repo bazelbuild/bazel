@@ -663,20 +663,6 @@ public abstract class CcModule
     return ccToolchain.getLegacyCcFlagsMakeVariable();
   }
 
-  /** Converts an object that can be the either Depset or None into NestedSet. */
-  @SuppressWarnings("unchecked")
-  protected Object skylarkListToDepset(Object o) throws EvalException {
-    if (o instanceof Sequence) {
-      Sequence<String> list = (Sequence<String>) o;
-      Depset.Builder builder = Depset.builder(Order.STABLE_ORDER);
-      for (Object entry : list) {
-        builder.addDirect(entry);
-      }
-      return builder.build();
-    }
-    return o;
-  }
-
   /** Converts None, or a Sequence, or a Depset to a NestedSet. */
   @SuppressWarnings("unchecked")
   private static <T> NestedSet<T> convertToNestedSet(Object o, Class<T> type, String fieldName)

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -451,33 +452,14 @@ public final class Depset implements SkylarkValue {
     }
   }
 
-  /** Create a {@link Builder} with specified order. */
-  public static Builder builder(Order order) {
-    return new Builder(order);
-  }
+  /** Create a Depset from the given direct and transitive components. */
+  static Depset fromDirectAndTransitive(Order order, List<Object> direct, List<Depset> transitive)
+      throws EvalException {
+    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
+    SkylarkType type = SkylarkType.TOP;
 
-  /**
-   * Builder for {@link Depset}.
-   *
-   * <p>Use this to construct typesafe Skylark nested sets (depsets). Encapsulates content type
-   * checking logic.
-   */
-  // TODO(adonovan): make this private. The sole external user in rules/cpp could
-  // instead call Depset.of(NestedSet.wrap(Order, elems)).
-  public static final class Builder {
-
-    private final Order order;
-    private final NestedSetBuilder<Object> builder;
-
-    private SkylarkType contentType = SkylarkType.TOP;
-
-    private Builder(Order order) {
-      this.order = order;
-      this.builder = new NestedSetBuilder<>(order);
-    }
-
-    /** Adds a direct element, checking that its type is equal to the elements already added. */
-    public Builder addDirect(Object x) throws EvalException {
+    // Check direct elements' type is equal to elements already added.
+    for (Object x : direct) {
       // Historically, checkElement was called only by some depset constructors,
       // but not this one, depset(direct=[x]).
       // This was a regrettable oversight that allowed users to put
@@ -491,33 +473,26 @@ public final class Depset implements SkylarkValue {
       checkElement(x);
 
       SkylarkType xt = SkylarkType.of(x);
-      this.contentType = checkType(contentType, xt);
-      builder.add(x);
-      return this;
+      type = checkType(type, xt);
     }
+    builder.addAll(direct);
 
-    /** Adds a transitive set, checking that its type is equal to the elements already added. */
-    public Builder addTransitive(Depset transitive) throws EvalException {
-      if (transitive.isEmpty()) {
-        return this;
+    // Add transitive sets, checking that type is equal to elements already added.
+    for (Depset x : transitive) {
+      if (!x.isEmpty()) {
+        type = checkType(type, x.getContentType());
+        if (!order.isCompatible(x.getOrder())) {
+          throw new EvalException(
+              null,
+              String.format(
+                  "Order '%s' is incompatible with order '%s'",
+                  order.getSkylarkName(), x.getOrder().getSkylarkName()));
+        }
+        builder.addTransitive(x.getSet());
       }
-
-      this.contentType = checkType(contentType, transitive.getContentType());
-
-      if (!order.isCompatible(transitive.getOrder())) {
-        throw new EvalException(
-            null,
-            String.format(
-                "Order '%s' is incompatible with order '%s'",
-                order.getSkylarkName(), transitive.getOrder().getSkylarkName()));
-      }
-      builder.addTransitive(transitive.getSet());
-      return this;
     }
 
-    public Depset build() {
-      return new Depset(contentType, builder.build(), null, null);
-    }
+    return new Depset(type, builder.build(), null, null);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
