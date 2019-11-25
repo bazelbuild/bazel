@@ -18,12 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.nest.ClassMemberKey.FieldKey;
 import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
+import com.google.testing.testsize.SmallTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link ClassMemberKey}. */
 @RunWith(JUnit4.class)
+@SmallTest
 public class ClassMemberKeyTest {
 
   @Test

@@ -52,6 +52,11 @@ public final class ClassMemberRecord {
     this.reasons = reasons;
   }
 
+  /** Find all member keys that represent a constructor. */
+  ImmutableList<ClassMemberKey> findAllConstructorMemberKeys() {
+    return findAllMatchedMemberKeys(ClassMemberKey::isConstructor);
+  }
+
   /** Find all member keys based on the given member key predicate. */
   ImmutableList<ClassMemberKey> findAllMatchedMemberKeys(Predicate<ClassMemberKey> predicate) {
     return reasons.keySet().stream().filter(predicate).collect(toImmutableList());
@@ -59,6 +64,10 @@ public final class ClassMemberRecord {
 
   boolean hasTrackingReason(ClassMemberKey classMemberKey) {
     return reasons.containsKey(classMemberKey);
+  }
+
+  boolean hasDeclReason(ClassMemberKey classMemberKey) {
+    return hasTrackingReason(classMemberKey) && reasons.get(classMemberKey).hasDeclReason();
   }
 
   /** Find the original access code for the owner of the class member. */
@@ -98,5 +107,13 @@ public final class ClassMemberRecord {
     return reasons
         .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
         .addUseAccess(invokeOpcode);
+  }
+
+  /** Merge an another member record into this record. */
+  void mergeFrom(ClassMemberRecord otherClassMemberRecord) {
+    otherClassMemberRecord.reasons.forEach(
+        (classMemberKey, classMemberTrackReason) ->
+            reasons.merge(
+                classMemberKey, classMemberTrackReason, ClassMemberTrackReason::mergeFrom));
   }
 }

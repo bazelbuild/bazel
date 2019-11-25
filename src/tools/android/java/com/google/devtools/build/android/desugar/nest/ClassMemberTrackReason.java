@@ -69,6 +69,15 @@ final class ClassMemberTrackReason {
     return useAccesses;
   }
 
+  ClassMemberTrackReason mergeFrom(ClassMemberTrackReason otherClassMemberTrackReason) {
+    if (!hasDeclReason() && otherClassMemberTrackReason.hasDeclReason()) {
+      ownerAccess = otherClassMemberTrackReason.getOwnerAccess();
+      memberAccess = otherClassMemberTrackReason.getMemberAccess();
+    }
+    useAccesses.addAll(otherClassMemberTrackReason.getUseAccesses());
+    return this;
+  }
+
   @Override
   public int hashCode() {
     return Hashing.sha256()
