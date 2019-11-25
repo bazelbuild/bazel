@@ -491,15 +491,6 @@ public final class ObjcCommon {
         ruleContext.getExpander().withDataLocations().tokenized("copts"));
   }
 
-  static ImmutableSet<PathFragment> userHeaderSearchPaths(
-      ObjcProvider provider, BuildConfiguration config) {
-    return ImmutableSet.<PathFragment>builder()
-        .add(PathFragment.create("."))
-        .add(config.getGenfilesFragment())
-        .addAll(provider.get(IQUOTE))
-        .build();
-  }
-
   /**
    * Returns the first directory in the sequence of parents of the exec path of the given artifact
    * that matches {@code type}. For instance, if {@code type} is FileType.of(".foo") and the exec
