@@ -249,35 +249,7 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    // Create convenience symlinks from the configurations actually used by the requested targets.
-    // Symlinks will be created if all such configurations would point the symlink to the same path;
-    // if this does not hold, stale symlinks (if present from a previous invocation) will be
-    // deleted instead.
-    Set<BuildConfiguration> targetConfigurations =
-        request.getBuildOptions().useTopLevelTargetsForSymlinks()
-            ? analysisResult.getTargetsToBuild().stream()
-                .map(ConfiguredTarget::getConfigurationKey)
-                .filter(configuration -> configuration != null)
-                .distinct()
-                .map((key) -> env.getSkyframeExecutor().getConfiguration(env.getReporter(), key))
-                .collect(toImmutableSet())
-            : ImmutableSet.copyOf(
-                analysisResult.getConfigurationCollection().getTargetConfigurations());
-    String productName = runtime.getProductName();
-    String workspaceName = env.getWorkspaceName();
-    try (SilentCloseable c =
-        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
-      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          workspaceName,
-          env.getWorkspace(),
-          env.getDirectories().getExecRoot(workspaceName),
-          env.getDirectories().getOutputPath(workspaceName),
-          getReporter(),
-          targetConfigurations,
-          request.getBuildOptions().getSymlinkPrefix(productName),
-          productName,
-          !request.getBuildOptions().incompatibleSkipGenfilesSymlink);
-    }
+    createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
 
     ActionCache actionCache = getActionCache();
     actionCache.resetStatistics();
@@ -468,6 +440,53 @@ public class ExecutionTool {
       FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {
       throw new ExecutorInitException("Couldn't delete action output directory", e);
+    }
+  }
+
+  /**
+   * Creates convenience symlinks based on the target configurations.
+   *
+   * <p>Exactly what target configurations we consider depends on the value of {@code
+   * --use_top_level_targets_for_symlinks}. If this flag is false, we use the top-level target
+   * configuration as represented by the command line prior to processing any target. If the flag is
+   * true, we instead use the configurations OF the top-level targets -- meaning that we account for
+   * the effects of any rule transitions these targets may have.
+   *
+   * <p>For each type of convenience symlink, if all the considered configurations agree on what
+   * path the symlink should point to, it gets created; otherwise, the symlink is not created, and
+   * in fact gets removed if it was already present from a previous invocation.
+   */
+  private void createConvenienceSymlinks(
+      BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
+    SkyframeExecutor executor = env.getSkyframeExecutor();
+    Reporter reporter = env.getReporter();
+
+    // Gather configurations to consider.
+    Set<BuildConfiguration> targetConfigurations =
+        buildRequestOptions.useTopLevelTargetsForSymlinks()
+            ? analysisResult.getTargetsToBuild().stream()
+                .map(ConfiguredTarget::getConfigurationKey)
+                .filter(configuration -> configuration != null)
+                .distinct()
+                .map((key) -> executor.getConfiguration(reporter, key))
+                .collect(toImmutableSet())
+            : ImmutableSet.copyOf(
+                analysisResult.getConfigurationCollection().getTargetConfigurations());
+
+    String productName = runtime.getProductName();
+    String workspaceName = env.getWorkspaceName();
+    try (SilentCloseable c =
+        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
+      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          workspaceName,
+          env.getWorkspace(),
+          env.getDirectories().getExecRoot(workspaceName),
+          env.getDirectories().getOutputPath(workspaceName),
+          getReporter(),
+          targetConfigurations,
+          buildRequestOptions.getSymlinkPrefix(productName),
+          productName,
+          !buildRequestOptions.incompatibleSkipGenfilesSymlink);
     }
   }
 
