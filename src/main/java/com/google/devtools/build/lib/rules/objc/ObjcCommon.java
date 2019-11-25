@@ -162,9 +162,6 @@ public final class ObjcCommon {
           addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
           if (isCcLibrary(dep)) {
             cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
-            CcCompilationContext ccCompilationContext =
-                depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
-            addDefines(ccCompilationContext.getDefines());
           }
         }
       }
@@ -342,6 +339,7 @@ public final class ObjcCommon {
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
+            .addAll(DEFINE, attributes.defines())
             .addTransitiveAndPropagate(
                 INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
