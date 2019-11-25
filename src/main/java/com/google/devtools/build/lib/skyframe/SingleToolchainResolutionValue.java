@@ -68,7 +68,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
         Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
-      return new AutoValue_SingleToolchainResolutionValue_Key(
+      return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
           toolchainTypeLabel,
           targetPlatformKey,

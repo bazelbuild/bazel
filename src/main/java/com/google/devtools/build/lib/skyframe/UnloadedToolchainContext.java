@@ -35,7 +35,7 @@ public abstract class UnloadedToolchainContext implements ToolchainContext, SkyV
 
   /** Returns a new {@link UnloadedToolchainContextKey.Builder}. */
   public static UnloadedToolchainContextKey.Builder key() {
-    return new AutoValue_UnloadedToolchainContext_Key.Builder()
+    return new AutoValue_UnloadedToolchainContext_UnloadedToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
         .shouldSanityCheckConfiguration(false);
