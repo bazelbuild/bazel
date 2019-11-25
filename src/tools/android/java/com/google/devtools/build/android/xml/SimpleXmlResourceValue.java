@@ -192,16 +192,19 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       stringValue = stringBuilder.toString();
     } else if ((resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE)
         && item.hasPrim()) {
-      stringValue =
-          String.format("#%1$8s", Integer.toHexString(item.getPrim().getData())).replace(' ', '0');
+      // TODO(b/143918417): use the actual value instead of 0
+      stringValue = String.format("#%1$8s", Integer.toHexString(0)).replace(' ', '0');
     } else if (resourceType == ResourceType.INTEGER && item.hasPrim()) {
-      stringValue = Integer.toString(item.getPrim().getData());
+      // TODO(b/143918417): use the actual value instead of 0
+      stringValue = Integer.toString(0);
     } else if (resourceType == ResourceType.BOOL && item.hasPrim()) {
-      stringValue = item.getPrim().getData() == 0 ? "false" : "true";
+      // TODO(b/143918417): use the actual value instead of "false"
+      stringValue = "false";
     } else if (resourceType == ResourceType.FRACTION
         || resourceType == ResourceType.DIMEN
         || resourceType == ResourceType.STRING) {
-      stringValue = Integer.toString(item.getPrim().getData());
+      // TODO(b/143918417): use the actual value instead of 0
+      stringValue = Integer.toString(0);
     } else {
       throw new IllegalArgumentException(
           String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));

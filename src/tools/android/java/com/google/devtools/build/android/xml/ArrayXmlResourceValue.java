@@ -130,7 +130,8 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       Item item = entry.getItem();
 
       if (item.hasPrim()) {
-        String stringValue = "#" + Integer.toHexString(item.getPrim().getData());
+        // TODO(b/143918417): use the actual value instead of 0
+        String stringValue = "#" + Integer.toHexString(0);
         items.add(stringValue);
       } else if (item.hasRef()) {
         items.add("@" + item.getRef().getName());
