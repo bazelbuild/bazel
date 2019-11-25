@@ -126,7 +126,7 @@ public final class CcToolchainRule implements RuleDefinition {
    * enabled through --fdo_optimize or --fdo_profile
    */
   private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // This is actually a bug, because with platforms, and before toolchain-transitions are
       // implemented, all toolchains are analyzed in the host configuration. We're betting on
       // nobody in the Bazel world actually using zipped fdo profiles and platforms at the same
