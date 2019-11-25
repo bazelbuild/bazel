@@ -113,6 +113,13 @@ public final class EvalUtils {
   /** Throws EvalException if x is not hashable. */
   static void checkHashable(Object x) throws EvalException {
     if (!isHashable(x)) {
+      // This results in confusing errors such as "unhashable type: tuple".
+      // TODO(adonovan): ideally the error message would explain which
+      // element of, say, a tuple is unhashable. The only practical way
+      // to implement this is by implementing isHashable as a call to
+      // Object.hashCode within a try/catch, and requiring all
+      // unhashable Starlark values to throw a particular unchecked exception
+      // with a helpful error message.
       throw new EvalException(
           null, Starlark.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
     }

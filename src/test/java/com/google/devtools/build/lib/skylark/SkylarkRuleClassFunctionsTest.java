@@ -1265,12 +1265,6 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }
 
-  @Test
-  public void testNsetBadMutableItem() throws Exception {
-    checkEvalErrorContains("unhashable type: 'tuple'", "depset([([],)])");
-    checkEvalErrorContains("unhashable type: 'struct'", "depset([struct(a=[])])");
-  }
-
   private static StructImpl makeStruct(String field, Object value) {
     return StructProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }

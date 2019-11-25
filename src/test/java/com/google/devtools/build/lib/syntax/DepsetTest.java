@@ -579,6 +579,24 @@ public class DepsetTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testElementsMustBeImmutable() throws Exception {
+    // Test legacy and new constructors.
+
+    // mutable list: error
+    checkEvalError("depset elements must not be mutable values", "depset([[1,2,3]])");
+    checkEvalError("depset elements must not be mutable values", "depset(direct=[[1,2,3]])");
+
+    // struct containing mutable list: error
+    checkEvalError("depset elements must not be mutable values", "depset([struct(a=[])])");
+    checkEvalError("depset elements must not be mutable values", "depset(direct=[struct(a=[])])");
+
+    // frozen list: no error
+    update("x", StarlarkList.empty());
+    eval("depset([x])");
+    eval("depset(direct=[x])");
+  }
+
+  @Test
   public void testDepthExceedsLimitDuringIteration() throws Exception {
     NestedSet.setApplicationDepthLimit(2000);
     new SkylarkTest()

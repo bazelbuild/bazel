@@ -128,7 +128,7 @@ public final class Depset implements SkylarkValue {
       }
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
-        EvalUtils.checkHashable(x);
+        checkElement(x);
         SkylarkType xt = SkylarkType.of(x);
         contentType = checkType(contentType, xt);
         itemsBuilder.add(x);
@@ -153,6 +153,30 @@ public final class Depset implements SkylarkValue {
       throw new EvalException(null, e.getMessage());
     }
     return new Depset(contentType, builder.build(), items, transitiveItems);
+  }
+
+  private static void checkElement(Object x) throws EvalException {
+    // Historically the requirement for a depset element was isImmutable(x).
+    // However, this check is neither necessary not sufficient.
+    // It is unnecessary because elements need only be hashable,
+    // as with dicts, whose keys may be mutable so long as mutations
+    // don't affect the hash code. (Elements of a NestedSet must be
+    // hashable because a hash-based set is used to de-duplicate
+    // elements during iteration.)
+    // And it is insufficient because some values are immutable
+    // but not Starlark-hashable, such as frozen lists.
+    // NestedSet calls its hashCode method regardless.
+    //
+    // TODO(adonovan): use this check instead:
+    //   EvalUtils.checkHashable(x);
+    // and delete the StarlarkValue.isImmutable and EvalUtils.isImmutable.
+    // Unfortunately this is a breaking change because some users
+    // construct depsets whose elements contain lists of strings,
+    // which are Starlark-unhashable even if frozen.
+    // TODO(adonovan): also remove StarlarkList.hashCode.
+    if (!EvalUtils.isImmutable(x)) {
+      throw new EvalException(null, "depset elements must not be mutable values");
+    }
   }
 
   // implementation of deprecated depset(x) constructor
@@ -438,6 +462,8 @@ public final class Depset implements SkylarkValue {
    * <p>Use this to construct typesafe Skylark nested sets (depsets). Encapsulates content type
    * checking logic.
    */
+  // TODO(adonovan): make this private. The sole external user in rules/cpp could
+  // instead call Depset.of(NestedSet.wrap(Order, elems)).
   public static final class Builder {
 
     private final Order order;
@@ -452,8 +478,17 @@ public final class Depset implements SkylarkValue {
 
     /** Adds a direct element, checking that its type is equal to the elements already added. */
     public Builder addDirect(Object x) throws EvalException {
-      // In case of problems, see b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      EvalUtils.checkHashable(x);
+      // Historically, checkElement was called only by some depset constructors,
+      // but not this one, depset(direct=[x]).
+      // This was a regrettable oversight that allowed users to put
+      // mutable values into depsets, doubly so because we have just forced our
+      // users to migrate away from the legacy constructor which applied the check.
+      // We are currently discovering and fixing existing violations, for example
+      // marking the relevant Starlark types as immutable where appropriate
+      // (e.g. ConfiguredTarget), but if violations are too numerous we may need
+      // to suppress the checkElement call below and reintroduce it as a breaking change.
+      // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
+      checkElement(x);
 
       SkylarkType xt = SkylarkType.of(x);
       this.contentType = checkType(contentType, xt);
