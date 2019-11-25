@@ -80,6 +80,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "platforms",
+      allowMultiple = true,
       oldName = "experimental_platforms",
       converter = LabelListConverter.class,
       defaultValue = "",

@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.List;
@@ -47,6 +50,19 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
     this.extraToolchains = extraToolchains;
     this.enabledToolchainTypes = enabledToolchainTypes;
     this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
+  }
+
+  @Override
+  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+    // TODO(https://github.com/bazelbuild/bazel/issues/6519): Implement true multiplatform builds.
+    if (platformOptions.platforms.size() > 1) {
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "--platforms only supports a single target platform: using the first option %s",
+                  this.targetPlatform)));
+    }
   }
 
   @Override
