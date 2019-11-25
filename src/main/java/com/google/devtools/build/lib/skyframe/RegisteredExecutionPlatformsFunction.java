@@ -234,7 +234,10 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       if (explicit) {
         return true;
       }
+      return hasPlatformInfo(target);
+    }
 
+    boolean hasPlatformInfo(Target target) {
       // If the rule requires platforms or toolchain resolution, it can't be used as a platform.
       RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
       if (ruleClass == null || ruleClass.useToolchainResolution()) {

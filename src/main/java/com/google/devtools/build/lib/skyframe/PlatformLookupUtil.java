@@ -16,21 +16,33 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.HasPlatformInfo;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Helper class that looks up {@link PlatformInfo} data. */
@@ -38,8 +50,15 @@ public class PlatformLookupUtil {
 
   @Nullable
   public static Map<ConfiguredTargetKey, PlatformInfo> getPlatformInfo(
-      Iterable<ConfiguredTargetKey> platformKeys, Environment env, boolean sanityCheckConfiguration)
+      ImmutableList<ConfiguredTargetKey> platformKeys,
+      Environment env,
+      boolean sanityCheckConfiguration)
       throws InterruptedException, InvalidPlatformException {
+
+    validatePlatformKeys(platformKeys, env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     Map<
             SkyKey,
@@ -64,6 +83,53 @@ public class PlatformLookupUtil {
     }
 
     return platforms;
+  }
+
+  /** Validate that all keys are for actual platform targets. */
+  private static void validatePlatformKeys(
+      ImmutableList<ConfiguredTargetKey> platformKeys, Environment env)
+      throws InterruptedException, InvalidPlatformException {
+    // Load the packages. This should already be in Skyframe and thus not require a restart.
+    Map<ConfiguredTargetKey, PackageIdentifier> targetsToPackageIdentifiers =
+        platformKeys.stream()
+            .distinct()
+            .collect(
+                toImmutableMap(Function.identity(), ctk -> ctk.getLabel().getPackageIdentifier()));
+    ImmutableSet<PackageValue.Key> packageKeys =
+        targetsToPackageIdentifiers.values().stream()
+            .distinct()
+            .map(PackageValue::key)
+            .collect(toImmutableSet());
+
+    Map<PackageIdentifier, Package> packages = new HashMap<>();
+    Map<SkyKey, ValueOrException<NoSuchPackageException>> values =
+        env.getValuesOrThrow(packageKeys, NoSuchPackageException.class);
+    if (env.valuesMissing()) {
+      return;
+    }
+    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> value : values.entrySet()) {
+      try {
+        PackageValue packageValue = (PackageValue) value.getValue().get();
+        packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
+      } catch (NoSuchPackageException e) {
+      }
+    }
+
+    // Now check each platform.
+    HasPlatformInfo hasPlatformInfo = HasPlatformInfo.create();
+    for (ConfiguredTargetKey platformKey : platformKeys) {
+      try {
+        Label platformLabel = platformKey.getLabel();
+        Target target =
+            packages.get(platformLabel.getPackageIdentifier()).getTarget(platformLabel.getName());
+        if (!hasPlatformInfo.hasPlatformInfo(target)) {
+          // validation failure
+          throw new InvalidPlatformException(platformLabel);
+        }
+      } catch (NoSuchTargetException e) {
+
+      }
+    }
   }
 
   /**
