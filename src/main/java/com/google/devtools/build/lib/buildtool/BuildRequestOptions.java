@@ -205,7 +205,8 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "The prefix that is prepended to any of the convenience symlinks that are created "
               + "after a build. If '/' is passed, then no symlinks are created and no warning is "
-              + "emitted. If omitted, the default value is the name of the build tool.")
+              + "emitted. If omitted, the default value is the name of the build tool followed by "
+              + "a hyphen.")
   @Nullable
   public String symlinkPrefix;
 
@@ -291,17 +292,30 @@ public class BuildRequestOptions extends OptionsBase {
   }
 
   @Option(
-    name = "print_workspace_in_output_paths_if_needed",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If enabled, when the current working directory is deeper than the workspace (for example, "
-            + "when running from <workspace>/foo instead of <workspace>), printed output paths "
-            + "include the absolute path to the workspace (for example, "
-            + "<workspace>/<symlink_prefix>-bin/foo/binary instead of "
-            + "<symlink_prefix>-bin/foo/binary)."
-  )
+      name = "experimental_create_py2_bin_symlink",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, a py2-bin symlink (with the appropriate prefix) will be created. This acts"
+              + " just like the bin symlink, except that it is guaranteed to point to a directory"
+              + " containing outputs built for Python 2 targets, whereas the bin symlink could"
+              + " point to either Python 2 or Python 3 outputs depending on the values of"
+              + " --python_version and --use_top_level_targets_for_symlinks. IMPORTANT: This"
+              + " flag is not planned to be enabled by default, and should not be relied on.")
+  public boolean experimentalCreatePy2BinSymlink;
+
+  @Option(
+      name = "print_workspace_in_output_paths_if_needed",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If enabled, when the current working directory is deeper than the workspace (for"
+              + " example, when running from <workspace>/foo instead of <workspace>), printed"
+              + " output paths include the absolute path to the workspace (for example,"
+              + " <workspace>/<symlink_prefix>-bin/foo/binary instead of "
+              + "<symlink_prefix>-bin/foo/binary).")
   public boolean printWorkspaceInOutputPathsIfNeeded;
 
   @Option(

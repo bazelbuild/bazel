@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -96,6 +98,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * This class manages the execution phase. The entry point is {@link #executeBuild}.
@@ -444,6 +447,26 @@ public class ExecutionTool {
   }
 
   /**
+   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * symlink creation.
+   *
+   * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
+   * returned.
+   */
+  @Nullable
+  private static BuildConfiguration getConfiguration(
+      SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
+    try {
+      return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
+    } catch (InvalidConfigurationException e) {
+      reporter.handle(
+          Event.warn(
+              "Couldn't get configuration for convenience symlink creation: " + e.getMessage()));
+      return null;
+    }
+  }
+
+  /**
    * Creates convenience symlinks based on the target configurations.
    *
    * <p>Exactly what target configurations we consider depends on the value of {@code
@@ -484,9 +507,11 @@ public class ExecutionTool {
           env.getDirectories().getOutputPath(workspaceName),
           getReporter(),
           targetConfigurations,
+          options -> getConfiguration(executor, reporter, options),
           buildRequestOptions.getSymlinkPrefix(productName),
           productName,
-          !buildRequestOptions.incompatibleSkipGenfilesSymlink);
+          !buildRequestOptions.incompatibleSkipGenfilesSymlink,
+          buildRequestOptions.experimentalCreatePy2BinSymlink);
     }
   }
 

@@ -21,9 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.python.PythonVersion;
+import com.google.devtools.build.lib.rules.python.PythonVersionTransition;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,12 +35,38 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** Static utilities for managing output directory symlinks. */
 public final class OutputDirectoryLinksUtils {
 
   // Static utilities class.
   private OutputDirectoryLinksUtils() {}
+
+  /**
+   * A grouping of a target configuration and its derived configurations, which, as a unit,
+   * determine the candidate destinations for symlinks.
+   */
+  private static final class ConfigGroup {
+
+    private static final PythonVersionTransition py2Transition =
+        PythonVersionTransition.toConstant(PythonVersion.PY2);
+
+    final BuildConfiguration targetConfig;
+
+    @Nullable final BuildConfiguration py2Config;
+
+    /**
+     * Constructs from a given target configuration, using {@code configGetter} as a factory to make
+     * configurations from options.
+     */
+    ConfigGroup(
+        BuildConfiguration targetConfig, Function<BuildOptions, BuildConfiguration> configGetter) {
+      this.targetConfig = targetConfig;
+      this.py2Config = configGetter.apply(py2Transition.patch(targetConfig.getOptions()));
+    }
+  }
 
   /** Represents a single kind of convenience symlink ({@code bazel-bin}, etc.). */
   interface SymlinkDefinition {
@@ -53,7 +82,7 @@ public final class OutputDirectoryLinksUtils {
      * <p>The symlink should only be created if there is exactly one candidate.
      */
     List<Path> getLinkPaths(
-        List<BuildConfiguration> configs,
+        List<ConfigGroup> configGroups,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot);
@@ -80,18 +109,19 @@ public final class OutputDirectoryLinksUtils {
 
     @Override
     public List<Path> getLinkPaths(
-        List<BuildConfiguration> configs,
+        List<ConfigGroup> configGroups,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
-      return configs.stream()
+      return configGroups.stream()
+          .map(group -> group.targetConfig)
           .map(config -> configToRoot.apply(config, repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableList());
     }
   }
 
-  private static enum ExecRootSymlink implements SymlinkDefinition {
+  private enum ExecRootSymlink implements SymlinkDefinition {
     INSTANCE;
 
     @Override
@@ -101,7 +131,7 @@ public final class OutputDirectoryLinksUtils {
 
     @Override
     public List<Path> getLinkPaths(
-        List<BuildConfiguration> configs,
+        List<ConfigGroup> configGroups,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
@@ -109,7 +139,7 @@ public final class OutputDirectoryLinksUtils {
     }
   }
 
-  private static enum OutputSymlink implements SymlinkDefinition {
+  private enum OutputSymlink implements SymlinkDefinition {
     PRODUCT_NAME {
       @Override
       public String getLinkName(
@@ -129,11 +159,33 @@ public final class OutputDirectoryLinksUtils {
 
     @Override
     public List<Path> getLinkPaths(
-        List<BuildConfiguration> configs,
+        List<ConfigGroup> configGroups,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
       return ImmutableList.of(outputPath);
+    }
+  }
+
+  private enum Py2BinSymlink implements SymlinkDefinition {
+    INSTANCE;
+
+    @Override
+    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+      return symlinkPrefix + "py2-bin";
+    }
+
+    @Override
+    public List<Path> getLinkPaths(
+        List<ConfigGroup> configGroups,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      return configGroups.stream()
+          .map(group -> group.py2Config)
+          .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
+          .distinct()
+          .collect(toImmutableList());
     }
   }
 
@@ -142,10 +194,14 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>The result is always a subset of {@link #getAllLinkDefinitions}.
    */
-  private static ImmutableList<SymlinkDefinition> getLinkDefinitions(boolean includeGenfiles) {
+  private static ImmutableList<SymlinkDefinition> getLinkDefinitions(
+      boolean includeGenfiles, boolean includePy2Bin) {
     // The order of this list controls priority for PathPrettyPrinter#getPrettyPath.
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.add(new ConfigSymlink("bin", BuildConfiguration::getBinDirectory));
+    if (includePy2Bin) {
+      builder.add(Py2BinSymlink.INSTANCE);
+    }
     builder.add(new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory));
     if (includeGenfiles) {
       builder.add(new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory));
@@ -161,7 +217,7 @@ public final class OutputDirectoryLinksUtils {
    * actually requested by the build options.
    */
   private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions() {
-    return getLinkDefinitions(/*includeGenfiles=*/ true);
+    return getLinkDefinitions(/*includeGenfiles=*/ true, /*includePy2Bin=*/ true);
   }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
@@ -192,9 +248,11 @@ public final class OutputDirectoryLinksUtils {
       Path outputPath,
       EventHandler eventHandler,
       Set<BuildConfiguration> targetConfigs,
+      Function<BuildOptions, BuildConfiguration> configGetter,
       String symlinkPrefix,
       String productName,
-      boolean createGenfilesSymlink) {
+      boolean createGenfilesSymlink,
+      boolean createPy2BinSymlink) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -205,7 +263,14 @@ public final class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
-    List<SymlinkDefinition> defs = getLinkDefinitions(/*includeGenfiles=*/ createGenfilesSymlink);
+    List<ConfigGroup> configGroups =
+        targetConfigs.stream()
+            .map(targetConfig -> new ConfigGroup(targetConfig, configGetter))
+            .collect(toImmutableList());
+
+    List<SymlinkDefinition> defs =
+        getLinkDefinitions(
+            /*includeGenfiles=*/ createGenfilesSymlink, /*includePy2Bin=*/ createPy2BinSymlink);
     for (SymlinkDefinition definition : defs) {
       String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(symlinkName)) {
@@ -213,14 +278,14 @@ public final class OutputDirectoryLinksUtils {
         continue;
       }
       List<Path> candidatePaths =
-          definition.getLinkPaths(
-              ImmutableList.copyOf(targetConfigs), repositoryName, outputPath, execRoot);
+          definition.getLinkPaths(configGroups, repositoryName, outputPath, execRoot);
       if (candidatePaths.size() == 1) {
         createLink(workspace, symlinkName, Iterables.getOnlyElement(candidatePaths), failures);
       } else {
         removeLink(workspace, symlinkName, failures);
-        // candidatePaths can be empty if the symlink decided not to be created. In that case, don't
-        // trigger a warning about an ambiguous link.
+        // candidatePaths can be empty if the symlink decided not to be created. This can happen if,
+        // say, py2-bin is enabled but there's an error producing the py2 configuration. In that
+        // case, don't trigger a warning about an ambiguous link.
         if (candidatePaths.size() > 1) {
           ambiguousLinks.add(symlinkName);
         }
