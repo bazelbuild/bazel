@@ -131,11 +131,6 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public boolean isAlias(Target target) {
-    return TargetUtils.isAlias(target);
-  }
-
-  @Override
   public Set<QueryVisibility<Target>> getVisibility(Target target)
       throws QueryException, InterruptedException {
     ImmutableSet.Builder<QueryVisibility<Target>> result = ImmutableSet.builder();

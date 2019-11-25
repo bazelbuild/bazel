@@ -43,8 +43,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
- * TestExpansionFunction takes a single expandable test target ({@code test_suite} or {@code alias})
- * and expands it recursively.
+ * TestExpansionFunction takes a single test_suite target and expands all of the tests it contains,
+ * possibly recursively.
  */
 // TODO(ulfjack): What about test_suite rules that include each other.
 final class TestExpansionFunction implements SkyFunction {
@@ -80,19 +80,15 @@ final class TestExpansionFunction implements SkyFunction {
     boolean hasError = false;
 
     List<Target> prerequisites = new ArrayList<>();
-    if (TargetUtils.isTestSuiteRule(rule)) {
-      // Note that prerequisites can contain input file targets; the test_suite rule does not
-      // restrict the set of targets that can appear in tests or suites.
-      hasError |= getPrerequisites(env, rule, "tests", prerequisites);
-    } else if (TargetUtils.isAlias(rule)) {
-      hasError |= getPrerequisites(env, rule, "actual", prerequisites);
-    }
+    // Note that prerequisites can contain input file targets; the test_suite rule does not
+    // restrict the set of targets that can appear in tests or suites.
+    hasError |= getPrerequisites(env, rule, "tests", prerequisites);
 
-    // Add all tests
+    // 1. Add all tests
     for (Target test : prerequisites) {
       if (TargetUtils.isTestRule(test)) {
         result.add(test);
-      } else if (strict && !TargetUtils.isTestSuiteRule(test) && !TargetUtils.isAlias(rule)) {
+      } else if (strict && !TargetUtils.isTestSuiteRule(test)) {
         // If strict mode is enabled, then give an error for any non-test, non-test-suite targets.
         // TODO(ulfjack): We need to throw to end the process if we happen to be in --nokeep_going,
         // but we can't know whether or not we are at this point.
@@ -109,29 +105,27 @@ final class TestExpansionFunction implements SkyFunction {
       }
     }
 
-    if (TargetUtils.isTestSuiteRule(rule)) {
-      // Add implicit dependencies on tests in same package, if any.
-      List<Target> implicitTests = new ArrayList<>();
-      hasError |= getPrerequisites(env, rule, "$implicit_tests", implicitTests);
-      for (Target target : implicitTests) {
-        // The Package construction of $implicit_tests ensures that this check never fails, but we
-        // add it here anyway for compatibility with future code.
-        if (TargetUtils.isTestRule(target)) {
-          result.add(target);
-        }
+    // 2. Add implicit dependencies on tests in same package, if any.
+    List<Target> implicitTests = new ArrayList<>();
+    hasError |= getPrerequisites(env, rule, "$implicit_tests", implicitTests);
+    for (Target target : implicitTests) {
+      // The Package construction of $implicit_tests ensures that this check never fails, but we
+      // add it here anyway for compatibility with future code.
+      if (TargetUtils.isTestRule(target)) {
+        result.add(target);
       }
-
-      // Filter based on tags, size, env.
-      TestTargetUtils.filterTests(rule, result);
     }
 
-    // Expand all rules recursively, collecting labels.
+    // 3. Filter based on tags, size, env.
+    TestTargetUtils.filterTests(rule, result);
+
+    // 4. Expand all rules recursively, collecting labels.
     ResolvedTargets.Builder<Label> labelsBuilder = ResolvedTargets.builder();
-    // Don't set filtered targets; they would be removed from the containing rule.
+    // Don't set filtered targets; they would be removed from the containing test suite.
     labelsBuilder.merge(new ResolvedTargets<>(toLabels(result), ImmutableSet.of(), hasError));
 
     for (Target suite : prerequisites) {
-      if (TargetUtils.isTestSuiteRule(suite) || TargetUtils.isAlias(suite)) {
+      if (TargetUtils.isTestSuiteRule(suite)) {
         TestExpansionValue value =
             (TestExpansionValue) env.getValue(TestExpansionValue.key(suite, strict));
         if (value == null) {
@@ -146,8 +140,9 @@ final class TestExpansionFunction implements SkyFunction {
 
   /**
    * Adds the set of targets found in the attribute named {@code attrName}, which must be of label
-   * or label list list type, Returns true if the method found a problem during the lookup process;
-   * the actual error message is reported to the environment.
+   * or label list type, of the {@code test_suite} rule named {@code testSuite}. Returns true if the
+   * method found a problem during the lookup process; the actual error message is reported to the
+   * environment.
    */
   private static boolean getPrerequisites(
       Environment env, Rule rule, String attrName, List<Target> targets)
@@ -159,7 +154,6 @@ final class TestExpansionFunction implements SkyFunction {
             .collect(Collectors.toList());
 
     Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();
-
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
@@ -169,10 +163,8 @@ final class TestExpansionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return false;
     }
-
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-
     for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry : packages.entrySet()) {
       try {
         packageMap.put(

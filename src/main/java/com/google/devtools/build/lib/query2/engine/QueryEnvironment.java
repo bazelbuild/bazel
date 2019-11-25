@@ -559,9 +559,6 @@ public interface QueryEnvironment<T> {
      */
     boolean isTestSuite(T target);
 
-    /** Returns whether the given target is an alias rule. */
-    boolean isAlias(T target);
-
     /**
      * If the attribute of the given name on the given target is a label or label list, then this
      * method returns the list of corresponding target instances. Otherwise returns an empty list.

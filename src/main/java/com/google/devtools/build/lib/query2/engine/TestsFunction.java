@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -78,8 +77,6 @@ public class TestsFunction implements QueryFunction {
           closure
               .getUniqueTestSuites(partitionResult.testSuiteTargets)
               .forEach(closure::visitUniqueTestsInUniqueSuite);
-          closure.getUniqueAliases(partitionResult.aliasTargets).forEach(closure::visitUniqueAlias);
-
           callback.process(closure.getUniqueTests(partitionResult.testTargets));
         };
 
@@ -99,17 +96,14 @@ public class TestsFunction implements QueryFunction {
   private static class PartitionResult<T> {
     final ImmutableList<T> testTargets;
     final ImmutableList<T> testSuiteTargets;
-    final ImmutableList<T> aliasTargets;
     final ImmutableList<T> otherTargets;
 
     private PartitionResult(
         ImmutableList<T> testTargets,
         ImmutableList<T> testSuiteTargets,
-        ImmutableList<T> aliasTargets,
         ImmutableList<T> otherTargets) {
       this.testTargets = testTargets;
       this.testSuiteTargets = testSuiteTargets;
-      this.aliasTargets = aliasTargets;
       this.otherTargets = otherTargets;
     }
   }
@@ -126,7 +120,6 @@ public class TestsFunction implements QueryFunction {
     private final boolean strict;
     private final Uniquifier<T> testUniquifier;
     private final Uniquifier<T> testSuiteUniquifier;
-    private final Uniquifier<T> aliasUniquifier;
     private final List<QueryTaskFuture<Void>> topLevelRecursiveVisitationFutures =
         Collections.synchronizedList(new ArrayList<>());
 
@@ -138,7 +131,6 @@ public class TestsFunction implements QueryFunction {
       this.strict = env.isSettingEnabled(Setting.TESTS_EXPRESSION_STRICT);
       this.testUniquifier = env.createUniquifier();
       this.testSuiteUniquifier = env.createUniquifier();
-      this.aliasUniquifier = env.createUniquifier();
     }
 
     private Iterable<T> getUniqueTests(Iterable<T> tests) throws QueryException {
@@ -147,10 +139,6 @@ public class TestsFunction implements QueryFunction {
 
     private Iterable<T> getUniqueTestSuites(Iterable<T> testSuites) throws QueryException {
       return testSuiteUniquifier.unique(testSuites);
-    }
-
-    private Iterable<T> getUniqueAliases(Iterable<T> aliases) throws QueryException {
-      return aliasUniquifier.unique(aliases);
     }
 
     private void visitUniqueTestsInUniqueSuite(T testSuite) {
@@ -166,39 +154,23 @@ public class TestsFunction implements QueryFunction {
       return ImmutableList.copyOf(topLevelRecursiveVisitationFutures);
     }
 
-    private QueryTaskFuture<Void> visitUniqueAlias(T alias) {
-      Iterable<T> actual;
+    private QueryTaskFuture<Void> recursivelyVisitUniqueTestsInUniqueSuite(T testSuite) {
+      List<String> tagsAttribute = accessor.getStringListAttr(testSuite, "tags");
+      // Split the tags list into positive and negative tags
+      Set<String> requiredTags = new HashSet<>();
+      Set<String> excludedTags = new HashSet<>();
+      sortTagsBySense(tagsAttribute, requiredTags, excludedTags);
 
-      try {
-        actual = getPrerequisites(alias, "actual");
-      } catch (InterruptedException e) {
-        return env.immediateCancelledFuture();
-      } catch (QueryException e) {
-        return env.immediateFailedFuture(e);
-      }
-
-      return resolveTests(accessor.getLabel(alias), actual, ImmutableSet.of(), ImmutableSet.of());
-    }
-
-    private QueryTaskFuture<Void> resolveTests(
-        String current, Iterable<T> deps, Set<String> requiredTags, Set<String> excludedTags) {
       List<T> testsToProcess = new ArrayList<>();
-      List<T> aliasesToProcess = new ArrayList<>();
       List<T> testSuites;
 
       try {
-        PartitionResult<T> partitionResult = partition(deps);
+        PartitionResult<T> partitionResult = partition(getPrerequisites(testSuite, "tests"));
 
         for (T testTarget : partitionResult.testTargets) {
           if (includeTest(requiredTags, excludedTags, testTarget)
               && testUniquifier.unique(testTarget)) {
             testsToProcess.add(testTarget);
-          }
-        }
-
-        for (T aliasTarget : partitionResult.aliasTargets) {
-          if (aliasUniquifier.unique(aliasTarget)) {
-            aliasesToProcess.add(aliasTarget);
           }
         }
 
@@ -212,11 +184,24 @@ public class TestsFunction implements QueryFunction {
                 "The label '"
                     + accessor.getLabel(otherTarget)
                     + "' in the test_suite '"
-                    + current
-                    + "' does not refer to a test or test_suite or alias "
+                    + accessor.getLabel(testSuite)
+                    + "' does not refer to a test or test_suite "
                     + "rule!");
           }
         }
+
+        // Add implicit dependencies on tests in same package, if any.
+        for (T target : getPrerequisites(testSuite, "$implicit_tests")) {
+          // The Package construction of $implicit_tests ensures that this check never fails, but we
+          // add it here anyway for compatibility with future code.
+          if (accessor.isTestRule(target)
+              && includeTest(requiredTags, excludedTags, target)
+              && testUniquifier.unique(target)) {
+            testsToProcess.add(target);
+          }
+        }
+      } catch (InterruptedException e) {
+        return env.immediateCancelledFuture();
       } catch (QueryException e) {
         return env.immediateFailedFuture(e);
       }
@@ -229,46 +214,18 @@ public class TestsFunction implements QueryFunction {
                 return null;
               });
 
-      // Resolve aliases
-      QueryTaskFuture<Void> allAliasesVisitedFuture =
-          env.whenAllSucceed(Iterables.transform(aliasesToProcess, this::visitUniqueAlias));
-
       // Visit all suites recursively, asynchronously.
       QueryTaskFuture<Void> allTestSuitsVisitedFuture =
           env.whenAllSucceed(
               Iterables.transform(testSuites, this::recursivelyVisitUniqueTestsInUniqueSuite));
 
       return env.whenAllSucceed(
-          ImmutableList.of(
-              allTestsProcessedFuture, allTestSuitsVisitedFuture, allAliasesVisitedFuture));
-    }
-
-    private QueryTaskFuture<Void> recursivelyVisitUniqueTestsInUniqueSuite(T testSuite) {
-      List<String> tagsAttribute = accessor.getStringListAttr(testSuite, "tags");
-      // Split the tags list into positive and negative tags
-      Set<String> requiredTags = new HashSet<>();
-      Set<String> excludedTags = new HashSet<>();
-      sortTagsBySense(tagsAttribute, requiredTags, excludedTags);
-
-      Iterable<T> deps;
-      try {
-        deps =
-            Iterables.concat(
-                getPrerequisites(testSuite, "tests"),
-                getPrerequisites(testSuite, "$implicit_tests"));
-      } catch (InterruptedException e) {
-        return env.immediateCancelledFuture();
-      } catch (QueryException e) {
-        return env.immediateFailedFuture(e);
-      }
-
-      return resolveTests(accessor.getLabel(testSuite), deps, requiredTags, excludedTags);
+          ImmutableList.of(allTestsProcessedFuture, allTestSuitsVisitedFuture));
     }
 
     private PartitionResult<T> partition(Iterable<T> targets) {
       ImmutableList.Builder<T> testTargetsBuilder = ImmutableList.builder();
       ImmutableList.Builder<T> testSuiteTargetsBuilder = ImmutableList.builder();
-      ImmutableList.Builder<T> aliasesBuilder = ImmutableList.builder();
       ImmutableList.Builder<T> otherTargetsBuilder = ImmutableList.builder();
 
       for (T target : targets) {
@@ -276,18 +233,13 @@ public class TestsFunction implements QueryFunction {
           testTargetsBuilder.add(target);
         } else if (accessor.isTestSuite(target)) {
           testSuiteTargetsBuilder.add(target);
-        } else if (accessor.isAlias(target)) {
-          aliasesBuilder.add(target);
         } else {
           otherTargetsBuilder.add(target);
         }
       }
 
       return new PartitionResult<>(
-          testTargetsBuilder.build(),
-          testSuiteTargetsBuilder.build(),
-          aliasesBuilder.build(),
-          otherTargetsBuilder.build());
+          testTargetsBuilder.build(), testSuiteTargetsBuilder.build(), otherTargetsBuilder.build());
     }
 
     /**

@@ -110,7 +110,7 @@ public class ActionGraphQueryEnvironment
         };
     this.accessor =
         new ConfiguredTargetValueAccessor(
-            walkableGraphSupplier.get(), this.configuredTargetKeyExtractor, this);
+            walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
   }
 
   public ActionGraphQueryEnvironment(

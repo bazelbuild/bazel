@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 /**
  * Returns all tests that need to be run when testing is requested for a given set of targets.
  *
- * <p>This requires resolving {@code test_suite} rules and aliases.
+ * <p>This requires resolving {@code test_suite} rules.
  */
 final class TestsForTargetPatternFunction implements SkyFunction {
   @Override
@@ -45,12 +45,10 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     ResolvedTargets<Target> targets = labelsToTargets(env, expansion.getTargets(), false);
     List<SkyKey> testsInSuitesKeys = new ArrayList<>();
     for (Target target : targets.getTargets()) {
-      if (TargetUtils.isTestSuiteRule(target)
-          || TargetUtils.isAlias(target)) { // TestExpansionFunction also handles aliases
+      if (TargetUtils.isTestSuiteRule(target)) {
         testsInSuitesKeys.add(TestExpansionValue.key(target, true));
       }
     }
-
     Map<SkyKey, SkyValue> testsInSuites = env.getValues(testsInSuitesKeys);
     if (env.valuesMissing()) {
       return null;
@@ -61,7 +59,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestRule(target)) {
         result.add(target.getLabel());
-      } else if (TargetUtils.isTestSuiteRule(target) || TargetUtils.isAlias(target)) {
+      } else if (TargetUtils.isTestSuiteRule(target)) {
         TestExpansionValue value =
             (TestExpansionValue) testsInSuites.get(TestExpansionValue.key(target, true));
         if (value != null) {

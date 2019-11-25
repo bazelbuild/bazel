@@ -484,48 +484,6 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
-  public void testAliasedBuildTestsOnly() throws Exception {
-    tester.addFile(
-        "t/BUILD",
-        "sh_test(name='t', srcs=['t.sh'])",
-        "sh_binary(name='b', srcs=['b.sh'])",
-        "alias(name='ta', actual=':t')",
-        "alias(name='ba', actual=':b')");
-    tester.useLoadingOptions("--build_tests_only");
-    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//t:ta", "//t:ba"));
-    assertThat(loadingResult.getTargetLabels()).containsExactlyElementsIn(getLabels("//t:t"));
-  }
-
-  @Test
-  public void testAliasedTestExpansion() throws Exception {
-    tester.addFile("sh/BUILD", "sh_test(name='t', srcs=['t.sh'])", "alias(name='a', actual=':t')");
-    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a"));
-    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
-  }
-
-  @Test
-  public void testAliasedTestSuite() throws Exception {
-    tester.addFile(
-        "sh/BUILD",
-        "sh_test(name='t', srcs=['t.sh'])",
-        "test_suite(name='ts', tests=[':t'])",
-        "alias(name='a', actual=':ts')");
-    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a"));
-    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
-  }
-
-  @Test
-  public void testDoubleAliasedTestExpansion() throws Exception {
-    tester.addFile(
-        "sh/BUILD",
-        "sh_test(name='t', srcs=['t.sh'])",
-        "alias(name='a1', actual=':t')",
-        "alias(name='a2', actual=':a1')");
-    TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//sh:a2"));
-    assertThat(loadingResult.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//sh:t"));
-  }
-
-  @Test
   public void testTestSuiteExpansionFails() throws Exception {
     tester.addFile("ts/BUILD",
         "test_suite(name = 'tests', tests = ['//nonexistent:my_test'])");

@@ -944,36 +944,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testTestsOperatorFollowsAliasesToTests() throws Exception {
-    writeFile(
-        "a/BUILD", "sh_test(name='test', srcs=['test.sh'])", "alias(name='alias', actual=':test')");
-
-    assertThat(eval("tests(//a:alias)")).isEqualTo(eval("//a:test"));
-  }
-
-  @Test
-  public void testTestsOperatorFollowsDoubleAliasesToTests() throws Exception {
-    writeFile(
-        "a/BUILD",
-        "sh_test(name='test', srcs=['test.sh'])",
-        "alias(name='alias1', actual=':test')",
-        "alias(name='alias2', actual=':alias1')");
-
-    assertThat(eval("tests(//a:alias2)")).isEqualTo(eval("//a:test"));
-  }
-
-  @Test
-  public void testTestsOperatorFollowsAliasesToTestSuites() throws Exception {
-    writeFile(
-        "a/BUILD",
-        "sh_test(name='test', srcs=['test.sh'])",
-        "test_suite(name='suite', tests=[':test'])",
-        "alias(name='alias', actual=':suite')");
-
-    assertThat(eval("tests(//a:alias)")).isEqualTo(eval("//a:test"));
-  }
-
-  @Test
   public void testDotDotDotWithUnrelatedCycle() throws Exception {
     writeFile("a/BUILD", "sh_library(name = 'a')");
     writeFile(
@@ -1249,7 +1219,7 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalThrows("tests(//x:a)", false))
         .isEqualTo(
             "The label '//x:a.txt' in the test_suite '//x:a' does not refer to a test or "
-                + "test_suite or alias rule!");
+                + "test_suite rule!");
   }
 
   @Test

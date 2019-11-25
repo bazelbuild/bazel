@@ -99,12 +99,6 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   @Override
-  public boolean isAlias(ConfiguredTarget target) {
-    Target actualTarget = getTargetFromConfiguredTarget(target);
-    return TargetUtils.isAlias(actualTarget);
-  }
-
-  @Override
   public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
       ConfiguredTarget configuredTarget,
@@ -120,18 +114,11 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     Multimap<Label, ConfiguredTarget> depsByLabel =
         Multimaps.index(
             queryEnvironment.getFwdDeps(ImmutableList.of(configuredTarget)),
-            ConfiguredTargetAccessor::getOriginalLabel);
+            ConfiguredTarget::getLabel);
 
     Rule rule = (Rule) getTargetFromConfiguredTarget(configuredTarget);
-    ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      configConditions = ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
-    } else if (configuredTarget instanceof AliasConfiguredTarget) {
-      configConditions = ((AliasConfiguredTarget) configuredTarget).getConfigConditions();
-    } else {
-      throw new IllegalStateException();
-    }
-
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+        ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions);
     if (!attributeMapper.has(attrName)) {
@@ -176,17 +163,14 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     return getTargetFromConfiguredTarget(configuredTarget, walkableGraph);
   }
 
-  private static Label getOriginalLabel(ConfiguredTarget configuredTarget) {
-    return configuredTarget instanceof AliasConfiguredTarget
-        ? ((AliasConfiguredTarget) configuredTarget).getOriginalLabel()
-        : configuredTarget.getLabel();
-  }
-
   public static Target getTargetFromConfiguredTarget(
       ConfiguredTarget configuredTarget, WalkableGraph walkableGraph) {
     Target target = null;
     try {
-      Label label = getOriginalLabel(configuredTarget);
+      Label label =
+          configuredTarget instanceof AliasConfiguredTarget
+              ? ((AliasConfiguredTarget) configuredTarget).getOriginalLabel()
+              : configuredTarget.getLabel();
       target =
           ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
               .getPackage()
