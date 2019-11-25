@@ -1,0 +1,6 @@
+This release fixes a single regression:
+- #10297: Bazel 1.2.0 does no longer run on macOS High Sierra.
+
+It is the same code as Bazel 1.2.0, except that we rebuild the macOS release
+binaries with Xcode 10.2.1 to make them backwards compatible with older macOS
+versions again.
