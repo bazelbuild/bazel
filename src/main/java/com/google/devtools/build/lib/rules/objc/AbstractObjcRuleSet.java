@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigAlias.XcodeConfigAliasRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
@@ -70,6 +71,7 @@ public abstract class AbstractObjcRuleSet implements RuleSet {
     builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
     builder.addRuleDefinition(new XcodeConfigRule());
     builder.addRuleDefinition(new XcodeConfigAliasRule());
+    builder.addRuleDefinition(new AvailableXcodesRule());
     builder.addRuleDefinition(new XcodeVersionRule());
 
     builder.addSkylarkBootstrap(new AppleBootstrap(new AppleSkylarkCommon(objcProtoAspect)));
