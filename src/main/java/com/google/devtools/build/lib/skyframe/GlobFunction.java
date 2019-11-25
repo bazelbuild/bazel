@@ -57,7 +57,8 @@ public final class GlobFunction implements SkyFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
     BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(glob.getPackageId().getRepository()));
     if (env.valuesMissing()) {
       return null;
     }

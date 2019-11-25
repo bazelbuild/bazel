@@ -15,9 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be blacklisted. */
@@ -25,15 +29,18 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class BlacklistedPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
-  @AutoCodec.VisibleForSerialization @AutoCodec
-  static final SkyKey BLACKLIST_KEY = () -> SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES;
-
   public BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);
   }
 
-  public static SkyKey key() {
-    return BLACKLIST_KEY;
+  /** Creates a key from the main repository. */
+  public static Key key() {
+    return Key.create(RepositoryName.MAIN);
+  }
+
+  /** Creates a key from the given repository name. */
+  public static Key key(RepositoryName repository) {
+    return Key.create(repository);
   }
 
   public ImmutableSet<PathFragment> getPatterns() {
@@ -52,5 +59,26 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
       return this.patterns.equals(other.patterns);
     }
     return false;
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RepositoryName> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RepositoryName arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RepositoryName arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES;
+    }
   }
 }

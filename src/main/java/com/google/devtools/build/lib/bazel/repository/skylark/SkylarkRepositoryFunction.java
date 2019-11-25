@@ -112,7 +112,10 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     }
 
     BlacklistedPackagePrefixesValue blacklistedPackagesValue =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(
+                BlacklistedPackagePrefixesValue.key(
+                    rule.getPackage().getPackageIdentifier().getRepository()));
     if (env.valuesMissing()) {
       return null;
     }

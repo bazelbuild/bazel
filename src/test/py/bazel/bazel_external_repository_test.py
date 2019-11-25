@@ -217,6 +217,60 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         cwd=work_dir)
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testBazelignoreFileOnExternalRepo(self):
+    self.ScratchFile('other_repo/WORKSPACE')
+    self.ScratchFile('other_repo/pkg/BUILD', [
+        'filegroup(',
+        '  name = "file",',
+        '  srcs = ["ignore/file"],',
+        ')',
+    ])
+    self.ScratchFile('other_repo/pkg/ignore/BUILD', [
+        'Bad BUILD file',
+    ])
+    self.ScratchFile('other_repo/pkg/ignore/file')
+    work_dir = self.ScratchDir('my_repo')
+    self.ScratchFile('my_repo/WORKSPACE', [
+        "local_repository(name = 'other_repo', path='../other_repo')",
+    ])
+
+    exit_code, _, stderr = self.RunBazel(
+        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
+                  ''.join(stderr))
+
+    self.ScratchFile('other_repo/.bazelignore', [
+        'pkg/ignore',
+    ])
+
+    exit_code, _, stderr = self.RunBazel(
+        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testBazelignoreFileFromMainRepoDoesNotAffectExternalRepos(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/10234
+    self.ScratchFile('other_repo/WORKSPACE')
+    self.ScratchFile('other_repo/foo/bar/BUILD', [
+        'filegroup(',
+        '  name = "file",',
+        '  srcs = ["file.txt"],',
+        ')',
+    ])
+    self.ScratchFile('other_repo/foo/bar/file.txt')
+
+    work_dir = self.ScratchDir('my_repo')
+    self.ScratchFile('my_repo/WORKSPACE', [
+        "local_repository(name = 'other_repo', path='../other_repo')",
+    ])
+    # This should not exclude @other_repo//foo/bar
+    self.ScratchFile('my_repo/.bazelignore', ['foo/bar'])
+
+    exit_code, stdout, stderr = self.RunBazel(
+        args=['query', '@other_repo//foo/bar/...'], cwd=work_dir)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('@other_repo//foo/bar:file', ''.join(stdout))
+
 
 if __name__ == '__main__':
   unittest.main()
