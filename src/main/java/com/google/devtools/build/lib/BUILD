@@ -935,7 +935,6 @@ java_library(
     ],
     runtime_deps = [
         "//third_party:jsch",
-        "//third_party:maven_model",
         "//third_party:plexus_component_annotations",
         "//third_party:plexus_interpolation",
         "//third_party:plexus_utils",
@@ -966,13 +965,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:aether",
         "//third_party:apache_commons_compress",
         "//third_party:auto_value",
         "//third_party:diffutils",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:maven",
         "//third_party:xz",
     ],
 )
