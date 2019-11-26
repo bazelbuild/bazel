@@ -633,4 +633,115 @@ EOF
     "following files included by 'foo.cc'"
 }
 
+function test_aspect_accessing_args_link_action_with_tree_artifact() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+  cat > "${package}/makes_tree_artifacts.sh" <<EOF
+#!/bin/bash
+my_dir=\$1
+
+echo "int a() { return 0; }" > \$my_dir/a.cc
+echo "int b() { return 0; }" > \$my_dir/b.cc
+echo "int c() { return 0; }" > \$my_dir/c.cc
+EOF
+  chmod 755 "${package}/makes_tree_artifacts.sh"
+
+  cat > "${package}/write.sh" <<EOF
+#!/bin/bash
+output_file=\$1
+shift;
+
+echo "\$@" > \$output_file
+EOF
+  chmod 755 "${package}/write.sh"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _tree_art_impl(ctx):
+    my_dir = ctx.actions.declare_directory('dir.cc')
+    ctx.actions.run(
+        executable = ctx.executable._makes_tree,
+        outputs = [my_dir],
+        arguments = [my_dir.path])
+
+    return [DefaultInfo(files=depset([my_dir]))]
+
+tree_art_rule = rule(implementation = _tree_art_impl,
+    attrs = {
+        "_makes_tree" : attr.label(allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "//${package}:makes_tree_artifacts.sh"),
+        "_write" : attr.label(allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "//${package}:write.sh")})
+
+def _actions_test_impl(target, ctx):
+    action = target.actions[1] # digest action
+    if action.mnemonic != "CppLink":
+      fail("Expected the second action to be CppLink.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load(":lib.bzl", "tree_art_rule")
+
+tree_art_rule(name = "tree")
+
+cc_library(
+  name = "x",
+  srcs = [":tree"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args
+
+  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "aspect Args do not contain tree artifact args"
+}
+
+function test_directory_arg_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = target.actions[0] # digest action
+    if action.mnemonic != "CppCompile":
+      fail("Expected the first action to be CppCompile.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.cc"
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args
+
+  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "aspect Args do not contain tree artifact args"
+}
+
 run_suite "cc_integration_test"

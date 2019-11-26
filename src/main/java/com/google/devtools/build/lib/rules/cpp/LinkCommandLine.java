@@ -110,6 +110,10 @@ public final class LinkCommandLine extends CommandLine {
     return featureConfiguration;
   }
 
+  public String getActionName() {
+    return actionName;
+  }
+
   /** Returns the current type of link target set. */
   public LinkTargetType getLinkTargetType() {
     return linkTargetType;

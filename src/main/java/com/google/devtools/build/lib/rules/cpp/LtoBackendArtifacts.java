@@ -290,7 +290,8 @@ public final class LtoBackendArtifacts {
     }
 
     CommandLine ltoCommandLine =
-        new LtoBackendCommandLine(featureConfiguration, buildVariables, usePic);
+        FeatureConfigurationCommandLine.forLtoBackendAction(
+            featureConfiguration, buildVariables, usePic);
     builder.addCommandLine(ltoCommandLine);
 
     actionConstructionContext.registerAction(builder.build(actionConstructionContext));
