@@ -664,24 +664,29 @@ public class EvaluationTest extends EvaluationTestCase {
     };
   }
 
+  private static class Dummy implements StarlarkValue {}
+
   @Test
-  public void testPercOnObject() throws Exception {
+  public void testPercentOnDummyValue() throws Exception {
     newTest().update("obj", createObjWithStr()).testExpression("'%s' % obj", "<str marker>");
     newTest()
-        .update("unknown", new Object())
-        .testExpression("'%s' % unknown", "<unknown object java.lang.Object>");
+        .update("unknown", new Dummy())
+        .testExpression(
+            "'%s' % unknown",
+            "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>");
   }
 
   @Test
-  public void testPercOnObjectList() throws Exception {
+  public void testPercentOnTupleOfDummyValues() throws Exception {
     newTest()
         .update("obj", createObjWithStr())
         .testExpression("'%s %s' % (obj, obj)", "<str marker> <str marker>");
     newTest()
-        .update("unknown", new Object())
+        .update("unknown", new Dummy())
         .testExpression(
             "'%s %s' % (unknown, unknown)",
-            "<unknown object java.lang.Object> <unknown object java.lang.Object>");
+            "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy> <unknown"
+                + " object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>");
   }
 
   @Test

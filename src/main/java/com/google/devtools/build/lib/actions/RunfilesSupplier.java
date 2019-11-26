@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
@@ -25,7 +26,10 @@ import java.util.Map;
 /** Convenience wrapper around runfiles allowing lazy expansion. */
 // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
 // structure makes this difficult. Consider moving things around to make this possible.
-public interface RunfilesSupplier {
+//
+// RunfilesSuppliers appear to be Starlark values;
+// they are exposed through ctx.resolve_tools[2], for example.
+public interface RunfilesSupplier extends StarlarkValue {
 
   /** @return the contained artifacts */
   NestedSet<Artifact> getArtifacts();
