@@ -335,6 +335,13 @@ public final class BuildResult {
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
       Preconditions.checkState(!frozen);
+      switch (compression) {
+        case GZIP:
+          name = name + ".gz";
+          break;
+        case NONE:
+          break;
+      }
       this.localFiles.add(new LogFileEntry(name, path, localFileType, compression));
       return this;
     }
