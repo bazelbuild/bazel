@@ -120,14 +120,20 @@ public interface OutputService {
    * Creates the symlink tree
    *
    * @param inputPath the input manifest
+   * @param symlinks the symlinks to create
    * @param outputPath the output manifest
    * @param filesetTree is true iff we're constructing a Fileset
    * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
    * @throws ExecException on failure
    * @throws InterruptedException
    */
-  void createSymlinkTree(Path inputPath, Path outputPath, boolean filesetTree,
-      PathFragment symlinkTreeRoot) throws ExecException, InterruptedException;
+  void createSymlinkTree(
+      Path inputPath,
+      @Nullable Map<PathFragment, Path> symlinks,
+      Path outputPath,
+      boolean filesetTree,
+      PathFragment symlinkTreeRoot)
+      throws ExecException, InterruptedException;
 
   /**
    * Cleans the entire output tree.

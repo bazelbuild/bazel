@@ -107,7 +107,11 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void createSymlinkTree(
-      Path inputManifest, Path outputManifest, boolean filesetTree, PathFragment symlinkTreeRoot) {
+      Path inputManifest,
+      @Nullable Map<PathFragment, Path> symlinks,
+      Path outputManifest,
+      boolean filesetTree,
+      PathFragment symlinkTreeRoot) {
     throw new UnsupportedOperationException();
   }
 
