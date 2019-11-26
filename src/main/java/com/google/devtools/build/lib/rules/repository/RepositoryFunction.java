@@ -387,18 +387,6 @@ public abstract class RepositoryFunction {
     return false;
   }
 
-  /**
-   * Returns a block of data that must be equal for two Rules for them to be considered the same.
-   *
-   * <p>This is used for the up-to-dateness check of fetched directory trees. The only reason for
-   * this to exist is the {@code maven_server} rule (which should go away, but until then, we need
-   * to keep it working somehow)
-   */
-  protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    return new byte[] {};
-  }
-
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
     try {

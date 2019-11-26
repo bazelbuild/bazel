@@ -193,8 +193,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRemoveEnabledToolchainTypes();
 
-  public abstract boolean incompatibleRemoveNativeMavenJar();
-
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
@@ -280,7 +278,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleRemapMainRepo(true)
           .incompatibleRemoveEnabledToolchainTypes(false)
-          .incompatibleRemoveNativeMavenJar(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
@@ -361,8 +358,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
