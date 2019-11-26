@@ -932,7 +932,20 @@ class MethodLibrary {
               + "The order in which elements are returned when the depset is converted to a list "
               + "is specified by the <code>order</code> parameter. "
               + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
-              + "<p> All elements (direct and indirect) of a depset must be of the same type. "
+              + ""
+              + "<p>All elements (direct and indirect) of a depset must be of the same type, "
+              + "as obtained by the expression <code>type(x)</code>."
+              + ""
+              + "<p>Because a hash-based set is used to eliminate duplicates during iteration, "
+              + "all elements of a depset should be hashable. However, this invariant is not "
+              + "currently checked consistently in all constructors. Use the "
+              + "--incompatible_always_check_depset_elements flag to enable "
+              + "consistent checking; this will be the default behavior in future releases; "
+              + " see https://github.com/bazelbuild/bazel/issues/10313."
+              + ""
+              + "<p>In addition, elements must currently be immutable, though this restriction "
+              + "will be relaxed in future."
+              + ""
               + "<p> The order of the created depset should be <i>compatible</i> with the order of "
               + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
               + "with any other order, all other orders are only compatible with themselves."
@@ -1036,8 +1049,8 @@ class MethodLibrary {
           Depset.fromDirectAndTransitive(
               order,
               listFromNoneable(direct, Object.class, "direct"),
-              listFromNoneable(transitive, Depset.class, "transitive"));
-
+              listFromNoneable(transitive, Depset.class, "transitive"),
+              semantics.incompatibleAlwaysCheckDepsetElements());
     } else {
       if (x != Starlark.NONE) {
         if (!isEmptySkylarkList(items)) {
@@ -1046,7 +1059,7 @@ class MethodLibrary {
         }
         items = x;
       }
-      result = legacyDepsetConstructor(items, order, direct, transitive);
+      result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
     }
 
     if (semantics.debugDepsetDepth()) {
@@ -1074,7 +1087,8 @@ class MethodLibrary {
   }
 
   private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive) throws EvalException {
+      Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
+      throws EvalException {
 
     if (transitive == Starlark.NONE && direct == Starlark.NONE) {
       // Legacy behavior.
@@ -1103,7 +1117,8 @@ class MethodLibrary {
     } else {
       transitiveList = ImmutableList.of();
     }
-    return Depset.fromDirectAndTransitive(order, directElements, transitiveList);
+    return Depset.fromDirectAndTransitive(
+        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
   }
 
   private static boolean isEmptySkylarkList(Object o) {

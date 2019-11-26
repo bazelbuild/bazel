@@ -127,7 +127,7 @@ public final class Depset implements StarlarkValue {
       }
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
-        checkElement(x);
+        checkElement(x, /*strict=*/ true);
         SkylarkType xt = SkylarkType.of(x);
         contentType = checkType(contentType, xt);
         itemsBuilder.add(x);
@@ -154,7 +154,7 @@ public final class Depset implements StarlarkValue {
     return new Depset(contentType, builder.build(), items, transitiveItems);
   }
 
-  private static void checkElement(Object x) throws EvalException {
+  private static void checkElement(Object x, boolean strict) throws EvalException {
     // Historically the requirement for a depset element was isImmutable(x).
     // However, this check is neither necessary not sufficient.
     // It is unnecessary because elements need only be hashable,
@@ -173,8 +173,15 @@ public final class Depset implements StarlarkValue {
     // construct depsets whose elements contain lists of strings,
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
-    if (!EvalUtils.isImmutable(x)) {
+    if (strict && !EvalUtils.isImmutable(x)) {
       throw new EvalException(null, "depset elements must not be mutable values");
+    }
+
+    // Even the looser regime forbids the toplevel constructor to be list or dict.
+    if (x instanceof StarlarkList || x instanceof Dict) {
+      throw new EvalException(
+          null,
+          String.format("depsets cannot contain items of type '%s'", EvalUtils.getDataTypeName(x)));
     }
   }
 
@@ -441,7 +448,8 @@ public final class Depset implements StarlarkValue {
   }
 
   /** Create a Depset from the given direct and transitive components. */
-  static Depset fromDirectAndTransitive(Order order, List<Object> direct, List<Depset> transitive)
+  static Depset fromDirectAndTransitive(
+      Order order, List<Object> direct, List<Depset> transitive, boolean strict)
       throws EvalException {
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
     SkylarkType type = SkylarkType.TOP;
@@ -450,15 +458,16 @@ public final class Depset implements StarlarkValue {
     for (Object x : direct) {
       // Historically, checkElement was called only by some depset constructors,
       // but not this one, depset(direct=[x]).
-      // This was a regrettable oversight that allowed users to put
-      // mutable values into depsets, doubly so because we have just forced our
+      // This was a regrettable oversight that allowed users to put mutable values
+      // such as lists into depsets, doubly so because we have just forced our
       // users to migrate away from the legacy constructor which applied the check.
+      //
       // We are currently discovering and fixing existing violations, for example
       // marking the relevant Starlark types as immutable where appropriate
-      // (e.g. ConfiguredTarget), but if violations are too numerous we may need
-      // to suppress the checkElement call below and reintroduce it as a breaking change.
+      // (e.g. ConfiguredTarget), but violations are numerous so we must
+      // suppress the checkElement call below and reintroduce it as a breaking change.
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      checkElement(x);
+      checkElement(x, /*strict=*/ strict);
 
       SkylarkType xt = SkylarkType.of(x);
       type = checkType(type, xt);

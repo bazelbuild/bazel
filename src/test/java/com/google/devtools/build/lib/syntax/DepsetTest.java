@@ -579,21 +579,71 @@ public class DepsetTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testElementsMustBeImmutable() throws Exception {
-    // Test legacy and new constructors.
+  public void testMutableDepsetElementsLegacyBehavior() throws Exception {
+    // See b/144992997 and github.com/bazelbuild/bazel/issues/10313.
+    thread =
+        newStarlarkThreadWithSkylarkOptions("--incompatible_always_check_depset_elements=false");
 
-    // mutable list: error
+    // Test legacy depset(...) and new depset(direct=...) constructors.
+
+    // mutable list should be an error
+    checkEvalError("depset elements must not be mutable values", "depset([[1,2,3]])");
+    checkEvalError("depsets cannot contain items of type 'list'", "depset(direct=[[1,2,3]])");
+
+    // struct containing mutable list should be an error
+    checkEvalError("depset elements must not be mutable values", "depset([struct(a=[])])");
+    eval("depset(direct=[struct(a=[])])"); // no error (!)
+
+    // tuple of frozen list currently gives no error (this may change)
+    update("x", StarlarkList.empty());
+    eval("depset([(x,)])");
+    eval("depset(direct=[(x,)])");
+
+    // any list (even frozen) is an error, even with legacy constructor
+    checkEvalError("depsets cannot contain items of type 'list'", "depset([x])");
+    checkEvalError("depsets cannot contain items of type 'list'", "depset(direct=[x])");
+
+    // toplevel dict is an error, even with legacy constructor
+    checkEvalError("depset elements must not be mutable values", "depset([{}])");
+    checkEvalError("depsets cannot contain items of type 'dict'", "depset(direct=[{}])");
+
+    // struct containing dict should be an error
+    checkEvalError("depset elements must not be mutable values", "depset([struct(a={})])");
+    eval("depset(direct=[struct(a={})])"); // no error (!)
+  }
+
+  @Test
+  public void testMutableDepsetElementsDesiredBehavior() throws Exception {
+    // See b/144992997 and github.com/bazelbuild/bazel/issues/10313.
+    thread =
+        newStarlarkThreadWithSkylarkOptions("--incompatible_always_check_depset_elements=true");
+
+    // Test legacy depset(...) and new depset(direct=...) constructors.
+
+    // mutable list should be an error
     checkEvalError("depset elements must not be mutable values", "depset([[1,2,3]])");
     checkEvalError("depset elements must not be mutable values", "depset(direct=[[1,2,3]])");
 
-    // struct containing mutable list: error
+    // struct containing mutable list should be an error
     checkEvalError("depset elements must not be mutable values", "depset([struct(a=[])])");
     checkEvalError("depset elements must not be mutable values", "depset(direct=[struct(a=[])])");
 
-    // frozen list: no error
+    // tuple of frozen list currently gives no error (this may change)
     update("x", StarlarkList.empty());
-    eval("depset([x])");
-    eval("depset(direct=[x])");
+    eval("depset([(x,)])");
+    eval("depset(direct=[(x,)])");
+
+    // any list (even frozen) is an error, even with legacy constructor
+    checkEvalError("depsets cannot contain items of type 'list'", "depset([x,])");
+    checkEvalError("depsets cannot contain items of type 'list'", "depset(direct=[x,])");
+
+    // toplevel dict is an error, even with legacy constructor
+    checkEvalError("depset elements must not be mutable values", "depset([{}])");
+    checkEvalError("depset elements must not be mutable values", "depset(direct=[{}])");
+
+    // struct containing dict should be an error
+    checkEvalError("depset elements must not be mutable values", "depset([struct(a={})])");
+    checkEvalError("depset elements must not be mutable values", "depset(direct=[struct(a={})])");
   }
 
   @Test

@@ -157,6 +157,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalRepoRemoteExec();
 
+  public abstract boolean incompatibleAlwaysCheckDepsetElements();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetUnion();
@@ -260,6 +262,7 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
+          .incompatibleAlwaysCheckDepsetElements(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
@@ -322,6 +325,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 
     public abstract Builder experimentalRepoRemoteExec(boolean value);
+
+    public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
