@@ -34,12 +34,12 @@ import java.util.List;
 public abstract class SingleToolchainResolutionValue implements SkyValue {
 
   // A key representing the input data.
-  public static Key key(
+  public static SingleToolchainResolutionKey key(
       BuildConfigurationValue.Key configurationKey,
       Label toolchainTypeLabel,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
-    return Key.create(
+    return SingleToolchainResolutionKey.create(
         configurationKey, toolchainTypeLabel, targetPlatformKey, availableExecutionPlatformKeys);
   }
 
@@ -47,7 +47,7 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
   @AutoCodec
   @AutoCodec.VisibleForSerialization
   @AutoValue
-  public abstract static class Key implements SkyKey {
+  public abstract static class SingleToolchainResolutionKey implements SkyKey {
 
     @Override
     public SkyFunctionName functionName() {
@@ -63,12 +63,12 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
     abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
 
     @AutoCodec.Instantiator
-    static Key create(
+    static SingleToolchainResolutionKey create(
         BuildConfigurationValue.Key configurationKey,
         Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
-      return new AutoValue_SingleToolchainResolutionValue_Key(
+      return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
           toolchainTypeLabel,
           targetPlatformKey,

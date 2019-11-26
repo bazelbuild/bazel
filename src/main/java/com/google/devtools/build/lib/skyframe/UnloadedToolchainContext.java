@@ -33,9 +33,9 @@ import java.util.Set;
 @AutoValue
 public abstract class UnloadedToolchainContext implements ToolchainContext, SkyValue {
 
-  /** Returns a new {@link Key.Builder}. */
-  public static Key.Builder key() {
-    return new AutoValue_UnloadedToolchainContext_Key.Builder()
+  /** Returns a new {@link UnloadedToolchainContextKey.Builder}. */
+  public static UnloadedToolchainContextKey.Builder key() {
+    return new AutoValue_UnloadedToolchainContext_UnloadedToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
         .shouldSanityCheckConfiguration(false);
@@ -43,7 +43,7 @@ public abstract class UnloadedToolchainContext implements ToolchainContext, SkyV
 
   /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
   @AutoValue
-  public abstract static class Key implements SkyKey {
+  public abstract static class UnloadedToolchainContextKey implements SkyKey {
 
     @Override
     public SkyFunctionName functionName() {
@@ -58,7 +58,7 @@ public abstract class UnloadedToolchainContext implements ToolchainContext, SkyV
 
     abstract boolean shouldSanityCheckConfiguration();
 
-    /** Builder for {@link UnloadedToolchainContext.Key}. */
+    /** Builder for {@link UnloadedToolchainContextKey}. */
     @AutoValue.Builder
     public interface Builder {
       Builder configurationKey(BuildConfigurationValue.Key key);
@@ -73,7 +73,7 @@ public abstract class UnloadedToolchainContext implements ToolchainContext, SkyV
 
       Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
 
-      Key build();
+      UnloadedToolchainContextKey build();
     }
   }
 

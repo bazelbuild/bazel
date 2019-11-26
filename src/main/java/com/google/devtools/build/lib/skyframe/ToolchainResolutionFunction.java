@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidC
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
+import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -61,7 +63,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
   @Override
   public UnloadedToolchainContext compute(SkyKey skyKey, Environment env)
       throws ToolchainResolutionFunctionException, InterruptedException {
-    UnloadedToolchainContext.Key key = (UnloadedToolchainContext.Key) skyKey.argument();
+    UnloadedToolchainContextKey key = (UnloadedToolchainContextKey) skyKey.argument();
 
     try {
       UnloadedToolchainContext.Builder builder = UnloadedToolchainContext.builder();
@@ -334,7 +336,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           InvalidToolchainLabelException {
 
     // Find the toolchains for the required toolchain types.
-    List<SingleToolchainResolutionValue.Key> registeredToolchainKeys = new ArrayList<>();
+    List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
     for (Label toolchainTypeLabel : requiredToolchainTypeLabels) {
       registeredToolchainKeys.add(
           SingleToolchainResolutionValue.key(

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
+import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -51,7 +52,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ToolchainResolutionFunctionException, InterruptedException {
-    SingleToolchainResolutionValue.Key key = (SingleToolchainResolutionValue.Key) skyKey.argument();
+    SingleToolchainResolutionKey key = (SingleToolchainResolutionKey) skyKey.argument();
 
     // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
     // it's not worth optimizing.
