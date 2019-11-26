@@ -33,7 +33,7 @@ namespace blaze_jni {
       } \
     } while (0)
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
 #define portable_stat ::stat
@@ -44,7 +44,7 @@ typedef struct stat64 portable_stat_struct;
 #define portable_lstat ::lstat64
 #endif
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #define ENODATA ENOATTR
 #endif
 

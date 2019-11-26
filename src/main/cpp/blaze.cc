@@ -1519,7 +1519,11 @@ static void RunLauncher(const string &self_path,
 
   const blaze_util::Path jvm_path = startup_options.GetJvm();
   const string server_jar_path = GetServerJarPath(archive_contents);
-  const vector<string> server_exe_args = GetServerExeArgs(
+
+  const blaze_util::Path server_exe =
+      startup_options.GetExe(jvm_path, server_jar_path);
+
+  vector<string> server_exe_args = GetServerExeArgs(
       jvm_path,
       server_jar_path,
       archive_contents,
@@ -1527,12 +1531,12 @@ static void RunLauncher(const string &self_path,
       workspace_layout,
       workspace,
       startup_options);
+#if !defined(CAN_FIND_OWN_EXECUTABLE_PATH)
+  server_exe_args[0] = server_exe.AsNativePath();
+#endif
 
   KillRunningServerIfDifferentStartupOptions(
       startup_options, server_exe_args, logging_info, blaze_server);
-
-  const blaze_util::Path server_exe =
-      startup_options.GetExe(jvm_path, server_jar_path);
 
   const blaze_util::Path server_dir =
       blaze_util::Path(startup_options.output_base).GetRelative("server");
@@ -1558,7 +1562,11 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(default_handler));
 
+#if defined(CAN_FIND_OWN_EXECUTABLE_PATH)
   const string self_path = GetSelfPath();
+#else
+  const string self_path = GetSelfPath(argv[0]);
+#endif
 
   if (argc == 2 && strcmp(argv[1], "--version") == 0) {
     PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());

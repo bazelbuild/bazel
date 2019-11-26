@@ -71,6 +71,21 @@
 #endif
 
 
+// CAN_FIND_OWN_EXECUTABLE_PATH
+//
+// Indicates that a running process can find a path to its own executable.
+#if !defined(__OpenBSD__)
+#define CAN_FIND_OWN_EXECUTABLE_PATH
+#endif
+
+// HAVE_EMULTIHOP
+//
+// Indicates that errno.h defines EMULTIHOP.
+#if !defined(__OpenBSD__)
+#define HAVE_EMULTIHOP
+#endif
+
+
 // Linux I/O priorities support is available only in later versions of glibc.
 // Therefore, we include some of the needed definitions here.  May need to
 // be removed once we switch to a new version of glibc
