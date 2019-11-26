@@ -39,12 +39,12 @@ public class NinjaVariableValue {
   /**
    * Indicates that this value contain no variable references, i.e. contain only plain text.
    */
-  private final boolean doesNotReferenceVariables;
+  private final boolean isPlainText;
 
   private NinjaVariableValue(ImmutableList<Function<Function<String, String>, String>> parts,
-      boolean doesNotReferenceVariables) {
+      boolean isPlainText) {
     this.parts = parts;
-    this.doesNotReferenceVariables = doesNotReferenceVariables;
+    this.isPlainText = isPlainText;
   }
 
   /** Created the value wrapping some plain text. */
@@ -52,8 +52,8 @@ public class NinjaVariableValue {
     return builder().addText(text).build();
   }
 
-  public boolean doesNotReferenceVariables() {
-    return doesNotReferenceVariables;
+  public boolean isPlainText() {
+    return isPlainText;
   }
 
   /** Compute the expanded value, using the passed <code>expander</code> function. */

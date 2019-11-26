@@ -24,7 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
@@ -306,6 +306,6 @@ public class NinjaScopeTest {
   private static NinjaVariableValue parseValue(String text) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(bb, 0, bb.limit()));
-    return new NinjaParser(lexer).parseVariableValue("test");
+    return new NinjaParserStep(lexer).parseVariableValue("test");
   }
 }

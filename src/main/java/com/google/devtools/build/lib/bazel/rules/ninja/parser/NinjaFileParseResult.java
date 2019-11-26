@@ -114,10 +114,10 @@ public class NinjaFileParseResult {
   }
 
   public static NinjaFileParseResult merge(Collection<NinjaFileParseResult> parts) {
-    if (parts.isEmpty()) {
-      return new NinjaFileParseResult();
-    }
     NinjaFileParseResult result = new NinjaFileParseResult();
+    if (parts.isEmpty()) {
+      return result;
+    }
     for (NinjaFileParseResult part : parts) {
       for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : part.variables.entrySet()) {
         String name = entry.getKey();

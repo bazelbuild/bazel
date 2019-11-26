@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
@@ -40,9 +40,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser}. */
+/** Tests for {@link NinjaParserStep}. */
 @RunWith(JUnit4.class)
-public class NinjaParserTest {
+public class NinjaParserStepTest {
   @Test
   public void testSimpleVariable() throws Exception {
     doTestSimpleVariable("a=b", "a", "b");
@@ -90,11 +90,11 @@ public class NinjaParserTest {
 
   @Test
   public void testNormalizeVariableName() {
-    assertThat(NinjaParser.normalizeVariableName("$a")).isEqualTo("a");
-    assertThat(NinjaParser.normalizeVariableName("$a-b-c")).isEqualTo("a-b-c");
-    assertThat(NinjaParser.normalizeVariableName("${abc_de-7}")).isEqualTo("abc_de-7");
-    assertThat(NinjaParser.normalizeVariableName("${ a1.5}")).isEqualTo("a1.5");
-    assertThat(NinjaParser.normalizeVariableName("${a1.5  }")).isEqualTo("a1.5");
+    assertThat(NinjaParserStep.normalizeVariableName("$a")).isEqualTo("a");
+    assertThat(NinjaParserStep.normalizeVariableName("$a-b-c")).isEqualTo("a-b-c");
+    assertThat(NinjaParserStep.normalizeVariableName("${abc_de-7}")).isEqualTo("abc_de-7");
+    assertThat(NinjaParserStep.normalizeVariableName("${ a1.5}")).isEqualTo("a1.5");
+    assertThat(NinjaParserStep.normalizeVariableName("${a1.5  }")).isEqualTo("a1.5");
   }
 
   @Test
@@ -135,7 +135,7 @@ public class NinjaParserTest {
 
   @Test
   public void testNinjaRule() throws Exception {
-    NinjaParser parser =
+    NinjaParserStep parser =
         createParser(
             "rule testRule  \n"
                 + " command = executable --flag $TARGET $out && $POST_BUILD\n"
@@ -281,7 +281,7 @@ public class NinjaParserTest {
 
   private static void doTestSimpleVariable(String text, String name, String value)
       throws Exception {
-    NinjaParser parser = createParser(text);
+    NinjaParserStep parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);
     assertThat(variable.getSecond()).isNotNull();
@@ -293,7 +293,7 @@ public class NinjaParserTest {
   }
 
   private static void doTestNoValue(String text) {
-    NinjaParser parser = createParser(text);
+    NinjaParserStep parser = createParser(text);
     GenericParsingException exception =
         assertThrows(GenericParsingException.class, parser::parseVariable);
     assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
@@ -302,7 +302,7 @@ public class NinjaParserTest {
   private static void doTestWithVariablesInValue(
       String text, String name, String value, ImmutableSortedSet<String> expectedVars)
       throws Exception {
-    NinjaParser parser = createParser(text);
+    NinjaParserStep parser = createParser(text);
     Pair<String, NinjaVariableValue> variable = parser.parseVariable();
     assertThat(variable.getFirst()).isEqualTo(name);
     assertThat(variable.getSecond()).isNotNull();
@@ -313,10 +313,10 @@ public class NinjaParserTest {
     assertThat(expander.getRequestedVariables()).containsExactlyElementsIn(expectedVars);
   }
 
-  private static NinjaParser createParser(String text) {
+  private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
-    return new NinjaParser(lexer);
+    return new NinjaParserStep(lexer);
   }
 
   private static class MockValueExpander implements Function<String, String> {

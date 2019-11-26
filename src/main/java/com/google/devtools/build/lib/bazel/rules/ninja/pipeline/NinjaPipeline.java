@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
+import static com.google.devtools.build.lib.concurrent.MoreFutures.*;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -28,13 +30,14 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaDeclarationConsumer;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult.NinjaPromise;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -72,7 +75,8 @@ public class NinjaPipeline {
    */
   public Pair<NinjaScope, List<NinjaTarget>> pipeline(Path mainFile)
       throws GenericParsingException, InterruptedException, IOException {
-    NinjaFileParseResult result = getFutureResult(scheduleParsing(mainFile));
+    NinjaFileParseResult result = waitForFutureAndGetWithCheckedException(scheduleParsing(mainFile),
+        GenericParsingException.class, IOException.class);
 
     Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets = Maps.newHashMap();
     NinjaScope scope = new NinjaScope();
@@ -99,7 +103,7 @@ public class NinjaPipeline {
       List<ByteFragmentAtOffset> targetFragments = rawTargets.get(currentScope);
       Preconditions.checkNotNull(targetFragments);
       for (ByteFragmentAtOffset fragment : targetFragments) {
-        future.add(service.submit(() -> new NinjaParser(new NinjaLexer(fragment.getFragment()))
+        future.add(service.submit(() -> new NinjaParserStep(new NinjaLexer(fragment.getFragment()))
             .parseNinjaTarget(currentScope, fragment.getRealStartOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
@@ -123,12 +127,13 @@ public class NinjaPipeline {
    */
   public NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
       NinjaVariableValue value, Integer offset) throws IOException {
-    if (value.doesNotReferenceVariables()) {
+    if (value.isPlainText()) {
       // If the value of the path is already known, we can immediately schedule parsing
       // of the child Ninja file.
       Path path = basePath.getRelative(value.getRawText());
       ListenableFuture<NinjaFileParseResult> parsingFuture = scheduleParsing(path);
-      return (scope) -> getFutureResult(parsingFuture);
+      return (scope) -> waitForFutureAndGetWithCheckedException(parsingFuture,
+          GenericParsingException.class, IOException.class);
     } else {
       // If the value of the child path refers some variables in the parent scope, resolve it,
       // when the lambda is called, schedule the parsing and wait for it's completion.
@@ -138,7 +143,8 @@ public class NinjaPipeline {
           throw new GenericParsingException("Expected non-empty path.");
         }
         Path path = basePath.getRelative(expandedValue);
-        return getFutureResult(scheduleParsing(path));
+        return waitForFutureAndGetWithCheckedException(scheduleParsing(path),
+            GenericParsingException.class, IOException.class);
       };
     }
   }
@@ -156,28 +162,10 @@ public class NinjaPipeline {
             () -> {
               NinjaFileParseResult parseResult = new NinjaFileParseResult();
               pieces.add(parseResult);
-              return new NinjaDeclarationConsumer(NinjaPipeline.this, parseResult);
+              return new NinjaParser(NinjaPipeline.this, parseResult);
             }, service, NinjaSeparatorFinder.INSTANCE);
         return NinjaFileParseResult.merge(pieces);
       }
     });
-  }
-
-  /**
-   * Helper method to get the result from Future and propagate possible known exceptions.
-   */
-  private static <T> T getFutureResult(Future<T> future)
-      throws InterruptedException, GenericParsingException, IOException {
-    try {
-      return future.get();
-    } catch (ExecutionException e) {
-      Throwable causeOrSelf = e.getCause();
-      if (causeOrSelf == null) {
-        causeOrSelf = e;
-      }
-      Throwables.propagateIfPossible(causeOrSelf, GenericParsingException.class);
-      Throwables.propagateIfPossible(causeOrSelf, IOException.class);
-      throw new IllegalStateException(e);
-    }
   }
 }
