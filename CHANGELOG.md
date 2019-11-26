@@ -1,3 +1,27 @@
+## Release 1.2.1 (2019-11-26)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+This release fixes a single regression:
+- #10297: Bazel 1.2.0 does no longer run on macOS High Sierra.
+
+It is the same code as Bazel 1.2.0, except that we rebuild the macOS release
+binaries with Xcode 10.2.1 to make them backwards compatible with older macOS
+versions again.
+
 ## Release 1.2.0 (2019-11-20)
 
 ```
