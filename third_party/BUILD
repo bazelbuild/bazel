@@ -57,24 +57,6 @@ filegroup(
     ],
 )
 
-java_import(
-    name = "aether",
-    jars = [
-        "aether/aether-api-1.0.0.v20140518.jar",
-        "aether/aether-spi-1.0.0.v20140518.jar",
-        "aether/aether-transport-http-1.0.0.v20140518.jar",
-        "aether/aether-connector-basic-1.0.0.v20140518.jar",
-        "aether/aether-transport-classpath-1.0.0.v20140518.jar",
-        "aether/aether-transport-wagon-1.0.0.v20140518.jar",
-        "aether/aether-impl-1.0.0.v20140518.jar",
-        "aether/aether-transport-file-1.0.0.v20140518.jar",
-        "aether/aether-util-1.0.0.v20140518.jar",
-    ],
-    deps = [
-        ":apache_httpclient",
-    ],
-)
-
 # This target only contains the jars that are used for building / running Bazel.
 # The target below is for the Android tools that are not shipped with Bazel.
 java_import(
@@ -124,11 +106,6 @@ java_import(
 )
 
 java_import(
-    name = "apache_commons_codec",
-    jars = ["apache_commons_codec/commons-codec-1.9.jar"],
-)
-
-java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
 )
@@ -151,21 +128,6 @@ java_import(
 java_import(
     name = "apache_commons_pool2",
     jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
-)
-
-java_import(
-    name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
-    deps = [
-        ":apache_commons_codec",
-        ":apache_commons_logging",
-        ":apache_httpcore",
-    ],
-)
-
-java_import(
-    name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
@@ -501,21 +463,6 @@ filegroup(
 java_import(
     name = "jsr330_inject",
     jars = ["jsr330_inject/javax.inject.jar"],
-)
-
-java_import(
-    name = "maven",
-    jars = glob(["maven/*.jar"]),
-)
-
-java_import(
-    name = "maven_model",
-    jars = [
-        "maven_model/maven-aether-provider-3.2.3.jar",
-        "maven_model/maven-model-3.2.3.jar",
-        "maven_model/maven-model-builder-3.2.3.jar",
-        "maven_model/maven-repository-metadata-3.2.3.jar",
-    ],
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
