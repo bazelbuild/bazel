@@ -111,7 +111,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<ParsedAndroidAssets>*/ getDirectParsedAssetsForStarlark() {
-    return Depset.of(ParsedAndroidAssets.class, directParsedAssets);
+    return Depset.of(ParsedAndroidAssets.TYPE, directParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getDirectParsedAssets() {
@@ -130,7 +130,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<ParsedAndroidAssets>*/ getTransitiveParsedAssetsForStarlark() {
-    return Depset.of(ParsedAndroidAssets.class, transitiveParsedAssets);
+    return Depset.of(ParsedAndroidAssets.TYPE, transitiveParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getTransitiveParsedAssets() {

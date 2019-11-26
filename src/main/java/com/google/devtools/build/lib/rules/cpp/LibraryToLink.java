@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -39,6 +40,8 @@ import javax.annotation.Nullable;
 @Immutable
 @CopyAnnotations
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
+
+  public static final SkylarkType TYPE = SkylarkType.of(LibraryToLink.class);
 
   public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
     if (getDynamicLibrary() == null) {

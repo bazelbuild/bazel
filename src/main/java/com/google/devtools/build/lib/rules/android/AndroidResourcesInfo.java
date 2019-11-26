@@ -112,7 +112,7 @@ public class AndroidResourcesInfo extends NativeInfo
 
   @Override
   public Depset /*<ValidatedAndroidResources>*/ getTransitiveAndroidResourcesForStarlark() {
-    return Depset.of(ValidatedAndroidResources.class, transitiveAndroidResources);
+    return Depset.of(ValidatedAndroidResources.TYPE, transitiveAndroidResources);
   }
 
   public NestedSet<ValidatedAndroidResources> getTransitiveAndroidResources() {
@@ -121,7 +121,7 @@ public class AndroidResourcesInfo extends NativeInfo
 
   @Override
   public Depset /*<ValidatedAndroidResources>*/ getDirectAndroidResourcesForStarlark() {
-    return Depset.of(ValidatedAndroidResources.class, directAndroidResources);
+    return Depset.of(ValidatedAndroidResources.TYPE, directAndroidResources);
   }
 
   public NestedSet<ValidatedAndroidResources> getDirectAndroidResources() {

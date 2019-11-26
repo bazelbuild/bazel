@@ -119,6 +119,9 @@ public final class Runfiles implements RunfilesApi {
   @AutoCodec
   @VisibleForSerialization
   static final class SymlinkEntry implements SymlinkEntryApi {
+
+    static final SkylarkType TYPE = SkylarkType.of(SymlinkEntry.class);
+
     private final PathFragment path;
     private final Artifact artifact;
 
@@ -354,7 +357,7 @@ public final class Runfiles implements RunfilesApi {
   /** Returns the symlinks. */
   @Override
   public Depset /*<SymlinkEntry>*/ getSymlinksForStarlark() {
-    return Depset.of(SymlinkEntry.class, symlinks);
+    return Depset.of(SymlinkEntry.TYPE, symlinks);
   }
 
   public NestedSet<SymlinkEntry> getSymlinks() {
@@ -589,7 +592,7 @@ public final class Runfiles implements RunfilesApi {
   /** Returns the root symlinks. */
   @Override
   public Depset /*<SymlinkEntry>*/ getRootSymlinksForStarlark() {
-    return Depset.of(SymlinkEntry.class, rootSymlinks);
+    return Depset.of(SymlinkEntry.TYPE, rootSymlinks);
   }
 
   public NestedSet<SymlinkEntry> getRootSymlinks() {

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -156,8 +157,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   /**
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
    */
+  // TODO(bazel-team): choose less confusing names for this class and the package-level interface of
+  // the same name.
   @Immutable
   public static class LinkerInput implements LinkerInputApi<LibraryToLink, Artifact> {
+
+    public static final SkylarkType TYPE = SkylarkType.of(LinkerInput.class);
+
     // Identifies which target created the LinkerInput. It doesn't have to be unique between
     // LinkerInputs.
     private final Label owner;
@@ -389,7 +395,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getSkylarkLinkerInputs() {
-    return Depset.of(LinkerInput.class, linkerInputs);
+    return Depset.of(LinkerInput.TYPE, linkerInputs);
   }
 
   @Override
@@ -401,7 +407,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public Object getSkylarkLibrariesToLink(StarlarkThread thread) {
     // TODO(plf): Flag can be removed already.
     if (thread.getSemantics().incompatibleDepsetForLibrariesToLinkGetter()) {
-      return Depset.of(LibraryToLink.class, getLibraries());
+      return Depset.of(LibraryToLink.TYPE, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());
     }

@@ -206,16 +206,6 @@ public final class Depset implements StarlarkValue {
   }
 
   /**
-   * Returns a Depset that wraps the specified NestedSet.
-   *
-   * <p>This operation is type-safe only if the specified element type is appropriate for every
-   * element of the set.
-   */
-  public static <T> Depset of(Class<T> contentType, NestedSet<T> set) {
-    return new Depset(SkylarkType.of(contentType), set, null, null);
-  }
-
-  /**
    * Checks that an item type is allowed in a given set type, and returns the type of a new depset
    * with that item inserted.
    */

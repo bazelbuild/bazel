@@ -92,7 +92,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   @Override
   public Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark() {
-    return Depset.of(LabelJavaPackagePair.class, transitiveLabelAndJavaPackages);
+    return Depset.of(LabelJavaPackagePair.TYPE, transitiveLabelAndJavaPackages);
   }
 
   public NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages() {

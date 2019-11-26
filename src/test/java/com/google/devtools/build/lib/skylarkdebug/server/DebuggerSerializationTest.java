@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
@@ -61,7 +62,8 @@ public final class DebuggerSerializationTest {
   @Test
   public void testSimpleNestedSet() {
     Set<String> children = ImmutableSet.of("a", "b");
-    Depset set = Depset.of(Object.class, NestedSetBuilder.stableOrder().addAll(children).build());
+    Depset set =
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.stableOrder().addAll(children).build());
 
     Value value = getValueProto("name", set);
 
@@ -90,7 +92,7 @@ public final class DebuggerSerializationTest {
     ImmutableSet<String> directChildren = ImmutableSet.of("a", "b");
     Depset outerSet =
         Depset.of(
-            String.class,
+            SkylarkType.STRING,
             NestedSetBuilder.<String>linkOrder()
                 .addAll(directChildren)
                 .addTransitive(innerNestedSet)

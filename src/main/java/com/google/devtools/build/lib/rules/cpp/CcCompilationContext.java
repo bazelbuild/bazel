@@ -146,7 +146,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkNonTransitiveDefines() {
     return Depset.of(
-        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+        SkylarkType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
@@ -157,7 +157,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkSystemIncludeDirs() {
     return Depset.of(
-        String.class,
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
@@ -168,7 +168,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkFrameworkIncludeDirs() {
     return Depset.of(
-        String.class,
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getFrameworkIncludeDirs().stream()
@@ -179,7 +179,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkIncludeDirs() {
     return Depset.of(
-        String.class,
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getIncludeDirs().stream()
@@ -190,7 +190,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkQuoteIncludeDirs() {
     return Depset.of(
-        String.class,
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getQuoteIncludeDirs().stream()

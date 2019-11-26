@@ -436,7 +436,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        (Artifact.class),
+        Artifact.TYPE,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -444,7 +444,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        (Artifact.class),
+        Artifact.TYPE,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
