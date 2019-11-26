@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -151,15 +152,21 @@ public final class OutputDirectoryLinksUtils {
     }
   }
 
-  private enum Py2BinSymlink implements SymlinkDefinition {
-    INSTANCE;
+  private enum PyBinSymlink implements SymlinkDefinition {
+    PY2(PythonVersion.PY2),
+    PY3(PythonVersion.PY3);
 
-    private static final PythonVersionTransition py2Transition =
-        PythonVersionTransition.toConstant(PythonVersion.PY2);
+    private final String versionString;
+    private final PythonVersionTransition transition;
+
+    private PyBinSymlink(PythonVersion version) {
+      this.versionString = Ascii.toLowerCase(version.toString());
+      this.transition = PythonVersionTransition.toConstant(version);
+    }
 
     @Override
     public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
-      return symlinkPrefix + "py2-bin";
+      return symlinkPrefix + versionString + "-bin";
     }
 
     @Override
@@ -170,7 +177,7 @@ public final class OutputDirectoryLinksUtils {
         Path outputPath,
         Path execRoot) {
       return targetConfigs.stream()
-          .map(config -> configGetter.apply(py2Transition.patch(config.getOptions())))
+          .map(config -> configGetter.apply(transition.patch(config.getOptions())))
           .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableSet());
@@ -183,12 +190,13 @@ public final class OutputDirectoryLinksUtils {
    * <p>The result is always a subset of {@link #getAllLinkDefinitions}.
    */
   private static ImmutableList<SymlinkDefinition> getLinkDefinitions(
-      boolean includeGenfiles, boolean includePy2Bin) {
+      boolean includeGenfiles, boolean includePyBin) {
     // The order of this list controls priority for PathPrettyPrinter#getPrettyPath.
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.add(new ConfigSymlink("bin", BuildConfiguration::getBinDirectory));
-    if (includePy2Bin) {
-      builder.add(Py2BinSymlink.INSTANCE);
+    if (includePyBin) {
+      builder.add(PyBinSymlink.PY2);
+      builder.add(PyBinSymlink.PY3);
     }
     builder.add(new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory));
     if (includeGenfiles) {
@@ -205,7 +213,7 @@ public final class OutputDirectoryLinksUtils {
    * actually requested by the build options.
    */
   private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions() {
-    return getLinkDefinitions(/*includeGenfiles=*/ true, /*includePy2Bin=*/ true);
+    return getLinkDefinitions(/*includeGenfiles=*/ true, /*includePyBin=*/ true);
   }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
@@ -240,7 +248,7 @@ public final class OutputDirectoryLinksUtils {
       String symlinkPrefix,
       String productName,
       boolean createGenfilesSymlink,
-      boolean createPy2BinSymlink) {
+      boolean createPyBinSymlinks) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -253,7 +261,7 @@ public final class OutputDirectoryLinksUtils {
 
     List<SymlinkDefinition> defs =
         getLinkDefinitions(
-            /*includeGenfiles=*/ createGenfilesSymlink, /*includePy2Bin=*/ createPy2BinSymlink);
+            /*includeGenfiles=*/ createGenfilesSymlink, /*includePyBin=*/ createPyBinSymlinks);
     for (SymlinkDefinition definition : defs) {
       String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(symlinkName)) {

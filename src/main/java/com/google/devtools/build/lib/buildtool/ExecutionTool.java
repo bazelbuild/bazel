@@ -511,7 +511,7 @@ public class ExecutionTool {
           buildRequestOptions.getSymlinkPrefix(productName),
           productName,
           !buildRequestOptions.incompatibleSkipGenfilesSymlink,
-          buildRequestOptions.experimentalCreatePy2BinSymlink);
+          buildRequestOptions.experimentalCreatePyBinSymlinks);
     }
   }
 

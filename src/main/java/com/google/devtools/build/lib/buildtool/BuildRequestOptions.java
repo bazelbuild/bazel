@@ -292,18 +292,19 @@ public class BuildRequestOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_create_py2_bin_symlink",
+      name = "experimental_create_py_bin_symlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "If enabled, a py2-bin symlink (with the appropriate prefix) will be created. This acts"
-              + " just like the bin symlink, except that it is guaranteed to point to a directory"
-              + " containing outputs built for Python 2 targets, whereas the bin symlink could"
-              + " point to either Python 2 or Python 3 outputs depending on the values of"
-              + " --python_version and --use_top_level_targets_for_symlinks. IMPORTANT: This"
-              + " flag is not planned to be enabled by default, and should not be relied on.")
-  public boolean experimentalCreatePy2BinSymlink;
+          "If enabled, two symlinks, `py2-bin` and `py3-bin`, will be created (with the"
+              + " appropriate prefix). These act just like the `bin` symlink, except that they are"
+              + " guaranteed to point to directories containing outputs built for Python 2 and"
+              + " Python 3 targets respectively. Note that the `bin` symlink (if it exists) always"
+              + " overlaps with one of these; which one depends on the values of --python_version"
+              + " and --use_top_level_targets_for_symlinks. IMPORTANT: This flag is not planned to "
+              + "be enabled by default, and should not be relied on.")
+  public boolean experimentalCreatePyBinSymlinks;
 
   @Option(
       name = "print_workspace_in_output_paths_if_needed",
