@@ -494,14 +494,6 @@ java_import(
 )
 
 java_import(
-    name = "slf4j",
-    jars = [
-        "slf4j/slf4j-api-1.7.7.jar",
-        "slf4j/slf4j-jdk14-1.7.7.jar",
-    ],
-)
-
-java_import(
     name = "tomcat_annotations_api",
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
 )
