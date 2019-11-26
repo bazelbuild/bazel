@@ -445,11 +445,6 @@ java_import(
 )
 
 java_import(
-    name = "jsch",
-    jars = ["jsch/jsch-0.1.54.jar"],
-)
-
-java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
 )
@@ -496,21 +491,6 @@ java_import(
 java_import(
     name = "netty_tcnative",
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
-)
-
-java_import(
-    name = "plexus_component_annotations",
-    jars = ["plexus_component_annotations/plexus-component-annotations-1.6.jar"],
-)
-
-java_import(
-    name = "plexus_interpolation",
-    jars = ["plexus_interpolation/plexus-interpolation-1.22.jar"],
-)
-
-java_import(
-    name = "plexus_utils",
-    jars = ["plexus_utils/plexus-utils-3.0.21.jar"],
 )
 
 java_import(
