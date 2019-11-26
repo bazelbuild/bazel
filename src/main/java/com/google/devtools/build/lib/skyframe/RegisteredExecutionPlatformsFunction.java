@@ -225,6 +225,16 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
   }
 
+  static boolean hasPlatformInfo(Target target) {
+    // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
+    RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
+    if (ruleClass == null || ruleClass.useToolchainResolution()) {
+      return false;
+    }
+
+    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+  }
+
   @AutoValue
   @AutoCodec
   abstract static class HasPlatformInfo extends FilteringPolicy {
@@ -235,16 +245,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         return true;
       }
       return hasPlatformInfo(target);
-    }
-
-    boolean hasPlatformInfo(Target target) {
-      // If the rule requires platforms or toolchain resolution, it can't be used as a platform.
-      RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-      if (ruleClass == null || ruleClass.useToolchainResolution()) {
-        return false;
-      }
-
-      return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
     }
 
     @AutoCodec.Instantiator

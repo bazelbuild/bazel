@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.hasPlatformInfo;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -42,7 +42,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Helper class that looks up {@link PlatformInfo} data. */
@@ -90,44 +89,44 @@ public class PlatformLookupUtil {
       ImmutableList<ConfiguredTargetKey> platformKeys, Environment env)
       throws InterruptedException, InvalidPlatformException {
     // Load the packages. This should already be in Skyframe and thus not require a restart.
-    Map<ConfiguredTargetKey, PackageIdentifier> targetsToPackageIdentifiers =
-        platformKeys.stream()
-            .distinct()
-            .collect(
-                toImmutableMap(Function.identity(), ctk -> ctk.getLabel().getPackageIdentifier()));
     ImmutableSet<PackageValue.Key> packageKeys =
-        targetsToPackageIdentifiers.values().stream()
+        platformKeys.stream()
+            .map(ConfiguredTargetKey::getLabel)
+            .map(Label::getPackageIdentifier)
             .distinct()
             .map(PackageValue::key)
             .collect(toImmutableSet());
 
-    Map<PackageIdentifier, Package> packages = new HashMap<>();
     Map<SkyKey, ValueOrException<NoSuchPackageException>> values =
         env.getValuesOrThrow(packageKeys, NoSuchPackageException.class);
-    if (env.valuesMissing()) {
-      return;
-    }
+    boolean valuesMissing = env.valuesMissing();
+    Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
     for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> value : values.entrySet()) {
       try {
         PackageValue packageValue = (PackageValue) value.getValue().get();
-        packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
+        if (!valuesMissing && packageValue != null) {
+          packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
+        }
       } catch (NoSuchPackageException e) {
+        throw new InvalidPlatformException(e);
       }
+    }
+    if (valuesMissing) {
+      return;
     }
 
     // Now check each platform.
-    HasPlatformInfo hasPlatformInfo = HasPlatformInfo.create();
     for (ConfiguredTargetKey platformKey : platformKeys) {
       try {
         Label platformLabel = platformKey.getLabel();
         Target target =
             packages.get(platformLabel.getPackageIdentifier()).getTarget(platformLabel.getName());
-        if (!hasPlatformInfo.hasPlatformInfo(target)) {
+        if (!hasPlatformInfo(target)) {
           // validation failure
           throw new InvalidPlatformException(platformLabel);
         }
       } catch (NoSuchTargetException e) {
-
+        throw new InvalidPlatformException(e);
       }
     }
   }
@@ -186,7 +185,7 @@ public class PlatformLookupUtil {
     } catch (ConfiguredValueCreationException e) {
       throw new InvalidPlatformException(key.getLabel(), e);
     } catch (NoSuchThingException e) {
-      throw new InvalidPlatformException(key.getLabel(), e);
+      throw new InvalidPlatformException(e);
     } catch (ActionConflictException e) {
       throw new InvalidPlatformException(key.getLabel(), e);
     }
@@ -204,7 +203,7 @@ public class PlatformLookupUtil {
       super(formatError(label, DEFAULT_ERROR), e);
     }
 
-    public InvalidPlatformException(Label label, NoSuchThingException e) {
+    public InvalidPlatformException(NoSuchThingException e) {
       // Just propagate the inner exception, because it's directly actionable.
       super(e);
     }

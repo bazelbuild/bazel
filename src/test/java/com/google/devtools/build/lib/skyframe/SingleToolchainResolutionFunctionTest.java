@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,11 +57,15 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final ConfiguredTargetKey MAC_CTKEY = Mockito.mock(ConfiguredTargetKey.class);
 
-  static {
+  @Before
+  public void setUpKeys() {
     Mockito.when(LINUX_CTKEY.functionName())
         .thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
+    Mockito.when(LINUX_CTKEY.getLabel())
+        .thenReturn(Label.parseAbsoluteUnchecked("//platforms:linux"));
     Mockito.when(MAC_CTKEY.functionName())
         .thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
+    Mockito.when(MAC_CTKEY.getLabel()).thenReturn(Label.parseAbsoluteUnchecked("//platforms:mac"));
   }
 
   private static ConfiguredTargetValue createConfiguredTargetValue(
