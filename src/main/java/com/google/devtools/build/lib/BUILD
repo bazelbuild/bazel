@@ -934,10 +934,6 @@ java_library(
         "bazel/repository/local_config_platform.WORKSPACE",
     ],
     runtime_deps = [
-        "//third_party:jsch",
-        "//third_party:plexus_component_annotations",
-        "//third_party:plexus_interpolation",
-        "//third_party:plexus_utils",
         "//third_party:slf4j",
     ],
     deps = [
