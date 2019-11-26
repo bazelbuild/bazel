@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * A {@link BuildEvent} introducing a set of artifacts to be referred to later by its name. Those
@@ -43,10 +45,13 @@ import java.util.Collection;
 class NamedArtifactGroup implements BuildEvent {
   private final String name;
   private final CompletionContext completionContext;
-  private final NestedSetView<Artifact> view;
+  private final NestedSetView<?> view;
 
-  NamedArtifactGroup(
-      String name, CompletionContext completionContext, NestedSetView<Artifact> view) {
+  /**
+   * Create a {@link NamedArtifactGroup}. The view may contain as direct entries {@link Artifact} or
+   * {@link ExpandedArtifact}.
+   */
+  NamedArtifactGroup(String name, CompletionContext completionContext, NestedSetView<?> view) {
     this.name = name;
     this.completionContext = completionContext;
     this.view = view;
@@ -64,27 +69,21 @@ class NamedArtifactGroup implements BuildEvent {
 
   @Override
   public Collection<LocalFile> referencedLocalFiles() {
-    // This has to be consistent with the code below.
     ImmutableList.Builder<LocalFile> artifacts = ImmutableList.builder();
-    completionContext.visitArtifacts(
-        view.directs(),
-        new ArtifactReceiver() {
-          @Override
-          public void accept(Artifact artifact) {
-            artifacts.add(
-                new LocalFile(
-                    completionContext.pathResolver().toPath(artifact), LocalFileType.OUTPUT));
-          }
-
-          @Override
-          public void acceptFilesetMapping(
-              Artifact fileset, PathFragment relName, Path targetFile) {
-            artifacts.add(
-                new LocalFile(
-                    completionContext.pathResolver().convertPath(targetFile),
-                    LocalFileType.OUTPUT));
-          }
-        });
+    for (Object o : view.directs()) {
+      ExpandedArtifact expandedArtifact = (ExpandedArtifact) o;
+      if (expandedArtifact.relPath == null) {
+        artifacts.add(
+            new LocalFile(
+                completionContext.pathResolver().toPath(expandedArtifact.artifact),
+                LocalFileType.OUTPUT));
+      } else {
+        artifacts.add(
+            new LocalFile(
+                completionContext.pathResolver().convertPath(expandedArtifact.target),
+                LocalFileType.OUTPUT));
+      }
+    }
     return artifacts.build();
   }
 
@@ -95,32 +94,87 @@ class NamedArtifactGroup implements BuildEvent {
 
     BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
-    completionContext.visitArtifacts(
-        view.directs(),
-        new ArtifactReceiver() {
-          @Override
-          public void accept(Artifact artifact) {
-            String uri = pathConverter.apply(completionContext.pathResolver().toPath(artifact));
-            if (uri != null) {
-              builder.addFiles(newFileFromArtifact(artifact).setUri(uri));
-            }
-          }
+    for (Object o : view.directs()) {
+      ExpandedArtifact expandedArtifact = (ExpandedArtifact) o;
+      if (expandedArtifact.relPath == null) {
+        String uri =
+            pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
+        if (uri != null) {
+          builder.addFiles(newFileFromArtifact(expandedArtifact.artifact).setUri(uri));
+        }
+      } else {
+        String uri =
+            converters
+                .pathConverter()
+                .apply(completionContext.pathResolver().convertPath(expandedArtifact.target));
+        if (uri != null) {
+          builder.addFiles(
+              newFileFromArtifact(null, expandedArtifact.artifact, expandedArtifact.relPath)
+                  .setUri(uri)
+                  .build());
+        }
+      }
+    }
 
-          @Override
-          public void acceptFilesetMapping(
-              Artifact fileset, PathFragment relName, Path targetFile) {
-            String uri =
-                converters
-                    .pathConverter()
-                    .apply(completionContext.pathResolver().convertPath(targetFile));
-            if (uri != null) {
-              builder.addFiles(newFileFromArtifact(null, fileset, relName).setUri(uri).build());
-            }
-          }
-        });
-    for (NestedSetView<Artifact> child : view.transitives()) {
+    for (NestedSetView<?> child : view.transitives()) {
       builder.addFileSets(namer.apply(child.identifier()));
     }
     return GenericBuildEvent.protoChaining(this).setNamedSetOfFiles(builder.build()).build();
+  }
+
+  /**
+   * Given a view with direct entries of {@link Artifact} and {@link ExpandedArtifact}, return a
+   * transformed view with any {@link Artifact} expanded to a set of {@link ExpandedArtifact}.
+   */
+  static NestedSetView<Object> expandView(CompletionContext ctx, NestedSetView<?> artifacts) {
+    ImmutableList.Builder<ExpandedArtifact> expandedArtifacts = ImmutableList.builder();
+    for (Object artifact : artifacts.directs()) {
+      if (artifact instanceof ExpandedArtifact) {
+        expandedArtifacts.add((ExpandedArtifact) artifact);
+      } else if (artifact instanceof Artifact) {
+        ctx.visitArtifacts(
+            ImmutableList.of((Artifact) artifact),
+            new ArtifactReceiver() {
+              @Override
+              public void accept(Artifact artifact) {
+                expandedArtifacts.add(new ExpandedArtifact(artifact, null, null));
+              }
+
+              @Override
+              public void acceptFilesetMapping(
+                  Artifact fileset, PathFragment relName, Path targetFile) {
+                expandedArtifacts.add(new ExpandedArtifact(fileset, relName, targetFile));
+              }
+            });
+      } else {
+        throw new IllegalStateException("Unexpected type in artifact view:  " + artifact);
+      }
+    }
+    ImmutableList<ExpandedArtifact> expandedDirects = expandedArtifacts.build();
+
+    Set<? extends NestedSetView<?>> transitives = artifacts.transitives();
+    Object[] directAndTransitiveArtifacts = new Object[expandedDirects.size() + transitives.size()];
+    int i = 0;
+    for (ExpandedArtifact a : expandedDirects) {
+      directAndTransitiveArtifacts[i++] = a;
+    }
+    for (NestedSetView<?> t : transitives) {
+      directAndTransitiveArtifacts[i++] = t.identifier();
+    }
+
+    return new NestedSetView<>(directAndTransitiveArtifacts);
+  }
+
+  private static final class ExpandedArtifact {
+    public final Artifact artifact;
+    // These fields are used only for Fileset links.
+    @Nullable public final PathFragment relPath;
+    @Nullable public final Path target;
+
+    public ExpandedArtifact(Artifact artifact, PathFragment relPath, Path target) {
+      this.artifact = artifact;
+      this.relPath = relPath;
+      this.target = target;
+    }
   }
 }
