@@ -381,7 +381,7 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   // TODO:  this leaves LINK_ORDER backwards
-  private static String childrenToString(Object children) {
+  public static String childrenToString(Object children) {
     if (children instanceof Object[]) {
       return Arrays.stream((Object[]) children)
           .map(NestedSet::childrenToString)
