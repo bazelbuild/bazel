@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.vfs.OutputService;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import org.junit.Test;
@@ -48,7 +47,8 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
   @Test
   public void testArtifactToPathConversion() {
     Artifact artifact = getBinArtifactWithNoOwner("dir/foo");
-    assertThat(SymlinkTreeStrategy.TO_PATH.apply(artifact)).isEqualTo(artifact.getPath());
+    assertThat(SymlinkTreeStrategy.TO_PATH.apply(artifact))
+        .isEqualTo(artifact.getPath().asFragment());
     assertThat(SymlinkTreeStrategy.TO_PATH.apply(null)).isEqualTo(null);
   }
 
@@ -68,6 +68,13 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+    doAnswer(
+            (i) -> {
+              outputManifest.getPath().getParentDirectory().createDirectoryAndParents();
+              return null;
+            })
+        .when(outputService)
+        .createSymlinkTree(any(), any());
 
     Runfiles runfiles =
         new Runfiles.Builder("TESTING", false)
@@ -87,13 +94,12 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     action.execute(context);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<PathFragment, Path>> capture = ArgumentCaptor.forClass(Map.class);
-    verify(outputService, times(1))
-        .createSymlinkTree(any(), capture.capture(), any(), anyBoolean(), any());
+    ArgumentCaptor<Map<PathFragment, PathFragment>> capture = ArgumentCaptor.forClass(Map.class);
+    verify(outputService, times(1)).createSymlinkTree(capture.capture(), any());
     assertThat(capture.getValue())
         .containsExactly(
             PathFragment.create("TESTING/dir/runfile"),
-            runfile.getPath(),
+            runfile.getPath().asFragment(),
             PathFragment.create("TESTING/dir/empty"),
             null);
   }

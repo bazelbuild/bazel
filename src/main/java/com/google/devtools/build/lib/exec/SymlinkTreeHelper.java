@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -26,7 +28,11 @@ import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -128,5 +134,33 @@ public final class SymlinkTreeHelper {
         .setWorkingDir(execRoot)
         .setEnv(shellEnvironment)
         .build();
+  }
+
+  static Map<PathFragment, PathFragment> readSymlinksFromFilesetManifest(Path manifest)
+      throws IOException {
+    Map<PathFragment, PathFragment> result = new HashMap<>();
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(
+                // ISO_8859 is used to write the manifest in {Runfiles,Fileset}ManifestAction.
+                manifest.getInputStream(), ISO_8859_1))) {
+      String line;
+      int lineNumber = 0;
+      while ((line = reader.readLine()) != null) {
+        // If the input has metadata (for fileset), they appear in every other line.
+        if (++lineNumber % 2 == 0) {
+          continue;
+        }
+        int spaceIndex = line.indexOf(' ');
+        result.put(
+            PathFragment.create(line.substring(0, spaceIndex)),
+            PathFragment.create(line.substring(spaceIndex + 1)));
+      }
+      if (lineNumber % 2 != 0) {
+        throw new IOException(
+            "Possibly corrupted manifest file '" + manifest.getPathString() + "'");
+      }
+    }
+    return result;
   }
 }

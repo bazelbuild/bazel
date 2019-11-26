@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -43,8 +44,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   private static final Logger logger = Logger.getLogger(SymlinkTreeStrategy.class.getName());
 
   @VisibleForTesting
-  static final Function<Artifact, Path> TO_PATH =
-      (artifact) -> artifact == null ? null : artifact.getPath();
+  static final Function<Artifact, PathFragment> TO_PATH =
+      (artifact) -> artifact == null ? null : artifact.getPath().asFragment();
 
   private final OutputService outputService;
   private final BinTools binTools;
@@ -64,7 +65,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
-          Map<PathFragment, Path> symlinks = null;
+          Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
+          Map<PathFragment, PathFragment> symlinks;
           if (action.getRunfiles() != null) {
             try {
               symlinks =
@@ -79,13 +81,30 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             } catch (IOException e) {
               throw new EnvironmentalExecException(e);
             }
+          } else {
+            Preconditions.checkState(action.isFilesetTree());
+            try {
+              symlinks = SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifest);
+            } catch (IOException e) {
+              throw new EnvironmentalExecException(
+                  "Failed to read from manifest '" + inputManifest.getPathString() + "'", e);
+            }
           }
+
           outputService.createSymlinkTree(
-              actionExecutionContext.getInputPath(action.getInputManifest()),
               symlinks,
-              actionExecutionContext.getInputPath(action.getOutputManifest()),
-              action.isFilesetTree(),
               action.getOutputManifest().getExecPath().getParentDirectory());
+
+          // Link output manifest on success. We avoid a file copy as these manifests may be large.
+          // Note that this step has to come last because the OutputService may delete any
+          // pre-existing symlink tree before creating a new one.
+          Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
+          try {
+            outputManifest.createSymbolicLink(inputManifest);
+          } catch (IOException e) {
+            throw new EnvironmentalExecException(
+                "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
+          }
         } else if (!action.enableRunfiles()) {
           createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
         } else {
