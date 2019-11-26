@@ -98,6 +98,10 @@ public class ParallelFileProcessing {
   }
 
   private void processFileImpl() throws InterruptedException, IOException, GenericParsingException {
+    if (parameters.readBlockSize == 0) {
+      // Return immediately, if the file is empty.
+      return;
+    }
     DeclarationAssembler assembler =
         new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
 

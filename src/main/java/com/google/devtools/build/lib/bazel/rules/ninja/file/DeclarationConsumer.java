@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
+import java.io.IOException;
+
 /** Generic interface to accept declarations from {@link ParallelFileProcessing} */
 public interface DeclarationConsumer {
 
@@ -25,5 +27,6 @@ public interface DeclarationConsumer {
    *     ByteBufferFragment}, starting at offset in the underlying file.
    * @throws GenericParsingException if declaration processing discovered the wrong syntax
    */
-  void declaration(ByteFragmentAtOffset byteFragmentAtOffset) throws GenericParsingException;
+  void declaration(ByteFragmentAtOffset byteFragmentAtOffset)
+      throws GenericParsingException, IOException;
 }

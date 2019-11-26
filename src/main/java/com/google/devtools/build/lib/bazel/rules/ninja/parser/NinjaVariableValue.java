@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  * It is expected that those references can be replaced in one step, as all the variables are
  * parsed, so this particular structure is only needed to keep the intermediate state.
  */
-public final class NinjaVariableValue {
+public class NinjaVariableValue {
   /**
    * List of functions for computing parts of the variable value. For the case of text part, the
    * function just returns the text literal. For the case of variable reference, function calls the
@@ -36,14 +36,22 @@ public final class NinjaVariableValue {
    * <p>{@link NinjaVariableValue.Builder#addVariable(String)}
    */
   private final ImmutableList<Function<Function<String, String>, String>> parts;
+  /** Indicates that this value contain no variable references, i.e. contain only plain text. */
+  private final boolean isPlainText;
 
-  private NinjaVariableValue(ImmutableList<Function<Function<String, String>, String>> parts) {
+  private NinjaVariableValue(
+      ImmutableList<Function<Function<String, String>, String>> parts, boolean isPlainText) {
     this.parts = parts;
+    this.isPlainText = isPlainText;
   }
 
   /** Created the value wrapping some plain text. */
   public static NinjaVariableValue createPlainText(String text) {
     return builder().addText(text).build();
+  }
+
+  public boolean isPlainText() {
+    return isPlainText;
   }
 
   /** Compute the expanded value, using the passed <code>expander</code> function. */
@@ -66,6 +74,7 @@ public final class NinjaVariableValue {
   /** Builder class for {@link NinjaVariableValue}. */
   public static final class Builder {
     private final ImmutableList.Builder<Function<Function<String, String>, String>> builder;
+    private boolean isPrimitive = true;
 
     private Builder() {
       this.builder = ImmutableList.builder();
@@ -80,11 +89,12 @@ public final class NinjaVariableValue {
     /** Add reference to variable <code>name</code>. */
     public Builder addVariable(String name) {
       builder.add(expander -> expander.apply(name));
+      isPrimitive = false;
       return this;
     }
 
     public NinjaVariableValue build() {
-      return new NinjaVariableValue(builder.build());
+      return new NinjaVariableValue(builder.build(), isPrimitive);
     }
   }
 }
