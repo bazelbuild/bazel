@@ -1,3 +1,101 @@
+## Release 1.2.1 (2019-11-26)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+This release fixes a single regression:
+- #10297: Bazel 1.2.0 does no longer run on macOS High Sierra.
+
+It is the same code as Bazel 1.2.0, except that we rebuild the macOS release
+binaries with Xcode 10.2.1 to make them backwards compatible with older macOS
+versions again.
+
+## Release 1.2.0 (2019-11-20)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+Incompatible changes:
+
+  - Tree artifacts and regular artifact paths can no longer overlap.
+
+New features:
+
+  - Added a special "_validation" output group to enable moving
+    "validation actions" off the critical path of builds.
+
+Important changes:
+
+  - The query flag "--host_deps" (commonly used as "--nohost_deps")
+    has been renamed to "--tool_deps", and now also removes
+    dependencies in any execution configuration from being reported
+    in the query output. The previous flag name is deprecated and
+    will be removed in a future release.
+  - The `cc_common.{compile,link}` APIs can now be used without
+    passing the `--experimental_cc_skylark_api_enabled_packages` flag.
+  - A list of log paths will be provided in build output.
+  - Improve runfiles documentation.
+  - Improve documentation on rule outputs.
+  - BUILD/.bzl execution errors cause execution to stop, even at
+    top-level
+  - Multiple Starlark validation errors are reported in a single pass.
+  - Introduce --experimental_nested_set_as_skykey_threshold
+  - Blaze will prevent idle sleep during test and build actions. Note
+    that this does not affect screen savers and will not keep a
+    laptop awake if the user forces sleep or closes the lid. This is
+    purely to avoid idle sleeping when the user is not interacting
+    with the device.
+  - Improve testing docs.
+  - Incompatible flag
+    `--incompatible_validate_top_level_header_inclusions` has been
+    added. See https://github.com/bazelbuild/bazel/issues/10047 for
+    details.
+  - Fix an aquery bug with handling malformed queries that crashes
+    bazel.
+  - List fields on CcLinkingOutputs.
+  - [Python] Added flag --incomaptible_default_to_explicit_init_py to
+    switch the default value of legacy_create_init to True. With this
+    flag enabled, your py_binary and py_test targets will no longer
+    behave as if empty __init__.py files were implicitly littered in
+    your runfiles tree. See
+    [#10076](https://github.com/bazelbuild/bazel/issues/10076).
+  - Fix documentation on allowed target names.
+  - --target_platform_fallback now also applies to exec/host
+    configurations
+  - android_binary and android_libary can now depend on targets
+    providing
+    CcInfos.
+  - Add support for tracking suspensions (sleeps or SIGSTOP) on macOS.
+  - d8 dexers (both standalone and incremental) are now available for
+    use.
+  - Add Desugar support for FreezePeriod#<init>
+
+This release contains contributions from many people at Google, as well as Alex Kirchhoff, Andrew Suffield, Asaf Flescher, Austin Schuh, Benjamin Peterson, Bor Kae Hwang, Brian Richardson, Christy Norman, Clint Harrison, Dan Halperin, Daniel Martn, Dave Lee, David Neil, David Ostrovsky, George Gensure, Greg Estren, Greg, Ira Shikhman, Jacob Parker, Jakub Bujny, John Millikin, John Millikin, Keith Smiley, Laurent Le Brun, marcohu, Marwan Tammam, Mostyn Bramley-Moore, Peter Mounce, Ruben Das, Stepan Koltsov, Thi Don, Thi, Tomasz Strejczek, Walt Panfil, Yannic Bonenberger, Zackary Lowery.
+
 ## Release 1.0.1 (2019-10-21)
 
 ```
