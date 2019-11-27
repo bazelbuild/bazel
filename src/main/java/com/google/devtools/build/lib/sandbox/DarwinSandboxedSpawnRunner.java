@@ -340,6 +340,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       if (!allowNetwork) {
         out.println("(deny network*)");
+        out.println("(allow network-inbound (local ip \"localhost:*\"))");
         out.println("(allow network* (remote ip \"localhost:*\"))");
         out.println("(allow network* (remote unix-socket))");
       }
