@@ -1508,11 +1508,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testSetIsNotIterable() throws Exception {
     new SkylarkTest()
-        .testIfErrorContains("not a collection", "list(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains("not iterable", "1 in depset([1, 2, 3])")
-        .testIfErrorContains("not a collection", "sorted(depset(['a', 'b']))")
-        .testIfErrorContains("not a collection", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
         .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
@@ -2035,9 +2035,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         .testIfErrorContains(
-            "type 'int' is not a collection",
-            "def bar (): return [x + y for x, y in (1, 2)]",
-            "bar()");
+            "type 'int' is not iterable", "def bar (): return [x + y for x, y in (1, 2)]", "bar()");
 
     new SkylarkTest()
         .testIfErrorContains(
@@ -2046,7 +2044,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "[x + y for x, y, z in [(1, 2), (3, 4)]]");
 
     new SkylarkTest()
-        .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
+        .testIfErrorContains("type 'int' is not iterable", "[x2 + y2 for x2, y2 in (1, 2)]");
 
     new SkylarkTest()
         // returns [2] in Python, it's an error in Skylark

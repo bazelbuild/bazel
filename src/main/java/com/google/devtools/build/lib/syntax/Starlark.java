@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -154,6 +155,40 @@ public final class Starlark {
       return (Iterable<?>) x;
     }
     throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+  }
+
+  /**
+   * Returns a new array containing the elements of Starlark iterable value {@code x}. A Starlark
+   * value is iterable if it implements {@link StarlarkIterable}.
+   */
+  public static Object[] toArray(Object x) throws EvalException {
+    // Specialize Sequence and Dict to avoid allocation and/or indirection.
+    if (x instanceof Sequence) {
+      return ((Sequence<?>) x).toArray();
+    } else if (x instanceof Dict) {
+      return ((Dict<?, ?>) x).keySet().toArray();
+    } else {
+      return Iterables.toArray(toIterable(x), Object.class);
+    }
+  }
+
+  /**
+   * Returns the length of a legal Starlark value as if by the expression {@code len(x)}, or -1 if
+   * the value is not a string or iterable.
+   */
+  public static int len(Object x) {
+    if (x instanceof String) {
+      return ((String) x).length();
+    } else if (x instanceof Sequence) {
+      return ((Sequence) x).size();
+    } else if (x instanceof Dict) {
+      return ((Dict) x).size();
+    } else if (x instanceof StarlarkIterable) {
+      // Iterables.size() checks if x is a Collection so it's efficient in that sense.
+      return Iterables.size((Iterable<?>) x);
+    } else {
+      return -1;
+    }
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */

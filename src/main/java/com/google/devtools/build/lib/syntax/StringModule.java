@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -107,15 +106,14 @@ final class StringModule implements StarlarkValue {
             legacyNamed = true,
             type = Object.class,
             doc = "The objects to join.")
-      },
-      useLocation = true)
-  public String join(String self, Object elements, Location loc) throws EvalException {
-    Collection<?> items = EvalUtils.toCollection(elements, loc);
+      })
+  public String join(String self, Object elements) throws EvalException {
+    Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw new EvalException(
-            loc,
+            null,
             String.format(
                 "expected string for sequence element %d, got '%s'",
                 i, EvalUtils.getDataTypeName(item)));
@@ -479,28 +477,8 @@ final class StringModule implements StarlarkValue {
   }
 
   /**
-   * Wraps the stringPartition() method and converts its results and exceptions
-   * to the expected types.
-   *
-   * @param self The input string
-   * @param separator The string to split on
-   * @param forward A flag that controls whether the input string is split around
-   *    the first ({@code true}) or last ({@code false}) occurrence of the separator.
-   * @param loc The location that is used for potential exceptions
-   * @return A list with three elements
-   */
-  private static Tuple<String> partitionWrapper(
-      String self, String separator, boolean forward, Location loc) throws EvalException {
-    try {
-      return Tuple.copyOf(stringPartition(self, separator, forward));
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(loc, ex);
-    }
-  }
-
-  /**
-   * Splits the input string at the {first|last} occurrence of the given separator and returns the
-   * resulting partition as a three-tuple of Strings, contained in a {@code StarlarkList}.
+   * Splits the input string at the first/last occurrence of the given separator and returns the
+   * resulting partition as a three-tuple of Strings.
    *
    * <p>If the input string does not contain the separator, the tuple will consist of the original
    * input string and two empty strings.
@@ -512,32 +490,40 @@ final class StringModule implements StarlarkValue {
    * @param separator The string to split on
    * @param forward A flag that controls whether the input string is split around the first ({@code
    *     true}) or last ({@code false}) occurrence of the separator.
-   * @return A three-tuple (List) of the form [part_before_separator, separator,
-   *     part_after_separator].
+   * @param loc The location that is used for potential exceptions
+   * @return a 3-Tuple of the form (part_before_separator, separator, part_after_separator).
    */
-  private static ImmutableList<String> stringPartition(
-      String input, String separator, boolean forward) {
+  private static Tuple<String> partitionWrapper(
+      String input, String separator, boolean forward, Location loc) throws EvalException {
     if (separator.isEmpty()) {
-      throw new IllegalArgumentException("Empty separator");
+      throw new EvalException(loc, "empty separator");
     }
 
-    int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
+    String a = "";
+    String b = "";
+    String c = "";
 
+    int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
     if (pos < 0) {
       // Following Python's implementation of str.partition() and str.rpartition(),
       // the input string is copied to either the first or the last position in the
       // list, depending on the value of the forward flag.
-      return forward ? ImmutableList.of(input, "", "") : ImmutableList.of("", "", input);
+      if (forward) {
+        a = input;
+      } else {
+        c = input;
+      }
     } else {
-      return ImmutableList.of(
-          input.substring(0, pos),
-          separator,
-          // pos + sep.length() is at most equal to input.length(). This worst-case
-          // happens when the separator is at the end of the input string. However,
-          // substring() will return an empty string in this scenario, thus making
-          // any additional safety checks obsolete.
-          input.substring(pos + separator.length()));
+      a = input.substring(0, pos);
+      b = separator;
+      // pos + sep.length() is at most equal to input.length(). This worst-case
+      // happens when the separator is at the end of the input string. However,
+      // substring() will return an empty string in this scenario, thus making
+      // any additional safety checks obsolete.
+      c = input.substring(pos + separator.length());
     }
+
+    return Tuple.triple(a, b, c);
   }
 
   @SkylarkCallable(

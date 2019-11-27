@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -253,7 +252,7 @@ final class Eval {
       assignItem(object, key, value, loc);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
-      assignList(list, value, thread, loc);
+      assignList(list.getElements(), value, thread, loc);
     } else {
       // Not possible for validated ASTs.
       throw new EvalException(loc, "cannot assign to '" + expr + "'");
@@ -299,25 +298,32 @@ final class Eval {
    *     matching length
    */
   private static void assignList(
-      ListExpression list, Object value, StarlarkThread thread, Location loc)
+      List<Expression> lhs, Object x, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
-    Collection<?> collection = EvalUtils.toCollection(value, loc);
-    int len = list.getElements().size();
+    // TODO(adonovan): lock/unlock rhs during iteration so that
+    // assignments fail when the left side aliases the right,
+    // which is a tricky case in Python assignment semantics.
+    int nrhs = Starlark.len(x);
+    if (nrhs < 0) {
+      throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+    }
+    Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
+    int len = lhs.size();
     if (len == 0) {
       throw new EvalException(
           loc, "lists or tuples on the left-hand side of assignments must have at least one item");
     }
-    if (len != collection.size()) {
+    if (len != nrhs) {
       throw new EvalException(
           loc,
           String.format(
               "assignment length mismatch: left-hand side has length %d, but right-hand side"
                   + " evaluates to value of length %d",
-              len, collection.size()));
+              len, nrhs));
     }
     int i = 0;
-    for (Object item : collection) {
-      assign(list.getElements().get(i), item, thread, loc);
+    for (Object item : rhs) {
+      assign(lhs.get(i), item, thread, loc);
       i++;
     }
   }
@@ -360,7 +366,7 @@ final class Eval {
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
     if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
       StarlarkList<?> list = (StarlarkList) x;
-      list.extend(y, location);
+      list.extend(y);
       return list;
     }
     return EvalUtils.binaryOp(op, x, y, thread, location);

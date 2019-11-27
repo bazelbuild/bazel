@@ -534,7 +534,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerateBadArg() throws Exception {
-    new BothModesTest().testIfErrorContains("type 'string' is not a collection", "enumerate('a')");
+    new BothModesTest().testIfErrorContains("type 'string' is not iterable", "enumerate('a')");
   }
 
   @Test

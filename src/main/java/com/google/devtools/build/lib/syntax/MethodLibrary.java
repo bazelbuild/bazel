@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
@@ -32,15 +31,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
@@ -59,13 +55,12 @@ class MethodLibrary {
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
       extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
-      useLocation = true)
-  public Object min(Sequence<?> args, Location loc) throws EvalException {
+          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+  public Object min(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
-      throw new EvalException(loc, e);
+      throw new EvalException(null, e);
     }
   }
 
@@ -78,18 +73,17 @@ class MethodLibrary {
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
       extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."),
-      useLocation = true)
-  public Object max(Sequence<?> args, Location loc) throws EvalException {
+          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+  public Object max(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR);
     } catch (ComparisonException e) {
-      throw new EvalException(loc, e);
+      throw new EvalException(null, e);
     }
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering, Location loc)
+  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering)
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
@@ -97,7 +91,7 @@ class MethodLibrary {
       Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
-      throw new EvalException(loc, "expected at least one item", ex);
+      throw new EvalException(null, "expected at least one item", ex);
     }
   }
 
@@ -189,8 +183,7 @@ class MethodLibrary {
       final Location loc,
       final StarlarkThread thread)
       throws EvalException, InterruptedException {
-
-    Object[] array = EvalUtils.toCollection(iterable, loc).toArray();
+    Object[] array = Starlark.toArray(iterable);
     if (key == Starlark.NONE) {
       try {
         Arrays.sort(array, EvalUtils.SKYLARK_COMPARATOR);
@@ -240,13 +233,17 @@ class MethodLibrary {
     }
 
     if (reverse) {
-      for (int i = 0, j = array.length - 1; i < j; i++, j--) {
-        Object tmp = array[i];
-        array[i] = array[j];
-        array[j] = tmp;
-      }
+      reverse(array);
     }
     return StarlarkList.wrap(thread.mutability(), array);
+  }
+
+  private static void reverse(Object[] array) {
+    for (int i = 0, j = array.length - 1; i < j; i++, j--) {
+      Object tmp = array[i];
+      array[i] = array[j];
+      array[j] = tmp;
+    }
   }
 
   @SkylarkCallable(
@@ -257,27 +254,23 @@ class MethodLibrary {
       parameters = {
         @Param(
             name = "sequence",
-            type = Object.class,
-            doc = "The sequence to be reversed (string, list or tuple).",
+            type = Sequence.class,
+            doc = "The sequence (list or tuple) to be reversed.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true),
       },
       useStarlarkThread = true)
-  public StarlarkList<?> reversed(Object sequence, StarlarkThread thread) throws EvalException {
-    if (sequence instanceof Dict) {
-      throw new EvalException(null, "Argument to reversed() must be a sequence, not a dictionary.");
-    }
-    ArrayDeque<Object> tmpList = new ArrayDeque<>();
-    for (Object element : Starlark.toIterable(sequence)) {
-      tmpList.addFirst(element);
-    }
-    return StarlarkList.copyOf(thread.mutability(), tmpList);
+  public StarlarkList<?> reversed(Sequence<?> sequence, StarlarkThread thread)
+      throws EvalException {
+    Object[] array = Starlark.toArray(sequence);
+    reverse(array);
+    return StarlarkList.wrap(thread.mutability(), array);
   }
 
   @SkylarkCallable(
       name = "tuple",
       doc =
-          "Converts a collection (e.g. list, tuple or dictionary) to a tuple."
+          "Returns a tuple with the same elements as the given iterable value."
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
@@ -288,16 +281,18 @@ class MethodLibrary {
             doc = "The object to convert.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
-      },
-      useLocation = true)
-  public Tuple<?> tuple(Object x, Location loc) throws EvalException {
-    return Tuple.copyOf(EvalUtils.toCollection(x, loc));
+      })
+  public Tuple<?> tuple(Object x) throws EvalException {
+    if (x instanceof Tuple) {
+      return (Tuple<?>) x;
+    }
+    return Tuple.wrap(Starlark.toArray(x));
   }
 
   @SkylarkCallable(
       name = "list",
       doc =
-          "Converts a collection (e.g. list, tuple or dictionary) to a list."
+          "Returns a new list with the same elements as the given iterable value."
               + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
@@ -312,7 +307,7 @@ class MethodLibrary {
       useLocation = true,
       useStarlarkThread = true)
   public StarlarkList<?> list(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    return StarlarkList.copyOf(thread.mutability(), EvalUtils.toCollection(x, loc));
+    return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
   @SkylarkCallable(
@@ -328,18 +323,11 @@ class MethodLibrary {
       useLocation = true,
       useStarlarkThread = true)
   public Integer len(Object x, Location loc, StarlarkThread thread) throws EvalException {
-    if (x instanceof String) {
-      return ((String) x).length();
-    } else if (x instanceof Map) {
-      return ((Map<?, ?>) x).size();
-    } else if (x instanceof Sequence) {
-      return ((Sequence<?>) x).size();
-    } else if (x instanceof StarlarkIterable) {
-      // Iterables.size() checks if x is a Collection so it's efficient in that sense.
-      return Iterables.size((Iterable<?>) x);
-    } else {
+    int len = Starlark.len(x);
+    if (len < 0) {
       throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
     }
+    return len;
   }
 
   @SkylarkCallable(
@@ -617,12 +605,9 @@ class MethodLibrary {
       useLocation = true)
   public StarlarkList<?> enumerate(Object input, Integer start, Location loc, StarlarkThread thread)
       throws EvalException {
-    Collection<?> src = EvalUtils.toCollection(input, loc);
-    Object[] array = new Object[src.size()];
-    int i = 0;
-    for (Object x : src) {
-      array[i] = Tuple.pair(i + start, x);
-      i++;
+    Object[] array = Starlark.toArray(input);
+    for (int i = 0; i < array.length; i++) {
+      array[i] = Tuple.pair(i + start, array[i]); // update in place
     }
     return StarlarkList.wrap(thread.mutability(), array);
   }
@@ -941,7 +926,7 @@ class MethodLibrary {
               + "currently checked consistently in all constructors. Use the "
               + "--incompatible_always_check_depset_elements flag to enable "
               + "consistent checking; this will be the default behavior in future releases; "
-              + " see https://github.com/bazelbuild/bazel/issues/10313."
+              + " see <a href='https://github.com/bazelbuild/bazel/issues/10313'>Issue 10313</a>."
               + ""
               + "<p>In addition, elements must currently be immutable, though this restriction "
               + "will be relaxed in future."

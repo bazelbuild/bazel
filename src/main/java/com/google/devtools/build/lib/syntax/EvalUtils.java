@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.util.SpellChecker;
-import java.util.Collection;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -269,34 +267,6 @@ public final class EvalUtils {
       } else {
         return c.getSimpleName();
       }
-    }
-  }
-
-  public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
-    if (o instanceof Collection) {
-      return (Collection<?>) o;
-    } else if (o instanceof Sequence) {
-      return ((Sequence) o).getImmutableList();
-    } else if (o instanceof Map) {
-      // For dictionaries we iterate through the keys only
-      if (o instanceof Dict) {
-        // Dicts handle ordering themselves
-        Dict<?, ?> dict = (Dict) o;
-        List<Object> list = Lists.newArrayListWithCapacity(dict.size());
-        for (Map.Entry<?, ?> entries : dict.entrySet()) {
-          list.add(entries.getKey());
-        }
-        return ImmutableList.copyOf(list);
-      }
-      // For determinism, we sort the keys.
-      try {
-        return SKYLARK_COMPARATOR.sortedCopy(((Map<?, ?>) o).keySet());
-      } catch (ComparisonException e) {
-        throw new EvalException(loc, e);
-      }
-    } else {
-      throw new EvalException(loc,
-          "type '" + getDataTypeName(o) + "' is not a collection");
     }
   }
 

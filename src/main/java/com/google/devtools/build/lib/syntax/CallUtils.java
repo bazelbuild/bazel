@@ -301,8 +301,6 @@ public final class CallUtils {
     // *args, **kwargs, location, ast, thread, skylark semantics
     final int extraArgsCount = 6;
     List<Object> builder = new ArrayList<>(parameters.size() + extraArgsCount);
-    boolean acceptsExtraArgs = method.isAcceptsExtraArgs();
-    boolean acceptsExtraKwargs = method.isAcceptsExtraKwargs();
 
     int argIndex = 0;
 
@@ -374,45 +372,30 @@ public final class CallUtils {
       builder.add(value);
     }
 
-    ImmutableList<Object> extraArgs = ImmutableList.of();
-    if (argIndex < args.size()) {
-      if (acceptsExtraArgs) {
-        ImmutableList.Builder<Object> extraArgsBuilder =
-            ImmutableList.builderWithExpectedSize(args.size() - argIndex);
-        for (; argIndex < args.size(); argIndex++) {
-          extraArgsBuilder.add(args.get(argIndex));
-        }
-        extraArgs = extraArgsBuilder.build();
-      } else {
-        throw argumentMismatchException(
-            call,
-            String.format(
-                "expected no more than %s positional arguments, but got %s", argIndex, args.size()),
-            method,
-            objClass);
-      }
-    }
-    ImmutableMap<String, Object> extraKwargs = ImmutableMap.of();
-    if (!keys.isEmpty()) {
-      if (acceptsExtraKwargs) {
-        ImmutableMap.Builder<String, Object> extraKwargsBuilder =
-            ImmutableMap.builderWithExpectedSize(keys.size());
-        for (String key : keys) {
-          extraKwargsBuilder.put(key, kwargs.get(key));
-        }
-        extraKwargs = extraKwargsBuilder.build();
-      } else {
-        throw unexpectedKeywordArgumentException(call, keys, method, objClass, thread);
-      }
+    // *args
+    if (method.isAcceptsExtraArgs()) {
+      builder.add(Tuple.copyOf(args.subList(argIndex, args.size())));
+    } else if (argIndex < args.size()) {
+      throw argumentMismatchException(
+          call,
+          String.format(
+              "expected no more than %s positional arguments, but got %s", argIndex, args.size()),
+          method,
+          objClass);
     }
 
-    // Then add any skylark-interpreter arguments (for example kwargs or the StarlarkThread).
-    if (acceptsExtraArgs) {
-      builder.add(Tuple.copyOf(extraArgs));
+    // **kwargs
+    if (method.isAcceptsExtraKwargs()) {
+      Dict<String, Object> dict = Dict.of(thread.mutability());
+      for (String k : keys) {
+        dict.put(k, kwargs.get(k), (Location) null);
+      }
+      builder.add(dict);
+    } else if (!keys.isEmpty()) {
+      throw unexpectedKeywordArgumentException(call, keys, method, objClass, thread);
     }
-    if (acceptsExtraKwargs) {
-      builder.add(Dict.copyOf(thread.mutability(), extraKwargs));
-    }
+
+    // Add Location, FuncallExpression, and/or StarlarkThread.
     appendExtraInterpreterArgs(builder, method, call, call.getLocation(), thread);
 
     return builder.toArray();
