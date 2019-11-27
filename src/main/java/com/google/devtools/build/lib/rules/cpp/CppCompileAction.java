@@ -973,6 +973,11 @@ public class CppCompileAction extends AbstractAction
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         continue;
       }
+      // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
+      // local_objc_modules feature.
+      if (input.isFileType(CppFileTypes.OBJC_MODULE_MAP)) {
+        continue;
+      }
       if (allowedIncludes.contains(input)) {
         continue;
       }
