@@ -102,7 +102,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinCallable structFieldCallable() {
-      return CallUtils.getBuiltinCallable(SkylarkEvaluationTest.this, "foobar");
+      return CallUtils.getBuiltinCallable(
+          StarlarkSemantics.DEFAULT_SEMANTICS, SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(
@@ -165,7 +166,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public Object structFieldCallable() {
-      return CallUtils.getBuiltinCallable(SkylarkEvaluationTest.this, "foobar");
+      return CallUtils.getBuiltinCallable(
+          StarlarkSemantics.DEFAULT_SEMANTICS, SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
@@ -1310,7 +1312,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    update("interrupted_function", CallUtils.getBuiltinCallable(this, "interrupted_function"));
+    update(
+        "interrupted_function",
+        CallUtils.getBuiltinCallable(
+            StarlarkSemantics.DEFAULT_SEMANTICS, this, "interrupted_function"));
     assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
   }
 

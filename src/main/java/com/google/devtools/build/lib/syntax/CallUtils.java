@@ -141,6 +141,7 @@ public final class CallUtils {
    * objClass class reachable from Skylark. Elements are sorted by Java method name (which is not
    * necessarily the same as Starlark attribute name).
    */
+  // TODO(adonovan): eliminate sole use in skydoc.
   public static ImmutableMap<Method, SkylarkCallable> collectSkylarkMethodsWithAnnotation(
       Class<?> objClass) {
     ImmutableMap.Builder<Method, SkylarkCallable> result = ImmutableMap.builder();
@@ -152,44 +153,28 @@ public final class CallUtils {
   }
 
   /**
-   * Returns the Skylark callable Method of objClass with structField=true and the given name.
-   *
-   * @deprecated use {@link #getStructField(StarlarkSemantics, Class, String)} instead
+   * Returns the value of the Starlark field of {@code x}, implemented by a Java method with a
+   * {@code SkylarkCallable(structField=true)} annotation.
    */
-  @Deprecated
-  public static MethodDescriptor getStructField(Class<?> objClass, String methodName) {
-    return getStructField(StarlarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+  public static Object getField(StarlarkSemantics semantics, Object x, String fieldName)
+      throws EvalException, InterruptedException {
+    MethodDescriptor desc = getCacheValue(x.getClass(), semantics).fields.get(fieldName);
+    if (desc == null) {
+      throw new EvalException(
+          null,
+          String.format(
+              "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName));
+    }
+    // This condition is enforced statically by the annotation processor.
+    Preconditions.checkArgument(
+        !(desc.isUseStarlarkThread() || desc.isUseStarlarkSemantics() || desc.isUseLocation()),
+        "Cannot be invoked on structField callables with extra interpreter params");
+    return desc.call(x, new Object[0], Location.BUILTIN, /*thread=*/ null);
   }
 
-  /** Returns the Skylark callable Method of objClass with structField=true and the given name. */
-  public static MethodDescriptor getStructField(
-      StarlarkSemantics semantics, Class<?> objClass, String name) {
-    return getCacheValue(objClass, semantics).fields.get(name);
-  }
-
-  /**
-   * Returns the list of names of Skylark callable Methods of objClass with structField=true.
-   *
-   * @deprecated use {@link #getStructFieldNames(StarlarkSemantics, Class)} instead
-   */
-  @Deprecated
-  public static Set<String> getStructFieldNames(Class<?> objClass) {
-    return getStructFieldNames(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
-  }
-
-  /** Returns the list of names of Skylark callable Methods of objClass with structField=true. */
-  public static Set<String> getStructFieldNames(StarlarkSemantics semantics, Class<?> objClass) {
-    return getCacheValue(objClass, semantics).fields.keySet();
-  }
-
-  /**
-   * Returns the list of Skylark callable Methods of objClass with the given name.
-   *
-   * @deprecated use {@link #getMethods(StarlarkSemantics, Class, String)} instead
-   */
-  @Deprecated
-  private static MethodDescriptor getMethod(Class<?> objClass, String methodName) {
-    return getMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+  /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
+  public static ImmutableSet<String> getFieldNames(StarlarkSemantics semantics, Object x) {
+    return getCacheValue(x.getClass(), semantics).fields.keySet();
   }
 
   /** Returns the list of Skylark callable Methods of objClass with the given name. */
@@ -201,19 +186,8 @@ public final class CallUtils {
   /**
    * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
    * objClass}.
-   *
-   * @deprecated use {@link #getMethodNames(StarlarkSemantics, Class)} instead
    */
-  @Deprecated
-  static Set<String> getMethodNames(Class<?> objClass) {
-    return getMethodNames(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
-  }
-
-  /**
-   * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
-   * objClass}.
-   */
-  public static Set<String> getMethodNames(StarlarkSemantics semantics, Class<?> objClass) {
+  static Set<String> getMethodNames(StarlarkSemantics semantics, Class<?> objClass) {
     return getCacheValue(objClass, semantics).methods.keySet();
   }
 
@@ -222,6 +196,7 @@ public final class CallUtils {
    * method of the given object (the {@link SkylarkCallable} method with {@link
    * SkylarkCallable#selfCall()} set to true). Returns null if no such method exists.
    */
+  // TODO(adonovan): eliminate sole use in docgen.
   @Nullable
   public static MethodDescriptor getSelfCallMethodDescriptor(
       StarlarkSemantics semantics, Class<?> objClass) {
@@ -233,42 +208,18 @@ public final class CallUtils {
    * method of a given object with the given Starlark field name (not necessarily the same as the
    * Java method name).
    */
-  static BuiltinCallable getBuiltinCallable(Object obj, String methodName) {
+  static BuiltinCallable getBuiltinCallable(
+      StarlarkSemantics semantics, Object obj, String methodName) {
     // TODO(adonovan): implement by EvalUtils.getAttr, once the latter doesn't require
     // a Thread and Location.
     Class<?> objClass = obj.getClass();
-    MethodDescriptor methodDescriptor = getMethod(objClass, methodName);
-    if (methodDescriptor == null) {
+    MethodDescriptor desc = getMethod(semantics, objClass, methodName);
+    if (desc == null) {
       throw new IllegalStateException(String.format(
           "Expected a method named '%s' in %s, but found none",
           methodName, objClass));
     }
     return new BuiltinCallable(obj, methodName);
-  }
-
-  /**
-   * Invokes the given structField=true method and returns the result.
-   *
-   * <p>The given method must <b>not</b> require extra-interpreter parameters, such as {@link
-   * StarlarkThread}. This method throws {@link IllegalArgumentException} for violations.
-   *
-   * @param methodDescriptor the descriptor of the method to invoke
-   * @param fieldName the name of the struct field
-   * @param obj the object on which to invoke the method
-   * @return the method return value
-   * @throws EvalException if there was an issue evaluating the method
-   */
-  public static Object invokeStructField(
-      MethodDescriptor methodDescriptor, String fieldName, Object obj)
-      throws EvalException, InterruptedException {
-    Preconditions.checkArgument(
-        methodDescriptor.isStructField(), "Can only be invoked on structField callables");
-    Preconditions.checkArgument(
-        !methodDescriptor.isUseStarlarkThread()
-            || !methodDescriptor.isUseStarlarkSemantics()
-            || !methodDescriptor.isUseLocation(),
-        "Cannot be invoked on structField callables with extra interpreter params");
-    return methodDescriptor.call(obj, new Object[0], Location.BUILTIN, null);
   }
 
   /**

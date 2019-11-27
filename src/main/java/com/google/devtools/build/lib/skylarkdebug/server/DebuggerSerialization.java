@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Array;
 import java.util.Map;
@@ -138,22 +138,21 @@ final class DebuggerSerialization {
 
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS; // TODO(adonovan): obtain from thread.
     Set<String> fieldNames;
     try {
-      fieldNames = CallUtils.getStructFieldNames(skylarkValue.getClass());
+      fieldNames = CallUtils.getFieldNames(semantics, skylarkValue);
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
     }
     ImmutableList.Builder<Value> children = ImmutableList.builder();
     for (String fieldName : fieldNames) {
-      MethodDescriptor method = CallUtils.getStructField(skylarkValue.getClass(), fieldName);
       try {
         children.add(
             getValueProto(
-                objectMap,
-                fieldName,
-                CallUtils.invokeStructField(method, fieldName, skylarkValue)));
+                objectMap, fieldName, CallUtils.getField(semantics, skylarkValue, fieldName)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }

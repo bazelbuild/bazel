@@ -223,8 +223,10 @@ public final class Starlark {
       throw new IllegalArgumentException(
           cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @SkylarkModule");
     }
-    for (String name : CallUtils.getMethodNames(v.getClass())) {
-      env.put(name, CallUtils.getBuiltinCallable(v, name));
+    // TODO(adonovan): logically this should be a parameter.
+    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
+      env.put(name, CallUtils.getBuiltinCallable(semantics, v, name));
     }
   }
 

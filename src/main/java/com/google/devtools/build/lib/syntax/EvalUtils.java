@@ -504,9 +504,7 @@ public final class EvalUtils {
         toSuppress = ee;
       }
     } else {
-      suffix =
-          SpellChecker.didYouMean(
-              name, CallUtils.getStructFieldNames(semantics, object.getClass()));
+      suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
     }
     if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
       // If looking up the field failed, then we know that this method must have struct_field=false
