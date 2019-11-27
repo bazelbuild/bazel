@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
@@ -96,10 +94,7 @@ public class ApiExporter {
       if (obj instanceof BaseFunction) {
         value = valueFromFunction((BaseFunction) obj);
       } else if (obj instanceof BuiltinCallable) {
-        BuiltinCallable builtinCallable = (BuiltinCallable) obj;
-        MethodDescriptor descriptor =
-            builtinCallable.getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS);
-        value = valueFromAnnotation(descriptor.getAnnotation());
+        value = valueFromAnnotation(((BuiltinCallable) obj).getAnnotation());
       } else {
         value.setName(entry.getKey());
       }
@@ -119,11 +114,9 @@ public class ApiExporter {
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          MethodDescriptor selfCall =
-              CallUtils.getSelfCallMethodDescriptor(
-                  StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+          SkylarkCallable selfCall = CallUtils.getSelfCallAnnotation(obj.getClass());
           if (selfCall != null) {
-            value = valueFromAnnotation(selfCall.getAnnotation());
+            value = valueFromAnnotation(selfCall);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());

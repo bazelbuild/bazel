@@ -197,11 +197,20 @@ public final class CallUtils {
    * method of the given object (the {@link SkylarkCallable} method with {@link
    * SkylarkCallable#selfCall()} set to true). Returns null if no such method exists.
    */
-  // TODO(adonovan): eliminate sole use in docgen.
   @Nullable
-  public static MethodDescriptor getSelfCallMethodDescriptor(
+  static MethodDescriptor getSelfCallMethodDescriptor(
       StarlarkSemantics semantics, Class<?> objClass) {
     return getCacheValue(objClass, semantics).selfCall;
+  }
+
+  /**
+   * Returns the annotation from the SkylarkCallable-annotated self-call method of the specified
+   * class, or null if not found.
+   */
+  public static SkylarkCallable getSelfCallAnnotation(Class<?> objClass) {
+    MethodDescriptor selfCall =
+        getSelfCallMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
+    return selfCall == null ? null : selfCall.getAnnotation();
   }
 
   /**

@@ -17,13 +17,14 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A BuiltinCallable is a callable Starlark value that reflectively invokes a method of a Java
- * object.
+ * A BuiltinCallable is a callable Starlark value that reflectively invokes a
+ * SkylarkCallable-annotated method of a Java object.
  */
 // TODO(adonovan): make this private. Most users would be content with StarlarkCallable; the rest
 // need only a means of querying the function's parameters.
@@ -32,7 +33,7 @@ public final class BuiltinCallable implements StarlarkCallable {
   private final Object obj;
   private final String methodName;
 
-  public BuiltinCallable(Object obj, String methodName) {
+  BuiltinCallable(Object obj, String methodName) {
     this.obj = obj;
     this.methodName = methodName;
   }
@@ -44,6 +45,8 @@ public final class BuiltinCallable implements StarlarkCallable {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
+    // Even though all callers of 'new BuiltinCallable' have a MethodDescriptor,
+    // we have to look it up again with the correct semantics from the thread.
     MethodDescriptor methodDescriptor = getMethodDescriptor(thread.getSemantics());
     Class<?> clazz;
     Object objValue;
@@ -67,8 +70,18 @@ public final class BuiltinCallable implements StarlarkCallable {
     }
   }
 
-  public MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
+  private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
     return CallUtils.getMethod(semantics, obj.getClass(), methodName);
+  }
+
+  /**
+   * Returns the SkylarkCallable annotation of this Starlark-callable Java method.
+   *
+   * @deprecated This method is intended only for docgen, and uses the default semantics.
+   */
+  @Deprecated
+  public SkylarkCallable getAnnotation() {
+    return getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS).getAnnotation();
   }
 
   @Override
