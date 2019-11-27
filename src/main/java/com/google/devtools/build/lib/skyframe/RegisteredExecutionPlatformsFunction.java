@@ -235,6 +235,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
   }
 
+  // This class uses AutoValue solely to get default equals/hashCode behavior, which is needed to
+  // make skyframe serialization work properly.
   @AutoValue
   @AutoCodec
   abstract static class HasPlatformInfo extends FilteringPolicy {
