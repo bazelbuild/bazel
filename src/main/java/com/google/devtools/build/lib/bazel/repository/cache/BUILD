@@ -21,8 +21,5 @@ java_library(
 java_library(
     name = "events",
     srcs = ["RepositoryCacheHitEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//third_party:guava",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib:events"],
 )
