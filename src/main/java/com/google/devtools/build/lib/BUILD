@@ -915,9 +915,6 @@ java_library(
     resources = [
         "bazel/repository/local_config_platform.WORKSPACE",
     ],
-    runtime_deps = [
-        "//third_party:slf4j",
-    ],
     deps = [
         ":build-base",
         ":events",
