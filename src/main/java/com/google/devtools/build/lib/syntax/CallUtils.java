@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -269,8 +270,7 @@ public final class CallUtils {
       Object value;
 
       if (param.isDisabledInCurrentSemantics()) {
-        value =
-            SkylarkSignatureProcessor.getDefaultValue(param.getName(), param.getValueOverride());
+        value = evalDefault(param.getName(), param.getValueOverride());
         builder.add(value);
         continue;
       }
@@ -309,8 +309,7 @@ public final class CallUtils {
           if (param.getDefaultValue().isEmpty()) {
             throw unspecifiedParameterException(call, param, method, objClass, kwargs);
           }
-          value =
-              SkylarkSignatureProcessor.getDefaultValue(param.getName(), param.getDefaultValue());
+          value = evalDefault(param.getName(), param.getDefaultValue());
         }
       }
       if (!param.isNoneable() && value instanceof NoneType) {
@@ -604,4 +603,40 @@ public final class CallUtils {
         call.getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
   }
 
+  // A memoization of evalDefault, keyed by expression.
+  // This cache is manually maintained (instead of using LoadingCache),
+  // as default values may sometimes be recursively requested.
+  private static final ConcurrentHashMap<String, Object> defaultValueCache =
+      new ConcurrentHashMap<>();
+
+  // Evaluates the default value expression for a parameter.
+  private static Object evalDefault(String name, String expr) {
+    if (expr.isEmpty()) {
+      return Starlark.NONE;
+    }
+    Object x = defaultValueCache.get(expr);
+    if (x != null) {
+      return x;
+    }
+    try (Mutability mutability = Mutability.create("initialization")) {
+      // Note that this Starlark thread ignores command line flags.
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
+              .useDefaultSemantics()
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
+              .build()
+              .update("unbound", Starlark.UNBOUND);
+      x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
+      defaultValueCache.put(expr, x);
+      return x;
+    } catch (Exception ex) {
+      if (ex instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "while evaluating default value %s of parameter %s: %s",
+              expr, name, ex.getMessage()));
+    }
+  }
 }
