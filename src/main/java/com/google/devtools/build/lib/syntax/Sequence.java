@@ -26,8 +26,14 @@ import javax.annotation.Nullable;
 /**
  * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
  *
- * <p>Although this implements the {@link List} interface, it is not mutable via that interface's
- * methods. Instead, use the mutators that take in a {@link Mutability} object.
+ * <p>Sequences implement the read-only operations of the {@link List} interface, but not its update
+ * operations, similar to {@code ImmutableList}. The specification of {@code List} governs how such
+ * methods behave and in particular how they report errors. Subclasses of sequence may define ad-hoc
+ * mutator methods, such as {@link StarlarkList#extend}, exposed to Starlark, or Java, or both.
+ *
+ * <p>In principle, subclasses of Sequence could also define the standard update operations of List,
+ * but there appears to be little demand, and doing so carries some risk of obscuring unintended
+ * mutations to Starlark values that would currently cause the program to crash.
  */
 @SkylarkModule(
     name = "sequence",

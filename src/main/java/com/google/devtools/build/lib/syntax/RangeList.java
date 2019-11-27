@@ -86,6 +86,20 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
   }
 
   @Override
+  public boolean contains(Object x) {
+    if (!(x instanceof Integer)) {
+      return false;
+    }
+    int i = (Integer) x;
+    // constant-time implementation
+    if (step > 0) {
+      return start <= i && i < stop && (i - start) % step == 0;
+    } else {
+      return stop < i && i <= start && (i - start) % step == 0;
+    }
+  }
+
+  @Override
   public Integer get(int index) {
     if (index < 0 || index >= size()) {
       throw new ArrayIndexOutOfBoundsException(index + ":" + this);
