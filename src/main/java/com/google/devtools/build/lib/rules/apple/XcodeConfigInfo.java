@@ -45,6 +45,7 @@ public class XcodeConfigInfo extends NativeInfo
   private final DottedVersion macosSdkVersion;
   private final DottedVersion macosMinimumOsVersion;
   @Nullable private final DottedVersion xcodeVersion;
+  @Nullable private final Availability availability;
 
   public XcodeConfigInfo(
       DottedVersion iosSdkVersion,
@@ -55,7 +56,8 @@ public class XcodeConfigInfo extends NativeInfo
       DottedVersion tvosMinimumOsVersion,
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOsVersion,
-      DottedVersion xcodeVersion) {
+      DottedVersion xcodeVersion,
+      Availability availability) {
     super(PROVIDER);
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
@@ -66,6 +68,26 @@ public class XcodeConfigInfo extends NativeInfo
     this.macosSdkVersion = Preconditions.checkNotNull(macosSdkVersion);
     this.macosMinimumOsVersion = Preconditions.checkNotNull(macosMinimumOsVersion);
     this.xcodeVersion = xcodeVersion;
+    this.availability = availability;
+  }
+
+  /** Indicates the platform(s) on which an Xcode version is available. */
+  public static enum Availability {
+    LOCAL("local"),
+    REMOTE("remote"),
+    BOTH("both"),
+    UNKNOWN("unknown");
+
+    public final String name;
+
+    Availability(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public String toString() {
+      return this.name;
+    }
   }
 
   /** Provider for class {@link XcodeConfigInfo} objects. */
@@ -99,7 +121,8 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(tvosMinimumOsVersion),
             DottedVersion.fromString(macosSdkVersion),
             DottedVersion.fromString(macosMinimumOsVersion),
-            DottedVersion.fromString(xcodeVersion));
+            DottedVersion.fromString(xcodeVersion),
+            Availability.UNKNOWN);
       } catch (DottedVersion.InvalidDottedVersionException e) {
         throw new EvalException(null, e);
       }
@@ -156,6 +179,11 @@ public class XcodeConfigInfo extends NativeInfo
         return macosSdkVersion;
     }
     throw new IllegalArgumentException("Unhandled platform: " + platform);
+  }
+
+  /** Returns the availability of this Xcode version. */
+  public Availability getAvailability() {
+    return availability;
   }
 
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {

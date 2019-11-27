@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodePropertiesApi;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A tuple containing information about a version of xcode and its properties. */
@@ -151,5 +152,31 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   @Nullable
   public DottedVersion getDefaultMacosSdkVersion() {
     return defaultMacosSdkVersion;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null) {
+      return false;
+    }
+    if (!(other instanceof XcodeVersionProperties)) {
+      return false;
+    }
+    XcodeVersionProperties otherData = (XcodeVersionProperties) other;
+    return xcodeVersion.equals(otherData.getXcodeVersion())
+        && defaultIosSdkVersion.equals(otherData.getDefaultIosSdkVersion())
+        && defaultWatchosSdkVersion.equals(otherData.getDefaultWatchosSdkVersion())
+        && defaultTvosSdkVersion.equals(otherData.getDefaultTvosSdkVersion())
+        && defaultMacosSdkVersion.equals(otherData.getDefaultMacosSdkVersion());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        xcodeVersion,
+        defaultIosSdkVersion,
+        defaultWatchosSdkVersion,
+        defaultTvosSdkVersion,
+        defaultMacosSdkVersion);
   }
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -21,6 +22,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -31,7 +33,10 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.Availability;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implementation for the {@code xcode_config} rule.
@@ -55,26 +60,48 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     AppleConfiguration appleConfig = ruleContext.getFragment(AppleConfiguration.class);
     AppleCommandLineOptions appleOptions = appleConfig.getOptions();
-    XcodeVersionRuleData defaultVersion = ruleContext.getPrerequisite(
-        XcodeConfigRule.DEFAULT_ATTR_NAME, RuleConfiguredTarget.Mode.TARGET,
-        XcodeVersionRuleData.class);
-    Iterable<XcodeVersionRuleData> availableVersions = ruleContext.getPrerequisites(
-        XcodeConfigRule.VERSIONS_ATTR_NAME, RuleConfiguredTarget.Mode.TARGET,
-        XcodeVersionRuleData.class);
-    XcodeVersionProperties xcodeVersionProperties;
-    try {
-      xcodeVersionProperties = resolveXcodeVersion(
-          appleOptions.xcodeVersion,
-          availableVersions,
-          defaultVersion);
-    } catch (XcodeConfigException e) {
-      ruleContext.ruleError(e.getMessage());
-      return null;
-    }
+    XcodeVersionRuleData explicitDefaultVersion =
+        ruleContext.getPrerequisite(
+            XcodeConfigRule.DEFAULT_ATTR_NAME,
+            RuleConfiguredTarget.Mode.TARGET,
+            XcodeVersionRuleData.class);
 
-    DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
-        ? DottedVersion.maybeUnwrap(appleOptions.iosSdkVersion)
-        : xcodeVersionProperties.getDefaultIosSdkVersion();
+    List<XcodeVersionRuleData> explicitVersions =
+        (List<XcodeVersionRuleData>)
+            ruleContext.getPrerequisites(
+                XcodeConfigRule.VERSIONS_ATTR_NAME,
+                RuleConfiguredTarget.Mode.TARGET,
+                XcodeVersionRuleData.class);
+    AvailableXcodesInfo remoteVersions =
+        ruleContext.getPrerequisite(
+            XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME,
+            RuleConfiguredTarget.Mode.TARGET,
+            AvailableXcodesInfo.PROVIDER);
+    AvailableXcodesInfo localVersions =
+        ruleContext.getPrerequisite(
+            XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME,
+            RuleConfiguredTarget.Mode.TARGET,
+            AvailableXcodesInfo.PROVIDER);
+
+    XcodeVersionProperties xcodeVersionProperties;
+    XcodeConfigInfo.Availability availability = null;
+    if (useAvailableXcodesMode(
+        explicitVersions, explicitDefaultVersion, localVersions, remoteVersions, ruleContext)) {
+      Map.Entry<XcodeVersionRuleData, Availability> xcode =
+          resolveXcodeFromLocalAndRemote(
+              localVersions, remoteVersions, ruleContext, appleOptions.xcodeVersion);
+      xcodeVersionProperties = xcode.getKey().getXcodeVersionProperties();
+      availability = xcode.getValue();
+    } else {
+      xcodeVersionProperties =
+          resolveExplicitlyDefinedVersion(
+              explicitVersions, explicitDefaultVersion, appleOptions.xcodeVersion, ruleContext);
+      availability = XcodeConfigInfo.Availability.UNKNOWN;
+    }
+    DottedVersion iosSdkVersion =
+        (appleOptions.iosSdkVersion != null)
+            ? DottedVersion.maybeUnwrap(appleOptions.iosSdkVersion)
+            : xcodeVersionProperties.getDefaultIosSdkVersion();
     DottedVersion iosMinimumOsVersion = (appleOptions.iosMinimumOs != null)
         ? DottedVersion.maybeUnwrap(appleOptions.iosMinimumOs) : iosSdkVersion;
     DottedVersion watchosSdkVersion = (appleOptions.watchOsSdkVersion != null)
@@ -103,7 +130,8 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             tvosMinimumOsVersion,
             macosSdkVersion,
             macosMinimumOsVersion,
-            xcodeVersionProperties.getXcodeVersion().orNull());
+            xcodeVersionProperties.getXcodeVersion().orNull(),
+            availability);
 
     AppleBitcodeMode bitcodeMode = appleConfig.getBitcodeMode();
     DottedVersion xcodeVersion = xcodeVersions.getXcodeVersion();
@@ -123,80 +151,192 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
-   * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
-   * effective xcode version and its properties.
+   * Returns {@code true} if the xcode version will be determined from {@code local_versions} and
+   * {@code remote_versions}.
    *
-   * @param xcodeVersionOverrideFlag the value of the {@code --xcode_version} command line flag
-   * @param xcodeVersions the Xcode versions listed in the {@code xcode_config} rule
-   * @param defaultVersion the default Xcode version in the {@code xcode_config} rule.
-   * @throws XcodeConfigException if the options given (or configuration targets) were malformed and
-   *     thus the xcode version could not be determined
+   * @throws RuleErrorException if attributes from both modes have been set.
    */
-  static XcodeVersionProperties resolveXcodeVersion(
-      String xcodeVersionOverrideFlag,
-      Iterable<XcodeVersionRuleData> xcodeVersions,
-      XcodeVersionRuleData defaultVersion)
-      throws XcodeConfigException {
-    if (defaultVersion != null
-        && Iterables.isEmpty(
-            Iterables.filter(
-                xcodeVersions,
-                ruleData -> ruleData.getLabel().equals(defaultVersion.getLabel())))) {
-      throw new XcodeConfigException(
-          String.format("default label '%s' must be contained in versions attribute",
-              defaultVersion.getLabel()));
+  private static boolean useAvailableXcodesMode(
+      List<XcodeVersionRuleData> explicitVersions,
+      XcodeVersionRuleData explicitDefaultVersion,
+      AvailableXcodesInfo localVersions,
+      AvailableXcodesInfo remoteVersions,
+      RuleContext ruleContext)
+      throws RuleErrorException {
+    if ((remoteVersions != null && !Iterables.isEmpty(remoteVersions.getAvailableVersions()))) {
+      if (!explicitVersions.isEmpty()) {
+        ruleContext.ruleError("'versions' may not be set if '[local,remote]_versions' is set.");
+      }
+      if (explicitDefaultVersion != null) {
+        ruleContext.ruleError("'default' may not be set if '[local,remote]_versions' is set.");
+      }
+      if (localVersions == null || Iterables.isEmpty(localVersions.getAvailableVersions())) {
+        ruleContext.throwWithRuleError(
+            "if 'remote_versions' are set, you must also set 'local_versions'");
+      }
+      return true;
     }
-    if (Iterables.isEmpty(xcodeVersions)) {
-      if (defaultVersion != null) {
-        throw new XcodeConfigException(
-            "default label must be contained in versions attribute");
+    return false;
+  }
+  /**
+   * Returns the {@link XcodeVersionProperties} selected by the {@code--xcode_version} flag from the
+   * {@code versions} attribute of the {@code xcode_config} target explicitly defined in the {@code
+   * --xcode_version_config} build flag. This is not used if the {@code local_versions} or {@code
+   * remote_versions} attributes are set. If {@code --xcode_version} is unspecified, then this will
+   * return the default rule data as specified in the {@code --xcode_version_config} target.
+   *
+   * @throws RuleErrorException if required dependencies are missing or ill formatted.
+   */
+  private static XcodeVersionProperties resolveExplicitlyDefinedVersion(
+      List<XcodeVersionRuleData> explicitVersions,
+      XcodeVersionRuleData explicitDefaultVersion,
+      String versionOverrideFlag,
+      RuleContext ruleContext)
+      throws RuleErrorException {
+    if (explicitDefaultVersion != null
+        && !Iterables.any(
+            explicitVersions,
+            ruleData -> ruleData.getLabel().equals(explicitDefaultVersion.getLabel()))) {
+      ruleContext.throwWithRuleError(
+          String.format(
+              "default label '%s' must be contained in versions attribute",
+              explicitDefaultVersion.getLabel()));
+    }
+    if (explicitVersions.isEmpty()) {
+      if (explicitDefaultVersion != null) {
+        ruleContext.throwWithRuleError("default label must be contained in versions attribute");
       }
       return XcodeVersionProperties.unknownXcodeVersionProperties();
     }
-    if (defaultVersion == null) {
-      throw new XcodeConfigException(
+    if (explicitDefaultVersion == null) {
+      ruleContext.throwWithRuleError(
           "if any versions are specified, a default version must be specified");
     }
-
-    XcodeVersionRuleData xcodeVersion = resolveExplicitlyDefinedVersion(
-        xcodeVersions, defaultVersion, xcodeVersionOverrideFlag);
-
-    return xcodeVersion.getXcodeVersionProperties();
-  }
-
-  /**
-   * Returns the {@link XcodeVersionRuleData} associated with the {@code xcode_version} target
-   * explicitly defined in the {@code --xcode_version_config} build flag and selected by the {@code
-   * --xcode_version} flag. If {@code --xcode_version} is unspecified, then this will return the
-   * default rule data as specified in the {@code --xcode_version_config} target.
-   */
-  private static XcodeVersionRuleData resolveExplicitlyDefinedVersion(
-      Iterable<XcodeVersionRuleData> xcodeVersionRules,
-      XcodeVersionRuleData defaultVersion,
-      String versionOverrideFlag)
-      throws XcodeConfigException {
-
-    Map<String, XcodeVersionRuleData> aliasesToVersionMap = aliasesToVersionMap(xcodeVersionRules);
-
+    Map<String, XcodeVersionRuleData> aliasesToVersionMap = null;
+    try {
+      aliasesToVersionMap = aliasesToVersionMap(explicitVersions);
+    } catch (XcodeConfigException e) {
+      ruleContext.throwWithRuleError(e.getMessage());
+    }
     if (!Strings.isNullOrEmpty(versionOverrideFlag)) {
       // The version override flag is not necessarily an actual version - it may be a version
       // alias.
       XcodeVersionRuleData explicitVersion =
           aliasesToVersionMap.get(versionOverrideFlag);
       if (explicitVersion != null) {
-        return explicitVersion;
+        return explicitVersion.getXcodeVersionProperties();
       } else {
-        throw new XcodeConfigException(
+        ruleContext.throwWithRuleError(
             String.format(
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version. "
                     + "available versions: [%2$s]. If you believe you have '%1$s' installed, try "
                     + "running \"bazel shutdown\", and then re-run your command.",
-                versionOverrideFlag, printableXcodeVersions(xcodeVersionRules)));
+                versionOverrideFlag, printableXcodeVersions(explicitVersions)));
       }
     }
 
-    return defaultVersion;
+    return explicitDefaultVersion.getXcodeVersionProperties();
+  }
+
+  /**
+   * Returns the {@link XcodeVersionRuleData} and availability associated with the {@code
+   * xcode_version} target determined from its {@code remote_xcodes} and {@code local_xcodes}
+   * dependencies and selected by the {@code --xcode_version} flag. The version specified by {@code
+   * --xcode_version} will be used if it's specified and is available locally or remotely (or both).
+   * If {@code --xcode_version} is unspecified, then this will return the newest mutually available
+   * version if possibls, otherwise the default local version.
+   */
+  private static Map.Entry<XcodeVersionRuleData, Availability> resolveXcodeFromLocalAndRemote(
+      AvailableXcodesInfo localVersions,
+      AvailableXcodesInfo remoteVersions,
+      RuleContext ruleContext,
+      String versionOverrideFlag)
+      throws RuleErrorException {
+
+    // Mutually available Xcode versions are versions that are available both locally and remotely,
+    // but are referred to by the aliases listed in remote_xcodes.
+    Set<XcodeVersionRuleData> mutuallyAvailableVersions =
+        Sets.newHashSet(remoteVersions.getAvailableVersions());
+    mutuallyAvailableVersions.retainAll(Sets.newHashSet(localVersions.getAvailableVersions()));
+    Map<String, XcodeVersionRuleData> localAliasesToVersionMap;
+    Map<String, XcodeVersionRuleData> remoteAliasesToVersionMap;
+    try {
+      localAliasesToVersionMap = aliasesToVersionMap(localVersions.getAvailableVersions());
+      remoteAliasesToVersionMap = aliasesToVersionMap(remoteVersions.getAvailableVersions());
+    } catch (XcodeConfigException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
+    if (!Strings.isNullOrEmpty(versionOverrideFlag)) {
+      XcodeVersionRuleData specifiedVersionFromRemote =
+          remoteAliasesToVersionMap.get(versionOverrideFlag);
+      XcodeVersionRuleData specifiedVersionFromLocal =
+          localAliasesToVersionMap.get(versionOverrideFlag);
+      if (specifiedVersionFromLocal != null && specifiedVersionFromRemote != null) {
+        return Maps.immutableEntry(specifiedVersionFromRemote, XcodeConfigInfo.Availability.BOTH);
+      } else if (specifiedVersionFromLocal != null) {
+        String error =
+            String.format(
+                "--xcode_version=%1$s specified, but it is not available remotely. Actions"
+                    + " requiring Xcode will be run locally, which could make your build"
+                    + " slower.",
+                versionOverrideFlag);
+        if (!mutuallyAvailableVersions.isEmpty()) {
+          error =
+              error
+                  + String.format(
+                      " Consider using one of [%s].",
+                      printableXcodeVersions(mutuallyAvailableVersions));
+        }
+        ruleContext.ruleWarning(error);
+        return Maps.immutableEntry(specifiedVersionFromLocal, XcodeConfigInfo.Availability.LOCAL);
+      } else if (specifiedVersionFromRemote != null) {
+        ruleContext.ruleWarning(
+            String.format(
+                "--xcode_version=%1$s specified, but it is not available locally. Your build"
+                    + " will fail if any actions require a local Xcode. If you believe you have"
+                    + " '%1$s' installed, try running \"blaze shutdown\", and then re-run your"
+                    + " command.  localy available versions: [%2$s]. remotely available"
+                    + " versions: [%3$s]",
+                versionOverrideFlag,
+                printableXcodeVersions(localVersions.getAvailableVersions()),
+                printableXcodeVersions(remoteVersions.getAvailableVersions())));
+        return Maps.immutableEntry(specifiedVersionFromRemote, XcodeConfigInfo.Availability.REMOTE);
+      } else { // if (specifiedVersionFromRemote == null && specifiedVersionFromLocal == null)
+        ruleContext.throwWithRuleError(
+            String.format(
+                "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
+                    + " localy available versions: [%2$s]. remotely available versions:"
+                    + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
+                    + " shutdown\", and then re-run your command.",
+                versionOverrideFlag,
+                printableXcodeVersions(localVersions.getAvailableVersions()),
+                printableXcodeVersions(remoteVersions.getAvailableVersions())));
+      }
+    }
+    if (!mutuallyAvailableVersions.isEmpty()) {
+      DottedVersion newestVersionNumber = DottedVersion.fromStringUnchecked("0.0");
+      XcodeVersionRuleData defaultVersion = null;
+      for (XcodeVersionRuleData versionRuleData : mutuallyAvailableVersions) {
+        if (versionRuleData.getVersion().compareTo(newestVersionNumber) > 0) {
+          defaultVersion = versionRuleData;
+          newestVersionNumber = defaultVersion.getVersion();
+        }
+      }
+      // This should never occur. All input versions should be above 0.0.
+      checkState(defaultVersion != null);
+      return Maps.immutableEntry(defaultVersion, XcodeConfigInfo.Availability.BOTH);
+    } else {
+      ruleContext.ruleWarning(
+          String.format(
+              "Using a local Xcode version, '%s', since there are no"
+                  + " remotely available Xcodes on this machine. Consider downloading one of the"
+                  + " remotely available Xcode versions (%s) in order to get the best build"
+                  + " performance.",
+              localVersions.getDefaultVersion().getVersion(),
+              printableXcodeVersions(remoteVersions.getAvailableVersions())));
+      return Maps.immutableEntry(
+          localVersions.getDefaultVersion(), XcodeConfigInfo.Availability.LOCAL);
+    }
   }
 
   private static String printableXcodeVersions(Iterable<XcodeVersionRuleData> xcodeVersions) {
@@ -215,6 +355,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   private static Map<String, XcodeVersionRuleData> aliasesToVersionMap(
       Iterable<XcodeVersionRuleData> xcodeVersionRules) throws XcodeConfigException {
     Map<String, XcodeVersionRuleData> aliasesToXcodeRules = Maps.newLinkedHashMap();
+    if (xcodeVersionRules == null) {
+      return aliasesToXcodeRules;
+    }
     for (XcodeVersionRuleData xcodeVersionRule : xcodeVersionRules) {
       for (String alias : xcodeVersionRule.getAliases()) {
         if (aliasesToXcodeRules.put(alias, xcodeVersionRule) != null) {
