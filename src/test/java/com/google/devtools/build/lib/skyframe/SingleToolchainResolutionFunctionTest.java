@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,11 +58,12 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final ConfiguredTargetKey MAC_CTKEY = Mockito.mock(ConfiguredTargetKey.class);
 
-  static {
-    Mockito.when(LINUX_CTKEY.functionName())
-        .thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
-    Mockito.when(MAC_CTKEY.functionName())
-        .thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
+  @Before
+  public void setUpKeys() {
+    when(LINUX_CTKEY.functionName()).thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
+    when(LINUX_CTKEY.getLabel()).thenReturn(Label.parseAbsoluteUnchecked("//platforms:linux"));
+    when(MAC_CTKEY.functionName()).thenReturn(InjectedActionLookupKey.INJECTED_ACTION_LOOKUP);
+    when(MAC_CTKEY.getLabel()).thenReturn(Label.parseAbsoluteUnchecked("//platforms:mac"));
   }
 
   private static ConfiguredTargetValue createConfiguredTargetValue(
