@@ -19,6 +19,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.Set;
 
@@ -118,6 +119,20 @@ public class QueryOptions extends CommonQueryOptions {
             + "alphabetized before output."
   )
   public OrderOutput orderOutput;
+
+  @Option(
+      name = "incompatible_prefer_unordered_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If this option is set together with --order_output=auto (default) and if the output "
+              + "formatter supports streaming output, then the results will be unordered.")
+  public boolean preferUnorderedOutput;
 
   @Option(
     name = "graph:node_limit",
