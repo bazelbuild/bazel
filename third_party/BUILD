@@ -57,24 +57,6 @@ filegroup(
     ],
 )
 
-java_import(
-    name = "aether",
-    jars = [
-        "aether/aether-api-1.0.0.v20140518.jar",
-        "aether/aether-spi-1.0.0.v20140518.jar",
-        "aether/aether-transport-http-1.0.0.v20140518.jar",
-        "aether/aether-connector-basic-1.0.0.v20140518.jar",
-        "aether/aether-transport-classpath-1.0.0.v20140518.jar",
-        "aether/aether-transport-wagon-1.0.0.v20140518.jar",
-        "aether/aether-impl-1.0.0.v20140518.jar",
-        "aether/aether-transport-file-1.0.0.v20140518.jar",
-        "aether/aether-util-1.0.0.v20140518.jar",
-    ],
-    deps = [
-        ":apache_httpclient",
-    ],
-)
-
 # This target only contains the jars that are used for building / running Bazel.
 # The target below is for the Android tools that are not shipped with Bazel.
 java_import(
@@ -124,11 +106,6 @@ java_import(
 )
 
 java_import(
-    name = "apache_commons_codec",
-    jars = ["apache_commons_codec/commons-codec-1.9.jar"],
-)
-
-java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
 )
@@ -151,21 +128,6 @@ java_import(
 java_import(
     name = "apache_commons_pool2",
     jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
-)
-
-java_import(
-    name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
-    deps = [
-        ":apache_commons_codec",
-        ":apache_commons_logging",
-        ":apache_httpcore",
-    ],
-)
-
-java_import(
-    name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
@@ -337,10 +299,8 @@ java_import(
 
 java_import(
     name = "checker_framework_annotations",
-    jars = [
-        "checker_framework_annotations/checker-qual-2.6.0.jar",
-        "checker_framework_annotations/checker-compat-qual-2.6.0.jar",
-    ],
+    jars = ["checker_framework_annotations/checker-qual-3.0.0.jar"],
+    srcjar = "checker_framework_annotations/checker-qual-3.0.0-sources.jar",
 )
 
 java_import(
@@ -363,16 +323,16 @@ java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.3.jar",
+        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.3.jar",
-        "error_prone/error_prone_check_api-2.3.3.jar",
-        "error_prone/error_prone_core-2.3.3.jar",
+        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -485,11 +445,6 @@ java_import(
 )
 
 java_import(
-    name = "jsch",
-    jars = ["jsch/jsch-0.1.54.jar"],
-)
-
-java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
 )
@@ -503,21 +458,6 @@ filegroup(
 java_import(
     name = "jsr330_inject",
     jars = ["jsr330_inject/javax.inject.jar"],
-)
-
-java_import(
-    name = "maven",
-    jars = glob(["maven/*.jar"]),
-)
-
-java_import(
-    name = "maven_model",
-    jars = [
-        "maven_model/maven-aether-provider-3.2.3.jar",
-        "maven_model/maven-model-3.2.3.jar",
-        "maven_model/maven-model-builder-3.2.3.jar",
-        "maven_model/maven-repository-metadata-3.2.3.jar",
-    ],
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
@@ -551,29 +491,6 @@ java_import(
 java_import(
     name = "netty_tcnative",
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
-)
-
-java_import(
-    name = "plexus_component_annotations",
-    jars = ["plexus_component_annotations/plexus-component-annotations-1.6.jar"],
-)
-
-java_import(
-    name = "plexus_interpolation",
-    jars = ["plexus_interpolation/plexus-interpolation-1.22.jar"],
-)
-
-java_import(
-    name = "plexus_utils",
-    jars = ["plexus_utils/plexus-utils-3.0.21.jar"],
-)
-
-java_import(
-    name = "slf4j",
-    jars = [
-        "slf4j/slf4j-api-1.7.7.jar",
-        "slf4j/slf4j-jdk14-1.7.7.jar",
-    ],
 )
 
 java_import(

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -22,8 +21,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Provides resource class jars from android_library rules. */
 @SkylarkModule(
@@ -40,7 +39,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
   String NAME = "AndroidLibraryResourceClassJarProvider";
 
   @SkylarkCallable(name = "jars", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getResourceClassJars();
+  Depset /*<FileT>*/ getResourceClassJarsForStarlark();
 
   /** The provider implementing this can construct the AndroidLibraryResourceClassJarProvider. */
   @SkylarkModule(
@@ -61,14 +60,13 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
               doc = "Resource class jars.",
               positional = true,
               named = false,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(
         objectType = AndroidLibraryResourceClassJarProviderApi.class,
         receiverNameForDoc = NAME)
-    AndroidLibraryResourceClassJarProviderApi<FileT> create(SkylarkNestedSet jars)
-        throws EvalException;
+    AndroidLibraryResourceClassJarProviderApi<FileT> create(Depset jars) throws EvalException;
   }
 }

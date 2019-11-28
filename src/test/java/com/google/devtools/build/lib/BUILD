@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(
     default_visibility = [
@@ -6,8 +7,6 @@ package(
         "//tools/test:__pkg__",
     ],
 )
-
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 # Tests for Windows-specific functionality that can run cross-platform.
 CROSS_PLATFORM_WINDOWS_TESTS = [
@@ -44,6 +43,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
@@ -54,6 +54,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/engine:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
@@ -63,6 +65,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
@@ -70,8 +73,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/supplier:srcs",
+        "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
-        "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -936,8 +939,8 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
-        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/python:srcs",
+        "@rules_cc//cc:srcs",
     ],
     deps = [
         ":default_test_build_rules",
@@ -1238,21 +1241,6 @@ java_test(
 )
 
 java_test(
-    name = "query2-tests",
-    size = "large",
-    shard_count = 20,
-    tags = [
-        "no_windows",
-        "query2",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":test_runner",
-        "//src/test/java/com/google/devtools/build/lib/query2:Query2Tests_lib",
-    ],
-)
-
-java_test(
     name = "runtime-tests",
     srcs = glob([
         "runtime/*.java",
@@ -1297,75 +1285,6 @@ java_test(
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:apache_commons_lang",
         "//third_party:mockito",
-    ],
-)
-
-java_library(
-    name = "sandboxfs-base-tests",
-    testonly = 1,
-    srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
-    deps = [
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "sandbox-tests",
-    srcs = glob(
-        ["sandbox/*.java"],
-        exclude = [
-            "sandbox/BaseSandboxfsProcessTest.java",
-            "sandbox/RealSandboxfsProcessTest.java",
-        ],
-    ),
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = ["no_windows"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":sandboxfs-base-tests",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_test(
-    name = "sandboxfs-integration-tests",
-    srcs = ["sandbox/RealSandboxfsProcessTest.java"],
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = [
-        # On macOS:
-        #   sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
-        # Test requires:
-        #   --test_env=SANDBOXFS=/path/to/sandboxfs
-        "manual",
-        "no-sandbox",
-        "no_windows",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":sandboxfs-base-tests",
-        ":test_runner",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:junit4",
     ],
 )
 
@@ -1427,6 +1346,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
@@ -1607,6 +1527,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1649,6 +1570,17 @@ java_library(
 java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
+    runtime_deps = [
+        ":ExampleWorker-lib",
+    ],
+)
+
+java_binary(
+    name = "ExampleWorkerMultiplexer",
+    main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
     visibility = [
         "//src/test/shell/integration:__pkg__",
     ],

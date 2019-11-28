@@ -38,10 +38,12 @@ public final class Bazel {
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           BazelStartupOptionsModule.class,
+          com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
+          com.google.devtools.build.lib.remote.RemoteModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
           com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryDebugModule.class,
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
@@ -54,7 +56,6 @@ public final class Bazel {
           com.google.devtools.build.lib.outputfilter.OutputFilteringModule.class,
           com.google.devtools.build.lib.ssd.SsdModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
-          com.google.devtools.build.lib.remote.RemoteModule.class,
           com.google.devtools.build.lib.runtime.CacheFileDigestsModule.class,
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.sandbox.SandboxModule.class,

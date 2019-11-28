@@ -47,13 +47,16 @@ import java.lang.annotation.Target;
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
  *       (Location)(FuncallExpression)(StarlarkThread)(StarlarkSemantics))</pre>
- *       where (extra positionals list) is a SkylarkList if extraPositionals is defined, (extra
- *       kwargs) is a SkylarkDict if extraKeywords is defined, and Location, FuncallExpression,
- *       StarlarkThread, and StarlarkSemantics are supplied by the interpreter if and only if
- *       useLocation, useAst, useStarlarkThread, and useStarlarkSemantics are specified,
- *       respectively.
+ *       where (extra positionals list) is a Sequence if extraPositionals is defined, (extra kwargs)
+ *       is a Dict if extraKeywords is defined, and Location, FuncallExpression, StarlarkThread, and
+ *       StarlarkSemantics are supplied by the interpreter if and only if useLocation, useAst,
+ *       useStarlarkThread, and useStarlarkSemantics are specified, respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
+ *   <li>Method parameters with generic type must only have wildcard types. For example, {@code
+ *       Foo<Bar>} is forbidden, but {@code Foo<?>} is allowed. This is because the type parameters
+ *       of these java parameters cannot be verified by the java reflection API. Such parameters
+ *       must be dynamically validated in the method implementation.
  * </ul>
  */
 // TODO(adonovan): rename to StarlarkMethod (?)
@@ -95,11 +98,11 @@ public @interface SkylarkCallable {
    *
    * <p>If this is left as default, it is an error for the caller to pass more positional arguments
    * than are explicitly allowed by the method signature. If this is defined, all additional
-   * positional arguments are passed as elements of a {@link SkylarkList} to the method.
+   * positional arguments are passed as elements of a {@link Sequence} to the method.
    *
    * <p>See python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
-   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkList
+   * <p>(If this is defined, the annotated method signature must contain a corresponding Sequence
    * parameter. See the interface-level javadoc for details.)
    */
   Param extraPositionals() default @Param(name = "");
@@ -109,11 +112,11 @@ public @interface SkylarkCallable {
    *
    * <p>If this is left as default, it is an error for the caller to pass any named arguments not
    * explicitly declared by the method signature. If this is defined, all additional named arguments
-   * are passed as elements of a {@link SkylarkDict} to the method.
+   * are passed as elements of a {@link Dict} to the method.
    *
    * <p>See python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
-   * <p>(If this is defined, the annotated method signature must contain a corresponding SkylarkDict
+   * <p>(If this is defined, the annotated method signature must contain a corresponding Dict
    * parameter. See the interface-level javadoc for details.)
    */
   Param extraKeywords() default @Param(name = "");

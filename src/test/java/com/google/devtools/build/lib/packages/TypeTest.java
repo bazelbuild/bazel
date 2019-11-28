@@ -23,9 +23,10 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
@@ -244,7 +245,7 @@ public class TypeTest {
 
   @Test
   public void testStringDictBadElements() throws Exception {
-    Object input = ImmutableMap.of("foo", MutableList.of(null, "bar", "baz"), "wiz", "bang");
+    Object input = ImmutableMap.of("foo", StarlarkList.of(null, "bar", "baz"), "wiz", "bang");
     Type.ConversionException e =
         assertThrows(Type.ConversionException.class, () -> Type.STRING_DICT.convert(input, null));
     assertThat(e)
@@ -277,9 +278,8 @@ public class TypeTest {
 
   @Test
   public void testListDepsetConversion() throws Exception {
-    Object input = SkylarkNestedSet.of(
-        String.class,
-        NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
+    Object input =
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
     Type.STRING_LIST.convert(input, null);
   }
 

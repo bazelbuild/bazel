@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Utility class for getting md5 digests of files.
+ * Utility class for getting digests of files.
  *
  * <p>This class implements an optional cache of file digests when the computation of the digests is
  * costly (i.e. when {@link Path#getFastDigest()} is not available). The cache can be enabled via
@@ -56,6 +56,9 @@ public class DigestUtils {
   // Object to synchronize on when serializing large file reads.
   private static final Object DIGEST_LOCK = new Object();
   private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
+
+  // Typical size for a digest byte array.
+  public static final int ESTIMATED_SIZE = 32;
 
   // Files of this size or less are assumed to be readable in one seek.
   // (This is the default readahead window on Linux.)
@@ -143,13 +146,11 @@ public class DigestUtils {
   private DigestUtils() {}
 
   /**
-   * Obtain file's MD5 metadata using synchronized method, ensuring that system
-   * is not overloaded in case when multiple threads are requesting MD5
-   * calculations and underlying file system cannot provide it via extended
-   * attribute.
+   * Obtain file's digset using synchronized method, ensuring that system is not overloaded in case
+   * when multiple threads are requesting digest calculations and underlying file system cannot
+   * provide it via extended attribute.
    */
-  private static byte[] getDigestInExclusiveMode(Path path)
-      throws IOException {
+  private static byte[] getDigestInExclusiveMode(Path path) throws IOException {
     long startTime = BlazeClock.nanoTime();
     synchronized (DIGEST_LOCK) {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, path.getPathString());
@@ -261,48 +262,47 @@ public class DigestUtils {
    * @return the digest from the given buffer.
    * @throws IOException if the byte buffer is incorrectly formatted.
    */
-  public static Md5Digest read(ByteBuffer source) throws IOException {
+  public static byte[] read(ByteBuffer source) throws IOException {
     int size = VarInt.getVarInt(source);
-    if (size != Md5Digest.MD5_SIZE) {
-      throw new IOException("Unexpected digest length: " + size);
-    }
     byte[] bytes = new byte[size];
     source.get(bytes);
-    return new Md5Digest(bytes);
+    return bytes;
   }
 
   /** Write the digest to the output stream. */
-  public static void write(Md5Digest digest, OutputStream sink) throws IOException {
-    VarInt.putVarInt(digest.getDigestBytesUnsafe().length, sink);
-    sink.write(digest.getDigestBytesUnsafe());
+  public static void write(byte[] digest, OutputStream sink) throws IOException {
+    VarInt.putVarInt(digest.length, sink);
+    sink.write(digest);
   }
 
   /**
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
    */
-  public static Md5Digest fromMetadata(Map<String, FileArtifactValue> mdMap) {
-    byte[] result = new byte[Md5Digest.MD5_SIZE];
-    // Profiling showed that MD5 engine instantiation was a hotspot, so create one instance for
-    // this computation to amortize its cost.
+  public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
+    byte[] result = new byte[1]; // reserve the empty string
+    // Profiling showed that MessageDigest engine instantiation was a hotspot, so create one
+    // instance for this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();
-    mdMap.forEach((key, value) -> xorWith(result, getDigest(fp, key, value)));
-    return new Md5Digest(result);
+    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
+      result = xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
+    }
+    return result;
   }
 
   /**
    * @param env A collection of (String, String) pairs.
    * @return an order-independent digest of the given set of pairs.
    */
-  public static Md5Digest fromEnv(Map<String, String> env) {
-    byte[] result = new byte[Md5Digest.MD5_SIZE];
+  public static byte[] fromEnv(Map<String, String> env) {
+    byte[] result = new byte[0];
     Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, String> entry : env.entrySet()) {
       fp.addString(entry.getKey());
       fp.addString(entry.getValue());
-      xorWith(result, fp.digestAndReset());
+      result = xor(result, fp.digestAndReset());
     }
-    return new Md5Digest(result);
+    return result;
   }
 
   private static byte[] getDigest(Fingerprint fp, String execPath, FileArtifactValue md) {
@@ -320,10 +320,15 @@ public class DigestUtils {
     return fp.digestAndReset();
   }
 
-  /** Compute lhs ^= rhs bitwise operation of the arrays. */
-  private static void xorWith(byte[] lhs, byte[] rhs) {
-    for (int i = 0; i < lhs.length; i++) {
-      lhs[i] ^= rhs[i];
+  /** Compute lhs ^= rhs bitwise operation of the arrays. May clobber either argument. */
+  private static byte[] xor(byte[] lhs, byte[] rhs) {
+    int n = rhs.length;
+    if (lhs.length >= n) {
+      for (int i = 0; i < n; i++) {
+        lhs[i] ^= rhs[i];
+      }
+      return lhs;
     }
+    return xor(rhs, lhs);
   }
 }

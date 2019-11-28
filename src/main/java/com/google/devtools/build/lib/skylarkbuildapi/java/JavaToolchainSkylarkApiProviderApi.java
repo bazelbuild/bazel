@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'
@@ -56,14 +56,14 @@ public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
       structField = true)
-  public SkylarkNestedSet getSkylarkBootclasspath();
+  public Depset getSkylarkBootclasspath();
 
   @SkylarkCallable(
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  public SkylarkList<String> getSkylarkJvmOptions();
+  public Sequence<String> getSkylarkJvmOptions();
 
   @SkylarkCallable(name = "tools", doc = "The compilation tools.", structField = true)
-  public SkylarkNestedSet getSkylarkTools();
+  public Depset getSkylarkTools();
 }

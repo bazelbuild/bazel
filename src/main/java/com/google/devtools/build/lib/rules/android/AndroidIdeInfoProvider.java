@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -301,10 +301,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   }
 
   @Override
-  public ImmutableMap<String, SkylarkNestedSet> getNativeLibsSkylark() {
-    ImmutableMap.Builder<String, SkylarkNestedSet> builder = ImmutableMap.builder();
+  public ImmutableMap<String, Depset> getNativeLibsSkylark() {
+    ImmutableMap.Builder<String, Depset> builder = ImmutableMap.builder();
     for (Map.Entry<String, NestedSet<Artifact>> entry : getNativeLibs().entrySet()) {
-      builder.put(entry.getKey(), SkylarkNestedSet.of(Artifact.class, entry.getValue()));
+      builder.put(entry.getKey(), Depset.of(Artifact.TYPE, entry.getValue()));
     }
     return builder.build();
   }
@@ -322,8 +322,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object manifest,
         Object generatedManifest,
         Object idlImportRoot,
-        SkylarkList<Artifact> idlSrcs,
-        SkylarkList<Artifact> idlGeneratedJavaFiles,
+        Sequence<?> idlSrcs, // <Artifact>
+        Sequence<?> idlGeneratedJavaFiles, // <Artifact>
         Object idlSourceJar,
         Object idlClassJar,
         boolean definesAndroidResources,
@@ -331,14 +331,14 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Object resourceApk,
         Object signedApk,
         Object aar,
-        SkylarkList<Artifact> apksUnderTest,
-        SkylarkDict<String, SkylarkNestedSet> nativeLibs)
+        Sequence<?> apksUnderTest, // <Artifact>
+        Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
-      Map<String, SkylarkNestedSet> nativeLibsMap =
-          nativeLibs.getContents(String.class, SkylarkNestedSet.class, "native_libs");
+      Map<String, Depset> nativeLibsMap =
+          nativeLibs.getContents(String.class, Depset.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, SkylarkNestedSet> entry : nativeLibsMap.entrySet()) {
+      for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {
         builder.put(
             entry.getKey(), entry.getValue().getSetFromParam(Artifact.class, "native_libs"));
       }
@@ -353,9 +353,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(resourceJar, OutputJar.class),
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
-          idlSrcs.getImmutableList(),
-          idlGeneratedJavaFiles.getImmutableList(),
-          apksUnderTest.getImmutableList(),
+          ImmutableList.copyOf(idlSrcs.getContents(Artifact.class, "idl_srcs")),
+          ImmutableList.copyOf(
+              idlGeneratedJavaFiles.getContents(Artifact.class, "idl_generated_java_files")),
+          ImmutableList.copyOf(apksUnderTest.getContents(Artifact.class, "apks_under_test")),
           builder.build(),
           fromNoneable(resourceApk, Artifact.class));
     }

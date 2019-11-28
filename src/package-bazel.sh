@@ -25,7 +25,7 @@ EMBEDDED_TOOLS=$2
 DEPLOY_JAR=$3
 INSTALL_BASE_KEY=$4
 PLATFORMS_ARCHIVE=$5
-shift 4
+shift 5
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -66,28 +66,40 @@ if [[ $DEV_BUILD -eq 0 ]]; then
   DEPLOY_JAR="$DEPLOY_UNCOMP"
 fi
 
-# The server jar needs to be the first binary we extract. This is how the Bazel
-# client knows what .jar to pass to the JVM.
-cp ${DEPLOY_JAR} ${PACKAGE_DIR}/A-server.jar
-cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
-# The timestamp of embedded tools should already be zeroed out in the input zip
-touch -t 198001010000.00 ${PACKAGE_DIR}/*
-
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
 # Unzip platforms.zip into platforms/, move files up from external/platforms
-# subdirectory, and cleanup after itself.
-( \
-  cd ${PACKAGE_DIR} && \
-    unzip -q -d platforms platforms.zip && \
-    rm platforms.zip && \
-    cd platforms && \
-    mv external/platforms/* . && \
-    rmdir -p external/platforms \
+# subdirectory, and create WORKSPACE if it doesn't exist.
+(
+  cd $PACKAGE_DIR
+  unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
+  cd platforms
+  mv external/platforms/* .
+  rmdir -p external/platforms
+  >> WORKSPACE
 )
-touch -t 198001010000.00 ${PACKAGE_DIR}/platforms/WORKSPACE
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -q9DX@ "${WORKDIR}/${OUT}")
+# Make a list of the files in the order we want them inside the final zip.
+(
+  cd $PACKAGE_DIR
+  # The server jar needs to be the first binary we extract.
+  # This is how the Bazel client knows which .jar to pass to the JVM.
+  echo A-server.jar
+  find . -type f | sort
+  # And install_base_key must be last.
+  echo install_base_key
+) > files.list
+
+# Move these after the 'find' above.
+cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
+cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
+
+# Zero timestamps.
+(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
+
+# Create output zip with compression.
+(cd $PACKAGE_DIR; zip -q9DX@ $WORKDIR/$OUT) < files.list
+

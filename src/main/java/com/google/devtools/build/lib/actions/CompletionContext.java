@@ -77,25 +77,8 @@ public abstract class CompletionContext {
       if (artifact.isMiddlemanArtifact()) {
         continue;
       } else if (artifact.isFileset()) {
-        if (!expandFilesets()) {
-          continue;
-        }
-        ImmutableList<FilesetOutputSymlink> links = expander().getFileset(artifact);
-        FilesetManifest filesetManifest;
-        try {
-          filesetManifest =
-              FilesetManifest.constructFilesetManifest(
-                  links, PathFragment.EMPTY_FRAGMENT, RelativeSymlinkBehavior.RESOLVE);
-        } catch (IOException e) {
-          // Unexpected: RelativeSymlinkBehavior.RESOLVE should not throw.
-          throw new IllegalStateException(e);
-        }
-
-        for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
-          String targetFile = mapping.getValue();
-          PathFragment locationInFileset = mapping.getKey();
-          receiver.acceptFilesetMapping(
-              artifact, locationInFileset, execRoot().getRelative(targetFile));
+        if (expandFilesets()) {
+          visitFileset(artifact, receiver);
         }
       } else if (artifact.isTreeArtifact()) {
         List<Artifact> expandedArtifacts = new ArrayList<>();
@@ -106,6 +89,26 @@ public abstract class CompletionContext {
       } else {
         receiver.accept(artifact);
       }
+    }
+  }
+
+  private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
+    ImmutableList<FilesetOutputSymlink> links = expander().getFileset(filesetArtifact);
+    FilesetManifest filesetManifest;
+    try {
+      filesetManifest =
+          FilesetManifest.constructFilesetManifest(
+              links, PathFragment.EMPTY_FRAGMENT, RelativeSymlinkBehavior.RESOLVE);
+    } catch (IOException e) {
+      // Unexpected: RelativeSymlinkBehavior.RESOLVE should not throw.
+      throw new IllegalStateException(e);
+    }
+
+    for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
+      String targetFile = mapping.getValue();
+      PathFragment locationInFileset = mapping.getKey();
+      receiver.acceptFilesetMapping(
+          filesetArtifact, locationInFileset, execRoot().getRelative(targetFile));
     }
   }
 

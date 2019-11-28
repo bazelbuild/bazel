@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -33,6 +32,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
+import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -57,7 +58,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   private final HttpDownloader httpDownloader;
   private double timeoutScaling = 1.0;
-  private boolean useNativePatch;
+  @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
 
   public SkylarkRepositoryFunction(HttpDownloader httpDownloader) {
     this.httpDownloader = httpDownloader;
@@ -65,10 +66,6 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
-  }
-
-  public void setUseNativePatch(boolean useNativePatch) {
-    this.useNativePatch = useNativePatch;
   }
 
   @Nullable
@@ -151,7 +148,14 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
               markerData,
-              useNativePatch);
+              starlarkSemantics,
+              repositoryRemoteExecutor);
+
+      if (skylarkRepositoryContext.isRemotable()) {
+        // If a rule is declared remotable then invalidate it if remote execution gets
+        // enabled or disabled.
+        PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
+      }
 
       // Since restarting a repository function can be really expensive, we first ensure that
       // all label-arguments can be resolved to paths.
@@ -232,7 +236,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()) {
+    if (!WorkspaceFileHelper.doesWorkspaceFileExistUnder(outputDirectory)) {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 
@@ -268,5 +272,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return null; // unused so safe to return null
+  }
+
+  public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
+    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 }

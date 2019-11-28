@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
 public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, JavaInfo> {
@@ -31,8 +30,8 @@ public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, J
   }
 
   @Override
-  public PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
+  public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
+    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
   }
 
   @Override

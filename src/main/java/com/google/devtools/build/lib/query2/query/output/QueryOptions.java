@@ -19,6 +19,8 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.TriState;
 import java.util.Set;
 
 /** Command-line options for the Blaze query language, revision 2. */
@@ -119,6 +121,20 @@ public class QueryOptions extends CommonQueryOptions {
   public OrderOutput orderOutput;
 
   @Option(
+      name = "incompatible_prefer_unordered_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If this option is set together with --order_output=auto (default) and if the output "
+              + "formatter supports streaming output, then the results will be unordered.")
+  public boolean preferUnorderedOutput;
+
+  @Option(
     name = "graph:node_limit",
     defaultValue = "512",
     documentationCategory = OptionDocumentationCategory.QUERY,
@@ -198,14 +214,14 @@ public class QueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "experimental_graphless_query",
-      defaultValue = "false",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If true, uses a Query implementation that does not make a copy of the graph. The new"
               + " implementation only supports --order_output=no, as well as only a subset of"
               + " output formatters.")
-  public boolean useGraphlessQuery;
+  public TriState useGraphlessQuery;
 
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {

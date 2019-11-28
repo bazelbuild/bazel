@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.DotExpression;
@@ -46,9 +45,11 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
@@ -63,24 +64,30 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       BaseFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<String> environ,
+      Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
       FuncallExpression ast,
       StarlarkThread funcallThread)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallThread, "repository_rule", ast.getLocation());
+    StarlarkSemantics semantics = funcallThread.getSemantics();
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
     builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
     builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
+    if (semantics.experimentalRepoRemoteExec()) {
+      builder.addOrOverrideAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
+      BaseRuleClasses.execPropertiesAttribute(builder);
+    }
     builder.addOrOverrideAttribute(
         attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);
     BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));
-    if (attrs != Runtime.NONE) {
+    if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
@@ -105,9 +112,14 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     private final Location ruleClassDefinitionLocation;
 
     public RepositoryRuleFunction(RuleClass.Builder builder, Location ruleClassDefinitionLocation) {
-      super("repository_rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.ruleClassDefinitionLocation = ruleClassDefinitionLocation;
+    }
+
+    @Override
+    public String getName() {
+      return "repository_rule";
     }
 
     @Override
@@ -122,7 +134,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       if (exportedName == null) {
         printer.append("<anonymous starlark repository rule>");
       } else {
@@ -187,12 +199,26 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 ruleClass,
                 null,
                 WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
-                ast,
+                ast.getLocation(),
                 callStack.toString());
         return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
+    }
+  }
+
+  @Override
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(
+      Location location, StarlarkThread thread) throws EvalException {
+    if (thread.getSemantics().incompatibleUseCcConfigureFromRulesCc()) {
+      throw new EvalException(
+          location,
+          "Incompatible flag "
+              + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
+              + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "
+              + "See https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
+              + "instructions.");
     }
   }
 }

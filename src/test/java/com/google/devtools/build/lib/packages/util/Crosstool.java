@@ -497,16 +497,6 @@ public final class Crosstool {
     config.create(crosstoolTop + "/mock_version/x86/bin/ld");
     config.overwrite(crosstoolTop + "/BUILD", build);
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
-    config.overwrite(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
-    config.overwrite(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
-    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
   }
 
@@ -601,15 +591,5 @@ public final class Crosstool {
         MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
         Joiner.on("\n").join(crosstoolBuild.build()));
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
-    config.overwrite(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
-    config.overwrite(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/build_defs/cc/action_names.bzl"));
-    config.overwrite(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
-    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
   }
 }

@@ -66,17 +66,7 @@ if ! type try_with_timeout >&/dev/null; then
 fi
 
 function set_up() {
-    cd ${WORKSPACE_DIR}
-}
-
-function tear_down() {
-  try_with_timeout bazel shutdown
-}
-
-#### TESTS #############################################################
-
-function test_experimental_nested_set_as_skykey_threshold_successfully_builds() {
-  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cd ${WORKSPACE_DIR}
   mkdir -p "foo"
   cat > foo/foocc.py <<'EOF'
 import sys
@@ -130,6 +120,13 @@ foo_binary = rule(
 )
 EOF
 
+}
+
+#### TESTS #############################################################
+
+function test_experimental_nested_set_as_skykey_threshold_successfully_builds() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+
   cat > foo/BUILD <<EOF
 load(":foo.bzl", "foo_library", "foo_binary")
 py_binary(
@@ -155,15 +152,92 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build --nouse_action_cache //foo:c || fail "build failed"
+  bazel build //foo:c || fail "build failed"
   regular=$(bazel dump --skyframe summary)
   bazel clean
 
-  bazel build --nouse_action_cache --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
   with_flag=$(bazel dump --skyframe summary)
 
   [[ regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
 }
+
+function test_experimental_nested_set_as_skykey_threshold_changes() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+load(":foo.bzl", "foo_library", "foo_binary")
+py_binary(
+    name = "foocc",
+    srcs = ["foocc.py"],
+)
+
+foo_library(
+    name = "a",
+    srcs = ["1.a"],
+)
+
+foo_library(
+    name = "b",
+    srcs = ["1.b"],
+    deps = [":a"],
+)
+foo_binary(
+    name = "c",
+    srcs = ["c.foo"],
+    deps = [":b"],
+)
+EOF
+  touch foo/1.a foo/1.b foo/c.foo
+
+  bazel build //foo:c || fail "build failed"
+  regular=$(bazel dump --skyframe summary)
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
+  with_flag=$(bazel dump --skyframe summary)
+
+  [[ $regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
+
+  bazel build --experimental_nested_set_as_skykey_threshold=0 //foo:c || fail "build failed"
+  back_to_zero=$(bazel dump --skyframe summary)
+
+  [[ $regular == $back_to_zero ]] || fail "number of nodes and edges on skyframe should be the same"
+}
+
+function test_experimental_nested_set_as_skykey_dirty_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+load(":foo.bzl", "foo_library", "foo_binary")
+py_binary(
+    name = "foocc",
+    srcs = ["foocc.py"],
+)
+
+foo_library(
+    name = "a",
+    srcs = ["1.a"],
+)
+
+foo_library(
+    name = "b",
+    srcs = ["1.b"],
+    deps = [":a"],
+)
+foo_binary(
+    name = "c",
+    srcs = ["c.foo"],
+    deps = [":b"],
+)
+EOF
+  touch foo/1.a foo/1.b foo/c.foo
+
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c || fail "build failed"
+  # Deliberately breaking the file.
+  echo omgomgomg >> foo/foocc.py
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c && fail "Expected failure"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
 
 
 run_suite "Integration tests of ${PRODUCT_NAME} with NestedSet as SkyKey."

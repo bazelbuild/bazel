@@ -52,6 +52,7 @@ _FEATURE_NAMES = struct(
     nonhost = "nonhost",
     user_compile_flags = "user_compile_flags",
     thin_lto = "thin_lto",
+    no_use_lto_indexing_bitcode_file = "no_use_lto_indexing_bitcode_file",
     thin_lto_linkstatic_tests_use_shared_nonlto_backends = "thin_lto_linkstatic_tests_use_shared_nonlto_backends",
     thin_lto_all_linkstatic_use_shared_nonlto_backends = "thin_lto_all_linkstatic_use_shared_nonlto_backends",
     enable_afdo_thinlto = "enable_afdo_thinlto",
@@ -450,6 +451,10 @@ _user_compile_flags_feature = feature(
             ],
         ),
     ],
+)
+
+_no_use_lto_indexing_bitcode_file_feature = feature(
+    name = _FEATURE_NAMES.no_use_lto_indexing_bitcode_file,
 )
 
 _thin_lto_feature = feature(
@@ -1154,6 +1159,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.module_map_home_cwd: _module_map_home_cwd_feature,
     _FEATURE_NAMES.user_compile_flags: _user_compile_flags_feature,
     _FEATURE_NAMES.thin_lto: _thin_lto_feature,
+    _FEATURE_NAMES.no_use_lto_indexing_bitcode_file: _no_use_lto_indexing_bitcode_file_feature,
     _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backends: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.thin_lto_all_linkstatic_use_shared_nonlto_backends: _thin_lto_all_linkstatic_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.enable_afdo_thinlto: _enable_afdo_thinlto_feature,

@@ -18,16 +18,15 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Test source file verifying various proper uses of SkylarkCallable.
- */
-public class GoldenCase {
+/** Test source file verifying various proper uses of SkylarkCallable. */
+public class GoldenCase implements StarlarkValue {
 
   @SkylarkCallable(
     name = "struct_field_method",
@@ -76,16 +75,21 @@ public class GoldenCase {
     return 0;
   }
 
-  @SkylarkCallable(name = "three_arg_method_with_ast",
+  @SkylarkCallable(
+      name = "three_arg_method_with_ast",
       documented = false,
       parameters = {
-          @Param(name = "one", type = String.class, named = true),
-          @Param(name = "two", type = Integer.class, named = true),
-          @Param(name = "three", type = String.class, named = true,
-              defaultValue = "None", noneable = true),
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
+        @Param(
+            name = "three",
+            type = String.class,
+            named = true,
+            defaultValue = "None",
+            noneable = true),
       },
       useAst = true)
-  public String threeArgMethod(String one, Integer two, String three, FuncallExpression ast) {
+  public String threeArgMethod(String one, Integer two, Object three, FuncallExpression ast) {
     return "bar";
   }
 
@@ -170,7 +174,7 @@ public class GoldenCase {
   public String twoArgMethodWithParamsAndInfoAndKwargs(
       String one,
       Integer two,
-      SkylarkDict<?, ?> kwargs,
+      Dict<?, ?> kwargs,
       Location location,
       FuncallExpression ast,
       StarlarkThread thread,
@@ -189,11 +193,7 @@ public class GoldenCase {
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one,
-      Integer two,
-      SkylarkList<?> args,
-      SkylarkDict<?, ?> kwargs,
-      StarlarkThread thread) {
+      String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
     return "yar";
   }
 
@@ -220,5 +220,16 @@ public class GoldenCase {
   public String structFieldMethodWithInfo(
       Location location, StarlarkThread thread, StarlarkSemantics starlarkSemantics) {
     return "dragon";
+  }
+
+  @SkylarkCallable(
+      name = "method_with_list_and_dict",
+      documented = false,
+      parameters = {
+        @Param(name = "one", type = Sequence.class, named = true),
+        @Param(name = "two", type = Dict.class, named = true),
+      })
+  public String methodWithListandDict(Sequence<?> one, Dict<?, ?> two) {
+    return "bar";
   }
 }

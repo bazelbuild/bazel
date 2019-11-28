@@ -23,12 +23,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -78,8 +77,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
                     + " })</pre></ul>All fields are optional.",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = SkylarkDict.class)
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = Dict.class)
             },
             noneable = true,
             named = true,
@@ -124,7 +123,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "for more information."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",
@@ -141,7 +140,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "outputs",
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
               @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
@@ -216,7 +215,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "(e.g. when generating header files for C++), do not set this flag."),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -225,7 +224,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -248,7 +247,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -267,31 +266,14 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "tools."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
-            name = "execution_platform_constraints_allowed",
-            type = Boolean.class,
-            named = true,
-            positional = false,
-            defaultValue = "True",
-            disableWithFlag =
-                FlagIdentifier.INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED,
-            valueWhenDisabled = "True",
-            doc =
-                "If true, a special attribute named <code>exec_compatible_with</code> of "
-                    + "label-list type is added, which must not already exist in "
-                    + "<code>attrs</code>. Targets may use this attribute to specify additional "
-                    + "constraints on the execution platform beyond those given in the "
-                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>. "
-                    + "This will be deprecated and removed in the near future, and all rules will "
-                    + "be able to use <code>exec_compatible_with</code>."),
-        @Param(
             name = "exec_compatible_with",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -303,16 +285,24 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "analysis_test",
             allowedTypes = {
               @ParamType(type = Boolean.class),
-              @ParamType(type = UnboundMarker.class)
             },
             named = true,
             positional = false,
-            // TODO(cparsons): Make the default false when this is no longer experimental.
-            defaultValue = "unbound",
-            // TODO(cparsons): Link to in-build testing documentation when it is available.
+            defaultValue = "False",
             doc =
-                "<b>Experimental: This parameter is experimental and subject to change at any "
-                    + "time.</b><p> If true, then this rule is treated as an analysis test."),
+                "If true, then this rule is treated as an analysis test. <p>Note: Analysis test"
+                    + " rules are primarily defined using infrastructure provided in core Starlark"
+                    + " libraries. See <a href=\"../testing.html#for-testing-rules\">Testing</a>"
+                    + " for guidance. <p>If a rule is defined as an analysis test rule, it becomes"
+                    + " allowed to use configuration transitions defined using <a"
+                    + " href=\"#analysis_test_transition\">analysis_test_transition</a> on its"
+                    + " attributes, but opts into some restrictions: <ul><li>Targets of this rule"
+                    + " are limited in the number of transitive dependencies they may have."
+                    + " <li>The rule is considered a test rule (as if <code>test=True</code> were"
+                    + " set). This supercedes the value of <code>test</code></li> <li>The rule"
+                    + " implementation function may not register actions."
+                    + " Instead, it must register a pass/fail result via providing <a"
+                    + " href='AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>.</li></ul>"),
         @Param(
             name = "build_setting",
             type = BuildSettingApi.class,
@@ -327,7 +317,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<a href = '../config.$DOC_EXT#user-defined-build-settings'><code>build "
                     + "setting</code></a> this rule is. See the "
                     + "<a href='config.html'><code>config</code></a> module. If this is "
-                    + "set, a mandatory attribute named \"build_setting_default\" is automatically"
+                    + "set, a mandatory attribute named \"build_setting_default\" is automatically "
                     + "added to this rule, with a type corresponding to the value passed in here."),
         @Param(
             name = "cfg",
@@ -349,14 +339,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
@@ -384,7 +373,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -396,7 +385,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "target."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",
@@ -416,7 +405,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "name, type, and valid values according to the restriction."),
         @Param(
             name = "required_aspect_providers",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc =
@@ -439,13 +428,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -454,7 +443,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -463,7 +452,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in host configuration."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -503,13 +492,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useAst = true)
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToGeneratingRules,
       FuncallExpression ast,

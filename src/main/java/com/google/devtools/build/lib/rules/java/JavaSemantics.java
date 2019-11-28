@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -317,12 +319,32 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  /**
-   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
-   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
-   */
-  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
-      throws InterruptedException;
+  static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
+    if (!isJavaBinaryOrJavaTest(ruleContext)) {
+      return null;
+    }
+
+    if (useLegacyJavaTest(ruleContext)) {
+      return null;
+    }
+
+    boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
+    if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
+      return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
+    } else {
+      return null;
+    }
+  }
+
+  static boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {
+    return ruleContext.getRule().getRuleClass().equals("java_binary")
+        || ruleContext.getRule().getRuleClass().equals("java_test");
+  }
+
+  static boolean useLegacyJavaTest(RuleContext ruleContext) {
+    return !ruleContext.attributes().isAttributeValueExplicitlySpecified("test_class")
+        && ruleContext.getFragment(JavaConfiguration.class).useLegacyBazelJavaTest();
+  }
 
   /** Adds extra runfiles for a {@code java_binary} rule. */
   void addRunfilesForBinary(

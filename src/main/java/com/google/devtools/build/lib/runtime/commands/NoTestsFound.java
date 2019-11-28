@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 /** This event is posted by the {@link TestCommand} if no tests were found. */
 public class NoTestsFound extends BuildCompletingEvent {
 
-  public NoTestsFound(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis);
+  public NoTestsFound(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
+    super(exitCode, finishTimeMillis, wasSuspended);
   }
 }

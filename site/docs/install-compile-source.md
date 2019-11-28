@@ -10,7 +10,7 @@ To build Bazel from source, you can do one of the following:
 *   Build it [using an existing Bazel binary](#build-bazel-using-bazel)
 
 *   Build it [without an existing Bazel binary](#bootstrap-bazel) which is known
-    as _bootstraping_.
+    as _bootstrapping_.
 
 <h2 id="build-bazel-using-bazel">Build Bazel using Bazel</h2>
 

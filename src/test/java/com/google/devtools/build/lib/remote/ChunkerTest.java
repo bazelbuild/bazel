@@ -143,6 +143,22 @@ public class ChunkerTest {
     Mockito.verify(in.get()).close();
   }
 
+  @Test
+  public void seekAfterReset() throws IOException {
+    // Test that seek() works on an uninitialized chunker
+
+    byte[] data = new byte[10];
+    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(10).build();
+
+    chunker.reset();
+    chunker.seek(2);
+
+    Chunk next = chunker.next();
+    assertThat(next).isNotNull();
+    assertThat(next.getOffset()).isEqualTo(2);
+    assertThat(next.getData()).hasSize(8);
+  }
+
   private void assertNextEquals(Chunker chunker, byte... data) throws IOException {
     assertThat(chunker.hasNext()).isTrue();
     ByteString next = chunker.next().getData();

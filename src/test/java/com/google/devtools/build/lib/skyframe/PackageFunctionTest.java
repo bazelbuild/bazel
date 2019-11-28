@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -1115,6 +1116,89 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result).hasError();
     assertThat(getSkyframeExecutor().getPackageProgressReceiver().progressState())
         .isEqualTo(new Pair<String, String>("1 packages loaded", ""));
+  }
+
+  @Test
+  public void testLegacyGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    getSkyframeExecutor().turnOffSyscallCacheForTesting();
+
+    // When a package's BUILD file and the relevant filesystem state is such that legacy globbing
+    // will encounter an IOException due to a directory symlink cycle,
+    Path fooBUILDPath = scratch.file("foo/BUILD", "glob(['cycle/**/foo.txt'])");
+    Path fooCyclePath = fooBUILDPath.getParentDirectory().getChild("cycle");
+    FileSystemUtils.ensureSymbolicLink(fooCyclePath, fooCyclePath);
+    IOException ioExnFromFS =
+        assertThrows(IOException.class, () -> fooCyclePath.statIfFound(Symlinks.FOLLOW));
+    // And it is indeed the case that the FileSystem throws an IOException when the cycle's Path is
+    // stat'd (following symlinks, as legacy globbing does).
+    assertThat(ioExnFromFS).hasMessageThat().contains("Too many levels of symbolic links");
+
+    // Then, when we evaluate the PackageValue node for the Package in keepGoing mode,
+    SkyKey pkgKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /*keepGoing=*/ true, reporter);
+    // The result is a *non-transient* Skyframe error.
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey).isNotTransient();
+    // And that error is a NoSuchPackageException
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
+    // With a useful error message,
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Symlink cycle: /workspace/foo/cycle");
+    // And appropriate Skyframe root cause (N.B. since we want PackageFunction to rethrow in
+    // situations like this, we want the PackageValue node to be its own root cause).
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .rootCauseOfExceptionIs(pkgKey);
+
+    // Then, when we modify the BUILD file so as to force package loading,
+    scratch.overwriteFile(
+        "foo/BUILD", "glob(['cycle/**/foo.txt']) # dummy comment to force package loading");
+    // But we don't make any filesystem changes that would invalidate the GlobValues, meaning that
+    // PackageFunction will observe cache hits from Skyframe globbing,
+    //
+    // And we also have our filesystem blow up if the directory symlink cycle is encountered (thus,
+    // the absence of a crash indicates the lack of legacy globbing),
+    fs.stubStatError(
+        fooCyclePath,
+        new IOException() {
+          @Override
+          public String getMessage() {
+            throw new IllegalStateException("should't get here!");
+          }
+        });
+    // And we evaluate the PackageValue node for the Package in keepGoing mode,
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
+            Root.fromPath(rootDirectory));
+    // The results are exactly the same as before,
+    result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), pkgKey, /*keepGoing=*/ true, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(pkgKey).isNotTransient();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Symlink cycle: /workspace/foo/cycle");
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(pkgKey)
+        .rootCauseOfExceptionIs(pkgKey);
+    // Thus showing that clean and incremental package loading have the same semantics in the
+    // presence of a symlink cycle encountered during glob evaluation.
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

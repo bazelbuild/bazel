@@ -21,15 +21,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -60,7 +58,6 @@ public class ASTFileLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
     Label fileLabel = (Label) skyKey.argument();
-    PathFragment filePathFragment = fileLabel.toPathFragment();
 
     // Determine whether the package designated by fileLabel exists.
     // TODO(bazel-team): After --incompatible_disallow_load_labels_to_cross_package_boundaries is
@@ -86,7 +83,7 @@ public class ASTFileLookupFunction implements SkyFunction {
 
     // Determine whether the file designated by fileLabel exists.
     Root packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, filePathFragment);
+    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, fileLabel.toPathFragment());
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
@@ -111,33 +108,23 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
-    // Both the package and the file exist; load the file and parse it as an AST.
-    StarlarkFile file = null;
+    // Both the package and the file exist; load and parse the file.
     Path path = rootedPath.asPath();
+    StarlarkFile file = null;
     try {
-      long astFileSize = fileValue.getSize();
-      try (Mutability mutability = Mutability.create("validate")) {
-        StarlarkThread thread =
-            ruleClassProvider.createRuleClassStarlarkThread(
-                fileLabel,
-                mutability,
-                starlarkSemantics,
-                env.getListener(),
-                // the three below don't matter for extracting the ValidationEnvironment:
-                /*astFileContentHashCode=*/ null,
-                /*importMap=*/ null,
-                /*repoMapping=*/ ImmutableMap.of());
-        byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
-        ParserInput input = ParserInput.create(bytes, path.asFragment());
-        file = StarlarkFile.parseWithDigest(input, path.getDigest());
-        ValidationEnvironment.validateFile(
-            file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
-        Event.replayEventsOn(env.getListener(), file.errors());
-      }
+      byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+      ParserInput input = ParserInput.create(bytes, path.asFragment());
+      file = StarlarkFile.parseWithDigest(input, path.getDigest());
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.TRANSIENT);
     }
+
+    // validate (and soon, compile)
+    ImmutableMap<String, Object> predeclared = ruleClassProvider.getEnvironment();
+    ValidationEnvironment.validateFile(
+        file, Module.createForBuiltins(predeclared), starlarkSemantics, /*isBuildFile=*/ false);
+    Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file);
   }

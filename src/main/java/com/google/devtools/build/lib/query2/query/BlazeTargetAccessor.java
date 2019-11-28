@@ -64,7 +64,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Iterable<Target> getLabelListAttr(
+  public Iterable<Target> getPrerequisites(
       QueryExpression caller, Target target, String attrName, String errorMsgPrefix)
       throws QueryException, InterruptedException {
     Preconditions.checkArgument(target instanceof Rule);

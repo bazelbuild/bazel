@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.xml;
 
 import com.android.aapt.Resources.Item;
+import com.android.aapt.Resources.Primitive;
 import com.android.aapt.Resources.StyledString;
 import com.android.aapt.Resources.StyledString.Span;
 import com.android.aapt.Resources.Value;
@@ -53,6 +54,10 @@ import javax.xml.namespace.QName;
  */
 @Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
+
+  // TODO(b/143918417): change to false, and remove
+  static final boolean USE_BROKEN_DESERIALIZATION = true;
+
   static final QName TAG_BOOL = QName.valueOf("bool");
   static final QName TAG_COLOR = QName.valueOf("color");
   static final QName TAG_DIMEN = QName.valueOf("dimen");
@@ -190,18 +195,22 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
             String.format(";%s,%d,%d", span.getTag(), span.getFirstChar(), span.getLastChar()));
       }
       stringValue = stringBuilder.toString();
-    } else if ((resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE)
-        && item.hasPrim()) {
-      stringValue =
-          String.format("#%1$8s", Integer.toHexString(item.getPrim().getData())).replace(' ', '0');
-    } else if (resourceType == ResourceType.INTEGER && item.hasPrim()) {
-      stringValue = Integer.toString(item.getPrim().getData());
-    } else if (resourceType == ResourceType.BOOL && item.hasPrim()) {
-      stringValue = item.getPrim().getData() == 0 ? "false" : "true";
-    } else if (resourceType == ResourceType.FRACTION
-        || resourceType == ResourceType.DIMEN
-        || resourceType == ResourceType.STRING) {
-      stringValue = Integer.toString(item.getPrim().getData());
+    } else if (item.hasPrim()) {
+      if (!USE_BROKEN_DESERIALIZATION) {
+        stringValue = convertPrimitiveToString(item.getPrim());
+      } else {
+        if (resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE) {
+          stringValue = String.format("#%1$8s", Integer.toHexString(0)).replace(' ', '0');
+        } else if (resourceType == ResourceType.INTEGER) {
+          stringValue = Integer.toString(0);
+        } else if (resourceType == ResourceType.BOOL) {
+          stringValue = "false";
+        } else if (resourceType == ResourceType.FRACTION
+            || resourceType == ResourceType.DIMEN
+            || resourceType == ResourceType.STRING) {
+          stringValue = Integer.toString(0);
+        }
+      }
     } else {
       throw new IllegalArgumentException(
           String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));
@@ -211,6 +220,79 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         Type.valueOf(resourceType.toString().toUpperCase(Locale.ENGLISH)),
         attributes.build(),
         stringValue);
+  }
+
+  static String convertPrimitiveToString(Primitive primitive) {
+    switch (primitive.getOneofValueCase()) {
+      case NULL_VALUE:
+        return "(null)";
+      case EMPTY_VALUE:
+        return "(empty)";
+      case FLOAT_VALUE:
+        return Float.toString(primitive.getFloatValue());
+      case INT_DECIMAL_VALUE:
+        return Integer.toString(primitive.getIntDecimalValue());
+      case INT_HEXADECIMAL_VALUE:
+        return String.format(Locale.ROOT, "0x%x", primitive.getIntHexadecimalValue());
+      case BOOLEAN_VALUE:
+        return Boolean.toString(primitive.getBooleanValue());
+      case DIMENSION_VALUE:
+        return ComplexConverter.convertComplexPrimitiveToString(
+            primitive.getDimensionValue(), /*isDimension=*/ true);
+      case FRACTION_VALUE:
+        return ComplexConverter.convertComplexPrimitiveToString(
+            primitive.getFractionValue(), /*isDimension=*/ false);
+
+        // Rendering all colors as normalized 32-bit hex.  No one cares how they were written in the
+        // original XML, and rendering these differently would lead to pointless resouce conflicts
+        // reported if e.g. one XML file uses #123 while another uses #112233.
+      case COLOR_ARGB8_VALUE:
+        return String.format(Locale.ROOT, "#%08X", primitive.getColorArgb8Value());
+      case COLOR_RGB8_VALUE:
+        return String.format(Locale.ROOT, "#%08X", primitive.getColorRgb8Value());
+      case COLOR_ARGB4_VALUE:
+        return String.format(Locale.ROOT, "#%08X", primitive.getColorArgb4Value());
+      case COLOR_RGB4_VALUE:
+        return String.format(Locale.ROOT, "#%08X", primitive.getColorRgb4Value());
+
+      case DIMENSION_VALUE_DEPRECATED:
+      case FRACTION_VALUE_DEPRECATED:
+        // we don't expect to deserialize data from older aapt2 builds
+      case ONEOFVALUE_NOT_SET:
+        break;
+    }
+    throw new IllegalArgumentException("Invalid primitive value " + primitive);
+  }
+
+  // See 'print_complex' defined in:
+  // https://android.googlesource.com/platform/frameworks/base/+/master/libs/androidfw/ResourceTypes.cpp
+  private static final class ComplexConverter {
+    static final String[] DIMENSION_TYPE_STRINGS =
+        new String[] {"px", "dp", "sp", "pt", "in", "mm"};
+    static final String[] FRACTION_TYPE_STRINGS = new String[] {"%", "%p"};
+    static final int[] RADIX_SHIFTS = new int[] {0, 7, 15, 23};
+
+    static String convertComplexPrimitiveToString(int rawValue, boolean isDimension) {
+      String typeString;
+      try {
+        if (isDimension) {
+          typeString = DIMENSION_TYPE_STRINGS[rawValue & 0xF];
+        } else {
+          typeString = FRACTION_TYPE_STRINGS[rawValue & 0xF];
+        }
+      } catch (IndexOutOfBoundsException e) {
+        typeString = " (unknown unit)";
+      }
+
+      int radixIdx = (rawValue >> 4) & 0x3;
+      float value = (rawValue >> 8) * (1.0f / (1 << RADIX_SHIFTS[radixIdx]));
+
+      // Use Float.toString instead of String.format("%f") to avoid excessive trailing zeros.
+      // Strings should never be localized anyway.
+      // * https://stackoverflow.com/a/44202755
+      // * https://issuetracker.google.com/issues/64962882
+      return String.format(Locale.ROOT, "%s%s", Float.toString(value), typeString);
+    }
   }
 
   @Override

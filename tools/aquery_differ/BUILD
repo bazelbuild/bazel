@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//tools/python:private/defs.bzl", "py_library", "py_binary", "py_test")
+load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
+load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -33,8 +34,11 @@ py_library(
 py_binary(
     name = "aquery_differ",
     srcs = ["aquery_differ.py"],
-    python_version = "PY2",
-    deps = [":aquery_differ_main_lib"],
+    python_version = "PY3",
+    deps = [
+        ":aquery_differ_main_lib",
+        "//third_party/py/six",
+    ],
 )
 
 py_library(
@@ -44,16 +48,17 @@ py_library(
         ":aquery_differ_resolvers",
         "//src/main/protobuf:analysis_py_proto",
         "//third_party/py/abseil",
+        "//third_party/py/six",
     ],
 )
 
-py_test(
+py_test_alias(
     name = "aquery_differ_test",
     srcs = ["aquery_differ_test.py"],
-    python_version = "PY2",
     deps = [
         ":aquery_differ_main_lib",
         "//src/main/protobuf:analysis_py_proto",
         "//third_party/py/mock",
+        "//third_party/py/six",
     ],
 )

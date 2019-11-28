@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
-import java.util.Formattable;
 import java.util.IdentityHashMap;
 import java.util.List;
 
@@ -69,7 +69,7 @@ import java.util.List;
  * <p>Second, {@code Mutability}s are created using the try-with-resource style:
  *
  * <pre>{@code
- * try (Mutability mutability = Mutability.create(fmt, ...)) { ... }
+ * try (Mutability mutability = Mutability.create(name, ...)) { ... }
  * }</pre>
  *
  * The general pattern is to create a {@code Mutability}, build an {@code StarlarkThread}, mutate
@@ -86,13 +86,10 @@ import java.util.List;
  *       StarlarkThread} except the one currently being evaluated.
  *   <li>If a value has the special {@link #IMMUTABLE} {@code Mutability}, all of its contents are
  *       themselves deeply immutable too (i.e. have frozen {@code Mutability}s).
- *   <li>If a value has the special {@link #SHALLOW_IMMUTABLE} {@code Mutability}, its contents may
- *       or may not be mutable.
  * </ol>
  *
  * It follows that, if these invariants hold, an unfrozen value cannot appear as the child of a
- * value whose {@code Mutability} is already frozen, unless this {@code Mutability} is the special
- * {@code #SHALLOW_IMMUTABLE} instance. This knowledge is used by {@link
+ * value whose {@code Mutability} is already frozen. This knowledge is used by {@link
  * StarlarkMutable#isImmutable} to prune traversals of a compound value.
  *
  * <p>There is a special API for freezing individual values rather than whole {@code
@@ -120,50 +117,49 @@ public final class Mutability implements AutoCloseable {
    */
   private IdentityHashMap<Freezable, List<Location>> lockedItems;
 
-  /** For error reporting; a name for the context in which this {@code Mutability} is used. */
-  private final Formattable annotation;
+  // An optional list of values that are formatted with toString and joined with spaces to yield the
+  // "annotation", an internal name describing the purpose of this Mutability.
+  private final Object[] annotation;
 
   /** Controls access to {@link Freezable#unsafeShallowFreeze}. */
   private final boolean allowsUnsafeShallowFreeze;
 
-  private Mutability(Formattable annotation, boolean allowsUnsafeShallowFreeze) {
+  private Mutability(Object[] annotation, boolean allowsUnsafeShallowFreeze) {
     this.isFrozen = false;
     // Seems unlikely that we'll often lock more than 10 things at once.
     this.lockedItems = new IdentityHashMap<>(10);
-    this.annotation = Preconditions.checkNotNull(annotation);
+    this.annotation = annotation;
     this.allowsUnsafeShallowFreeze = allowsUnsafeShallowFreeze;
   }
 
   /**
    * Creates a {@code Mutability}.
    *
-   * @param pattern is a {@link Printer#format} pattern used to lazily produce a string name
-   *     for error reporting
-   * @param arguments are the optional {@link Printer#format} arguments to produce that string
+   * @param annotation a list of objects whose toString representations are joined with spaces to
+   *     yield the annotation, an internal name describing the purpose of this Mutability.
    */
-  public static Mutability create(String pattern, Object... arguments) {
-    return new Mutability(
-        Printer.formattable(pattern, arguments),
-        /*allowsUnsafeShallowFreeze=*/ false);
+  public static Mutability create(Object... annotation) {
+    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ false);
   }
 
   /**
    * Creates a {@code Mutability} whose objects can be individually frozen; see docstrings for
    * {@link Mutability} and {@link Freezable#unsafeShallowFreeze}.
    */
-  public static Mutability createAllowingShallowFreeze(String pattern, Object... arguments) {
-    return new Mutability(
-        Printer.formattable(pattern, arguments),
-        /*allowsUnsafeShallowFreeze=*/ true);
+  public static Mutability createAllowingShallowFreeze(Object... annotation) {
+    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ true);
   }
 
+  /** Returns the Mutability's "annotation", an internal name describing its purpose. */
   public String getAnnotation() {
-    return annotation.toString();
+    // The annotation string is computed when needed, typically never,
+    // to avoid the performance penalty of materializing it eagerly.
+    return Joiner.on(" ").join(annotation);
   }
 
   @Override
   public String toString() {
-    return String.format(isFrozen ? "(%s)" : "[%s]", annotation);
+    return (isFrozen ? "(" : "[") + getAnnotation() + (isFrozen ? ")" : "]");
   }
 
   public boolean isFrozen() {
@@ -243,7 +239,7 @@ public final class Mutability implements AutoCloseable {
     List<Location> locList = lockedItems.get(object);
     if (!locList.remove(loc)) {
       throw new IllegalArgumentException(
-          Printer.format(
+          Starlark.format(
               "trying to unlock an object for a location at which it was not locked (%r)", loc));
     }
     if (locList.isEmpty()) {
@@ -311,9 +307,8 @@ public final class Mutability implements AutoCloseable {
      *
      * <p>It is up to the caller to ensure that any contents of this {@code Freezable} are also
      * frozen in order to preserve/restore the invariant that an immutable value cannot contain a
-     * mutable one unless the immutable value's {@code Mutability} is {@link #SHALLOW_IMMUTABLE}.
-     * Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are not
-     * guaranteed otherwise.
+     * mutable one. Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are
+     * not guaranteed otherwise.
      */
     default void unsafeShallowFreeze() {
       throw new UnsupportedOperationException();
@@ -384,21 +379,4 @@ public final class Mutability implements AutoCloseable {
    * <p>It is not associated with any particular {@link StarlarkThread}.
    */
   public static final Mutability IMMUTABLE = create("IMMUTABLE").freeze();
-
-  /**
-   * A {@code Mutability} indicating that a value is shallowly immutable.
-   *
-   * <p>Under the invariants for this class, this is the only frozen {@code Mutability} whose values
-   * are permitted to directly or indirectly contain mutable values.
-   *
-   * <p>In practice, this instance is used as the {@code Mutability} for tuples.
-   */
-  // TODO(bazel-team): We might be able to remove this instance, and instead have tuples and other
-  // immutable types store the same Mutability as other values in that environment. Then we can
-  // simplify the Mutability invariant, and implement deep-immutability checking in constant time
-  // for values whose StarlarkThreads have been frozen.
-  //
-  // This would also affect structs (SkylarkInfo). Maybe they would implement an interface similar
-  // to StarlarkMutable, or the relevant methods could be worked into SkylarkValue.
-  public static final Mutability SHALLOW_IMMUTABLE = create("SHALLOW_IMMUTABLE").freeze();
 }

@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -116,9 +114,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider,
             analysisMock
                 .getPackageFactoryBuilderForTesting(directories)
-                .setEnvironmentExtensions(
-                    ImmutableList.<EnvironmentExtension>of(
-                        new PackageFactory.EmptyEnvironmentExtension()))
                 .build(ruleClassProvider, fileSystem),
             directories,
             /*skylarkImportLookupFunctionForInlining=*/ null));

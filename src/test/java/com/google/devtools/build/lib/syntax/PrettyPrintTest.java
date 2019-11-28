@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,14 +51,9 @@ public final class PrettyPrintTest {
    * Asserts that the given node's pretty print at a given indent level matches the given string.
    */
   private void assertPrettyMatches(Node node, int indentLevel, String expected) {
-    StringBuilder prettyBuilder = new StringBuilder();
-    try {
-      node.prettyPrint(prettyBuilder, indentLevel);
-    } catch (IOException e) {
-      // Impossible for StringBuilder.
-      throw new AssertionError(e);
-    }
-    assertThat(prettyBuilder.toString()).isEqualTo(expected);
+    StringBuilder buf = new StringBuilder();
+    new NodePrinter(buf, indentLevel).printNode(node);
+    assertThat(buf.toString()).isEqualTo(expected);
   }
 
   /** Asserts that the given node's pretty print with no indent matches the given string. */

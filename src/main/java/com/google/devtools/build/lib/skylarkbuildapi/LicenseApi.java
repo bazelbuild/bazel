@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The interface for a license in Skylark. */
 @SkylarkModule(
@@ -26,4 +26,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
     doc =
         "This API is deprecated and will be removed. Please do not depend on it. "
             + "This object represents the value of a license attribute.")
-public interface LicenseApi extends SkylarkValue {}
+public interface LicenseApi extends StarlarkValue {}

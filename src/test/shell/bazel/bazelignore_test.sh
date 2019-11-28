@@ -25,6 +25,41 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
+test_does_not_glob_into_ignored_directory() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+
+    echo 'filegroup(name="f", srcs=glob(["**"]))' > BUILD
+    echo 'ignored' > .bazelignore
+    mkdir -p ignored/pkg
+    echo 'filegroup(name="f", srcs=glob(["**"]))' > ignored/pkg/BUILD
+    touch ignored/pkg/a
+    touch ignored/file
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/file" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/pkg/BUILD" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/pkg/a" "$TEST_TMPDIR/targets"
+
+    # This weird line tests whether .bazelignore also stops the Skyframe-based
+    # glob. Globbing (as of 2019 Oct) is done in a hybrid fashion: we do the
+    # legacy globbing because it's faster and Skyframe globbing because it's
+    # more incremental. In the first run, we get the results of the legacy
+    # globbing, but if we invalidate the BUILD file, the result of the legacy
+    # glob is invalidated and but the better incrementality allows the result of
+    # the Skyframe glob to be cached.
+    echo "# change" >> BUILD
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/file" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/pkg/BUILD" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/pkg/a" "$TEST_TMPDIR/targets"
+
+    echo > .bazelignore
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_contains "//:ignored/file" "$TEST_TMPDIR/targets"
+    bazel query //ignored/pkg:all-targets > "$TEST_TMPDIR/targets"
+    assert_contains "//ignored/pkg:a" "$TEST_TMPDIR/targets"
+}
+
 test_broken_BUILD_files_ignored() {
     rm -rf work && mkdir work && cd work
     create_workspace_with_default_repos WORKSPACE

@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 
@@ -122,6 +124,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   /** The proto sources in the transitive closure of this rule. */
   @Override
+  public Depset /*<Artifact>*/ getTransitiveProtoSourcesForStarlark() {
+    return Depset.of(Artifact.TYPE, getTransitiveProtoSources());
+  }
+
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
   }
@@ -131,14 +137,18 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    * {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
   @Override
+  public Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark() {
+    return Depset.of(SkylarkType.STRING, transitiveProtoSourceRoots);
+  }
+
   public NestedSet<String> getTransitiveProtoSourceRoots() {
     return transitiveProtoSourceRoots;
   }
 
   @Deprecated
   @Override
-  public NestedSet<Artifact> getTransitiveImports() {
-    return getTransitiveProtoSources();
+  public Depset /*<Artifact>*/ getTransitiveImports() {
+    return getTransitiveProtoSourcesForStarlark();
   }
 
   /**
@@ -149,6 +159,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    * direct dependencies, but not from transitive ones)
    */
   @Override
+  public Depset /*<Artifact>*/ getStrictImportableProtoSourcesForDependentsForStarlark() {
+    return Depset.of(Artifact.TYPE, strictImportableProtoSourcesForDependents);
+  }
+
   public NestedSet<Artifact> getStrictImportableProtoSourcesForDependents() {
     return strictImportableProtoSourcesForDependents;
   }
@@ -217,6 +231,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    * direct-srcs descriptor set)
    */
   @Override
+  public Depset /*<Artifact>*/ getTransitiveDescriptorSetsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveDescriptorSets);
+  }
+
   public NestedSet<Artifact> getTransitiveDescriptorSets() {
     return transitiveDescriptorSets;
   }

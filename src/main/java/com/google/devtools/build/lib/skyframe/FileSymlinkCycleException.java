@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
@@ -47,5 +49,11 @@ public class FileSymlinkCycleException extends FileSymlinkException {
   @VisibleForSerialization
   public ImmutableList<RootedPath> getCycle() {
     return cycle;
+  }
+
+  @Override
+  public String getUserFriendlyMessage() {
+    return "Symlink cycle: "
+        + Joiner.on("- > ").join(Iterables.transform(cycle, RootedPath::asPath));
   }
 }

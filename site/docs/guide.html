@@ -123,7 +123,7 @@ title: User's Guide
   we see a "null" build: in this case, there are no packages to
   re-load, since nothing has changed, and no build steps to execute.
   (If something had changed in "foo" or some of its dependencies, resulting in the
-  reexecution of some build actions, we would call it an "incremental" build, not a
+  re-execution of some build actions, we would call it an "incremental" build, not a
   "null" build.)
 </p>
 
@@ -489,7 +489,7 @@ $ bazel fetch //...
   rebuilt, and then anything that depends on the tool output to be
   rebuilt too.  Thus, for example, simply changing a linker option
   between builds might cause all tools to be re-linked, and then all
-  actions using them reexecuted, and so on, resulting in a very large rebuild.
+  actions using them re-executed, and so on, resulting in a very large rebuild.
   Also, please note: if your host architecture is not capable of
   running your target binaries, your build will not work.
 </p>

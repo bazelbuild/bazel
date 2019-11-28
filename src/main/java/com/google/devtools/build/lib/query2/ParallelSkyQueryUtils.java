@@ -111,8 +111,8 @@ public class ParallelSkyQueryUtils {
                   new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
               return env.execute(
                   () -> {
-                    UnfilteredSkyKeyTTVDTCVisitor visitor =
-                        new UnfilteredSkyKeyTTVDTCVisitor.Factory(
+                    UnfilteredSkyKeyLabelDTCVisitor visitor =
+                        new UnfilteredSkyKeyLabelDTCVisitor.Factory(
                                 env,
                                 env.createSkyKeyUniquifier(),
                                 processResultsBatchSize,

@@ -67,7 +67,11 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       Uniquifier<SkyKey> resultUniquifier,
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
-    super(callback, env.getVisitBatchSizeForParallelVisitation(), PROCESS_RESULTS_BATCH_SIZE);
+    super(
+        callback,
+        env.getVisitBatchSizeForParallelVisitation(),
+        PROCESS_RESULTS_BATCH_SIZE,
+        env.getVisitTaskStatusCallback());
     this.env = env;
     this.visitUniquifier = visitUniquifier;
     this.resultUniquifier = resultUniquifier;

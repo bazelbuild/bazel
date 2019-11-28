@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
@@ -146,7 +145,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .build();
       ccLinkingContext =
           CcLinkingContext.builder()
-              .addLibraries(NestedSetBuilder.<LibraryToLink>linkOrder().add(libraryToLink).build())
+              .setOwner(ruleContext.getLabel())
+              .addLibrary(libraryToLink)
               .build();
     }
 

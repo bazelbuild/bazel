@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** An interface for an object representing an Apple platform. */
 @SkylarkModule(
@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "p = apple_common.platform.ios_device\n"
             + "print(p.name_in_plist)  # 'iPhoneOS'\n"
             + "</pre>")
-public interface ApplePlatformApi extends SkylarkValue {
+public interface ApplePlatformApi extends StarlarkValue {
 
   /** Returns the platform type of this platform. */
   @SkylarkCallable(

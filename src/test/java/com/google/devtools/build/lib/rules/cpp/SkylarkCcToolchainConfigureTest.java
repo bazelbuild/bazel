@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -28,24 +29,25 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
 
   @Test
   public void testSplitEscaped() throws Exception {
+    Mutability mu = null;
     newTest()
-        .testStatement("split_escaped('a:b:c', ':')", MutableList.of(thread, "a", "b", "c"))
-        .testStatement("split_escaped('a%:b', ':')", MutableList.of(thread, "a:b"))
-        .testStatement("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testStatement("split_escaped('a:::b', ':')", MutableList.of(thread, "a", "", "", "b"))
-        .testStatement("split_escaped('a:b%:c', ':')", MutableList.of(thread, "a", "b:c"))
-        .testStatement("split_escaped('a%%:b:c', ':')", MutableList.of(thread, "a%", "b", "c"))
-        .testStatement("split_escaped(':a', ':')", MutableList.of(thread, "", "a"))
-        .testStatement("split_escaped('a:', ':')", MutableList.of(thread, "a", ""))
-        .testStatement("split_escaped('::a::', ':')", MutableList.of(thread, "", "", "a", "", ""))
-        .testStatement("split_escaped('%%%:a%%%%:b', ':')", MutableList.of(thread, "%:a%%", "b"))
-        .testStatement("split_escaped('', ':')", MutableList.of(thread))
-        .testStatement("split_escaped('%', ':')", MutableList.of(thread, "%"))
-        .testStatement("split_escaped('%%', ':')", MutableList.of(thread, "%"))
-        .testStatement("split_escaped('%:', ':')", MutableList.of(thread, ":"))
-        .testStatement("split_escaped(':', ':')", MutableList.of(thread, "", ""))
-        .testStatement("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testStatement("split_escaped('a%:', ':')", MutableList.of(thread, "a:"));
+        .testExpression("split_escaped('a:b:c', ':')", StarlarkList.of(mu, "a", "b", "c"))
+        .testExpression("split_escaped('a%:b', ':')", StarlarkList.of(mu, "a:b"))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a:::b', ':')", StarlarkList.of(mu, "a", "", "", "b"))
+        .testExpression("split_escaped('a:b%:c', ':')", StarlarkList.of(mu, "a", "b:c"))
+        .testExpression("split_escaped('a%%:b:c', ':')", StarlarkList.of(mu, "a%", "b", "c"))
+        .testExpression("split_escaped(':a', ':')", StarlarkList.of(mu, "", "a"))
+        .testExpression("split_escaped('a:', ':')", StarlarkList.of(mu, "a", ""))
+        .testExpression("split_escaped('::a::', ':')", StarlarkList.of(mu, "", "", "a", "", ""))
+        .testExpression("split_escaped('%%%:a%%%%:b', ':')", StarlarkList.of(mu, "%:a%%", "b"))
+        .testExpression("split_escaped('', ':')", StarlarkList.of(mu))
+        .testExpression("split_escaped('%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%:', ':')", StarlarkList.of(mu, ":"))
+        .testExpression("split_escaped(':', ':')", StarlarkList.of(mu, "", ""))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
   private ModalTestCase newTest(String... skylarkOptions) throws IOException {
@@ -56,6 +58,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .setUp("def Label(arg):\n  return 42")
         .setUp(
             ResourceLoader.readFromResources(
-                TestConstants.BAZEL_REPO_PATH + "tools/cpp/lib_cc_configure.bzl"));
+                TestConstants.RULES_CC_REPOSITORY_EXECROOT
+                    + "cc/private/toolchain/lib_cc_configure.bzl"));
   }
 }

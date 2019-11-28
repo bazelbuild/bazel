@@ -123,6 +123,6 @@ public class NestedSetFingerprintCache {
     }
     // TODO(b/112460990): Use the value from DigestHashFunction.getDefault(), but check for
     // contention.
-    return new DigestMap(DigestHashFunction.MD5, 1024);
+    return new DigestMap(DigestHashFunction.SHA256, 1024);
   }
 }

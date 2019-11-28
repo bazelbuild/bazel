@@ -19,19 +19,20 @@ generate `BUILD` files.
 
 ## Contents
 
-- [Formatting example](#formatting-example)
-- [File structure](#file-structure)
-- [References to targets in the current package](#references-to-targets-in-the-current-package)
-- [Target naming](#target-naming)
-- [Visibility](#visibility)
-- [Dependencies](#dependencies)
-- [Globs](#globs)
-- [Other conventions](#other-conventions)
-- [Differences with Python style guide](#differences-with-python-style-guide)
+-   [Formatting example](#formatting-example)
+-   [File structure](#file-structure)
+-   [References to targets in the current package](#references-to-targets-in-the-current-package)
+-   [Target naming](#target-naming)
+-   [Visibility](#visibility)
+-   [Dependencies](#dependencies)
+-   [Globs](#globs)
+-   [Other conventions](#other-conventions)
+-   [Differences with Python style guide](#differences-with-python-style-guide)
 
 ## Formatting example
 
 ```python
+# Test code implmenting the Foo controller.
 package(default_visibility = ["//visibility:public"])
 
 py_test(
@@ -57,13 +58,13 @@ py_test(
 
 We recommend to use the following order (every element is optional):
 
-  * Package description (a comment)
+*   Package description (a comment)
 
-  * All `load()` statements
+*   All `load()` statements
 
-  * The `package()` function.
+*   The `package()` function.
 
-  * Calls to rules and macros
+*   Calls to rules and macros
 
 Buildifier makes a distinction between a standalone comment and a comment
 attached to an element. If a comment is not attached to a specific element, use

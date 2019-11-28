@@ -17,9 +17,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.python;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link PyRuntimeInfoApi}. */
 public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
@@ -35,7 +35,7 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
   }
 
   @Override
-  public SkylarkNestedSet getFilesForStarlark() {
+  public Depset getFilesForStarlark() {
     return null;
   }
 
@@ -45,7 +45,7 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link PyRuntimeInfoProviderApi}. */
   public static class FakePyRuntimeInfoProvider implements PyRuntimeInfoProviderApi {
@@ -62,6 +62,6 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

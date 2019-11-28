@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /**
  * An index expression ({@code obj[field]}). Not to be confused with a slice expression ({@code
@@ -37,14 +36,6 @@ public final class IndexExpression extends Expression {
 
   public Expression getKey() {
     return key;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    object.prettyPrint(buffer);
-    buffer.append('[');
-    key.prettyPrint(buffer);
-    buffer.append(']');
   }
 
   @Override

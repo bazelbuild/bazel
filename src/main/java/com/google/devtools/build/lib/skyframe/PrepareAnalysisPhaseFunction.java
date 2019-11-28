@@ -142,7 +142,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     // We get the list of labels from the TargetPatternPhaseValue, so we are reasonably certain that
     // there will not be an error loading these again.
     ResolvedTargets<Target> resolvedTargets =
-        TestSuiteExpansionFunction.labelsToTargets(env, options.getLabels(), false);
+        TestsForTargetPatternFunction.labelsToTargets(env, options.getLabels(), false);
     if (resolvedTargets == null) {
       return null;
     }

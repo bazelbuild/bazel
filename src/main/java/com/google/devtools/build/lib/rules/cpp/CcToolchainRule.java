@@ -126,7 +126,7 @@ public final class CcToolchainRule implements RuleDefinition {
    * enabled through --fdo_optimize or --fdo_profile
    */
   private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // This is actually a bug, because with platforms, and before toolchain-transitions are
       // implemented, all toolchains are analyzed in the host configuration. We're betting on
       // nobody in the Bazel world actually using zipped fdo profiles and platforms at the same
@@ -224,22 +224,15 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
-
-        <p>Currently also used for archiving actions
-         (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("linker_files", LABEL)

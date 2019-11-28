@@ -179,4 +179,4 @@ assert_eq(enumerate({'a': 0, 2: 1, 'ab': 3}), [(0, 'a'), (1, 2), (2, 'ab')])
 assert_eq(enumerate({}), [])
 assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
 ---
-enumerate("ab") ### type 'string' is not a collection
+enumerate("ab") ### type 'string' is not iterable

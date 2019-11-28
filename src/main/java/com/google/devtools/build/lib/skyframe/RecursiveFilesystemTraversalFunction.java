@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.vfs.UnixGlob.DEFAULT_SYSCALLS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -320,7 +322,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (fsVal == null) {
           fsVal = fileState;
         }
-        return new FileInfo(type, withDigest(fsVal), realPath, unresolvedLinkTarget);
+        return new FileInfo(type, withDigest(fsVal, path), realPath, unresolvedLinkTarget);
       }
     } else {
       // Stat the file.
@@ -341,31 +343,60 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         } else {
           type = fileValue.isDirectory() ? FileType.DIRECTORY : FileType.FILE;
         }
+        Path path = traversal.root.asRootedPath().asPath();
         return new FileInfo(
             type,
-            withDigest(fileValue.realFileStateValue()),
+            withDigest(fileValue.realFileStateValue(), path),
             fileValue.realRootedPath(),
             unresolvedLinkTarget);
       } else {
         // If it doesn't exist, or it's a dangling symlink, we still want to handle that gracefully.
         return new FileInfo(
             fileValue.isSymlink() ? FileType.DANGLING_SYMLINK : FileType.NONEXISTENT,
-            withDigest(fileValue.realFileStateValue()),
+            withDigest(fileValue.realFileStateValue(), null),
             null,
             fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null);
       }
     }
   }
 
-  private static HasDigest withDigest(HasDigest fsVal) {
+  /**
+   * Transform the HasDigest to the appropriate type based on the current state of the digest. If
+   * fsVal is type RegularFileStateValue or FileArtifactValue and has a valid digest value, then we
+   * want to convert it to a new FileArtifactValue type. Otherwise if they are of the two
+   * forementioned types but do not have a digest, then we will create a FileArtifactValue using its
+   * {@link Path}. Otherwise we will fingerprint the digest and return it as a new {@link
+   * HasDigest.ByteStringDigest} object.
+   *
+   * @param fsVal - the HasDigest value that was in the graph.
+   * @param path - the Path of the digest.
+   * @return transformed HasDigest value based on the digest field and object type.
+   */
+  @VisibleForTesting
+  static HasDigest withDigest(HasDigest fsVal, Path path) throws IOException {
     if (fsVal instanceof FileStateValue) {
-      return new HasDigest.ByteStringDigest(
-          ((FileStateValue) fsVal).getValueFingerprint().toByteArray());
+      FileStateValue fsv = (FileStateValue) fsVal;
+      if (fsv instanceof RegularFileStateValue) {
+        RegularFileStateValue rfsv = (RegularFileStateValue) fsv;
+        return rfsv.getDigest() != null
+            // If we have the digest, then simply convert it with the digest value.
+            ? FileArtifactValue.createForVirtualActionInput(rfsv.getDigest(), rfsv.getSize())
+            // Otherwise, create a file FileArtifactValue (RegularFileArtifactValue) based on the
+            // path and size.
+            : FileArtifactValue.createForNormalFileUsingPath(path, rfsv.getSize());
+      }
+      return new HasDigest.ByteStringDigest(fsv.getValueFingerprint().toByteArray());
     } else if (fsVal instanceof FileArtifactValue) {
-      FileArtifactValue artifactValue = (FileArtifactValue) fsVal;
-      // Transforming the FileArtifactValue to fingerprint the digests and retain other values
-      return FileArtifactValue.createForVirtualActionInput(
-          artifactValue.getValueFingerprint().toByteArray(), artifactValue.getSize());
+      FileArtifactValue fav = ((FileArtifactValue) fsVal);
+      if (fav.getDigest() != null) {
+        return fav;
+      }
+
+      // In the case there is a directory, the HasDigest value should not be converted. Otherwise,
+      // if the HasDigest value is a file, convert it using the Path and size values.
+      return fav.getType().isFile()
+          ? FileArtifactValue.createForNormalFileUsingPath(path, fav.getSize())
+          : new HasDigest.ByteStringDigest(fav.getValueFingerprint().toByteArray());
     }
     return fsVal;
   }

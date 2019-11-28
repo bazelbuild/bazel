@@ -63,7 +63,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -314,13 +315,10 @@ public class JavaCompileAction extends AbstractAction
             actionExecutionContext.getContext(JavaCompileActionContext.class);
         try {
           reducedClasspath = getReducedClasspath(actionExecutionContext, context);
-          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
         } catch (IOException e) {
-          // There was an error reading some of the dependent .jdeps files. Fall back to a
-          // compilation with the full classpath.
-          reducedClasspath = null;
-          spawn = getFullSpawn(actionExecutionContext);
+          throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
         }
+        spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
       } else {
         reducedClasspath = null;
         spawn = getFullSpawn(actionExecutionContext);
@@ -448,7 +446,6 @@ public class JavaCompileAction extends AbstractAction
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Iterable<? extends ActionInput> getInputFiles() {
       return inputs;
     }
@@ -467,7 +464,7 @@ public class JavaCompileAction extends AbstractAction
     CustomCommandLine.Builder classpathLine =
         CustomCommandLine.builder().addExecPaths("--classpath", transitiveInputs);
     if (classpathMode == JavaClasspathMode.JAVABUILDER) {
-      classpathLine.add("--reduce_classpath");
+      classpathLine.add("--reduce_classpath_mode", "JAVABUILDER_REDUCED");
       if (!dependencyArtifacts.isEmpty()) {
         classpathLine.addExecPaths("--deps_artifacts", dependencyArtifacts);
       }
@@ -476,9 +473,9 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getSkylarkArgv() throws EvalException {
     try {
-      return SkylarkList.createImmutable(getArguments());
+      return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }

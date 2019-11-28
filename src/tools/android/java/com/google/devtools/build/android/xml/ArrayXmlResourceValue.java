@@ -130,8 +130,12 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       Item item = entry.getItem();
 
       if (item.hasPrim()) {
-        String stringValue = "#" + Integer.toHexString(item.getPrim().getData());
-        items.add(stringValue);
+        if (!SimpleXmlResourceValue.USE_BROKEN_DESERIALIZATION) {
+          items.add(SimpleXmlResourceValue.convertPrimitiveToString(item.getPrim()));
+        } else {
+          String stringValue = "#" + Integer.toHexString(0);
+          items.add(stringValue);
+        }
       } else if (item.hasRef()) {
         items.add("@" + item.getRef().getName());
       } else if (item.hasStr()) {

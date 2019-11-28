@@ -32,14 +32,14 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
 @AutoCodec
-public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
+public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
@@ -125,31 +125,43 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
 
   /** The root directory of the Java installation. */
   @Override
-  public PathFragment javaHome() {
+  public String javaHome() {
+    return javaHome.toString();
+  }
+
+  public PathFragment javaHomePathFragment() {
     return javaHome;
   }
 
-  @Override
   /** The execpath of the Java binary. */
-  public PathFragment javaBinaryExecPath() {
+  @Override
+  public String javaBinaryExecPath() {
+    return javaBinaryExecPath.toString();
+  }
+
+  public PathFragment javaBinaryExecPathFragment() {
     return javaBinaryExecPath;
   }
 
   /** The runfiles path of the root directory of the Java installation. */
   @Override
-  public PathFragment javaHomeRunfilesPath() {
-    return javaHomeRunfilesPath;
+  public String javaHomeRunfilesPath() {
+    return javaHomeRunfilesPath.toString();
   }
 
-  @Override
   /** The runfiles path of the Java binary. */
-  public PathFragment javaBinaryRunfilesPath() {
+  @Override
+  public String javaBinaryRunfilesPath() {
+    return javaBinaryRunfilesPath.toString();
+  }
+
+  public PathFragment javaBinaryRunfilesPathFragment() {
     return javaBinaryRunfilesPath;
   }
 
   @Override
-  public SkylarkNestedSet skylarkJavaBaseInputs() {
-    return SkylarkNestedSet.of(Artifact.class, javaBaseInputs());
+  public Depset skylarkJavaBaseInputs() {
+    return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 
   // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality

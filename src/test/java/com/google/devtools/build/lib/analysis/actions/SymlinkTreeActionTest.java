@@ -15,25 +15,30 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
-import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link SymlinkTreeAction}.
- */
+/** Tests {@link SymlinkTreeAction}. */
 @RunWith(JUnit4.class)
 public class SymlinkTreeActionTest extends BuildViewTestCase {
-  private enum KeyAttributes {
-    FILESET,
+  private enum FilesetActionAttributes {
+    ENABLE_RUNFILES,
+    INPROCESS_SYMLINKS,
+    FIXED_ENVIRONMENT,
+    VARIABLE_ENVIRONMENT
+  }
+
+  private enum RunfilesActionAttributes {
     RUNFILES,
+    ENABLE_RUNFILES,
+    INPROCESS_SYMLINKS,
     FIXED_ENVIRONMENT,
     VARIABLE_ENVIRONMENT
   }
@@ -42,30 +47,46 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
   public void testComputeKey() throws Exception {
     final Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     final Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
+    final Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+    final Artifact runfile2 = getBinArtifactWithNoOwner("dir/runfile2");
 
-    ActionTester.runTest(
-        KeyAttributes.class,
-        new ActionCombinationFactory<KeyAttributes>() {
-          @Override
-          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
-            boolean filesetTree = attributesToFlip.contains(KeyAttributes.FILESET);
-            boolean enableRunfiles = attributesToFlip.contains(KeyAttributes.RUNFILES);
+    new ActionTester(actionKeyContext)
+        .combinations(
+            RunfilesActionAttributes.class,
+            (attributesToFlip) ->
+                new SymlinkTreeAction(
+                    ActionsTestUtil.NULL_ACTION_OWNER,
+                    inputManifest,
+                    /*runfiles=*/ attributesToFlip.contains(RunfilesActionAttributes.RUNFILES)
+                        ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
+                        : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
+                    outputManifest,
+                    /*filesetTree=*/ false,
+                    createActionEnvironment(
+                        attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
+                        attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
+                    attributesToFlip.contains(RunfilesActionAttributes.ENABLE_RUNFILES),
+                    attributesToFlip.contains(RunfilesActionAttributes.INPROCESS_SYMLINKS)))
+        .combinations(
+            FilesetActionAttributes.class,
+            (attributesToFlip) ->
+                new SymlinkTreeAction(
+                    ActionsTestUtil.NULL_ACTION_OWNER,
+                    inputManifest,
+                    /*runfiles=*/ null,
+                    outputManifest,
+                    /*filesetTree=*/ true,
+                    createActionEnvironment(
+                        attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
+                        attributesToFlip.contains(FilesetActionAttributes.VARIABLE_ENVIRONMENT)),
+                    attributesToFlip.contains(FilesetActionAttributes.ENABLE_RUNFILES),
+                    attributesToFlip.contains(FilesetActionAttributes.INPROCESS_SYMLINKS)))
+        .runTest();
+  }
 
-            ActionEnvironment env = ActionEnvironment.create(
-                attributesToFlip.contains(KeyAttributes.FIXED_ENVIRONMENT)
-                    ? ImmutableMap.of("a", "b") : ImmutableMap.of(),
-                attributesToFlip.contains(KeyAttributes.VARIABLE_ENVIRONMENT)
-                    ? ImmutableSet.of("c") : ImmutableSet.of());
-
-            return new SymlinkTreeAction(
-                ActionsTestUtil.NULL_ACTION_OWNER,
-                inputManifest,
-                outputManifest,
-                filesetTree,
-                env,
-                enableRunfiles);
-          }
-        },
-        actionKeyContext);
+  private static ActionEnvironment createActionEnvironment(boolean fixed, boolean variable) {
+    return ActionEnvironment.create(
+        fixed ? ImmutableMap.of("a", "b") : ImmutableMap.of(),
+        variable ? ImmutableSet.of("c") : ImmutableSet.of());
   }
 }

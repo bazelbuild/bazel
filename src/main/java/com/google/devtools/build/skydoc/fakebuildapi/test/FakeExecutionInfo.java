@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.test;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.ExecutionInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Fake implementation of {@link ExecutionInfoApi}.
@@ -41,5 +41,5 @@ public class FakeExecutionInfo implements ExecutionInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

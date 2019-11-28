@@ -113,7 +113,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
                     Iterables.transform(
                         Iterables.filter(
                             reverseDepsEntry.getValue(),
-                            Predicates.and(SkyQueryEnvironment.IS_TTV, unfilteredUniverse)),
+                            Predicates.and(SkyQueryEnvironment.IS_LABEL, unfilteredUniverse)),
                         rdep -> new DepAndRdep(reverseDepsEntry.getKey(), rdep))));
 
     return new Visit(

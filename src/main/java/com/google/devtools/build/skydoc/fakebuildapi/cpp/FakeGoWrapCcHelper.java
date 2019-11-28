@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -32,9 +31,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderAp
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Fake implementation of {@link GoWrapCcHelperApi}. */
 public class FakeGoWrapCcHelper
@@ -89,8 +88,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActions(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<FileApi> srcs,
-      SkylarkList<TransitiveInfoCollectionApi> deps) {
+      Sequence<?> srcs,
+      Sequence<?> deps) {
     return null;
   }
 
@@ -98,8 +97,8 @@ public class FakeGoWrapCcHelper
   public Tuple<FileApi> createGoCompileActionsGopkg(
       SkylarkRuleContextApi skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-      SkylarkList<FileApi> srcs,
-      SkylarkList<TransitiveInfoCollectionApi> deps) {
+      Sequence<?> srcs,
+      Sequence<?> deps) {
     return null;
   }
 
@@ -113,7 +112,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public NestedSet<FileApi> getGopackageFiles(
+  public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
     return null;
   }
@@ -126,8 +125,7 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-      SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
     return null;
   }
 
@@ -138,8 +136,8 @@ public class FakeGoWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-      SkylarkList<String> targetCopts) {
+      Sequence<?> depCcCompilationContexts,
+      Sequence<?> targetCopts) {
     return null;
   }
 
@@ -150,7 +148,7 @@ public class FakeGoWrapCcHelper
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes) {
+      SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 
@@ -160,15 +158,15 @@ public class FakeGoWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi wrapperCcCompilationContext,
-      SkylarkNestedSet swigIncludes,
+      Depset swigIncludes,
       FileApi swigSource,
-      SkylarkList<String> subParameters,
+      Sequence<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<FileApi> outputFiles,
+      Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
-      SkylarkNestedSet auxiliaryInputs,
+      Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool) {}
 }

@@ -20,6 +20,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
+import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -92,11 +94,13 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.TriState;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -161,14 +165,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --experimental_graphless_query is not allowed");
       return null;
     }
-    if (ruleContext.getConfiguration().getOptions().get(CoreOptions.class).useGraphlessQuery) {
-      queryOptions.orderOutput = OrderOutput.NO;
-      queryOptions.useGraphlessQuery = true;
-    } else {
-      // Force results to be deterministic.
-      queryOptions.orderOutput = OrderOutput.FULL;
-      queryOptions.useGraphlessQuery = false;
-    }
+    queryOptions.useGraphlessQuery =
+        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).useGraphlessQuery;
 
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
@@ -326,6 +324,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     QueryEvalResult queryResult;
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
+    boolean graphlessQuery = false;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -340,6 +339,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                 OutputFormatters.formatterNames(OutputFormatters.getDefaultFormatters())));
         return null;
       }
+      graphlessQuery =
+          queryOptions.useGraphlessQuery == TriState.YES
+              || (queryOptions.useGraphlessQuery == TriState.AUTO
+                  && formatter instanceof StreamedFormatter);
+      if (graphlessQuery) {
+        queryOptions.orderOutput = OrderOutput.NO;
+      } else {
+        // Force results to be deterministic.
+        queryOptions.orderOutput = OrderOutput.FULL;
+      }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
               /*transitivePackageLoader=*/ null,
@@ -350,7 +359,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               PathFragment.EMPTY_FRAGMENT,
               /*keepGoing=*/ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
-              /*orderedResults=*/ !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
+              /*orderedResults=*/ !graphlessQuery,
               /*universeScope=*/ ImmutableList.of(),
               // Use a single thread to prevent race conditions causing nondeterministic output
               // (b/127644784). All the packages are already loaded at this point, so there is
@@ -362,7 +371,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*extraFunctions=*/ ImmutableList.of(),
               /*packagePath=*/ null,
               /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ queryOptions.useGraphlessQuery);
+              /*useGraphlessQuery=*/ graphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
@@ -383,8 +392,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     GenQueryOutputStream outputStream =
         new GenQueryOutputStream(genQueryConfig.inMemoryCompressionEnabled());
     try {
-      QueryOutputUtils
-          .output(queryOptions, queryResult, targets.getResult(), formatter, outputStream,
+      Set<Target> result = targets.getResult();
+      if (graphlessQuery) {
+        Comparator<Target> comparator =
+            (Target t1, Target t2) -> t1.getLabel().compareTo(t2.getLabel());
+        result = ImmutableSortedSet.copyOf(comparator, targets.getResult());
+      }
+      QueryOutputUtils.output(
+          queryOptions,
+          queryResult,
+          result,
+          formatter,
+          outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
       outputStream.close();
     } catch (ClosedByInterruptException e) {

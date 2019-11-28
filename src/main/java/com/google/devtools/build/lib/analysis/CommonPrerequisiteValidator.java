@@ -41,7 +41,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       ConfiguredTargetAndData prerequisite,
       Attribute attribute) {
     validateDirectPrerequisiteLocation(contextBuilder, prerequisite);
-    validateDirectPrerequisiteVisibility(contextBuilder, prerequisite, attribute.getName());
+    validateDirectPrerequisiteVisibility(contextBuilder, prerequisite, attribute);
     validateDirectPrerequisiteForTestOnly(contextBuilder, prerequisite);
     validateDirectPrerequisiteForDeprecation(
         contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
@@ -66,18 +66,43 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
   private void validateDirectPrerequisiteVisibility(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, String attrName) {
+      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
+    String attrName = attribute.getName();
     Rule rule = context.getRule();
     Target prerequisiteTarget = prerequisite.getTarget();
+
     // We don't check the visibility of late-bound attributes, because it would break some
     // features.
     if (!isSameLogicalPackage(
             rule.getLabel().getPackageIdentifier(),
             AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
                 .getPackageIdentifier())
-        && !context.isVisible(prerequisite.getConfiguredTarget())
         && !Attribute.isLateBound(attrName)) {
-      handleVisibilityConflict(context, prerequisite, rule);
+
+      // Determine if we should use the new visibility rules for tools.
+      boolean toolCheckAtDefinition = false;
+      try {
+        toolCheckAtDefinition =
+            context.getStarlarkSemantics().incompatibleVisibilityPrivateAttributesAtDefinition();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+
+      if (!toolCheckAtDefinition
+          || !attribute.isImplicit()
+          || rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null) {
+        // Default check: The attribute must be visible from the target.
+        if (!context.isVisible(prerequisite.getConfiguredTarget())) {
+          handleVisibilityConflict(context, prerequisite, rule.getLabel());
+        }
+      } else {
+        // For implicit attributes, check if the prerequisite is visible from the location of the
+        // rule definition
+        Label implicitDefinition = rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel();
+        if (!RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())) {
+          handleVisibilityConflict(context, prerequisite, implicitDefinition);
+        }
+      }
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
@@ -107,8 +132,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   private void handleVisibilityConflict(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Rule rule) {
-    if (packageUnderExperimental(rule.getLabel().getPackageIdentifier())
+      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Label rule) {
+    if (packageUnderExperimental(rule.getPackageIdentifier())
         && !checkVisibilityForExperimental(context)) {
       return;
     }
@@ -118,8 +143,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           String.format(
               "Target '%s' violates visibility of "
                   + "%s. Continuing because --nocheck_visibility is active",
-              rule.getLabel(),
-              AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
+              rule, AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
       context.ruleWarning(errorMessage);
     } else {
       String errorMessage =
@@ -127,8 +151,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               "%s is not visible from target '%s'. Check "
                   + "the visibility declaration of the former target if you think "
                   + "the dependency is legitimate",
-              AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND),
-              rule.getLabel());
+              AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
       context.ruleError(errorMessage);
     }
   }
@@ -233,7 +256,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   /** Check that the dependency is not test-only, or the current rule is test-only. */
-  private static void validateDirectPrerequisiteForTestOnly(
+  private void validateDirectPrerequisiteForTestOnly(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite) {
     Rule rule = context.getRule();
 
@@ -244,7 +267,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
 
     Target prerequisiteTarget = prerequisite.getTarget();
-    String thisPackage = rule.getLabel().getPackageName();
+    PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
 
     if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
       String message =
@@ -253,7 +276,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               + "' depends on testonly "
               + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
               + " and doesn't have testonly attribute set";
-      if (thisPackage.startsWith("experimental/")) {
+      if (packageUnderExperimental(thisPackage)) {
         context.ruleWarning(message);
       } else {
         context.ruleError(message);

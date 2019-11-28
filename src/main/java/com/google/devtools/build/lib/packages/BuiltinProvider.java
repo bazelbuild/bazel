@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider.NativeKey;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import javax.annotation.Nullable;
 
 /**
@@ -86,7 +86,7 @@ public abstract class BuiltinProvider<T extends InfoInterface> implements Provid
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<function " + getPrintableName() + ">");
   }
 

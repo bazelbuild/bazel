@@ -92,6 +92,7 @@ java_library(
         "JavaCompileAction.java",
         "JavaCompileActionBuilder.java",
         "JavaCompileActionContext.java",
+        "JavaCompileOutputs.java",
         "JavaConfiguration.java",
         "JavaExportsProvider.java",
         "JavaGenJarsProvider.java",
@@ -126,7 +127,6 @@ java_library(
         "proto/GeneratedExtensionRegistryProvider.java",
     ],
     deps = [
-        ":java-implicit-attributes",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-info",
         "//src/main/java/com/google/devtools/build/lib:events",

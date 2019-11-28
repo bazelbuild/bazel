@@ -452,63 +452,7 @@ TEST(FileTests, TestNormalize) {
   ASSERT_NORMALIZE("c:\\", "c:\\");
   ASSERT_NORMALIZE("c:\\..//foo/./bar/", "c:\\foo\\bar");
   ASSERT_NORMALIZE("../foo", "..\\foo");
-  ASSERT_NORMALIZE("../foo\\", "..\\foo");
-  ASSERT_NORMALIZE("../foo\\\\", "..\\foo");
-  ASSERT_NORMALIZE("..//foo\\\\", "..\\foo");
 #undef ASSERT_NORMALIZE
-}
-
-static void GetTestTempDirWithCorrectCasing(std::wstring* result,
-                                            std::wstring* result_inverted) {
-  static constexpr size_t kMaxPath = 0x8000;
-  wchar_t buf[kMaxPath];
-  ASSERT_GT(GetEnvironmentVariableW(L"TEST_TMPDIR", buf, kMaxPath), 0);
-  HANDLE h = CreateFileW(buf, 0,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
-  ASSERT_NE(h, INVALID_HANDLE_VALUE);
-  ASSERT_GT(GetFinalPathNameByHandleW(h, buf, kMaxPath, 0), 0);
-  CloseHandle(h);
-  *result = RemoveUncPrefixMaybe(buf);
-
-  for (wchar_t* c = buf; *c; ++c) {
-    if (*c >= L'A' && *c <= L'Z') {
-      *c = L'a' + *c - L'A';
-    } else if (*c >= L'a' && *c <= L'z') {
-      *c = L'A' + *c - L'a';
-    }
-  }
-  *result_inverted = RemoveUncPrefixMaybe(buf);
-}
-
-TEST(FileTests, TestGetCorrectCase) {
-  EXPECT_EQ(GetCorrectCasing(L""), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d"), L"");
-  EXPECT_EQ(GetCorrectCasing(L"d:"), L"");
-
-  EXPECT_EQ(GetCorrectCasing(L"d:\\"), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:/"), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:\\\\"), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d://"), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:\\\\\\"), L"D:\\");
-  EXPECT_EQ(GetCorrectCasing(L"d:///"), L"D:\\");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:/Non:Existent"), L"A:\\Non:Existent");
-
-  EXPECT_EQ(GetCorrectCasing(L"A:\\\\Non:Existent"), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\."), L"A:\\Non:Existent");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\..\\.."), L"A:\\");
-  EXPECT_EQ(GetCorrectCasing(L"A:\\Non:Existent\\.\\"), L"A:\\Non:Existent");
-
-  std::wstring tmp, tmp_inverse;
-  GetTestTempDirWithCorrectCasing(&tmp, &tmp_inverse);
-  ASSERT_GT(tmp.size(), 0);
-  ASSERT_NE(tmp, tmp_inverse);
-  EXPECT_EQ(GetCorrectCasing(tmp), tmp);
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse), tmp);
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\"), tmp);
-  EXPECT_EQ(GetCorrectCasing(tmp_inverse + L"\\Does\\\\Not\\./Exist"),
-            tmp + L"\\Does\\Not\\Exist");
 }
 
 }  // namespace windows

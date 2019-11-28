@@ -20,10 +20,10 @@ import javax.annotation.Nullable;
  * A marker interface for a {@link ClassObject} whose {@link #getValue} always returns a
  * Skylark-friendly value, with no defensive conversion required.
  *
- * <p>An value is Skylark-friendly if its class (or a supertype) implements
- * {@link com.google.devtools.build.lib.skylarkinterface.SkylarkValue},
- * is annotated with {@link com.google.devtools.build.lib.skylarkinterface.SkylarkModule}, or is a
- * Skylark primitive like {@link String}.
+ * <p>An value is Skylark-friendly if its class (or a supertype) implements {@link
+ * com.google.devtools.build.lib.syntax.StarlarkValue}, is annotated with {@link
+ * com.google.devtools.build.lib.skylarkinterface.SkylarkModule}, or is a Skylark primitive like
+ * {@link String}.
  *
  * <p>Ideally, this class should not be needed, and all {@link ClassObject}s should only expose
  * Skylark-friendly values.

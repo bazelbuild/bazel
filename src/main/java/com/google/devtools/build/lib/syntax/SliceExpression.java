@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Syntax node for a slice expression, e.g. obj[:len(obj):2]. */
@@ -45,26 +44,6 @@ public final class SliceExpression extends Expression {
 
   public @Nullable Expression getStep() {
     return step;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    object.prettyPrint(buffer);
-    buffer.append('[');
-    // The first separator colon is unconditional. The second separator appears only if step is
-    // printed.
-    if (start != null) {
-      start.prettyPrint(buffer);
-    }
-    buffer.append(':');
-    if (end != null) {
-      end.prettyPrint(buffer);
-    }
-    if (step != null) {
-      buffer.append(':');
-      step.prettyPrint(buffer);
-    }
-    buffer.append(']');
   }
 
   @Override

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
@@ -229,11 +228,12 @@ public final class BazelPyRuleClasses {
           Whether to implicitly create empty __init__.py files in the runfiles tree.
           These are created in every directory containing Python source code or
           shared libraries, and every parent directory of those directories, excluding the repo root
-          directory. The default is true for backward compatibility. If false, the user is
+          directory. The default, auto, means true unless
+          <code>--incompatible_default_to_explicit_init_py</code> is used. If false, the user is
           responsible for creating (possibly empty) __init__.py files and adding them to the
           <code>srcs</code> of Python targets as required.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("legacy_create_init", BOOLEAN).value(true))
+          .add(attr("legacy_create_init", TRISTATE).value(TriState.AUTO))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -168,8 +168,8 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
         .isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
 
     @SuppressWarnings("unchecked")
-    SkylarkList<ConstraintSettingInfo> usedConstraints =
-        (SkylarkList<ConstraintSettingInfo>) info.getValue("used_constraints");
+    Sequence<ConstraintSettingInfo> usedConstraints =
+        (Sequence<ConstraintSettingInfo>) info.getValue("used_constraints");
     assertThat(usedConstraints).isNotNull();
     assertThat(usedConstraints)
         .containsExactly(

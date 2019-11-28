@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /**
  * Base class for all expression nodes in the AST.
@@ -45,18 +44,6 @@ public abstract class Expression extends Node {
     STRING_LITERAL,
     UNARY_OPERATOR,
   }
-
-  @Override
-  public final void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    prettyPrint(buffer);
-  }
-
-  /**
-   * Expressions should implement this method instead of {@link #prettyPrint(Appendable, int)},
-   * since the {@code indentLevel} argument is not needed.
-   */
-  @Override
-  public abstract void prettyPrint(Appendable buffer) throws IOException;
 
   /**
    * Kind of the expression. This is similar to using instanceof, except that it's more efficient

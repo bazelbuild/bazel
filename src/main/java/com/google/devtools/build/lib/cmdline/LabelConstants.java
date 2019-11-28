@@ -22,5 +22,7 @@ public class LabelConstants {
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
+  public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
+      PathFragment.create("WORKSPACE.bazel");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 }

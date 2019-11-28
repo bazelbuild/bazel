@@ -35,13 +35,11 @@ import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -142,12 +140,9 @@ public abstract class AbstractConfiguredTarget
         return getLabel();
       case RuleConfiguredTarget.ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
-        // java.util.List, which needs to be converted to SkylarkList before being returned.
+        // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
-        if (result != null) {
-          result = SkylarkType.convertToSkylark(result, (Mutability) null);
-        }
-        return result;
+        return result != null ? Starlark.fromJava(result, null) : null;
       default:
         return get(name);
     }
@@ -167,7 +162,7 @@ public abstract class AbstractConfiguredTarget
     }
     throw new EvalException(
         loc,
-        Printer.format(
+        Starlark.format(
             "%r%s doesn't contain declared provider '%s'",
             this,
             getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",
@@ -265,7 +260,7 @@ public abstract class AbstractConfiguredTarget
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<unknown target " + getLabel() + ">");
   }
 }

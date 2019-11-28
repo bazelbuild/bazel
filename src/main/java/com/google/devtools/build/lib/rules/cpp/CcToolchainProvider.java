@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -428,23 +428,23 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getAllFilesForStarlark() {
-    return SkylarkNestedSet.of(Artifact.class, getAllFiles());
+  public Depset getAllFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, getAllFiles());
   }
 
   @Override
-  public SkylarkNestedSet getStaticRuntimeLibForStarlark(
+  public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   @Override
-  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
+  public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -525,7 +525,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return libcLink;
     } else {
       return targetLibcLink;
@@ -696,7 +696,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
    * toolchain in rules.
    */
-  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas() {
+  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas() {
     return cppConfiguration;
   }
 
@@ -727,7 +727,7 @@ public final class CcToolchainProvider extends ToolchainInfo
    * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return builtinIncludeFiles;
     } else {
       return targetBuiltinIncludeFiles;
@@ -756,7 +756,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas())) {
+    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
       return sysroot;
     } else {
       return targetSysroot;
@@ -953,7 +953,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   public boolean requireCtxInConfigureFeatures() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas()
+    return getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
         .requireCtxInConfigureFeatures();
   }
 

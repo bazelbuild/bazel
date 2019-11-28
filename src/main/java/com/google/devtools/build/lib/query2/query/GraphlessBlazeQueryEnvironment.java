@@ -298,7 +298,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     if (errorObserver.hasErrors()) {
       reportBuildFileError(caller, "errors were encountered while computing transitive closure");
     }
-    throw new UnsupportedOperationException();
   }
 
   @Override

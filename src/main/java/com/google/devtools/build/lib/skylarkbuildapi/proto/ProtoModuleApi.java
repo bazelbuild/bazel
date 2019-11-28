@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Interface for protocol buffers support in Bazel.
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>"
             + "</p>")
-public interface ProtoModuleApi {
+public interface ProtoModuleApi extends StarlarkValue {
   @Deprecated
   @SkylarkCallable(
       name = "has_protoc_do_not_use_or_we_will_break_you_without_mercy",

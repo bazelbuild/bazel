@@ -814,14 +814,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-sh_test(
-    name = "maven_test",
-    size = "large",
-    srcs = ["maven_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
 # To run this test, ensure that maven_dependency_plugin() and
 # android_repositories() in WORKSPACE are uncommented.
 sh_test(
@@ -1216,5 +1208,12 @@ sh_test(
         ":test-deps",
         "//src/main/res:srcs_for_testing",
     ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "unicode_filenames_test",
+    srcs = ["unicode_filenames_test.sh"],
+    data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

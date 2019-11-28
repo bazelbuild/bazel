@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -90,8 +91,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -409,6 +408,7 @@ public class FileFunctionTest {
     assertThat(seenFiles)
         .containsExactly(
             rootedPath("WORKSPACE"),
+            rootedPath("WORKSPACE.bazel"),
             rootedPath("a"),
             rootedPath(""),
             RootedPath.toRootedPath(root, PathFragment.create("/")),
@@ -538,8 +538,7 @@ public class FileFunctionTest {
 
   @Test
   public void testUnreadableFileWithFastDigest() throws Exception {
-    final byte[] expectedDigest =
-        MessageDigest.getInstance("md5").digest("blah".getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedDigest = {1, 2, 3, 4};
 
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
@@ -1475,6 +1474,22 @@ public class FileFunctionTest {
             rootedPath("g/f"),
             rootedPath("h"))
         .inOrder();
+  }
+
+  @Test
+  public void testFileAccessException() throws Exception {
+    Path foo = file("foo");
+    FileAccessException fae = new FileAccessException("nope");
+    fs.stubStatError(foo, fae);
+    SkyKey skyKey = skyKey("foo");
+    BuildDriver driver = makeDriver();
+    EvaluationResult<FileValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfoSubject errorInfoSubject =
+        assertThatEvaluationResult(result).hasErrorEntryForKeyThat(skyKey);
+    errorInfoSubject.isTransient();
+    errorInfoSubject.hasExceptionThat().isSameInstanceAs(fae);
   }
 
   /**

@@ -18,9 +18,11 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -174,6 +176,11 @@ public class SpawnActionContextMapsTest {
     @Override
     public TestResult newCachedTestResult(
         Path execRoot, TestRunnerAction action, TestResultData cached) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shard) {
       throw new UnsupportedOperationException();
     }
   }

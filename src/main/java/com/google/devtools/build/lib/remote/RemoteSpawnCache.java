@@ -45,7 +45,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -74,7 +75,7 @@ final class RemoteSpawnCache implements SpawnCache {
   private final Path execRoot;
   private final RemoteOptions options;
 
-  private final AbstractRemoteActionCache remoteCache;
+  private final RemoteCache remoteCache;
   private final String buildRequestId;
   private final String commandId;
 
@@ -93,7 +94,7 @@ final class RemoteSpawnCache implements SpawnCache {
   RemoteSpawnCache(
       Path execRoot,
       RemoteOptions options,
-      AbstractRemoteActionCache remoteCache,
+      RemoteCache remoteCache,
       String buildRequestId,
       String commandId,
       @Nullable Reporter cmdlineReporter,
@@ -134,7 +135,11 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Command command =
         RemoteSpawnRunner.buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            platform,
+            /* workingDirectory= */ null);
     RemoteOutputsMode remoteOutputsMode = options.remoteOutputsMode;
     Action action =
         RemoteSpawnRunner.buildAction(
@@ -152,7 +157,7 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         ActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          result = remoteCache.getCachedActionResult(actionKey);
+          result = remoteCache.downloadActionResult(actionKey);
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss

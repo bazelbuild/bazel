@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -105,7 +105,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     }
     this.directoryDigest = digest;
 
-    if (result == Runtime.NONE) {
+    if (result == Starlark.NONE) {
       // Rule claims to be already reproducible, so wants to be called as is.
       builder.put(
           REPOSITORIES,

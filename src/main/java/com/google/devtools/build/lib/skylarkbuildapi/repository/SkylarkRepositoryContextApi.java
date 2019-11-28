@@ -22,9 +22,10 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -34,9 +35,9 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
         "The context of the repository rule containing"
             + " helper functions and information about attributes. You get a repository_ctx object"
             + " as an argument to the <code>implementation</code> function when you create a"
-            + " repository rule."
-)
-public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable> {
+            + " repository rule.")
+public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "name",
@@ -179,7 +180,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc = "path to the template file."),
         @Param(
             name = "substitutions",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "substitutions to make when expanding the template."),
@@ -193,7 +194,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      Dict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -234,7 +235,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       parameters = {
         @Param(
             name = "arguments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "List of arguments, the first element should be the path to the program to "
                     + "execute."),
@@ -246,7 +247,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             doc = "maximum duration of the command in seconds (default is 600 seconds)."),
         @Param(
             name = "environment",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "force some environment variables to be set to be passed to the process."),
@@ -266,9 +267,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + "Can be relative to the repository root or absolute."),
       })
   public SkylarkExecutionResultApi execute(
-      SkylarkList<Object> arguments,
+      Sequence<?> arguments,
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      Dict<?, ?> environment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
       Location location)
@@ -402,7 +403,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " with the same canonical id"),
         @Param(
             name = "auth",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
@@ -426,7 +427,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      Dict<?, ?> auth, // <String, Dict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
@@ -557,7 +558,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " with the same canonical id"),
         @Param(
             name = "auth",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
@@ -582,7 +583,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      Dict<?, ?> auth, // <String, Dict<?, ?>> expected
       String integrity,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;

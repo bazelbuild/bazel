@@ -33,11 +33,12 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Map;
@@ -185,12 +186,26 @@ public abstract class ConstraintCollection
       return true;
     }
 
-    // Then, check the parent, directly to ignore defaults.
+    // Then, check the parent.
     if (parent() != null) {
       return parent().has(constraint);
     }
 
     return constraint.hasDefaultConstraintValue();
+  }
+
+  public boolean hasWithoutDefault(ConstraintSettingInfo constraint) {
+    // First, check locally.
+    if (constraints().containsKey(constraint)) {
+      return true;
+    }
+
+    // Then, check the parent, directly to ignore defaults.
+    if (parent() != null) {
+      return parent().hasWithoutDefault(constraint);
+    }
+
+    return false;
   }
 
   /**
@@ -215,8 +230,8 @@ public abstract class ConstraintCollection
   }
 
   @Override
-  public SkylarkList<ConstraintSettingInfo> constraintSettings() {
-    return SkylarkList.createImmutable(constraints().keySet());
+  public Sequence<ConstraintSettingInfo> constraintSettings() {
+    return StarlarkList.immutableCopyOf(constraints().keySet());
   }
 
   @Override
@@ -234,11 +249,11 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Printer.str(this);
+    return Starlark.str(this);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");

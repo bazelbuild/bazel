@@ -15,35 +15,57 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.python.PythonVersion;
+import com.google.devtools.build.lib.rules.python.PythonVersionTransition;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
-/**
- * Static utilities for managing output directory symlinks.
- */
-public class OutputDirectoryLinksUtils {
-  static interface SymlinkDefinition {
+/** Static utilities for managing output directory symlinks. */
+public final class OutputDirectoryLinksUtils {
+
+  // Static utilities class.
+  private OutputDirectoryLinksUtils() {}
+
+  /** Represents a single kind of convenience symlink ({@code bazel-bin}, etc.). */
+  interface SymlinkDefinition {
+    /**
+     * Returns the name for this symlink in the workspace.
+     *
+     * <p>Note that this is independent of the target configuration(s) that may help determine the
+     * symlink's destination.
+     */
     String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName);
 
-    Optional<Path> getLinkPath(
+    /**
+     * Returns a list of candidate destination paths for the symlink.
+     *
+     * <p>The symlink should only be created if there is exactly one candidate.
+     *
+     * <p>{@code configGetter} is used to compute derived configurations, if needed. It is used for
+     * symlinks that link to the output directories of configs that are related to, but not included
+     * in, {@code targetConfigs}.
+     */
+    Set<Path> getLinkPaths(
         Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot);
@@ -69,28 +91,20 @@ public class OutputDirectoryLinksUtils {
     }
 
     @Override
-    public Optional<Path> getLinkPath(
+    public Set<Path> getLinkPaths(
         Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
-      Set<Path> paths =
-          targetConfigs
-              .stream()
-              .map(config -> configToRoot.apply(config, repositoryName))
-              .map(ArtifactRoot::getRoot)
-              .map(Root::asPath)
-              .distinct()
-              .collect(toImmutableSet());
-      if (paths.size() == 1) {
-        return Optional.of(Iterables.getOnlyElement(paths));
-      } else {
-        return Optional.empty();
-      }
+      return targetConfigs.stream()
+          .map(config -> configToRoot.apply(config, repositoryName).getRoot().asPath())
+          .distinct()
+          .collect(toImmutableSet());
     }
   }
 
-  private static enum ExecRootSymlink implements SymlinkDefinition {
+  private enum ExecRootSymlink implements SymlinkDefinition {
     INSTANCE;
 
     @Override
@@ -99,16 +113,17 @@ public class OutputDirectoryLinksUtils {
     }
 
     @Override
-    public Optional<Path> getLinkPath(
+    public Set<Path> getLinkPaths(
         Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
-      return Optional.of(execRoot);
+      return ImmutableSet.of(execRoot);
     }
   }
 
-  private static enum OutputSymlink implements SymlinkDefinition {
+  private enum OutputSymlink implements SymlinkDefinition {
     PRODUCT_NAME {
       @Override
       public String getLinkName(
@@ -127,35 +142,79 @@ public class OutputDirectoryLinksUtils {
     };
 
     @Override
-    public Optional<Path> getLinkPath(
+    public Set<Path> getLinkPaths(
         Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
-      return Optional.of(outputPath);
+      return ImmutableSet.of(outputPath);
     }
   }
 
-  // Links to create, delete, and use for pretty-printing.
-  // Note that the order in which items appear in this list controls priority for getPrettyPath.
-  // It will try each link as a prefix from first to last.
-  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS_WITH_GENFILES =
-      ImmutableList.of(
-          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
-          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
-          new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory),
-          OutputSymlink.PRODUCT_NAME,
-          OutputSymlink.SYMLINK_PREFIX,
-          ExecRootSymlink.INSTANCE);
+  private enum PyBinSymlink implements SymlinkDefinition {
+    PY2(PythonVersion.PY2),
+    PY3(PythonVersion.PY3);
 
-  // The genfiles symlink will be removed in the future.
-  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS_WITHOUT_GENFILES =
-      ImmutableList.of(
-          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
-          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
-          OutputSymlink.PRODUCT_NAME,
-          OutputSymlink.SYMLINK_PREFIX,
-          ExecRootSymlink.INSTANCE);
+    private final String versionString;
+    private final PythonVersionTransition transition;
+
+    private PyBinSymlink(PythonVersion version) {
+      this.versionString = Ascii.toLowerCase(version.toString());
+      this.transition = PythonVersionTransition.toConstant(version);
+    }
+
+    @Override
+    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+      return symlinkPrefix + versionString + "-bin";
+    }
+
+    @Override
+    public Set<Path> getLinkPaths(
+        Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      return targetConfigs.stream()
+          .map(config -> configGetter.apply(transition.patch(config.getOptions())))
+          .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
+          .distinct()
+          .collect(toImmutableSet());
+    }
+  }
+
+  /**
+   * Returns the (types of) convenience symlinks that should be created for the given options.
+   *
+   * <p>The result is always a subset of {@link #getAllLinkDefinitions}.
+   */
+  private static ImmutableList<SymlinkDefinition> getLinkDefinitions(
+      boolean includeGenfiles, boolean includePyBin) {
+    // The order of this list controls priority for PathPrettyPrinter#getPrettyPath.
+    ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
+    builder.add(new ConfigSymlink("bin", BuildConfiguration::getBinDirectory));
+    if (includePyBin) {
+      builder.add(PyBinSymlink.PY2);
+      builder.add(PyBinSymlink.PY3);
+    }
+    builder.add(new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory));
+    if (includeGenfiles) {
+      builder.add(new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory));
+    }
+    builder.add(OutputSymlink.PRODUCT_NAME);
+    builder.add(OutputSymlink.SYMLINK_PREFIX);
+    builder.add(ExecRootSymlink.INSTANCE);
+    return builder.build();
+  }
+
+  /**
+   * Returns all (types of) convenience symlinks that may be created, independent of which ones are
+   * actually requested by the build options.
+   */
+  private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions() {
+    return getLinkDefinitions(/*includeGenfiles=*/ true, /*includePyBin=*/ true);
+  }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
@@ -185,34 +244,43 @@ public class OutputDirectoryLinksUtils {
       Path outputPath,
       EventHandler eventHandler,
       Set<BuildConfiguration> targetConfigs,
+      Function<BuildOptions, BuildConfiguration> configGetter,
       String symlinkPrefix,
       String productName,
-      boolean createGenfilesSymlink) {
+      boolean createGenfilesSymlink,
+      boolean createPyBinSymlinks) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
 
     List<String> failures = new ArrayList<>();
-    List<String> missingLinks = new ArrayList<>();
+    List<String> ambiguousLinks = new ArrayList<>();
     Set<String> createdLinks = new LinkedHashSet<>();
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
     List<SymlinkDefinition> defs =
-        createGenfilesSymlink ? LINK_DEFINITIONS_WITH_GENFILES : LINK_DEFINITIONS_WITHOUT_GENFILES;
+        getLinkDefinitions(
+            /*includeGenfiles=*/ createGenfilesSymlink, /*includePyBin=*/ createPyBinSymlinks);
     for (SymlinkDefinition definition : defs) {
       String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(symlinkName)) {
         // already created a link by this name
         continue;
       }
-      Optional<Path> result =
-          definition.getLinkPath(targetConfigs, repositoryName, outputPath, execRoot);
-      if (result.isPresent()) {
-        createLink(workspace, symlinkName, result.get(), failures);
+      Set<Path> candidatePaths =
+          definition.getLinkPaths(
+              targetConfigs, configGetter, repositoryName, outputPath, execRoot);
+      if (candidatePaths.size() == 1) {
+        createLink(workspace, symlinkName, Iterables.getOnlyElement(candidatePaths), failures);
       } else {
         removeLink(workspace, symlinkName, failures);
-        missingLinks.add(symlinkName);
+        // candidatePaths can be empty if the symlink decided not to be created. This can happen if,
+        // say, py2-bin is enabled but there's an error producing the py2 configuration. In that
+        // case, don't trigger a warning about an ambiguous link.
+        if (candidatePaths.size() > 1) {
+          ambiguousLinks.add(symlinkName);
+        }
       }
     }
 
@@ -221,23 +289,19 @@ public class OutputDirectoryLinksUtils {
           "failed to create one or more convenience symlinks for prefix '%s':\n  %s",
           symlinkPrefix, Joiner.on("\n  ").join(failures))));
     }
-    if (!missingLinks.isEmpty()) {
+    if (!ambiguousLinks.isEmpty()) {
       eventHandler.handle(
           Event.warn(
               String.format(
                   "cleared convenience symlink(s) %s because their destinations would be ambiguous",
-                  Joiner.on(", ").join(missingLinks))));
+                  Joiner.on(", ").join(ambiguousLinks))));
     }
   }
 
   public static PathPrettyPrinter getPathPrettyPrinter(
       String symlinkPrefix, String productName, Path workspaceDirectory, Path workingDirectory) {
     return new PathPrettyPrinter(
-        LINK_DEFINITIONS_WITH_GENFILES,
-        symlinkPrefix,
-        productName,
-        workspaceDirectory,
-        workingDirectory);
+        getAllLinkDefinitions(), symlinkPrefix, productName, workspaceDirectory, workingDirectory);
   }
 
   /**
@@ -259,7 +323,7 @@ public class OutputDirectoryLinksUtils {
     List<String> failures = new ArrayList<>();
 
     String workspaceBaseName = workspace.getBaseName();
-    for (SymlinkDefinition link : LINK_DEFINITIONS_WITH_GENFILES) {
+    for (SymlinkDefinition link : getAllLinkDefinitions()) {
       removeLink(
           workspace, link.getLinkName(symlinkPrefix, productName, workspaceBaseName), failures);
     }

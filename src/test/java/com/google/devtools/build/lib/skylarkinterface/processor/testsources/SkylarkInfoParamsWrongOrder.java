@@ -18,12 +18,13 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which specifies skylark-info parameters in the incorrect
  * relative order.
  */
-public class SkylarkInfoParamsWrongOrder {
+public class SkylarkInfoParamsWrongOrder implements StarlarkValue {
 
   @SkylarkCallable(
       name = "skylark_info_params_wrong_order",

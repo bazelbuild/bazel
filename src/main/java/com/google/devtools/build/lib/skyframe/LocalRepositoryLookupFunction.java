@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,12 +91,10 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
   private Optional<Boolean> maybeGetWorkspaceFileExistence(Environment env, RootedPath directory)
       throws InterruptedException, LocalRepositoryLookupFunctionException {
     try {
-      RootedPath workspaceRootedFile =
-          RootedPath.toRootedPath(
-              directory.getRoot(),
-              directory
-                  .getRootRelativePath()
-                  .getRelative(BuildFileName.WORKSPACE.getFilenameFragment()));
+      RootedPath workspaceRootedFile = WorkspaceFileHelper.getWorkspaceRootedFile(directory, env);
+      if (workspaceRootedFile == null) {
+        return Optional.absent();
+      }
       FileValue workspaceFileValue =
           (FileValue) env.getValueOrThrow(FileValue.key(workspaceRootedFile), IOException.class);
       if (workspaceFileValue == null) {
@@ -197,7 +195,9 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
       // Find all local_repository rules in the WORKSPACE, and check if any have a "path" attribute
       // the same as the requested directory.
       Iterable<Rule> localRepositories =
-          externalPackage.getRulesMatchingRuleClass(LocalRepositoryRule.NAME);
+          Iterables.filter(
+              externalPackage.getTargets(Rule.class),
+              rule -> LocalRepositoryRule.NAME.equals(rule.getRuleClass()));
       Rule rule =
           Iterables.find(
               localRepositories,

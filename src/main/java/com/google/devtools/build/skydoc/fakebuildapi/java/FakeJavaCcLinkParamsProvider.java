@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link JavaCcLinkParamsProvider}. */
 public class FakeJavaCcLinkParamsProvider implements JavaCcLinkParamsProviderApi<CcInfoApi> {
@@ -36,6 +36,6 @@ public class FakeJavaCcLinkParamsProvider implements JavaCcLinkParamsProviderApi
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

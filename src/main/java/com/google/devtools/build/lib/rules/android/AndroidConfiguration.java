@@ -213,16 +213,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {
       if (ruleContext.isLegalFragment(AndroidConfiguration.class)) {
+        AndroidDataContext dataContext = AndroidDataContext.makeContext(ruleContext);
 
         if (ruleContext.getRule().isAttrDefined("aapt_version", STRING)) {
           // On rules that can choose a version, verify attribute and flag.
           return chooseTargetAaptVersion(
-              AndroidDataContext.makeContext(ruleContext),
-              ruleContext,
-              ruleContext.attributes().get("aapt_version", STRING));
+              dataContext, ruleContext, ruleContext.attributes().get("aapt_version", STRING));
         } else {
           // On rules that can't choose, assume aapt2 if aapt2 is present in the sdk.
           // This ensures that non-leaf nodes (e.g. android_library) will generate aapt2 actions.
+          if (dataContext.getAndroidConfig().incompatibleProhibitAapt1) {
+            verifySdkHasAapt2(dataContext, ruleContext);
+            return AAPT2;
+          }
           return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null ? AAPT2 : AAPT;
         }
       }
@@ -232,7 +235,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     /**
      * Select the aapt version for resource processing actions.
      *
-     * <p>Order of precedence:
+     * <p>If --incompatible_prohibit_aapt1 is active, and the rule specifies the {@code
+     * aapt_version} attribute, this will fail.
+     *
+     * <p>Otherwise, order of precedence:
      * <li>1. --android_aapt flag
      * <li>2. 'aapt_version' attribute on target
      *
@@ -250,6 +256,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         @Nullable String attributeString)
         throws RuleErrorException {
 
+      if (dataContext.getAndroidConfig().incompatibleProhibitAapt1) {
+        verifySdkHasAapt2(dataContext, errorConsumer);
+
+        if (!"auto".equals(attributeString)) {
+          throw errorConsumer.throwWithAttributeError(
+              "aapt_version", "Attribute is no longer supported");
+        }
+        return AAPT2;
+      }
+
       boolean hasAapt2 = dataContext.getSdk().getAapt2() != null;
       AndroidAaptVersion flag = dataContext.getAndroidConfig().getAndroidAaptVersion();
       AndroidAaptVersion attribute = AndroidAaptVersion.fromString(attributeString);
@@ -266,6 +282,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       }
 
       return version;
+    }
+
+    private static void verifySdkHasAapt2(
+        AndroidDataContext dataContext, RuleErrorConsumer errorConsumer) throws RuleErrorException {
+      if (dataContext.getSdk().getAapt2() == null) {
+        throw errorConsumer.throwWithRuleError("aapt2 not available from the android_sdk");
+      }
     }
   }
 
@@ -907,19 +930,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean persistentBusyboxTools;
 
     @Option(
-        name = "incompatible_use_aapt2_by_default",
+        name = "incompatible_prohibit_aapt1",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
-        defaultValue = "true",
+        defaultValue = "false",
         help =
-            "Switch the Android rules to use aapt2 by default for resource processing. "
+            "End support for aapt in Android rules. "
                 + "To resolve issues when migrating your app to build with aapt2, see "
                 + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
-    public boolean incompatibleUseAapt2ByDefault;
+    public boolean incompatibleProhibitAapt1;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -991,6 +1014,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
 
+      host.incompatibleProhibitAapt1 = incompatibleProhibitAapt1;
+
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
       return host;
@@ -1060,7 +1085,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useRTxtFromMergedResources;
 
   // Incompatible changes
-  private final boolean incompatibleUseAapt2ByDefault;
+  private final boolean incompatibleProhibitAapt1;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1108,7 +1133,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
-    this.incompatibleUseAapt2ByDefault = options.incompatibleUseAapt2ByDefault;
+    this.incompatibleProhibitAapt1 = options.incompatibleProhibitAapt1;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
@@ -1116,19 +1141,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
 
-    // Make the value of --android_aapt aapt2 if --incompatible_use_aapt2_by_default is enabled
-    // and --android_aapt = AUTO
-    //
-    // We use the --incompatible_use_aapt2_by_default flag to signal a breaking change in Bazel.
+    // We use the --incompatible_prohibit_aapt1 flag to signal a breaking change in Bazel.
     // This is required by the Bazel Incompatible Changes policy.
-    //
-    // TODO(jingwen): We can remove the incompatible change flag only when the depot migration is
-    // complete and the default value of --android_aapt is switched from `auto` to `aapt2`.
-    if (options.incompatibleUseAapt2ByDefault
-        && options.androidAaptVersion == AndroidAaptVersion.AUTO) {
+    if (incompatibleProhibitAapt1) {
+      if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
+        throw new InvalidConfigurationException(
+            "--android_aapt is no longer available for setting aapt version to aapt");
+      }
       this.androidAaptVersion = AndroidAaptVersion.AAPT2;
     } else {
-      this.androidAaptVersion = options.androidAaptVersion;
+      if (options.androidAaptVersion == AndroidAaptVersion.AUTO) {
+        this.androidAaptVersion = AndroidAaptVersion.AAPT2;
+      } else {
+        this.androidAaptVersion = options.androidAaptVersion;
+      }
     }
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1356,10 +1382,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return persistentBusyboxTools;
   }
 
-  public boolean incompatibleChangeUseAapt2ByDefault() {
-    return incompatibleUseAapt2ByDefault;
-  }
-
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
@@ -1383,5 +1405,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  boolean incompatibleProhibitAapt1() {
+    return incompatibleProhibitAapt1;
   }
 }

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -33,13 +32,6 @@ public final class DotExpression extends Expression {
 
   public Identifier getField() {
     return field;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    object.prettyPrint(buffer);
-    buffer.append('.');
-    field.prettyPrint(buffer);
   }
 
   @Override

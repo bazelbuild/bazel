@@ -95,7 +95,7 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor() throws Exception {
-    eval(
+    exec(
         "info = PyInfo(",
         "    transitive_sources = depset(direct=[dummy_file]),",
         "    uses_shared_libraries = True,",
@@ -116,7 +116,7 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructorDefaults() throws Exception {
-    eval("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
+    exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
     PyInfo info = (PyInfo) lookup("info");
     assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
     assertHasOrderAndContainsExactly(

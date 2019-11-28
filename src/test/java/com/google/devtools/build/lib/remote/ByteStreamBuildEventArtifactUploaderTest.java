@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -58,10 +59,12 @@ import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -260,6 +263,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     ExecutionException e =
         assertThrows(ExecutionException.class, () -> artifactUploader.upload(filesToUpload).get());
+    // The gRPC library uses StatusRuntimeException to raise errors. However, throughout the Bazel
+    // codebase runtime exceptions are considered bugs. This test ensures that a SRE is converted
+    // to a checked exception type.
+    assertThat(e.getCause()).isInstanceOf(IOException.class);
+    assertThat(e.getCause().getCause()).isInstanceOf(StatusRuntimeException.class);
     assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
 
     artifactUploader.shutdown();

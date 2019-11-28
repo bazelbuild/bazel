@@ -15,13 +15,19 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,5 +53,53 @@ public final class SymlinkTreeHelperTest {
     assertThat(commandLine[0]).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
     assertThat(commandLine[1]).isEqualTo("input_manifest");
     assertThat(commandLine[2]).isEqualTo("output/MANIFEST");
+  }
+
+  @Test
+  public void readManifest() throws Exception {
+    Path execRoot = fs.getPath("/my/workspace");
+    execRoot.createDirectoryAndParents();
+    Path inputManifestPath = execRoot.getRelative("input_manifest");
+    FileSystemUtils.writeContentAsLatin1(inputManifestPath, "from to\nmetadata");
+    Map<PathFragment, PathFragment> symlinks =
+        SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifestPath);
+    assertThat(symlinks).containsExactly(PathFragment.create("from"), PathFragment.create("to"));
+  }
+
+  @Test
+  public void readMultilineManifest() throws Exception {
+    Path execRoot = fs.getPath("/my/workspace");
+    execRoot.createDirectoryAndParents();
+    Path inputManifestPath = execRoot.getRelative("input_manifest");
+    FileSystemUtils.writeContentAsLatin1(
+        inputManifestPath, "from to\nmetadata\n/foo /bar\nmetadata");
+    Map<PathFragment, PathFragment> symlinks =
+        SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifestPath);
+    assertThat(symlinks)
+        .containsExactly(
+            PathFragment.create("from"),
+            PathFragment.create("to"),
+            PathFragment.create("/foo"),
+            PathFragment.create("/bar"));
+  }
+
+  @Test
+  public void readCorruptManifest() throws Exception {
+    Path execRoot = fs.getPath("/my/workspace");
+    execRoot.createDirectoryAndParents();
+    Path inputManifestPath = execRoot.getRelative("input_manifest");
+    FileSystemUtils.writeContentAsLatin1(inputManifestPath, "from to");
+    assertThrows(
+        IOException.class,
+        () -> SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifestPath));
+  }
+
+  @Test
+  public void readNonExistentManifestFails() {
+    Path execRoot = fs.getPath("/my/workspace");
+    Path inputManifestPath = execRoot.getRelative("input_manifest");
+    assertThrows(
+        FileNotFoundException.class,
+        () -> SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifestPath));
   }
 }

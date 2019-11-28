@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -96,6 +98,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * This class manages the execution phase. The entry point is {@link #executeBuild}.
@@ -249,35 +252,7 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    // Create convenience symlinks from the configurations actually used by the requested targets.
-    // Symlinks will be created if all such configurations would point the symlink to the same path;
-    // if this does not hold, stale symlinks (if present from a previous invocation) will be
-    // deleted instead.
-    Set<BuildConfiguration> targetConfigurations =
-        request.getBuildOptions().useTopLevelTargetsForSymlinks()
-            ? analysisResult.getTargetsToBuild().stream()
-                .map(ConfiguredTarget::getConfigurationKey)
-                .filter(configuration -> configuration != null)
-                .distinct()
-                .map((key) -> env.getSkyframeExecutor().getConfiguration(env.getReporter(), key))
-                .collect(toImmutableSet())
-            : ImmutableSet.copyOf(
-                analysisResult.getConfigurationCollection().getTargetConfigurations());
-    String productName = runtime.getProductName();
-    String workspaceName = env.getWorkspaceName();
-    try (SilentCloseable c =
-        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
-      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          workspaceName,
-          env.getWorkspace(),
-          env.getDirectories().getExecRoot(workspaceName),
-          env.getDirectories().getOutputPath(workspaceName),
-          getReporter(),
-          targetConfigurations,
-          request.getBuildOptions().getSymlinkPrefix(productName),
-          productName,
-          !request.getBuildOptions().incompatibleSkipGenfilesSymlink);
-    }
+    createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
 
     ActionCache actionCache = getActionCache();
     actionCache.resetStatistics();
@@ -468,6 +443,75 @@ public class ExecutionTool {
       FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {
       throw new ExecutorInitException("Couldn't delete action output directory", e);
+    }
+  }
+
+  /**
+   * Obtains the {@link BuildConfiguration} for a given {@link BuildOptions} for the purpose of
+   * symlink creation.
+   *
+   * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
+   * returned.
+   */
+  @Nullable
+  private static BuildConfiguration getConfiguration(
+      SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
+    try {
+      return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
+    } catch (InvalidConfigurationException e) {
+      reporter.handle(
+          Event.warn(
+              "Couldn't get configuration for convenience symlink creation: " + e.getMessage()));
+      return null;
+    }
+  }
+
+  /**
+   * Creates convenience symlinks based on the target configurations.
+   *
+   * <p>Exactly what target configurations we consider depends on the value of {@code
+   * --use_top_level_targets_for_symlinks}. If this flag is false, we use the top-level target
+   * configuration as represented by the command line prior to processing any target. If the flag is
+   * true, we instead use the configurations OF the top-level targets -- meaning that we account for
+   * the effects of any rule transitions these targets may have.
+   *
+   * <p>For each type of convenience symlink, if all the considered configurations agree on what
+   * path the symlink should point to, it gets created; otherwise, the symlink is not created, and
+   * in fact gets removed if it was already present from a previous invocation.
+   */
+  private void createConvenienceSymlinks(
+      BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
+    SkyframeExecutor executor = env.getSkyframeExecutor();
+    Reporter reporter = env.getReporter();
+
+    // Gather configurations to consider.
+    Set<BuildConfiguration> targetConfigurations =
+        buildRequestOptions.useTopLevelTargetsForSymlinks()
+            ? analysisResult.getTargetsToBuild().stream()
+                .map(ConfiguredTarget::getConfigurationKey)
+                .filter(configuration -> configuration != null)
+                .distinct()
+                .map((key) -> executor.getConfiguration(reporter, key))
+                .collect(toImmutableSet())
+            : ImmutableSet.copyOf(
+                analysisResult.getConfigurationCollection().getTargetConfigurations());
+
+    String productName = runtime.getProductName();
+    String workspaceName = env.getWorkspaceName();
+    try (SilentCloseable c =
+        Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
+      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          workspaceName,
+          env.getWorkspace(),
+          env.getDirectories().getExecRoot(workspaceName),
+          env.getDirectories().getOutputPath(workspaceName),
+          getReporter(),
+          targetConfigurations,
+          options -> getConfiguration(executor, reporter, options),
+          buildRequestOptions.getSymlinkPrefix(productName),
+          productName,
+          !buildRequestOptions.incompatibleSkipGenfilesSymlink,
+          buildRequestOptions.experimentalCreatePyBinSymlinks);
     }
   }
 

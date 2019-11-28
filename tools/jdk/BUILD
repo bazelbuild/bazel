@@ -242,16 +242,6 @@ remote_java_tools_filegroup(
     target = ":java_tools/Runner_deploy.jar",
 )
 
-remote_java_tools_java_import(
-    name = "ExperimentalTestRunner",
-    target = ":java_tools/ExperimentalRunner_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "ExperimentalRunner_deploy.jar",
-    target = ":java_tools/ExperimentalRunner_deploy.jar",
-)
-
 alias(
     name = "proguard",
     actual = select({
@@ -428,7 +418,7 @@ py_binary(
         "proguard_whitelister.py",
     ],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 

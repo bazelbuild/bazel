@@ -524,4 +524,73 @@ EOF
   expect_log "Public or private visibility labels (e.g. //visibility:public or //visibility:private) cannot be used in combination with other labels"
 }
 
+function test_executable_without_default_files() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+load(":rules.bzl", "bin_rule", "out_rule")
+bin_rule(name = "hello_bin")
+out_rule(name = "hello_out")
+
+genrule(
+    name = "hello_gen",
+    tools = [":hello_bin"],
+    outs = ["hello_gen.txt"],
+    cmd = "$(location :hello_bin) $@",
+)
+EOF
+
+  # On Windows this file needs to be acceptable by CreateProcessW(), rather
+  # than a Bourne script.
+  if "$is_windows"; then
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".bat"
+_SCRIPT_CONTENT = "@ECHO OFF\necho hello world > %1"
+EOF
+  else
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".sh"
+_SCRIPT_CONTENT = "#!/bin/sh\necho 'hello world' > $@"
+EOF
+  fi
+
+  cat >>pkg/rules.bzl <<'EOF'
+def _bin_rule(ctx):
+    out_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
+    ctx.actions.write(
+        output = out_sh,
+        content = _SCRIPT_CONTENT,
+        is_executable = True,
+    )
+    return DefaultInfo(
+        files = depset(direct = []),
+        executable = out_sh,
+    )
+
+def _out_rule(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.run(
+        executable = ctx.executable._hello_bin,
+        outputs = [out],
+        arguments = [out.path],
+        mnemonic = "HelloOut",
+    )
+    return DefaultInfo(
+        files = depset(direct = [out]),
+    )
+
+bin_rule = rule(_bin_rule, executable = True)
+out_rule = rule(_out_rule, attrs = {
+    "_hello_bin": attr.label(
+        default = ":hello_bin",
+        executable = True,
+        cfg = "host",
+    ),
+})
+EOF
+
+  bazel build //pkg:hello_out //pkg:hello_gen >$TEST_log 2>&1 || fail "Should build"
+  assert_contains "hello world" bazel-bin/pkg/hello_out.txt
+  assert_contains "hello world" bazel-bin/pkg/hello_gen.txt
+}
+
 run_suite "rules test"

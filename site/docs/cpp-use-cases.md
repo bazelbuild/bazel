@@ -91,8 +91,8 @@ directory structure:
 
 Bazel will expect `some_lib.h` to be included as
 `legacy/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
-`"include/some_lib.h"`.  To make that include path valid,
-`legacy/some_lib/BUILD` will need to specify that the `some_lib/`
+`"some_lib.h"`.  To make that include path valid,
+`legacy/some_lib/BUILD` will need to specify that the `some_lib/include`
 directory is an include directory:
 
 ```python

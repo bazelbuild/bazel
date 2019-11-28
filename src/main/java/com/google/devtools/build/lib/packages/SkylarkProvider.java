@@ -21,8 +21,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkInfo.Layout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import java.util.Objects;
@@ -44,10 +47,12 @@ import javax.annotation.Nullable;
  * pre-exported provider directly. Exported providers use only their key for {@link #equals} and
  * {@link #hashCode}.
  */
-public class SkylarkProvider extends ProviderFromFunction implements SkylarkExportable {
+public final class SkylarkProvider extends BaseFunction implements SkylarkExportable, Provider {
 
   /** Default value for {@link #errorMessageFormatForUnknownField}. */
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
+
+  private final Location location;
 
   /**
    * For schemaful providers, a layout describing the allowed fields and their order in an
@@ -124,9 +129,8 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    */
   private SkylarkProvider(
       @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
-    // We override getName() in order to use the name that is assigned when export() is called.
-    // Hence BaseFunction's constructor gets a null name.
-    super(/*name=*/ null, buildSignature(fields), location);
+    super(buildSignature(fields), /*defaultValues=*/ null);
+    this.location = location;
     this.layout = fields == null ? null : new Layout(fields);
     this.key = key;  // possibly null
     this.errorMessageFormatForUnknownField =
@@ -141,8 +145,9 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   }
 
   @Override
-  protected SkylarkInfo createInstanceFromSkylark(
-      Object[] args, StarlarkThread thread, Location loc) {
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
     if (layout == null) {
       @SuppressWarnings("unchecked")
       Map<String, Object> kwargs = (Map<String, Object>) args[0];
@@ -151,6 +156,11 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
       // Note: This depends on the layout map using the same ordering as args.
       return SkylarkInfo.createSchemaful(this, layout, args, loc);
     }
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
   }
 
   @Override
@@ -240,7 +250,7 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<provider>");
   }
 

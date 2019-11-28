@@ -17,11 +17,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ParsedAndroidAssetsApi;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Parsed Android assets which can be merged together with assets from dependencies. */
 public class ParsedAndroidAssets extends AndroidAssets implements ParsedAndroidAssetsApi {
+
+  public static final SkylarkType TYPE = SkylarkType.of(ParsedAndroidAssets.class);
+
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;

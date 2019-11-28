@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
@@ -47,7 +46,7 @@ public class CountingArtifactGroupNamer implements ArtifactGroupNamer {
    * If the {@link NestedSetView} has no name already, return a new name for it. Return null
    * otherwise.
    */
-  public synchronized String maybeName(NestedSetView<Artifact> view) {
+  public synchronized String maybeName(NestedSetView<?> view) {
     if (reportedArtifactNames.containsKey(view.identifier())) {
       return null;
     }

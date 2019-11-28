@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.skylark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -29,6 +30,8 @@ public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
   private final Method method;
   private final SkylarkCallable callable;
   private final ImmutableList<SkylarkParamDoc> params;
+  // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
+  private final boolean deprecated;
 
   public SkylarkConstructorMethodDoc(
       String fullyQualifiedName, Method method, SkylarkCallable callable) {
@@ -41,6 +44,12 @@ public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
             callable.extraKeywords());
+    this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
+  }
+
+  @Override
+  public boolean isDeprecated() {
+    return deprecated;
   }
 
   public Method getMethod() {

@@ -32,11 +32,12 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -335,7 +336,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
@@ -519,19 +520,23 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkInputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getInputs()));
+  public Depset getSkylarkInputs() {
+    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkOutputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getOutputs()));
+  public Depset getSkylarkOutputs() {
+    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getSkylarkArgv() throws EvalException {
+    return null;
+  }
+
+  @Override
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+    // Not all action types support returning Args.
     return null;
   }
 
@@ -541,13 +546,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public SkylarkDict<String, String> getSkylarkSubstitutions() {
+  public Dict<String, String> getSkylarkSubstitutions() {
     return null;
   }
 
   @Override
-  public SkylarkDict<String, String> getEnv() {
-    return SkylarkDict.copyOf(null, env.getFixedEnv().toMap());
+  public Dict<String, String> getEnv() {
+    return Dict.copyOf(null, env.getFixedEnv().toMap());
   }
 
   @Override

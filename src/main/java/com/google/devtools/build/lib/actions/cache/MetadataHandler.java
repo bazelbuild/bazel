@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
  */
 public interface MetadataHandler extends MetadataProvider, MetadataInjector {
 
-  /** Sets digest for virtual artifacts (e.g. middlemen). {@code md5Digest} must not be null. */
-  void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest);
+  /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
+  void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
 
   /** Retrieves the artifacts inside the TreeArtifact, without injecting its digest. */
   Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact);

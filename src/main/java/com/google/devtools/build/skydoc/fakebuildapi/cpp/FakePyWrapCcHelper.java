@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
 public class FakePyWrapCcHelper
@@ -41,19 +41,19 @@ public class FakePyWrapCcHelper
         WrapCcIncludeProviderApi> {
 
   @Override
-  public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getTransitivePythonSources(
+  public Depset getTransitivePythonSources(
       SkylarkRuleContextApi skylarkRuleContext, FileApi pyFile) {
     return null;
   }
 
   @Override
   public RunfilesApi getPythonRunfiles(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet filesToBuild) {
+      SkylarkRuleContextApi skylarkRuleContext, Depset filesToBuild) {
     return null;
   }
 
@@ -71,8 +71,7 @@ public class FakePyWrapCcHelper
   }
 
   @Override
-  public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-      SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
     return null;
   }
 
@@ -83,7 +82,7 @@ public class FakePyWrapCcHelper
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes) {
+      SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 
@@ -93,15 +92,15 @@ public class FakePyWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi wrapperCcCompilationContext,
-      SkylarkNestedSet swigIncludes,
+      Depset swigIncludes,
       FileApi swigSource,
-      SkylarkList<String> subParameters,
+      Sequence<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<FileApi> outputFiles,
+      Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
-      SkylarkNestedSet auxiliaryInputs,
+      Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool) {}
 
@@ -112,8 +111,8 @@ public class FakePyWrapCcHelper
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-      SkylarkList<String> targetCopts) {
+      Sequence<?> depCcCompilationContexts,
+      Sequence<?> targetCopts) {
     return null;
   }
 }

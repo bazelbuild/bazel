@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 
 /** Interface for actions in Skylark. */
@@ -39,7 +40,7 @@ import java.io.IOException;
             + "reference</a> for creating actions."
             + "<p>Some fields of this object are only applicable for certain kinds of actions. "
             + "Fields that are inapplicable are set to <code>None</code>.")
-public interface ActionApi extends SkylarkValue {
+public interface ActionApi extends StarlarkValue {
 
   @SkylarkCallable(
     name = "mnemonic",
@@ -49,29 +50,44 @@ public interface ActionApi extends SkylarkValue {
   public abstract String getMnemonic();
 
   @SkylarkCallable(
-    name = "inputs",
-    doc = "A set of the input files of this action.",
-    structField = true)
-  public SkylarkNestedSet getSkylarkInputs();
+      name = "inputs",
+      doc = "A set of the input files of this action.",
+      structField = true)
+  public Depset getSkylarkInputs();
 
   @SkylarkCallable(
-    name = "outputs",
-    doc = "A set of the output files of this action.",
-    structField = true)
-  public SkylarkNestedSet getSkylarkOutputs();
+      name = "outputs",
+      doc = "A set of the output files of this action.",
+      structField = true)
+  public Depset getSkylarkOutputs();
 
   @SkylarkCallable(
-    name = "argv",
-    doc =
-        "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-            + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-            + "list of the arguments for the command line to be executed. Note that "
-            + "for shell actions the first two arguments will be the shell path "
-            + "and <code>\"-c\"</code>.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public SkylarkList<String> getSkylarkArgv() throws EvalException;
+      name = "argv",
+      doc =
+          "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
+              + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
+              + "list of the arguments for the command line to be executed. Note that "
+              + "for shell actions the first two arguments will be the shell path "
+              + "and <code>\"-c\"</code>.",
+      structField = true,
+      allowReturnNones = true)
+  public Sequence<String> getSkylarkArgv() throws EvalException;
+
+  @SkylarkCallable(
+      name = "args",
+      doc =
+          "A list of frozen <a href=\"Args.html\">Args</a> objects containing information about"
+              + " the action arguments. These objects contain accurate argument information,"
+              + " including arguments involving expanded action output directories. However, <a"
+              + " href=\"Args.html\">Args</a> objects are not readable in the analysis phase. For"
+              + " a less accurate account of arguments which is available in the analysis phase,"
+              + " see <a href=\"#argv\">argv</a>."
+              + " <p>Note that some types of actions do not yet support exposure of this field."
+              + " For such action types, this is <code>None</code>.",
+      structField = true,
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   @SkylarkCallable(
     name = "content",
@@ -84,21 +100,21 @@ public interface ActionApi extends SkylarkValue {
   public String getSkylarkContent() throws IOException;
 
   @SkylarkCallable(
-    name = "substitutions",
-    doc =
-        "For actions created by "
-            + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-            + " an immutable dict holding the substitution mapping.",
-    structField = true,
-    allowReturnNones = true)
-  public SkylarkDict<String, String> getSkylarkSubstitutions();
+      name = "substitutions",
+      doc =
+          "For actions created by "
+              + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+              + " an immutable dict holding the substitution mapping.",
+      structField = true,
+      allowReturnNones = true)
+  public Dict<String, String> getSkylarkSubstitutions();
 
   @SkylarkCallable(
-    name = "env",
-    structField = true,
-    doc =
-        "The 'fixed' environment variables for this action. This includes only environment "
-            + "settings which are explicitly set by the action definition, and thus omits settings "
-            + "which are only pre-set in the execution environment.")
-  public SkylarkDict<String, String> getEnv();
+      name = "env",
+      structField = true,
+      doc =
+          "The 'fixed' environment variables for this action. This includes only environment"
+              + " settings which are explicitly set by the action definition, and thus omits"
+              + " settings which are only pre-set in the execution environment.")
+  public Dict<String, String> getEnv();
 }

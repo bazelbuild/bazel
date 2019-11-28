@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -49,17 +50,23 @@ public interface RuleClassProvider extends RuleDefinitionContext {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a new StarlarkThread instance for rule creation. Implementations need to be thread
-   * safe. Be sure to close() the mutability before you return the results of said evaluation.
+   * Returns a new StarlarkThread for initialization of a .bzl file loaded on behalf of a BUILD or
+   * WORKSPACE file. Implementations need to be thread safe. Be sure to close() the mutability
+   * before you return the results of evaluation.
    *
-   * @param label the location of the rule.
-   * @param mutability the Mutability for the current evaluation context
+   * <p>A .bzl file loaded by (or indirectly by) a BUILD file may differ semantically from the same
+   * file loaded on behalf of a WORKSPACE file, because of the repository mapping and native module;
+   * these differences much be accounted for by caching.
+   *
+   * @param label the label of the .bzl file
+   * @param mutability the Mutability for the .bzl module globals
    * @param starlarkSemantics the semantics options that modify the interpreter
-   * @param eventHandler the EventHandler for warnings, errors, etc.
+   * @param eventHandler the EventHandler for Starlark print statements
    * @param astFileContentHashCode the hash code identifying this environment.
    * @param importMap map from import string to Extension
+   * @param nativeModule the appropriate {@code native} module for this environment.
    * @param repoMapping map of RepositoryNames to be remapped
-   * @return an StarlarkThread, in which to evaluate load time skylark forms.
+   * @return the StarlarkThread in which to initualize the .bzl module
    */
   StarlarkThread createRuleClassStarlarkThread(
       Label label,
@@ -68,7 +75,16 @@ public interface RuleClassProvider extends RuleDefinitionContext {
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
       @Nullable Map<String, Extension> importMap,
+      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping);
+
+  /**
+   * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
+   * value may be inappropriate for a WORKSPACE file. Includes the universal bindings (e.g. True,
+   * len), though that will soon change.
+   */
+  // TODO(adonovan): update doc comment.
+  ImmutableMap<String, Object> getEnvironment();
 
   /**
    * Returns a map from aspect names to aspect factory objects.
@@ -82,7 +98,6 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    * overwritten in the WORKSPACE file in the actual workspace.
    */
   String getDefaultWorkspacePrefix();
-
 
   /**
    * Returns the default content that should be added at the end of the WORKSPACE file.

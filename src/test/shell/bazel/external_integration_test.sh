@@ -605,11 +605,12 @@ function test_fetch() {
   serve_jar
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-maven_jar(
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+jvm_maven_import_external(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://127.0.0.1:$nc_port/',
-    sha1 = '$sha1',
+    server_urls = ['http://127.0.0.1:$nc_port/'],
+    artifact_sha256 = '$sha256',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF

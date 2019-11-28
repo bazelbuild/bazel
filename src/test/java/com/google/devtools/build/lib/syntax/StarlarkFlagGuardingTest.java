@@ -38,7 +38,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   /** Mock containing exposed methods for flag-guarding tests. */
   @SkylarkModule(name = "Mock", doc = "")
-  public static class Mock {
+  public static class Mock implements StarlarkValue {
 
     @SkylarkCallable(
         name = "positionals_only_method",

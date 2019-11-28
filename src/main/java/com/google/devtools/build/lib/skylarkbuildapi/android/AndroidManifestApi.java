@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Wraps an Android Manifest and provides utilities for working with it */
 @SkylarkModule(
@@ -25,4 +26,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "Wraps an Android Manifest and provides utilities to work with it.",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
-public interface AndroidManifestApi {}
+public interface AndroidManifestApi extends StarlarkValue {}

@@ -17,15 +17,15 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a type containing information about the attributes of a rule. */
 @SkylarkModule(
     name = "rule_attributes",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Information about attributes of a rule an aspect is applied to.")
-public interface SkylarkAttributesCollectionApi extends SkylarkValue {
+public interface SkylarkAttributesCollectionApi extends StarlarkValue {
 
   @SkylarkCallable(name = "attr", structField = true, doc = SkylarkRuleContextApi.ATTR_DOC)
   public StructApi getAttr() throws EvalException;

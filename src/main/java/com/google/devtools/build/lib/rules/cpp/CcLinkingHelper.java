@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
@@ -363,9 +361,8 @@ public final class CcLinkingHelper {
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
-      ImmutableCollection<LibraryToLink> libraryToLinks,
-      CcCompilationContext ccCompilationContext) {
-    NestedSetBuilder<Linkstamp> linkstampBuilder = NestedSetBuilder.stableOrder();
+      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
+    ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
     for (Artifact linkstamp : linkstamps.build()) {
       linkstampBuilder.add(
           new Linkstamp(
@@ -379,16 +376,14 @@ public final class CcLinkingHelper {
       // create a LinkOptions instance that contains an empty list.
       ccLinkingContext =
           CcLinkingContext.builder()
+              .setOwner(label)
               .addUserLinkFlags(
                   linkopts.isEmpty()
-                      ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-                      : NestedSetBuilder.create(
-                          Order.LINK_ORDER,
+                      ? ImmutableList.of()
+                      : ImmutableList.of(
                           CcLinkingContext.LinkOptions.of(linkopts, symbolGenerator)))
-              .addLibraries(
-                  NestedSetBuilder.<LibraryToLink>linkOrder().addAll(libraryToLinks).build())
-              .addNonCodeInputs(
-                  NestedSetBuilder.<Artifact>linkOrder().addAll(nonCodeLinkerInputs).build())
+              .addLibraries(librariesToLink)
+              .addNonCodeInputs(nonCodeLinkerInputs)
               .addLinkstamps(linkstampBuilder.build())
               .build();
     }

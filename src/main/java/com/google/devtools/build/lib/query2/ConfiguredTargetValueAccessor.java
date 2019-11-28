@@ -39,7 +39,7 @@ import java.util.Set;
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTargetValue} objects.
  *
- * <p>Incomplete; we'll implement getLabelListAttr and getVisibility when needed.
+ * <p>Incomplete; we'll implement getPrerequisites and getVisibility when needed.
  */
 public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
@@ -94,7 +94,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   @Override
-  public List<ConfiguredTargetValue> getLabelListAttr(
+  public List<ConfiguredTargetValue> getPrerequisites(
       QueryExpression caller,
       ConfiguredTargetValue configuredTargetValue,
       String attrName,

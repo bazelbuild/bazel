@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Wrapper for every C++ compilation and linking provider. */
@@ -49,7 +49,7 @@ public interface CcInfoApi extends StructApi {
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingContextApi getCcLinkingContext();
+  CcLinkingContextApi<?> getCcLinkingContext();
 
   /** The provider implementing this can construct CcInfo objects. */
   @SkylarkModule(

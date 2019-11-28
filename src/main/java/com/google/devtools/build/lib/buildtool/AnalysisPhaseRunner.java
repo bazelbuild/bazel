@@ -167,7 +167,7 @@ public final class AnalysisPhaseRunner {
     boolean keepGoing = request.getKeepGoing();
     TargetPatternPhaseValue result =
         env.getSkyframeExecutor()
-            .loadTargetPatterns(
+            .loadTargetPatternsWithFilters(
                 env.getReporter(),
                 request.getTargets(),
                 env.getRelativeWorkingDirectory(),

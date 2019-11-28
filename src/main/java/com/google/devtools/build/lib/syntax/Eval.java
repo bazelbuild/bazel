@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,7 @@ final class Eval {
 
   private final StarlarkThread thread;
   private final Debugger dbg;
-  private Object result = Runtime.NONE;
+  private Object result = Starlark.NONE;
 
   // ---- entry points ----
 
@@ -86,16 +85,20 @@ final class Eval {
   }
 
   private void execAssignment(AssignmentStatement node) throws EvalException, InterruptedException {
-    Object rvalue = eval(thread, node.getRHS());
-    assign(node.getLHS(), rvalue, thread, node.getLocation());
+    if (node.isAugmented()) {
+      execAugmentedAssignment(node);
+    } else {
+      Object rvalue = eval(thread, node.getRHS());
+      assign(node.getLHS(), rvalue, thread, node.getLocation());
+    }
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = eval(thread, node.getCollection());
-    Iterable<?> col = EvalUtils.toIterable(o, node.getLocation(), thread);
+    Iterable<?> seq = Starlark.toIterable(o);
     EvalUtils.lock(o, node.getLocation());
     try {
-      for (Object it : col) {
+      for (Object it : seq) {
         assign(node.getLHS(), it, thread, node.getLocation());
 
         switch (execStatementsInternal(node.getBlock())) {
@@ -148,7 +151,7 @@ final class Eval {
   }
 
   private TokenKind execIf(IfStatement node) throws EvalException, InterruptedException {
-    boolean cond = EvalUtils.toBoolean(eval(thread, node.getCondition()));
+    boolean cond = Starlark.truth(eval(thread, node.getCondition()));
     if (cond) {
       return execStatementsInternal(node.getThenBlock());
     } else if (node.getElseBlock() != null) {
@@ -202,9 +205,6 @@ final class Eval {
       case ASSIGNMENT:
         execAssignment((AssignmentStatement) st);
         return TokenKind.PASS;
-      case AUGMENTED_ASSIGNMENT:
-        execAugmentedAssignment((AugmentedAssignmentStatement) st);
-        return TokenKind.PASS;
       case EXPRESSION:
         eval(thread, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
@@ -212,7 +212,7 @@ final class Eval {
         return ((FlowStatement) st).getKind();
       case FOR:
         return execFor((ForStatement) st);
-      case FUNCTION_DEF:
+      case DEF:
         execDef((DefStatement) st);
         return TokenKind.PASS;
       case IF:
@@ -249,10 +249,10 @@ final class Eval {
     } else if (expr instanceof IndexExpression) {
       Object object = eval(thread, ((IndexExpression) expr).getObject());
       Object key = eval(thread, ((IndexExpression) expr).getKey());
-      assignItem(object, key, value, thread, loc);
+      assignItem(object, key, value, loc);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
-      assignList(list, value, thread, loc);
+      assignList(list.getElements(), value, thread, loc);
     } else {
       // Not possible for validated ASTs.
       throw new EvalException(loc, "cannot assign to '" + expr + "'");
@@ -273,16 +273,15 @@ final class Eval {
    * @throws EvalException if the object is not a list or dict
    */
   @SuppressWarnings("unchecked")
-  private static void assignItem(
-      Object object, Object key, Object value, StarlarkThread thread, Location loc)
+  private static void assignItem(Object object, Object key, Object value, Location loc)
       throws EvalException {
-    if (object instanceof SkylarkDict) {
-      SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) object;
-      dict.put(key, value, loc, thread);
-    } else if (object instanceof SkylarkList.MutableList) {
-      SkylarkList.MutableList<Object> list = (SkylarkList.MutableList<Object>) object;
+    if (object instanceof Dict) {
+      Dict<Object, Object> dict = (Dict<Object, Object>) object;
+      dict.put(key, value, loc);
+    } else if (object instanceof StarlarkList) {
+      StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
-      list.set(index, value, loc, thread.mutability());
+      list.set(index, value, loc);
     } else {
       throw new EvalException(
           loc,
@@ -299,39 +298,37 @@ final class Eval {
    *     matching length
    */
   private static void assignList(
-      ListExpression list, Object value, StarlarkThread thread, Location loc)
+      List<Expression> lhs, Object x, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
-    Collection<?> collection = EvalUtils.toCollection(value, loc, thread);
-    int len = list.getElements().size();
+    // TODO(adonovan): lock/unlock rhs during iteration so that
+    // assignments fail when the left side aliases the right,
+    // which is a tricky case in Python assignment semantics.
+    int nrhs = Starlark.len(x);
+    if (nrhs < 0) {
+      throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+    }
+    Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
+    int len = lhs.size();
     if (len == 0) {
       throw new EvalException(
           loc, "lists or tuples on the left-hand side of assignments must have at least one item");
     }
-    if (len != collection.size()) {
+    if (len != nrhs) {
       throw new EvalException(
           loc,
           String.format(
               "assignment length mismatch: left-hand side has length %d, but right-hand side"
                   + " evaluates to value of length %d",
-              len, collection.size()));
+              len, nrhs));
     }
     int i = 0;
-    for (Object item : collection) {
-      assign(list.getElements().get(i), item, thread, loc);
+    for (Object item : rhs) {
+      assign(lhs.get(i), item, thread, loc);
       i++;
     }
   }
 
-  /**
-   * Evaluates an augmented assignment that mutates this {@code LValue} with the given right-hand
-   * side's value.
-   *
-   * <p>The left-hand side expression is evaluated only once, even when it is an {@link
-   * IndexExpression}. The left-hand side is evaluated before the right-hand side to match Python's
-   * behavior (hence why the right-hand side is passed as an expression rather than as an evaluated
-   * value).
-   */
-  private void execAugmentedAssignment(AugmentedAssignmentStatement stmt)
+  private void execAugmentedAssignment(AssignmentStatement stmt)
       throws EvalException, InterruptedException {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();
@@ -353,7 +350,7 @@ final class Eval {
       // Evaluate rhs after lhs.
       Object y = eval(thread, rhs);
       Object z = inplaceBinaryOp(op, x, y, thread, loc);
-      assignItem(object, key, z, thread, loc);
+      assignItem(object, key, z, loc);
     } else if (lhs instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
@@ -367,11 +364,9 @@ final class Eval {
       throws EvalException, InterruptedException {
     // list += iterable  behaves like  list.extend(iterable)
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
-    if (op == TokenKind.PLUS
-        && x instanceof SkylarkList.MutableList
-        && y instanceof SkylarkList.MutableList) {
-      SkylarkList.MutableList<?> list = (SkylarkList.MutableList) x;
-      list.extend(y, location, thread);
+    if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
+      StarlarkList<?> list = (StarlarkList) x;
+      list.extend(y);
       return list;
     }
     return EvalUtils.binaryOp(op, x, y, thread, location);
@@ -430,9 +425,9 @@ final class Eval {
           // AND and OR require short-circuit evaluation.
           switch (binop.getOperator()) {
             case AND:
-              return EvalUtils.toBoolean(x) ? eval(thread, binop.getY()) : x;
+              return Starlark.truth(x) ? eval(thread, binop.getY()) : x;
             case OR:
-              return EvalUtils.toBoolean(x) ? x : eval(thread, binop.getY());
+              return Starlark.truth(x) ? x : eval(thread, binop.getY());
             default:
               Object y = eval(thread, binop.getY());
               return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
@@ -446,22 +441,22 @@ final class Eval {
         {
           ConditionalExpression cond = (ConditionalExpression) expr;
           Object v = eval(thread, cond.getCondition());
-          return eval(thread, EvalUtils.toBoolean(v) ? cond.getThenCase() : cond.getElseCase());
+          return eval(thread, Starlark.truth(v) ? cond.getThenCase() : cond.getElseCase());
         }
 
       case DICT_EXPR:
         {
           DictExpression dictexpr = (DictExpression) expr;
-          SkylarkDict<Object, Object> dict = SkylarkDict.of(thread);
+          Dict<Object, Object> dict = Dict.of(thread.mutability());
           Location loc = dictexpr.getLocation();
           for (DictExpression.Entry entry : dictexpr.getEntries()) {
             Object k = eval(thread, entry.getKey());
             Object v = eval(thread, entry.getValue());
             int before = dict.size();
-            dict.put(k, v, loc, thread);
+            dict.put(k, v, loc);
             if (dict.size() == before) {
               throw new EvalException(
-                  loc, "Duplicated key " + Printer.repr(k) + " when creating dictionary");
+                  loc, "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
             }
           }
           return dict;
@@ -558,28 +553,27 @@ final class Eval {
       case LIST_EXPR:
         {
           ListExpression list = (ListExpression) expr;
-          ArrayList<Object> result = new ArrayList<>(list.getElements().size());
-          for (Expression elem : list.getElements()) {
-            result.add(eval(thread, elem));
+          int n = list.getElements().size();
+          Object[] array = new Object[n];
+          for (int i = 0; i < n; i++) {
+            array[i] = eval(thread, list.getElements().get(i));
           }
-          return list.isTuple()
-              ? SkylarkList.Tuple.copyOf(result) // TODO(adonovan): opt: avoid copy
-              : SkylarkList.MutableList.wrapUnsafe(thread, result);
+          return list.isTuple() ? Tuple.wrap(array) : StarlarkList.wrap(thread.mutability(), array);
         }
 
       case SLICE:
         {
           SliceExpression slice = (SliceExpression) expr;
           Object object = eval(thread, slice.getObject());
-          Object start = slice.getStart() == null ? Runtime.NONE : eval(thread, slice.getStart());
-          Object end = slice.getEnd() == null ? Runtime.NONE : eval(thread, slice.getEnd());
-          Object step = slice.getStep() == null ? Runtime.NONE : eval(thread, slice.getStep());
+          Object start = slice.getStart() == null ? Starlark.NONE : eval(thread, slice.getStart());
+          Object end = slice.getEnd() == null ? Starlark.NONE : eval(thread, slice.getEnd());
+          Object step = slice.getStep() == null ? Starlark.NONE : eval(thread, slice.getStep());
           Location loc = slice.getLocation();
 
           // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
 
-          if (object instanceof SkylarkList) {
-            return ((SkylarkList<?>) object).getSlice(start, end, step, loc, thread.mutability());
+          if (object instanceof Sequence) {
+            return ((Sequence<?>) object).getSlice(start, end, step, loc, thread.mutability());
           }
 
           if (object instanceof String) {
@@ -622,7 +616,7 @@ final class Eval {
 
   private static Object evalComprehension(StarlarkThread thread, Comprehension comp)
       throws EvalException, InterruptedException {
-    final SkylarkDict<Object, Object> dict = comp.isDict() ? SkylarkDict.of(thread) : null;
+    final Dict<Object, Object> dict = comp.isDict() ? Dict.of(thread.mutability()) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
     // Save values of all variables bound in a 'for' clause
@@ -654,7 +648,7 @@ final class Eval {
 
             Object iterable = eval(thread, forClause.getIterable());
             Location loc = comp.getLocation();
-            Iterable<?> listValue = EvalUtils.toIterable(iterable, loc, thread);
+            Iterable<?> listValue = Starlark.toIterable(iterable);
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
@@ -667,7 +661,7 @@ final class Eval {
 
           } else {
             Comprehension.If ifClause = (Comprehension.If) clause;
-            if (EvalUtils.toBoolean(eval(thread, ifClause.getCondition()))) {
+            if (Starlark.truth(eval(thread, ifClause.getCondition()))) {
               execClauses(index + 1);
             }
           }
@@ -678,9 +672,9 @@ final class Eval {
         if (dict != null) {
           DictExpression.Entry body = (DictExpression.Entry) comp.getBody();
           Object k = eval(thread, body.getKey());
-          EvalUtils.checkValidDictKey(k, thread);
+          EvalUtils.checkHashable(k);
           Object v = eval(thread, body.getValue());
-          dict.put(k, v, comp.getLocation(), thread);
+          dict.put(k, v, comp.getLocation());
         } else {
           list.add(eval(thread, ((Expression) comp.getBody())));
         }
@@ -696,7 +690,7 @@ final class Eval {
       thread.updateInternal(name, value);
     }
 
-    return comp.isDict() ? dict : SkylarkList.MutableList.copyOf(thread, list);
+    return comp.isDict() ? dict : StarlarkList.copyOf(thread.mutability(), list);
   }
 
   /** Returns an exception which should be thrown instead of the original one. */
@@ -705,7 +699,7 @@ final class Eval {
     // new scope (e.g. FuncallExpression).
     if (original instanceof EvalExceptionWithStackTrace) {
       EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      if (node.isNewScope()) {
+      if (node instanceof FuncallExpression) {
         real.registerNode(node);
       }
       return real;
@@ -800,7 +794,7 @@ final class Eval {
         posargs.add(value);
       } else if (arg instanceof Argument.Star) {
         // f(*args): expand args
-        if (!(value instanceof Iterable)) {
+        if (!(value instanceof StarlarkIterable)) {
           throw new EvalException(
               call.getLocation(),
               "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));

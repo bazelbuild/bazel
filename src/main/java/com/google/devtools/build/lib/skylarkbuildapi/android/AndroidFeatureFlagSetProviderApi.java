@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** */
 @SkylarkModule(
@@ -65,12 +65,13 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
               doc = "Map of flags",
               positional = true,
               named = false,
-              type = SkylarkDict.class),
+              type = Dict.class),
         },
         selfCall = true)
     @SkylarkConstructor(
         objectType = AndroidFeatureFlagSetProviderApi.class,
         receiverNameForDoc = NAME)
-    AndroidFeatureFlagSetProviderApi create(SkylarkDict<Label, String> flags) throws EvalException;
+    AndroidFeatureFlagSetProviderApi create(Dict<?, ?> flags /* <Label, String> */)
+        throws EvalException;
   }
 }

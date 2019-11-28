@@ -567,7 +567,7 @@ public interface QueryEnvironment<T> {
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */
-    Iterable<T> getLabelListAttr(
+    Iterable<T> getPrerequisites(
         QueryExpression caller, T target, String attrName, String errorMsgPrefix)
         throws QueryException, InterruptedException;
 

@@ -142,10 +142,10 @@ public final class Chunker {
    * <p>Closes any open resources (file handles, ...).
    */
   public void seek(long toOffset) throws IOException {
+    maybeInitialize();
     if (toOffset < offset) {
       reset();
       if (toOffset != 0) {
-        maybeInitialize();
         data.skip(toOffset);
       }
     } else if (offset != toOffset) {
@@ -218,7 +218,7 @@ public final class Chunker {
     return new Chunk(blob, offsetBefore);
   }
 
-  private long bytesLeft() {
+  public long bytesLeft() {
     return getSize() - getOffset();
   }
 

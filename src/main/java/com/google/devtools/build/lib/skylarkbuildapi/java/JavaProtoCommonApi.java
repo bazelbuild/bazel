@@ -21,14 +21,15 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Helper class for Java proto compilation.
- */
+/** Helper class for Java proto compilation. */
 @SkylarkModule(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
-public interface JavaProtoCommonApi<FileT extends FileApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    TransitiveInfoCollectionT extends TransitiveInfoCollectionApi> {
+public interface JavaProtoCommonApi<
+        FileT extends FileApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        TransitiveInfoCollectionT extends TransitiveInfoCollectionApi>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "create_java_lite_proto_compile_action",

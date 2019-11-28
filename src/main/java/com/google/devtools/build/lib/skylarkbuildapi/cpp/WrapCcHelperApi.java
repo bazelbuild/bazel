@@ -21,10 +21,11 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Helper class for the C++ aspects of {py,java,go}_wrap_cc. Provides methods to create the swig and
@@ -35,13 +36,14 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @SkylarkModule(name = "WrapCcHelperDoNotUse", doc = "", documented = false)
 public interface WrapCcHelperApi<
-    FeatureConfigurationT extends FeatureConfigurationApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-    CompilationInfoT extends CompilationInfoApi,
-    FileT extends FileApi,
-    CcCompilationContextT extends CcCompilationContextApi,
-    WrapCcIncludeProviderT extends WrapCcIncludeProviderApi> {
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
+        CompilationInfoT extends CompilationInfoApi,
+        FileT extends FileApi,
+        CcCompilationContextT extends CcCompilationContextApi,
+        WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "feature_configuration",
@@ -65,8 +67,7 @@ public interface WrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
       })
-  public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-      SkylarkRuleContextT skylarkRuleContext);
+  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextT skylarkRuleContext);
 
   @SkylarkCallable(
       name = "create_compile_actions",
@@ -89,8 +90,8 @@ public interface WrapCcHelperApi<
             name = "dep_compilation_contexts",
             positional = false,
             named = true,
-            type = SkylarkList.class),
-        @Param(name = "target_copts", positional = false, named = true, type = SkylarkList.class),
+            type = Sequence.class),
+        @Param(name = "target_copts", positional = false, named = true, type = Sequence.class),
       })
   public CompilationInfoT skylarkCreateCompileActions(
       SkylarkRuleContextT skylarkRuleContext,
@@ -98,8 +99,8 @@ public interface WrapCcHelperApi<
       CcToolchainProviderT ccToolchain,
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<CcCompilationContextT> depCcCompilationContexts,
-      SkylarkList<String> targetCopts)
+      Sequence<?> depCcCompilationContexts, // <CcCompilationContextT> expected
+      Sequence<?> targetCopts /* <String> expected */)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -118,15 +119,11 @@ public interface WrapCcHelperApi<
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
-        @Param(
-            name = "swig_includes",
-            positional = false,
-            named = true,
-            type = SkylarkNestedSet.class),
+        @Param(name = "swig_includes", positional = false, named = true, type = Depset.class),
       })
   // TODO(plf): Not written in Skylark because of PythonRunfilesProvider.
   public WrapCcIncludeProviderT getWrapCcIncludeProvider(
-      SkylarkRuleContextT skylarkRuleContext, SkylarkNestedSet swigIncludes)
+      SkylarkRuleContextT skylarkRuleContext, Depset swigIncludes)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -150,16 +147,12 @@ public interface WrapCcHelperApi<
             positional = false,
             named = true,
             type = CcCompilationContextApi.class),
-        @Param(
-            name = "swig_includes",
-            positional = false,
-            named = true,
-            type = SkylarkNestedSet.class),
+        @Param(name = "swig_includes", positional = false, named = true, type = Depset.class),
         @Param(name = "swig_source", positional = false, named = true, type = FileApi.class),
-        @Param(name = "sub_parameters", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "sub_parameters", positional = false, named = true, type = Sequence.class),
         @Param(name = "cc_file", positional = false, named = true, type = FileApi.class),
         @Param(name = "header_file", positional = false, named = true, type = FileApi.class),
-        @Param(name = "output_files", positional = false, named = true, type = SkylarkList.class),
+        @Param(name = "output_files", positional = false, named = true, type = Sequence.class),
         @Param(
             name = "out_dir",
             positional = false,
@@ -174,11 +167,7 @@ public interface WrapCcHelperApi<
             noneable = true,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
-        @Param(
-            name = "auxiliary_inputs",
-            positional = false,
-            named = true,
-            type = SkylarkNestedSet.class),
+        @Param(name = "auxiliary_inputs", positional = false, named = true, type = Depset.class),
         @Param(name = "swig_attribute_name", positional = false, named = true, type = String.class),
         @Param(
             name = "zip_tool",
@@ -197,15 +186,15 @@ public interface WrapCcHelperApi<
       CcToolchainProviderT ccToolchain,
       FeatureConfigurationT featureConfiguration,
       CcCompilationContextT wrapperCcCompilationContext,
-      SkylarkNestedSet swigIncludes,
+      Depset swigIncludes,
       FileT swigSource,
-      SkylarkList<String> subParameters,
+      Sequence<?> subParameters, // <String> expected
       FileT ccFile,
       FileT headerFile,
-      SkylarkList<FileT> outputFiles,
+      Sequence<?> outputFiles, // <FileT> expected
       Object outDir,
       Object javaDir,
-      SkylarkNestedSet auxiliaryInputs,
+      Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool)
       throws EvalException, InterruptedException;

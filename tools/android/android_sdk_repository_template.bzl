@@ -27,6 +27,16 @@ def create_config_setting_rule():
             values = {"host_cpu": "x64_" + name},
         )
 
+    native.config_setting(
+        name = "d8_standalone_dexer",
+        values = {"define": "android_standalone_dexing_tool=d8_compat_dx"},
+    )
+
+    native.config_setting(
+        name = "dx_standalone_dexer",
+        values = {"define": "android_standalone_dexing_tool=dx_compat_dx"},
+    )
+
 def create_android_sdk_rules(
         name,
         build_tools_version,
@@ -118,7 +128,11 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
-            dx = ":dx_binary",
+            dx = select({
+                "d8_standalone_dexer": ":d8_compat_dx",
+                "dx_standalone_dexer": ":dx_binary",
+                "//conditions:default": ":dx_binary",
+            }),
             main_dex_list_creator = ":main_dex_list_creator",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
@@ -262,6 +276,15 @@ def create_android_sdk_rules(
     java_import(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
+    )
+    java_binary(
+        name = "d8_compat_dx",
+        main_class = "com.android.tools.r8.compatdx.CompatDx",
+        runtime_deps = [":d8_jar_import"],
+    )
+    java_import(
+        name = "d8_jar_import",
+        jars = ["build-tools/%s/lib/d8.jar" % build_tools_directory],
     )
 
 TAGDIR_TO_TAG_MAP = {

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -118,15 +119,13 @@ public interface OutputService {
   /**
    * Creates the symlink tree
    *
-   * @param inputPath the input manifest
-   * @param outputPath the output manifest
-   * @param filesetTree is true iff we're constructing a Fileset
+   * @param symlinks the symlinks to create
    * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
    * @throws ExecException on failure
    * @throws InterruptedException
    */
-  void createSymlinkTree(Path inputPath, Path outputPath, boolean filesetTree,
-      PathFragment symlinkTreeRoot) throws ExecException, InterruptedException;
+  void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
+      throws ExecException, InterruptedException;
 
   /**
    * Cleans the entire output tree.
@@ -180,6 +179,13 @@ public interface OutputService {
       MetadataConsumer consumer,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {}
+
+  /**
+   * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
+   * lost inputs.
+   */
+  default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
+      throws LostInputsActionExecutionException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;

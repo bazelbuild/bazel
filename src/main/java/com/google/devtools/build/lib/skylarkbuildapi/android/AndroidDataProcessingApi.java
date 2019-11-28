@@ -22,11 +22,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
 @SkylarkModule(
@@ -38,16 +39,17 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "This API is non-final and subject to change without warning; do not rely on it.",
     documented = false)
 public interface AndroidDataProcessingApi<
-    AndroidDataContextT extends AndroidDataContextApi,
-    TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
-    FileT extends FileApi,
-    SpecialFileT extends FileApi,
-    AndroidAssetsInfoT extends AndroidAssetsInfoApi,
-    AndroidResourcesInfoT extends AndroidResourcesInfoApi,
-    AndroidManifestInfoT extends AndroidManifestInfoApi,
-    AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi,
-    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi,
-    ValidatedAndroidDataT extends ValidatedAndroidDataApi> {
+        AndroidDataContextT extends AndroidDataContextApi,
+        TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
+        FileT extends FileApi,
+        SpecialFileT extends FileApi,
+        AndroidAssetsInfoT extends AndroidAssetsInfoApi<?, ?>,
+        AndroidResourcesInfoT extends AndroidResourcesInfoApi<?, ?, ?>,
+        AndroidManifestInfoT extends AndroidManifestInfoApi<?>,
+        AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi<?>,
+        AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi<?>,
+        ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "assets_from_deps",
@@ -55,7 +57,7 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "deps",
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidAssetsInfoApi.class,
             positional = false,
             named = true,
@@ -77,7 +79,10 @@ public interface AndroidDataProcessingApi<
               + " for backwards-compatibility with existing behavior.",
       documented = false)
   AndroidAssetsInfoT assetsFromDeps(
-      SkylarkList<AndroidAssetsInfoT> deps, boolean neverlink, StarlarkThread thread);
+      Sequence<?> deps, // <AndroidAssetsInfoT>
+      boolean neverlink,
+      StarlarkThread thread)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "resources_from_deps",
@@ -91,7 +96,7 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "deps",
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidResourcesInfoApi.class,
             positional = false,
             named = true,
@@ -99,7 +104,7 @@ public interface AndroidDataProcessingApi<
         @Param(
             name = "assets",
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidAssetsInfoApi.class,
             positional = false,
             named = true,
@@ -132,8 +137,8 @@ public interface AndroidDataProcessingApi<
       documented = false)
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
-      SkylarkList<AndroidResourcesInfoT> deps,
-      SkylarkList<AndroidAssetsInfoT> assets,
+      Sequence<?> deps, // <AndroidResourcesInfoT>
+      Sequence<?> assets, // <AndroidAssetsInfoT>
       boolean neverlink,
       String customPackage,
       Location location,
@@ -206,7 +211,7 @@ public interface AndroidDataProcessingApi<
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             noneable = true,
             named = true,
@@ -227,7 +232,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidAssetsInfoApi.class,
             named = true,
             doc =
@@ -255,7 +260,7 @@ public interface AndroidDataProcessingApi<
       AndroidDataContextT ctx,
       Object assets,
       Object assetsDir,
-      SkylarkList<AndroidAssetsInfoT> deps,
+      Sequence<?> deps, // <AndroidAssetsInfoT>
       boolean neverlink,
       Location location,
       StarlarkThread thread)
@@ -282,7 +287,7 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileProviderApi.class,
             named = true,
             doc = "Providers of this target's resources."),
@@ -290,7 +295,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidResourcesInfoApi.class,
             named = true,
             doc =
@@ -331,8 +336,8 @@ public interface AndroidDataProcessingApi<
   ValidatedAndroidDataT mergeRes(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
-      SkylarkList<AndroidResourcesInfoT> deps,
+      Sequence<?> resources, // <TransitiveInfoCollectionT>
+      Sequence<?> deps, // <AndroidResourcesInfoT>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
@@ -360,7 +365,7 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileProviderApi.class,
             named = true,
             doc = "Providers of this target's resources."),
@@ -368,7 +373,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidResourcesInfoApi.class,
             named = true,
             doc =
@@ -405,11 +410,11 @@ public interface AndroidDataProcessingApi<
               + " this manifest, so in the future, you may want to use the manifest contained in"
               + " this method's output instead of this one.",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
+  Dict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
-      SkylarkList<AndroidResourcesInfoT> deps,
+      Sequence<?> resources, // <TransitiveInfoCollectionT>
+      Sequence<?> deps, // <AndroidResourcesInfoT>
       boolean neverlink,
       boolean enableDataBinding,
       Location location,
@@ -449,7 +454,7 @@ public interface AndroidDataProcessingApi<
             doc = "The library class jar."),
         @Param(
             name = "local_proguard_specs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             defaultValue = "[]",
             positional = false,
@@ -459,7 +464,7 @@ public interface AndroidDataProcessingApi<
                     + " inherited in the top-level target."),
         @Param(
             name = "deps",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = AndroidLibraryAarInfoApi.class,
             defaultValue = "[]",
             positional = false,
@@ -485,8 +490,8 @@ public interface AndroidDataProcessingApi<
       AndroidResourcesInfoT resourcesInfo,
       AndroidAssetsInfoT assetsInfo,
       FileT libraryClassJar,
-      SkylarkList<FileT> localProguardSpecs,
-      SkylarkList<AndroidLibraryAarInfoT> deps,
+      Sequence<?> localProguardSpecs, // <FileT>
+      Sequence<?> deps, // <AndroidLibraryAarInfoT>
       boolean neverlink)
       throws EvalException, InterruptedException;
 
@@ -519,7 +524,7 @@ public interface AndroidDataProcessingApi<
             doc = "The manifest file."),
         @Param(
             name = "deps",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             positional = false,
@@ -528,13 +533,13 @@ public interface AndroidDataProcessingApi<
       },
       doc = "Processes assets, resources, and manifest for aar_import targets",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> processAarImportData(
+  Dict<? extends ProviderApi, ? extends StructApi> processAarImportData(
       AndroidDataContextT ctx,
       SpecialFileT resources,
       SpecialFileT assets,
       FileT androidManifest,
-      SkylarkList<TransitiveInfoCollectionT> deps)
-      throws InterruptedException;
+      Sequence<?> deps /* <TransitiveInfoCollectionT> */)
+      throws InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "process_local_test_data",
@@ -559,7 +564,7 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileProviderApi.class,
             named = true,
             doc = "Providers of this target's resources."),
@@ -567,7 +572,7 @@ public interface AndroidDataProcessingApi<
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             noneable = true,
             named = true,
@@ -609,7 +614,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -619,7 +624,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             doc =
@@ -629,7 +634,7 @@ public interface AndroidDataProcessingApi<
             name = "nocompress_extensions",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc = "A list of file extensions to leave uncompressed in the resource apk.")
@@ -640,17 +645,17 @@ public interface AndroidDataProcessingApi<
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
               + " from provider type to the appropriate provider.",
       documented = false)
-  SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
+  Dict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
-      SkylarkList<TransitiveInfoCollectionT> resources,
+      Sequence<?> resources, // <TransitiveInfoCollectionT>
       Object assets,
       Object assetsDir,
       Object customPackage,
       String aaptVersionString,
-      SkylarkDict<String, String> manifestValues,
-      SkylarkList<TransitiveInfoCollectionT> deps,
-      SkylarkList<String> noCompressExtensions,
+      Dict<?, ?> manifestValues, // <String, String>
+      Sequence<?> deps, // <TransitiveInfoCollectionT>
+      Sequence<?> noCompressExtensions, // <String>
       Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
@@ -678,7 +683,7 @@ public interface AndroidDataProcessingApi<
             name = "resource_configuration_filters",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -688,7 +693,7 @@ public interface AndroidDataProcessingApi<
             name = "densities",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -699,21 +704,12 @@ public interface AndroidDataProcessingApi<
             name = "nocompress_extensions",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc =
                 "A list of file extension to leave uncompressed in apk. Templates must be"
                     + " expanded before passing this value in."),
-        @Param(
-            name = "aapt_version",
-            positional = false,
-            defaultValue = "'auto'",
-            type = String.class,
-            named = true,
-            doc =
-                "The version of aapt to use. Defaults to 'auto'. 'aapt' and 'aapt2' are also"
-                    + " supported."),
       },
       useLocation = true,
       useStarlarkThread = true,
@@ -724,10 +720,9 @@ public interface AndroidDataProcessingApi<
   AndroidBinaryDataSettingsApi makeBinarySettings(
       AndroidDataContextT ctx,
       Object shrinkResources,
-      SkylarkList<String> resourceConfigurationFilters,
-      SkylarkList<String> densities,
-      SkylarkList<String> noCompressExtensions,
-      String aaptVersionString,
+      Sequence<?> resourceConfigurationFilters, // <String>
+      Sequence<?> densities, // <String>
+      Sequence<?> noCompressExtensions, // <String>
       Location location,
       StarlarkThread thread)
       throws EvalException;
@@ -745,7 +740,7 @@ public interface AndroidDataProcessingApi<
             name = "resources",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileProviderApi.class,
             named = true,
             doc = "Providers of this target's resources."),
@@ -753,7 +748,7 @@ public interface AndroidDataProcessingApi<
             name = "assets",
             positional = false,
             defaultValue = "None",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             noneable = true,
             named = true,
@@ -796,7 +791,7 @@ public interface AndroidDataProcessingApi<
             name = "manifest_values",
             positional = false,
             defaultValue = "{}",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             doc =
@@ -806,7 +801,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             doc =
@@ -856,13 +851,13 @@ public interface AndroidDataProcessingApi<
       documented = false)
   AndroidBinaryDataInfoT processBinaryData(
       AndroidDataContextT ctx,
-      SkylarkList<TransitiveInfoCollectionT> resources,
+      Sequence<?> resources, // <TransitiveInfoCollectionT>
       Object assets,
       Object assetsDir,
       Object manifest,
       Object customPackage,
-      SkylarkDict<String, String> manifestValues,
-      SkylarkList<TransitiveInfoCollectionT> deps,
+      Dict<?, ?> manifestValues, // <String, String>
+      Sequence<?> deps, // <TransitiveInfoCollectionT>
       String manifestMerger,
       Object maybeSettings,
       boolean crunchPng,
@@ -912,7 +907,7 @@ public interface AndroidDataProcessingApi<
             name = "deps",
             positional = false,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             doc =
@@ -920,7 +915,7 @@ public interface AndroidDataProcessingApi<
                     + " type of data."),
         @Param(
             name = "proguard_specs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             defaultValue = "[]",
             positional = false,
@@ -930,7 +925,7 @@ public interface AndroidDataProcessingApi<
                     + " inherited in the top-level target."),
         @Param(
             name = "extra_proguard_specs,",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             defaultValue = "[]",
             positional = false,
@@ -951,9 +946,9 @@ public interface AndroidDataProcessingApi<
       FileT proguardOutputJar,
       FileT proguardMapping,
       Object maybeSettings,
-      SkylarkList<TransitiveInfoCollectionT> deps,
-      SkylarkList<TransitiveInfoCollectionT> localProguardSpecs,
-      SkylarkList<TransitiveInfoCollectionT> extraProguardSpecs,
+      Sequence<?> deps, // <TransitiveInfoCollectionT>
+      Sequence<?> localProguardSpecs, // <TransitiveInfoCollectionT>
+      Sequence<?> extraProguardSpecs, // <TransitiveInfoCollectionT>
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

@@ -213,7 +213,7 @@ public class RClassGeneratorActionTest {
   }
 
   @Test
-  public void withNoBinaryAndLibraries_noFinalFields() throws Exception {
+  public void withNoBinaryAndLibraries_noFinalFields_fieldsFinalAnyway() throws Exception {
     Path libFooManifest =
         ManifestBuilder.of(tempDir.resolve("libFoo"))
             .createManifest("AndroidManifest.xml", "com.google.foo", "");
@@ -256,11 +256,12 @@ public class RClassGeneratorActionTest {
               "com/google/bar/R.class",
               "META-INF/",
               "META-INF/MANIFEST.MF");
-      assertFieldsFinal(jarPath, "com.google.foo.R$attr", false);
-      assertFieldsFinal(jarPath, "com.google.foo.R$id", false);
-      assertFieldsFinal(jarPath, "com.google.foo.R$string", false);
-      assertFieldsFinal(jarPath, "com.google.bar.R$attr", false);
-      assertFieldsFinal(jarPath, "com.google.bar.R$drawable", false);
+      // --nofinalFields should have no effect on library R classes
+      assertFieldsFinal(jarPath, "com.google.foo.R$attr", true);
+      assertFieldsFinal(jarPath, "com.google.foo.R$id", true);
+      assertFieldsFinal(jarPath, "com.google.foo.R$string", true);
+      assertFieldsFinal(jarPath, "com.google.bar.R$attr", true);
+      assertFieldsFinal(jarPath, "com.google.bar.R$drawable", true);
       ZipMtimeAsserter.assertEntries(zipEntries);
     }
   }

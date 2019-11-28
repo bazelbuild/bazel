@@ -136,7 +136,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
     DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
-    path = constructPath(cmd.uri(), cmd.hash(), cmd.casDownload());
+    path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);

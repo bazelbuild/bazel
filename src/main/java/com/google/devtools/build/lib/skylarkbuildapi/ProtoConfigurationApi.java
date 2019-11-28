@@ -18,10 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * A configuration fragment representing protocol buffers.
- */
+/** A configuration fragment representing protocol buffers. */
 @SkylarkModule(
     name = "proto",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
@@ -54,7 +53,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
               + ")\n"
               + "</pre></p>"
 )
-public interface ProtoConfigurationApi {
+public interface ProtoConfigurationApi extends StarlarkValue {
   @SkylarkCallable(
       // Must match the value of `_protocopt_key`
       // in `@rules_proto//proto/private/rules:proto_toolchain.bzl`.

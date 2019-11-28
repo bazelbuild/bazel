@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,7 +42,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getErrorMessageFormatForUnknownField())
         .isEqualTo("Object has no '%s' attribute.");
     assertThat(provider.isImmutable()).isFalse();
-    assertThat(Printer.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThrows(
         IllegalStateException.class,
         () -> provider.getKey());
@@ -57,7 +59,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getErrorMessageFormatForUnknownField())
         .isEqualTo("'prov' object has no attribute '%s'");
     assertThat(provider.isImmutable()).isTrue();
-    assertThat(Printer.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
   }
 
@@ -134,12 +136,11 @@ public final class SkylarkProviderTest {
   /** Instantiates a {@link SkylarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
   private static SkylarkInfo instantiateWithA1B2C3(SkylarkProvider provider) throws Exception{
     // Code under test begins with the entry point in BaseFunction.
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Object result =
         provider.call(
-            ImmutableList.of(),
-            ImmutableMap.of("a", 1, "b", 2, "c", 3),
-            /*ast=*/ null,
-            /*thread=*/ null);
+            ImmutableList.of(), ImmutableMap.of("a", 1, "b", 2, "c", 3), /*ast=*/ null, thread);
     assertThat(result).isInstanceOf(SkylarkInfo.class);
     return (SkylarkInfo) result;
   }

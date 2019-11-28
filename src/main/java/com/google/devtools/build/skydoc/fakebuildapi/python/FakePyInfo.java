@@ -17,15 +17,15 @@ package com.google.devtools.build.skydoc.fakebuildapi.python;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link PyInfoApi}. */
 public class FakePyInfo implements PyInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet getTransitiveSources() {
+  public Depset getTransitiveSources() {
     return null;
   }
 
@@ -35,7 +35,7 @@ public class FakePyInfo implements PyInfoApi<FileApi> {
   }
 
   @Override
-  public SkylarkNestedSet getImports() {
+  public Depset getImports() {
     return null;
   }
 
@@ -50,14 +50,14 @@ public class FakePyInfo implements PyInfoApi<FileApi> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /** Fake implementation of {@link PyInfoProviderApi}. */
   public static class FakePyInfoProvider implements PyInfoProviderApi {
 
     @Override
     public PyInfoApi<?> constructor(
-        SkylarkNestedSet transitiveSources,
+        Depset transitiveSources,
         boolean usesSharedLibraries,
         Object importsUncast,
         boolean hasPy2OnlySources,
@@ -68,6 +68,6 @@ public class FakePyInfo implements PyInfoApi<FileApi> {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

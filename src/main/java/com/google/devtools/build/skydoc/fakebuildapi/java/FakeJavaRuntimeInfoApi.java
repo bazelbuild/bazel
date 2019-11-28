@@ -16,35 +16,34 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.syntax.Printer;
 
 final class FakeJavaRuntimeInfoApi implements JavaRuntimeInfoApi {
 
   @Override
-  public PathFragment javaHome() {
+  public String javaHome() {
     return null;
   }
 
   @Override
-  public PathFragment javaBinaryExecPath() {
+  public String javaBinaryExecPath() {
     return null;
   }
 
   @Override
-  public PathFragment javaHomeRunfilesPath() {
+  public String javaHomeRunfilesPath() {
     return null;
   }
 
   @Override
-  public PathFragment javaBinaryRunfilesPath() {
+  public String javaBinaryRunfilesPath() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet skylarkJavaBaseInputs() {
+  public Depset skylarkJavaBaseInputs() {
     return null;
   }
 
@@ -59,7 +58,7 @@ final class FakeJavaRuntimeInfoApi implements JavaRuntimeInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   private FakeJavaRuntimeInfoApi() {}
 }

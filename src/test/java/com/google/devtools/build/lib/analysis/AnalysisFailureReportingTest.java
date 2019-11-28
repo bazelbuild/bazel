@@ -125,8 +125,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-                // TODO(ulfjack): Ideally, we'd get an error message about a symlink cycle instead.
-                "Target '//cycles1:cycles1' contains an error and its package is in error"));
+                "no such package 'cycles1': Symlink issue while evaluating globs: Symlink cycle: "
+                    + "/workspace/cycles1/cycles1.sh"));
   }
 
   @Test

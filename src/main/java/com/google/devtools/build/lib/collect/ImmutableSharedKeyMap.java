@@ -41,7 +41,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
-  private static final Interner<OffsetTable> offsetTables = BlazeInterners.newWeakInterner();
+  private static final Interner<OffsetTable<?>> offsetTables = BlazeInterners.newWeakInterner();
 
   private final OffsetTable<K> offsetTable;
   @VisibleForSerialization protected final Object[] values;
@@ -89,7 +89,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
       if (!(o instanceof OffsetTable)) {
         return false;
       }
-      OffsetTable that = (OffsetTable) o;
+      OffsetTable<?> that = (OffsetTable<?>) o;
       return Arrays.equals(this.keys, that.keys);
     }
 

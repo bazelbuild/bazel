@@ -237,7 +237,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    if (evaluatorNeedsReset) {
+    // If the nestedSetAsSkykeyThreshold changed between builds, it's necessary to reset the
+    // evaluator to avoid dependency inconsistencies in Skyframe.
+    // Resetting the evaluator also creates new instances of the SkyFunctions, hence also wiping
+    // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
+    if (evaluatorNeedsReset || nestedSetAsSkyKeyThresholdUpdatedAndReset(options)) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();

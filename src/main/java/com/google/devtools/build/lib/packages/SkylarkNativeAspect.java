@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** A natively-defined aspect that is may be referenced by skylark attribute definitions. */
 public abstract class SkylarkNativeAspect extends NativeAspectClass implements SkylarkAspect {
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<native aspect>");
   }
 

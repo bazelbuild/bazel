@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -25,9 +23,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object encapsulating all information by java rules. */
@@ -45,7 +43,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
               + "</a></code> for legacy reasons.",
       structField = true)
-  public SkylarkNestedSet getTransitiveRuntimeJars();
+  public Depset getTransitiveRuntimeJars();
 
   @SkylarkCallable(
       name = "transitive_compile_time_jars",
@@ -55,7 +53,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
               + " legacy reasons.",
       structField = true)
-  public SkylarkNestedSet getTransitiveCompileTimeJars();
+  public Depset getTransitiveCompileTimeJars();
 
   @SkylarkCallable(
       name = "compile_jars",
@@ -64,7 +62,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " interface jars (ijar or hjar), regular jars or both, depending on whether rule"
               + " implementations chose to create interface jars or not.",
       structField = true)
-  public SkylarkNestedSet getCompileTimeJars();
+  public Depset getCompileTimeJars();
 
   @SkylarkCallable(
       name = "full_compile_jars",
@@ -83,7 +81,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " <code><a class=\"anchor\""
               + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li>",
       structField = true)
-  public SkylarkNestedSet getFullCompileTimeJars();
+  public Depset getFullCompileTimeJars();
 
   @SkylarkCallable(
       name = "source_jars",
@@ -92,7 +90,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " annotations) of the target  itself, i.e. NOT including the sources of the"
               + " transitive dependencies.",
       structField = true)
-  public SkylarkList<FileT> getSourceJars();
+  public Sequence<FileT> getSourceJars();
 
   @SkylarkCallable(
       name = "outputs",
@@ -119,7 +117,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
       name = "runtime_output_jars",
       doc = "Returns a list of runtime Jars created by this Java/Java-like target.",
       structField = true)
-  public SkylarkList<FileT> getRuntimeOutputJars();
+  public Sequence<FileT> getRuntimeOutputJars();
 
   @SkylarkCallable(
       name = "transitive_deps",
@@ -129,7 +127,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
               + " for legacy reasons.",
       structField = true)
-  public NestedSet<FileT> getTransitiveDeps();
+  public Depset /*<FileT>*/ getTransitiveDeps();
 
   @SkylarkCallable(
       name = "transitive_runtime_deps",
@@ -139,7 +137,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
               + "</a></code> for legacy reasons.",
       structField = true)
-  public NestedSet<FileT> getTransitiveRuntimeDeps();
+  public Depset /*<FileT>*/ getTransitiveRuntimeDeps();
 
   @SkylarkCallable(
       name = "transitive_source_jars",
@@ -147,13 +145,13 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
           "Returns the Jars containing source files of the current target and all of its"
               + " transitive dependencies.",
       structField = true)
-  public NestedSet<FileT> getTransitiveSourceJars();
+  public Depset /*<FileT>*/ getTransitiveSourceJars();
 
   @SkylarkCallable(
       name = "transitive_exports",
       structField = true,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
-  public NestedSet<Label> getTransitiveExports();
+  public Depset /*<Label>*/ getTransitiveExports();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
@@ -203,21 +201,21 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               doc = "If true only use this library for compilation and not at runtime."),
           @Param(
               name = "deps",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
               doc = "Compile time dependencies that were used to create the output jar."),
           @Param(
               name = "runtime_deps",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
               doc = "Runtime dependencies that are needed for this library."),
           @Param(
               name = "exports",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JavaInfoApi.class,
               named = true,
               defaultValue = "[]",
@@ -246,9 +244,9 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         Object compileJarApi,
         Object sourceJarApi,
         Boolean neverlink,
-        SkylarkList<?> deps,
-        SkylarkList<?> runtimeDeps,
-        SkylarkList<?> exports,
+        Sequence<?> deps,
+        Sequence<?> runtimeDeps,
+        Sequence<?> exports,
         Object jdepsApi,
         Location loc,
         StarlarkThread thread)

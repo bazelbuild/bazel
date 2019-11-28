@@ -42,7 +42,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    ImmutableSet filteredBlacklistedSubdirectories =
+    ImmutableSet<PathFragment> filteredBlacklistedSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
                 blacklistedSubdirectories,

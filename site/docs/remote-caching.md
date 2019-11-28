@@ -16,7 +16,7 @@ make builds significantly faster.
 * [How a build uses remote caching](#how-a-build-uses-remote-caching)
 * [Setting up a server as the cache's backend](#setting-up-a-server-as-the-caches-backend)
     * [nginx](#nginx)
-    * [Bazel Remote Cache](#bazel-remote-cache)
+    * [bazel-remote](#bazel-remote)
     * [Google Cloud Storage](#google-cloud-storage)
     * [Other servers](#other-servers)
 * [Authentication](#authentication)
@@ -96,7 +96,7 @@ There are many backends that can be used for a remote cache. Some options
 include:
 
 * [nginx](#nginx)
-* [Bazel Remote Cache](#bazel-remote-cache)
+* [bazel-remote](#bazel-remote)
 * [Google Cloud Storage](#google-cloud-storage)
 
 ### nginx
@@ -133,16 +133,21 @@ location /cache/ {
 }
 ```
 
-### Bazel Remote Cache
+### bazel-remote
 
-Bazel Remote Cache is an open source remote build cache that you can use on
-your infrastructure. It is experimental and unsupported.
+bazel-remote is an open source remote build cache that you can use on
+your infrastructure. It has been successfully used in production at
+several companies since early 2018. Note that the Bazel project does
+not provide technical support for bazel-remote.
 
 This cache stores contents on disk and also provides garbage collection
 to enforce an upper storage limit and clean unused artifacts. The cache is
-available as a [docker image] and its code is available on [GitHub].
+available as a [docker image] and its code is available on
+[GitHub](https://github.com/buchgr/bazel-remote/).
+Both the REST and gRPC remote cache APIs are supported.
 
-Please refer to the [GitHub] page for instructions on how to use it.
+Please refer to the [GitHub](https://github.com/buchgr/bazel-remote/) page
+for instructions on how to use it.
 
 ### Google Cloud Storage
 
@@ -240,40 +245,17 @@ team dynamics, you can add flags to a `.bazelrc` file that is:
 Take care in who has the ability to write to the remote cache. You may want
 only your CI system to be able to write to the remote cache.
 
-Use the following flags to:
-
-* read from and write to the remote cache
-* disable sandboxing
-
-```
-build --remote_cache=http://replace-with-your.host:port
-build --spawn_strategy=local
-```
-
-Using the remote cache with sandboxing enabled is the default. Use the
-following flags to read and write from the remote cache with sandboxing
-enabled:
+Use the following flag to read from and write to the remote cache:
 
 ```
 build --remote_cache=http://replace-with-your.host:port
 ```
+Besides http, the following protocols are also supported: https, grpc, grpcs.
 
-### Read only from the remote cache
-
-Use the following flags to: read from the remote cache with sandboxing
-disabled.
-
-```
-build --remote_cache=http://replace-with-your.host:port
-build --remote_upload_local_results=false
-build --spawn_strategy=local
-```
-
-Using the remote cache with sandboxing enabled is experimental. Use the
-following flags to read from the remote cache with sandboxing enabled:
+Use the following flag in addition to the one above to only read from the
+remote cache:
 
 ```
-build --remote_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 ```
 
@@ -384,8 +366,7 @@ must rebuild it before using remote cache.
 [Troubleshooting Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-sandbox.html
 [WebDAV module]: http://nginx.org/en/docs/http/ngx_http_dav_module.html
 [docker image]: https://hub.docker.com/r/buchgr/bazel-remote-cache/
-[GitHub]: https://github.com/buchgr/bazel-remote/
-[GitHub Issue Tracker]: https://github.com/buchgr/bazel-remote/issues
+[bazel-remote]: https://github.com/buchgr/bazel-remote/
 [Google Cloud Storage]: https://cloud.google.com/storage
 [Google Cloud Console]: https://cloud.google.com/console
 [Dialog to create a new GCS bucket]: /assets/remote-cache-gcs-create-bucket.png

@@ -14,47 +14,46 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
 
 /**
- * An interface representing an info type containing information about an Apple dynamic
- * framework.
- **/
+ * An interface representing an info type containing information about an Apple dynamic framework.
+ */
 @SkylarkModule(
     name = "AppleDynamicFramework",
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing information about an Apple dynamic framework."
-)
-public interface AppleDynamicFrameworkInfoApi<PathFragmentT, FileApiT extends FileApi>
-    extends StructApi {
+    doc = "A provider containing information about an Apple dynamic framework.")
+public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends StructApi {
 
   /**
    * Returns the framework path names used as link inputs in order to link against the dynamic
    * framework.
    */
-  @SkylarkCallable(name = "framework_dirs",
+  @SkylarkCallable(
+      name = "framework_dirs",
       structField = true,
-      doc = "The framework path names used as link inputs in order to link against the dynamic "
-          + "framework."
-  )
-  public NestedSet<PathFragmentT> getDynamicFrameworkDirs();
+      doc =
+          "The framework path names used as link inputs in order to link against the dynamic "
+              + "framework.")
+  public Depset /*<String>*/ getDynamicFrameworkDirs();
 
   /**
-   * Returns the full set of artifacts that should be included as inputs to link against the
-   * dynamic framework.
+   * Returns the full set of artifacts that should be included as inputs to link against the dynamic
+   * framework.
    */
-  @SkylarkCallable(name = "framework_files",
+  @SkylarkCallable(
+      name = "framework_files",
       structField = true,
-      doc = "The full set of files that should be included as inputs to link against the "
-          + "dynamic framework."
-  )
-  public NestedSet<FileApiT> getDynamicFrameworkFiles();
+      doc =
+          "The full set of files that should be included as inputs to link against the "
+              + "dynamic framework.")
+  public Depset /*<FileApiT>*/ getDynamicFrameworkFiles();
 
   /**
    * Returns the multi-architecture dylib binary of the dynamic framework. May return null if

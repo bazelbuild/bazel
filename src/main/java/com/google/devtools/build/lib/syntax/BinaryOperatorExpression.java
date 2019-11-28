@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 import java.util.EnumSet;
 
 /** A BinaryExpression represents a binary operator expression 'x op y'. */
@@ -63,19 +62,6 @@ public final class BinaryOperatorExpression extends Expression {
   /** Returns the right operand. */
   public Expression getY() {
     return y;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-    // conservatively emit them here.
-    buffer.append('(');
-    x.prettyPrint(buffer);
-    buffer.append(' ');
-    buffer.append(op.toString());
-    buffer.append(' ');
-    y.prettyPrint(buffer);
-    buffer.append(')');
   }
 
   @Override

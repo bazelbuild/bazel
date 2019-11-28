@@ -327,7 +327,7 @@ public final class Actions {
     }
 
     // Keep deterministic ordering of bad actions.
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> badActions = new LinkedHashMap();
+    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> badActions = new LinkedHashMap<>();
     Iterator<PathFragment> iter = artifactPathMap.keySet().iterator();
 
     // Report an error for every derived artifact which is a prefix of another.

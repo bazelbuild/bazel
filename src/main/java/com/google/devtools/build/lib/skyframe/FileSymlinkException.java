@@ -20,4 +20,8 @@ public abstract class FileSymlinkException extends IOException {
   protected FileSymlinkException(String message) {
     super(message);
   }
+
+  /** Returns a description of the problem that is suitable for printing to users. */
+  // TODO(nharmata): Consider unifying this with AbstractChainUniquenessFunction.
+  public abstract String getUserFriendlyMessage();
 }

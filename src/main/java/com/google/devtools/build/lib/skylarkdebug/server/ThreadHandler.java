@@ -26,13 +26,9 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Pau
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -288,11 +284,11 @@ final class ThreadHandler {
   }
 
   /**
-   * Evaluate the given expression in the environment defined by the provided {@link
-   * StarlarkThread}. The "expression" may be a sequence of statements, in which case it is executed
-   * for its side effects, such as assignments.
+   * Executes the Starlark statements code in the environment defined by the provided {@link
+   * StarlarkThread}. If the last statement is an expression, doEvaluate returns its value,
+   * otherwise it returns null.
    *
-   * <p>The caller is responsible for ensuring that the associated skylark thread isn't currently
+   * <p>The caller is responsible for ensuring that the associated Starlark thread isn't currently
    * running.
    */
   private Object doEvaluate(StarlarkThread thread, String content)
@@ -300,43 +296,12 @@ final class ThreadHandler {
     try {
       servicingEvalRequest.set(true);
 
-      // doEvaluate used to be vague about what part of syntax 'content' must be.
-      // Historically it was a "list of statements optionally followed by an expression",
-      // such as "x+1" or "x=2" or "x=2; x+1", but lib.syntax no longer supports that,
-      // and its API revolves around expressions and files (sequence of statements).
-      // Ideally the caller of doEvaluate would explicitly choose so we could simplify
-      // the logic below.
-      // The result of evaluating a Statement is None.
-
       ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
-
-      // Try parsing as an expression.
-      try {
-        Expression expr = Expression.parse(input);
-        return thread.debugEval(expr);
-      } catch (SyntaxError unused) {
-        // Assume it is a file and execute it.
-        exec(input, thread);
-        return Runtime.NONE;
-      }
+      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
+      return x != null ? x : Starlark.NONE;
     } finally {
       servicingEvalRequest.set(false);
     }
-  }
-
-  /** Parses, validates, and executes a Skylark file (sequence of statements) in this thread. */
-  private static void exec(ParserInput input, StarlarkThread thread)
-      throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
-    if (!file.ok()) {
-      throw new SyntaxError(file.errors());
-    }
-    for (Statement stmt : file.getStatements()) {
-      if (stmt instanceof LoadStatement) {
-        throw new EvalException(stmt.getLocation(), "cannot execute load statements in debugger");
-      }
-    }
-    EvalUtils.exec(file, thread);
   }
 
   /**
@@ -418,7 +383,7 @@ final class ThreadHandler {
       return true;
     }
     try {
-      return EvalUtils.toBoolean(doEvaluate(thread, condition));
+      return Starlark.truth(doEvaluate(thread, condition));
     } catch (SyntaxError | EvalException | InterruptedException e) {
       throw new ConditionalBreakpointException(e.getMessage());
     }

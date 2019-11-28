@@ -73,12 +73,6 @@ public class PackageLookupFunction implements SkyFunction {
 
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
 
-    if (!packageKey.getRepository().isMain()) {
-      return computeExternalPackageLookupValue(skyKey, env, packageKey);
-    } else if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      return computeWorkspacePackageLookupValue(env, pkgLocator.getPathEntries());
-    }
-
     String packageNameErrorMsg = LabelValidator.validatePackageName(
         packageKey.getPackageFragment().getPathString());
     if (packageNameErrorMsg != null) {
@@ -88,6 +82,12 @@ public class PackageLookupFunction implements SkyFunction {
 
     if (deletedPackages.get().contains(packageKey)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
+    }
+
+    if (!packageKey.getRepository().isMain()) {
+      return computeExternalPackageLookupValue(skyKey, env, packageKey);
+    } else if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+      return computeWorkspacePackageLookupValue(env, pkgLocator.getPathEntries());
     }
 
     BlacklistedPackagePrefixesValue blacklistedPatternsValue =
@@ -295,17 +295,29 @@ public class PackageLookupFunction implements SkyFunction {
   private PackageLookupValue computeWorkspacePackageLookupValue(
       Environment env, ImmutableList<Root> packagePathEntries)
       throws PackageLookupFunctionException, InterruptedException {
-    PackageLookupValue result =
+    PackageLookupValue resultForWorkspaceDotBazel =
+        getPackageLookupValue(
+            env,
+            packagePathEntries,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            BuildFileName.WORKSPACE_DOT_BAZEL);
+    if (resultForWorkspaceDotBazel == null) {
+      return null;
+    }
+    if (resultForWorkspaceDotBazel.packageExists()) {
+      return resultForWorkspaceDotBazel;
+    }
+    PackageLookupValue resultForWorkspace =
         getPackageLookupValue(
             env,
             packagePathEntries,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             BuildFileName.WORKSPACE);
-    if (result == null) {
+    if (resultForWorkspace == null) {
       return null;
     }
-    if (result.packageExists()) {
-      return result;
+    if (resultForWorkspace.packageExists()) {
+      return resultForWorkspace;
     }
     // Fall back on the last package path entry if there were any and nothing else worked.
     // TODO(kchodorow): get rid of this, the semantics are wrong (successful package lookup should

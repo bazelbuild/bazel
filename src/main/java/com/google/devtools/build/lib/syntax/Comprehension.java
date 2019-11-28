@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 
 /**
  * Syntax node for list and dict comprehensions.
@@ -96,27 +95,6 @@ public final class Comprehension extends Expression {
 
   public ImmutableList<Clause> getClauses() {
     return clauses;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(isDict ? '{' : '[');
-    body.prettyPrint(buffer);
-    for (Clause clause : clauses) {
-      buffer.append(' ');
-      if (clause instanceof For) {
-        For forClause = (For) clause;
-        buffer.append("for ");
-        forClause.vars.prettyPrint(buffer);
-        buffer.append(" in ");
-        forClause.iterable.prettyPrint(buffer);
-      } else {
-        If ifClause = (If) clause;
-        buffer.append("if ");
-        ifClause.condition.prettyPrint(buffer);
-      }
-    }
-    buffer.append(isDict ? '}' : ']');
   }
 
   @Override

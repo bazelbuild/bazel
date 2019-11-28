@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -43,15 +44,15 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileType;
@@ -71,8 +72,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   // Arguments
 
-  private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
-    return arguments.containsKey(key) && arguments.get(key) != Runtime.NONE;
+  private static boolean containsNonNoneKey(Dict<String, Object> arguments, String key) {
+    return arguments.containsKey(key) && arguments.get(key) != Starlark.NONE;
   }
 
   private static void setAllowedFileTypes(
@@ -82,10 +83,9 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       builder.allowedFileTypes(FileTypeSet.ANY_FILE);
     } else if (fileTypesObj == Boolean.FALSE) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
-    } else if (fileTypesObj instanceof SkylarkList) {
+    } else if (fileTypesObj instanceof Sequence) {
       List<String> arg =
-          SkylarkList.castSkylarkListOrNoneToList(
-              fileTypesObj, String.class, "allow_files argument");
+          Sequence.castSkylarkListOrNoneToList(fileTypesObj, String.class, "allow_files argument");
       builder.allowedFileTypes(FileType.of(arg));
     } else {
       throw new EvalException(
@@ -96,7 +96,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -108,7 +108,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread,
       String name)
@@ -116,10 +116,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     return createAttribute(type, doc, arguments, ast, thread, name).buildPartial();
   }
 
+  @SuppressWarnings("unchecked")
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
       String doc,
-      SkylarkDict<String, Object> arguments,
+      Dict<String, Object> arguments,
       FuncallExpression ast,
       StarlarkThread thread,
       String name)
@@ -144,7 +145,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
             new SkylarkComputedDefaultTemplate(
                 type, callback.getParameterNames(), callback, ast.getLocation()));
       } else if (defaultValue instanceof SkylarkLateBoundDefault) {
-        builder.value((SkylarkLateBoundDefault) defaultValue);
+        builder.value((SkylarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
         builder.defaultValue(
             defaultValue,
@@ -155,8 +156,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
     }
 
-    for (String flag : SkylarkList.castSkylarkListOrNoneToList(
-        arguments.get(FLAGS_ARG), String.class, FLAGS_ARG)) {
+    for (String flag :
+        Sequence.castSkylarkListOrNoneToList(arguments.get(FLAGS_ARG), String.class, FLAGS_ARG)) {
       builder.setPropertyFlag(flag);
     }
 
@@ -229,23 +230,23 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     }
 
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
-    if (ruleClassesObj != null && ruleClassesObj != Runtime.NONE) {
+    if (ruleClassesObj != null && ruleClassesObj != Starlark.NONE) {
       builder.allowedRuleClasses(
-          SkylarkList.castSkylarkListOrNoneToList(
+          Sequence.castSkylarkListOrNoneToList(
               ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }
 
-    List<Object> values = SkylarkList.castSkylarkListOrNoneToList(
-        arguments.get(VALUES_ARG), Object.class, VALUES_ARG);
+    List<Object> values =
+        Sequence.castSkylarkListOrNoneToList(arguments.get(VALUES_ARG), Object.class, VALUES_ARG);
     if (!Iterables.isEmpty(values)) {
       builder.allowedValues(new AllowedValueSet(values));
     }
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
       Object obj = arguments.get(PROVIDERS_ARG);
-      SkylarkType.checkType(obj, SkylarkList.class, PROVIDERS_ARG);
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList = buildProviderPredicate(
-          (SkylarkList<?>) obj, PROVIDERS_ARG, ast.getLocation());
+      SkylarkType.checkType(obj, Sequence.class, PROVIDERS_ARG);
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList =
+          buildProviderPredicate((Sequence<?>) obj, PROVIDERS_ARG, ast.getLocation());
 
       // If there is at least one empty set, there is no restriction.
       if (providersList.stream().noneMatch(ImmutableSet::isEmpty)) {
@@ -267,11 +268,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       if (trans.equals("host")) {
         builder.cfg(HostTransition.createFactory());
       } else if (trans.equals("exec")) {
-        builder.cfg(new ExecutionTransitionFactory());
+        builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
-        builder.cfg((TransitionFactory) trans);
+        builder.cfg((TransitionFactory<AttributeTransitionData>) trans); // unchecked cast
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
@@ -296,10 +297,9 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      SkylarkType.checkType(obj, SkylarkList.class, ASPECTS_ARG);
+      SkylarkType.checkType(obj, Sequence.class, ASPECTS_ARG);
 
-      List<SkylarkAspect> aspects =
-          ((SkylarkList<?>) obj).getContents(SkylarkAspect.class, "aspects");
+      List<SkylarkAspect> aspects = ((Sequence<?>) obj).getContents(SkylarkAspect.class, "aspects");
       for (SkylarkAspect aspect : aspects) {
         aspect.attachToAttribute(builder, ast.getLocation());
       }
@@ -309,14 +309,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Builds a list of sets of accepted providers from Skylark list {@code obj}.
-   * The list can either be a list of providers (in that case the result is a list with one
-   * set) or a list of lists of providers (then the result is the list of sets).
+   * Builds a list of sets of accepted providers from Skylark list {@code obj}. The list can either
+   * be a list of providers (in that case the result is a list with one set) or a list of lists of
+   * providers (then the result is the list of sets).
+   *
    * @param argumentName used in error messages.
    * @param location location for error messages.
    */
   static ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> buildProviderPredicate(
-      SkylarkList<?> obj, String argumentName, Location location) throws EvalException {
+      Sequence<?> obj, String argumentName, Location location) throws EvalException {
     if (obj.isEmpty()) {
       return ImmutableList.of();
     }
@@ -343,11 +344,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Converts Skylark identifiers of providers (either a string or a provider value)
-   * to their internal representations.
+   * Converts Skylark identifiers of providers (either a string or a provider value) to their
+   * internal representations.
    */
   static ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviderIdentifiers(
-      SkylarkList<?> list, Location location) throws EvalException {
+      Sequence<?> list, Location location) throws EvalException {
     ImmutableList.Builder<SkylarkProviderIdentifier> result = ImmutableList.builder();
 
     for (Object obj : list) {
@@ -366,7 +367,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   private static ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> getProvidersList(
-      SkylarkList<?> skylarkList, String argumentName, Location location) throws EvalException {
+      Sequence<?> skylarkList, String argumentName, Location location) throws EvalException {
     ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> providersList =
         ImmutableList.builder();
     String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
@@ -374,25 +375,25 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         + "or all elements should be lists of providers, but got %s.";
 
     for (Object o : skylarkList) {
-      if (!(o instanceof SkylarkList)) {
+      if (!(o instanceof Sequence)) {
         throw new EvalException(location, String.format(errorMsg, PROVIDERS_ARG,
             "an element of type " + EvalUtils.getDataTypeName(o, true)));
       }
-      for (Object value : (SkylarkList) o) {
+      for (Object value : (Sequence) o) {
         if (!isProvider(value)) {
           throw new EvalException(location, String.format(errorMsg, argumentName,
               "list with an element of type "
                   + EvalUtils.getDataTypeNameFromClass(value.getClass())));
         }
       }
-      providersList.add(getSkylarkProviderIdentifiers((SkylarkList<?>) o, location));
+      providersList.add(getSkylarkProviderIdentifiers((Sequence<?>) o, location));
     }
     return providersList.build();
   }
 
   private static Descriptor createAttrDescriptor(
       String name,
-      SkylarkDict<String, Object> kwargs,
+      Dict<String, Object> kwargs,
       Type<?> type,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -422,7 +423,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   private static Descriptor createNonconfigurableAttrDescriptor(
       String name,
-      SkylarkDict<String, Object> kwargs,
+      Dict<String, Object> kwargs,
       Type<?> type,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -443,7 +444,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<attr>");
   }
 
@@ -452,7 +453,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Integer defaultInt,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -472,7 +473,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       String defaultString,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
+      Sequence<?> values,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -494,11 +495,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
-      SkylarkList<?> providers,
+      Sequence<?> providers,
       Object allowRules,
       Boolean singleFile,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
@@ -544,7 +545,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -572,7 +573,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
@@ -602,17 +603,17 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.label_list", ast.getLocation());
-    SkylarkDict<String, Object> kwargs =
+    Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
             DEFAULT_ARG,
@@ -651,18 +652,18 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
+      Sequence<?> aspects,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(
         thread, "attr.label_keyed_string_dict", ast.getLocation());
-    SkylarkDict<String, Object> kwargs =
+    Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
             DEFAULT_ARG,
@@ -761,7 +762,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -789,7 +790,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   @Override
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -853,7 +854,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<attr." + name + ">");
     }
   }

@@ -91,4 +91,10 @@ public final class SkylarkParamDoc extends SkylarkDoc {
     }
     return prefixWarning + SkylarkDocUtils.substituteVariables(param.doc());
   }
+
+  @Override
+  public boolean isDeprecated() {
+    // TODO(cparsons): Implement for deprecated parameters.
+    return false;
+  }
 }

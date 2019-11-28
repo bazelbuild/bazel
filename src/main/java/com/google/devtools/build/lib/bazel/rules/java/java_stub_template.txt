@@ -222,12 +222,6 @@ else
   }
 fi
 
-if is_macos || [[ ${OSTYPE} == "freebsd" ]]; then
-  function md5func() { md5 -q $@ ; }
-else
-  function md5func() { md5sum $@ | awk '{print $1}' ; }
-fi
-
 # Set JAVABIN to the path to the JVM launcher.
 %javabin%
 

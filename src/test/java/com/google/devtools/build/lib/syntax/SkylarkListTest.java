@@ -18,28 +18,25 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for SkylarkList.
- */
+/** Tests for Sequence. */
 @RunWith(JUnit4.class)
 public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testIndex() throws Exception {
-    eval("l = [1, '2', 3]");
+    exec("l = [1, '2', 3]");
     assertThat(eval("l[0]")).isEqualTo(1);
     assertThat(eval("l[1]")).isEqualTo("2");
     assertThat(eval("l[2]")).isEqualTo(3);
 
-    eval("t = (1, '2', 3)");
+    exec("t = (1, '2', 3)");
     assertThat(eval("t[0]")).isEqualTo(1);
     assertThat(eval("t[1]")).isEqualTo("2");
     assertThat(eval("t[2]")).isEqualTo(3);
@@ -56,7 +53,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testNegativeIndices() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(eval("l[0]")).isEqualTo("a");
     assertThat(eval("l[-1]")).isEqualTo("c");
     assertThat(eval("l[-2]")).isEqualTo("b");
@@ -66,13 +63,13 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @SuppressWarnings("unchecked")
-  private SkylarkList<Object> listEval(String... input) throws Exception {
-    return (SkylarkList<Object>) eval(input);
+  private Sequence<Object> listEval(String... input) throws Exception {
+    return (Sequence<Object>) eval(input);
   }
 
   @Test
   public void testSlice() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[0:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[0:1]")).containsExactly("a").inOrder();
@@ -83,14 +80,14 @@ public class SkylarkListTest extends EvaluationTestCase {
     assertThat(listEval("l[2:1]")).isEmpty();
     assertThat(listEval("l[3:0]")).isEmpty();
 
-    eval("t = ('a', 'b', 'c')");
+    exec("t = ('a', 'b', 'c')");
     assertThat(listEval("t[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("t[1:2]")).containsExactly("b").inOrder();
   }
 
   @Test
   public void testSliceDefault() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[:]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[2:]")).containsExactly("c").inOrder();
@@ -98,7 +95,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegative() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[-2:-1]")).containsExactly("b").inOrder();
     assertThat(listEval("l[-2:]")).containsExactly("b", "c").inOrder();
     assertThat(listEval("l[0:-1]")).containsExactly("a", "b").inOrder();
@@ -107,7 +104,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceBounds() throws Exception {
-    eval("l = ['a', 'b', 'c']");
+    exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:5]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[-10:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[3:10]")).isEmpty();
@@ -116,7 +113,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceSkip() throws Exception {
-    eval("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[0:6:2]")).containsExactly("a", "c", "e").inOrder();
     assertThat(listEval("l[0:7:2]")).containsExactly("a", "c", "e", "g").inOrder();
     assertThat(listEval("l[0:10:2]")).containsExactly("a", "c", "e", "g").inOrder();
@@ -129,7 +126,7 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegativeSkip() throws Exception {
-    eval("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[5:2:-1]")).containsExactly("f", "e", "d").inOrder();
     assertThat(listEval("l[5:2:-2]")).containsExactly("f", "d").inOrder();
     assertThat(listEval("l[5:3:-2]")).containsExactly("f").inOrder();
@@ -159,12 +156,13 @@ public class SkylarkListTest extends EvaluationTestCase {
   @Test
   public void testListConcat() throws Exception {
     assertThat(eval("[1, 2] + [3, 4]"))
-        .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, 3, 4)));
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
   }
 
   @Test
   public void testConcatListIndex() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
+    exec(
+        "l = [1, 2] + [3, 4]", //
         "e0 = l[0]",
         "e1 = l[1]",
         "e2 = l[2]",
@@ -177,12 +175,13 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testConcatListHierarchicalIndex() throws Exception {
-    eval("l = [1] + (([2] + [3, 4]) + [5])",
-         "e0 = l[0]",
-         "e1 = l[1]",
-         "e2 = l[2]",
-         "e3 = l[3]",
-         "e4 = l[4]");
+    exec(
+        "l = [1] + (([2] + [3, 4]) + [5])", //
+        "e0 = l[0]",
+        "e1 = l[1]",
+        "e2 = l[2]",
+        "e3 = l[3]",
+        "e4 = l[4]");
     assertThat(lookup("e0")).isEqualTo(1);
     assertThat(lookup("e1")).isEqualTo(2);
     assertThat(lookup("e2")).isEqualTo(3);
@@ -197,34 +196,32 @@ public class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testAppend() throws Exception {
-    eval("l = [1, 2]");
-    assertThat(Runtime.NONE).isEqualTo(eval("l.append([3, 4])"));
+    exec("l = [1, 2]");
+    assertThat(Starlark.NONE).isEqualTo(eval("l.append([3, 4])"));
     assertThat(eval("[1, 2, [3, 4]]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testExtend() throws Exception {
-    eval("l = [1, 2]");
-    assertThat(Runtime.NONE).isEqualTo(eval("l.extend([3, 4])"));
+    exec("l = [1, 2]");
+    assertThat(Starlark.NONE).isEqualTo(eval("l.extend([3, 4])"));
     assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testConcatListToString() throws Exception {
-    eval("l = [1, 2] + [3, 4]",
-         "s = str(l)");
-    assertThat(lookup("s")).isEqualTo("[1, 2, 3, 4]");
+    assertThat(eval("str([1, 2] + [3, 4])")).isEqualTo("[1, 2, 3, 4]");
   }
 
   @Test
   public void testConcatListNotEmpty() throws Exception {
-    eval("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
+    exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(1);
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
-    eval("l = [] + []", "v = 1 if l else 0");
+    exec("l = [] + []", "v = 1 if l else 0");
     assertThat(lookup("v")).isEqualTo(0);
   }
 
@@ -241,32 +238,56 @@ public class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListAddWithIndex() throws Exception {
+    Mutability mutability = Mutability.create("test");
+    StarlarkList<String> list = StarlarkList.newList(mutability);
+    Location loc = null;
+    list.add("a", loc);
+    list.add("b", loc);
+    list.add("c", loc);
+    list.add(0, "d", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"b\", \"c\"]");
+    list.add(2, "e", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"c\"]");
+    list.add(4, "f", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\"]");
+    list.add(6, "g", loc);
+    assertThat(list.toString()).isEqualTo("[\"d\", \"a\", \"e\", \"b\", \"f\", \"c\", \"g\"]");
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> list.add(8, "h", loc));
+  }
+
+  @Test
   public void testMutatorsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     mutability.freeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
+    // The casts force selection of the Starlark add/remove methods,
+    // not the disabled ones like List.add(int, Object).
+    // We could enable the List method, but then it would have to
+    // report failures using unchecked exceptions.
+    EvalException e =
+        assertThrows(EvalException.class, () -> list.add((Object) 4, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.add(0, 4, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.add(0, (Object) 4, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
     e =
         assertThrows(
-            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), null, mutability));
+            EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.remove(0, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
-    e = assertThrows(EvalException.class, () -> list.set(0, 10, null, mutability));
+    e = assertThrows(EvalException.class, () -> list.set(0, 10, (Location) null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
   }
 
   @Test
   public void testCannotMutateAfterShallowFreeze() throws Exception {
     Mutability mutability = Mutability.createAllowingShallowFreeze("test");
-    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     list.unsafeShallowFreeze();
 
-    EvalException e = assertThrows(EvalException.class, () -> list.add(4, null, mutability));
+    EvalException e = assertThrows(EvalException.class, () -> list.add((Object) 4, null));
     assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
   }
 
@@ -274,34 +295,33 @@ public class SkylarkListTest extends EvaluationTestCase {
   public void testCopyOfTakesCopy() throws EvalException {
     ArrayList<String> copyFrom = Lists.newArrayList("hi");
     Mutability mutability = Mutability.create("test");
-    MutableList<String> mutableList = MutableList.copyOf(mutability, copyFrom);
+    StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
-    mutableList.add("added2", /*loc=*/ null, mutability);
+    mutableList.add("added2", /*loc=*/ null);
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
     assertThat(mutableList).containsExactly("hi", "added2").inOrder();
   }
 
   @Test
-  public void testWrapUnsafeTakesOwnershipOfPassedArrayList() throws EvalException {
-    ArrayList<String> wrapped = Lists.newArrayList("hi");
+  public void testWrapTakesOwnershipOfArray() throws EvalException {
+    String[] wrapped = {"hello"};
     Mutability mutability = Mutability.create("test");
-    MutableList<String> mutableList = MutableList.wrapUnsafe(mutability, wrapped);
+    StarlarkList<String> mutableList = StarlarkList.wrap(mutability, wrapped);
 
     // Big no-no, but we're proving a point.
-    wrapped.add("added1");
-    mutableList.add("added2", /*loc=*/ null, mutability);
-    assertThat(wrapped).containsExactly("hi", "added1", "added2").inOrder();
-    assertThat(mutableList).containsExactly("hi", "added1", "added2").inOrder();
+    wrapped[0] = "goodbye";
+    assertThat(mutableList).containsExactly("goodbye");
   }
 
   @Test
   public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
     Class<?> emptyTupleClass = Tuple.empty().getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> mutableListClass = MutableList.copyOf(thread, Tuple.of(1, 2, 3)).getClass();
+    Class<?> mutableListClass =
+        StarlarkList.copyOf(thread.mutability(), Tuple.of(1, 2, 3)).getClass();
 
-    assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(MutableList.class);
+    assertThat(EvalUtils.getSkylarkType(mutableListClass)).isEqualTo(StarlarkList.class);
     assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
     assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
   }

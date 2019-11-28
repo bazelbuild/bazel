@@ -163,7 +163,7 @@ public abstract class FunctionSignature {
   @Override
   public final String toString() {
     StringBuilder sb = new StringBuilder();
-    toStringBuilder(sb, null, null, false); // no default values, types, or self
+    toStringBuilder(sb, null); // no default values
     return sb.toString();
   }
 
@@ -177,14 +177,9 @@ public abstract class FunctionSignature {
    *
    * @param printer output StringBuilder
    * @param defaultValuePrinter optional callback for formatting i'th default value (if any).
-   * @param typePrinter optional callback for formatting type of i'th parameter (if any).
-   * @param skipFirstMandatory whether to skip the first mandatory parameter.
    */
   StringBuilder toStringBuilder(
-      final StringBuilder printer,
-      @Nullable final ElementPrinter defaultValuePrinter,
-      @Nullable final ElementPrinter typePrinter,
-      final boolean skipFirstMandatory) {
+      final StringBuilder printer, @Nullable final ElementPrinter defaultValuePrinter) {
     final ImmutableList<String> names = getParameterNames();
 
     int mandatoryPositionals = numMandatoryPositionals();
@@ -213,19 +208,9 @@ public abstract class FunctionSignature {
         isMore = true;
       }
 
-      public void type(int i) {
-        if (typePrinter != null) {
-          String str = typePrinter.print(i);
-          if (str != null) {
-            printer.append(": ").append(str);
-          }
-        }
-      }
-
       public void mandatory(int i) {
         comma();
         printer.append(names.get(i));
-        type(i);
       }
 
       public void optional(int i) {
@@ -239,7 +224,7 @@ public abstract class FunctionSignature {
 
     Show show = new Show();
 
-    int i = skipFirstMandatory ? 1 : 0;
+    int i = 0;
     for (; i < mandatoryPositionals; i++) {
       show.mandatory(i);
     }
@@ -410,7 +395,7 @@ public abstract class FunctionSignature {
     return of(0, 0, numMandatory, false, false, names);
   }
 
-  /** Invalid signature from Parser or from SkylarkSignature annotations */
+  /** Invalid signature from Parser or from SkylarkCallable annotation. */
   static class SignatureException extends Exception {
     private final Parameter parameter;
 
@@ -429,4 +414,8 @@ public abstract class FunctionSignature {
   /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =
       FunctionSignature.of(0, 0, 0, false, true, "kwargs");
+
+  /** A ready-made signature that allows any arguments. */
+  public static final FunctionSignature ANY =
+      FunctionSignature.of(0, 0, 0, true, true, "args", "kwargs");
 }

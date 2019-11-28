@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.TemplateVariableInfoApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 
 /** Provides access to make variables from the current fragments. */
@@ -40,10 +40,10 @@ public final class TemplateVariableInfo extends NativeInfo implements TemplateVa
     }
 
     @Override
-    public TemplateVariableInfo templateVariableInfo(SkylarkDict<?, ?> vars, Location loc)
+    public TemplateVariableInfo templateVariableInfo(Dict<?, ?> vars, Location loc)
         throws EvalException {
       Map<String, String> varsMap =
-          SkylarkDict.castSkylarkDictOrNoneToDict(vars, String.class, String.class, "vars");
+          Dict.castSkylarkDictOrNoneToDict(vars, String.class, String.class, "vars");
       return new TemplateVariableInfo(ImmutableMap.copyOf(varsMap), loc);
     }
   }

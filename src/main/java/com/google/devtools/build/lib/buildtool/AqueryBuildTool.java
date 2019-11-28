@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
 /** A version of {@link BuildTool} that handles all aquery work. */
@@ -161,7 +162,11 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
             (ActionFilterFunction) functionExpression.getFunction();
 
         String patternString = functionExpression.getArgs().get(0).getWord();
-        actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+        try {
+          actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+        } catch (PatternSyntaxException e) {
+          throw new AqueryActionFilterException("Wrong query syntax: " + e.getMessage());
+        }
       } else {
         nonAqueryFilterFunctionExpression = functionExpression;
       }

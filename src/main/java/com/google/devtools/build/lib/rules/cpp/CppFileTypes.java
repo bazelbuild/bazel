@@ -199,6 +199,7 @@ public final class CppFileTypes {
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");
+  public static final FileType OBJC_MODULE_MAP = FileType.of("module.modulemap");
 
   /** Predicate that matches all artifacts that can be used in an objc Clang module map. */
   public static final Predicate<Artifact> MODULE_MAP_HEADER =

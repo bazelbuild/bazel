@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.Map;
 
 /**
@@ -35,12 +33,11 @@ import java.util.Map;
  * </pre>
  */
 @SkylarkModule(
-  name = "selector",
-  doc = "A selector between configuration-dependent entities.",
-  documented = false
-)
+    name = "selector",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
 @AutoCodec
-public final class SelectorValue implements SkylarkValue {
+public final class SelectorValue implements StarlarkValue {
   // TODO(bazel-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
   // operators, which is a non-trivial problem.
@@ -73,11 +70,11 @@ public final class SelectorValue implements SkylarkValue {
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.format("select(%r)", dictionary);
   }
 }

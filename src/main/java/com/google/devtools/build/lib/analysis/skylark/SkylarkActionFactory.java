@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import static java.util.stream.Collectors.toList;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -27,11 +25,8 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
@@ -48,39 +43,30 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkMutable;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 /** Provides a Skylark interface for all action creation needs. */
 public class SkylarkActionFactory implements SkylarkActionFactoryApi {
@@ -133,7 +119,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.declare_file");
 
     PathFragment fragment;
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -155,7 +141,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.declare_directory");
     PathFragment fragment;
 
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -193,7 +179,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     Artifact result;
     PathFragment rootRelativePath;
-    if (Runtime.NONE.equals(sibling)) {
+    if (Starlark.NONE.equals(sibling)) {
       rootRelativePath = ruleContext.getPackageDirectory().getRelative(filename);
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
@@ -217,10 +203,10 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   public void doNothing(String mnemonic, Object inputs, Location location) throws EvalException {
     context.checkMutable("actions.do_nothing");
     NestedSet<Artifact> inputSet =
-        inputs instanceof SkylarkNestedSet
-            ? ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs")
+        inputs instanceof Depset
+            ? ((Depset) inputs).getSetFromParam(Artifact.class, "inputs")
             : NestedSetBuilder.<Artifact>compileOrder()
-                .addAll(((SkylarkList<?>) inputs).getContents(Artifact.class, "inputs"))
+                .addAll(((Sequence<?>) inputs).getContents(Artifact.class, "inputs"))
                 .build();
     Action action =
         new PseudoAction<>(
@@ -280,12 +266,10 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
-              starlarkSemantics.incompatibleExpandDirectories()
-                  ? args.getDirectoryArtifacts()
-                  : ImmutableList.of(),
+              args.getDirectoryArtifacts(),
               (Artifact) output,
               args.build(),
-              args.parameterFileType,
+              args.getParameterFileType(),
               StandardCharsets.UTF_8);
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
@@ -295,7 +279,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
   @Override
   public void run(
-      SkylarkList outputs,
+      Sequence<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object executableUnchecked,
@@ -312,7 +296,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.run");
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
 
-    SkylarkList argumentsList = ((SkylarkList) arguments);
+    Sequence<?> argumentsList = ((Sequence) arguments);
     buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
@@ -381,7 +365,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
   @Override
   public void runShell(
-      SkylarkList outputs,
+      Sequence<?> outputs,
       Object inputs,
       Object toolsUnchecked,
       Object arguments,
@@ -397,7 +381,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
-    SkylarkList argumentList = (SkylarkList) arguments;
+    Sequence<?> argumentList = (Sequence) arguments;
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, argumentList);
 
@@ -422,7 +406,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
           builder.addTool(provider);
         }
       }
-    } else if (commandUnchecked instanceof SkylarkList) {
+    } else if (commandUnchecked instanceof Sequence) {
       if (semantics.incompatibleRunShellCommandString()) {
         throw new EvalException(
             location,
@@ -430,12 +414,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
                 + " is deprecated. To temporarily disable this check,"
                 + " set --incompatible_objc_framework_cleanup=false.");
       }
-      SkylarkList commandList = (SkylarkList) commandUnchecked;
+      Sequence<?> commandList = (Sequence) commandUnchecked;
       if (argumentList.size() > 0) {
         throw new EvalException(location,
             "'arguments' must be empty if 'command' is a sequence of strings");
       }
-      @SuppressWarnings("unchecked")
       List<String> command = commandList.getContents(String.class, "command");
       builder.setShellCommand(command);
     } else {
@@ -454,7 +437,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     registerStarlarkAction(
         outputs,
         inputs,
-        /*unusedInputsList=*/ Runtime.NONE,
+        /*unusedInputsList=*/ Starlark.NONE,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
@@ -466,7 +449,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         builder);
   }
 
-  private void buildCommandLine(SpawnAction.Builder builder, SkylarkList argumentsList)
+  private static void buildCommandLine(SpawnAction.Builder builder, Sequence<?> argumentsList)
       throws EvalException {
     List<String> stringArgs = new ArrayList<>();
     for (Object value : argumentsList) {
@@ -478,16 +461,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
           stringArgs = new ArrayList<>();
         }
         Args args = (Args) value;
-        ParamFileInfo paramFileInfo = null;
-        if (args.flagFormatString != null) {
-          paramFileInfo =
-              ParamFileInfo.builder(args.parameterFileType)
-                  .setFlagFormatString(args.flagFormatString)
-                  .setUseAlways(args.useAlways)
-                  .setCharset(StandardCharsets.UTF_8)
-                  .build();
-        }
-        builder.addCommandLine(args.commandLine.build(), paramFileInfo);
+        ParamFileInfo paramFileInfo = args.getParamFileInfo();
+        builder.addCommandLine(args.build(), paramFileInfo);
       } else {
         throw new EvalException(
             null,
@@ -506,7 +481,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
    * <p>{@code builder} should have either executable or a command set.
    */
   private void registerStarlarkAction(
-      SkylarkList outputs,
+      Sequence<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object toolsUnchecked,
@@ -520,24 +495,22 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       StarlarkAction.Builder builder)
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
-    if (inputs instanceof SkylarkList) {
-      inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
+    if (inputs instanceof Sequence) {
+      inputArtifacts = ((Sequence<?>) inputs).getContents(Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      NestedSet<Artifact> inputSet =
-          ((SkylarkNestedSet) inputs).getSetFromParam(Artifact.class, "inputs");
+      NestedSet<Artifact> inputSet = ((Depset) inputs).getSetFromParam(Artifact.class, "inputs");
       builder.addTransitiveInputs(inputSet);
       inputArtifacts = inputSet;
     }
 
-    @SuppressWarnings("unchecked")
     List<Artifact> outputArtifacts = outputs.getContents(Artifact.class, "outputs");
     if (outputArtifacts.isEmpty()) {
       throw new EvalException(location, "param 'outputs' may not be empty");
     }
     builder.addOutputs(outputArtifacts);
 
-    if (unusedInputsList != Runtime.NONE) {
+    if (unusedInputsList != Starlark.NONE) {
       if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
         throw new EvalException(
             location,
@@ -557,12 +530,12 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     }
 
-    if (toolsUnchecked != Runtime.UNBOUND) {
+    if (toolsUnchecked != Starlark.UNBOUND) {
       Iterable<?> toolsIterable;
-      if (toolsUnchecked instanceof SkylarkList) {
-        toolsIterable = ((SkylarkList<?>) toolsUnchecked).getContents(Object.class, "tools");
+      if (toolsUnchecked instanceof Sequence) {
+        toolsIterable = ((Sequence<?>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet();
+        toolsIterable = ((Depset) toolsUnchecked).getSet();
       }
       for (Object toolUnchecked : toolsIterable) {
         if (toolUnchecked instanceof Artifact) {
@@ -630,16 +603,15 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     String mnemonic = getMnemonic(mnemonicUnchecked);
     builder.setMnemonic(mnemonic);
-    if (envUnchecked != Runtime.NONE) {
+    if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
           ImmutableMap.copyOf(
-              SkylarkDict.castSkylarkDictOrNoneToDict(
-                  envUnchecked, String.class, String.class, "env")));
+              Dict.castSkylarkDictOrNoneToDict(envUnchecked, String.class, String.class, "env")));
     }
-    if (progressMessage != Runtime.NONE) {
+    if (progressMessage != Starlark.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
     }
-    if (EvalUtils.toBoolean(useDefaultShellEnv)) {
+    if (Starlark.truth(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment();
     }
 
@@ -650,9 +622,10 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             starlarkSemantics.experimentalAllowTagsPropagation());
     builder.setExecutionInfo(executionInfo);
 
-    if (inputManifestsUnchecked != Runtime.NONE) {
-      for (RunfilesSupplier supplier : SkylarkList.castSkylarkListOrNoneToList(
-          inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
+    if (inputManifestsUnchecked != Starlark.NONE) {
+      for (RunfilesSupplier supplier :
+          Sequence.castSkylarkListOrNoneToList(
+              inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
         builder.addRunfilesSupplier(supplier);
       }
     }
@@ -661,7 +634,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic = mnemonicUnchecked == Runtime.NONE ? "Action" : (String) mnemonicUnchecked;
+    String mnemonic = mnemonicUnchecked == Starlark.NONE ? "Action" : (String) mnemonicUnchecked;
     if (ruleContext.getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }
@@ -676,7 +649,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   public void expandTemplate(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location location)
       throws EvalException {
@@ -713,393 +686,9 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
 
-  /** Args module. */
-  @VisibleForTesting
-  public static class Args extends StarlarkMutable implements CommandLineArgsApi {
-    private final Mutability mutability;
-    private final StarlarkSemantics starlarkSemantics;
-    private final SkylarkCustomCommandLine.Builder commandLine;
-    private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
-    private final Set<Artifact> directoryArtifacts = new HashSet<>();
-    private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
-    private String flagFormatString;
-    private boolean useAlways;
-
-    @Override
-    public CommandLineArgsApi addArgument(
-        Object argNameOrValue,
-        Object value,
-        Object format,
-        Object beforeEach,
-        Object joinWith,
-        Object mapFn,
-        Location loc)
-        throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
-      final String argName;
-      if (value == Runtime.UNBOUND) {
-        value = argNameOrValue;
-        argName = null;
-      } else {
-        validateArgName(argNameOrValue, loc);
-        argName = (String) argNameOrValue;
-      }
-      if (argName != null) {
-        commandLine.add(argName);
-      }
-      if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-        if (starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
-          throw new EvalException(
-              loc,
-              "Args#add no longer accepts vectorized arguments when "
-                  + "--incompatible_disallow_old_style_args_add is set. "
-                  + "Please use Args#add_all or Args#add_joined.");
-        }
-        addVectorArg(
-            value,
-            /* argName= */ null,
-            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-            /* mapEach= */ null,
-            format != Runtime.NONE ? (String) format : null,
-            beforeEach != Runtime.NONE ? (String) beforeEach : null,
-            joinWith != Runtime.NONE ? (String) joinWith : null,
-            /* formatJoined= */ null,
-            /* omitIfEmpty= */ false,
-            /* uniquify= */ false,
-            starlarkSemantics.incompatibleExpandDirectories(),
-            /* terminateWith= */ null,
-            loc);
-
-      } else {
-        if (mapFn != Runtime.NONE && starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()) {
-          throw new EvalException(
-              loc,
-              "Args#add no longer accepts map_fn when"
-                  + "--incompatible_disallow_old_style_args_add is set. "
-                  + "Please eagerly map the value.");
-        }
-        if (beforeEach != Runtime.NONE) {
-          throw new EvalException(null, "'before_each' is not supported for scalar arguments");
-        }
-        if (joinWith != Runtime.NONE) {
-          throw new EvalException(null, "'join_with' is not supported for scalar arguments");
-        }
-        addScalarArg(
-            value,
-            format != Runtime.NONE ? (String) format : null,
-            mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-            loc);
-      }
-      return this;
-    }
-
-    @Override
-    public CommandLineArgsApi addAll(
-        Object argNameOrValue,
-        Object values,
-        Object mapEach,
-        Object formatEach,
-        Object beforeEach,
-        Boolean omitIfEmpty,
-        Boolean uniquify,
-        Object expandDirectories,
-        Object terminateWith,
-        Location loc)
-        throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
-      final String argName;
-      if (values == Runtime.UNBOUND) {
-        values = argNameOrValue;
-        validateValues(values, loc);
-        argName = null;
-      } else {
-        validateArgName(argNameOrValue, loc);
-        argName = (String) argNameOrValue;
-      }
-      addVectorArg(
-          values,
-          argName,
-          /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
-          beforeEach != Runtime.NONE ? (String) beforeEach : null,
-          /* joinWith= */ null,
-          /* formatJoined= */ null,
-          omitIfEmpty,
-          uniquify,
-          expandDirectories == Runtime.UNBOUND
-              ? starlarkSemantics.incompatibleExpandDirectories()
-              : (Boolean) expandDirectories,
-          terminateWith != Runtime.NONE ? (String) terminateWith : null,
-          loc);
-      return this;
-    }
-
-    @Override
-    public CommandLineArgsApi addJoined(
-        Object argNameOrValue,
-        Object values,
-        String joinWith,
-        Object mapEach,
-        Object formatEach,
-        Object formatJoined,
-        Boolean omitIfEmpty,
-        Boolean uniquify,
-        Object expandDirectories,
-        Location loc)
-        throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
-      final String argName;
-      if (values == Runtime.UNBOUND) {
-        values = argNameOrValue;
-        validateValues(values, loc);
-        argName = null;
-      } else {
-        validateArgName(argNameOrValue, loc);
-        argName = (String) argNameOrValue;
-      }
-      addVectorArg(
-          values,
-          argName,
-          /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
-          /* beforeEach= */ null,
-          joinWith,
-          formatJoined != Runtime.NONE ? (String) formatJoined : null,
-          omitIfEmpty,
-          uniquify,
-          expandDirectories == Runtime.UNBOUND
-              ? starlarkSemantics.incompatibleExpandDirectories()
-              : (Boolean) expandDirectories,
-          /* terminateWith= */ null,
-          loc);
-      return this;
-    }
-
-    private void addVectorArg(
-        Object value,
-        String argName,
-        BaseFunction mapAll,
-        BaseFunction mapEach,
-        String formatEach,
-        String beforeEach,
-        String joinWith,
-        String formatJoined,
-        boolean omitIfEmpty,
-        boolean uniquify,
-        boolean expandDirectories,
-        String terminateWith,
-        Location loc)
-        throws EvalException {
-      SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof SkylarkNestedSet) {
-        SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
-        NestedSet<?> nestedSet = skylarkNestedSet.getSet();
-        if (expandDirectories) {
-          potentialDirectoryArtifacts.add(nestedSet);
-        }
-        vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
-      } else {
-        @SuppressWarnings("unchecked")
-        SkylarkList<Object> skylarkList = (SkylarkList<Object>) value;
-        if (expandDirectories) {
-          scanForDirectories(skylarkList);
-        }
-        vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
-      }
-      validateMapEach(mapEach, loc);
-      validateFormatString("format_each", formatEach, loc);
-      validateFormatString("format_joined", formatJoined, loc);
-      vectorArg
-          .setLocation(loc)
-          .setArgName(argName)
-          .setExpandDirectories(expandDirectories)
-          .setMapAll(mapAll)
-          .setFormatEach(formatEach)
-          .setBeforeEach(beforeEach)
-          .setJoinWith(joinWith)
-          .setFormatJoined(formatJoined)
-          .omitIfEmpty(omitIfEmpty)
-          .uniquify(uniquify)
-          .setTerminateWith(terminateWith)
-          .setMapEach(mapEach);
-      commandLine.add(vectorArg);
-    }
-
-    private void validateArgName(Object argName, Location loc) throws EvalException {
-      if (!(argName instanceof String)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "expected value of type 'string' for arg name, got '%s'",
-                argName.getClass().getSimpleName()));
-      }
-    }
-
-    private void validateValues(Object values, Location loc) throws EvalException {
-      if (!(values instanceof SkylarkList || values instanceof SkylarkNestedSet)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "expected value of type 'sequence or depset' for values, got '%s'",
-                values.getClass().getSimpleName()));
-      }
-    }
-
-    private void validateMapEach(@Nullable BaseFunction mapEach, Location loc)
-        throws EvalException {
-      if (mapEach == null) {
-        return;
-      }
-      FunctionSignature sig = mapEach.getSignature();
-      boolean valid =
-          sig.numMandatoryPositionals() == 1
-              && sig.numOptionalPositionals() == 0
-              && sig.numMandatoryNamedOnly() == 0
-              && sig.numOptionalPositionals() == 0;
-      if (!valid) {
-        throw new EvalException(
-            loc, "map_each must be a function that accepts a single positional argument");
-      }
-    }
-
-    private void validateFormatString(String argumentName, @Nullable String formatStr, Location loc)
-        throws EvalException {
-      if (formatStr != null
-          && starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-          && !SingleStringArgFormatter.isValid(formatStr)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
-                argumentName));
-      }
-    }
-
-    private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
-        throws EvalException {
-      validateNoDirectory(value, loc);
-      validateFormatString("format", format, loc);
-      if (format == null && mapFn == null) {
-        commandLine.add(value);
-      } else {
-        ScalarArg.Builder scalarArg =
-            new ScalarArg.Builder(value).setLocation(loc).setFormat(format).setMapFn(mapFn);
-        commandLine.add(scalarArg);
-      }
-    }
-
-    private void validateNoDirectory(Object value, Location loc) throws EvalException {
-      if (starlarkSemantics.incompatibleExpandDirectories() && isDirectory(value)) {
-        throw new EvalException(
-            loc,
-            "Cannot add directories to Args#add since they may expand to multiple values. "
-                + "Either use Args#add_all (if you want expansion) "
-                + "or args.add(directory.path) (if you do not).");
-      }
-    }
-
-    private static boolean isDirectory(Object object) {
-      return ((object instanceof Artifact) && ((Artifact) object).isDirectory());
-    }
-
-    @Override
-    public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
-        throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
-      if (!SingleStringArgFormatter.isValid(paramFileArg)) {
-        throw new EvalException(
-            null,
-            String.format(
-                "Invalid value for parameter \"param_file_arg\": "
-                    + "Expected string with a single \"%s\"",
-                paramFileArg));
-      }
-      this.flagFormatString = paramFileArg;
-      this.useAlways = useAlways;
-      return this;
-    }
-
-    @Override
-    public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
-      final ParameterFileType parameterFileType;
-      switch (format) {
-        case "shell":
-          parameterFileType = ParameterFileType.SHELL_QUOTED;
-          break;
-        case "multiline":
-          parameterFileType = ParameterFileType.UNQUOTED;
-          break;
-        default:
-          throw new EvalException(
-              null,
-              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
-      }
-      this.parameterFileType = parameterFileType;
-      return this;
-    }
-
-    private Args(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
-      this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
-      this.starlarkSemantics = starlarkSemantics;
-      this.commandLine = new SkylarkCustomCommandLine.Builder(starlarkSemantics);
-    }
-
-    public SkylarkCustomCommandLine build() {
-      return commandLine.build();
-    }
-
-    @Override
-    public Mutability mutability() {
-      return mutability;
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {
-      printer.append("context.args() object");
-    }
-
-    @Override
-    public void debugPrint(SkylarkPrinter printer) {
-      try {
-        printer.append(Joiner.on(" ").join(commandLine.build().arguments()));
-      } catch (CommandLineExpansionException e) {
-        printer.append("Cannot expand command line: " + e.getMessage());
-      }
-    }
-
-    ImmutableSet<Artifact> getDirectoryArtifacts() {
-      for (Iterable<?> collection : potentialDirectoryArtifacts) {
-        scanForDirectories(collection);
-      }
-      potentialDirectoryArtifacts.clear();
-      return ImmutableSet.copyOf(directoryArtifacts);
-    }
-
-    private void scanForDirectories(Iterable<?> objects) {
-      for (Object object : objects) {
-        if (isDirectory(object)) {
-          directoryArtifacts.add((Artifact) object);
-        }
-      }
-    }
-  }
-
   @Override
   public Args args(StarlarkThread thread) {
-    return new Args(thread.mutability(), starlarkSemantics);
+    return Args.newArgs(thread.mutability(), starlarkSemantics);
   }
 
   @Override
@@ -1108,7 +697,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("actions for");
     context.repr(printer);
   }

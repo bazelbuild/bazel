@@ -17,15 +17,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Interface for a utility module involving the Apple toolchain.
- */
+/** Interface for a utility module involving the Apple toolchain. */
 @SkylarkModule(
     name = "apple_toolchain",
-    doc = "Utilities for resolving items from the Apple toolchain."
-)
-public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>> {
+    doc = "Utilities for resolving items from the Apple toolchain.")
+public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>>
+    extends StarlarkValue {
 
   @SkylarkCallable(
     name = "sdk_dir",

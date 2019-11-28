@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -38,7 +39,9 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -62,7 +66,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -71,6 +74,10 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.IncludeScann
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -487,7 +494,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
-      if (!isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
         missing.add(header);
       }
     }
@@ -840,6 +847,23 @@ public class CppCompileAction extends AbstractAction
     return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
   }
 
+  @Override
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+    ImmutableSet<Artifact> directoryInputs =
+        Streams.stream(getInputs())
+            .filter(artifact -> artifact.isDirectory())
+            .collect(ImmutableSet.toImmutableSet());
+
+    CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine();
+
+    CommandLineAndParamFileInfo commandLineAndParamFileInfo =
+        new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
+
+    Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
+
+    return StarlarkList.immutableCopyOf(ImmutableList.of(args));
+  }
+
   public ParamFileActionInput getParamFileActionInput() {
     return paramFileActionInput;
   }
@@ -949,6 +973,11 @@ public class CppCompileAction extends AbstractAction
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         continue;
       }
+      // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
+      // local_objc_modules feature.
+      if (input.isFileType(CppFileTypes.OBJC_MODULE_MAP)) {
+        continue;
+      }
       if (allowedIncludes.contains(input)) {
         continue;
       }
@@ -959,7 +988,7 @@ public class CppCompileAction extends AbstractAction
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
       }
-      if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
         errors.add(input.getExecPath().toString());
       }
     }
@@ -1038,6 +1067,7 @@ public class CppCompileAction extends AbstractAction
    * matches.
    */
   private static boolean isDeclaredIn(
+      CppConfiguration cppConfiguration,
       ActionExecutionContext actionExecutionContext,
       Artifact input,
       Set<PathFragment> declaredIncludeDirs) {
@@ -1049,7 +1079,10 @@ public class CppCompileAction extends AbstractAction
     }
     // Need to do dir/package matching: first try a quick exact lookup.
     PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (includeDir.isEmpty() || declaredIncludeDirs.contains(includeDir)) {
+    if (!cppConfiguration.validateTopLevelHeaderInclusions() && includeDir.isEmpty()) {
+      return true; // Legacy behavior nobody understands anymore.
+    }
+    if (declaredIncludeDirs.contains(includeDir)) {
       return true;  // OK: quick exact match.
     }
     // Not found in the quick lookup: try the wildcards.
@@ -1062,12 +1095,16 @@ public class CppCompileAction extends AbstractAction
     }
     // Still not found: see if it is in a subdir of a declared package.
     Root root = actionExecutionContext.getRoot(input);
+    Path dir = actionExecutionContext.getInputPath(input).getParentDirectory();
+    if (dir.equals(root.asPath())) {
+      return false; // Bad: at the top, give up.
+    }
     // As we walk up along parent paths, we'll need to check whether Bazel build files exist, which
     // would mean that the file is in a sub-package and not a subdir of a declared include
     // directory. Do so lazily to avoid stats when this file doesn't lie beneath any declared
     // include directory.
     List<Path> packagesToCheckForBuildFiles = new ArrayList<>();
-    for (Path dir = actionExecutionContext.getInputPath(input).getParentDirectory(); ; ) {
+    while (true) {
       packagesToCheckForBuildFiles.add(dir);
       dir = dir.getParentDirectory();
       if (dir.equals(root.asPath())) {
@@ -1221,7 +1258,8 @@ public class CppCompileAction extends AbstractAction
         additionalPrunableHeaders,
         ccCompilationContext.getDeclaredIncludeDirs(),
         builtInIncludeDirectories,
-        inputsForInvalidation);
+        inputsForInvalidation,
+        cppConfiguration.validateTopLevelHeaderInclusions());
   }
 
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
@@ -1238,12 +1276,14 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> prunableHeaders,
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
-      Iterable<Artifact> inputsForInvalidation) {
+      Iterable<Artifact> inputsForInvalidation,
+      boolean validateTopLevelHeaderInclusions) {
     fp.addUUID(actionClassId);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
+    fp.addBoolean(validateTopLevelHeaderInclusions);
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types
@@ -1677,24 +1717,6 @@ public class CppCompileAction extends AbstractAction
     return transitivelyUsedModules.build();
   }
 
-  private ActionExecutionException printIOExceptionAndConvertToActionExecutionException(
-      ActionExecutionContext actionExecutionContext, IOException e) {
-    // Print the stack trace, otherwise the unexpected I/O error is hard to diagnose.
-    // A stack trace could help with bugs like https://github.com/bazelbuild/bazel/issues/4924
-    String stackTrace = Throwables.getStackTraceAsString(e);
-    actionExecutionContext
-        .getEventHandler()
-        .handle(Event.error("Unexpected I/O exception:\n" + stackTrace));
-    return toActionExecutionException(
-        new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
-  }
-
-  private ActionExecutionException toActionExecutionException(
-      ExecException e, boolean verboseFailures) {
-    String failMessage = getRawProgressMessage();
-    return e.toActionExecutionException(failMessage, verboseFailures, this);
-  }
-
   private final class CppCompileActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final ActionExecutionContext spawnExecutionContext;
@@ -1824,7 +1846,11 @@ public class CppCompileAction extends AbstractAction
             }
           }
         } catch (IOException e) {
-          throw printIOExceptionAndConvertToActionExecutionException(actionExecutionContext, e);
+          throw new EnvironmentalExecException(e)
+              .toActionExecutionException(
+                  getRawProgressMessage(),
+                  actionExecutionContext.getVerboseFailures(),
+                  CppCompileAction.this);
         }
       }
     }

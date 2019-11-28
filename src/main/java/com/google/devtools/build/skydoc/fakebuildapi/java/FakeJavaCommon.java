@@ -16,7 +16,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
@@ -24,8 +23,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -48,22 +48,22 @@ public class FakeJavaCommon
   @Override
   public FakeJavaInfo createJavaCompileAction(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<FileApi> sourceJars,
-      SkylarkList<FileApi> sourceFiles,
+      Sequence<?> sourceJars,
+      Sequence<?> sourceFiles,
       FileApi outputJar,
       Object outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<FakeJavaInfo> deps,
-      SkylarkList<FakeJavaInfo> exports,
-      SkylarkList<FakeJavaInfo> plugins,
-      SkylarkList<FakeJavaInfo> exportedPlugins,
-      SkylarkList<FileApi> annotationProcessorAdditionalInputs,
-      SkylarkList<FileApi> annotationProcessorAdditionalOutputs,
+      Sequence<?> javacOpts,
+      Sequence<?> deps,
+      Sequence<?> exports,
+      Sequence<?> plugins,
+      Sequence<?> exportedPlugins,
+      Sequence<?> annotationProcessorAdditionalInputs,
+      Sequence<?> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
-      SkylarkList<FileApi> sourcepathEntries,
-      SkylarkList<FileApi> resources,
+      Sequence<?> sourcepathEntries,
+      Sequence<?> resources,
       Boolean neverlink,
       Location loc,
       StarlarkThread thread)
@@ -99,8 +99,8 @@ public class FakeJavaCommon
   public FileApi packSources(
       SkylarkActionFactoryApi actions,
       FileApi outputJar,
-      SkylarkList<FileApi> sourceFiles,
-      SkylarkList<FileApi> sourceJars,
+      Sequence<?> sourceFiles,
+      Sequence<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
       Location location,
@@ -116,7 +116,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public FakeJavaInfo mergeJavaProviders(SkylarkList<FakeJavaInfo> providers) {
+  public FakeJavaInfo mergeJavaProviders(Sequence<?> providers) {
     return new FakeJavaInfo();
   }
 
@@ -146,7 +146,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, SkylarkList<String> constraints) {
+  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, Sequence<?> constraints) {
     return new FakeJavaInfo();
   }
 
@@ -156,13 +156,13 @@ public class FakeJavaCommon
   }
 
   @Override
-  public NestedSet<FileApi> getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
+  public Depset /*<FileApi>*/ getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
     return null;
   }
 
   @Override
   public FakeJavaInfo addCompileTimeJavaDependencyArtifacts(
-      FakeJavaInfo javaInfo, SkylarkList<FileApi> compileTimeJavaDependencyArtifacts) {
+      FakeJavaInfo javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts) {
     return new FakeJavaInfo();
   }
 

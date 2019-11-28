@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -59,7 +60,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
-import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.rules.java.JavaCompileOutputs;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -140,19 +141,15 @@ public class AndroidCommon {
   private JavaCompilationArgsProvider javaCompilationArgs = JavaCompilationArgsProvider.EMPTY;
   private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
-  private Artifact nativeHeaderOutput;
+  private JavaCompileOutputs<Artifact> outputs;
   private Artifact iJar;
   private Artifact srcJar;
-  private Artifact genClassJar;
-  private Artifact genSourceJar;
   private Artifact resourceSourceJar;
-  private Artifact outputDepsProto;
   private GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider;
   private final JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder =
       JavaSourceJarsProvider.builder();
   private final JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
       JavaRuleOutputJarsProvider.builder();
-  private Artifact manifestProtoOutput;
   private AndroidIdlHelper idlHelper;
 
   public AndroidCommon(JavaCommon javaCommon) {
@@ -610,27 +607,16 @@ public class AndroidCommon {
 
     filesBuilder.add(classJar);
 
-    manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-
-    // The gensrc jar is created only if the target uses annotation processing. Otherwise,
-    // it is null, and the source jar action will not depend on the compile action.
-    if (helper.usesAnnotationProcessing()) {
-      genClassJar = helper.createGenJar(classJar);
-      genSourceJar = helper.createGensrcJar(classJar);
-      helper.createGenJarAction(classJar, manifestProtoOutput, genClassJar);
-    }
+    outputs = helper.createOutputs(classJar);
+    javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
 
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
     javaSourceJarsProviderBuilder
         .addSourceJar(srcJar)
         .addAllTransitiveSourceJars(javaCommon.collectTransitiveSourceJars(srcJar));
-    helper.createSourceJarAction(srcJar, genSourceJar);
+    helper.createSourceJarAction(srcJar, outputs.genSource());
 
-    nativeHeaderOutput = helper.createNativeHeaderJar(classJar);
-
-    JavaCompileAction javaCompileAction =
-        helper.createCompileAction(classJar, manifestProtoOutput, genSourceJar, nativeHeaderOutput);
-    outputDepsProto = javaCompileAction.getOutputDepsProto();
+    helper.createCompileAction(outputs);
 
     if (generateExtensionRegistry) {
       generatedExtensionRegistryProvider =
@@ -683,7 +669,7 @@ public class AndroidCommon {
       boolean isNeverlink,
       boolean isLibrary) {
 
-    idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
+    idlHelper.addTransitiveInfoProviders(builder, classJar, outputs.manifestProto());
 
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
@@ -694,16 +680,16 @@ public class AndroidCommon {
           new OutputJar(
               resourceApk.getResourceJavaClassJar(),
               null /* ijar */,
-              manifestProtoOutput,
+              outputs.manifestProto(),
               ImmutableList.of(resourceSourceJar));
       javaRuleOutputJarsProviderBuilder.addOutputJar(resourceJar);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         javaRuleOutputJarsProviderBuilder
-            .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
-            .setJdeps(outputDepsProto)
-            .setNativeHeaders(nativeHeaderOutput)
+            .addOutputJar(classJar, iJar, outputs.manifestProto(), ImmutableList.of(srcJar))
+            .setJdeps(outputs.depsProto())
+            .setNativeHeaders(outputs.nativeHeader())
             .build();
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
@@ -713,7 +699,8 @@ public class AndroidCommon {
     javaCommon.addTransitiveInfoProviders(
         builder, javaInfoBuilder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
 
-    javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
+    javaCommon.addGenJarsProvider(
+        builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
 
     resourceApk.asDataBindingContext().addProvider(builder, ruleContext);
 
@@ -828,20 +815,20 @@ public class AndroidCommon {
     return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
         ImmutableList.of(),
+        ruleContext.getLabel(),
         ruleContext.getSymbolGenerator());
   }
 
   static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps,
       final Collection<String> linkOpts,
+      Label label,
       SymbolGenerator<?> symbolGenerator) {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
-            .addUserLinkFlags(
-                NestedSetBuilder.<LinkOptions>linkOrder()
-                    .add(LinkOptions.of(linkOpts, symbolGenerator))
-                    .build())
+            .setOwner(label)
+            .addUserLinkFlags(ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator)))
             .build();
 
     CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();

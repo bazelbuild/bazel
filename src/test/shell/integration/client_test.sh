@@ -78,26 +78,32 @@ function test_no_server_restart_if_options_order_changes() {
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
-function test_server_restart_if_number_of_option_instances_changes() {
+function test_server_restart_if_number_of_option_instances_increases() {
   local server_pid1=$(bazel \
                       --host_jvm_args=-Dfoo \
-                      --host_jvm_args -Dfoo \
-                      --host_jvm_args -Dfoo \
-                      --host_jvm_args=-Dbar \
                       --client_debug info server_pid 2>$TEST_log)
   local server_pid2=$(bazel \
                       --host_jvm_args -Dfoo \
-                      --host_jvm_args=-Dbar \
-                      --host_jvm_args -Dbar \
-                      --host_jvm_args=-Dbaz \
+                      --host_jvm_args -Dfoo \
                       --client_debug info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2"
-  expect_log "\\[bazel WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "\\[bazel INFO .*\\] Args from the running server that are not included in the current request:"
-  expect_log "\\[bazel INFO .*\\]   --host_jvm_args=-Dfoo (2 extra instance(s))"
-  expect_log "\\[bazel INFO .*\\] Args from the current request that were not included when creating the server:"
-  expect_log "\\[bazel INFO .*\\]   --host_jvm_args=-Dbar (1 extra instance(s))"
-  expect_log "\\[bazel INFO .*\\]   --host_jvm_args=-Dbaz (1 extra instance(s))"
+  expect_log "\\[WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "\\[INFO .*\\] Args from the current request that were not included when creating the server:"
+  expect_log "\\[INFO .*\\]   --host_jvm_args=-Dfoo"
+}
+
+function test_server_restart_if_number_of_option_instances_decreases() {
+  local server_pid1=$(bazel \
+                      --host_jvm_args=-Dfoo \
+                      --host_jvm_args -Dfoo \
+                      --client_debug info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel \
+                      --host_jvm_args -Dfoo \
+                      --client_debug info server_pid 2>$TEST_log)
+  assert_not_equals "$server_pid1" "$server_pid2"
+  expect_log "\\[WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "\\[INFO .*\\] Args from the running server that are not included in the current request:"
+  expect_log "\\[INFO .*\\]   --host_jvm_args=-Dfoo"
 }
 
 function test_shutdown() {
@@ -114,11 +120,11 @@ function test_server_restart_due_to_startup_options_with_client_debug_informatio
   local server_pid1=$(bazel --client_debug --write_command_log info server_pid 2>$TEST_log)
   local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
-  expect_log "\\[bazel WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "\\[bazel INFO .*\\] Args from the running server that are not included in the current request:"
-  expect_log "\\[bazel INFO .*\\]   --write_command_log"
-  expect_log "\\[bazel INFO .*\\] Args from the current request that were not included when creating the server:"
-  expect_log "\\[bazel INFO .*\\]   --nowrite_command_log"
+  expect_log "\\[WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "\\[INFO .*\\] Args from the running server that are not included in the current request:"
+  expect_log "\\[INFO .*\\]   --write_command_log"
+  expect_log "\\[INFO .*\\] Args from the current request that were not included when creating the server:"
+  expect_log "\\[INFO .*\\]   --nowrite_command_log"
 }
 
 function test_exit_code() {
@@ -180,7 +186,7 @@ function test_dashdash_before_command() {
   bazel -- info &>$TEST_log && "Expected failure"
   exitcode=$?
   assert_equals 2 $exitcode
-  expect_log "\\[bazel FATAL .*\\] Unknown startup option: '--'."
+  expect_log "\\[FATAL .*\\] Unknown startup option: '--'."
 }
 
 function test_dashdash_after_command() {
@@ -192,7 +198,6 @@ function test_nobatch() {
   local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
   assert_equals "$pid1" "$pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_not_log "WARNING.* --batch mode is deprecated."
 }
 
 # Regression test for #1875189, "bazel client should pass through '--help' like
@@ -223,7 +228,6 @@ function test_batch() {
   local pid2=$(bazel --batch info server_pid 2> $TEST_log)
   assert_not_equals "$pid1" "$pid2"
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "WARNING.* --batch mode is deprecated."
 }
 
 function test_cmdline_not_written_in_batch_mode() {

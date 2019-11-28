@@ -19,13 +19,15 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Info object about outputs of a Java rule. */
 @SkylarkModule(
     name = "java_output_jars",
     category = SkylarkModuleCategory.PROVIDER,
     doc = "Information about outputs of a Java rule.")
-public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>> {
+public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>>
+    extends StarlarkValue {
 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
   public ImmutableList<OutputJarT> getOutputJars();

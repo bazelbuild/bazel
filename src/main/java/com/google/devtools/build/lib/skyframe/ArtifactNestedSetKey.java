@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Arrays;
@@ -74,7 +76,9 @@ public class ArtifactNestedSetKey implements SkyKey {
 
   @Override
   public String toString() {
-    return rawChildren.toString();
+    return MoreObjects.toStringHelper(this)
+        .add("rawChildren", NestedSet.childrenToString(rawChildren))
+        .toString();
   }
 
   /**
@@ -85,13 +89,12 @@ public class ArtifactNestedSetKey implements SkyKey {
    *
    * <p>TODO(b/142232950) Investigate the potential additional load on GC.
    */
-  Iterable<SkyKey> transitiveKeys() {
+  Iterable<Object> transitiveMembers() {
     if (!(rawChildren instanceof Object[])) {
       return ImmutableSet.of();
     }
     return Arrays.stream((Object[]) rawChildren)
         .filter(c -> c instanceof Object[])
-        .map(ArtifactNestedSetKey::new)
         .collect(Collectors.toList());
   }
 

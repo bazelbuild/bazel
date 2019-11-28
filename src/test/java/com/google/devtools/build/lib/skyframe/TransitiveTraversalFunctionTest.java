@@ -201,7 +201,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         Package.newExternalPackageBuilder(
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, buildFile.getRelative("WORKSPACE")),
-            "TESTING");
+            "TESTING",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
     externalPkg.setWorkspaceName(workspaceName);
     return pkgFactory.createPackageForTesting(
         packageId,

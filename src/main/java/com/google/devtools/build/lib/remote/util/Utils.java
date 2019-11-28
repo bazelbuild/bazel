@@ -13,20 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /** Utility methods for the remote package. * */
@@ -117,6 +128,36 @@ public class Utils {
       return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
     }
     return e.getMessage();
+  }
+
+  @SuppressWarnings("ProtoParseWithRegistry")
+  public static ListenableFuture<ActionResult> downloadAsActionResult(
+      ActionKey actionDigest,
+      BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
+    ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
+    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.getDigest(), data);
+    return FluentFuture.from(download)
+        .transformAsync(
+            (v) -> {
+              try {
+                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
+              } catch (InvalidProtocolBufferException e) {
+                return Futures.immediateFailedFuture(e);
+              }
+            },
+            MoreExecutors.directExecutor())
+        .catching(CacheNotFoundException.class, (e) -> null, MoreExecutors.directExecutor());
+  }
+
+  public static void verifyBlobContents(String expectedHash, String actualHash) throws IOException {
+    if (!expectedHash.equals(actualHash)) {
+      String msg =
+          String.format(
+              "An output download failed, because the expected hash"
+                  + "'%s' did not match the received hash '%s'.",
+              expectedHash, actualHash);
+      throw new IOException(msg);
+    }
   }
 
   /** An in-memory output file. */

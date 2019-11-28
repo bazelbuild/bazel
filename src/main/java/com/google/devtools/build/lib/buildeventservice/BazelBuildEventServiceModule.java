@@ -69,7 +69,8 @@ public class BazelBuildEventServiceModule
   @VisibleForTesting
   protected ManagedChannel newGrpcChannel(
       BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
-    return GoogleAuthUtils.newChannel(besOptions.besBackend, authAndTLSOptions);
+    return GoogleAuthUtils.newChannel(
+        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions, /* interceptor= */ null);
   }
 
   @Override

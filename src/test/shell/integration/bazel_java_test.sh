@@ -41,7 +41,7 @@ EOF
 
   # Check that we're using the embedded JDK by default as server_javabase.
   bazel --batch info >& $TEST_log
-  expect_log "java-home: .*/_embedded_binaries/embedded_tools/jdk"
+  expect_log "java-home: .*/embedded_tools/jdk"
 }
 
 function test_host_javabase() {

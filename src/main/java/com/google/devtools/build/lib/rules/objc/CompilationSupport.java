@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
@@ -87,7 +88,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfig;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
@@ -131,7 +132,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -339,8 +339,7 @@ public class CompilationSupport {
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
-            .addFrameworkIncludeDirs(
-                frameworkHeaderSearchPathFragments(objcProvider, ruleContext, buildConfiguration))
+            .addFrameworkIncludeDirs(frameworkHeaderSearchPathFragments(objcProvider))
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
@@ -348,12 +347,12 @@ public class CompilationSupport {
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(
-                ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()))
-            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext));
+            .addQuoteIncludeDirs(objcProvider.get(IQUOTE))
+            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
+            .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     if (pchHdr != null) {
-      result.addNonModuleMapHeader(pchHdr);
+      result.addAdditionalInputs(ImmutableList.of(pchHdr));
     }
 
     if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
@@ -486,8 +485,6 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()));
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-    ccCompilationContextBuilder.addQuoteIncludeDirs(
-        ObjcCommon.userHeaderSearchPaths(objcProvider, ruleContext.getConfiguration()));
 
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
@@ -543,7 +540,8 @@ public class CompilationSupport {
         extraInputs,
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
-        buildConfiguration);
+        buildConfiguration,
+        attributes.enableModules());
   }
 
   private FeatureConfiguration getFeatureConfiguration(
@@ -575,7 +573,7 @@ public class CompilationSupport {
         && !getCustomModuleMap(ruleContext).isPresent()) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     }
-    if (!CompilationAttributes.Builder.fromRuleContext(ruleContext).build().enableModules()) {
+    if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
@@ -608,7 +606,7 @@ public class CompilationSupport {
     // components in the version number.
     activatedCrosstoolSelectables.add(
         XCODE_VERSION_FEATURE_NAME_PREFIX
-            + XcodeConfig.getXcodeConfigProvider(ruleContext)
+            + XcodeConfig.getXcodeConfigInfo(ruleContext)
                 .getXcodeVersion()
                 .toStringWithComponents(2));
 
@@ -702,8 +700,7 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework header search path fragments. */
-  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
@@ -712,21 +709,18 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework header search paths. */
-  static ImmutableList<String> frameworkHeaderSearchPaths(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<String> frameworkHeaderSearchPaths(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
         .addAll(
             Iterables.transform(
-                frameworkHeaderSearchPathFragments(provider, ruleContext, buildConfiguration),
-                PathFragment::getSafePathString))
+                frameworkHeaderSearchPathFragments(provider), PathFragment::getSafePathString))
         .build();
   }
 
   /** Returns a list of framework library search paths. */
-  static ImmutableList<String> frameworkLibrarySearchPaths(
-      ObjcProvider provider, RuleContext ruleContext, BuildConfiguration buildConfiguration)
+  static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider)
       throws InterruptedException {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
@@ -996,22 +990,17 @@ public class CompilationSupport {
    *
    * @param compilationArtifacts collection of artifacts required for the compilation
    * @param objcProvider provides all compiling and linking information to register these actions
-   * @param toolchain the toolchain to be used in determining command lines
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
   CompilationSupport registerCompileAndArchiveActions(
-      CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider,
-      CcToolchainProvider toolchain)
+      CompilationArtifacts compilationArtifacts, ObjcProvider objcProvider)
       throws RuleErrorException, InterruptedException {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
         objcProvider,
         ExtraCompileArgs.NONE,
-        ImmutableList.<PathFragment>of(),
-        toolchain,
-        toolchain.getFdoContext());
+        ImmutableList.<PathFragment>of());
   }
 
   /**
@@ -1048,30 +1037,24 @@ public class CompilationSupport {
    * @param objcProvider provides all compiling and linking information to register these actions
    * @param extraCompileArgs args to be added to compile actions
    * @param priorityHeaders priority headers to be included before the dependency headers
-   * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoContext the cpp FDO support provider, may be null
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
-  CompilationSupport registerCompileAndArchiveActions(
+  private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider,
       ExtraCompileArgs extraCompileArgs,
-      Iterable<PathFragment> priorityHeaders,
-      @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoContext fdoContext)
+      Iterable<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
-    Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoContext);
+    Preconditions.checkNotNull(toolchain);
+    Preconditions.checkNotNull(toolchain.getFdoContext());
     ObjcVariablesExtension.Builder extension =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setObjcProvider(objcProvider)
             .setCompilationArtifacts(compilationArtifacts)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setConfiguration(buildConfiguration)
-            .setFrameworkSearchPath(
-                frameworkHeaderSearchPaths(objcProvider, ruleContext, buildConfiguration));
+            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider));
 
     Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> compilationInfo;
 
@@ -1086,8 +1069,8 @@ public class CompilationSupport {
               compilationArtifacts,
               extension,
               extraCompileArgs,
-              ccToolchain,
-              fdoContext,
+              toolchain,
+              toolchain.getFdoContext(),
               priorityHeaders,
               LinkTargetType.OBJC_ARCHIVE,
               objList);
@@ -1102,8 +1085,8 @@ public class CompilationSupport {
               compilationArtifacts,
               extension,
               extraCompileArgs,
-              ccToolchain,
-              fdoContext,
+              toolchain,
+              toolchain.getFdoContext(),
               priorityHeaders,
               /* linkType */ null,
               /* linkActionInput */ null);
@@ -1134,9 +1117,7 @@ public class CompilationSupport {
           common.getCompilationArtifacts().get(),
           common.getObjcProvider(),
           extraCompileArgs,
-          priorityHeaders,
-          toolchain,
-          toolchain.getFdoContext());
+          priorityHeaders);
     }
     return this;
   }
@@ -1153,8 +1134,7 @@ public class CompilationSupport {
 
   /**
    * Registers any actions necessary to link this rule and its dependencies. Automatically infers
-   * the toolchain from the configuration of this CompilationSupport - if a different toolchain is
-   * required, use the custom toolchain override.
+   * the toolchain from the configuration of this CompilationSupport.
    *
    * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
    *
@@ -1175,8 +1155,7 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs,
-      CcToolchainProvider toolchain)
+      Iterable<Artifact> extraLinkInputs)
       throws InterruptedException, RuleErrorException {
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
@@ -1210,15 +1189,13 @@ public class CompilationSupport {
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setFrameworkNames(frameworkNames(objcProvider))
-            .setFrameworkSearchPath(
-                frameworkLibrarySearchPaths(objcProvider, ruleContext, buildConfiguration))
+            .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
             .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
             .setAttributeLinkopts(attributes.linkopts())
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoContext fdoContext = toolchain.getFdoContext();
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
@@ -1227,7 +1204,7 @@ public class CompilationSupport {
                 binaryToLink,
                 ruleContext.getConfiguration(),
                 toolchain,
-                fdoContext,
+                toolchain.getFdoContext(),
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
@@ -1355,32 +1332,12 @@ public class CompilationSupport {
    *
    * @param objcProvider provides all compiling and linking information to create this artifact
    * @param outputArchive the output artifact for this action
-   */
-  public CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Artifact outputArchive)
-      throws InterruptedException, RuleErrorException {
-    return registerFullyLinkAction(
-        objcProvider, outputArchive, toolchain, toolchain.getFdoContext());
-  }
-
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all transitive
-   * dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   * @param outputArchive the output artifact for this action
-   * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoContext the cpp FDO support provider, may be null
    * @return this {@link CompilationSupport} instance
    */
-  CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider,
-      Artifact outputArchive,
-      @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoContext fdoContext)
+  CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider, Artifact outputArchive)
       throws InterruptedException, RuleErrorException {
-    Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoContext);
+    Preconditions.checkNotNull(toolchain);
+    Preconditions.checkNotNull(toolchain.getFdoContext());
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -1393,8 +1350,7 @@ public class CompilationSupport {
             .setObjcProvider(objcProvider)
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setFrameworkSearchPath(
-                frameworkHeaderSearchPaths(objcProvider, ruleContext, buildConfiguration))
+            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider))
             .setFullyLinkArchive(outputArchive)
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();
@@ -1405,9 +1361,9 @@ public class CompilationSupport {
                 ruleContext.getLabel(),
                 outputArchive,
                 ruleContext.getConfiguration(),
-                ccToolchain,
-                fdoContext,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                toolchain,
+                toolchain.getFdoContext(),
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
@@ -1416,7 +1372,7 @@ public class CompilationSupport {
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
-            .setLinkerFiles(ccToolchain.getLinkerFiles())
+            .setLinkerFiles(toolchain.getLinkerFiles())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
             .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier(libraryIdentifier)
@@ -1532,7 +1488,7 @@ public class CompilationSupport {
 
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  XcodeConfigProvider.fromRuleContext(ruleContext),
+                  XcodeConfigInfo.fromRuleContext(ruleContext),
                   appleConfiguration.getSingleArchPlatform())
               .setMnemonic("DummyPruner")
               .setExecutable(pruner)
@@ -1647,7 +1603,7 @@ public class CompilationSupport {
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                XcodeConfigProvider.fromRuleContext(ruleContext),
+                XcodeConfigInfo.fromRuleContext(ruleContext),
                 appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcBinarySymbolStrip")
             .setExecutable(xcrunwrapper(ruleContext))
@@ -1887,12 +1843,12 @@ public class CompilationSupport {
             .add("--platform", appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
             .add(
                 "--sdk_version",
-                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                XcodeConfig.getXcodeConfigInfo(ruleContext)
                     .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
                     .toStringWithMinimumComponents(2))
             .add(
                 "--xcode_version",
-                XcodeConfig.getXcodeConfigProvider(ruleContext)
+                XcodeConfig.getXcodeConfigInfo(ruleContext)
                     .getXcodeVersion()
                     .toStringWithMinimumComponents(2))
             .add("--");

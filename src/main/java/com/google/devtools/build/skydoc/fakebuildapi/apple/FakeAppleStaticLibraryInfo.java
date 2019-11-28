@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Fake implementation of {@link AppleStaticLibraryInfoApi}.
@@ -47,7 +47,7 @@ public class FakeAppleStaticLibraryInfo implements AppleStaticLibraryInfoApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link AppleStaticLibraryInfoProvider}.
@@ -63,6 +63,6 @@ public class FakeAppleStaticLibraryInfo implements AppleStaticLibraryInfoApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

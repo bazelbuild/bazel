@@ -17,14 +17,15 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which specifies extraKeywords, but specifies the argument
  * out of order.
  */
-public class ExtraKeywordsOutOfOrder {
+public class ExtraKeywordsOutOfOrder implements StarlarkValue {
 
   @SkylarkCallable(
       name = "extra_kwargs_out_of_order",
@@ -34,7 +35,7 @@ public class ExtraKeywordsOutOfOrder {
       useLocation = true,
       useStarlarkThread = true)
   public String threeArgMethod(
-      SkylarkDict<?, ?> kwargs, String one, Location location, StarlarkThread thread) {
+      Dict<?, ?> kwargs, String one, Location location, StarlarkThread thread) {
     return "bar";
   }
 }

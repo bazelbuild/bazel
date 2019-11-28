@@ -24,19 +24,19 @@ import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -94,10 +94,7 @@ public class ApiExporter {
       if (obj instanceof BaseFunction) {
         value = valueFromFunction((BaseFunction) obj);
       } else if (obj instanceof BuiltinCallable) {
-        BuiltinCallable builtinCallable = (BuiltinCallable) obj;
-        MethodDescriptor descriptor =
-            builtinCallable.getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS);
-        value = valueFromMethodDescriptor(descriptor);
+        value = valueFromAnnotation(((BuiltinCallable) obj).getAnnotation());
       } else {
         value.setName(entry.getKey());
       }
@@ -117,10 +114,9 @@ public class ApiExporter {
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          if (CallUtils.hasSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
-            MethodDescriptor descriptor =
-                CallUtils.getSelfCallMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS, obj);
-            value = valueFromMethodDescriptor(descriptor);
+          SkylarkCallable selfCall = CallUtils.getSelfCallAnnotation(obj.getClass());
+          if (selfCall != null) {
+            value = valueFromAnnotation(selfCall);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());
@@ -148,15 +144,14 @@ public class ApiExporter {
     return collectFunctionInfo(func.getName(), func.getSignature(), func.getDefaultValues());
   }
 
-  private static Value.Builder valueFromMethodDescriptor(MethodDescriptor descriptor) {
-    SkylarkSignatureProcessor.SignatureInfo info =
-        SkylarkSignatureProcessor.getSignatureForCallable(
-            descriptor.getName(), descriptor, null, null);
-    return collectFunctionInfo(descriptor.getName(), info.signature, info.defaultValues);
+  private static Value.Builder valueFromAnnotation(SkylarkCallable annot) {
+    Pair<FunctionSignature, List<String>> pair = getSignature(annot);
+    return collectFunctionInfo(annot.name(), pair.first, pair.second);
   }
 
+  // defaultValues may be values or expressions; we only call toString on them.
   private static Value.Builder collectFunctionInfo(
-      String funcName, FunctionSignature sig, List<Object> defaultValues) {
+      String funcName, FunctionSignature sig, List<?> defaultValues) {
     Value.Builder value = Value.newBuilder();
     value.setName(funcName);
     Callable.Builder callable = Callable.newBuilder();
@@ -300,5 +295,89 @@ public class ApiExporter {
       System.err.println("ERROR: " + e.getMessage());
       e.printStackTrace();
     }
+  }
+
+  // Extracts signature and parameter default value expressions from a SkylarkCallable annotation.
+  private static Pair<FunctionSignature, List<String>> getSignature(SkylarkCallable annot) {
+    // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
+    int mandatoryPositionals = 0;
+    int optionalPositionals = 0;
+    int mandatoryNamedOnly = 0;
+    int optionalNamedOnly = 0;
+    boolean hasStar = false;
+    String star = null;
+    String starStar = null;
+    ArrayList<String> params = new ArrayList<>();
+    ArrayList<String> defaults = new ArrayList<>();
+    // optional named-only parameters are kept aside to be spliced after the mandatory ones.
+    ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
+    ArrayList<String> optionalNamedOnlyDefaultValues = new ArrayList<>();
+
+    for (com.google.devtools.build.lib.skylarkinterface.Param param : annot.parameters()) {
+      // Implicit * or *args parameter separates transition from positional to named.
+      // f (..., *, ... )  or  f(..., *args, ...)
+      if ((param.named() || param.legacyNamed()) && !param.positional() && !hasStar) {
+        hasStar = true;
+        if (!annot.extraPositionals().name().isEmpty()) {
+          star = annot.extraPositionals().name();
+        }
+      }
+
+      boolean mandatory = param.defaultValue().isEmpty();
+      if (mandatory) {
+        // f(..., name, ...): required parameter
+        params.add(param.name());
+        if (hasStar) {
+          mandatoryNamedOnly++;
+        } else {
+          mandatoryPositionals++;
+        }
+
+      } else {
+        // f(..., name=value, ...): optional parameter
+        if (hasStar) {
+          optionalNamedOnly++;
+          optionalNamedOnlyParams.add(param.name());
+          optionalNamedOnlyDefaultValues.add(orNone(param.defaultValue()));
+        } else {
+          optionalPositionals++;
+          params.add(param.name());
+          defaults.add(orNone(param.defaultValue()));
+        }
+      }
+    }
+    params.addAll(optionalNamedOnlyParams);
+    defaults.addAll(optionalNamedOnlyDefaultValues);
+
+    // f(..., *args, ...)
+    if (!annot.extraPositionals().name().isEmpty() && !hasStar) {
+      star = annot.extraPositionals().name();
+    }
+    if (star != null) {
+      params.add(star);
+    }
+
+    // f(..., **kwargs)
+    if (!annot.extraKeywords().name().isEmpty()) {
+      starStar = annot.extraKeywords().name();
+      params.add(starStar);
+    }
+
+    // TODO(adonovan): simplify; the sole caller doesn't need a complete FunctionSignature.
+    FunctionSignature signature =
+        FunctionSignature.create(
+            mandatoryPositionals,
+            optionalPositionals,
+            mandatoryNamedOnly,
+            optionalNamedOnly,
+            star != null,
+            starStar != null,
+            ImmutableList.copyOf(params));
+
+    return Pair.of(signature, defaults);
+  }
+
+  private static String orNone(String x) {
+    return x.isEmpty() ? "None" : x;
   }
 }

@@ -16,13 +16,15 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
@@ -52,16 +54,17 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       BaseFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<String> environ,
+      Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Runtime.NONE) {
-      SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
+    if (attrs != null && attrs != Starlark.NONE) {
+      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
       attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }
 
@@ -93,9 +96,21 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   private static class RepositoryRuleDefinitionIdentifier extends BaseFunction {
 
     private static int idCounter = 0;
+    private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
 
     public RepositoryRuleDefinitionIdentifier() {
-      super("RepositoryRuleDefinitionIdentifier" + idCounter++);
+      super(FunctionSignature.KWARGS);
     }
+
+    @Override
+    public String getName() {
+      return name;
+    }
+  }
+
+  @Override
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(
+      Location location, StarlarkThread thread) throws EvalException {
+    // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.
   }
 }

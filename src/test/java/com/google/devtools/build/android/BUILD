@@ -9,6 +9,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/junctions:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:srcs",
+        "//src/test/java/com/google/devtools/build/android/xml:srcs",
         "//src/test/java/com/google/devtools/build/android/ziputils:srcs",
     ],
     visibility = ["//src:__pkg__"],

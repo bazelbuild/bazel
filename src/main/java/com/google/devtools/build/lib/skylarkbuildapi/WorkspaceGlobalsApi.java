@@ -19,11 +19,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
@@ -66,9 +65,8 @@ public interface WorkspaceGlobalsApi {
             positional = false),
         @Param(
             name = "managed_directories",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
-            noneable = true,
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -79,12 +77,12 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
   NoneType workspace(
       String name,
-      SkylarkDict<String, Object> managedDirectories,
-      FuncallExpression ast,
+      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
+      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -95,13 +93,13 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "platform_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
       useLocation = true,
       useStarlarkThread = true)
   NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, StarlarkThread thread)
+      Sequence<?> platformLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -113,13 +111,12 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "toolchain_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
       useLocation = true,
       useStarlarkThread = true)
-  NoneType registerToolchains(
-      SkylarkList<?> toolchainLabels, Location location, StarlarkThread thread)
+  NoneType registerToolchains(Sequence<?> toolchainLabels, Location location, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -146,8 +143,8 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, FuncallExpression ast, StarlarkThread thread)
+  NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

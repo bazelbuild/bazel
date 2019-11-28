@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -309,5 +310,5 @@ public class AspectDefinitionTest {
   }
 
   @SkylarkModule(name = "test_fragment", doc = "test fragment")
-  private static final class TestFragment {}
+  private static final class TestFragment implements StarlarkValue {}
 }

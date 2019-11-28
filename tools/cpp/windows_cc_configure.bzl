@@ -157,7 +157,7 @@ def find_vc_path(repository_ctx):
         repository_ctx.file(
             "get_vc_dir.bat",
             "@echo off\n" +
-            "call \"" + script + "\"\n" +
+            "call \"" + script + "\" > NUL\n" +
             "echo %VCINSTALLDIR%",
             True,
         )

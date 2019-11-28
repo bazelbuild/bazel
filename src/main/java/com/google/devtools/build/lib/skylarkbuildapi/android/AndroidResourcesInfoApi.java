@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -23,8 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** A provider that supplies resource information from its transitive closure. */
 @SkylarkModule(
@@ -37,7 +36,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidResourcesInfoApi<
         FileT extends FileApi,
-        ValidatedAndroidDataT extends ValidatedAndroidDataApi,
+        ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
         AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
@@ -74,7 +73,7 @@ public interface AndroidResourcesInfoApi<
       doc = "Returns the transitive ResourceContainers for the label.",
       documented = false,
       structField = true)
-  NestedSet<ValidatedAndroidDataT> getTransitiveAndroidResources();
+  Depset /*<ValidatedAndroidDataT>*/ getTransitiveAndroidResourcesForStarlark();
 
   /** Returns the immediate ResourceContainers for the label. */
   @SkylarkCallable(
@@ -82,44 +81,44 @@ public interface AndroidResourcesInfoApi<
       doc = "Returns the immediate ResourceContainers for the label.",
       documented = false,
       structField = true)
-  NestedSet<ValidatedAndroidDataT> getDirectAndroidResources();
+  Depset /*<ValidatedAndroidDataT>*/ getDirectAndroidResourcesForStarlark();
 
   @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveResources();
+  Depset /*<FileT>*/ getTransitiveResourcesForStarlark();
 
   @SkylarkCallable(name = "transitive_manifests", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveManifests();
+  Depset /*<FileT>*/ getTransitiveManifestsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_aapt2_r_txt",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveAapt2RTxt();
+  Depset /*<FileT>*/ getTransitiveAapt2RTxtForStarlark();
 
   // TODO(b/132383435): remove this
   @SkylarkCallable(name = "validation_artifacts", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveAapt2ValidationArtifacts();
+  Depset /*<FileT>*/ getTransitiveAapt2ValidationArtifactsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_symbols_bin",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveSymbolsBin();
+  Depset /*<FileT>*/ getTransitiveSymbolsBinForStarlark();
 
   @SkylarkCallable(
       name = "transitive_compiled_symbols",
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveCompiledSymbols();
+  Depset /*<FileT>*/ getTransitiveCompiledSymbolsForStarlark();
 
   @SkylarkCallable(name = "transitive_static_lib", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveStaticLib();
+  Depset /*<FileT>*/ getTransitiveStaticLibForStarlark();
 
   @SkylarkCallable(name = "transitive_r_txt", doc = "", documented = false, structField = true)
-  NestedSet<FileT> getTransitiveRTxt();
+  Depset /*<FileT>*/ getTransitiveRTxtForStarlark();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
   @SkylarkModule(
@@ -130,7 +129,7 @@ public interface AndroidResourcesInfoApi<
       documented = false)
   public interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
-          ValidatedAndroidDataT extends ValidatedAndroidDataApi,
+          ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
           AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
       extends ProviderApi {
 
@@ -148,52 +147,52 @@ public interface AndroidResourcesInfoApi<
           @Param(
               name = "manifest",
               positional = true,
-              named = false,
+              named = true,
               type = AndroidManifestInfoApi.class),
-          @Param(name = "r_txt", positional = true, named = false, type = FileApi.class),
+          @Param(name = "r_txt", positional = true, named = true, type = FileApi.class),
           @Param(
               name = "transitive_android_resources",
               doc =
                   "A depset of ValidatedAndroidData of Android Resources in the transitive "
                       + "closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = ValidatedAndroidDataApi.class),
           @Param(
               name = "direct_android_resources",
               doc = "A depset of ValidatedAndroidData of Android Resources for the target.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = ValidatedAndroidDataApi.class),
           @Param(
               name = "transitive_resources",
               doc = "A depset of Artifacts of Android Resource files in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_manifests",
               doc = "A depset of Artifacts of Android Manifests in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_aapt2_r_txt",
               doc = "A depset of Artifacts of Android AAPT2 R.txt files in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_symbols_bin",
               doc = "A depset of Artifacts of Android symbols files in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_compiled_symbols",
@@ -201,22 +200,22 @@ public interface AndroidResourcesInfoApi<
                   "A depset of Artifacts of Android compiled symbols files in the transitive "
                       + "closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_static_lib",
               doc = "A depset of Artifacts of static lib files in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_r_txt",
               doc = "A depset of Artifacts of Android AAPT R.txt files in the transitive closure.",
               positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
+              named = true,
+              type = Depset.class,
               generic1 = FileApi.class),
           // TODO(b/132383435): remove this
           @Param(
@@ -225,7 +224,7 @@ public interface AndroidResourcesInfoApi<
               doc = "A depset of opaque files to trigger resource validation.",
               positional = false,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
         },
         selfCall = true)
@@ -234,15 +233,15 @@ public interface AndroidResourcesInfoApi<
         Label label,
         AndroidManifestInfoT manifest,
         FileT rTxt,
-        SkylarkNestedSet transitiveAndroidResources,
-        SkylarkNestedSet directAndroidResources,
-        SkylarkNestedSet transitiveResources,
-        SkylarkNestedSet transitiveManifests,
-        SkylarkNestedSet transitiveAapt2RTxt,
-        SkylarkNestedSet transitiveSymbolsBin,
-        SkylarkNestedSet transitiveCompiledSymbols,
-        SkylarkNestedSet transitiveStaticLib,
-        SkylarkNestedSet transitiveRTxt,
+        Depset transitiveAndroidResources,
+        Depset directAndroidResources,
+        Depset transitiveResources,
+        Depset transitiveManifests,
+        Depset transitiveAapt2RTxt,
+        Depset transitiveSymbolsBin,
+        Depset transitiveCompiledSymbols,
+        Depset transitiveStaticLib,
+        Depset transitiveRTxt,
         Object transitiveAapt2ValidationArtifacts)
         throws EvalException;
   }

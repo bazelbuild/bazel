@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -68,6 +70,433 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+  }
+
+  @Test
+  public void testMutualAndExplicitXcodesThrows() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512',],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("'versions' may not be set if '[local,remote]_versions' is set");
+  }
+
+  @Test
+  public void testMutualAndDefaultThrows() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    default = ':version512',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512',],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("'default' may not be set if '[local,remote]_versions' is set.");
+  }
+
+  @Test
+  public void testNoLocalXcodesThrows() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512',],",
+        "    default = ':version512',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent("if 'remote_versions' are set, you must also set 'local_versions'");
+  }
+
+  @Test
+  public void testAcceptFlagForMutuallyAvailable() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("8.4");
+    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testPreferFlagOverMutuallyAvailable() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version=5", "--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.REMOTE);
+    assertContainsEvent(
+        "--xcode_version=5 specified, but it is not available locally. Your build"
+            + " will fail if any actions require a local Xcode.");
+  }
+
+  @Test
+  public void testWarnWithExplicitLocalOnlyVersion() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("8.4");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertContainsEvent(
+        "--xcode_version=8.4 specified, but it is not available remotely. Actions"
+            + " requiring Xcode will be run locally, which could make your build"
+            + " slower.");
+  }
+
+  @Test
+  public void testPreferLocalDefaultIfNoMutualNoFlag() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512',],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("8.4");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertContainsEvent(
+        "Using a local Xcode version, '8.4', since there are no"
+            + " remotely available Xcodes on this machine. Consider downloading one of the"
+            + " remotely available Xcode versions (5.1.2)");
+  }
+
+  @Test
+  public void testChooseNewestMutualXcode() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "xcode_version(",
+        "    name = 'version92',",
+        "    version = '9.2',",
+        ")",
+        "xcode_version(",
+        "    name = 'version9',",
+        "    version = '9',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10',",
+        "    version = '10',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84', ':version92', ':version9', ':version10'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84', ':version10', ':version92', ':version9'],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("10");
+    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testInvalidXcodeFromMutualThrows() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84'],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version=6");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent(
+        "--xcode_version=6 specified, but '6' is not an available Xcode version."
+            + " localy available versions: [8.4]. remotely available versions:"
+            + " [5.1.2, 8.4].");
+  }
+
+  @Test
+  public void xcodeVersionConfig_isFunction() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='1.1',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9'))]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+    assertThat(info.getValue("xcode_version"))
+        .isEqualTo(
+            new XcodeConfigInfo(
+                DottedVersion.fromStringUnchecked("1.1"),
+                DottedVersion.fromStringUnchecked("1.2"),
+                DottedVersion.fromStringUnchecked("1.3"),
+                DottedVersion.fromStringUnchecked("1.4"),
+                DottedVersion.fromStringUnchecked("1.5"),
+                DottedVersion.fromStringUnchecked("1.6"),
+                DottedVersion.fromStringUnchecked("1.7"),
+                DottedVersion.fromStringUnchecked("1.8"),
+                DottedVersion.fromStringUnchecked("1.9"),
+                XcodeConfigInfo.Availability.UNKNOWN));
+  }
+
+  @Test
+  public void xcodeVersionConfig_throwsOnBadInput() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='not a valid dotted version',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9'))]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
+    assertContainsEvent("Dotted version components must all be of the form");
+    assertContainsEvent("got 'not a valid dotted version'");
+  }
+
+  @Test
+  public void xcodeVersionConfig_exposesExpectedAttributes() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  xcode_version ="
+            + " apple_common.XcodeVersionConfig("
+            + " iosSdkVersion='1.1',"
+            + " iosMinimumOsVersion='1.2',"
+            + " watchosSdkVersion='1.3',"
+            + " watchosMinimumOsVersion='1.4',"
+            + " tvosSdkVersion='1.5',"
+            + " tvosMinimumOsVersion='1.6',"
+            + " macosSdkVersion='1.7',"
+            + " macosMinimumOsVersion='1.8',"
+            + " xcodeVersion='1.9')",
+        "  return [result(xcode_version=xcode_version.xcode_version(),"
+            + " min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:test");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+    assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.9");
+    assertThat(info.getValue("min_os").toString()).isEqualTo("1.8");
   }
 
   @Test
@@ -85,7 +514,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "  attrs = {'dep': attr.label()},",
         ")");
 
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "load('//skylark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
@@ -160,7 +590,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "  attrs = {'dep': attr.label()},",
         ")");
 
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "load('//skylark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
@@ -209,7 +640,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testValidVersion() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512'],",
@@ -224,11 +656,13 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5.1.2", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
   }
 
   @Test
   public void testValidAlias_dottedVersion() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512'],",
@@ -243,11 +677,13 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
   }
 
   @Test
   public void testValidAlias_nonNumerical() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512'],",
@@ -262,11 +698,13 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=valid_version", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
   }
 
   @Test
   public void testInvalidXcodeSpecified() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512', ':version84'],",
@@ -285,13 +723,15 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=6");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
-    assertContainsEvent("--xcode_version=6 specified, but '6' is not an available Xcode version. "
-        + "available versions: [5.1.2, 8.4]. If you believe you have '6' installed");
+    assertContainsEvent(
+        "--xcode_version=6 specified, but '6' is not an available Xcode version. "
+            + "available versions: [5.1.2, 8.4]. If you believe you have '6' installed");
   }
 
   @Test
   public void testRequiresDefault() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512'],",
@@ -309,7 +749,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testDuplicateAliases_definedVersion() throws Exception {
-    scratch.file("xcode/BUILD",
+    scratch.file(
+        "xcode/BUILD",
         "xcode_config(",
         "    name = 'foo',",
         "    versions = [':version512', ':version5'],",
@@ -334,6 +775,43 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDuplicateAliases_withinAvailableXcodes() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version5',",
+        "    version = '5',",
+        "    aliases = ['5', '5.0', 'foo'],",
+        ")",
+        "available_xcodes(",
+        "   name = 'remote',",
+        "   default = ':version512',",
+        "   versions = [':version512', ':version5'],",
+        ")",
+        "available_xcodes(",
+        "   name = 'local',",
+        "   default = ':version512',",
+        "   versions = [':version512'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//xcode:foo");
+    assertContainsEvent(
+        "'5' is registered to multiple labels (//xcode:version512, //xcode:version5)");
+  }
+
+  @Test
   public void testVersionAliasedToItself() throws Exception {
     scratch.file("xcode/BUILD",
         "xcode_config(",
@@ -350,6 +828,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
   }
 
   @Test
@@ -432,6 +911,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertIosSdkVersion("7.1");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
   }
 
   @Test
@@ -462,6 +942,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "101")
@@ -504,6 +985,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=6", "--xcode_version_config=//xcode:foo");
 
     assertXcodeVersion("6.4");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "43")
@@ -548,6 +1030,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "--tvos_sdk_version=15.5", "--macos_sdk_version=15.6");
 
     assertXcodeVersion("6.4");
+    assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "15.3")
@@ -761,13 +1244,13 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     return provider.getSdkVersionForPlatform(platform);
   }
 
   private DottedVersion getMinimumOsVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     return provider.getMinimumOsForPlatformType(platform.getType());
   }
 
@@ -777,8 +1260,19 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   private void assertXcodeVersion(String version, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
-    XcodeConfigProvider provider = xcodeConfig.get(XcodeConfigProvider.PROVIDER);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
+  }
+
+  private void assertAvailability(XcodeConfigInfo.Availability availabilty) throws Exception {
+    assertAvailability(availabilty, "//xcode:foo");
+  }
+
+  private void assertAvailability(
+      XcodeConfigInfo.Availability availabilty, String providerTargetLabel) throws Exception {
+    ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
+    assertThat(provider.getAvailability()).isEqualTo(availabilty);
   }
 
   private void assertIosSdkVersion(String version) throws Exception {

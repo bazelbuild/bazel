@@ -151,6 +151,14 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> outputGroups;
 
   @Option(
+      name = "experimental_run_validations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to run validation actions as part of the build.")
+  public boolean runValidationActions;
+
+  @Option(
     name = "show_result",
     defaultValue = "1",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -197,7 +205,8 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "The prefix that is prepended to any of the convenience symlinks that are created "
               + "after a build. If '/' is passed, then no symlinks are created and no warning is "
-              + "emitted. If omitted, the default value is the name of the build tool.")
+              + "emitted. If omitted, the default value is the name of the build tool followed by "
+              + "a hyphen.")
   @Nullable
   public String symlinkPrefix;
 
@@ -283,17 +292,31 @@ public class BuildRequestOptions extends OptionsBase {
   }
 
   @Option(
-    name = "print_workspace_in_output_paths_if_needed",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If enabled, when the current working directory is deeper than the workspace (for example, "
-            + "when running from <workspace>/foo instead of <workspace>), printed output paths "
-            + "include the absolute path to the workspace (for example, "
-            + "<workspace>/<symlink_prefix>-bin/foo/binary instead of "
-            + "<symlink_prefix>-bin/foo/binary)."
-  )
+      name = "experimental_create_py_bin_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, two symlinks, `py2-bin` and `py3-bin`, will be created (with the"
+              + " appropriate prefix). These act just like the `bin` symlink, except that they are"
+              + " guaranteed to point to directories containing outputs built for Python 2 and"
+              + " Python 3 targets respectively. Note that the `bin` symlink (if it exists) always"
+              + " overlaps with one of these; which one depends on the values of --python_version"
+              + " and --use_top_level_targets_for_symlinks. IMPORTANT: This flag is not planned to "
+              + "be enabled by default, and should not be relied on.")
+  public boolean experimentalCreatePyBinSymlinks;
+
+  @Option(
+      name = "print_workspace_in_output_paths_if_needed",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If enabled, when the current working directory is deeper than the workspace (for"
+              + " example, when running from <workspace>/foo instead of <workspace>), printed"
+              + " output paths include the absolute path to the workspace (for example,"
+              + " <workspace>/<symlink_prefix>-bin/foo/binary instead of "
+              + "<symlink_prefix>-bin/foo/binary).")
   public boolean printWorkspaceInOutputPathsIfNeeded;
 
   @Option(
@@ -350,11 +373,20 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
               + " will be evaluated as a unit on Skyframe.")
   public int nestedSetAsSkyKeyThreshold;
+
+  @Option(
+      name = "experimental_use_fork_join_pool",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
+  public boolean useForkJoinPool;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

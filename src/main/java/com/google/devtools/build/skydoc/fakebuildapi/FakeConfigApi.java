@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link StarlarkConfigApi}. */
 public class FakeConfigApi implements StarlarkConfigApi {
@@ -41,5 +41,5 @@ public class FakeConfigApi implements StarlarkConfigApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

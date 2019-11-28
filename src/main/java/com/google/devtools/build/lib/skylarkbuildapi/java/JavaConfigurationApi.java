@@ -19,16 +19,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * A java compiler configuration.
- */
+/** A java compiler configuration. */
 @SkylarkModule(
     name = "java",
     doc = "A java compiler configuration.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public interface JavaConfigurationApi {
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+public interface JavaConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(name = "default_javac_flags", structField = true,
       doc = "The default flags for the Java compiler.")

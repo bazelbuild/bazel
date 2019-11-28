@@ -14,18 +14,16 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -34,27 +32,27 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public class FakeJavaInfo implements JavaInfoApi<FileApi> {
 
   @Override
-  public SkylarkNestedSet getTransitiveRuntimeJars() {
+  public Depset /*<File>*/ getTransitiveRuntimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getTransitiveCompileTimeJars() {
+  public Depset getTransitiveCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getCompileTimeJars() {
+  public Depset getCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getFullCompileTimeJars() {
+  public Depset getFullCompileTimeJars() {
     return null;
   }
 
   @Override
-  public SkylarkList<FileApi> getSourceJars() {
+  public Sequence<FileApi> getSourceJars() {
     return null;
   }
 
@@ -74,27 +72,27 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public SkylarkList<FileApi> getRuntimeOutputJars() {
+  public Sequence<FileApi> getRuntimeOutputJars() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveDeps() {
+  public Depset /*<File>*/ getTransitiveDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveRuntimeDeps() {
+  public Depset /*<File>*/ getTransitiveRuntimeDeps() {
     return null;
   }
 
   @Override
-  public NestedSet<FileApi> getTransitiveSourceJars() {
+  public Depset /*<File>*/ getTransitiveSourceJars() {
     return null;
   }
 
   @Override
-  public NestedSet<Label> getTransitiveExports() {
+  public Depset /*<Label>*/ getTransitiveExports() {
     return null;
   }
 
@@ -109,7 +107,7 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Fake implementation of {@link JavaInfoProviderApi}.
@@ -122,9 +120,9 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
         Object compileJarApi,
         Object sourceJarApi,
         Boolean neverlink,
-        SkylarkList<?> deps,
-        SkylarkList<?> runtimeDeps,
-        SkylarkList<?> exports,
+        Sequence<?> deps,
+        Sequence<?> runtimeDeps,
+        Sequence<?> exports,
         Object jdepsApi,
         Location loc,
         StarlarkThread thread)
@@ -133,6 +131,6 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }

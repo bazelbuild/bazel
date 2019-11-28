@@ -92,16 +92,6 @@ public class Package {
    */
   private final PackageIdentifier packageIdentifier;
 
-  /**
-   * The name of the package, e.g. "foo/bar".
-   */
-  private final String name;
-
-  /**
-   * Like name, but in the form of a PathFragment.
-   */
-  private final PathFragment nameFragment;
-
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
 
@@ -201,14 +191,6 @@ public class Package {
    */
   private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
-  /**
-   * The names of the package() attributes that declare default values for rule
-   * {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} and {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * values when not explicitly specified.
-   */
-  public static final String DEFAULT_COMPATIBLE_WITH_ATTRIBUTE = "default_compatible_with";
-  public static final String DEFAULT_RESTRICTED_TO_ATTRIBUTE = "default_restricted_to";
-
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
 
@@ -235,8 +217,6 @@ public class Package {
   protected Package(PackageIdentifier packageId, String runfilesPrefix) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
-    this.nameFragment = packageId.getPackageFragment();
-    this.name = nameFragment.getPathString();
   }
 
   /** Returns this packages' identifier. */
@@ -381,9 +361,11 @@ public class Package {
     this.packageDirectory = filename.asPath().getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
+    String baseName = filename.getRootRelativePath().getBaseName();
     if ((sourceRoot.asPath() == null
             || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !filename.getRootRelativePath().getBaseName().equals("WORKSPACE")) {
+        && !(baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
+            || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString()))) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '"
               + packageIdentifier
@@ -460,14 +442,14 @@ public class Package {
    * may not be unique!
    */
   public String getName() {
-    return name;
+    return packageIdentifier.getPackageFragment().getPathString();
   }
 
   /**
    * Like {@link #getName}, but has type {@code PathFragment}.
    */
   public PathFragment getNameFragment() {
-    return nameFragment;
+    return packageIdentifier.getPackageFragment();
   }
 
   /**
@@ -546,15 +528,8 @@ public class Package {
    * for walking through the dependency graph of a target.
    * Fails if the target is not a Rule.
    */
-  @VisibleForTesting // Should be package-private
   public Rule getRule(String targetName) {
     return (Rule) targets.get(targetName);
-  }
-
-  /** Returns all rules in the package that match the given rule class. */
-  public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
-    Iterable<Rule> targets = getTargets(Rule.class);
-    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
   }
 
   /**
@@ -601,12 +576,22 @@ public class Package {
       // it's invalid on Windows.
       suffix = "";
     } else if (filename.isDirectory()) {
-      suffix = "; however, a source directory of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD, or define a "
-          + "filegroup?)";
+      suffix =
+          "; however, a source directory of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD, or define a "
+              + "filegroup?)";
     } else if (filename.exists()) {
-      suffix = "; however, a source file of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD?)";
+      suffix =
+          "; however, a source file of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD?)";
     } else {
       suffix = SpellChecker.didYouMean(targetName, targets.keySet());
     }
@@ -624,7 +609,7 @@ public class Package {
     String msg =
         String.format(
             "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, name, suffix, filename.asPath().getPathString());
+            targetName, getName(), suffix, filename.asPath().getPathString());
     return new NoSuchTargetException(label, msg);
   }
 
@@ -716,7 +701,9 @@ public class Package {
 
   @Override
   public String toString() {
-    return "Package(" + name + ")="
+    return "Package("
+        + getName()
+        + ")="
         + (targets != null ? getTargets(Rule.class) : "initializing...");
   }
 
@@ -752,10 +739,14 @@ public class Package {
   }
 
   public static Builder newExternalPackageBuilder(
-      Builder.Helper helper, RootedPath workspacePath, String runfilesPrefix) {
+      Builder.Helper helper,
+      RootedPath workspacePath,
+      String runfilesPrefix,
+      StarlarkSemantics starlarkSemantics) {
     Builder b =
         new Builder(
-            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix),
+            starlarkSemantics);
     b.setFilename(workspacePath);
     return b;
   }
@@ -812,6 +803,8 @@ public class Package {
      * and {@link Package#finishInit} for details.
      */
     private final Package pkg;
+
+    private final StarlarkSemantics starlarkSemantics;
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -893,15 +886,20 @@ public class Package {
       }
     };
 
-    Builder(Package pkg) {
+    Builder(Package pkg, StarlarkSemantics starlarkSemantics) {
+      this.starlarkSemantics = starlarkSemantics;
       this.pkg = pkg;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
     }
 
-    Builder(Helper helper, PackageIdentifier id, String runfilesPrefix) {
-      this(helper.createFreshPackage(id, runfilesPrefix));
+    Builder(
+        Helper helper,
+        PackageIdentifier id,
+        String runfilesPrefix,
+        StarlarkSemantics starlarkSemantics) {
+      this(helper.createFreshPackage(id, runfilesPrefix), starlarkSemantics);
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1564,7 +1562,12 @@ public class Package {
     private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          return new InputFile(pkg, label, location);
+          if (starlarkSemantics.incompatibleNoImplicitFileExport()) {
+            return new InputFile(
+                pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE);
+          } else {
+            return new InputFile(pkg, label, location);
+          }
         }
       }
       return null;

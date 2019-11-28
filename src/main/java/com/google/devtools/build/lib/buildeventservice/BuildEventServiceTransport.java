@@ -74,7 +74,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   @Override
   public BuildEventArtifactUploader getUploader() {
-    return besUploader.getLocalFileUploader();
+    return besUploader.getBuildEventUploader();
   }
 
   @Override

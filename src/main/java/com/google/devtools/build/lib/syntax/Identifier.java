@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 // TODO(bazel-team): For performance, avoid doing HashMap lookups at runtime, and compile local
@@ -49,11 +48,6 @@ public final class Identifier extends Expression {
 
   ValidationEnvironment.Scope getScope() {
     return scope;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(name);
   }
 
   void setScope(ValidationEnvironment.Scope scope) {

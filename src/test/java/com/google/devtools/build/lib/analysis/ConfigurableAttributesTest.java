@@ -1115,7 +1115,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
-    public void selectOnConstraints() throws Exception {
+  public void selectOnConstraints() throws Exception {
     // create some useful constraints and platforms.
     scratch.file(
         "conditions/BUILD",
@@ -1158,5 +1158,31 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         ImmutableList.of("--experimental_platforms=//conditions:apple_platform"),
         /*expected:*/ ImmutableList.of("src check/afile"),
         /*not expected:*/ ImmutableList.of("src check/bfile", "src check/defaultfile"));
-    }
+  }
+
+  @Test
+  public void multipleMatchErrorWhenAliasResolvesToSameSetting() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' })",
+        "alias(",
+        "    name = 'alias_to_foo',",
+        "    actual = ':foo')",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        ':foo': 0,",
+        "        'alias_to_foo': 1,",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNull();
+    assertContainsEvent(
+        "Configurable attribute \"boolean_attr\" doesn't match this configuration (would a default "
+            + "condition help?).\n"
+            + "Conditions checked:\n"
+            + " //a:foo\n"
+            + " //a:alias_to_foo");
+  }
 }

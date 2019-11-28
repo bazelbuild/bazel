@@ -765,6 +765,20 @@ public class CppOptions extends FragmentOptions {
   public boolean requireCtxInConfigureFeatures;
 
   @Option(
+      name = "incompatible_validate_top_level_header_inclusions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will also validate top level directory header inclusions "
+              + "(see https://github.com/bazelbuild/bazel/issues/10047 for more information).")
+  public boolean validateTopLevelHeaderInclusions;
+
+  @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -976,6 +990,7 @@ public class CppOptions extends FragmentOptions {
     host.disableStaticCcToolchains = disableStaticCcToolchains;
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
+    host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

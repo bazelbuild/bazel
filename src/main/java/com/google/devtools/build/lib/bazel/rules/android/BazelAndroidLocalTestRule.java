@@ -75,7 +75,6 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
             attr("$robolectric_implicit_classpath", LABEL_LIST)
                 .value(ImmutableList.of(environment.getToolsLabel("//tools/android:android_jar"))))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        .removeAttribute("$experimental_testsupport")
         .removeAttribute("classpath_resources")
         .removeAttribute("create_executable")
         .removeAttribute("deploy_manifest_lines")

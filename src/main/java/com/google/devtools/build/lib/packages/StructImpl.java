@@ -22,16 +22,14 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -67,9 +65,7 @@ public abstract class StructImpl extends Info
     Preconditions.checkNotNull(values);
     ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(
-          Attribute.getSkylarkName(e.getKey()),
-          SkylarkType.convertToSkylark(e.getValue(), (StarlarkThread) null));
+      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
     return builder.build();
   }
@@ -174,7 +170,7 @@ public abstract class StructImpl extends Info
    * is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     boolean first = true;
     printer.append("struct(");
     // Sort by key to ensure deterministic output.
@@ -246,14 +242,14 @@ public abstract class StructImpl extends Info
 
   private void printProtoTextMessage(
       String key, Object value, StringBuilder sb, int indent, Location loc) throws EvalException {
-    if (value instanceof SkylarkList) {
-      for (Object item : ((SkylarkList) value)) {
+    if (value instanceof Sequence) {
+      for (Object item : ((Sequence) value)) {
         // TODO(bazel-team): There should be some constraint on the fields of the structs
         // in the same list but we ignore that for now.
         printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
       }
-    } else if (value instanceof SkylarkDict) {
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+    } else if (value instanceof Dict) {
+      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
         printProtoTextMessage(key, entry, sb, indent, loc, "entry of dictionary");
       }
     } else {
@@ -287,7 +283,7 @@ public abstract class StructImpl extends Info
 
   private void printJson(Object value, StringBuilder sb, Location loc, String container, String key)
       throws EvalException {
-    if (value == Runtime.NONE) {
+    if (value == Starlark.NONE) {
       sb.append("null");
     } else if (value instanceof ClassObject) {
       sb.append("{");
@@ -302,10 +298,10 @@ public abstract class StructImpl extends Info
         printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
       }
       sb.append("}");
-    } else if (value instanceof SkylarkDict) {
+    } else if (value instanceof Dict) {
       sb.append("{");
       String join = "";
-      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+      for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
         sb.append(join);
         join = ",";
         if (!(entry.getKey() instanceof String)) {
@@ -362,6 +358,6 @@ public abstract class StructImpl extends Info
 
   @Override
   public String toString() {
-    return Printer.repr(this);
+    return Starlark.repr(this);
   }
 }

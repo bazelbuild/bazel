@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which does not have an appropriate StarlarkThread
  * parameter despite having useStarlarkThread set.
  */
-public class StarlarkThreadMissing {
+public class StarlarkThreadMissing implements StarlarkValue {
 
   @SkylarkCallable(
       name = "three_arg_method_missing_env",

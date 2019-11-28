@@ -32,11 +32,10 @@ import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -113,20 +112,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString()).isEqualTo("/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString()).startsWith("/foo/bar/bin/java");
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("/foo/bar/bin/java");
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath).isEqualTo("/foo/bar");
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath).startsWith("/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("/foo/bar/bin/java");
   }
 
   @Test
@@ -176,20 +169,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString()).startsWith("a/foo/bar/bin/java");
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath).isEqualTo("a/foo/bar");
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath).startsWith("a/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("a/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("a/foo/bar/bin/java");
   }
 
   @Test
@@ -242,22 +229,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget genrule = getHostConfiguredTarget("//a:gen");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeExecPath = (PathFragment) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath.getPathString())
+    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
+    assertThat(javaHomeExecPath)
         .isEqualTo(getGenfilesArtifact("foo/bar", genrule).getExecPathString());
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableExecPath =
-        (PathFragment) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath.getPathString())
+    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
+    assertThat(javaExecutableExecPath)
         .startsWith(getGenfilesArtifact("foo/bar/bin/java", genrule).getExecPathString());
-    @SuppressWarnings("unchecked")
-    PathFragment javaHomeRunfilesPath = (PathFragment) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
-    @SuppressWarnings("unchecked")
-    PathFragment javaExecutableRunfiles =
-        (PathFragment) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
+    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath).isEqualTo("a/foo/bar");
+    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles).startsWith("a/foo/bar/bin/java");
   }
 
   @Test
@@ -334,13 +315,12 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet transitiveRuntimeJars =
-        ((SkylarkNestedSet) info.getValue("transitive_runtime_jars"));
-    SkylarkNestedSet transitiveCompileTimeJars =
-        ((SkylarkNestedSet) info.getValue("transitive_compile_time_jars"));
-    SkylarkNestedSet compileJars = ((SkylarkNestedSet) info.getValue("compile_jars"));
-    SkylarkNestedSet fullCompileJars = ((SkylarkNestedSet) info.getValue("full_compile_jars"));
-    SkylarkList<Artifact> sourceJars = ((SkylarkList<Artifact>) info.getValue("source_jars"));
+    Depset transitiveRuntimeJars = ((Depset) info.getValue("transitive_runtime_jars"));
+    Depset transitiveCompileTimeJars = ((Depset) info.getValue("transitive_compile_time_jars"));
+    Depset compileJars = ((Depset) info.getValue("compile_jars"));
+    Depset fullCompileJars = ((Depset) info.getValue("full_compile_jars"));
+    @SuppressWarnings("unchecked")
+    Sequence<Artifact> sourceJars = ((Sequence<Artifact>) info.getValue("source_jars"));
     JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
 
     assertThat(artifactFilesNames(transitiveRuntimeJars.toCollection(Artifact.class)))
@@ -546,10 +526,14 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
-    assertThat(prettyArtifactNames(compilationInfo.getCompilationClasspath().toList()))
+    assertThat(
+            prettyArtifactNames(
+                compilationInfo.getCompilationClasspath().getSet(Artifact.class).toList()))
         .containsExactly("java/test/libdep-hjar.jar");
 
-    assertThat(prettyArtifactNames(compilationInfo.getRuntimeClasspath().toList()))
+    assertThat(
+            prettyArtifactNames(
+                compilationInfo.getRuntimeClasspath().getSet(Artifact.class).toList()))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
     assertThat(compilationInfo.getJavacOpts()).contains("-XDone");
@@ -607,8 +591,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
-    SkylarkList<Artifact> sourceJars = info.getSourceJars();
-    NestedSet<Artifact> transitiveSourceJars = info.getTransitiveSourceJars();
+    Sequence<Artifact> sourceJars = info.getSourceJars();
+    NestedSet<Artifact> transitiveSourceJars =
+        info.getTransitiveSourceJars().getSet(Artifact.class);
     assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-src.jar");
     assertThat(artifactFilesNames(transitiveSourceJars))
         .containsExactly("libdep-src.jar", "libcustom-src.jar");
@@ -678,8 +663,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
-    SkylarkList<Artifact> sourceJars = info.getSourceJars();
-    NestedSet<Artifact> transitiveSourceJars = info.getTransitiveSourceJars();
+    Sequence<Artifact> sourceJars = info.getSourceJars();
+    NestedSet<Artifact> transitiveSourceJars =
+        info.getTransitiveSourceJars().getSet(Artifact.class);
     assertThat(artifactFilesNames(sourceJars))
         .containsExactly("amazing-src.jar", "wonderful-src.jar");
     assertThat(artifactFilesNames(transitiveSourceJars))
@@ -729,7 +715,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
-    SkylarkList<Artifact> sourceJars = info.getSourceJars();
+    Sequence<Artifact> sourceJars = info.getSourceJars();
     assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-src.jar");
     JavaRuleOutputJarsProvider outputJars = info.getOutputJars();
     assertThat(outputJars.getOutputJars()).hasSize(1);
@@ -783,7 +769,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
-    SkylarkList<Artifact> sourceJars = info.getSourceJars();
+    Sequence<Artifact> sourceJars = info.getSourceJars();
     assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-src.jar");
     JavaRuleOutputJarsProvider outputJars = info.getOutputJars();
     assertThat(outputJars.getOutputJars()).hasSize(1);
@@ -839,7 +825,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
-    SkylarkList<Artifact> sourceJars = info.getSourceJars();
+    Sequence<Artifact> sourceJars = info.getSourceJars();
     assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-mysrc.jar");
     JavaRuleOutputJarsProvider outputJars = info.getOutputJars();
     assertThat(outputJars.getOutputJars()).hasSize(1);
@@ -1081,16 +1067,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .containsExactly("com.google.process.stuff");
     assertThat(
             Iterables.transform(
-                ((SkylarkNestedSet) info.getValue("processor_classpath")).toCollection(),
+                ((Depset) info.getValue("processor_classpath")).toCollection(),
                 o -> ((Artifact) o).getFilename()))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_class_jars")).toCollection())
         .hasSize(3); // from to_be_processed, dep, and export
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_class_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_class_jars")).toCollection())
         .contains(info.getValue("class_jar"));
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_source_jars")).toCollection())
         .hasSize(3); // from to_be_processed, dep, and export
-    assertThat(((SkylarkNestedSet) info.getValue("transitive_source_jars")).toCollection())
+    assertThat(((Depset) info.getValue("transitive_source_jars")).toCollection())
         .contains(info.getValue("source_jar"));
   }
 
@@ -1135,11 +1121,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
-    SkylarkNestedSet rawMyCompileJars = (SkylarkNestedSet) (info.getValue("compile_jars"));
-    SkylarkNestedSet rawMyTransitiveRuntimeJars =
-        (SkylarkNestedSet) (info.getValue("transitive_runtime_jars"));
-    SkylarkNestedSet rawMyTransitiveCompileTimeJars =
-        (SkylarkNestedSet) (info.getValue("transitive_compile_time_jars"));
+    Depset rawMyCompileJars = (Depset) info.getValue("compile_jars");
+    Depset rawMyTransitiveRuntimeJars = (Depset) info.getValue("transitive_runtime_jars");
+    Depset rawMyTransitiveCompileTimeJars = (Depset) info.getValue("transitive_compile_time_jars");
 
     NestedSet<Artifact> myCompileJars = rawMyCompileJars.getSet(Artifact.class);
     NestedSet<Artifact> myTransitiveRuntimeJars = rawMyTransitiveRuntimeJars.getSet(Artifact.class);
@@ -1306,7 +1290,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget binary = getConfiguredTarget("//foo:binary");
     assertThat(
             prettyArtifactNames(
-                binary.getProvider(JavaRuntimeClasspathProvider.class).getRuntimeClasspath()))
+                binary
+                    .getProvider(JavaRuntimeClasspathProvider.class)
+                    .getRuntimeClasspath()
+                    .getSet(Artifact.class)))
         .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
   }
 
@@ -1358,7 +1345,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
     @SuppressWarnings("unchecked")
-    SkylarkList<Artifact> sourceJars = (SkylarkList<Artifact>) (info.getValue("source_jars"));
+    Sequence<Artifact> sourceJars = (Sequence<Artifact>) (info.getValue("source_jars"));
     assertThat(prettyArtifactNames(sourceJars)).containsExactly("foo/libmy_java_lib_a-src.jar");
 
     assertThat(prettyArtifactNames(sourceJars)).doesNotContain("foo/libmy_java_lib_b-src.jar");
@@ -1388,8 +1375,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1422,8 +1408,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1456,8 +1441,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
-    SkylarkNestedSet sourceJars = (SkylarkNestedSet) info.getValue("property");
+    Depset sourceJars = (Depset) info.getValue("property");
 
     assertThat(prettyArtifactNames(sourceJars.getSet(Artifact.class)))
         .containsExactly(
@@ -1490,8 +1474,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
-    @SuppressWarnings("unchecked")
-    SkylarkNestedSet exports = (SkylarkNestedSet) (info.getValue("property"));
+    Depset exports = (Depset) info.getValue("property");
 
     assertThat(exports.getSet(Label.class))
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
@@ -1553,7 +1536,9 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationInfoProvider javaCompilationInfoProvider =
         (JavaCompilationInfoProvider) info.getValue("property");
 
-    assertThat(prettyArtifactNames(javaCompilationInfoProvider.getRuntimeClasspath()))
+    assertThat(
+            prettyArtifactNames(
+                javaCompilationInfoProvider.getRuntimeClasspath().getSet(Artifact.class)))
         .containsExactly("foo/libmy_java_lib_a.jar");
   }
 
@@ -1937,7 +1922,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         ")");
 
     JavaInfo info = getConfiguredTarget("//java/test:custom").get(JavaInfo.PROVIDER);
-    assertThat(prettyArtifactNames(info.getTransitiveSourceJars()))
+    assertThat(prettyArtifactNames(info.getTransitiveSourceJars().getSet(Artifact.class)))
         .containsExactly("java/test/amazing-src.jar", "java/test/libdep-src.jar");
     JavaCompilationArgsProvider provider = info.getProvider(JavaCompilationArgsProvider.class);
     assertThat(prettyArtifactNames(provider.getDirectCompileTimeJars()))
@@ -2022,7 +2007,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     assertThat(artifactFilesNames(info.getTransitiveRuntimeJars().toCollection(Artifact.class)))
         .containsExactly("liba.jar");
-    assertThat(artifactFilesNames(info.getTransitiveSourceJars()))
+    assertThat(artifactFilesNames(info.getTransitiveSourceJars().getSet(Artifact.class)))
         .containsExactly("liba-src.jar", "libb-src.jar");
     assertThat(artifactFilesNames(info.getTransitiveCompileTimeJars().toCollection(Artifact.class)))
         .containsExactly("liba-hjar.jar", "libb-hjar.jar");
@@ -2176,8 +2161,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
-    SkylarkList<String> javacopts =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("javac_opts");
+    Sequence<String> javacopts = (Sequence<String>) getMyInfoFromTarget(r).getValue("javac_opts");
     assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
   }
 
@@ -2203,8 +2187,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
-    SkylarkList<String> javacopts =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("javac_opts");
+    Sequence<String> javacopts = (Sequence<String>) getMyInfoFromTarget(r).getValue("javac_opts");
     assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
   }
 
@@ -2228,10 +2211,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "toolchain_resolution_enabled(name='r')");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
-    boolean toolchainResolutionEnabled =
-        (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
-    return toolchainResolutionEnabled;
+    return (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
   }
 
   @Test
@@ -2291,8 +2271,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     useConfiguration(
         "--javabase=//a:jvm", "--extra_toolchains=//a:all", "--platforms=//a:platform");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
-    SkylarkNestedSet files = (SkylarkNestedSet) ct.get("files");
+    Depset files = (Depset) ct.get("files");
     assertThat(prettyArtifactNames(files.toCollection(Artifact.class))).containsExactly("a/a.txt");
   }
 }

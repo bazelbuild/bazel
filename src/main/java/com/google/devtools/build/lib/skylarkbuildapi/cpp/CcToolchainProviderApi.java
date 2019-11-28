@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
@@ -60,7 +60,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
           "Returns all toolchain files (so they can be passed to actions using this "
               + "toolchain as inputs).",
       structField = true)
-  public SkylarkNestedSet getAllFilesForStarlark();
+  public Depset getAllFilesForStarlark();
 
   @SkylarkCallable(
       name = "static_runtime_lib",
@@ -78,7 +78,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  public SkylarkNestedSet getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
+  public Depset getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
       throws EvalException;
 
   @SkylarkCallable(
@@ -97,8 +97,8 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
-      FeatureConfigurationT featureConfiguration) throws EvalException;
+  public Depset getDynamicRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "sysroot",

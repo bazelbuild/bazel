@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
@@ -40,21 +40,21 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
   @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
+      Sequence<?> sourceAttributes, // <String>
+      Sequence<?> dependencyAttributes, // <String>
       Object extensions,
       Location location)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Runtime.NONE
+        extensions == Starlark.NONE
             ? null
-            : SkylarkList.castList((List<?>) extensions, String.class, "extensions");
+            : Sequence.castList((List<?>) extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
         location,
         skylarkRuleContext.getRuleContext(),
-        sourceAttributes,
-        dependencyAttributes,
+        sourceAttributes.getContents(String.class, "source_attributes"),
+        dependencyAttributes.getContents(String.class, "dependency_attributes"),
         extensionsList);
   }
 
@@ -102,7 +102,7 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<coverage_common>");
   }
 }

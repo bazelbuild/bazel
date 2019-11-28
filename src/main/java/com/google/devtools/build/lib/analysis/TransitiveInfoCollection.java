@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -48,12 +48,12 @@ public interface TransitiveInfoCollection
     extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
 
   @Override
-  default SkylarkNestedSet outputGroup(String group) {
+  default Depset outputGroup(String group) {
     OutputGroupInfo provider = OutputGroupInfo.get(this);
     NestedSet<Artifact> result = provider != null
         ? provider.getOutputGroup(group)
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    return SkylarkNestedSet.of(Artifact.class, result);
+    return Depset.of(Artifact.TYPE, result);
   }
 
   /**

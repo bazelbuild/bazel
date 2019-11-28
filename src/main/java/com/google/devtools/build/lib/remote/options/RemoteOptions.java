@@ -47,7 +47,7 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache.")
+              + "configure a Unix domain socket (unix:/path/to/socket).")
   public String remoteProxy;
 
   @Option(
@@ -365,7 +365,11 @@ public final class RemoteOptions extends OptionsBase {
   public int maxOutboundMessageSize = 1024 * 1024;
 
   public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
+    return !Strings.isNullOrEmpty(remoteCache) || isRemoteExecutionEnabled();
+  }
+
+  public boolean isRemoteExecutionEnabled() {
+    return !Strings.isNullOrEmpty(remoteExecutor);
   }
 
   /**

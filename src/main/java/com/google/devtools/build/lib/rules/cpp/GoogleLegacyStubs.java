@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -36,11 +35,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderAp
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
  * Fake stub implementations for C++-related Starlark API which are unsupported without use of
@@ -69,8 +68,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-        SkylarkRuleContextApi skylarkRuleContext) {
+    public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
       return null;
     }
 
@@ -81,8 +79,8 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-        SkylarkList<String> targetCopts)
+        Sequence<?> depCcCompilationContexts, // <CcCompilationContextApi>
+        Sequence<?> targetCopts /* <String> */)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -95,7 +93,7 @@ public final class GoogleLegacyStubs {
 
     @Override
     public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-        SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes)
+        SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -106,15 +104,15 @@ public final class GoogleLegacyStubs {
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
         FeatureConfigurationApi featureConfiguration,
         CcCompilationContextApi wrapperCcCompilationContext,
-        SkylarkNestedSet swigIncludes,
+        Depset swigIncludes,
         FileApi swigSource,
-        SkylarkList<String> subParameters,
+        Sequence<?> subParameters, // <String>
         FileApi ccFile,
         FileApi headerFile,
-        SkylarkList<FileApi> outputFiles,
+        Sequence<?> outputFiles, // <FileApi>
         Object outDir,
         Object javaDir,
-        SkylarkNestedSet auxiliaryInputs,
+        Depset auxiliaryInputs,
         String swigAttributeName,
         Object zipTool)
         throws EvalException, InterruptedException {}
@@ -136,19 +134,19 @@ public final class GoogleLegacyStubs {
           WrapCcIncludeProviderApi> {
 
     @Override
-    public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+    public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
       return null;
     }
 
     @Override
-    public SkylarkNestedSet getTransitivePythonSources(
+    public Depset getTransitivePythonSources(
         SkylarkRuleContextApi skylarkRuleContext, FileApi pyFile) {
       return null;
     }
 
     @Override
     public RunfilesApi getPythonRunfiles(
-        SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet filesToBuild) {
+        SkylarkRuleContextApi skylarkRuleContext, Depset filesToBuild) {
       return null;
     }
 
@@ -215,8 +213,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActions(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<FileApi> srcs,
-        SkylarkList<TransitiveInfoCollectionApi> deps) {
+        Sequence<?> srcs, // <FileApi>
+        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 
@@ -224,8 +222,8 @@ public final class GoogleLegacyStubs {
     public Tuple<FileApi> createGoCompileActionsGopkg(
         SkylarkRuleContextApi skylarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi> ccToolchainProvider,
-        SkylarkList<FileApi> srcs,
-        SkylarkList<TransitiveInfoCollectionApi> deps) {
+        Sequence<?> srcs, // <FileApi>
+        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
       return null;
     }
 
@@ -239,7 +237,7 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public NestedSet<FileApi> getGopackageFiles(
+    public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
         SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
       return null;
     }
@@ -252,7 +250,7 @@ public final class GoogleLegacyStubs {
   public static class PyWrapCcInfoProvider implements PyWrapCcInfoApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<unknown object>");
     }
   }
@@ -264,7 +262,7 @@ public final class GoogleLegacyStubs {
   public static class PyCcLinkParamsProvider implements PyCcLinkParamsProviderApi.Provider {
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<unknown object>");
     }
   }

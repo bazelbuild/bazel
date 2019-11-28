@@ -17,12 +17,13 @@ package com.google.devtools.build.lib.skylarkbuildapi.config;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper utility containing functions regarding configurations.ss */
 @SkylarkModule(
     name = "config_common",
     doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
-public interface ConfigSkylarkCommonApi {
+public interface ConfigSkylarkCommonApi extends StarlarkValue {
 
   @SkylarkCallable(
     name = "FeatureFlagInfo",

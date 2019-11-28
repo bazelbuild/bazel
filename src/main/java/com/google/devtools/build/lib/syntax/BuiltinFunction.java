@@ -15,17 +15,14 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -36,19 +33,7 @@ import javax.annotation.Nullable;
  * this class do not need to be serializable because they should effectively be treated as
  * constants.
  */
-public class BuiltinFunction extends BaseFunction {
-
-  /** ExtraArgKind so you can tweek your function's own calling convention */
-  public enum ExtraArgKind {
-    LOCATION,
-    SYNTAX_TREE,
-    ENVIRONMENT;
-  }
-  // Predefined system add-ons to function signatures
-  public static final ExtraArgKind[] USE_LOC_ENV =
-      new ExtraArgKind[] {ExtraArgKind.LOCATION, ExtraArgKind.ENVIRONMENT};
-  public static final ExtraArgKind[] USE_AST_ENV =
-      new ExtraArgKind[] {ExtraArgKind.SYNTAX_TREE, ExtraArgKind.ENVIRONMENT};
+public abstract class BuiltinFunction extends BaseFunction {
 
   // Builtins cannot create or modify variable bindings. So it's sufficient to use a shared
   // instance.
@@ -58,47 +43,23 @@ public class BuiltinFunction extends BaseFunction {
   // The underlying invoke() method.
   @Nullable private Method invokeMethod;
 
-  // extra arguments required beside signature.
-  @Nullable private ExtraArgKind[] extraArgs;
-
-  // The count of arguments in the inner invoke method,
-  // to be used as size of argument array by the outer call method.
-  private int innerArgumentCount;
+  // Classes of extra arguments required beside signature,
+  // computed by configure from parameter types of invoke method.
+  // TODO(adonovan): eliminate Location, FuncallExpression when they can be derived from the thread.
+  private Class<?>[] extraParams; // ordered subset of {Location,FuncallExpression,StarlarkThread}
 
   // The returnType of the method.
   private Class<?> returnType;
 
-  /** Create unconfigured (signature-less) function from its name */
-  protected BuiltinFunction(String name) {
-    super(name);
-  }
-
-  /** Creates a BuiltinFunction with the given name and signature */
-  protected BuiltinFunction(String name, FunctionSignature signature) {
-    super(name, signature);
-    configure();
-  }
-
-  /** Creates a BuiltinFunction with the given name and signature and extra arguments */
-  protected BuiltinFunction(String name, FunctionSignature signature, ExtraArgKind[] extraArgs) {
-    super(name, signature);
-    this.extraArgs = extraArgs;
-    configure();
-  }
-
-  /** Creates a BuiltinFunction from the given name and a Factory */
-  protected BuiltinFunction(String name, Factory factory) {
-    super(name);
-    configure(factory);
+  /** Creates a BuiltinFunction with the given signature. */
+  protected BuiltinFunction(FunctionSignature signature) {
+    super(signature);
+    initialize();
   }
 
   @Override
-  protected int getArgArraySize() {
-    return innerArgumentCount;
-  }
-
-  ExtraArgKind[] getExtraArgs() {
-    return extraArgs;
+  protected final int getArgArraySize() {
+    return invokeMethod.getParameterCount();
   }
 
   @Override
@@ -110,22 +71,18 @@ public class BuiltinFunction extends BaseFunction {
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
 
-    // Add extra arguments, if needed
-    if (extraArgs != null) {
-      int i = args.length - extraArgs.length;
-      for (BuiltinFunction.ExtraArgKind extraArg : extraArgs) {
-        switch(extraArg) {
-          case LOCATION:
-            args[i] = loc;
-            break;
-
-          case SYNTAX_TREE:
-            args[i] = ast;
-            break;
-
-          case ENVIRONMENT:
-            args[i] = thread;
-            break;
+    // Add extra arguments as needed.
+    {
+      int i = args.length - extraParams.length;
+      for (Class<?> cls : extraParams) {
+        if (cls == Location.class) {
+          args[i] = loc;
+        } else if (cls == FuncallExpression.class) {
+          args[i] = ast;
+        } else if (cls == StarlarkThread.class) {
+          args[i] = thread;
+        } else {
+          throw new IllegalStateException("invalid extra argument: " + cls);
         }
         i++;
       }
@@ -151,20 +108,19 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalArgumentException e) {
       // Either this was thrown by Java itself, or it's a bug
       // To cover the first case, let's manually check the arguments.
-      final int len = args.length - ((extraArgs == null) ? 0 : extraArgs.length);
+      final int len = args.length - extraParams.length;
       final Class<?>[] types = invokeMethod.getParameterTypes();
       for (int i = 0; i < args.length; i++) {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
-              i < len ? signature.getParameterNames().get(i) : extraArgs[i - len].name();
+              i < len ? getSignature().getParameterNames().get(i) : extraParams[i - len].getName();
           throw new EvalException(
               loc,
               String.format(
-                  "argument '%s' has type '%s', but should be '%s'\nin call to builtin %s %s",
+                  "argument '%s' has type '%s', but should be '%s'\nin call to %s",
                   paramName,
                   EvalUtils.getDataTypeName(args[i]),
                   EvalUtils.getDataTypeNameFromClass(types[i]),
-                  hasSelfArgument() ? "method" : "function",
                   getShortSignature()));
         }
       }
@@ -189,75 +145,22 @@ public class BuiltinFunction extends BaseFunction {
     // If this happens, it's a bug in our code.
     return new IllegalStateException(
         String.format(
-            "%s%s (%s)\n"
-                + "while calling %s with args %s\n"
-                + "Java parameter types: %s\nStarlark type checks: %s",
+            "%s%s (%s)\n" + "while calling %s with args %s\n" + "Java parameter types: %s",
             (loc == null) ? "" : loc + ": ",
             Arrays.asList(args),
             e.getClass().getName(),
             stacktraceToString(e.getStackTrace()),
             this,
-            Arrays.asList(invokeMethod.getParameterTypes()),
-            enforcedArgumentTypes),
+            Arrays.asList(invokeMethod.getParameterTypes())),
         e);
   }
 
-  /** Configure the reflection mechanism */
-  @Override
-  public void configure(SkylarkSignature annotation) {
-    Preconditions.checkState(!isConfigured()); // must not be configured yet
-    enforcedArgumentTypes = new ArrayList<>();
-    this.extraArgs = SkylarkSignatureProcessor.getExtraArgs(annotation);
-    this.returnType = annotation.returnType();
-    super.configure(annotation);
-  }
-
-  /** Configure the reflection mechanism */
-  @Override
-  protected void configure() {
-    invokeMethod = findMethod("invoke");
-
-    int arguments = signature.numParameters();
-    innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
+  // Configures the reflection mechanism.
+  private final void initialize() {
+    this.invokeMethod = findMethod(this.getClass(), "invoke");
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
-    if (innerArgumentCount != parameterTypes.length) {
-      // Guard message construction by check to avoid autoboxing two integers.
-      throw new IllegalStateException(
-          String.format(
-              "bad argument count for %s: method has %s arguments, type list has %s",
-              getName(), innerArgumentCount, parameterTypes.length));
-    }
-
-    if (enforcedArgumentTypes != null) {
-      for (int i = 0; i < arguments; i++) {
-        SkylarkType enforcedType = enforcedArgumentTypes.get(i);
-        if (enforcedType != null) {
-          Class<?> parameterType = parameterTypes[i];
-          String msg =
-              String.format(
-                  "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
-                  getName(),
-                  signature,
-                  signature.getParameterNames().get(i),
-                  enforcedType,
-                  enforcedType.getType(),
-                  parameterType);
-          if (enforcedType instanceof SkylarkType.Simple
-              || enforcedType instanceof SkylarkFunctionType) {
-            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
-            // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
-            enforcedArgumentTypes.set(i, null);
-          } else if (enforcedType instanceof SkylarkType.Combination) {
-            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
-          } else {
-            Preconditions.checkArgument(
-                parameterType == Object.class || parameterType == null, msg);
-          }
-        }
-      }
-      // No need for the enforcedArgumentTypes List if all the types were Simple
-      enforcedArgumentTypes = valueListOrNull(enforcedArgumentTypes);
-    }
+    int numParameters = getSignature().numParameters();
+    this.extraParams = extraParams(numParameters, parameterTypes);
 
     if (returnType != null) {
       Class<?> type = returnType;
@@ -271,103 +174,61 @@ public class BuiltinFunction extends BaseFunction {
     }
   }
 
-  /** Configure by copying another function's configuration */
-  // Alternatively, we could have an extension BuiltinFunctionSignature of FunctionSignature,
-  // and use *that* instead of a Factory.
-  private void configure(BuiltinFunction.Factory factory) {
-    // this function must not be configured yet, but the factory must be
-    Preconditions.checkState(!isConfigured());
-    Preconditions.checkState(
-        factory.isConfigured(), "function factory is not configured for %s", getName());
-
-    this.paramDoc = factory.getParamDoc();
-    this.signature = factory.getSignature();
-    this.defaultValues = factory.getDefaultValues();
-    this.paramTypes = factory.getEnforcedArgumentTypes();
-    this.extraArgs = factory.getExtraArgs();
-    this.objectType = factory.getObjectType();
-    configure();
+  /**
+   * Returns the signature as "[className.]methodName(name1: paramType1, name2: paramType2, ...)"
+   */
+  private String getShortSignature() {
+    StringBuilder builder = new StringBuilder();
+    builder.append(getName()).append("(");
+    getSignature().toStringBuilder(builder, /*defaultValuePrinter=*/ null);
+    builder.append(")");
+    return builder.toString();
   }
 
-  /** Returns list, or null if all its elements are null. */
-  @Nullable
-  private static <E> List<E> valueListOrNull(List<E> list) {
-    if (list != null) {
-      for (E value : list) {
-        if (value != null) {
-          return list;
-        }
+  // Returns the list of extra parameters beyond those in the signature.
+  private Class<?>[] extraParams(int i, Class<?>[] parameterTypes) {
+    List<Class<?>> extra = Lists.newArrayList();
+    for (Class<?> cls : EXTRA_PARAM_CLASSES) {
+      if (i < parameterTypes.length && parameterTypes[i] == cls) {
+        extra.add(cls);
+        i++;
       }
     }
-    return null;
+    if (i != parameterTypes.length) {
+      throw new IllegalStateException(
+          String.format(
+              "bad argument count for %s: method has %s arguments, type list has %s",
+              getName(), i, parameterTypes.length));
+    }
+    return extra.toArray(new Class<?>[0]);
   }
 
+  private static final Class<?>[] EXTRA_PARAM_CLASSES = {
+    Location.class, FuncallExpression.class, StarlarkThread.class
+  };
+
   // finds the method and makes it accessible (which is needed to find it, and later to use it)
-  Method findMethod(final String name) {
+  private static Method findMethod(Class<?> cls, String name) {
     Method found = null;
-    for (Method method : this.getClass().getDeclaredMethods()) {
+    for (Method method : cls.getDeclaredMethods()) {
       method.setAccessible(true);
       if (name.equals(method.getName())) {
         if (found != null) {
           throw new IllegalArgumentException(
-              String.format("function %s has more than one method named %s", getName(), name));
+              String.format("class %s has more than one method named %s", cls.getName(), name));
         }
         found = method;
       }
     }
     if (found == null) {
       throw new NoSuchElementException(
-          String.format("function %s doesn't have a method named %s", getName(), name));
+          String.format("class %s doesn't have a method named %s", cls.getName(), name));
     }
     return found;
   }
 
-  /**
-   * A Factory allows for a @SkylarkSignature annotation to be provided and processed in advance
-   * for a function that will be defined later as a closure (see e.g. in PackageFactory).
-   *
-   * <p>Each instance of this class must define a method create that closes over some (final)
-   * variables and returns a BuiltinFunction.
-   */
-  public abstract static class Factory extends BuiltinFunction {
-    @Nullable private Method createMethod;
-
-    /** Create unconfigured function Factory from its name */
-    public Factory(String name) {
-      super(name);
-    }
-
-    @Override
-    public void configure() {
-      if (createMethod != null) {
-        return;
-      }
-      createMethod = findMethod("create");
-    }
-
-    @Override
-    public Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
-        throws EvalException {
-      throw new EvalException(null, "tried to invoke a Factory for function " + this);
-    }
-
-    /** Instantiate the Factory
-     * @param args arguments to pass to the create method
-     * @return a new BuiltinFunction that closes over the arguments
-     */
-    public BuiltinFunction apply(Object... args) {
-      try {
-        return (BuiltinFunction) createMethod.invoke(this, args);
-      } catch (InvocationTargetException | IllegalArgumentException | IllegalAccessException e) {
-        throw new RuntimeException(String.format(
-            "Exception while applying BuiltinFunction.Factory %s: %s",
-            this, e.getMessage()), e);
-      }
-    }
-  }
-
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<built-in function " + getName() + ">");
   }
 }

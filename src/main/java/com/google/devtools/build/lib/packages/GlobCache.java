@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -95,6 +97,7 @@ public class GlobCache {
   public GlobCache(
       final Path packageDirectory,
       final PackageIdentifier packageId,
+      final ImmutableSet<PathFragment> blacklistedGlobPrefixes,
       final CachingPackageLocator locator,
       AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
       Executor globExecutor,
@@ -111,12 +114,18 @@ public class GlobCache {
           if (directory.equals(packageDirectory)) {
             return true;
           }
+
+          PathFragment subPackagePath =
+              packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
+
+          for (PathFragment blacklistedPrefix : blacklistedGlobPrefixes) {
+            if (subPackagePath.startsWith(blacklistedPrefix)) {
+              return false;
+            }
+          }
+
           PackageIdentifier subPackageId =
-              PackageIdentifier.create(
-                  packageId.getRepository(),
-                  packageId
-                      .getPackageFragment()
-                      .getRelative(directory.relativeTo(packageDirectory)));
+              PackageIdentifier.create(packageId.getRepository(), subPackagePath);
           return locator.getBuildFileForPackage(subPackageId) == null;
         };
   }

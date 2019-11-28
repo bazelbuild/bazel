@@ -74,6 +74,17 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .thenReturn(new PrecomputedValue(Optional.<RootedPath>absent()));
+    Mockito.when(
+            env.getValue(
+                MockitoHamcrest.argThat(
+                    new SkyKeyMatchers(SkyFunctions.PRECOMPUTED) {
+                      @Override
+                      public boolean matches(Object item) {
+                        return super.matches(item)
+                            && item.toString().equals("PRECOMPUTED:skylark_semantics");
+                      }
+                    })))
+        .thenReturn(null);
     return env;
   }
 

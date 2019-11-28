@@ -141,14 +141,3 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeDelet
   }
   return result;
 }
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeGetCorrectCasing(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder) {
-  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  std::wstring result(bazel::windows::GetCorrectCasing(wpath));
-  env->SetObjectArrayElement(
-      result_holder, 0,
-      env->NewString(reinterpret_cast<const jchar*>(result.c_str()),
-                     result.size()));
-}

@@ -13,16 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.IS_TTV;
-import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.SKYKEY_TO_LABEL;
-
-import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
@@ -31,7 +26,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -124,22 +118,8 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
           /*keysToVisit=*/ depsAsSkyKeys);
     }
 
-    // We need to explicitly check that all requested TTVs are actually in the graph.
-    Map<SkyKey, Iterable<SkyKey>> depMap = env.graph.getDirectDeps(keys);
-    checkIfMissingTargets(keys, depMap);
-    Iterable<SkyKey> deps = Iterables.filter(Iterables.concat(depMap.values()), IS_TTV);
-    return new Visit(keys, deps);
-  }
-
-  private void checkIfMissingTargets(Iterable<SkyKey> keys, Map<SkyKey, Iterable<SkyKey>> depMap) {
-    if (depMap.size() != Iterables.size(keys)) {
-      Iterable<Label> missingTargets =
-          Iterables.transform(
-              Iterables.filter(keys, Predicates.not(Predicates.in(depMap.keySet()))),
-              SKYKEY_TO_LABEL);
-      env.getEventHandler()
-          .handle(Event.warn("Targets were missing from graph: " + missingTargets));
-    }
+    return new Visit(
+        keys, ImmutableSet.copyOf(Iterables.concat(env.getFwdDepLabels(keys).values())));
   }
 
   @Override

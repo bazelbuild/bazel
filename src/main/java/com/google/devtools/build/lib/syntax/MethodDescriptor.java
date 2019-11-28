@@ -30,9 +30,7 @@ import java.util.Arrays;
  * <p>The annotation metadata is duplicated in this class to avoid usage of Java dynamic proxies
  * which are ~7X slower.
  */
-// TODO(adonovan): make this private. All external uses either want parameter types, or want to
-// "invoke" a struct field, both of which need better abstractions.
-public final class MethodDescriptor {
+final class MethodDescriptor {
   private final Method method;
   private final SkylarkCallable annotation;
 
@@ -84,12 +82,12 @@ public final class MethodDescriptor {
   }
 
   /** Returns the SkylarkCallable annotation corresponding to this method. */
-  public SkylarkCallable getAnnotation() {
+  SkylarkCallable getAnnotation() {
     return annotation;
   }
 
   /** @return Skylark method descriptor for provided Java method and signature annotation. */
-  public static MethodDescriptor of(
+  static MethodDescriptor of(
       Method method, SkylarkCallable annotation, StarlarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
@@ -120,7 +118,7 @@ public final class MethodDescriptor {
    * <p>{@code obj} may be {@code null} in case this method is static. Methods with {@code void}
    * return type return {@code None} following Python convention.
    */
-  public Object call(Object obj, Object[] args, Location loc, StarlarkThread thread)
+  Object call(Object obj, Object[] args, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(obj);
     Object result;
@@ -147,41 +145,40 @@ public final class MethodDescriptor {
       throw new EvalException(loc, null, e);
     }
     if (method.getReturnType().equals(Void.TYPE)) {
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
     if (result == null) {
+      // TODO(adonovan): eliminate allowReturnNones. Given that we convert
+      // String/Integer/Boolean/List/Map, it seems obtuse to crash instead
+      // of converting null too.
       if (isAllowReturnNones()) {
-        return Runtime.NONE;
+        return Starlark.NONE;
       } else {
         throw new IllegalStateException(
-            "method invocation returned None: "
-                + getName()
-                + SkylarkList.Tuple.copyOf(Arrays.asList(args)));
+            "method invocation returned None: " + getName() + Tuple.copyOf(Arrays.asList(args)));
       }
     }
-    // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
-    result = SkylarkType.convertToSkylark(result, method, thread);
-    if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-      throw new EvalException(
-          loc,
-          Printer.format(
-              "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
-    }
-    return result;
+
+    // Careful: thread may be null when we are called by invokeStructField.
+    return Starlark.fromJava(result, thread != null ? thread.mutability() : null);
   }
 
   /** @see SkylarkCallable#name() */
-  public String getName() {
+  String getName() {
     return name;
   }
 
+  Method getMethod() {
+    return method;
+  }
+
   /** @see SkylarkCallable#structField() */
-  public boolean isStructField() {
+  boolean isStructField() {
     return structField;
   }
 
   /** @see SkylarkCallable#useStarlarkThread() */
-  public boolean isUseStarlarkThread() {
+  boolean isUseStarlarkThread() {
     return useStarlarkThread;
   }
 
@@ -191,26 +188,26 @@ public final class MethodDescriptor {
   }
 
   /** @see SkylarkCallable#useLocation() */
-  public boolean isUseLocation() {
+  boolean isUseLocation() {
     return useLocation;
   }
 
   /** @see SkylarkCallable#allowReturnNones() */
-  public boolean isAllowReturnNones() {
+  boolean isAllowReturnNones() {
     return allowReturnNones;
   }
 
   /** @see SkylarkCallable#useAst() */
-  public boolean isUseAst() {
+  boolean isUseAst() {
     return useAst;
   }
 
   /** @see SkylarkCallable#extraPositionals() */
-  public ParamDescriptor getExtraPositionals() {
+  ParamDescriptor getExtraPositionals() {
     return extraPositionals;
   }
 
-  public ParamDescriptor getExtraKeywords() {
+  ParamDescriptor getExtraKeywords() {
     return extraKeywords;
   }
 
@@ -225,22 +222,22 @@ public final class MethodDescriptor {
   }
 
   /** @see SkylarkCallable#parameters() */
-  public ImmutableList<ParamDescriptor> getParameters() {
+  ImmutableList<ParamDescriptor> getParameters() {
     return parameters;
   }
 
   /** @see SkylarkCallable#documented() */
-  public boolean isDocumented() {
+  boolean isDocumented() {
     return documented;
   }
 
   /** @see SkylarkCallable#doc() */
-  public String getDoc() {
+  String getDoc() {
     return doc;
   }
 
   /** @see SkylarkCallable#selfCall() */
-  public boolean isSelfCall() {
+  boolean isSelfCall() {
     return selfCall;
   }
 }

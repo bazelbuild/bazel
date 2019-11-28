@@ -80,8 +80,9 @@ public class WorkspaceFileFunction implements SkyFunction {
 
     RootedPath repoWorkspace =
         RootedPath.toRootedPath(workspaceRoot.getRoot(), workspaceRoot.getRootRelativePath());
-    Package.Builder builder = packageFactory.newExternalPackageBuilder(
-        repoWorkspace, ruleClassProvider.getRunfilesPrefix());
+    Package.Builder builder =
+        packageFactory.newExternalPackageBuilder(
+            repoWorkspace, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
     if (workspaceASTValue.getASTs().isEmpty()) {
       try {
@@ -100,7 +101,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
     WorkspaceFactory parser;
     WorkspaceFileValue prevValue = null;
-    try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
+    try (Mutability mutability = Mutability.create("workspace", repoWorkspace)) {
       parser =
           new WorkspaceFactory(
               builder,

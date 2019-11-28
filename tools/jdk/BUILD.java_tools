@@ -1,4 +1,5 @@
 package(default_visibility = ["//visibility:public"])
+exports_files(glob(["**/*.jar"]))
 
 licenses(["notice"])  # Apache 2.0
 
@@ -171,11 +172,6 @@ java_toolchain(
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
-)
-
-filegroup(
-    name = "ExperimentalRunner",
-    srcs = ["java_tools/ExperimentalRunner_deploy.jar"],
 )
 
 filegroup(

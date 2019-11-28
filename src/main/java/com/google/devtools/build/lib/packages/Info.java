@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 
@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
  * <p>Natively-defined Info objects should subclass this to be registered as Info objects that may
  * be passed between targets.
  */
-public abstract class Info implements Serializable, InfoInterface, SkylarkValue {
+public abstract class Info implements Serializable, InfoInterface, StarlarkValue {
 
   /** The {@link Provider} that describes the type of this instance. */
   protected final Provider provider;
@@ -59,7 +59,7 @@ public abstract class Info implements Serializable, InfoInterface, SkylarkValue 
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<instance of provider ");
     printer.append(provider.getPrintableName());
     printer.append(">");

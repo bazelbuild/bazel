@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.syntax.Runtime.NONE;
+import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -664,13 +664,12 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
-    // TODO(8996): Update URL to point to rules_python's docs instead of the Bazel site.
     String errorTemplate =
         "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
             + "version requirement by running the `find_requirements` aspect. For more info see "
             + "the documentation for the `srcs_version` attribute: "
-            + "https://docs.bazel.build/versions/master/be/python.html#py_binary.srcs_version";
+            + semantics.getSrcsVersionDocURL();
 
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
@@ -859,9 +858,34 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  /** @return An artifact next to the executable file with ".zip" suffix */
+  /** @return an artifact next to the executable file with a given suffix. */
+  private Artifact getArtifactWithExtension(Artifact executable, String extension) {
+    // On Windows, the Python executable has .exe extension on Windows,
+    // On Linux, the Python executable has no extension.
+    // We can't use ruleContext#getRelatedArtifact because it would mangle files with dots in the
+    // name on non-Windows platforms.
+    PathFragment pathFragment = executable.getRootRelativePath();
+    String fileName = executable.getFilename();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      Preconditions.checkArgument(fileName.endsWith(".exe"));
+      fileName = fileName.substring(0, fileName.length() - 4) + extension;
+    } else {
+      fileName = fileName + extension;
+    }
+    return ruleContext.getDerivedArtifact(pathFragment.replaceName(fileName), executable.getRoot());
+  }
+
+  /** Returns an artifact next to the executable file with ".zip" suffix. */
   public Artifact getPythonZipArtifact(Artifact executable) {
-    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+    return getArtifactWithExtension(executable, ".zip");
+  }
+
+  /**
+   * Returns an artifact next to the executable file with ".temp" suffix. Used only if we're
+   * building a zip.
+   */
+  public Artifact getPythonIntermediateStubArtifact(Artifact executable) {
+    return getArtifactWithExtension(executable, ".temp");
   }
 
   /** Returns an artifact next to the executable file with no suffix. Only called for Windows. */

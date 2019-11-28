@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.errorprone.annotations.Immutable;
 import java.util.Objects;
 
 /**
@@ -29,6 +30,7 @@ import java.util.Objects;
  * <p>Subclasses should override {@link #determineNewVersion}, as well as {@link #equals} and {@link
  * #hashCode}.
  */
+@Immutable
 public abstract class PythonVersionTransition implements PatchTransition {
 
   /** Returns a transition that sets the version to {@code newVersion}. */

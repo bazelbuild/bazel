@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Options class for aquery specific query options. */
 public class AqueryOptions extends CommonQueryOptions {
@@ -76,4 +77,18 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
   public boolean queryCurrentSkyframeState;
+
+  @Option(
+      name = "incompatible_proto_output_v2",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Whether aquery should print proto/textproto results with proto v2 "
+              + "(with ids in uint64 instead of string).")
+  public boolean protoV2;
 }

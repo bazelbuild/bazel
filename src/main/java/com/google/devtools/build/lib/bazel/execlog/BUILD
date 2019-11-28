@@ -18,6 +18,5 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java_util",
     ],
 )

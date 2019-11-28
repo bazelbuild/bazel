@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
 @SkylarkModule(
@@ -33,7 +34,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
             + "Information about the c++ libraries to be linked into Java targets.",
     documented = true,
     category = SkylarkModuleCategory.PROVIDER)
-public interface JavaCcLinkParamsProviderApi<CcInfoApiT extends CcInfoApi> {
+public interface JavaCcLinkParamsProviderApi<CcInfoApiT extends CcInfoApi> extends StarlarkValue {
   /** Name of this info object. */
   public static String NAME = "JavaCcLinkParamsInfo";
 

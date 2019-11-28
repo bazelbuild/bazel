@@ -81,7 +81,6 @@ public final class RunfilesSupport {
   private final Artifact runfilesInputManifest;
   private final Artifact runfilesManifest;
   private final Artifact runfilesMiddleman;
-  private final Artifact sourcesManifest;
   private final Artifact owningExecutable;
   private final boolean buildRunfileLinks;
   private final boolean runfilesEnabled;
@@ -130,7 +129,6 @@ public final class RunfilesSupport {
     }
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(ruleContext, owningExecutable, runfiles, runfilesManifest);
-    Artifact sourcesManifest = createSourceManifest(ruleContext, runfiles, owningExecutable);
 
     boolean runfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
 
@@ -139,7 +137,6 @@ public final class RunfilesSupport {
         runfilesInputManifest,
         runfilesManifest,
         runfilesMiddleman,
-        sourcesManifest,
         owningExecutable,
         buildRunfileLinks,
         runfilesEnabled,
@@ -153,7 +150,6 @@ public final class RunfilesSupport {
       Artifact runfilesInputManifest,
       Artifact runfilesManifest,
       Artifact runfilesMiddleman,
-      Artifact sourcesManifest,
       Artifact owningExecutable,
       boolean buildRunfileLinks,
       boolean runfilesEnabled,
@@ -162,7 +158,6 @@ public final class RunfilesSupport {
     this.runfilesInputManifest = runfilesInputManifest;
     this.runfilesManifest = runfilesManifest;
     this.runfilesMiddleman = runfilesMiddleman;
-    this.sourcesManifest = sourcesManifest;
     this.owningExecutable = owningExecutable;
     this.buildRunfileLinks = buildRunfileLinks;
     this.runfilesEnabled = runfilesEnabled;
@@ -309,11 +304,6 @@ public final class RunfilesSupport {
     return runfilesMiddleman;
   }
 
-  /** Returns the Sources manifest. */
-  public Artifact getSourceManifest() {
-    return sourcesManifest;
-  }
-
   private static Artifact createRunfilesMiddleman(
       ActionConstructionContext context,
       Artifact owningExecutable,
@@ -354,7 +344,7 @@ public final class RunfilesSupport {
     context
         .getAnalysisEnvironment()
         .registerAction(
-            SourceManifestAction.forRunfiles(
+            new SourceManifestAction(
                 ManifestType.SOURCE_SYMLINKS, context.getActionOwner(), inputManifest, runfiles));
 
     if (!createSymlinks) {
@@ -374,37 +364,12 @@ public final class RunfilesSupport {
         .registerAction(
             new SymlinkTreeAction(
                 context.getActionOwner(),
+                config,
                 inputManifest,
+                runfiles,
                 outputManifest,
-                /*filesetTree=*/ false,
-                config.getActionEnvironment(),
-                config.runfilesEnabled()));
+                /*filesetTree=*/ false));
     return outputManifest;
-  }
-
-  /**
-   * Creates an {@link Artifact} which writes the "sources only" manifest file.
-   *
-   * @param context the owner for the manifest action
-   * @param runfiles the runfiles
-   * @return the Artifact representing the file write action.
-   */
-  private static Artifact createSourceManifest(
-      ActionConstructionContext context, Runfiles runfiles, Artifact owningExecutable) {
-    // Put the sources only manifest next to the MANIFEST file but call it SOURCES.
-    PathFragment executablePath = owningExecutable.getRootRelativePath();
-    PathFragment sourcesManifestPath =
-        executablePath
-            .getParentDirectory()
-            .getChild(executablePath.getBaseName() + ".runfiles.SOURCES");
-    Artifact sourceOnlyManifest =
-        context.getDerivedArtifact(sourcesManifestPath, context.getBinDirectory());
-    context
-        .getAnalysisEnvironment()
-        .registerAction(
-            SourceManifestAction.forRunfiles(
-                ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
-    return sourceOnlyManifest;
   }
 
   /**

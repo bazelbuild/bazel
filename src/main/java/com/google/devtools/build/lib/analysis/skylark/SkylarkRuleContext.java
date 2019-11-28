@@ -74,21 +74,21 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -137,7 +137,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private AspectDescriptor aspectDescriptor;
   private final StarlarkSemantics starlarkSemantics;
 
-  private SkylarkDict<String, String> makeVariables;
+  private Dict<String, String> makeVariables;
   private SkylarkAttributesCollection attributesCollection;
   private SkylarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
@@ -207,10 +207,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           if (artifacts.size() == 1) {
             outputs.addOutput(attrName, Iterables.getOnlyElement(artifacts));
           } else {
-            outputs.addOutput(attrName, Runtime.NONE);
+            outputs.addOutput(attrName, Starlark.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          outputs.addOutput(attrName, SkylarkList.createImmutable(artifacts));
+          outputs.addOutput(attrName, StarlarkList.immutableCopyOf(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -272,13 +272,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   /**
    * Represents `ctx.outputs`.
    *
-   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created
-   * lazily on-demand.
+   * <p>A {@link ClassObject} (struct-like data structure) with "executable" field created lazily
+   * on-demand.
    *
-   * <p>Note: There is only one {@code Outputs} object per rule context, so default
-   * (object identity) equals and hashCode suffice.
+   * <p>Note: There is only one {@code Outputs} object per rule context, so default (object
+   * identity) equals and hashCode suffice.
    */
-  private static class Outputs implements ClassObject, SkylarkValue {
+  private static class Outputs implements ClassObject, StarlarkValue {
     private final Map<String, Object> outputs;
     private final SkylarkRuleContext context;
     private boolean executableCreated = false;
@@ -338,7 +338,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       if (isImmutable()) {
         printer.append("ctx.outputs(for ");
         printer.append(context.ruleLabelCanonicalName);
@@ -443,7 +443,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           value = splitPrereq.getValue().get(0);
         } else {
           // BuildType.LABEL_LIST
-          value = SkylarkList.createImmutable(splitPrereq.getValue());
+          value = StarlarkList.immutableCopyOf(splitPrereq.getValue());
         }
 
         if (splitPrereq.getKey().isPresent()) {
@@ -454,11 +454,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
           // behaves like getPrerequisites(). This also means there should be only one entry in
           // the map. Use None in Skylark to represent this.
           Preconditions.checkState(splitPrereqs.size() == 1);
-          splitPrereqsMap.put(Runtime.NONE, value);
+          splitPrereqsMap.put(Starlark.NONE, value);
         }
       }
 
-      splitAttrInfos.put(attr.getPublicName(), SkylarkDict.copyOf(null, splitPrereqsMap));
+      splitAttrInfos.put(attr.getPublicName(), Dict.copyOf(null, splitPrereqsMap));
     }
 
     return StructProvider.STRUCT.create(
@@ -474,7 +474,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     if (isForAspect) {
       printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
     } else {
@@ -500,13 +500,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkValue createdActions() throws EvalException {
+  public StarlarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(
           ruleContext.getAnalysisEnvironment().getRegisteredActions());
     } else {
-      return Runtime.NONE;
+      return Starlark.NONE;
     }
   }
 
@@ -614,7 +614,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     if (!config.isCodeCoverageEnabled()) {
       return false;
     }
-    if (targetUnchecked == Runtime.NONE) {
+    if (targetUnchecked == Starlark.NONE) {
       return InstrumentedFilesCollector.shouldIncludeLocalSources(
           ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
@@ -682,7 +682,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkDict<String, String> var() throws EvalException {
+  public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     return makeVariables;
   }
@@ -699,7 +699,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkList<String> tokenize(String optionString) throws EvalException {
+  public Sequence<String> tokenize(String optionString) throws EvalException {
     checkMutable("tokenize");
     List<String> options = new ArrayList<>();
     try {
@@ -707,12 +707,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     } catch (TokenizationException e) {
       throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return SkylarkList.createImmutable(options);
+    return StarlarkList.immutableCopyOf(options);
   }
 
   @Override
   public String expand(
-      @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
+      @Nullable String expression,
+      Sequence<?> artifacts, // <Artifact>
+      Label labelResolver)
       throws EvalException {
     checkMutable("expand");
     try {
@@ -740,7 +742,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
     // Determine which of new_file's four signatures is being used. Yes, this is terrible.
     // It's one major reason that this method is deprecated.
-    if (fileSuffix != Runtime.UNBOUND) {
+    if (fileSuffix != Starlark.UNBOUND) {
       // new_file(file_root, sibling_file, suffix)
       ArtifactRoot root =
           assertTypeForNewFile(var1, ArtifactRoot.class, loc,
@@ -752,12 +754,12 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
       return ruleContext.getDerivedArtifact(fragment, root);
 
-    } else if (var2 == Runtime.UNBOUND) {
+    } else if (var2 == Starlark.UNBOUND) {
       // new_file(filename)
       String filename =
           assertTypeForNewFile(var1, String.class, loc,
               "expected first param to be of type 'string'");
-      return actionFactory.declareFile(filename, Runtime.NONE, loc);
+      return actionFactory.declareFile(filename, Starlark.NONE, loc);
 
     } else {
       String filename = assertTypeForNewFile(var2, String.class, loc,
@@ -781,7 +783,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private static <T> T assertTypeForNewFile(Object obj, Class<T> type, Location loc,
       String errorMessage) throws EvalException {
     if (type.isInstance(obj)) {
-      return (T) obj;
+      return type.cast(obj);
     } else {
       throw new EvalException(loc, errorMessage);
     }
@@ -796,7 +798,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
+  public boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
       throws EvalException {
     checkMutable("check_placeholders");
     List<String> actualPlaceHolders = new LinkedList<>();
@@ -813,9 +815,16 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   @Override
   public String expandMakeVariables(
-      String attributeName, String command, final Map<String, String> additionalSubstitutions)
+      String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException {
     checkMutable("expand_make_variables");
+    final Map<String, String> additionalSubstitutionsMap =
+        additionalSubstitutions.getContents(String.class, String.class, "additional_substitutions");
+    return expandMakeVariables(attributeName, command, additionalSubstitutionsMap);
+  }
+
+  private String expandMakeVariables(
+      String attributeName, String command, final Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             this.getRuleContext(),
@@ -824,8 +833,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             ImmutableList.of()) {
           @Override
           public String lookupVariable(String variableName) throws ExpansionException {
-            if (additionalSubstitutions.containsKey(variableName)) {
-              return additionalSubstitutions.get(variableName);
+            if (additionalSubstitutionsMap.containsKey(variableName)) {
+              return additionalSubstitutionsMap.get(variableName);
             } else {
               return super.lookupVariable(variableName);
             }
@@ -833,7 +842,6 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         };
     return ruleContext.getExpander(makeVariableContext).expand(attributeName, command);
   }
-
 
   FilesToRunProvider getExecutableRunfiles(Artifact executable) {
     return attributesCollection.getExecutableRunfilesMap().get(executable);
@@ -865,8 +873,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
    * command = 'command', )
    */
   @Override
-  public Runtime.NoneType action(
-      SkylarkList outputs,
+  public NoneType action(
+      Sequence<?> outputs,
       Object inputs,
       Object executableUnchecked,
       Object toolsUnchecked,
@@ -884,16 +892,16 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     checkDeprecated(
         "ctx.actions.run or ctx.actions.run_shell", "ctx.action", loc, thread.getSemantics());
     checkMutable("action");
-    if ((commandUnchecked == Runtime.NONE) == (executableUnchecked == Runtime.NONE)) {
+    if ((commandUnchecked == Starlark.NONE) == (executableUnchecked == Starlark.NONE)) {
       throw new EvalException(loc, "You must specify either 'command' or 'executable' argument");
     }
-    boolean hasCommand = commandUnchecked != Runtime.NONE;
+    boolean hasCommand = commandUnchecked != Starlark.NONE;
     if (!hasCommand) {
       actions()
           .run(
               outputs,
               inputs,
-              /*unusedInputsList=*/ Runtime.NONE,
+              /*unusedInputsList=*/ Starlark.NONE,
               executableUnchecked,
               toolsUnchecked,
               arguments,
@@ -922,12 +930,12 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               loc,
               thread.getSemantics());
     }
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
   public String expandLocation(
-      String input, SkylarkList targets, Location loc, StarlarkThread thread) throws EvalException {
+      String input, Sequence<?> targets, Location loc, StarlarkThread thread) throws EvalException {
     checkMutable("expand_location");
     try {
       return LocationExpander.withExecPaths(
@@ -940,29 +948,29 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Runtime.NoneType fileAction(
+  public NoneType fileAction(
       FileApi output, String content, Boolean executable, Location loc, StarlarkThread thread)
       throws EvalException {
     checkDeprecated("ctx.actions.write", "ctx.file_action", loc, thread.getSemantics());
     checkMutable("file_action");
     actions().write(output, content, executable, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
-  public Runtime.NoneType emptyAction(
-      String mnemonic, Object inputs, Location loc, StarlarkThread thread) throws EvalException {
+  public NoneType emptyAction(String mnemonic, Object inputs, Location loc, StarlarkThread thread)
+      throws EvalException {
     checkDeprecated("ctx.actions.do_nothing", "ctx.empty_action", loc, thread.getSemantics());
     checkMutable("empty_action");
     actions().doNothing(mnemonic, inputs, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
-  public Runtime.NoneType templateAction(
+  public NoneType templateAction(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
       Location loc,
       StarlarkThread thread)
@@ -971,17 +979,17 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         "ctx.actions.expand_template", "ctx.template_action", loc, thread.getSemantics());
     checkMutable("template_action");
     actions().expandTemplate(template, output, substitutionsUnchecked, executable, loc);
-    return Runtime.NONE;
+    return Starlark.NONE;
   }
 
   @Override
   public Runfiles runfiles(
-      SkylarkList files,
+      Sequence<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      SkylarkDict<?, ?> symlinks,
-      SkylarkDict<?, ?> rootSymlinks,
+      Dict<?, ?> symlinks,
+      Dict<?, ?> rootSymlinks,
       Location loc)
       throws EvalException, ConversionException {
     checkMutable("runfiles");
@@ -989,18 +997,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         new Runfiles.Builder(
             getRuleContext().getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
     boolean checkConflicts = false;
-    if (EvalUtils.toBoolean(collectData)) {
+    if (Starlark.truth(collectData)) {
       builder.addRunfiles(getRuleContext(), RunfilesProvider.DATA_RUNFILES);
     }
-    if (EvalUtils.toBoolean(collectDefault)) {
+    if (Starlark.truth(collectDefault)) {
       builder.addRunfiles(getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
       builder.addArtifacts(files.getContents(Artifact.class, "files"));
     }
-    if (transitiveFiles != Runtime.NONE) {
+    if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((SkylarkNestedSet) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Skylark code directly manipulates symlinks, activate more stringent validity checking.
@@ -1030,15 +1038,15 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       Object attributeUnchecked,
       Boolean expandLocations,
       Object makeVariablesUnchecked,
-      SkylarkList tools,
-      SkylarkDict<?, ?> labelDictUnchecked,
-      SkylarkDict<?, ?> executionRequirementsUnchecked,
+      Sequence<?> tools,
+      Dict<?, ?> labelDictUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
       Location loc,
       StarlarkThread thread)
       throws ConversionException, EvalException {
     checkMutable("resolve_command");
     Label ruleLabel = getLabel();
-    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, thread);
+    Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
@@ -1057,13 +1065,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     }
     List<Artifact> inputs = new ArrayList<>();
     // TODO(lberki): This flattens a NestedSet.
-    // However, we can't turn this into a SkylarkNestedSet because it's an incompatible change to
+    // However, we can't turn this into a Depset because it's an incompatible change to
     // Skylark.
     Iterables.addAll(inputs, helper.getResolvedTools());
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
-            SkylarkDict.castSkylarkDictOrNoneToDict(
+            Dict.castSkylarkDictOrNoneToDict(
                 executionRequirementsUnchecked,
                 String.class,
                 String.class,
@@ -1079,21 +1087,20 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
             "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.<Object>of(
-        MutableList.copyOf(thread, inputs),
-        MutableList.copyOf(thread, argv),
+        StarlarkList.copyOf(thread.mutability(), inputs),
+        StarlarkList.copyOf(thread.mutability(), argv),
         helper.getToolsRunfilesSuppliers());
   }
 
   @Override
-  public Tuple<Object> resolveTools(SkylarkList tools) throws ConversionException, EvalException {
+  public Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
             .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.<Object>of(
-        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
-        helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getSkylarkSemantics() {
@@ -1102,32 +1109,33 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   /**
    * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
-   * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
-   * Returns a corresponding map where any sets are replaced by iterables.
+   * {@link Iterable} or {@link Depset} type, and raises {@link EvalException} otherwise. Returns a
+   * corresponding map where any sets are replaced by iterables.
    */
   // TODO(bazel-team): find a better way to typecheck this argument.
-  @SuppressWarnings("unchecked")
-  private static Map<Label, Iterable<Artifact>> checkLabelDict(
-      Map<?, ?> labelDict, Location loc, StarlarkThread thread) throws EvalException {
+  private static Map<Label, Iterable<Artifact>> checkLabelDict(Map<?, ?> labelDict, Location loc)
+      throws EvalException {
     Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
-        throw new EvalException(loc, Printer.format("invalid key %r in 'label_dict'", key));
+        throw new EvalException(loc, Starlark.format("invalid key %r in 'label_dict'", key));
       }
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
       Iterable<?> valIter;
-      try {
-        valIter = EvalUtils.toIterableStrict(val, loc, thread);
-      } catch (EvalException ex) {
-        // EvalException is thrown only if the type is wrong.
+      if (val instanceof Iterable) {
+        valIter = (Iterable<?>) val;
+      } else {
         throw new EvalException(
-            loc, Printer.format("invalid value %r in 'label_dict': " + ex, val));
+            loc,
+            Starlark.format(
+                "invalid value %r in 'label_dict': expected iterable, but got '%s'",
+                val, EvalUtils.getDataTypeName(val)));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
-          throw new EvalException(loc, Printer.format("invalid value %r in 'label_dict'", val));
+          throw new EvalException(loc, Starlark.format("invalid value %r in 'label_dict'", val));
         }
         files.add((Artifact) file);
       }

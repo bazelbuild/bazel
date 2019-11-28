@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a structured representation of the linking outputs of a C++ rule. */
 @SkylarkModule(
@@ -25,18 +26,22 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcLinkingOutputsApi<FileT extends FileApi> {
+public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(
       name = "library_to_link",
       structField = true,
       allowReturnNones = true,
-      documented = false)
+      doc =
+          "<a href='LibraryToLink.html'><code>LibraryToLink</code></a> for including these outputs "
+              + "in further linking.",
+      documented = true)
   LibraryToLinkApi<FileT> getLibraryToLink();
 
   @SkylarkCallable(
       name = "executable",
       structField = true,
       allowReturnNones = true,
-      documented = false)
+      doc = "<a href='File.html'><code>File</code></a> object representing the linked executable.",
+      documented = true)
   FileT getExecutable();
 }

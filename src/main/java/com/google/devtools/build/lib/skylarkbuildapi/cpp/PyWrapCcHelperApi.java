@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /**
  * Helper class for the C++ aspects of {py,java,go}_wrap_cc. Provides methods to create the swig and
@@ -63,7 +63,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
       })
   // TODO(plf): PyExtension is not in Skylark.
-  public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
+  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -75,8 +75,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "py_file", positional = false, named = true, type = FileApi.class),
       })
   // TODO(plf): Not written in Skylark because of PyCommon.
-  public SkylarkNestedSet getTransitivePythonSources(
-      SkylarkRuleContextT skylarkRuleContext, FileT pyFile)
+  public Depset getTransitivePythonSources(SkylarkRuleContextT skylarkRuleContext, FileT pyFile)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -85,15 +84,10 @@ public interface PyWrapCcHelperApi<
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
-        @Param(
-            name = "files_to_build",
-            positional = false,
-            named = true,
-            type = SkylarkNestedSet.class),
+        @Param(name = "files_to_build", positional = false, named = true, type = Depset.class),
       })
   // TODO(plf): Not written in Skylark because of PythonRunfilesProvider.
-  public RunfilesApi getPythonRunfiles(
-      SkylarkRuleContextT skylarkRuleContext, SkylarkNestedSet filesToBuild)
+  public RunfilesApi getPythonRunfiles(SkylarkRuleContextT skylarkRuleContext, Depset filesToBuild)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

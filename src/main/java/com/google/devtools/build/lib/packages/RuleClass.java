@@ -57,8 +57,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -217,44 +217,6 @@ public class RuleClass {
       public RuleErrorException(String message) {
         super(message);
       }
-    }
-  }
-
-  /**
-   * Describes in which way a rule implementation allows additional execution platform constraints.
-   */
-  public enum ExecutionPlatformConstraintsAllowed {
-    /**
-     * Allows additional execution platform constraints to be added in the rule definition, which
-     * apply to all targets of that rule.
-     */
-    PER_RULE(1),
-    /**
-     * Users are allowed to specify additional execution platform constraints for each target, using
-     * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
-     * definition, like PER_RULE.
-     */
-    PER_TARGET(2);
-
-    private final int priority;
-
-    ExecutionPlatformConstraintsAllowed(int priority) {
-      this.priority = priority;
-    }
-
-    public int priority() {
-      return priority;
-    }
-
-    public static ExecutionPlatformConstraintsAllowed highestPriority(
-        ExecutionPlatformConstraintsAllowed first, ExecutionPlatformConstraintsAllowed... rest) {
-      ExecutionPlatformConstraintsAllowed result = first;
-      for (ExecutionPlatformConstraintsAllowed value : rest) {
-        if (result == null || result.priority() < value.priority()) {
-          result = value;
-        }
-      }
-      return result;
     }
   }
 
@@ -724,8 +686,6 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean useToolchainResolution = true;
-    private ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed =
-        ExecutionPlatformConstraintsAllowed.PER_RULE;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
 
@@ -760,21 +720,10 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         useToolchainResolution = parent.useToolchainResolution;
-
-        // Make sure we use the highest priority value from all parents.
-        executionPlatformConstraintsAllowed(
-            ExecutionPlatformConstraintsAllowed.highestPriority(
-                executionPlatformConstraintsAllowed, parent.executionPlatformConstraintsAllowed()));
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
-          // TODO(https://github.com/bazelbuild/bazel/issues/8134): Define the attribute on a
-          // standard base class and remove this check entirely.
-          if (attrName.equals(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)) {
-            // Don't inherit: this will be re-created
-            continue;
-          }
           Preconditions.checkArgument(
               !attributes.containsKey(attrName) || attributes.get(attrName).equals(attribute),
               "Attribute %s is inherited multiple times in %s ruleclass",
@@ -832,14 +781,7 @@ public class RuleClass {
       if (type == RuleClassType.PLACEHOLDER) {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
-      if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET
-          && !this.contains(EXEC_COMPATIBLE_WITH_ATTR)) {
-        this.add(
-            attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
-                .allowedFileTypes()
-                .nonconfigurable("Used in toolchain resolution")
-                .value(ImmutableList.of()));
-      }
+
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
         Attribute.Builder<?> attrBuilder =
@@ -888,7 +830,6 @@ public class RuleClass {
           thirdPartyLicenseExistencePolicy,
           requiredToolchains,
           useToolchainResolution,
-          executionPlatformConstraintsAllowed,
           executionPlatformConstraints,
           outputFileKind,
           attributes.values(),
@@ -1398,20 +1339,6 @@ public class RuleClass {
     }
 
     /**
-     * Specifies whether targets of this rule can add additional constraints on the execution
-     * platform selected. If this is {@link ExecutionPlatformConstraintsAllowed#PER_TARGET}, there
-     * will be an attribute named {@code exec_compatible_with} that can be used to add these
-     * constraints.
-     *
-     * <p>Please note that this value is not inherited by child rules, and must be re-set on them if
-     * the same behavior is required.
-     */
-    public Builder executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed value) {
-      this.executionPlatformConstraintsAllowed = value;
-      return this;
-    }
-
-    /**
      * Adds additional execution platform constraints that apply for all targets from this rule.
      *
      * <p>Please note that this value is inherited by child rules.
@@ -1559,7 +1486,6 @@ public class RuleClass {
 
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean useToolchainResolution;
-  private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
   private final ImmutableSet<Label> executionPlatformConstraints;
 
   /**
@@ -1614,7 +1540,6 @@ public class RuleClass {
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
       boolean useToolchainResolution,
-      ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
       Set<Label> executionPlatformConstraints,
       OutputFile.Kind outputFileKind,
       Collection<Attribute> attributes,
@@ -1653,7 +1578,6 @@ public class RuleClass {
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.useToolchainResolution = useToolchainResolution;
-    this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.buildSetting = buildSetting;
 
@@ -1956,7 +1880,7 @@ public class RuleClass {
    * attributeValues} map.
    *
    * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
-   * {@link Runtime#NONE}.
+   * {@link Starlark#NONE}.
    *
    * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a value
    * for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported on {@code
@@ -1973,7 +1897,7 @@ public class RuleClass {
       String attributeName = attributeValues.getName(attributeAccessor);
       Object attributeValue = attributeValues.getValue(attributeAccessor);
       // Ignore all None values.
-      if (attributeValue == Runtime.NONE) {
+      if (attributeValue == Starlark.NONE) {
         continue;
       }
 
@@ -2133,8 +2057,8 @@ public class RuleClass {
       Object attributeValue = attributes.get(attributeName, attr.getType());
 
       boolean isEmpty = false;
-      if (attributeValue instanceof SkylarkList) {
-        isEmpty = ((SkylarkList<?>) attributeValue).isEmpty();
+      if (attributeValue instanceof Sequence) {
+        isEmpty = ((Sequence<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof List<?>) {
         isEmpty = ((List<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof Map<?, ?>) {
@@ -2546,10 +2470,6 @@ public class RuleClass {
 
   public boolean useToolchainResolution() {
     return useToolchainResolution;
-  }
-
-  public ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed() {
-    return executionPlatformConstraintsAllowed;
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {

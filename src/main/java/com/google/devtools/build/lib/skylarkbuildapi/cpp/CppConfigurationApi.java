@@ -19,16 +19,15 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * The C++ configuration fragment.
- */
+/** The C++ configuration fragment. */
 @SkylarkModule(
-  name = "cpp",
-  doc = "A configuration fragment for C++.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exception> {
+    name = "cpp",
+    doc = "A configuration fragment for C++.",
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exception>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "copts",

@@ -1537,4 +1537,54 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//a:foo");
     assertNoEvents();
   }
+
+  @Test
+  public void testLinkerInputsHasRightLabels() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.cc'],",
+        "    deps = [':baz'],",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    deps = [':bar'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//foo");
+    assertThat(
+            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+                .map(x -> x.getOwner().toString())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
+        .inOrder();
+  }
+
+  @Test
+  public void checkLinkedStaticallyByAttributeWithoutFlag() throws Exception {
+    checkError(
+        "test",
+        "test",
+        "The attribute 'linked_statically_by' can only be used",
+        "cc_library(name = 'test', srcs = ['test.cc'], linked_statically_by=['bar'])");
+  }
+
+  @Test
+  public void checkLinkedStaticallyByAttributeWithFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
+    scratch.file(
+        "a/BUILD",
+        "cc_library(",
+        "    name = 'test',",
+        "    srcs = ['test.cc'],",
+        "    linked_statically_by=['bar']",
+        ")");
+    getConfiguredTarget("//a:test");
+    assertNoEvents();
+  }
 }

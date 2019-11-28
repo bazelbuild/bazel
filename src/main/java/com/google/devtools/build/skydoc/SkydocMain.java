@@ -59,16 +59,15 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
-import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.StarlarkThread.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -108,6 +107,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfoApiProvi
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoModule;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyStarlarkTransitions;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
@@ -527,7 +527,7 @@ public class SkydocMain {
    * @param providerInfoList the list of {@link ProviderInfo} objects, to which provider()
    *     invocation information will be added
    */
-  private static GlobalFrame globalFrame(
+  private static Module globalFrame(
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList) {
@@ -578,7 +578,10 @@ public class SkydocMain {
             new SkylarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =
-        new PyBootstrap(new FakePyInfoProvider(), new FakePyRuntimeInfoProvider());
+        new PyBootstrap(
+            new FakePyInfoProvider(),
+            new FakePyRuntimeInfoProvider(),
+            new FakePyStarlarkTransitions());
     RepositoryBootstrap repositoryBootstrap =
         new RepositoryBootstrap(new FakeRepositoryModule(ruleInfoList));
     TestingBootstrap testingBootstrap =
@@ -590,8 +593,7 @@ public class SkydocMain {
 
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
-    Runtime.addConstantsToBuilder(envBuilder);
-    MethodLibrary.addBindingsToBuilder(envBuilder);
+    envBuilder.putAll(Starlark.UNIVERSE);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     androidBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);
@@ -605,7 +607,7 @@ public class SkydocMain {
     testingBootstrap.addBindingsToBuilder(envBuilder);
     addNonBootstrapGlobals(envBuilder);
 
-    return GlobalFrame.createForBuiltins(envBuilder.build());
+    return Module.createForBuiltins(envBuilder.build());
   }
 
   // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
@@ -628,6 +630,7 @@ public class SkydocMain {
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
     JsModuleInfoApi.NAME,
+    "JsInfo",
     "PintoModuleProvider"
   };
 
@@ -645,7 +648,7 @@ public class SkydocMain {
   private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
       EventHandler eventHandler,
-      GlobalFrame globals,
+      Module globals,
       Map<String, Extension> imports) {
     return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)

@@ -185,6 +185,11 @@ public class ActionExecutionContext implements Closeable {
         : executor.getExecRoot();
   }
 
+  @Nullable
+  public FileSystem getActionFileSystem() {
+    return actionFileSystem;
+  }
+
   /**
    * Returns the path for an ActionInput.
    *

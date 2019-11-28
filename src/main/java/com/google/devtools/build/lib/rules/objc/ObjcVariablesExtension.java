@@ -367,7 +367,6 @@ class ObjcVariablesExtension implements VariablesExtension {
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
       Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
@@ -375,9 +374,11 @@ class ObjcVariablesExtension implements VariablesExtension {
         Preconditions.checkNotNull(compilationArtifacts, "missing CompilationArtifacts");
       }
       if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
+        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(fullyLinkArchive, "missing fully-link archive");
       }
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
+        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(frameworkNames, "missing framework names");
         Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");

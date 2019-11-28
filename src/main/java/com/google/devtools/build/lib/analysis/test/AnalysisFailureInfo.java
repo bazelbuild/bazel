@@ -19,14 +19,15 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.
  *
- * Encapsulates information about analysis-phase errors which would have occurred during a
- * build.
+ * <p>Encapsulates information about analysis-phase errors which would have occurred during a build.
  */
-public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<AnalysisFailure> {
+public final class AnalysisFailureInfo extends Info
+    implements AnalysisFailureInfoApi<AnalysisFailure> {
 
   /**
    * Singleton provider instance for {@link AnalysisFailureInfo}.
@@ -65,7 +66,11 @@ public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<
   }
 
   @Override
-  public NestedSet<AnalysisFailure> getCauses() {
+  public Depset /*<AnalysisFailure>*/ getCauses() {
+    return Depset.of(AnalysisFailure.TYPE, causes);
+  }
+
+  public NestedSet<AnalysisFailure> getCausesNestedSet() {
     return causes;
   }
 

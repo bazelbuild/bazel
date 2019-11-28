@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -80,18 +79,18 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -139,6 +138,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
                   .dontCheckConstraints())
           .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(
+              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .value(ImmutableList.of()))
           .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
@@ -227,7 +231,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                             toolsRepository
                                 + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
-        .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();
   }
 
@@ -250,15 +253,18 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   @Override
   public Provider provider(String doc, Object fields, Location location) throws EvalException {
     Iterable<String> fieldNames = null;
-    if (fields instanceof SkylarkList<?>) {
+    if (fields instanceof Sequence<?>) {
       @SuppressWarnings("unchecked")
-      SkylarkList<String> list = (SkylarkList<String>)
+      Sequence<String> list =
+          (Sequence<String>)
               SkylarkType.cast(
                   fields,
-                  SkylarkList.class, String.class, location,
+                  Sequence.class,
+                  String.class,
+                  location,
                   "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = list;
-    }  else  if (fields instanceof SkylarkDict) {
+    } else if (fields instanceof Dict) {
       Map<String, String> dict = SkylarkType.castMap(
           fields,
           String.class, String.class,
@@ -270,8 +276,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
-  @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
-  // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
   public BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
@@ -279,14 +283,13 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
@@ -326,7 +329,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.setExecutableSkylark();
     }
 
-    if (implicitOutputs != Runtime.NONE) {
+    if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
             new StarlarkCallbackHelper(
@@ -364,15 +367,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             ast.getLocation(),
             bazelContext.getRepoMapping()));
 
-    if (!buildSetting.equals(Runtime.NONE) && !cfg.equals(Runtime.NONE)) {
+    if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw new EvalException(
           ast.getLocation(),
           "Build setting rules cannot use the `cfg` param to apply transitions to themselves.");
     }
-    if (!buildSetting.equals(Runtime.NONE)) {
+    if (!buildSetting.equals(Starlark.NONE)) {
       builder.setBuildSetting((BuildSetting) buildSetting);
     }
-    if (!cfg.equals(Runtime.NONE)) {
+    if (!cfg.equals(Starlark.NONE)) {
       if (!(cfg instanceof StarlarkDefinedConfigTransition)) {
         throw new EvalException(
             ast.getLocation(),
@@ -407,12 +410,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               bazelContext.getRepoMapping()));
     }
 
-    if (executionPlatformConstraintsAllowed) {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET);
-    } else {
-      builder.executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
-    }
-
     return new SkylarkRuleFunction(builder, type, attributes, ast.getLocation());
   }
 
@@ -426,7 +423,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object attrs, Location loc) throws EvalException {
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
 
-    if (attrs != Runtime.NONE) {
+    if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
@@ -489,13 +486,13 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   @Override
   public SkylarkAspect aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToGeneratingRules,
       FuncallExpression ast, // just for getLocation(); TODO(adonovan): simplify
@@ -614,7 +611,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         RuleClassType type,
         ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
         Location definitionLocation) {
-      super("rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.type = type;
       this.attributes = attributes;
@@ -624,7 +621,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     /** This is for post-export reconstruction for serialization. */
     private SkylarkRuleFunction(
         RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label skylarkLabel) {
-      super("rule", FunctionSignature.KWARGS);
+      super(FunctionSignature.KWARGS);
       Preconditions.checkNotNull(
           ruleClass,
           "RuleClass must be non-null as this SkylarkRuleFunction should have been exported.");
@@ -635,6 +632,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       this.type = type;
       this.definitionLocation = definitionLocation;
       this.skylarkLabel = skylarkLabel;
+    }
+
+    @Override
+    public String getName() {
+      return "rule";
     }
 
     @Override
@@ -663,6 +665,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
       }
 
+      @SuppressWarnings("unchecked")
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
@@ -675,7 +678,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
         RuleFactory.createAndAddRule(
             pkgContext, ruleClass, attributeValues, loc, thread, new AttributeContainer(ruleClass));
-        return Runtime.NONE;
+        return Starlark.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(loc, e.getMessage());
       }
@@ -705,7 +708,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         if (attr.hasAnalysisTestTransition()) {
           if (!builder.isAnalysisTest()) {
             throw new EvalException(
-                location,
+                getLocation(),
                 "Only rule definitions with analysis_test=True may have attributes with "
                     + "analysis_test_transition transitions");
           }
@@ -716,11 +719,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
           if (!BuildType.isLabelType(attr.getType())) {
             throw new EvalException(
-                location, "_whitelist_function_transition attribute must be a label type");
+                getLocation(), "_whitelist_function_transition attribute must be a label type");
           }
           if (attr.getDefaultValueUnchecked() == null) {
             throw new EvalException(
-                location, "_whitelist_function_transition attribute must have a default value");
+                getLocation(),
+                "_whitelist_function_transition attribute must have a default value");
           }
           Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
           // Check the label value for package and target name, to make sure this works properly
@@ -732,7 +736,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   .getName()
                   .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getName())) {
             throw new EvalException(
-                location,
+                getLocation(),
                 "_whitelist_function_transition attribute ("
                     + defaultLabel
                     + ") does not have the expected value "
@@ -747,7 +751,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       if (hasStarlarkDefinedTransition) {
         if (!hasFunctionTransitionWhitelist) {
           throw new EvalException(
-              location,
+              getLocation(),
               String.format(
                   "Use of Starlark transition without whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
@@ -755,7 +759,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       } else {
         if (hasFunctionTransitionWhitelist) {
           throw new EvalException(
-              location,
+              getLocation(),
               String.format(
                   "Unused function-based split transition whitelist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
@@ -765,7 +769,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
-        throw new EvalException(location, ex);
+        throw new EvalException(getLocation(), ex);
       }
 
       this.builder = null;
@@ -783,7 +787,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<rule>");
     }
   }

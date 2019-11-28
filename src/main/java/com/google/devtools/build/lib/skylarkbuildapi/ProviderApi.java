@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for provider objects (constructors for {@link StructApi} objects). */
 @SkylarkModule(
@@ -41,4 +41,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "  </ul>"
             + "Create a new <code>Provider</code> using the "
             + "<a href=\"globals.html#provider\">provider</a> function.")
-public interface ProviderApi extends SkylarkValue {}
+public interface ProviderApi extends StarlarkValue {}

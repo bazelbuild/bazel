@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -81,9 +81,9 @@ final class JavaInfoBuildHelper {
       Artifact compileJar,
       @Nullable Artifact sourceJar,
       Boolean neverlink,
-      SkylarkList<JavaInfo> compileTimeDeps,
-      SkylarkList<JavaInfo> runtimeDeps,
-      SkylarkList<JavaInfo> exports,
+      Sequence<JavaInfo> compileTimeDeps,
+      Sequence<JavaInfo> runtimeDeps,
+      Sequence<JavaInfo> exports,
       @Nullable Artifact jdeps,
       Location location) {
     compileJar = compileJar != null ? compileJar : outputJar;
@@ -149,8 +149,8 @@ final class JavaInfoBuildHelper {
       SkylarkActionFactory actions,
       Artifact outputJar,
       Artifact outputSourceJar,
-      SkylarkList<Artifact> sourceFiles,
-      SkylarkList<Artifact> sourceJars,
+      List<Artifact> sourceFiles,
+      List<Artifact> sourceJars,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
       Location location)
@@ -272,22 +272,22 @@ final class JavaInfoBuildHelper {
 
   public JavaInfo createJavaCompileAction(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkList<Artifact> sourceJars,
-      SkylarkList<Artifact> sourceFiles,
+      List<Artifact> sourceJars,
+      List<Artifact> sourceFiles,
       Artifact outputJar,
       Artifact outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<JavaInfo> deps,
-      SkylarkList<JavaInfo> exports,
-      SkylarkList<JavaInfo> plugins,
-      SkylarkList<JavaInfo> exportedPlugins,
-      SkylarkList<Artifact> annotationProcessorAdditionalInputs,
-      SkylarkList<Artifact> annotationProcessorAdditionalOutputs,
+      List<String> javacOpts,
+      List<JavaInfo> deps,
+      List<JavaInfo> exports,
+      List<JavaInfo> plugins,
+      List<JavaInfo> exportedPlugins,
+      List<Artifact> annotationProcessorAdditionalInputs,
+      List<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      SkylarkList<Artifact> sourcepathEntries,
-      SkylarkList<Artifact> resources,
+      List<Artifact> sourcepathEntries,
+      List<Artifact> resources,
       Boolean neverlink,
       JavaSemantics javaSemantics,
       Location location,
@@ -352,7 +352,7 @@ final class JavaInfoBuildHelper {
             NestedSetBuilder.wrap(
                 Order.STABLE_ORDER,
                 JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)),
-            annotationProcessorAdditionalInputs.getImmutableList());
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

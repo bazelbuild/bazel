@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -22,15 +21,14 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Wrapper for calculating a BigInteger fingerprint for an object. This BigInteger has a maximum of
- * 128 bits (16 bytes).
+ * Wrapper for calculating a BigInteger fingerprint for an object.
  *
  * <p>We avoid blindly digesting {@link BigInteger} objects because they are likely already
- * appropriately smeared across our fingerprint range, and therefore composable more cheaply than
- * md5.
+ * appropriately smeared across our fingerprint range, and therefore composable more cheaply than by
+ * hashing.
  */
 public class BigIntegerFingerprint {
-  private final Fingerprint fingerprint = new Fingerprint(DigestHashFunction.MD5);
+  private final Fingerprint fingerprint = new Fingerprint();
   private final List<BigInteger> alreadySmearedFingerprints = new ArrayList<>();
   private boolean seenNull = false;
 
@@ -48,9 +46,6 @@ public class BigIntegerFingerprint {
     if (bytes == null) {
       seenNull = true;
       return this;
-    }
-    if (bytes.length == 32) {
-      return addBigIntegerOrdered(new BigInteger(1, bytes));
     }
     fingerprint.addBytes(bytes);
     return this;

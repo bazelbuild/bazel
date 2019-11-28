@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Test case which verifies a struct field method cannot specify useStarlarkThread. */
-public class StructFieldWithInvalidInfo {
+public class StructFieldWithInvalidInfo implements StarlarkValue {
 
   @SkylarkCallable(
     name = "struct_field_method_with_info",

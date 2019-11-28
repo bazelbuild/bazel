@@ -36,13 +36,12 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -192,6 +191,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
+        @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
         originalValues = nestedSet.toList();
       } else {
@@ -218,7 +218,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
                   location,
                   null));
         }
-        List resultAsList = (List) result;
+        List<?> resultAsList = (List) result;
         if (resultAsList.size() != expandedValues.size()) {
           throw new CommandLineExpansionException(
               errorMessage(
@@ -266,11 +266,10 @@ public class SkylarkCustomCommandLine extends CommandLine {
       }
       if ((features & HAS_FORMAT_EACH) != 0) {
         String formatStr = (String) arguments.get(argi++);
-        Formatter formatter = Formatter.get(location, starlarkSemantics);
         try {
           int count = stringValues.size();
           for (int i = 0; i < count; ++i) {
-            stringValues.set(i, formatter.format(formatStr, stringValues.get(i)));
+            stringValues.set(i, SingleStringArgFormatter.format(formatStr, stringValues.get(i)));
           }
         } catch (IllegalFormatException e) {
           throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
@@ -290,9 +289,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
         if (!isEmptyAndShouldOmit) {
           String result = Joiner.on(joinWith).join(stringValues);
           if (formatJoined != null) {
-            Formatter formatter = Formatter.get(location, starlarkSemantics);
             try {
-              result = formatter.format(formatJoined, result);
+              result = SingleStringArgFormatter.format(formatJoined, result);
             } catch (IllegalFormatException e) {
               throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
             }
@@ -382,7 +380,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
-        NestedSet<Object> values = (NestedSet<Object>) arguments.get(argi++);
+        NestedSet<?> values = (NestedSet) arguments.get(argi++);
         if (mapEach != null) {
           CommandLineItem.MapFn<Object> commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(mapEach, location, starlarkSemantics);
@@ -467,7 +465,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
     }
 
     static class Builder {
-      @Nullable private final SkylarkList<?> list;
+      @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
       private Location location;
       public String argName;
@@ -482,7 +480,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       private boolean uniquify;
       private String terminateWith;
 
-      Builder(SkylarkList<?> list) {
+      Builder(Sequence<?> list) {
         this.list = list;
         this.nestedSet = null;
       }
@@ -624,8 +622,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       String stringValue = CommandLineItem.expandToCommandLine(object);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
-        Formatter formatter = Formatter.get(location, starlarkSemantics);
-        stringValue = formatter.format(formatStr, stringValue);
+        stringValue = SingleStringArgFormatter.format(formatStr, stringValue);
       }
       builder.add(stringValue);
       return argi;
@@ -789,38 +786,6 @@ public class SkylarkCustomCommandLine extends CommandLine {
     }
   }
 
-  private interface Formatter {
-    String format(String formatStr, String subject) throws CommandLineExpansionException;
-
-    static Formatter get(Location location, StarlarkSemantics starlarkSemantics) {
-      return starlarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-          ? SingleStringArgFormatter::format
-          : new LegacyFormatter(location);
-    }
-  }
-
-  private static class LegacyFormatter implements Formatter {
-    @Nullable private final Location location;
-    private final ArrayList<Object> args;
-
-    public LegacyFormatter(Location location) {
-      this.location = location;
-      this.args = new ArrayList<>(1); // Reused arg list to reduce GC
-      this.args.add(null);
-    }
-
-    @Override
-    public String format(String formatStr, String subject) throws CommandLineExpansionException {
-      try {
-        args.set(0, subject);
-        SkylarkPrinter printer = Printer.getPrinter();
-        return printer.formatWithList(formatStr, args).toString();
-      } catch (IllegalFormatException e) {
-        throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, null));
-      }
-    }
-  }
-
   private static Object applyMapFn(
       BaseFunction mapFn, Object arg, Location location, StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
@@ -862,8 +827,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
         Object ret = mapFn.callWithArgArray(args, null, thread, location);
         if (ret instanceof String) {
           consumer.accept((String) ret);
-        } else if (ret instanceof SkylarkList) {
-          for (Object val : ((SkylarkList) ret)) {
+        } else if (ret instanceof Sequence) {
+          for (Object val : ((Sequence) ret)) {
             if (!(val instanceof String)) {
               throw new CommandLineExpansionException(
                   "Expected map_each to return string, None, or list of strings, "
@@ -872,7 +837,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
             }
             consumer.accept((String) val);
           }
-        } else if (ret != Runtime.NONE) {
+        } else if (ret != Starlark.NONE) {
           throw new CommandLineExpansionException(
               "Expected map_each to return string, None, or list of strings, found "
                   + ret.getClass().getSimpleName());
@@ -1041,7 +1006,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       if (isSourceArtifact()) {
         printer.append("<source file " + getRunfilesPathString() + ">");
       } else {

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.remote;
 
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -84,6 +86,12 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   protected InputStream getInputStream(Path path) throws IOException {
     downloadFileIfRemote(path);
     return super.getInputStream(path);
+  }
+
+  @Override
+  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+    downloadFileIfRemote(path);
+    return super.createReadableByteChannel(path);
   }
 
   @Override

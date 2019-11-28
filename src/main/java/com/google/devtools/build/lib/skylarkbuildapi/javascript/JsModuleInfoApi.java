@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Info object propagating information about protocol buffer sources. */
 @SkylarkModule(
@@ -53,7 +53,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               + " dependencies.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public SkylarkValue getFullPintoSources();
+  public StarlarkValue getFullPintoSources();
 
   /** Provider class for {@link JsModuleInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
@@ -95,7 +95,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = JsModuleInfoApi.class),
         },
         selfCall = true,
@@ -106,7 +106,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         String wrapper,
         Object fullPintoSources,
         Object directPintoSources,
-        SkylarkList<JsModuleInfoApi<?>> directModuleDependencies)
+        Sequence<?> directModuleDependencies /* <? extends JsModuleApi> expected */)
         throws EvalException;
   }
 }

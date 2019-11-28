@@ -25,21 +25,23 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @SkylarkModule(
     name = "apple_common",
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
-    FileApiT extends FileApi,
-    ObjcProviderApiT extends ObjcProviderApi<?>,
-    XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
-    ApplePlatformApiT extends ApplePlatformApi> {
+        FileApiT extends FileApi,
+        ObjcProviderApiT extends ObjcProviderApi<?>,
+        XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
+        ApplePlatformApiT extends ApplePlatformApi>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "apple_toolchain",
@@ -220,13 +222,10 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
-      }
-  )
-  public ImmutableMap<String, String> getAppleHostSystemEnv(
-      XcodeConfigProviderApiT xcodeConfig);
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
+      })
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
 
   @SkylarkCallable(
       name = "target_apple_env",
@@ -240,20 +239,17 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            type = XcodeConfigProviderApi.class,
-            doc = "A provider containing information about the xcode configuration."
-        ),
+            type = XcodeConfigInfoApi.class,
+            doc = "A provider containing information about the xcode configuration."),
         @Param(
             name = "platform",
             positional = true,
             named = false,
             type = ApplePlatformApi.class,
-            doc = "The apple platform."
-        ),
-      }
-  )
+            doc = "The apple platform."),
+      })
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProviderApiT xcodeConfig, ApplePlatformApiT platform);
+      XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
 
   @SkylarkCallable(
       name = "multi_arch_split",
@@ -293,13 +289,13 @@ public interface AppleCommonApi<
       extraKeywords =
           @Param(
               name = "kwargs",
-              type = SkylarkDict.class,
+              type = Dict.class,
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useStarlarkThread = true)
   // This method is registered statically for skylark, and never called directly.
   public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
+      Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "new_dynamic_framework_provider",
@@ -323,7 +319,7 @@ public interface AppleCommonApi<
                     + "dependencies linked into the binary."),
         @Param(
             name = "framework_dirs",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = String.class,
             named = true,
             noneable = true,
@@ -334,7 +330,7 @@ public interface AppleCommonApi<
                     + "framework."),
         @Param(
             name = "framework_files",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = FileApi.class,
             named = true,
             noneable = true,
@@ -344,7 +340,7 @@ public interface AppleCommonApi<
                 "The full set of artifacts that should be included as inputs to link against the "
                     + "dynamic framework")
       })
-  public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(
+  public AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,
@@ -369,7 +365,7 @@ public interface AppleCommonApi<
             doc = "The Starlark rule context."),
         @Param(
             name = "extra_linkopts",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -377,7 +373,7 @@ public interface AppleCommonApi<
             doc = "Extra linkopts to be passed to the linker action."),
         @Param(
             name = "extra_link_inputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -388,8 +384,8 @@ public interface AppleCommonApi<
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   public StructApi linkMultiArchBinary(
       SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
+      Sequence<?> extraLinkopts, // <String> expected.
+      Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

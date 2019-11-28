@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryPathApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -90,7 +90,7 @@ final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(toString());
   }
 }

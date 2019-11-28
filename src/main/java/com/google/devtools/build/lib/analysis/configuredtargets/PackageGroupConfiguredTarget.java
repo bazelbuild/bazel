@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -39,6 +40,7 @@ import java.util.Optional;
  * not really first-class Targets.
  */
 @AutoCodec
+@Immutable // (and Starlark-hashable)
 public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider {
   private static final FileProvider NO_FILES = new FileProvider(
@@ -98,7 +100,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (provider == FileProvider.class) {
-      return (P) NO_FILES;
+      return provider.cast(NO_FILES); // can't fail
     } else {
       return super.getProvider(provider);
     }

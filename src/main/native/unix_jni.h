@@ -22,6 +22,8 @@
 
 #include <string>
 
+namespace blaze_jni {
+
 #define CHECK(condition) \
     do { \
       if (!(condition)) { \
@@ -97,5 +99,29 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 
 // Run sysctlbyname(3), only available on darwin
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
+
+// Used to surround an region that we want sleep disabled for.
+// push_disable_sleep to start the area.
+// pop_disable_sleep to end the area.
+// Note that this is a stack so sleep will not be reenabled until the stack
+// is empty.
+// Returns 0 on success.
+// Returns -1 if sleep is not supported.
+int portable_push_disable_sleep();
+int portable_pop_disable_sleep();
+
+// Returns the number of times that the process has been suspended (SIGSTOP,
+// computer put to sleep, etc.) since Bazel started.
+int portable_suspend_count();
+
+// Returns the number of times that the system has received a memory pressure
+// warning notification since Bazel started.
+int portable_memory_pressure_warning_count();
+
+// Returns the number of times that the system has received a memory pressure
+// critical notification since Bazel started.
+int portable_memory_pressure_critical_count();
+
+}  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

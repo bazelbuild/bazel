@@ -20,15 +20,15 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -55,22 +55,22 @@ public class JavaSkylarkCommon
   @Override
   public JavaInfo createJavaCompileAction(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkList<Artifact> sourceJars,
-      SkylarkList<Artifact> sourceFiles,
+      Sequence<?> sourceJars, // <Artifact> expected
+      Sequence<?> sourceFiles, // <Artifact> expected
       Artifact outputJar,
       Object outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<JavaInfo> deps,
-      SkylarkList<JavaInfo> exports,
-      SkylarkList<JavaInfo> plugins,
-      SkylarkList<JavaInfo> exportedPlugins,
-      SkylarkList<Artifact> annotationProcessorAdditionalInputs,
-      SkylarkList<Artifact> annotationProcessorAdditionalOutputs,
+      Sequence<?> javacOpts, // <String> expected
+      Sequence<?> deps, // <JavaInfo> expected
+      Sequence<?> exports, // <JavaInfo> expected
+      Sequence<?> plugins, // <JavaInfo> expected
+      Sequence<?> exportedPlugins, // <JavaInfo> expected
+      Sequence<?> annotationProcessorAdditionalInputs, // <Artifact> expected
+      Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      SkylarkList<Artifact> sourcepathEntries,
-      SkylarkList<Artifact> resources,
+      Sequence<?> sourcepathEntries, // <Artifact> expected
+      Sequence<?> resources, // <Artifact> expected
       Boolean neverlink,
       Location location,
       StarlarkThread thread)
@@ -79,22 +79,24 @@ public class JavaSkylarkCommon
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             skylarkRuleContext,
-            sourceJars,
-            sourceFiles,
+            sourceJars.getContents(Artifact.class, "source_jars"),
+            sourceFiles.getContents(Artifact.class, "source_files"),
             outputJar,
-            outputSourceJar == Runtime.NONE ? null : (Artifact) outputSourceJar,
-            javacOpts,
-            deps,
-            exports,
-            plugins,
-            exportedPlugins,
-            annotationProcessorAdditionalInputs,
-            annotationProcessorAdditionalOutputs,
+            outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
+            javacOpts.getContents(String.class, "javac_opts"),
+            deps.getContents(JavaInfo.class, "deps"),
+            exports.getContents(JavaInfo.class, "exports"),
+            plugins.getContents(JavaInfo.class, "plugins"),
+            exportedPlugins.getContents(JavaInfo.class, "exported_plugins"),
+            annotationProcessorAdditionalInputs.getContents(
+                Artifact.class, "annotation_processor_additional_inputs"),
+            annotationProcessorAdditionalOutputs.getContents(
+                Artifact.class, "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
             hostJavabase,
-            sourcepathEntries,
-            resources,
+            sourcepathEntries.getContents(Artifact.class, "sourcepath"),
+            resources.getContents(Artifact.class, "resources"),
             neverlink,
             javaSemantics,
             location,
@@ -114,7 +116,7 @@ public class JavaSkylarkCommon
         .buildIjar(
             actions,
             jar,
-            targetLabel != Runtime.NONE ? (Label) targetLabel : null,
+            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
             javaToolchain,
             location);
   }
@@ -136,8 +138,8 @@ public class JavaSkylarkCommon
   public Artifact packSources(
       SkylarkActionFactory actions,
       Artifact outputJar,
-      SkylarkList<Artifact> sourceFiles,
-      SkylarkList<Artifact> sourceJars,
+      Sequence<?> sourceFiles, // <Artifact> expected.
+      Sequence<?> sourceJars, // <Artifact> expected.
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
       Location location,
@@ -148,8 +150,8 @@ public class JavaSkylarkCommon
             actions,
             outputJar,
             /* outputSourceJar= */ null,
-            sourceFiles,
-            sourceJars,
+            sourceFiles.getContents(Artifact.class, "sources"),
+            sourceJars.getContents(Artifact.class, "source_jars"),
             javaToolchain,
             hostJavabase,
             location);
@@ -165,8 +167,9 @@ public class JavaSkylarkCommon
   }
 
   @Override
-  public JavaInfo mergeJavaProviders(SkylarkList<JavaInfo> providers) {
-    return JavaInfo.merge(providers);
+  public JavaInfo mergeJavaProviders(Sequence<?> providers /* <JavaInfo> expected. */)
+      throws EvalException {
+    return JavaInfo.merge(providers.getContents(JavaInfo.class, "providers"));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -209,7 +212,7 @@ public class JavaSkylarkCommon
   }
 
   @Override
-  public JavaInfo addConstraints(JavaInfo javaInfo, SkylarkList<String> constraints) {
+  public JavaInfo addConstraints(JavaInfo javaInfo, Sequence<?> constraints) throws EvalException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return null;
@@ -223,7 +226,7 @@ public class JavaSkylarkCommon
   }
 
   @Override
-  public NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts(JavaInfo javaInfo) {
+  public Depset /*<Artifact>*/ getCompileTimeJavaDependencyArtifacts(JavaInfo javaInfo) {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return null;
@@ -231,7 +234,7 @@ public class JavaSkylarkCommon
 
   @Override
   public JavaInfo addCompileTimeJavaDependencyArtifacts(
-      JavaInfo javaInfo, SkylarkList<Artifact> compileTimeJavaDependencyArtifacts) {
+      JavaInfo javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts) throws EvalException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return null;

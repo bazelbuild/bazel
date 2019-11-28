@@ -117,7 +117,10 @@ function test_genrule_cannot_write_to_other_path() {
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_supported_platform || exit 0
+if [[ "$(uname -s)" != Linux ]]; then
+  echo "RemoteWorker claims to only support Linux at the moment" 1>&2
+  exit 0
+fi
 check_sandbox_allowed || exit 0
 
 run_suite "Remote execution with sandboxing tests"

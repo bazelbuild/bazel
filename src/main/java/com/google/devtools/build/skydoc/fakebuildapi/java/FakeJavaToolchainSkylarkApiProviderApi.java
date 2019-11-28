@@ -17,10 +17,10 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkylarkApiProviderApi {
 
@@ -45,17 +45,17 @@ final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkyla
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkBootclasspath() {
+  public Depset getSkylarkBootclasspath() {
     return null;
   }
 
   @Override
-  public SkylarkList<String> getSkylarkJvmOptions() {
+  public Sequence<String> getSkylarkJvmOptions() {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkTools() {
+  public Depset getSkylarkTools() {
     return null;
   }
 
@@ -70,7 +70,7 @@ final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkyla
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   private FakeJavaToolchainSkylarkApiProviderApi() {}
 }

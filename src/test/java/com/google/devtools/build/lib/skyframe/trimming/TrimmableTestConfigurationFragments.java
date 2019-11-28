@@ -60,9 +60,10 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
@@ -445,7 +446,7 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @SkylarkModule(name = "alpha", doc = "Test config fragment.")
-  public static final class AConfig extends BuildConfiguration.Fragment {
+  public static final class AConfig extends BuildConfiguration.Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
         new FragmentLoader<>(
             AConfig.class, AOptions.class, (options) -> new AConfig(options.alpha));
@@ -474,7 +475,7 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @SkylarkModule(name = "bravo", doc = "Test config fragment.")
-  public static final class BConfig extends BuildConfiguration.Fragment {
+  public static final class BConfig extends BuildConfiguration.Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
         new FragmentLoader<>(
             BConfig.class, BOptions.class, (options) -> new BConfig(options.bravo));
@@ -503,7 +504,7 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @SkylarkModule(name = "charlie", doc = "Test config fragment.")
-  public static final class CConfig extends BuildConfiguration.Fragment {
+  public static final class CConfig extends BuildConfiguration.Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
         new FragmentLoader<>(
             CConfig.class, COptions.class, (options) -> new CConfig(options.charlie));
@@ -532,7 +533,7 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @SkylarkModule(name = "delta", doc = "Test config fragment.")
-  public static final class DConfig extends BuildConfiguration.Fragment {
+  public static final class DConfig extends BuildConfiguration.Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
         new FragmentLoader<>(
             DConfig.class, DOptions.class, (options) -> new DConfig(options.delta));
@@ -564,7 +565,7 @@ public final class TrimmableTestConfigurationFragments {
 
   /** Test configuration fragment. */
   @SkylarkModule(name = "echo", doc = "Test config fragment.")
-  public static final class EConfig extends BuildConfiguration.Fragment {
+  public static final class EConfig extends BuildConfiguration.Fragment implements StarlarkValue {
     public static final ConfigurationFragmentFactory FACTORY =
         new FragmentLoader<>(EConfig.class, EOptions.class, (options) -> new EConfig(options.echo));
 
@@ -678,8 +679,8 @@ public final class TrimmableTestConfigurationFragments {
           ToolchainInfo toolchainInfo = toolchainContext.forToolchainType(toolchainType);
           try {
             filesToBuild.addTransitive(
-                ((SkylarkNestedSet) toolchainInfo.getValue("files")).getSet(Artifact.class));
-          } catch (EvalException | SkylarkNestedSet.TypeException ex) {
+                ((Depset) toolchainInfo.getValue("files")).getSet(Artifact.class));
+          } catch (EvalException | Depset.TypeException ex) {
             throw new AssertionError(ex);
           }
         }

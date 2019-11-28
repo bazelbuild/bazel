@@ -8,7 +8,7 @@ title: External Dependencies
 Bazel can depend on targets from other projects.  Dependencies from these other
 projects are called _external dependencies_.
 
-The `WORKSPACE` file in the [workspace directory](build-ref.html#workspace)
+The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the [workspace directory](build-ref.html#workspace)
 tells Bazel how to get other projects' sources.  These other projects can
 contain one or more `BUILD` files with their own targets.  `BUILD` files within
 the main project can depend on these external targets by using their name from
@@ -44,6 +44,10 @@ This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
 Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
 for [Embedded Starlark Repository Rules](repo/index.html).
+
+Like in the [workspace directory](build-ref.html#workspace), Bazel also supports `WORKSPACE.bazel`
+file as an alias of `WORKSPACE` in external dependencies. If both files exist, `WORKSPACE.bazel`
+will take the priority.
 
 <a name="types"></a>
 ## Supported types of external dependencies
@@ -292,7 +296,7 @@ dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff602
 in an internal
 [`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
 
-However, bazel allows the exeuction of arbitrary commands in repository rules,
+However, bazel allows the execution of arbitrary commands in repository rules,
 without knowing if they call out to the network. Therefore, bazel has no option
 to enforce builds being fully offline. So testing if a build works correctly
 offline requires external blocking of the network, as bazel does in its

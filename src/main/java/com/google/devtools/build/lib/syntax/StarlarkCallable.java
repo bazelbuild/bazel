@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.events.Location;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * Starlark like a function, including built-in functions and methods, Starlark functions, and
  * application-defined objects (such as rules, aspects, and providers in Bazel).
  */
-public interface StarlarkCallable extends SkylarkValue {
+public interface StarlarkCallable extends StarlarkValue {
 
   /**
    * Call this function with the given arguments.
@@ -39,14 +39,21 @@ public interface StarlarkCallable extends SkylarkValue {
    * @throws EvalException if there was an error invoking this function
    */
   // TODO(adonovan):
-  // - rename StarlarkThread to StarlarkThread and make it the first parameter.
+  // - make StarlarkThread the first parameter.
   // - eliminate the FuncallExpression parameter (which can be accessed through thread).
-  public Object call(
+  Object call(
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
       @Nullable FuncallExpression call,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  // TODO(adonovan): add a getName method that defines how this callable appears in a stack trace.
+  /** Returns the form this callable value should take in a stack trace. */
+  String getName();
+
+  /**
+   * Returns the location of the definition of this callable value, or BUILTIN if it was not defined
+   * in Starlark code.
+   */
+  Location getLocation();
 }

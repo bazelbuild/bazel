@@ -405,6 +405,8 @@ def BuildArtifactSourceTree(files, file_open=open):
    corresponding direct dependent source files.
   """
   tree = dict()
+  if not files:
+    return tree
   for filename in files.split(','):
     with file_open(filename, 'r') as f:
       for line in f:

@@ -12,6 +12,7 @@ sh_test(
     timeout = "eternal",
     srcs = ["remote_execution_test.sh"],
     data = [
+        ":uds_proxy.py",
         "//src/test/shell/bazel:test-deps",
         "//src/tools/remote:worker",
     ],

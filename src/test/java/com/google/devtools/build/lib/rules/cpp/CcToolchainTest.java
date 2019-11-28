@@ -540,7 +540,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
   }
 
   @Test

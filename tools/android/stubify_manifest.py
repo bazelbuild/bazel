@@ -29,20 +29,23 @@ from __future__ import print_function
 import sys
 from xml.etree import ElementTree
 
-from third_party.py import gflags
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from absl import app
+from absl import flags
 
+flags.DEFINE_string("mode", "mobile_install",
+                    "mobile_install or instant_run mode")
+flags.DEFINE_string("input_manifest", None, "The input manifest")
+flags.DEFINE_string("output_manifest", None, "The output manifest")
+flags.DEFINE_string(
+    "output_datafile", None, "The output data file that will "
+    "be embedded in the final APK")
+flags.DEFINE_string(
+    "override_package", None,
+    "The Android package. Override the one specified in the "
+    "input manifest")
 
-gflags.DEFINE_string("mode", "mobile_install",
-                     "mobile_install or instant_run mode")
-gflags.DEFINE_string("input_manifest", None, "The input manifest")
-gflags.DEFINE_string("output_manifest", None, "The output manifest")
-gflags.DEFINE_string("output_datafile", None, "The output data file that will "
-                     "be embedded in the final APK")
-gflags.DEFINE_string("override_package", None,
-                     "The Android package. Override the one specified in the "
-                     "input manifest")
-
-FLAGS = gflags.FLAGS
+FLAGS = flags.FLAGS
 
 ANDROID = "http://schemas.android.com/apk/res/android"
 READ_EXTERNAL_STORAGE = "android.permission.READ_EXTERNAL_STORAGE"
@@ -138,7 +141,7 @@ def _ParseManifest(manifest_string):
   return (manifest, application)
 
 
-def main():
+def main(unused_argv):
   if FLAGS.mode == "mobile_install":
     with open(FLAGS.input_manifest, "rb") as input_manifest:
       new_manifest, old_application, app_package = (
@@ -162,9 +165,8 @@ def main():
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
   try:
-    main()
+    app.run(main)
   except BadManifestException as e:
     print(e)
     sys.exit(1)

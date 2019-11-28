@@ -82,7 +82,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkyframeExecutor#loadTargetPatterns}. */
+/** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
 @RunWith(JUnit4.class)
 public class LoadingPhaseRunnerTest {
 
@@ -503,6 +503,28 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasPostExpansionError()).isTrue();
     tester.assertContainsError(
         "expecting a test or a test_suite rule but '//ts:nonexistent_test' is not one");
+  }
+
+  @Test
+  public void failureWhileLoadingTestsForTestSuiteKeepGoing() throws Exception {
+    tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
+    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    TargetPatternPhaseValue loadingResult = tester.loadKeepGoing("//ts:tests");
+    assertThat(loadingResult.hasError()).isFalse();
+    assertThat(loadingResult.hasPostExpansionError()).isTrue();
+    tester.assertContainsError("test_suite rule has no 'name' attribute");
+  }
+
+  @Test
+  public void failureWhileLoadingTestsForTestSuiteNoKeepGoing() throws Exception {
+    tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
+    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> tester.load("//ts:tests"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("error loading package 'pkg': Package 'pkg' contains errors");
+    tester.assertContainsError("test_suite rule has no 'name' attribute");
   }
 
   @Test
@@ -1286,7 +1308,7 @@ public class LoadingPhaseRunnerTest {
       sync();
       storedErrors.clear();
       TargetPatternPhaseValue result =
-          skyframeExecutor.loadTargetPatterns(
+          skyframeExecutor.loadTargetPatternsWithFilters(
               storedErrors,
               ImmutableList.copyOf(patterns),
               relativeWorkingDirectory,

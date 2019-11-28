@@ -18,16 +18,17 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
 public final class StarlarkFunction extends BaseFunction {
 
+  private final String name;
+  private final Location location;
   private final ImmutableList<Statement> statements;
 
   // we close over the globals at the time of definition
-  private final StarlarkThread.GlobalFrame definitionGlobals;
+  private final Module definitionGlobals;
 
   // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
   // such things.
@@ -37,17 +38,29 @@ public final class StarlarkFunction extends BaseFunction {
       FunctionSignature signature,
       ImmutableList<Object> defaultValues,
       ImmutableList<Statement> statements,
-      StarlarkThread.GlobalFrame definitionGlobals) {
-    super(name, signature, defaultValues, location);
+      Module definitionGlobals) {
+    super(signature, defaultValues);
+    this.name = name;
+    this.location = location;
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 
   public ImmutableList<Statement> getStatements() {
     return statements;
   }
 
-  public StarlarkThread.GlobalFrame getDefinitionGlobals() {
+  public Module getDefinitionGlobals() {
     return definitionGlobals;
   }
 
@@ -65,7 +78,7 @@ public final class StarlarkFunction extends BaseFunction {
               getName(), thread.getCurrentFunction().getName()));
     }
 
-    ImmutableList<String> names = signature.getParameterNames();
+    ImmutableList<String> names = getSignature().getParameterNames();
     LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
@@ -84,7 +97,7 @@ public final class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     Object label = this.definitionGlobals.getLabel();
 
     printer.append("<function " + getName());

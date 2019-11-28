@@ -21,17 +21,19 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
+import javax.annotation.Nullable;
 
 /**
  * A class that provides compilation information in Java rules, for perusal of aspects and tools.
  */
 @Immutable
 @AutoCodec
-public class JavaCompilationInfoProvider
+public final class JavaCompilationInfoProvider
     implements TransitiveInfoProvider, JavaCompilationInfoProviderApi<Artifact> {
   private final ImmutableList<String> javacOpts;
-  private final NestedSet<Artifact> runtimeClasspath;
-  private final NestedSet<Artifact> compilationClasspath;
+  @Nullable private final NestedSet<Artifact> runtimeClasspath;
+  @Nullable private final NestedSet<Artifact> compilationClasspath;
   private final ImmutableList<Artifact> bootClasspath;
 
   /** Builder for {@link JavaCompilationInfoProvider}. */
@@ -46,12 +48,12 @@ public class JavaCompilationInfoProvider
       return this;
     }
 
-    public Builder setRuntimeClasspath(NestedSet<Artifact> runtimeClasspath) {
+    public Builder setRuntimeClasspath(@Nullable NestedSet<Artifact> runtimeClasspath) {
       this.runtimeClasspath = runtimeClasspath;
       return this;
     }
 
-    public Builder setCompilationClasspath(NestedSet<Artifact> compilationClasspath) {
+    public Builder setCompilationClasspath(@Nullable NestedSet<Artifact> compilationClasspath) {
       this.compilationClasspath = compilationClasspath;
       return this;
     }
@@ -73,13 +75,15 @@ public class JavaCompilationInfoProvider
   }
 
   @Override
-  public NestedSet<Artifact> getRuntimeClasspath() {
-    return runtimeClasspath;
+  @Nullable
+  public Depset /*<Artifact>*/ getRuntimeClasspath() {
+    return runtimeClasspath == null ? null : Depset.of(Artifact.TYPE, runtimeClasspath);
   }
 
   @Override
-  public NestedSet<Artifact> getCompilationClasspath() {
-    return compilationClasspath;
+  @Nullable
+  public Depset /*<Artifact>*/ getCompilationClasspath() {
+    return compilationClasspath == null ? null : Depset.of(Artifact.TYPE, compilationClasspath);
   }
 
   @Override
@@ -90,8 +94,8 @@ public class JavaCompilationInfoProvider
   @AutoCodec.VisibleForSerialization
   JavaCompilationInfoProvider(
       ImmutableList<String> javacOpts,
-      NestedSet<Artifact> runtimeClasspath,
-      NestedSet<Artifact> compilationClasspath,
+      @Nullable NestedSet<Artifact> runtimeClasspath,
+      @Nullable NestedSet<Artifact> compilationClasspath,
       ImmutableList<Artifact> bootClasspath) {
     this.javacOpts = javacOpts;
     this.runtimeClasspath = runtimeClasspath;

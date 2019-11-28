@@ -203,7 +203,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -509,8 +508,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
             hardcodedBlacklistedPackagePrefixes, additionalBlacklistedPackagePrefixesFile));
-    map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
-    map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());
+    map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
+    map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
     map.put(
         SkyFunctions.PREPARE_ANALYSIS_PHASE,
@@ -535,7 +534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
-    map.put(Label.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
+    map.put(Label.TRANSITIVE_TRAVERSAL, getTransitiveTraversalFunction());
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(
@@ -612,9 +611,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.getInstance());
+    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
+  }
+
+  protected SkyFunction getTransitiveTraversalFunction() {
+    return new TransitiveTraversalFunction();
   }
 
   protected boolean traverseTestSuites() {
@@ -726,7 +729,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // We evaluate in keepGoing mode because in the case that the graph does not store its
       // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
       // permitted.
-      EvaluationResult result =
+      EvaluationResult<?> result =
           evaluate(
               ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
       if (!result.hasError()) {
@@ -1409,7 +1412,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
-  @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
@@ -1468,6 +1470,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   void setRemoteOutputsMode(RemoteOutputsMode remoteOutputsMode) {
     PrecomputedValue.REMOTE_OUTPUTS_MODE.set(injectable(), remoteOutputsMode);
+  }
+
+  private void setRemoteExecutionEnabled(boolean enabled) {
+    PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
   }
 
   /** Called each time there is a new top-level host configuration. */
@@ -1558,6 +1564,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           EvaluationContext.newBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
+              .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(
@@ -2668,6 +2675,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     } catch (UserExecException e) {
       throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR, e);
     }
+    setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,
@@ -2680,6 +2688,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+  }
+
+  /**
+   * Updates the nestedset size threshold if the flag value changed.
+   *
+   * @return whether an update was made.
+   */
+  protected static boolean nestedSetAsSkyKeyThresholdUpdatedAndReset(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return false;
+    }
+    return ArtifactNestedSetFunction.sizeThresholdUpdatedTo(
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   protected void syncPackageLoading(
@@ -2756,7 +2778,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new TransitiveTargetCycleReporter(packageManager),
         new ActionArtifactCycleReporter(packageManager),
         new ConfiguredTargetCycleReporter(packageManager),
-        new TestSuiteCycleReporter(packageManager),
+        new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
@@ -2799,7 +2821,39 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return packageProgress;
   }
 
-  public TargetPatternPhaseValue loadTargetPatterns(
+  /**
+   * Loads the given target patterns without applying any filters (such as removing non-test targets
+   * if {@code --build_tests_only} is set).
+   *
+   * @param eventHandler handler which accepts update events
+   * @param targetPatterns patterns to be loaded
+   * @param threadCount number of threads to use for this skyframe evaluation
+   * @param keepGoing whether to attempt to ignore errors. See also {@link KeepGoingOption}
+   */
+  public TargetPatternPhaseValue loadTargetPatternsWithoutFilters(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      int threadCount,
+      boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
+    SkyKey key =
+        TargetPatternPhaseValue.keyWithoutFilters(
+            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory.getPathString());
+    return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
+  }
+
+  /**
+   * Loads the given target patterns after applying filters configured through parameters and
+   * options (such as removing non-test targets if {@code --build_tests_only} is set).
+   *
+   * @param eventHandler handler which accepts update events
+   * @param targetPatterns patterns to be loaded
+   * @param threadCount number of threads to use for this skyframe evaluation
+   * @param keepGoing whether to attempt to ignore errors. See also {@link KeepGoingOption}
+   * @param determineTests whether to ignore any targets that aren't tests or test suites
+   */
+  public TargetPatternPhaseValue loadTargetPatternsWithFilters(
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
@@ -2808,7 +2862,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean keepGoing,
       boolean determineTests)
       throws TargetParsingException, InterruptedException {
-    Stopwatch timer = Stopwatch.createStarted();
     SkyKey key =
         TargetPatternPhaseValue.key(
             ImmutableList.copyOf(targetPatterns),
@@ -2820,9 +2873,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             options.buildManualTests,
             options.expandTestSuites,
             TestFilter.forOptions(options, eventHandler, pkgFactory.getRuleClassNames()));
-    EvaluationResult<TargetPatternPhaseValue> evalResult;
+    return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
+  }
+
+  private TargetPatternPhaseValue getTargetPatternPhaseValue(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      int threadCount,
+      boolean keepGoing,
+      SkyKey key)
+      throws InterruptedException, TargetParsingException {
+    Stopwatch timer = Stopwatch.createStarted();
     eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
-    evalResult = evaluate(ImmutableList.of(key), keepGoing, threadCount, eventHandler);
+    EvaluationResult<TargetPatternPhaseValue> evalResult =
+        evaluate(ImmutableList.of(key), keepGoing, threadCount, eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       TargetParsingException exc;
@@ -2854,11 +2918,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       throw exc;
     }
-    long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);
-    eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
-
-    TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-    return patternParsingValue;
+    eventHandler.post(new TargetParsingPhaseTimeEvent(timer.stop().elapsed().toMillis()));
+    return evalResult.get(key);
   }
 
   public PrepareAnalysisPhaseValue prepareAnalysisPhase(
@@ -3022,4 +3083,3 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver.evaluate(roots, evaluationContext);
   }
 }
-

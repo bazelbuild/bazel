@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
-import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -87,7 +87,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "strategy",
       allowMultiple = true,
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -129,6 +129,14 @@ public class ExecutionOptions extends OptionsBase {
               + "remote action execution. Useful when debugging actions. "
               + "This is implied by --subcommands.")
   public boolean materializeParamFiles;
+
+  @Option(
+      name = "experimental_materialize_param_files_directly",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If materializing param files, do so with direct writes to disk.")
+  public boolean materializeParamFilesDirectly;
 
   public boolean shouldMaterializeParamFiles() {
     // Implied by --subcommands
@@ -200,17 +208,6 @@ public class ExecutionOptions extends OptionsBase {
             + "all tests are run, even if some do not pass."
   )
   public boolean testKeepGoing;
-
-  @Option(
-    name = "runs_per_test_detects_flakes",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If true, any shard in which at least one run/attempt passes and at least one "
-            + "run/attempt fails gets a FLAKY status."
-  )
-  public boolean runsPerTestDetectsFlakes;
 
   @Option(
     name = "flaky_test_attempts",

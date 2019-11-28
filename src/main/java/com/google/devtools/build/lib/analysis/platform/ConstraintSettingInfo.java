@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -89,7 +89,7 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.format("ConstraintSettingInfo(%s", label.toString());
     if (defaultConstraintValueLabel != null) {
       printer.format(", default_constraint_value=%s", defaultConstraintValueLabel.toString());

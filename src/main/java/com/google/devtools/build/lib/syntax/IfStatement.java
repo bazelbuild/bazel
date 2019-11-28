@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -57,26 +56,6 @@ public final class IfStatement extends Statement {
 
   void setElseBlock(List<Statement> elseBlock) {
     this.elseBlock = ImmutableList.copyOf(elseBlock);
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append(token == TokenKind.IF ? "if " : "elif ");
-    condition.prettyPrint(buffer);
-    buffer.append(":\n");
-    printSuite(buffer, thenBlock, indentLevel);
-    if (elseBlock != null) {
-      if (elseBlock.size() == 1
-          && elseBlock.get(0) instanceof IfStatement
-          && ((IfStatement) elseBlock.get(0)).isElif()) {
-        elseBlock.get(0).prettyPrint(buffer, indentLevel);
-      } else {
-        printIndent(buffer, indentLevel);
-        buffer.append("else:\n");
-        printSuite(buffer, elseBlock, indentLevel);
-      }
-    }
   }
 
   @Override

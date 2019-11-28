@@ -27,12 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests of StarlarkThread. */
 @RunWith(JUnit4.class)
-public class StarlarkThreadTest extends EvaluationTestCase {
-
-  @Override
-  public StarlarkThread newStarlarkThread() {
-    return newBuildStarlarkThread();
-  }
+public final class StarlarkThreadTest extends EvaluationTestCase {
 
   // Test the API directly
   @Test
@@ -55,7 +50,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testAssign() throws Exception {
     assertThat(lookup("foo")).isNull();
-    eval("foo = 'bar'");
+    exec("foo = 'bar'");
     assertThat(lookup("foo")).isEqualTo("bar");
   }
 
@@ -74,7 +69,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   public void testAssignAndReference() throws Exception {
     SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
-    eval("foo = 'bar'");
+    exec("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");
   }
 
@@ -96,7 +91,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
       thread =
           StarlarkThread.builder(mut)
               .useDefaultSemantics()
-              .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build()
               .update("foo", "bar")
               .update("wiz", 3);
@@ -139,13 +134,6 @@ public class StarlarkThreadTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testToString() throws Exception {
-    update("subject", new StringLiteral("Hello, 'world'."));
-    update("from", new StringLiteral("Java"));
-    assertThat(getStarlarkThread().toString()).isEqualTo("<StarlarkThread[test]>");
-  }
-
-  @Test
   public void testBindToNullThrowsException() throws Exception {
     NullPointerException e =
         assertThrows(NullPointerException.class, () -> update("some_name", null));
@@ -159,7 +147,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
       thread =
           StarlarkThread.builder(mutability)
               .useDefaultSemantics()
-              .setGlobals(StarlarkThread.DEFAULT_GLOBALS)
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
       thread.update("x", 1);
       assertThat(thread.moduleLookup("x")).isEqualTo(1);
@@ -187,17 +175,19 @@ public class StarlarkThreadTest extends EvaluationTestCase {
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions().setup("special_var", 42);
-    EvalUtils.execOrEval(ParserInput.fromLines("special_var = 41"), thread);
-    assertThat(thread.moduleLookup("special_var")).isEqualTo(41);
+    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions();
+    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
+    assertThat(thread.moduleLookup("True")).isEqualTo(123);
   }
 
   @Test
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     StarlarkThread thread = newStarlarkThread().update("global_var", 666);
     try {
-      EvalUtils.execOrEval(
-          ParserInput.fromLines("def foo(x): x += global_var; global_var = 36; return x", "foo(1)"),
+      EvalUtils.exec(
+          ParserInput.fromLines(
+              "def foo(x): x += global_var; global_var = 36; return x", //
+              "foo(1)"),
           thread);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
@@ -215,7 +205,7 @@ public class StarlarkThreadTest extends EvaluationTestCase {
     parentThread.update("a", 1);
     parentThread.update("c", 2);
     parentThread.update("b", 3);
-    StarlarkThread.GlobalFrame parentFrame = parentThread.getGlobals();
+    Module parentFrame = parentThread.getGlobals();
     parentMutability.freeze();
     Mutability mutability = Mutability.create("testing");
     StarlarkThread thread =
