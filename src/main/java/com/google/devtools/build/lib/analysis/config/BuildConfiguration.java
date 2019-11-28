@@ -857,6 +857,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return runfilesEnabled(this.options);
   }
 
+  public boolean inprocessSymlinkCreation() {
+    return options.inprocessSymlinkCreation;
+  }
+
   /**
    * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
    * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.

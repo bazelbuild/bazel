@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -788,6 +789,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "Be careful using this feature: it adds memory to every configured target in the "
               + "build")
   public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
+
+  @Option(
+      name = "experimental_inprocess_symlink_creation",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "Whether to make direct file system calls to create symlink trees")
+  public boolean inprocessSymlinkCreation;
 
   /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {

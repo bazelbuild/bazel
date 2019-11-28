@@ -107,6 +107,20 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           }
         } else if (!action.isRunfilesEnabled()) {
           createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
+        } else if (action.inprocessSymlinkCreation() && !action.isFilesetTree()) {
+          try {
+            createSymlinkTreeHelper(action, actionExecutionContext)
+                .createSymlinksDirectly(
+                    action.getOutputManifest().getPath().getParentDirectory(),
+                    action
+                        .getRunfiles()
+                        .getRunfilesInputs(
+                            actionExecutionContext.getEventHandler(),
+                            action.getOwner().getLocation(),
+                            actionExecutionContext.getPathResolver()));
+          } catch (IOException e) {
+            throw new EnvironmentalExecException(e).toActionExecutionException(action);
+          }
         } else {
           Map<String, String> resolvedEnv = new LinkedHashMap<>();
           action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());

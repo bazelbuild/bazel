@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,8 +35,11 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,7 +71,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     when(outputService.canCreateSymlinkTree()).thenReturn(true);
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
-    Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
+    Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
     doAnswer(
             (i) -> {
@@ -89,7 +94,8 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /*filesetTree=*/ false,
             ActionEnvironment.EMPTY,
-            /*enableRunfiles=*/ true);
+            /*enableRunfiles=*/ true,
+            /*inprocessSymlinkCreation=*/ false);
 
     action.execute(context);
 
@@ -102,5 +108,50 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             runfile.getPath().asFragment(),
             PathFragment.create("TESTING/dir/empty"),
             null);
+  }
+
+  @Test
+  public void inprocessSymlinkCreation() throws Exception {
+    ActionExecutionContext context = mock(ActionExecutionContext.class);
+    OutputService outputService = mock(OutputService.class);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+
+    when(context.getContext(SymlinkTreeActionContext.class))
+        .thenReturn(new SymlinkTreeStrategy(outputService, null));
+    when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
+    when(context.getEventHandler()).thenReturn(eventHandler);
+    when(outputService.canCreateSymlinkTree()).thenReturn(false);
+
+    Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
+    Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+
+    Runfiles runfiles =
+        new Runfiles.Builder("TESTING", false)
+            .setEmptyFilesSupplier((paths) -> ImmutableList.of(PathFragment.create("dir/empty")))
+            .addArtifact(runfile)
+            .build();
+    SymlinkTreeAction action =
+        new SymlinkTreeAction(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            inputManifest,
+            runfiles,
+            outputManifest,
+            /*filesetTree=*/ false,
+            ActionEnvironment.EMPTY,
+            /*enableRunfiles=*/ true,
+            /*inprocessSymlinkCreation=*/ true);
+
+    action.execute(context);
+    // Check that the OutputService is not used.
+    verify(outputService, never()).createSymlinkTree(any(), any());
+
+    Path p = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/runfile");
+    assertWithMessage("Path %s expected to exist", p).that(p.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertWithMessage("Path %s expected to be a symlink", p).that(p.isSymbolicLink()).isTrue();
+    assertThat(p.readSymbolicLink()).isEqualTo(runfile.getPath().asFragment());
+    Path q = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/empty");
+    assertWithMessage("Path %s expected to be a file", q).that(q.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(q)).isEmpty();
   }
 }

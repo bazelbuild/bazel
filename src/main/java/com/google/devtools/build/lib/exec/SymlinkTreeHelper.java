@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.shell.Command;
@@ -33,8 +34,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class responsible for the symlink tree creation. Used to generate runfiles and fileset
@@ -64,6 +67,25 @@ public final class SymlinkTreeHelper {
 
   public Path getOutputManifest() {
     return symlinkTreeRoot;
+  }
+
+  /** Creates a symlink tree using direct system calls. */
+  public void createSymlinksDirectly(Path symlinkTreeRoot, Map<PathFragment, Artifact> symlinks)
+      throws IOException {
+    Preconditions.checkState(!filesetTree);
+    Set<Path> dirs = new HashSet<>();
+    for (Map.Entry<PathFragment, Artifact> e : symlinks.entrySet()) {
+      Path symlinkPath = symlinkTreeRoot.getRelative(e.getKey());
+      Path parentDirectory = symlinkPath.getParentDirectory();
+      if (dirs.add(parentDirectory)) {
+        parentDirectory.createDirectoryAndParents();
+      }
+      if (e.getValue() == null) {
+        FileSystemUtils.createEmptyFile(symlinkPath);
+      } else {
+        symlinkPath.createSymbolicLink(e.getValue().getPath().asFragment());
+      }
+    }
   }
 
   /**
