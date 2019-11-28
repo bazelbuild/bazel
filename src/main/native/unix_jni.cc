@@ -85,7 +85,7 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
     case ENAMETOOLONG:  // File name too long
     case ENODATA:    // No data available
     case EINVAL:     // Invalid argument
-#if defined(HAVE_EMULTIHOP)
+#if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
     case ENOLINK:    // Link has been severed

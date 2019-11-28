@@ -74,15 +74,12 @@
 // CAN_FIND_OWN_EXECUTABLE_PATH
 //
 // Indicates that a running process can find a path to its own executable.
-#if !defined(__OpenBSD__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)
 #define CAN_FIND_OWN_EXECUTABLE_PATH
-#endif
-
-// HAVE_EMULTIHOP
-//
-// Indicates that errno.h defines EMULTIHOP.
-#if !defined(__OpenBSD__)
-#define HAVE_EMULTIHOP
+#elif defined(__OpenBSD__)
+// Not supported on this platform.
+#else
+#error Unrecognized platform.
 #endif
 
 
