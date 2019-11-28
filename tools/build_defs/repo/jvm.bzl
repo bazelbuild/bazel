@@ -123,6 +123,10 @@ def _jvm_import_external(repository_ctx):
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
+        "filegroup(",
+        "    name = \"file\",",
+        "    srcs = [\"//:%s\"]," % path,
+        ")",
     ]))
 
 def _should_fetch_sources_in_current_env(repository_ctx):
