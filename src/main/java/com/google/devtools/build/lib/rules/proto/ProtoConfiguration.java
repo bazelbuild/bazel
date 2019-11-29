@@ -284,7 +284,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public Label protoToolchainForJavaLite() {
     if (null != options.protoToolchainForJavaLite) {
-      // Flag was explicitely set by the user.
+      // Flag was explicitly set by the user.
       return options.protoToolchainForJavaLite;
     }
 
