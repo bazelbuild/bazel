@@ -505,9 +505,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
     map.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            hardcodedBlacklistedPackagePrefixes, additionalBlacklistedPackagePrefixesFile));
+        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, newBlacklistedPackagePrefixesFunction());
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
@@ -634,6 +632,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newGlobFunction() {
     return new GlobFunction(/*alwaysUseDirListing=*/ false);
+  }
+
+  protected SkyFunction newBlacklistedPackagePrefixesFunction() {
+    return new BlacklistedPackagePrefixesFunction(
+        hardcodedBlacklistedPackagePrefixes, additionalBlacklistedPackagePrefixesFile);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
