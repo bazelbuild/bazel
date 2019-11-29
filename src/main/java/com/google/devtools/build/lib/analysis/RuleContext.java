@@ -1562,14 +1562,12 @@ public final class RuleContext extends TargetContext
     return isVisible(rule.getLabel(), prerequisite);
   }
 
-  /**
-   * @return the set of features applicable for the current rule's package.
-   */
+  /** @return the set of features applicable for the current rule. */
   public ImmutableSet<String> getFeatures() {
     return enabledFeatures;
   }
 
-  /** @return the set of features that are disabled for the current rule's package. */
+  /** @return the set of features that are disabled for the current rule. */
   public ImmutableSet<String> getDisabledFeatures() {
     return disabledFeatures;
   }
