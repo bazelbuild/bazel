@@ -159,7 +159,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testHasAttr() throws Exception {
     new SkylarkTest()
-        .testExpression("hasattr(depset(), 'union')", Boolean.TRUE)
+        .testExpression("hasattr(depset(), 'to_list')", Boolean.TRUE)
         .testExpression("hasattr('test', 'count')", Boolean.TRUE)
         .testExpression("hasattr(dict(a = 1, b = 2), 'items')", Boolean.TRUE)
         .testExpression("hasattr({}, 'items')", Boolean.TRUE);
@@ -738,7 +738,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("enumerate(list=[40, 41])", "[(0, 40), (1, 41)]")
         .testExpression("hash(value='hello')", "hello".hashCode())
         .testEval("range(start_or_stop=3, stop_or_none=9, step=2)", "range(3, 9, 2)")
-        .testExpression("hasattr(x=depset(), name='union')", Boolean.TRUE)
+        .testExpression("hasattr(x=depset(), name='to_list')", Boolean.TRUE)
         .testExpression("bool(x=3)", Boolean.TRUE)
         .testExpression("getattr(x='hello', name='cnt', default='default')", "default")
         .testEval(
@@ -749,7 +749,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("str(depset(items=[0,1]))", "'depset([0, 1])'")
         .testIfErrorContains("hello", "fail(msg='hello', attr='someattr')")
         // Parameters which may be None but are not explicitly 'noneable'
-        .testExpression("hasattr(x=None, name='union')", Boolean.FALSE)
+        .testExpression("hasattr(x=None, name='to_list')", Boolean.FALSE)
         .testEval("getattr(x=None, name='count', default=None)", "None")
         .testEval("dir(None)", "[]")
         .testIfErrorContains("None", "fail(msg=None)")

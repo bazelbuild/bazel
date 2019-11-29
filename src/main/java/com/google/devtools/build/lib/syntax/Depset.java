@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -58,7 +57,7 @@ import javax.annotation.Nullable;
             + "<p>Depsets are immutable. They should be created using their <a"
             + " href=\"globals.html#depset\">constructor function</a> and merged or augmented with"
             + " other depsets via the <code>transitive</code> argument. There are other deprecated"
-            + " methods (<code>|</code> and <code>+</code> operators, <code>union</code> method)"
+            + " methods (<code>|</code> and <code>+</code> operators)"
             + " that will eventually go away."
             + "<p>The <code>order</code> parameter determines the"
             + " kind of traversal that is done to convert the depset to an iterable. There are"
@@ -192,7 +191,7 @@ public final class Depset implements StarlarkValue {
     return create(order, SkylarkType.TOP, items, null);
   }
 
-  // implementation of deprecated depset+x, depset.union(x), depset|x
+  // implementation of deprecated depset+x, depset|x
   static Depset unionOf(Depset left, Object right) throws EvalException {
     return create(left.set.getOrder(), left.contentType, right, left);
   }
@@ -395,31 +394,6 @@ public final class Depset implements StarlarkValue {
       printer.repr(order.getSkylarkName());
     }
     printer.append(")");
-  }
-
-  @SkylarkCallable(
-      name = "union",
-      doc =
-          "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
-              + "of the given depset and <code>new_elements</code>. Use the "
-              + "<code>transitive</code> constructor argument instead.",
-      parameters = {
-        @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
-      },
-      useStarlarkThread = true)
-  public Depset union(Object newElements, StarlarkThread thread) throws EvalException {
-    if (thread.getSemantics().incompatibleDepsetUnion()) {
-      throw new EvalException(
-          null,
-          "depset method `.union` has been removed. See "
-              + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-              + "recommendations. Use --incompatible_depset_union=false "
-              + "to temporarily disable this check.");
-    }
-    // newElements' type is Object because of the polymorphism on unioning two
-    // Depsets versus a set and another kind of iterable.
-    // Can't use Starlark#toIterable since that would discard this information.
-    return Depset.unionOf(this, newElements);
   }
 
   @SkylarkCallable(

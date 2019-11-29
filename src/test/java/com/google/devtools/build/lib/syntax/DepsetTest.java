@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -273,44 +272,11 @@ public class DepsetTest extends EvaluationTestCase {
   @Test
   public void testIncompatibleUnion() throws Exception {
     new BothModesTest("--incompatible_depset_union=true")
-        .testIfErrorContains(
-            "depset method `.union` has been removed", "depset([]).union(['a', 'b', 'c'])");
-
-    new BothModesTest("--incompatible_depset_union=true")
         .testIfErrorContains("`+` operator on a depset is forbidden", "depset([]) + ['a']");
 
     new BothModesTest("--incompatible_depset_union=true")
         .testIfErrorContains("`|` operator on a depset is forbidden", "depset([]) | ['a']");
   }
-
-  @Test
-  public void testUnionWithList() throws Exception {
-    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
-    assertContainsInOrder("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
-    assertContainsInOrder("depset(['a']).union(['b', 'c'])", "a", "b", "c");
-    assertContainsInOrder("depset(['a', 'b']).union(['c'])", "a", "b", "c");
-    assertContainsInOrder("depset(['a', 'b', 'c']).union([])", "a", "b", "c");
-  }
-
-  @Test
-  public void testUnionWithDepset() throws Exception {
-    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
-    assertContainsInOrder("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
-    assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "b", "c", "a");
-    assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "c", "a", "b");
-    assertContainsInOrder("depset(['a', 'b', 'c']).union(depset([]))", "a", "b", "c");
-  }
-
-  @Test
-  public void testUnionDuplicates() throws Exception {
-    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
-    assertContainsInOrder("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
-    assertContainsInOrder("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
-
-    assertContainsInOrder("depset(['a', 'b', 'c']).union(depset(['a', 'b', 'c']))", "a", "b", "c");
-    assertContainsInOrder("depset(['a', 'a', 'a']).union(depset(['a', 'a']))", "a");
-  }
-
 
   private void assertContainsInOrder(String statement, Object... expectedElements)
       throws Exception {
@@ -340,34 +306,6 @@ public class DepsetTest extends EvaluationTestCase {
     checkEvalError(
         "Order mismatch: topological != postorder",
         "depset(['a', 'b'], order='postorder') + depset(['c', 'd'], order='topological')");
-  }
-
-  @Test
-  public void testUnionWithNonsequence() throws Exception {
-    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
-    checkEvalError("cannot union value of type 'int' to a depset", "depset([]).union(5)");
-    checkEvalError("cannot union value of type 'string' to a depset", "depset(['a']).union('b')");
-  }
-
-  @Test
-  public void testUnionWrongNumArgs() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains(
-            "parameter 'new_elements' has no default value, "
-                + "for call to method union(new_elements) of 'depset'",
-            "depset(['a']).union()");
-  }
-
-  @Test
-  public void testUnionNoSideEffects() throws Exception {
-    thread = newStarlarkThreadWithSkylarkOptions("--incompatible_depset_union=false");
-    exec(
-        "def func():",
-        "  s1 = depset(['a'])",
-        "  s2 = s1.union(['b'])",
-        "  return s1",
-        "s = func()");
-    assertThat(((Depset) lookup("s")).toCollection()).isEqualTo(ImmutableList.of("a"));
   }
 
   @Test
