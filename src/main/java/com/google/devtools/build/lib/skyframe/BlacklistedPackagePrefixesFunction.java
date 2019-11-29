@@ -70,7 +70,10 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws SkyFunctionException, InterruptedException {
-    RepositoryName repositoryName = (RepositoryName) key.argument();
+    RepositoryName repositoryName = null;
+    if (key.argument() != null && key.argument() instanceof RepositoryName) {
+      repositoryName = (RepositoryName) key.argument();
+    }
 
     ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder = ImmutableSet.builder();
 
@@ -82,7 +85,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
         return null;
       }
 
-      if (repositoryName.isMain()) {
+      if (repositoryName == null || repositoryName.isMain()) {
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
           RootedPath rootedPatternFile =
               RootedPath.toRootedPath(packagePathEntry, additionalBlacklistedPackagePrefixesFile);
@@ -102,17 +105,18 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
         if (repositoryValue == null) {
           return null;
         }
-        RootedPath rootedPatternFile =
-            RootedPath.toRootedPath(
-                Root.fromPath(
-                    pkgLocator.getOutputBase().getRelative(repositoryName.getSourceRoot())),
-                additionalBlacklistedPackagePrefixesFile);
-        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-        if (patternFileValue == null) {
-          return null;
-        }
-        if (patternFileValue.isFile()) {
-          getBlacklistedPackagePrefixes(rootedPatternFile, blacklistedPackagePrefixesBuilder);
+        if (repositoryValue.repositoryExists()) {
+          RootedPath rootedPatternFile =
+              RootedPath.toRootedPath(
+                  Root.fromPath(repositoryValue.getPath()),
+                  additionalBlacklistedPackagePrefixesFile);
+          FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
+          if (patternFileValue == null) {
+            return null;
+          }
+          if (patternFileValue.isFile()) {
+            getBlacklistedPackagePrefixes(rootedPatternFile, blacklistedPackagePrefixesBuilder);
+          }
         }
       }
     }

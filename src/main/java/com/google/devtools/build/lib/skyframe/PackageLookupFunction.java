@@ -92,8 +92,7 @@ public class PackageLookupFunction implements SkyFunction {
 
     // Check .bazelignore file under main repository.
     BlacklistedPackagePrefixesValue blacklistedPatternsValue =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(packageKey.getRepository()));
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
     if (blacklistedPatternsValue == null) {
       return null;
     }

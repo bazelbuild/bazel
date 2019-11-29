@@ -48,18 +48,13 @@ public class TargetPatternFunction implements SkyFunction {
         ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
-    ImmutableSet<PathFragment> blacklistedPatterns;
-    if (parsedPattern.getRepository() == null) {
-      blacklistedPatterns = ImmutableSet.of();
-    } else {
-      BlacklistedPackagePrefixesValue blacklist =
-          (BlacklistedPackagePrefixesValue)
-              env.getValue(BlacklistedPackagePrefixesValue.key(parsedPattern.getRepository()));
-      if (blacklist == null) {
-        return null;
-      }
-      blacklistedPatterns = blacklist.getPatterns();
+    BlacklistedPackagePrefixesValue blacklist =
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(parsedPattern.getRepository()));
+    if (blacklist == null) {
+      return null;
     }
+    ImmutableSet<PathFragment> blacklistedPatterns = blacklist.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
     try {

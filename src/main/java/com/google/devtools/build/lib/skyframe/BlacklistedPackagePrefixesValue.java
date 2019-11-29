@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be blacklisted. */
@@ -29,18 +30,25 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class BlacklistedPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
+  @AutoCodec.VisibleForSerialization @AutoCodec
+  static final SkyKey BLACKLIST_KEY = () -> SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES;
+
   public BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);
   }
 
   /** Creates a key from the main repository. */
-  public static Key key() {
-    return Key.create(RepositoryName.MAIN);
+  public static SkyKey key() {
+    return BLACKLIST_KEY;
   }
 
   /** Creates a key from the given repository name. */
-  public static Key key(RepositoryName repository) {
-    return Key.create(repository);
+  public static SkyKey key(RepositoryName repository) {
+    if (repository.isMain()) {
+      return BLACKLIST_KEY;
+    } else {
+      return Key.create(repository);
+    }
   }
 
   public ImmutableSet<PathFragment> getPatterns() {

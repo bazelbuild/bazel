@@ -65,7 +65,6 @@ public abstract class TargetPattern implements Serializable {
   private final Type type;
   private final String originalPattern;
   private final String offset;
-  private final RepositoryName repository;
 
   /**
    * Returns a parser with no offset. Note that the Parser class is immutable, so this method may
@@ -118,13 +117,11 @@ public abstract class TargetPattern implements Serializable {
     return SLASH_JOINER.join(pieces);
   }
 
-  private TargetPattern(
-      Type type, String originalPattern, String offset, RepositoryName repository) {
+  private TargetPattern(Type type, String originalPattern, String offset) {
     // Don't allow inheritance outside this class.
     this.type = type;
     this.originalPattern = Preconditions.checkNotNull(originalPattern);
     this.offset = Preconditions.checkNotNull(offset);
-    this.repository = repository;
   }
 
   /**
@@ -303,9 +300,8 @@ public abstract class TargetPattern implements Serializable {
     throw new IllegalStateException();
   }
 
-  public RepositoryName getRepository() {
-    return this.repository;
-  }
+  /** Returns the repository name of the target path. */
+  public abstract RepositoryName getRepository();
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
@@ -321,7 +317,7 @@ public abstract class TargetPattern implements Serializable {
 
     private SingleTarget(
         String targetName, PackageIdentifier directory, String originalPattern, String offset) {
-      super(Type.SINGLE_TARGET, originalPattern, offset, directory.getRepository());
+      super(Type.SINGLE_TARGET, originalPattern, offset);
       this.targetName = Preconditions.checkNotNull(targetName);
       this.directory = Preconditions.checkNotNull(directory);
     }
@@ -344,6 +340,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
@@ -379,7 +380,7 @@ public abstract class TargetPattern implements Serializable {
     private final String path;
 
     private InterpretPathAsTarget(String path, String originalPattern, String offset) {
-      super(Type.PATH_AS_TARGET, originalPattern, offset, null);
+      super(Type.PATH_AS_TARGET, originalPattern, offset);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
 
@@ -426,6 +427,11 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
+    public RepositoryName getRepository() {
+      return RepositoryName.MAIN;
+    }
+
+    @Override
     public boolean getRulesOnly() {
       return false;
     }
@@ -459,7 +465,7 @@ public abstract class TargetPattern implements Serializable {
     private TargetsInPackage(String originalPattern, String offset,
         PackageIdentifier packageIdentifier, String suffix, boolean wasOriginallyAbsolute,
         boolean rulesOnly, boolean checkWildcardConflict) {
-      super(Type.TARGETS_IN_PACKAGE, originalPattern, offset, packageIdentifier.getRepository());
+      super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
       Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
@@ -495,6 +501,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return packageIdentifier.getRepository();
     }
 
     @Override
@@ -569,7 +580,7 @@ public abstract class TargetPattern implements Serializable {
 
     private TargetsBelowDirectory(
         String originalPattern, String offset, PackageIdentifier directory, boolean rulesOnly) {
-      super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset, directory.getRepository());
+      super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
       Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
@@ -626,6 +637,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
