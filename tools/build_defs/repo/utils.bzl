@@ -228,7 +228,10 @@ def read_netrc(ctx, filename):
     currentmacro = ""
     cmd = None
     for line in contents.splitlines():
-        if macdef:
+        if line.startswith("#"):
+            # Comments start with #. Ignore these lines.
+            continue
+        elif macdef:
             # as we're in a macro, just determine if we reached the end.
             if line:
                 currentmacro += line + "\n"

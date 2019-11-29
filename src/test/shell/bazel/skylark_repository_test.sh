@@ -1604,6 +1604,7 @@ cd pub
 mget *
 quit
 
+# this is a comment
 machine example.com login
 myusername password mysecret default
 login anonymous password myusername@example.com
