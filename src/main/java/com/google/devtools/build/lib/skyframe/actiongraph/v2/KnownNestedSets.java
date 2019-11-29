@@ -36,7 +36,7 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   }
 
   @Override
-  DepSetOfFiles createProto(Object nestedSetViewObject, Long id) {
+  DepSetOfFiles createProto(Object nestedSetViewObject, int id) {
     NestedSetView<?> nestedSetView = (NestedSetView) nestedSetViewObject;
     DepSetOfFiles.Builder depSetBuilder = DepSetOfFiles.newBuilder().setId(id);
     for (NestedSetView<?> transitiveNestedSet : nestedSetView.transitives()) {

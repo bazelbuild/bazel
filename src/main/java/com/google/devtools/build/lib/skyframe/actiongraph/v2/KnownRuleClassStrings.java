@@ -24,7 +24,7 @@ public class KnownRuleClassStrings extends BaseCache<String, RuleClass> {
   }
 
   @Override
-  RuleClass createProto(String ruleClassString, Long id) {
+  RuleClass createProto(String ruleClassString, int id) {
     return RuleClass.newBuilder().setId(id).setName(ruleClassString).build();
   }
 

@@ -36,13 +36,13 @@ message ActionGraphContainer {
 // Represents a single artifact, whether it's a source file or a derived output
 // file.
 message Artifact {
-  // Identifier for this artifact; this is a uint64, only valid for this
+  // Identifier for this artifact; this is a uint32, only valid for this
   // particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // The id of the PathFragment that represents the relative path of the file
   // within the execution root.
-  uint64 path_fragment_id = 2;
+  uint32 path_fragment_id = 2;
 
   // True iff the artifact is a tree artifact, i.e. the above exec_path refers
   // a directory.
@@ -53,13 +53,13 @@ message Artifact {
 // Artifact(s).
 message Action {
   // The target that was responsible for the creation of the action.
-  uint64 target_id = 1;
+  uint32 target_id = 1;
 
   // The aspects that were responsible for the creation of the action (if any).
   // In the case of aspect-on-aspect, AspectDescriptors are listed in
   // topological order of the dependency graph.
   // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
-  repeated uint64 aspect_descriptor_ids = 2;
+  repeated uint32 aspect_descriptor_ids = 2;
 
   // Encodes all significant behavior that might affect the output. The key
   // must change if the work performed by the execution of this action changes.
@@ -70,7 +70,7 @@ message Action {
   string mnemonic = 4;
 
   // The configuration under which this action is executed.
-  uint64 configuration_id = 5;
+  uint32 configuration_id = 5;
 
   // The command line arguments of the action. This will be only set if
   // explicitly requested.
@@ -81,11 +81,11 @@ message Action {
 
   // The set of input dep sets that the action depends upon. If the action does
   // input discovery, the contents of this set might change during execution.
-  repeated uint64 input_dep_set_ids = 8;
+  repeated uint32 input_dep_set_ids = 8;
 
   // The list of Artifact IDs that represent the output files that this action
   // will generate.
-  repeated uint64 output_ids = 9;
+  repeated uint32 output_ids = 9;
 
   // True iff the action does input discovery during execution.
   bool discovers_inputs = 10;
@@ -102,21 +102,21 @@ message Action {
 // Represents a single target (without configuration information) that is
 // associated with an action.
 message Target {
-  // Identifier for this target; this is a uint64, only valid for this
+  // Identifier for this target; this is a uint32, only valid for this
   // particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // Label of the target, e.g. //foo:bar.
   string label = 2;
 
   // Class of the rule.
-  uint64 rule_class_id = 3;
+  uint32 rule_class_id = 3;
 }
 
 message RuleClass {
-  // Identifier for this rule class; this is a uint64, only valid for
+  // Identifier for this rule class; this is a uint32, only valid for
   // this particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // Name of the rule class, e.g. cc_library.
   string name = 2;
@@ -124,9 +124,9 @@ message RuleClass {
 
 // Represents an invocation specific descriptor of an aspect.
 message AspectDescriptor {
-  // Identifier for this aspect descriptor; this is a uint64, only valid
+  // Identifier for this aspect descriptor; this is a uint32, only valid
   // for the particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // The name of the corresponding aspect. For native aspects, it's the Java
   // class name, for Skylark aspects it's the bzl file followed by a % sign
@@ -140,21 +140,21 @@ message AspectDescriptor {
 }
 
 message DepSetOfFiles {
-  // Identifier for this named set of files; this is a uint64, only
+  // Identifier for this named set of files; this is a uint32, only
   // valid for the particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // Other transitively included named set of files.
-  repeated uint64 transitive_dep_set_ids = 2;
+  repeated uint32 transitive_dep_set_ids = 2;
 
   // The list of input artifact IDs that are immediately contained in this set.
-  repeated uint64 direct_artifact_ids = 3;
+  repeated uint32 direct_artifact_ids = 3;
 }
 
 message Configuration {
-  // Identifier for this configuration; this is a uint64, only valid for
+  // Identifier for this configuration; this is a uint32, only valid for
   // the particular dump of the analysis.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // The mnemonic representing the build configuration.
   string mnemonic = 2;
@@ -204,11 +204,11 @@ message ParamFile {
 // The path fragment that makes up a full path.
 message PathFragment {
   // Identifier for this path fragment.
-  uint64 id = 1;
+  uint32 id = 1;
 
   // The label of the section in the path.
   string label = 2;
 
   // The id of the parent path fragment.
-  uint64 parent_id = 3;
+  uint32 parent_id = 3;
 }

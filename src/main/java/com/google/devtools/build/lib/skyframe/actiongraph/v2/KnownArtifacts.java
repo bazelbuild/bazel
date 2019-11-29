@@ -28,13 +28,13 @@ public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifac
   }
 
   @Override
-  AnalysisProtosV2.Artifact createProto(Artifact artifact, Long id) {
+  AnalysisProtosV2.Artifact createProto(Artifact artifact, int id) {
     AnalysisProtosV2.Artifact.Builder artifactProtoBuilder =
         AnalysisProtosV2.Artifact.newBuilder()
             .setId(id)
             .setIsTreeArtifact(artifact.isTreeArtifact());
 
-    Long pathFragmentId = knownPathFragments.dataToId(artifact.getExecPath());
+    int pathFragmentId = knownPathFragments.dataToId(artifact.getExecPath());
     return artifactProtoBuilder.setPathFragmentId(pathFragmentId).build();
   }
 

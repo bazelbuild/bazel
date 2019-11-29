@@ -21,17 +21,17 @@ import java.util.Map;
  * Basic class to abstract action graph cache functionality.
  */
 abstract class BaseCache<K, P> {
-  private final Map<K, Long> cache = new HashMap<>();
+  private final Map<K, Integer> cache = new HashMap<>();
   protected final ActionGraphContainer.Builder actionGraphBuilder;
 
   BaseCache(ActionGraphContainer.Builder actionGraphBuilder) {
     this.actionGraphBuilder = actionGraphBuilder;
   }
 
-  private long generateNextId() {
+  private int generateNextId() {
     // protobuf interprets the value 0 as "default value" for uint64, thus treating the field as
     // "unset". We should start from 1 instead.
-    return cache.size() + 1L;
+    return cache.size() + 1;
   }
 
   protected K transformToKey(K data) {
@@ -43,9 +43,9 @@ abstract class BaseCache<K, P> {
    * Store the data in the internal cache, if it's not yet present. Return the generated id. Ids are
    * positive and unique.
    */
-  Long dataToId(K data) {
+  int dataToId(K data) {
     K key = transformToKey(data);
-    Long id = cache.get(key);
+    Integer id = cache.get(key);
     if (id == null) {
       // Note that this cannot be replaced by computeIfAbsent since createProto is a recursive
       // operation for the case of nested sets which will call dataToId on the same object and thus
@@ -58,7 +58,7 @@ abstract class BaseCache<K, P> {
     return id;
   }
 
-  abstract P createProto(K key, Long id);
+  abstract P createProto(K key, int id);
 
   abstract void addToActionGraphBuilder(P proto);
 }

@@ -28,7 +28,7 @@ public class KnownAspectDescriptors
   }
 
   @Override
-  AnalysisProtosV2.AspectDescriptor createProto(AspectDescriptor aspectDescriptor, Long id) {
+  AnalysisProtosV2.AspectDescriptor createProto(AspectDescriptor aspectDescriptor, int id) {
     AnalysisProtosV2.AspectDescriptor.Builder aspectDescriptorBuilder =
         AnalysisProtosV2.AspectDescriptor.newBuilder()
             .setId(id)

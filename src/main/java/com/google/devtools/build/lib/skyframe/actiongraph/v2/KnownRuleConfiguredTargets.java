@@ -31,7 +31,7 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   }
 
   @Override
-  Target createProto(RuleConfiguredTarget ruleConfiguredTarget, Long id) {
+  Target createProto(RuleConfiguredTarget ruleConfiguredTarget, int id) {
     Label label = ruleConfiguredTarget.getLabel();
     String ruleClassString = ruleConfiguredTarget.getRuleClassString();
     Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(label.toString());
