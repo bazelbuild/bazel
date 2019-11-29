@@ -200,6 +200,10 @@ def _find_gold_linker_path(repository_ctx, cc):
         for flag in line.split(" "):
             if flag.find("gold") == -1:
                 continue
+            if flag.find("--enable-gold") > -1 or flag.find("--with-plugin-ld") > -1:
+                # skip build configuration options of gcc itself
+                # TODO(hlopko): Add redhat-like worker on the CI (#9392)
+                continue
 
             # flag is '-fuse-ld=gold' for GCC or "/usr/lib/ld.gold" for Clang
             # strip space, single quote, and double quotes
