@@ -800,6 +800,23 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to make direct file system calls to create symlink trees")
   public boolean inprocessSymlinkCreation;
 
+  @Option(
+      name = "experimental_skip_runfiles_manifests",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.HIDDEN,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      help =
+          "If enabled, Bazel does not create runfiles symlink manifests. This flag is ignored "
+              + "if --experimental_enable_runfiles is set to false.")
+  public boolean skipRunfilesManifests;
+
   /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this

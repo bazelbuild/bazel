@@ -861,6 +861,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.inprocessSymlinkCreation;
   }
 
+  public boolean skipRunfilesManifests() {
+    return options.skipRunfilesManifests;
+  }
+
   /**
    * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
    * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.
