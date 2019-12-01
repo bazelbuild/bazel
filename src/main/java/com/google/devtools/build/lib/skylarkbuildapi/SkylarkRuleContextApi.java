@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
             + " It has methods for declaring output files and the actions that produce them."
             + "<p>Context objects essentially live for the duration of the call to the"
             + " implementation function. It is not useful to access these objects outside of their"
-            + " associated function.See the <a"
+            + " associated function. See the <a"
             + " href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
             + "information.")
 public interface SkylarkRuleContextApi extends StarlarkValue {
