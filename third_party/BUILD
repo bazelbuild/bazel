@@ -142,6 +142,9 @@ distrib_java_import(
     name = "apache_commons_compress",
     enable_distributions = ["debian"],
     jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
+    runtime_deps = [
+        "//third_party/zstd-jni",
+    ],
 )
 
 distrib_java_import(

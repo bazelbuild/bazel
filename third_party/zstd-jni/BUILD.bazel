@@ -1,0 +1,57 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_visibility = [
+        "//src:__subpackages__",
+        "//third_party:__subpackages__",
+    ],
+)
+
+licenses(["notice"])  # BSD License
+
+cc_library(
+    name = "jni",
+    hdrs = [
+        "jni/jni.h",
+        "jni/jni_md.h",
+    ],
+    includes = ["jni"],
+)
+
+cc_binary(
+    name = "libzstd-jni.dylib",
+    srcs = glob(
+        [
+            "src/main/native/**/*.c",
+            "src/main/native/**/*.h",
+        ],
+    ),
+    includes = [
+        "src/main/native",
+        "src/main/native/common",
+        "src/main/native/compress",
+        "src/main/native/decompress",
+        "src/main/native/dictBuilder",
+        "src/main/native/legacy",
+    ],
+    linkshared = 1,
+    local_defines = [
+        "ZSTD_MULTITHREAD=1",
+        "ZSTD_LEGACY_SUPPORT=4",
+    ],
+    deps = [
+        ":jni",
+    ],
+)
+
+java_library(
+    name = "zstd-jni",
+    srcs = glob(
+        [
+            "src/main/java/**/*.java",
+        ],
+    ),
+    data = [
+        ":libzstd-jni.dylib",
+    ],
+)
