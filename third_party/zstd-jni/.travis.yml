@@ -1,0 +1,22 @@
+language: java
+
+matrix:
+  include:
+    - os:  linux
+      jdk: openjdk8
+
+    - os:  osx
+      osx_image: xcode9.2
+
+install: true
+
+script: ./sbt compile jacoco
+
+after_success:
+     - bash <(curl -s https://codecov.io/bash)
+
+addons:
+    s3_region: "us-east-1"
+    artifacts:
+        paths:
+            - $(git ls-files -o | grep libzstd-jni | tr "\n" ":")

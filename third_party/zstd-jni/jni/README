@@ -1,0 +1,2 @@
+System JNI headers in order to be able to compile the native part
+without JDK installed on the host

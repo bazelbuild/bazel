@@ -1,0 +1,48 @@
+version: '{build}'
+os: Windows Server 2012
+environment:
+  matrix:
+    - MSYSTEM: MINGW64
+      MSYS_PATH: C:\msys64\mingw64\usr\bin;C:\msys64\mingw64\bin
+      JAVA_HOME: C:\Progra~1\Java\jdk1.8.0
+      ARCH: amd64
+    - MSYSTEM: MINGW32
+      MSYS_PATH: C:\msys64\mingw32\usr\bin;C:\msys64\mingw32\bin
+      JAVA_HOME: C:\Progra~2\Java\jdk1.8.0
+      ARCH: x86
+install:
+  - echo: Starting install of SBT
+  - ps: |
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      if (!(Test-Path -Path "C:\sbt" )) {
+        (new-object System.Net.WebClient).DownloadFile(
+          "https://github.com/sbt/sbt/releases/download/v1.1.4/sbt-1.1.4.zip",
+          "C:\sbt-bin.zip"
+        )
+        [System.IO.Compression.ZipFile]::ExtractToDirectory("C:\sbt-bin.zip", "C:\sbt")
+      }
+  - cmd: SET PATH=%MSYS_PATH%;C:\sbt\sbt\bin;%JAVA_HOME%\bin;%PATH%
+build_script:
+  - sbt clean compile
+test_script:
+    sbt jacoco
+after_test:
+  - ps: |
+      $env:PATH = 'C:\msys64\usr\bin;' + $env:PATH
+      Invoke-WebRequest -Uri 'https://codecov.io/bash' -OutFile codecov.sh
+      bash codecov.sh
+artifacts:
+  - path: target\classes\win\**\*.dll
+deploy:
+  provider: S3
+  region: us-east-1
+  access_key_id:
+    secure: LNEc8yfvz2PyjkYX656TNvnSWME38nXCQJHZOUq1u/0=
+  secret_access_key:
+    secure: 1Vzzva9kkNMGUDMqzEvWnVE5JXZJsttUW85HcYsGP6ukWq8580COXgMFXtrt0W3p
+  bucket: zstd-jni
+  set_public: false
+  folder: appveyor
+
+cache:
+  - C:\Users\appveyor\.ivy2

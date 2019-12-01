@@ -1,0 +1,6 @@
+comment:
+  layout: "header, diff, changes, sunburst, uncovered"
+coverage:
+  range: "50..75"
+  status:
+    patch: false
