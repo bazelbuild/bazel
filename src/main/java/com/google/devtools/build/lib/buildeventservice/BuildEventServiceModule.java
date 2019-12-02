@@ -547,9 +547,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
         // bug manifests as an unclosed streamer.
         googleLogger.atWarning().log("Attempting to close BES streamer after command");
-        String msg = "BES was not properly closed";
-        LoggingUtil.logToRemote(Level.WARNING, msg, new IllegalStateException(msg));
-        reporter.handle(Event.warn(msg));
+        reporter.handle(Event.warn("BES was not properly closed"));
         forceShutdownBuildEventStreamer();
       }
 
