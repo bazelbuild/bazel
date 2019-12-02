@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
+import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
 import com.google.devtools.build.lib.skylark.util.StarlarkOptionsTestCase;
@@ -33,7 +34,7 @@ import org.junit.runners.JUnit4;
 public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase {
 
   @Test
-  public void testStarlarkOptions() throws Exception {
+  public void testStarlarkOptions_original() throws Exception {
     OptionsParser fakeStartupOptions =
         OptionsParser.builder()
             .optionsClasses(BlazeServerStartupOptions.class, Options.class)
@@ -60,5 +61,56 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
     assertThat(line.getSections(3).getOptionList().getOption(0).getOptionValue()).isEqualTo("666");
   }
 
-  // TODO(katre): Test mix of regular and starlark flags.
+  @Test
+  public void testStarlarkOptions_canonical() throws Exception {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
+
+    writeBasicIntFlag();
+
+    parseStarlarkOptions("--//test:my_int_setting=666");
+
+    CommandLine line =
+        new CanonicalCommandLineEvent(
+                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+    assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
+
+    // Command options should appear in section 3. See
+    // CommandLineEventTest#testOptionsAtVariousPriorities_OriginalCommandLine.
+    // Verify that the starlark flag was processed as expected.
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(1);
+    assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
+        .isEqualTo("--//test:my_int_setting=666");
+    assertThat(line.getSections(3).getOptionList().getOption(0).getOptionName())
+        .isEqualTo("//test:my_int_setting");
+    assertThat(line.getSections(3).getOptionList().getOption(0).getOptionValue()).isEqualTo("666");
+  }
+
+  @Test
+  public void testStarlarkOptions_canonical_defaultValue() throws Exception {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
+
+    writeBasicIntFlag();
+
+    parseStarlarkOptions("--//test:my_int_setting=42");
+
+    CommandLine line =
+        new CanonicalCommandLineEvent(
+                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+    assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
+
+    // Command options should appear in section 3. See
+    // CommandLineEventTest#testOptionsAtVariousPriorities_OriginalCommandLine.
+    // Verify that the starlark flag was processed as expected.
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(0);
+  }
 }

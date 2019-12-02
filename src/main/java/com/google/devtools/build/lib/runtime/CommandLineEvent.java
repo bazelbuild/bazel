@@ -369,13 +369,18 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     /** Returns the canonical command options, overridden and default values are not listed. */
     private CommandLineSection getCanonicalCommandOptions() {
+      List<Option> starlarkOptions =
+          commandOptions.getStarlarkOptions().entrySet().stream()
+              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
                   .addAllOption(
                       getOptionListFromParsedOptionDescriptions(
-                          commandOptions.asListOfCanonicalOptions())))
+                          commandOptions.asListOfCanonicalOptions()))
+                  .addAllOption(starlarkOptions))
           .build();
     }
 
