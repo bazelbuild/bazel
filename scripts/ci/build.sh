@@ -263,9 +263,9 @@ function merge_previous_dists() {
   mv "dists/${distribution}/Release.new" "dists/${distribution}/Release"
 
   # Generate new signatures for Release file
-  rm -f "dists/stable/InRelease" "dists/stable/Release.gpg"
-  gpg --output "dists/stable/InRelease" --clear-sign "dists/stable/Release"
-  gpg --output "dists/stable/Release.gpg" --detach-sign "dists/stable/Release"
+  rm -f "dists/${distribution}/InRelease" "dists/${distribution}/Release.gpg"
+  gpg --output "dists/${distribution}/InRelease" --clear-sign "dists/${distribution}/Release"
+  gpg --output "dists/${distribution}/Release.gpg" --detach-sign "dists/${distribution}/Release"
 }
 
 # Create a debian package with version in package name and add it to the repo
