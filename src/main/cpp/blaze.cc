@@ -415,17 +415,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
   }
 
-  if (startup_options.experimental_check_label_casing) {
-    // --experimental_check_label_casing can fix the behavior in
-    // https://github.com/bazelbuild/bazel/issues/8799
-    //
-    // Although this flag is supported on all platforms to keep the code simple,
-    // it is only useful on case-insensitive filesystems like on APFS (macOS)
-    // and NTFS (Windows). The flag is unnecessary on case-sensitive filesystems
-    // like ext4 (Linux), because those don't allow issue #8799 to happen.
-    result.push_back("-Dbazel.check_label_casing=1");
-  }
-
   result.insert(result.end(), user_options.begin(), user_options.end());
 
   startup_options.AddJVMArgumentSuffix(

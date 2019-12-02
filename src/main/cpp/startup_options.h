@@ -257,9 +257,6 @@ class StartupOptions {
   // See https://github.com/bazelbuild/bazel/issues/7935
   bool incompatible_enable_execution_transition;
 
-  // See https://github.com/bazelbuild/bazel/issues/8799
-  bool experimental_check_label_casing;
-
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
@@ -297,6 +294,13 @@ class StartupOptions {
   // This is called by StartupOptions::AddJVMArguments and is a separate method
   // so that subclasses of StartupOptions can override it.
   virtual void AddJVMLoggingArguments(std::vector<std::string> *result) const;
+
+  // Adds JVM filesystem-related flags for Bazel.
+  //
+  // This is called by StartupOptions::AddJVMArguments and is a separate method
+  // so that subclasses of StartupOptions can override it.
+  virtual void AddJVMFilesystemArguments(std::vector<std::string> *result)
+      const {}
 
   // Adds JVM memory tuning flags for Bazel.
   //

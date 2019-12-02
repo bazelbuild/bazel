@@ -37,6 +37,8 @@ class BazelStartupOptions : public StartupOptions {
  protected:
   std::string GetRcFileBaseName() const override { return ".bazelrc"; }
 
+  void AddJVMLoggingArguments(std::vector<std::string> *result) const override;
+
  private:
   std::string user_bazelrc_;
   bool use_system_rc;
@@ -44,6 +46,9 @@ class BazelStartupOptions : public StartupOptions {
   bool use_home_rc;
   // TODO(b/36168162): Remove the master rc flag.
   bool use_master_bazelrc_;
+
+  // See https://github.com/bazelbuild/bazel/issues/8799
+  bool experimental_check_label_casing_;
 };
 
 }  // namespace blaze

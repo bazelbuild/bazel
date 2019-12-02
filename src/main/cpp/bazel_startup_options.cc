@@ -28,13 +28,16 @@ BazelStartupOptions::BazelStartupOptions(
       use_system_rc(true),
       use_workspace_rc(true),
       use_home_rc(true),
-      use_master_bazelrc_(true) {
+      use_master_bazelrc_(true),
+      experimental_check_label_casing_(false) {
   RegisterNullaryStartupFlagNoRc("home_rc", &use_home_rc);
   RegisterNullaryStartupFlagNoRc("master_bazelrc", &use_master_bazelrc_);
   OverrideOptionSourcesKey("master_bazelrc", "blazerc");
   RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
   RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
   RegisterUnaryStartupFlag("bazelrc");
+  RegisterNullaryStartupFlag("experimental_check_label_casing",
+                             &experimental_check_label_casing_);
 }
 
 blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
@@ -103,6 +106,20 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
 void BazelStartupOptions::AddExtraOptions(
     std::vector<std::string> *result) const {
   StartupOptions::AddExtraOptions(result);
+}
+
+void BazelStartupOptions::AddJVMLoggingArguments(
+    std::vector<std::string> *result) const {
+  if (experimental_check_label_casing_) {
+    // --experimental_check_label_casing can fix the behavior in
+    // https://github.com/bazelbuild/bazel/issues/8799
+    //
+    // Although this flag is supported on all platforms to keep the code simple,
+    // it is only useful on case-insensitive filesystems like on APFS (macOS)
+    // and NTFS (Windows). The flag is unnecessary on case-sensitive filesystems
+    // like ext4 (Linux), because those don't allow issue #8799 to happen.
+    result->push_back("-Dbazel.check_label_casing=1");
+  }
 }
 
 }  // namespace blaze
