@@ -1282,6 +1282,7 @@ java_test(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:apache_commons_lang",
         "//third_party:mockito",
