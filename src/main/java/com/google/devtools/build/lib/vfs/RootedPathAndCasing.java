@@ -18,6 +18,16 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * A {@link RootedPath} and its String representation.
+ *
+ * <p>This object stores not just a path but also the particular casing of it. On case-sensitive
+ * filesystems, the paths "foo/Bar.txt" and "FOO/bar.TXT" are different files, but on
+ * case-insensitive (or case-ignoring) they refer to the same file.
+ *
+ * <p>The {@code RootedPathAndCasing} class therefore allows comparing equal {@link RootedPath}s
+ * that might use different casing.
+ */
 @AutoCodec
 public final class RootedPathAndCasing implements Serializable {
   private final RootedPath path;

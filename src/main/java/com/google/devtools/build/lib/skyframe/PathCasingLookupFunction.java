@@ -87,6 +87,7 @@ public final class PathCasingLookupFunction implements SkyFunction {
     return null;
   }
 
+  /** Exception class for errors occurring in {@link PathCasingLookupFunction}. */
   public static final class PathCasingLookupFunctionException extends SkyFunctionException {
     public PathCasingLookupFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);

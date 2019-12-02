@@ -52,11 +52,13 @@ public abstract class PathCasingLookupValue implements SkyValue {
   @AutoCodec
   public static final CorrectPathCasing GOOD = new CorrectPathCasing();
 
+  /** Singleton {@link PathCasingLookupValue} instance for incorrectly cased paths. */
   public static class BadPathCasing extends PathCasingLookupValue {
     @Override
     public boolean isCorrect() { return false; }
   }
 
+  /** Singleton {@link PathCasingLookupValue} instance for correctly cased paths. */
   public static class CorrectPathCasing extends PathCasingLookupValue {
     @Override
     public boolean isCorrect() { return true; }
