@@ -128,7 +128,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     if (javabase.getPackageIdentifier().getRepository().isDefault()) {
       return javabase.getPackageFragment();
     }
-    return javabase.getPackageIdentifier().getSourceRoot();
+    return javabase.getPackageIdentifier().getPathUnderExecRoot();
   }
 
   private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {

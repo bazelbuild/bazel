@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -1435,12 +1436,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
       PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
-    // TODO(bazel-team): The output base is a legitimate "source root" because external repositories
-    // stage their sources under output_base/external. The root here should really be
-    // output_base/external, but for some reason it isn't.
     return Stream.concat(
             pkgLocator.getPathEntries().stream(),
-            Stream.of(Root.absoluteRoot(fileSystem), Root.fromPath(directories.getOutputBase())))
+            Stream.of(
+                Root.absoluteRoot(fileSystem),
+                Root.fromPath(directories.getOutputBase()
+                    .getRelative(LabelConstants.EXTERNAL_PATH_PREFIX))))
         .distinct()
         .collect(
             ImmutableMap.toImmutableMap(

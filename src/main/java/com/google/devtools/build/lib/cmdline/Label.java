@@ -377,7 +377,7 @@ public final class Label
             + " \"external/repo\"</pre>"
   )
   public String getWorkspaceRoot() {
-    return packageIdentifier.getRepository().getSourceRoot().toString();
+    return packageIdentifier.getRepository().getPathUnderExecRoot().toString();
   }
 
   /**

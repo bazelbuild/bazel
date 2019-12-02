@@ -272,18 +272,22 @@ public class ProtoCommon {
 
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
-        stripImportPrefix = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
+        stripImportPrefix = ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot();
       } else if (stripImportPrefixAttribute.isAbsolute()) {
         stripImportPrefix =
             ruleContext
                 .getLabel()
                 .getPackageIdentifier()
                 .getRepository()
-                .getSourceRoot()
+                .getPathUnderExecRoot()
                 .getRelative(stripImportPrefixAttribute.toRelative());
       } else {
         stripImportPrefix =
-            ruleContext.getPackageDirectory().getRelative(stripImportPrefixAttribute);
+            ruleContext
+                .getLabel()
+                .getPackageIdentifier()
+                .getPathUnderExecRoot()
+                .getRelative(stripImportPrefixAttribute);
       }
 
       if (importPrefixAttribute != null) {

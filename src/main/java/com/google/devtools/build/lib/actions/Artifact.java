@@ -408,7 +408,11 @@ public abstract class Artifact
   }
 
   public final Path getPath() {
-    return root.getRoot().getRelative(getRootRelativePath());
+    PathFragment rootRelativePath = getRootRelativePath();
+    if (rootRelativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      rootRelativePath = rootRelativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
+    }
+    return root.getRoot().getRelative(rootRelativePath);
   }
 
   public boolean hasParent() {
