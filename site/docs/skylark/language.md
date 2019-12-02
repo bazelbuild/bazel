@@ -132,6 +132,8 @@ not defined across value types. In short: `5 < 'foo'` will throw an error and
 * Strings are represented with double-quotes (e.g. when you call
   [repr](lib/globals.html#repr)).
 
+* Strings aren't iterable.
+
 The following Python features are not supported:
 
 * implicit string concatenation (use explicit `+` operator).
