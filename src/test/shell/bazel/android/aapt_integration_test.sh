@@ -46,14 +46,6 @@ source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
 # (bazelbuild/continuous-integration#578).
 add_to_bazelrc "build --incompatible_use_python_toolchains=false"
 
-function test_build_with_aapt() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-
-  assert_build //java/bazel:bin --android_aapt=aapt
-}
-
 function test_build_with_aapt2() {
   create_new_workspace
   setup_android_sdk_support
@@ -62,4 +54,4 @@ function test_build_with_aapt2() {
   assert_build //java/bazel:bin --android_aapt=aapt2
 }
 
-run_suite "aapt/aapt2 integration tests"
+run_suite "aapt2 integration test"

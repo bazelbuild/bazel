@@ -27,7 +27,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -1254,82 +1253,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceShrinkingAction_legacyAapt1() throws Exception {
-    useConfiguration("--android_aapt=aapt");
-
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "android_binary(name = 'hello',",
-        "               srcs = ['Foo.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               inline_constants = 0,",
-        "               resource_files = ['res/values/strings.xml'],",
-        "               shrink_resources = 1,",
-        "               resource_configuration_filters = ['en'],",
-        "               proguard_specs = ['proguard-spec.pro'],)");
-
-    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
-
-    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
-
-    assertThat(artifacts)
-        .containsAtLeast(
-            getFirstArtifactEndingWith(artifacts, "resource_files.zip"),
-            getFirstArtifactEndingWith(artifacts, "proguard.jar"),
-            getFirstArtifactEndingWith(artifacts, "shrunk.ap_"));
-
-    List<String> processingArgs =
-        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "resource_files.zip"));
-
-    assertThat(flagValue("--resourcesOutput", processingArgs))
-        .endsWith("hello_files/resource_files.zip");
-
-    List<String> proguardArgs =
-        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "proguard.jar"));
-
-    assertThat(flagValue("-outjars", proguardArgs)).endsWith("hello_proguard.jar");
-
-    List<String> shrinkingArgs =
-        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "shrunk.ap_"));
-
-    assertThat(flagValue("--resources", shrinkingArgs))
-        .isEqualTo(flagValue("--resourcesOutput", processingArgs));
-    assertThat(flagValue("--shrunkJar", shrinkingArgs))
-        .isEqualTo(flagValue("-outjars", proguardArgs));
-    assertThat(flagValue("--proguardMapping", shrinkingArgs))
-        .isEqualTo(flagValue("-printmapping", proguardArgs));
-    assertThat(flagValue("--rTxt", shrinkingArgs))
-        .isEqualTo(flagValue("--rOutput", processingArgs));
-    assertThat(flagValue("--primaryManifest", shrinkingArgs))
-        .isEqualTo(flagValue("--manifestOutput", processingArgs));
-    assertThat(flagValue("--resourceConfigs", shrinkingArgs))
-        .isEqualTo(flagValue("--resourceConfigs", processingArgs));
-
-    List<String> packageArgs =
-        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_hello_proguard.cfg"));
-
-    assertThat(flagValue("--tool", packageArgs)).isEqualTo("PACKAGE");
-    assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
-  }
-
-  @Test
-  public void testResourceCycleShrinkingWithAapt() throws Exception {
-    useConfiguration("--android_aapt=aapt", "--experimental_android_resource_cycle_shrinking=true");
-
-    checkError(
-        "java/a",
-        "a",
-        "resource cycle shrinking can only be enabled for builds with aapt2",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        "    shrink_resources = 1,",
-        ")");
-  }
-
-  @Test
   public void testResourceCycleShrinkingWithoutResourceShinking() throws Exception {
     useConfiguration("--experimental_android_resource_cycle_shrinking=true");
     checkError(
@@ -1713,40 +1636,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(flagValue("--resourceConfigs", args)).contains("en,fr");
   }
 
-  @Test
-  public void testFilteredResourcesInvalidFilter() throws Exception {
-    // This test is an analysis-time check with aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    String badQualifier = "invalid-qualifier";
-
-    checkError(
-        "java/r/android",
-        "r",
-        badQualifier,
-        "android_binary(name = 'r',",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = ['res/values/foo.xml'],",
-        "  resource_configuration_filters = ['" + badQualifier + "'])");
-  }
-
-  @Test
-  public void testFilteredResourcesInvalidResourceDir() throws Exception {
-    // This test is an analysis-time check with aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    String badQualifierDir = "values-invalid-qualifier";
-
-    checkError(
-        "java/r/android",
-        "r",
-        badQualifierDir,
-        "android_binary(name = 'r',",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = ['res/" + badQualifierDir + "/foo.xml'],",
-        "  resource_configuration_filters = ['en'])");
-  }
-
   /** Test that resources are not filtered in analysis under aapt2. */
   @Test
   public void testFilteredResourcesFilteringAapt2() throws Exception {
@@ -1761,7 +1650,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(name = 'r',",
             "  manifest = 'AndroidManifest.xml',",
             "  resource_configuration_filters = ['', 'en, es, '],",
-            "  aapt_version = 'aapt2',",
             "  densities = ['hdpi, , ', 'xhdpi'],",
             "  resource_files = ['" + Joiner.on("', '").join(resources) + "'])");
     ValidatedAndroidResources directResources =
@@ -1777,535 +1665,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // This includes trimming whitespace and ignoring empty filters.
     assertThat(resourceArguments(directResources)).contains("en,es");
     assertThat(resourceArguments(directResources)).contains("hdpi,xhdpi");
-  }
-
-  @Test
-  public void testFilteredResourcesSimple() throws Exception {
-    useConfiguration("--android_aapt=aapt");
-
-    testDirectResourceFiltering(
-        "en",
-        /* unexpectedQualifiers= */ ImmutableList.of("fr"),
-        /* expectedQualifiers= */ ImmutableList.of("en"));
-  }
-
-  @Test
-  public void testFilteredResourcesNoopFilter() throws Exception {
-    testDirectResourceFiltering(
-        /* filters= */ "",
-        /* unexpectedQualifiers= */ ImmutableList.<String>of(),
-        /* expectedQualifiers= */ ImmutableList.of("en", "fr"));
-  }
-
-  @Test
-  public void testFilteredResourcesMultipleFilters() throws Exception {
-    testDirectResourceFiltering(
-        "en,es",
-        /* unexpectedQualifiers= */ ImmutableList.of("fr"),
-        /* expectedQualifiers= */ ImmutableList.of("en", "es"));
-  }
-
-  @Test
-  public void testFilteredResourcesMultipleFiltersWithWhitespace() throws Exception {
-    testDirectResourceFiltering(
-        " en , es ",
-        /* unexpectedQualifiers= */ ImmutableList.of("fr"),
-        /* expectedQualifiers= */ ImmutableList.of("en", "es"));
-  }
-
-  @Test
-  public void testFilteredResourcesMultipleFilterStrings() throws Exception {
-    testDirectResourceFiltering(
-        "en', 'es",
-        /* unexpectedQualifiers= */ ImmutableList.of("fr"),
-        /* expectedQualifiers= */ ImmutableList.of("en", "es"));
-  }
-
-  @Test
-  public void testFilteredResourcesLocaleWithoutRegion() throws Exception {
-    testDirectResourceFiltering(
-        "en",
-        /* unexpectedQualifiers= */ ImmutableList.of("fr-rCA"),
-        /* expectedQualifiers= */ ImmutableList.of("en-rCA", "en-rUS", "en"));
-  }
-
-  @Test
-  public void testFilteredResourcesLocaleWithRegion() throws Exception {
-    testDirectResourceFiltering(
-        "en-rUS",
-        /* unexpectedQualifiers= */ ImmutableList.of("en-rGB"),
-        /* expectedQualifiers= */ ImmutableList.of("en-rUS", "en"));
-  }
-
-  @Test
-  public void testFilteredResourcesOldAaptLocale() throws Exception {
-    testDirectResourceFiltering(
-        "en_US,fr_CA",
-        /* unexpectedQualifiers= */ ImmutableList.of("en-rCA"),
-        /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA"));
-  }
-
-  @Test
-  public void testFilteredResourcesOldAaptLocaleOtherQualifiers() throws Exception {
-    testDirectResourceFiltering(
-        "mcc310-en_US-ldrtl,mcc311-mnc312-fr_CA",
-        /* unexpectedQualifiers= */ ImmutableList.of("en-rCA", "mcc312", "mcc311-mnc311"),
-        /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA", "mcc310", "mcc311-mnc312"));
-  }
-
-  @Test
-  public void testFilteredResourcesSmallestScreenWidth() throws Exception {
-    testDirectResourceFiltering(
-        "sw600dp",
-        /* unexpectedQualifiers= */ ImmutableList.of("sw700dp"),
-        /* expectedQualifiers= */ ImmutableList.of("sw500dp", "sw600dp"));
-  }
-
-  @Test
-  public void testFilteredResourcesScreenWidth() throws Exception {
-    testDirectResourceFiltering(
-        "w600dp",
-        /* unexpectedQualifiers= */ ImmutableList.of("w700dp"),
-        /* expectedQualifiers= */ ImmutableList.of("w500dp", "w600dp"));
-  }
-
-  @Test
-  public void testFilteredResourcesScreenHeight() throws Exception {
-    testDirectResourceFiltering(
-        "h600dp",
-        /* unexpectedQualifiers= */ ImmutableList.of("h700dp"),
-        /* expectedQualifiers= */ ImmutableList.of("h500dp", "h600dp"));
-  }
-
-  @Test
-  public void testFilteredResourcesScreenSize() throws Exception {
-    testDirectResourceFiltering(
-        "normal",
-        /* unexpectedQualifiers= */ ImmutableList.of("large", "xlarge"),
-        /* expectedQualifiers= */ ImmutableList.of("small", "normal"));
-  }
-
-  /** Tests that filtering on density is ignored to match aapt behavior. */
-  @Test
-  public void testFilteredResourcesDensity() throws Exception {
-
-    testDirectResourceFiltering(
-        "hdpi",
-        /* unexpectedQualifiers= */ ImmutableList.<String>of(),
-        /* expectedQualifiers= */ ImmutableList.of("ldpi", "mdpi", "hdpi", "xhdpi", "xxhdpi"));
-  }
-
-  /** Tests that filtering on API version is ignored to match aapt behavior. */
-  @Test
-  public void testFilteredResourcesApiVersion() throws Exception {
-    testDirectResourceFiltering(
-        "v4",
-        /* unexpectedQualifiers= */ ImmutableList.<String>of(),
-        /* expectedQualifiers= */ ImmutableList.of("v3", "v4", "v5"));
-  }
-
-  @Test
-  public void testFilteredResourcesRegularQualifiers() throws Exception {
-    // Include one value for each qualifier not tested above
-    String filters =
-        "mcc310-mnc004-ldrtl-long-round-port-car-night-notouch-keysexposed-nokeys-navexposed-nonav";
-
-    // In the qualifiers we expect to be removed, include one value that contradicts each qualifier
-    // of the filter
-    testDirectResourceFiltering(
-        filters,
-        /* unexpectedQualifiers= */ ImmutableList.of(
-            "mcc309",
-            "mnc03",
-            "ldltr",
-            "notlong",
-            "notround",
-            "land",
-            "watch",
-            "notnight",
-            "finger",
-            "keyshidden",
-            "qwerty",
-            "navhidden",
-            "dpad"),
-        /* expectedQualifiers= */ ImmutableList.of(filters));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSingleDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi", "xhdpi"), ImmutableList.of("hdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSingleClosestDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi"), ImmutableList.of("xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferingQualifiers() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi",
-        ImmutableList.of("en-xhdpi", "fr"),
-        ImmutableList.of("en-hdpi", "fr-mdpi", "xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesMultipleDensities() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi,ldpi,xhdpi",
-        ImmutableList.of("mdpi", "xxhdpi"),
-        ImmutableList.of("ldpi", "hdpi", "xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDoubledDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi", "xhdpi"), ImmutableList.of("xxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferentRatiosSmallerCloser() throws Exception {
-    testDensityResourceFiltering("mdpi", ImmutableList.of("hdpi"), ImmutableList.of("ldpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferentRatiosLargerCloser() throws Exception {
-    testDensityResourceFiltering("hdpi", ImmutableList.of("mdpi"), ImmutableList.of("xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSameRatioPreferLarger() throws Exception {
-    // xxhdpi is 480dpi and xxxhdpi is 640dpi.
-    // The ratios between 360dpi and 480dpi and between 480dpi and 640dpi are both 3:4.
-    testDensityResourceFiltering("xxhdpi", ImmutableList.of("360dpi"), ImmutableList.of("xxxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesOptionsSmallerThanDesired() throws Exception {
-    testDensityResourceFiltering(
-        "xxxhdpi", ImmutableList.of("xhdpi", "mdpi", "ldpi"), ImmutableList.of("xxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesOptionsLargerThanDesired() throws Exception {
-    testDensityResourceFiltering(
-        "ldpi", ImmutableList.of("xxxhdpi", "xxhdpi", "xhdpi"), ImmutableList.of("mdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSpecialValues() throws Exception {
-    testDensityResourceFiltering(
-        "xxxhdpi", ImmutableList.of("anydpi", "nodpi"), ImmutableList.of("ldpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesXml() throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        "hdpi",
-        ImmutableList.<String>of(),
-        ImmutableList.of("ldpi", "mdpi", "hdpi", "xhdpi"),
-        /* expectUnqualifiedResource= */ true,
-        "drawable",
-        "xml");
-  }
-
-  @Test
-  public void testDensityFilteredResourcesNotDrawable() throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        "hdpi",
-        ImmutableList.<String>of(),
-        ImmutableList.of("ldpi", "mdpi", "hdpi", "xhdpi"),
-        /* expectUnqualifiedResource= */ true,
-        "layout",
-        "png");
-  }
-
-  @Test
-  public void testQualifierAndDensityFilteredResources() throws Exception {
-    testDirectResourceFiltering(
-        "en,fr-mdpi",
-        "hdpi,ldpi",
-        ImmutableList.of("mdpi", "es-ldpi", "en-xxxhdpi", "fr-mdpi"),
-        ImmutableList.of("ldpi", "hdpi", "en-xhdpi", "fr-hdpi"),
-        /* expectUnqualifiedResource= */ false,
-        "drawable",
-        "png");
-  }
-
-  private void testDensityResourceFiltering(
-      String densities, List<String> unexpectedQualifiers, List<String> expectedQualifiers)
-      throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        densities,
-        unexpectedQualifiers,
-        expectedQualifiers,
-        /* expectUnqualifiedResource= */ false,
-        "drawable",
-        "png");
-  }
-
-  private void testDirectResourceFiltering(
-      String filters, List<String> unexpectedQualifiers, ImmutableList<String> expectedQualifiers)
-      throws Exception {
-    testDirectResourceFiltering(
-        filters,
-        /* densities= */ "",
-        unexpectedQualifiers,
-        expectedQualifiers,
-        /* expectUnqualifiedResource= */ true,
-        "drawable",
-        "png");
-  }
-
-  private void testDirectResourceFiltering(
-      String resourceConfigurationFilters,
-      String densities,
-      List<String> unexpectedQualifiers,
-      List<String> expectedQualifiers,
-      boolean expectUnqualifiedResource,
-      String folderType,
-      String suffix)
-      throws Exception {
-    // Filtering is done at the analysis time for aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    List<String> unexpectedResources = new ArrayList<>();
-    for (String qualifier : unexpectedQualifiers) {
-      unexpectedResources.add("res/" + folderType + "-" + qualifier + "/foo." + suffix);
-    }
-
-    List<String> expectedResources = new ArrayList<>();
-    for (String qualifier : expectedQualifiers) {
-      expectedResources.add("res/" + folderType + "-" + qualifier + "/foo." + suffix);
-    }
-
-    String unqualifiedResource = "res/" + folderType + "/foo." + suffix;
-    if (expectUnqualifiedResource) {
-      expectedResources.add(unqualifiedResource);
-    } else {
-      unexpectedResources.add(unqualifiedResource);
-    }
-
-    // Default resources should never be filtered
-    expectedResources.add("res/values/foo.xml");
-
-    Iterable<String> allResources = Iterables.concat(unexpectedResources, expectedResources);
-
-    String dir = "java/r/android";
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "r",
-            "android_binary(name = 'r',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_configuration_filters = ['" + resourceConfigurationFilters + "'],",
-            "  densities = ['" + densities + "'],",
-            "  resource_files = ['" + Joiner.on("', '").join(allResources) + "'])");
-
-    // No prefix should be added because of resource filtering.
-    assertThat(
-            getConfiguration(binary)
-                .getFragment(AndroidConfiguration.class)
-                .getOutputDirectoryName())
-        .isNull();
-
-    ValidatedAndroidResources directResources =
-        getValidatedResources(binary, /* transitive= */ false);
-
-    // Validate that the AndroidResourceProvider for this binary contains only the filtered values.
-    assertThat(resourceContentsPaths(dir, directResources))
-        .containsExactlyElementsIn(expectedResources);
-
-    // Validate that the input to resource processing contains only the filtered values.
-    assertThat(resourceInputPaths(dir, directResources))
-        .containsAtLeastElementsIn(expectedResources);
-    assertThat(resourceInputPaths(dir, directResources)).containsNoneIn(unexpectedResources);
-
-    // Only transitive resources need to be ignored when filtered,, and there aren't any here.
-    assertThat(resourceArguments(directResources)).doesNotContain("--prefilteredResources");
-
-    // Validate resource filters are passed to execution
-    List<String> args = resourceArguments(directResources);
-
-    // Remove whitespace and quotes from the resourceConfigurationFilters attribute value to get the
-    // value we expect to pass to the resource processing action
-    String fixedResourceConfigFilters = resourceConfigurationFilters.replaceAll("[ ']", "");
-    if (resourceConfigurationFilters.isEmpty()) {
-      assertThat(args).containsNoneOf("--resourceConfigs", fixedResourceConfigFilters);
-    } else {
-      assertThat(args).containsAtLeast("--resourceConfigs", fixedResourceConfigFilters).inOrder();
-    }
-
-    if (densities.isEmpty()) {
-      assertThat(args).containsNoneOf("--densities", densities);
-    } else {
-      // We still expect densities only for the purposes of adding information to manifests
-      assertThat(args).containsAtLeast("--densities", densities).inOrder();
-    }
-  }
-
-  @Test
-  public void testFilteredTransitiveResources() throws Exception {
-    // Filtering is done at analysis time for aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    String matchingResource = "res/values-en/foo.xml";
-    String unqualifiedResource = "res/values/foo.xml";
-    String notMatchingResource = "res/values-fr/foo.xml";
-
-    String dir = "java/r/android";
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "r",
-            "android_library(name = 'lib',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = [",
-            "    '" + matchingResource + "',",
-            "    '" + unqualifiedResource + "',",
-            "    '" + notMatchingResource + "'",
-            "  ])",
-            "android_binary(name = 'r',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  deps = [':lib'],",
-            "  resource_configuration_filters = ['en'])");
-
-    ValidatedAndroidResources directResources =
-        getValidatedResources(binary, /* transitive= */ false);
-    ValidatedAndroidResources transitiveResources =
-        getValidatedResources(binary, /* transitive= */ true);
-
-    assertThat(resourceContentsPaths(dir, directResources)).isEmpty();
-
-    assertThat(resourceContentsPaths(dir, transitiveResources))
-        .containsExactly(matchingResource, unqualifiedResource);
-
-    assertThat(resourceInputPaths(dir, directResources))
-        .containsExactly(matchingResource, unqualifiedResource);
-
-    String[] flagValues =
-        flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
-    assertThat(flagValues).asList().containsExactly("values-fr/foo.xml");
-  }
-
-  @Test
-  public void testFilteredTransitiveResourcesDifferentDensities() throws Exception {
-    // Filtering is done at analysis time for aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    String dir = "java/r/android";
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "bin",
-            "android_binary(name = 'bin',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_configuration_filters = ['en'],",
-            "  densities = ['hdpi'],",
-            "  deps = [':invalid', ':best', ':other', ':multiple'],",
-            ")",
-            "android_library(name = 'invalid',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = ['invalid/res/drawable-fr-hdpi/foo.png'],",
-            ")",
-            "android_library(name = 'best',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = ['best/res/drawable-en-hdpi/foo.png'],",
-            ")",
-            "android_library(name = 'other',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = ['other/res/drawable-en-mdpi/foo.png'],",
-            ")",
-            "android_library(name = 'multiple',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = [",
-            "    'multiple/res/drawable-en-hdpi/foo.png',",
-            "    'multiple/res/drawable-en-mdpi/foo.png'],",
-            ")");
-
-    ValidatedAndroidResources directResources =
-        getValidatedResources(binary, /* transitive= */ false);
-
-    // All of the resources are transitive
-    assertThat(resourceContentsPaths(dir, directResources)).isEmpty();
-
-    // Only the best matches should be used. This includes multiple best matches, even given a
-    // single density filter, since they are each from a different dependency. This duplication
-    // would be resolved during merging.
-    assertThat(resourceInputPaths(dir, directResources))
-        .containsExactly(
-            "best/res/drawable-en-hdpi/foo.png", "multiple/res/drawable-en-hdpi/foo.png");
-  }
-
-  @Test
-  public void testFilteredResourcesAllFilteredOut() throws Exception {
-    // Filtering is done at analysis time for aapt.
-    useConfiguration("--android_aapt=aapt");
-
-    String dir = "java/r/android";
-
-    final String keptBaseDir = "partly_filtered_dir";
-    String removedLibraryDir = "fully_filtered_library_dir";
-    String removedBinaryDir = "fully_filtered_binary_dir";
-
-    ConfiguredTarget binary =
-        scratchConfiguredTarget(
-            dir,
-            "bin",
-            "android_library(name = 'not_fully_filtered_lib',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = [",
-            // Some of the resources in this directory are kept:
-            "    '" + keptBaseDir + "/values-es/foo.xml',",
-            "    '" + keptBaseDir + "/values-fr/foo.xml',",
-            "    '" + keptBaseDir + "/values-en/foo.xml',",
-            "  ])",
-            "android_library(name = 'fully_filtered_lib',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = [",
-            // All of the resources in this directory are filtered out:
-            "    '" + removedLibraryDir + "/values-es/foo.xml',",
-            "    '" + removedLibraryDir + "/values-fr/foo.xml',",
-            "  ])",
-            "android_binary(name = 'bin',",
-            "  manifest = 'AndroidManifest.xml',",
-            "  resource_configuration_filters = ['en'],",
-            "  resource_files = [",
-            // All of the resources in this directory are filtered out:
-            "    '" + removedBinaryDir + "/values-es/foo.xml',",
-            "    '" + removedBinaryDir + "/values-fr/foo.xml',",
-            "  ],",
-            "  deps = [",
-            "    ':fully_filtered_lib',",
-            "    ':not_fully_filtered_lib',",
-            "  ])");
-
-    List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(binary).getRTxt());
-
-    assertThat(
-            Iterables.filter(
-                resourceProcessingArgs,
-                new Predicate<String>() {
-                  @Override
-                  public boolean apply(String input) {
-                    return input.contains(keptBaseDir);
-                  }
-                }))
-        .isNotEmpty();
-
-    for (String arg : resourceProcessingArgs) {
-      assertThat(arg).doesNotContain(removedLibraryDir);
-      assertThat(arg).doesNotContain(removedBinaryDir);
-    }
   }
 
   @Test
@@ -4137,7 +3496,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    srcs = ['A.java'],",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt2'",
         ")");
 
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
@@ -4171,7 +3529,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    deps = [ '//java/b:b' ],",
         "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt2'",
         ")");
 
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
@@ -4179,7 +3536,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact classJar =
         getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
-    Artifact rTxt = getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_R_TXT);
     Artifact apk = getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_RESOURCES_APK);
 
     SpawnAction apkAction = getGeneratingSpawnAction(apk);
@@ -4197,9 +3553,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     SpawnAction classAction = getGeneratingSpawnAction(classJar);
     assertThat(classAction.getInputs())
         .containsAtLeast(
-            rTxt,
-            getImplicitOutputArtifact(
-                b, AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_R_TXT),
+            getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_R_TXT));
   }
 
   @Test
@@ -4210,7 +3565,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
         "               inline_constants = 0,",
-        "               aapt_version='aapt2',",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
@@ -4273,7 +3627,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               aapt_version='aapt2',",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,)");
 
@@ -4295,7 +3648,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
         "               inline_constants = 0,",
-        "               aapt_version='aapt2',",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
@@ -4330,7 +3682,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = [ 'res/values/values.xml' ], ",
         "    shrink_resources = 0,",
-        "    aapt_version = 'aapt2'",
         ")");
   }
 
@@ -4942,7 +4293,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    deps = [ '//java/b:b' ],",
         "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt2'",
         ")");
 
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
@@ -4961,52 +4311,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
 
     assertThat(resourceMergingArgs).contains("MERGE_COMPILED");
-  }
-
-  @Test
-  public void testAapt1BuildsWithAapt2Sdk() throws Exception {
-    scratch.file(
-        "java/b/BUILD",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        ")");
-
-    scratch.file(
-        "java/a/BUILD",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [ '//java/b:b' ],",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt'",
-        ")");
-
-    useConfiguration("--android_aapt=aapt");
-    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
-    ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
-
-    List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(a).getRTxt());
-
-    assertThat(resourceProcessingArgs).contains("PACKAGE");
-    String directData =
-        resourceProcessingArgs.get(resourceProcessingArgs.indexOf("--directData") + 1);
-    assertThat(directData).doesNotContain("symbols.zip");
-    assertThat(directData).contains("merged.bin");
-
-    List<String> compiledResourceMergingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
-
-    assertThat(compiledResourceMergingArgs).contains("MERGE_COMPILED");
-
-    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(b));
-    List<String> parsedResourceMergingArgs =
-        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "resource_files.zip"));
-    assertThat(parsedResourceMergingArgs).contains("MERGE");
   }
 
   @Test

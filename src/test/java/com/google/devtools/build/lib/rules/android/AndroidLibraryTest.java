@@ -1237,19 +1237,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDebugConfiguration() throws Exception {
-    scratch.file(
-        "java/apps/android/BUILD",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
-    checkDebugMode("//java/apps/android:r", true);
-    useConfiguration("--compilation_mode=opt");
-    checkDebugMode("//java/apps/android:r", false);
-  }
-
-  @Test
   public void testNeverlinkResources_AndroidResourcesInfo() throws Exception {
     scratch.file(
         "java/apps/android/BUILD",
@@ -1387,7 +1374,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         (SpawnAction)
             actionsTestUtil()
                 .getActionForArtifactEndingWith(
-                    artifacts, "/" + resources.getSymbols().getFilename());
+                    artifacts, "/" + resources.getCompiledSymbols().getFilename());
     SpawnAction resourceClassJarAction =
         (SpawnAction)
             actionsTestUtil()
@@ -1398,21 +1385,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             actionsTestUtil()
                 .getActionForArtifactEndingWith(
                     artifacts, "/" + resources.getJavaSourceJar().getFilename());
-    assertThat(resourceParserAction.getMnemonic()).isEqualTo("AndroidResourceParser");
+    assertThat(resourceParserAction.getMnemonic()).isEqualTo("AndroidResourceCompiler");
     assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("AndroidCompiledResourceMerger");
-    assertThat(resourceSrcJarAction.getMnemonic()).isEqualTo("AndroidResourceValidator");
+    assertThat(resourceSrcJarAction.getMnemonic()).isEqualTo("AndroidResourceLink");
     // Validator also generates an R.txt.
     assertThat(resourceSrcJarAction.getOutputs()).contains(resources.getRTxt());
-  }
-
-  private void checkDebugMode(String target, boolean isDebug) throws Exception {
-    ConfiguredTarget foo = getConfiguredTarget(target);
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil().getActionForArtifactEndingWith(getFilesToBuild(foo), "r.srcjar");
-
-    assertThat(ImmutableList.copyOf(paramFileArgsOrActionArgs(action)).contains("--debug"))
-        .isEqualTo(isDebug);
   }
 
   @Test
@@ -2016,7 +1993,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     SpawnAction linkAction =
         getGeneratingSpawnAction(
             getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
+                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
     assertThat(linkAction.getInputs())
@@ -2028,11 +2005,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 b.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAtLeast(
+            getImplicitOutputArtifact(a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_R_TXT),
             getImplicitOutputArtifact(
-                a.getConfiguredTarget(),
-                AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_VALIDATION_ARTIFACT),
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR));
+                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR));
   }
 
   @Test
