@@ -101,8 +101,7 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
   }
 
   /**
-   * The identifier for this repository. This is either "" or prefixed with an "@",
-   * e.g., "@myrepo".
+   * The identifier for this repository. This is either "" or prefixed with an "@", e.g., "@myrepo".
    */
   protected final RepositoryName repository;
 
@@ -217,7 +216,7 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
     /**
      * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
      * interning, x.equals(y) <=> x==y.
-     **/
+     */
     private final int hashCode;
 
     CaseTrustingPackageIdentifier(RepositoryName repository, PathFragment pkgName) {
@@ -228,8 +227,8 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
     /**
      * Returns the name of this package.
      *
-     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
-     * package identifier. This isn't specific enough for packages in other repositories, so their
+     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as
+     * a package identifier. This isn't specific enough for packages in other repositories, so their
      * stringified version is '@baz//foo/bar'.
      */
     @Override
@@ -246,7 +245,8 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
         return false;
       }
       CaseTrustingPackageIdentifier that = (CaseTrustingPackageIdentifier) object;
-      return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+      return this.hashCode == that.hashCode
+          && pkgName.equals(that.pkgName)
           && repository.equals(that.repository);
     }
 
@@ -272,7 +272,7 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
     /**
      * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
      * interning, x.equals(y) <=> x==y.
-     **/
+     */
     private final int hashCode;
 
     CaseCheckingPackageIdentifier(RepositoryName repository, PathFragment pkgName) {
@@ -285,8 +285,8 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
     /**
      * Returns the name of this package.
      *
-     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
-     * package identifier. This isn't specific enough for packages in other repositories, so their
+     * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as
+     * a package identifier. This isn't specific enough for packages in other repositories, so their
      * stringified version is '@baz//foo/bar'.
      */
     @Override
@@ -303,8 +303,10 @@ public abstract class PackageIdentifier implements Comparable<PackageIdentifier>
         return false;
       }
       CaseCheckingPackageIdentifier that = (CaseCheckingPackageIdentifier) object;
-      return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
-          && repository.equals(that.repository) && repoCasing.equals(that.repoCasing)
+      return this.hashCode == that.hashCode
+          && pkgName.equals(that.pkgName)
+          && repository.equals(that.repository)
+          && repoCasing.equals(that.repoCasing)
           && pkgCasing.equals(that.pkgCasing);
     }
 

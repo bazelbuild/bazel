@@ -37,7 +37,8 @@ class BazelStartupOptions : public StartupOptions {
  protected:
   std::string GetRcFileBaseName() const override { return ".bazelrc"; }
 
-  void AddJVMLoggingArguments(std::vector<std::string> *result) const override;
+  void AddJVMFilesystemArguments(
+      std::vector<std::string> *result) const override;
 
  private:
   std::string user_bazelrc_;

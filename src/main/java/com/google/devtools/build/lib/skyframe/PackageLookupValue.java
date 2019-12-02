@@ -68,7 +68,12 @@ public abstract class PackageLookupValue implements SkyValue {
     /** The repository was not found. */
     REPOSITORY_NOT_FOUND,
 
-    /** The package exists according to the filesystem, but the path casing is incorrect. */
+    /**
+     * The package exists according to the filesystem, but the path casing is incorrect.
+     *
+     * <p>Only possible on case-insensitive filesystems. (See
+     * https://github.com/bazelbuild/bazel/issues/8799)
+     */
     BAD_PATH_CASING
   }
 
@@ -395,8 +400,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Marker value for a package with incorrect path casing. */
   public static class BadPathCasingPackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private BadPathCasingPackageLookupValue() {
-    }
+    private BadPathCasingPackageLookupValue() {}
 
     @Override
     ErrorReason getErrorReason() {

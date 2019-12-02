@@ -299,8 +299,8 @@ class StartupOptions {
   //
   // This is called by StartupOptions::AddJVMArguments and is a separate method
   // so that subclasses of StartupOptions can override it.
-  virtual void AddJVMFilesystemArguments(std::vector<std::string> *result)
-      const {}
+  virtual void AddJVMFilesystemArguments(
+      std::vector<std::string> *result) const {}
 
   // Adds JVM memory tuning flags for Bazel.
   //

@@ -108,7 +108,7 @@ void BazelStartupOptions::AddExtraOptions(
   StartupOptions::AddExtraOptions(result);
 }
 
-void BazelStartupOptions::AddJVMLoggingArguments(
+void BazelStartupOptions::AddJVMFilesystemArguments(
     std::vector<std::string> *result) const {
   if (experimental_check_label_casing_) {
     // --experimental_check_label_casing can fix the behavior in

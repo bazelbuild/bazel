@@ -64,7 +64,8 @@ public final class RootedPathAndCasing implements Serializable {
       return false;
     }
     RootedPathAndCasing other = (RootedPathAndCasing) obj;
-    return hash == other.hash && Objects.equals(path, other.path)
+    return hash == other.hash
+        && Objects.equals(path, other.path)
         && Objects.equals(casing, other.casing);
   }
 

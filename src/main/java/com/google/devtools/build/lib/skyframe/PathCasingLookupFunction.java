@@ -19,17 +19,15 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.RootedPathAndCasing;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** SkyFunction for {@link PathCasingLookupValue}s. */
 public final class PathCasingLookupFunction implements SkyFunction {
@@ -60,7 +58,7 @@ public final class PathCasingLookupFunction implements SkyFunction {
     }
 
     if (!((PathCasingLookupValue) values.get(parentCasingKey)).isCorrect()) {
-      // Parent's casing is bad, this casing is also bad by extension.
+      // Parent's casing is bad, so this casing is also bad.
       return PathCasingLookupValue.BAD;
     }
 

@@ -492,15 +492,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean enableExecutionTransition;
 
   @Option(
-    name = "experimental_check_label_casing",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "On Linux: no-op. On macOS/Windows: if true, Bazel validates the path casing of package "
-            + "paths. This means Bazel will not only check that a BUILD file exists but also that "
-            + "the package's path is correctly spelled with regard to upper case and lower case "
-            + "letters."
-  )
+      name = "experimental_check_label_casing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "On Linux: no-op. On macOS/Windows: if true, Bazel validates the path casing of package"
+              + " paths. This means Bazel will not only check that a BUILD file exists but also"
+              + " that the package's path is correctly spelled with regard to upper case and lower"
+              + " case letters.")
   public boolean checkLabelCasing;
 }

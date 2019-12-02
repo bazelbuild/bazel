@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
-import java.io.IOException;
-
 /** Exception indicating an attempt to access a package with the wrong package path casing. */
 public class BadPathCasingException extends NoSuchPackageException {
   public BadPathCasingException(PackageIdentifier packageIdentifier, String message) {
