@@ -1977,7 +1977,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .testEval(
             "dir(mock)",
             "['callable_string', 'struct_field_callable', 'struct_field_none', "
-                + "'struct_field_string', 'to_json', 'to_proto']");
+                + "'struct_field_string', 'to_json', 'to_proto']")
+        .testExpression("str(mock.to_json)", "<built-in function to_json>")
+        .testExpression("str(getattr(mock, 'to_json'))", "<built-in function to_json>");
   }
 
   @Test
