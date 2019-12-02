@@ -60,7 +60,7 @@ java_test(
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],
         ),
     }),
-    flaky = 1,
+    shard_count = 20,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
