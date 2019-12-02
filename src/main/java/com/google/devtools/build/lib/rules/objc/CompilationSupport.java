@@ -549,7 +549,7 @@ public class CompilationSupport {
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration,
       ObjcProvider objcProvider) {
-    boolean isHost = ruleContext.getConfiguration().isHostConfiguration();
+    boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
             .addAll(ccToolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
@@ -566,7 +566,7 @@ public class CompilationSupport {
             .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
-            .add(isHost ? "host" : "nonhost")
+            .add(isTool ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
     if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()
