@@ -220,6 +220,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
         .sorted(comparing(Class::getName))
         .map(optionsClass -> getOptions().get(optionsClass))
         .forEach(options -> options.describe(sb));
+    // User-defined options.
+    sb.append("Fragment user-defined {\n");
+    buildOptions.getStarlarkOptions().entrySet().stream()
+        .sorted(Comparator.comparing(Map.Entry::getKey))
+        .forEach(
+            entry ->
+                sb.append("  ")
+                    .append(entry.getKey().toString())
+                    .append(": ")
+                    .append(entry.getValue()));
+    sb.append("\n}");
   }
 
   @Override
