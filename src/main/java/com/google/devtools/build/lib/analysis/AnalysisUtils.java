@@ -52,12 +52,12 @@ public final class AnalysisUtils {
   /**
    * Returns whether link stamping is enabled for a rule.
    *
-   * <p>This returns false for unstampable rule classes and for rules in the
-   * host configuration. Otherwise it returns the value of the stamp attribute,
-   * or of the stamp option if the attribute value is -1.
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
-    if (config.isHostConfiguration()
+    if (config.isToolConfiguration()
         || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
