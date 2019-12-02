@@ -416,9 +416,11 @@ class ArtifactFunction implements SkyFunction {
 
   private static String constructErrorMessage(Artifact artifact) {
     if (artifact.getOwner() == null) {
-      return String.format("missing input file '%s'", artifact.getPath().getPathString());
+      return String.format("missing input file '%s'", artifact.getExecPathString());
     } else {
-      return String.format("missing input file '%s'", artifact.getOwner());
+      return String.format(
+          "missing input file '%s', owner: '%s'",
+          artifact.getExecPathString(), artifact.getOwner());
     }
   }
 
