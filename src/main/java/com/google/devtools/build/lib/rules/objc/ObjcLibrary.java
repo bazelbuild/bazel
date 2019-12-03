@@ -90,6 +90,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
+    ObjcProvider objcProvider = common.getObjcProvider();
     CcCompilationContext ccCompilationContext =
         CcCompilationContext.builder(
                 ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
@@ -97,12 +98,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
             .addTextualHdrs(common.getTextualHdrs())
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
+            .setPurpose(
+                compilationSupport.createObjcCppSemantics(
+                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null).getPurpose())
             .build();
 
     CcLinkingContext ccLinkingContext =
         buildCcLinkingContext(ruleContext.getLabel(), common, ruleContext.getSymbolGenerator());
 
-    ObjcProvider objcProvider = common.getObjcProvider();
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
         .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
