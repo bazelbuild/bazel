@@ -226,6 +226,7 @@ public class SkydocMain {
               aspectInfoMap,
               moduleDocMap);
     } catch (StarlarkEvaluationException exception) {
+      exception.printStackTrace();
       System.err.println("Stardoc documentation generation failed: " + exception.getMessage());
       System.exit(1);
     }
@@ -456,7 +457,8 @@ public class SkydocMain {
           throw new StarlarkEvaluationException(
               String.format(
                   "File %s imported '%s', yet %s was not found, even at roots %s.",
-                  path, module, pathOfLabel(relativeLabel), depRoots));
+                  path, module, pathOfLabel(relativeLabel), depRoots),
+              noSuchFileException);
         }
       }
     }
@@ -511,7 +513,7 @@ public class SkydocMain {
       EvalUtils.exec(file, thread);
     } catch (EvalException | InterruptedException ex) {
       // This exception class seems a bit unnecessary. Replace with EvalException?
-      throw new StarlarkEvaluationException("Starlark evaluation error");
+      throw new StarlarkEvaluationException("Starlark evaluation error", ex);
     }
 
     thread.mutability().freeze();
@@ -663,6 +665,10 @@ public class SkydocMain {
   static class StarlarkEvaluationException extends Exception {
     public StarlarkEvaluationException(String message) {
       super(message);
+    }
+
+    public StarlarkEvaluationException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 }
