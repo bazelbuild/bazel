@@ -398,7 +398,7 @@ final class Eval {
     // TODO(adonovan): don't push and pop all the time. We should only need the stack of function
     // call frames, and we should recycle them.
     // TODO(adonovan): put the StarlarkThread (Starlark thread) into the Java thread-local store
-    // once only, in enterScope, and undo this in exitScope.
+    // once only, in push, and undo this in pop.
     try {
       if (Callstack.enabled) {
         Callstack.push(expr);

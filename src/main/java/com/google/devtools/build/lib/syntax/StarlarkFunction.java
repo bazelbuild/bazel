@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
 public final class StarlarkFunction extends BaseFunction {
@@ -26,9 +25,7 @@ public final class StarlarkFunction extends BaseFunction {
   private final String name;
   private final Location location;
   private final ImmutableList<Statement> statements;
-
-  // we close over the globals at the time of definition
-  private final Module definitionGlobals;
+  private final Module module; // a function closes over its defining module
 
   // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
   // such things.
@@ -38,12 +35,12 @@ public final class StarlarkFunction extends BaseFunction {
       FunctionSignature signature,
       ImmutableList<Object> defaultValues,
       ImmutableList<Statement> statements,
-      Module definitionGlobals) {
+      Module module) {
     super(signature, defaultValues);
     this.name = name;
     this.location = location;
     this.statements = statements;
-    this.definitionGlobals = definitionGlobals;
+    this.module = module;
   }
 
   @Override
@@ -60,8 +57,8 @@ public final class StarlarkFunction extends BaseFunction {
     return statements;
   }
 
-  public Module getDefinitionGlobals() {
-    return definitionGlobals;
+  public Module getModule() {
+    return module;
   }
 
   @Override
@@ -78,27 +75,26 @@ public final class StarlarkFunction extends BaseFunction {
               getName(), thread.getCurrentFunction().getName()));
     }
 
-    ImmutableList<String> names = getSignature().getParameterNames();
-    LexicalFrame lexicalFrame = LexicalFrame.create(thread.mutability(), /*numArgs=*/ names.size());
+    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
+    thread.push(this, loc, ast);
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
-      thread.enterScope(this, lexicalFrame, ast, definitionGlobals);
-
       // Registering the functions's arguments as variables in the local StarlarkThread
       // foreach loop is not used to avoid iterator overhead
+      ImmutableList<String> names = getSignature().getParameterNames();
       for (int i = 0; i < names.size(); ++i) {
         thread.update(names.get(i), arguments[i]);
       }
 
       return Eval.execStatements(thread, statements);
     } finally {
-      thread.exitScope();
+      thread.pop();
     }
   }
 
   @Override
   public void repr(Printer printer) {
-    Object label = this.definitionGlobals.getLabel();
+    Object label = module.getLabel();
 
     printer.append("<function " + getName());
     if (label != null) {

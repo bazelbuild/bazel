@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import com.google.devtools.build.lib.syntax.StarlarkThread.LexicalFrame;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,30 +28,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests of {@link StarlarkThread}s implementation of {@link StarlarkThread}. */
+/** Tests of debugging features of StarlarkThread. */
 @RunWith(JUnit4.class)
 public class StarlarkThreadDebuggingTest {
+
+  // TODO(adonovan): rewrite these tests at a higher level.
 
   private static StarlarkThread newStarlarkThread() {
     Mutability mutability = Mutability.create("test");
     return StarlarkThread.builder(mutability).useDefaultSemantics().build();
   }
 
-  /** Enter a dummy function scope with the given name, and the current environment's globals. */
-  private static void enterFunctionScope(
-      StarlarkThread thread, String functionName, Location location) {
-    FuncallExpression ast = new FuncallExpression(Identifier.of("test"), ImmutableList.of());
-    ast.setLocation(location);
-    thread.enterScope(
-        new BaseFunction(FunctionSignature.ANY) {
-          @Override
-          public String getName() {
-            return functionName;
-          }
-        },
-        LexicalFrame.create(thread.mutability()),
-        ast,
-        thread.getGlobals());
+  // Executes the definition of a trivial function f in the specified thread,
+  // and returns the function value.
+  private static StarlarkFunction defineFunc(StarlarkThread thread) throws Exception {
+    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), thread);
+    return (StarlarkFunction) thread.lookup("f");
   }
 
   @Test
@@ -80,10 +71,11 @@ public class StarlarkThreadDebuggingTest {
     thread.update("a", 1);
     thread.update("b", 2);
     thread.update("c", 3);
-    Location funcallLocation =
+    Location loc =
         Location.fromPathAndStartColumn(
             PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
-    enterFunctionScope(thread, "function", funcallLocation);
+    StarlarkFunction f = defineFunc(thread);
+    thread.push(f, loc, null);
     thread.update("a", 4); // shadow parent frame var
     thread.update("y", 5);
     thread.update("z", 6);
@@ -94,26 +86,26 @@ public class StarlarkThreadDebuggingTest {
     assertThat(frames.get(0))
         .isEqualTo(
             DebugFrame.builder()
-                .setFunctionName("function")
+                .setFunctionName("f")
                 .setLocation(Location.BUILTIN)
                 .setLexicalFrameBindings(ImmutableMap.of("a", 4, "y", 5, "z", 6))
-                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3))
+                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3, "f", f))
                 .build());
     assertThat(frames.get(1))
         .isEqualTo(
             DebugFrame.builder()
                 .setFunctionName("<top level>")
-                .setLocation(funcallLocation)
-                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3))
+                .setLocation(loc)
+                .setGlobalBindings(ImmutableMap.of("a", 1, "b", 2, "c", 3, "f", f))
                 .build());
   }
 
   @Test
-  public void testStepIntoFunction() {
+  public void testStepIntoFunction() throws Exception {
     StarlarkThread thread = newStarlarkThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
-    enterFunctionScope(thread, "function", Location.BUILTIN);
+    thread.push(defineFunc(thread), Location.BUILTIN, null);
 
     assertThat(predicate.test(thread)).isTrue();
   }
@@ -130,50 +122,50 @@ public class StarlarkThreadDebuggingTest {
   }
 
   @Test
-  public void testStepIntoFallsBackToStepOut() {
+  public void testStepIntoFallsBackToStepOut() throws Exception {
     // test that when stepping into, we'll fall back to stopping when exiting the current frame
     StarlarkThread thread = newStarlarkThread();
-    enterFunctionScope(thread, "function", Location.BUILTIN);
+    thread.push(defineFunc(thread), Location.BUILTIN, null);
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
-    thread.exitScope();
+    thread.pop();
 
     assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
-  public void testStepOverFunction() {
+  public void testStepOverFunction() throws Exception {
     StarlarkThread thread = newStarlarkThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
-    enterFunctionScope(thread, "function", Location.BUILTIN);
+    thread.push(defineFunc(thread), Location.BUILTIN, null);
 
     assertThat(predicate.test(thread)).isFalse();
-    thread.exitScope();
+    thread.pop();
     assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
-  public void testStepOverFallsBackToStepOut() {
+  public void testStepOverFallsBackToStepOut() throws Exception {
     // test that when stepping over, we'll fall back to stopping when exiting the current frame
     StarlarkThread thread = newStarlarkThread();
-    enterFunctionScope(thread, "function", Location.BUILTIN);
+    thread.push(defineFunc(thread), Location.BUILTIN, null);
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
-    thread.exitScope();
+    thread.pop();
 
     assertThat(predicate.test(thread)).isTrue();
   }
 
   @Test
-  public void testStepOutOfInnerFrame() {
+  public void testStepOutOfInnerFrame() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    enterFunctionScope(thread, "function", Location.BUILTIN);
+    thread.push(defineFunc(thread), Location.BUILTIN, null);
 
     ReadyToPause predicate = thread.stepControl(Stepping.OUT);
 
     assertThat(predicate.test(thread)).isFalse();
-    thread.exitScope();
+    thread.pop();
     assertThat(predicate.test(thread)).isTrue();
   }
 

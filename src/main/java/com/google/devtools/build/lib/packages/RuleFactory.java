@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Pair;
@@ -319,13 +319,13 @@ public class RuleFactory {
     if (hasName || hasFunc) {
       return new AttributesAndLocation(args, location);
     }
-    Pair<FuncallExpression, BaseFunction> topCall = thread.getTopCall();
+    Pair<FuncallExpression, StarlarkCallable> topCall = thread.getOutermostCall();
     if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
       return new AttributesAndLocation(args, location);
     }
 
     FuncallExpression generator = topCall.first;
-    BaseFunction function = topCall.second;
+    StarlarkCallable function = topCall.second;
     String name = generator.getNameArg();
 
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
