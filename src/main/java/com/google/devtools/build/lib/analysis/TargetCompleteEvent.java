@@ -291,6 +291,10 @@ public final class TargetCompleteEvent
         completionContext, builder, Artifact::getRootRelativePathString, converters, artifacts);
   }
 
+  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
+    return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
+  }
+
   private static void addImportantOutputs(
       CompletionContext completionContext,
       BuildEventStreamProtos.TargetComplete.Builder builder,
@@ -298,7 +302,7 @@ public final class TargetCompleteEvent
       BuildEventContext converters,
       Iterable<Artifact> artifacts) {
     completionContext.visitArtifacts(
-        artifacts,
+        filterFilesets(artifacts),
         new ArtifactReceiver() {
           @Override
           public void accept(Artifact artifact) {
@@ -313,16 +317,7 @@ public final class TargetCompleteEvent
           @Override
           public void acceptFilesetMapping(
               Artifact fileset, PathFragment relativePath, Path targetFile) {
-            String name = artifactNameFunction.apply(fileset);
-            name = PathFragment.create(name).getRelative(relativePath).getPathString();
-            String uri =
-                converters
-                    .pathConverter()
-                    .apply(completionContext.pathResolver().convertPath(targetFile));
-            if (uri != null) {
-              builder.addImportantOutput(
-                  newFileFromArtifact(name, fileset, relativePath).setUri(uri).build());
-            }
+            throw new IllegalStateException(fileset + " should have been filtered out");
           }
         });
   }
@@ -357,7 +352,7 @@ public final class TargetCompleteEvent
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
         completionContext.visitArtifacts(
-            group.getArtifacts(),
+            filterFilesets(group.getArtifacts()),
             new ArtifactReceiver() {
               @Override
               public void accept(Artifact artifact) {
@@ -369,10 +364,7 @@ public final class TargetCompleteEvent
               @Override
               public void acceptFilesetMapping(
                   Artifact fileset, PathFragment name, Path targetFile) {
-                builder.add(
-                    new LocalFile(
-                        completionContext.pathResolver().convertPath(targetFile),
-                        LocalFileType.OUTPUT));
+                throw new IllegalStateException(fileset + " should have been filtered out");
               }
             });
       }

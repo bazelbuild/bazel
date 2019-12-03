@@ -112,7 +112,6 @@ java_library(
         "Mutability.java",
         "NoneType.java",
         "ParamDescriptor.java",
-        "ParamTypeDescriptor.java",
         "Printer.java",
         "RangeList.java",
         "SelectorList.java",

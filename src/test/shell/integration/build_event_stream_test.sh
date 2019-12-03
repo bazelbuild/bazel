@@ -13,8 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# An end-to-end test that Bazel's experimental UI produces reasonable output.
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -942,6 +940,32 @@ function test_bep_report_only_important_artifacts() {
   cat bep.txt >> "$TEST_log"
   expect_not_log "_hidden_top_level_INTERNAL_"
   rm bep.txt
+}
+
+function test_starlark_flags() {
+  cat >> build_setting.bzl <<EOF
+def _build_setting_impl(ctx):
+  return []
+int_setting = rule(
+  implementation = _build_setting_impl,
+  build_setting = config.int(flag=True)
+)
+EOF
+  cat >> BUILD <<EOF
+load('//:build_setting.bzl', 'int_setting')
+int_setting(name = 'my_int_setting',
+  build_setting_default = 42,
+)
+EOF
+
+  bazel build --build_event_text_file=bep.txt \
+    --//:my_int_setting=666 \
+    //pkg:true || fail "Build failed but should have succeeded"
+  cat bep.txt >> "$TEST_log"
+  rm bep.txt
+
+  expect_log 'option_name: "//:my_int_setting"'
+  expect_log 'option_value: "666"'
 }
 
 run_suite "Integration tests for the build event stream"

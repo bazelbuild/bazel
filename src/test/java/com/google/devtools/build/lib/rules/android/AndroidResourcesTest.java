@@ -371,37 +371,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void testValidateAapt() throws Exception {
-    RuleContext ruleContext = getRuleContext();
-
-    MergedAndroidResources merged = makeMergedResources(ruleContext, AndroidAaptVersion.AAPT);
-    ValidatedAndroidResources validated =
-        merged.validate(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT);
-    Set<String> actionMnemonics =
-        ruleContext.getAnalysisEnvironment().getRegisteredActions().stream()
-            .map(ActionAnalysisMetadata::getMnemonic)
-            .collect(ImmutableSet.toImmutableSet());
-
-    // Inherited values should be equal
-    assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
-
-    // aapt artifacts should be generated
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
-        /* outputs = */ ImmutableList.of(
-            validated.getRTxt(), validated.getJavaSourceJar(), validated.getApk()));
-    assertThat(actionMnemonics).contains("AndroidResourceValidator"); // aapt1 validation
-
-    // aapt2 artifacts should not be generated
-    assertThat(validated.getCompiledSymbols()).isNull();
-    assertThat(validated.getAapt2RTxt()).isNull();
-    assertThat(validated.getAapt2SourceJar()).isNull();
-    assertThat(validated.getStaticLibrary()).isNull();
-    assertThat(actionMnemonics).doesNotContain("AndroidResourceLink"); // aapt2 validation
-  }
-
-  @Test
   public void testValidateAapt2() throws Exception {
     RuleContext ruleContext = getRuleContext();
 
@@ -415,7 +384,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     // aapt artifacts should be generated
     assertActionArtifacts(
         ruleContext,
-        /* inputs = */ ImmutableList.of(validated.getMergedResources(), validated.getManifest()),
+        /* inputs = */ ImmutableList.of(validated.getCompiledSymbols(), validated.getManifest()),
         /* outputs = */ ImmutableList.of(
             validated.getRTxt(), validated.getJavaSourceJar(), validated.getApk()));
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -51,6 +52,12 @@ public class NativeInfo extends StructImpl {
             String.format("Access of field %s was unexpectedly interrupted, but should be "
                 + "uninterruptible. This is indicative of a bad provider implementation.", name));
       }
+    } else if (name.equals("to_json") || name.equals("to_proto")) {
+      // to_json and to_proto should not be methods of struct or provider instances.
+      // However, they are, for now, and it is important that they be consistently
+      // returned by attribute lookup operations regardless of whether a field or method
+      // is desired. TODO(adonovan): eliminate this hack.
+      return new BuiltinCallable(this, name);
     } else {
       return null;
     }

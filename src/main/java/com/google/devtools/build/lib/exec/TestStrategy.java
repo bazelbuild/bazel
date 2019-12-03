@@ -164,11 +164,31 @@ public abstract class TestStrategy implements TestActionContext {
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
+   * <p>Basically {@code expandedArgsFromAction}, but throws ExecException instead. This should be
+   * used in action execution.
+   *
    * @param testAction The test action.
    * @return the command line as string list.
    * @throws ExecException
    */
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
+    try {
+      return expandedArgsFromAction(testAction);
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
+  }
+
+  /**
+   * Generates a command line to run for the test action, taking into account coverage and {@code
+   * --run_under} settings.
+   *
+   * @param testAction The test action.
+   * @return the command line as string list.
+   * @throws CommandLineExpansionException
+   */
+  public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
+      throws CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
     // consider the target configuration, not the machine Bazel happens to run on. Change this to
@@ -201,11 +221,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    try {
-      Iterables.addAll(args, execSettings.getArgs().arguments());
-    } catch (CommandLineExpansionException e) {
-      throw new UserExecException(e);
-    }
+    Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
 

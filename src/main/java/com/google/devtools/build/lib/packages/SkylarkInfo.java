@@ -26,6 +26,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -101,7 +102,18 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
   public Object getValue(Location loc, StarlarkSemantics starlarkSemantics, String name)
       throws EvalException {
     // By default, a SkylarkInfo's field values are not affected by the Starlark semantics.
-    return getValue(name);
+    Object x = getValue(name);
+    if (x != null) {
+      return x;
+    } else if (name.equals("to_json") || name.equals("to_proto")) {
+      // to_json and to_proto should not be methods of struct or provider instances.
+      // However, they are, for now, and it is important that they be consistently
+      // returned by attribute lookup operations regardless of whether a field or method
+      // is desired. TODO(adonovan): eliminate this hack.
+      return new BuiltinCallable(this, name);
+    } else {
+      return null;
+    }
   }
 
   /**

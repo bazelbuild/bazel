@@ -937,7 +937,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
-        defaultValue = "false",
+        defaultValue = "true",
         help =
             "End support for aapt in Android rules. "
                 + "To resolve issues when migrating your app to build with aapt2, see "
