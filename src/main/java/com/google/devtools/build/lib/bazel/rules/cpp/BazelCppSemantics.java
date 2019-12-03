@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -34,6 +39,19 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
   @AutoCodec public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
+
+  // TODO(#10338): We need to check for both providers. With and without the @rules_cc repo name.
+  //  The reason for that is that when we are in a target inside @rules_cc, the provider won't have
+  // the repo name set.
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
+      new SkylarkKey(
+          Label.parseAbsoluteUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
+
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER =
+      new SkylarkKey(
+          Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
 
   private final IncludeProcessing includeProcessing;
 
@@ -84,5 +102,18 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   @Override
   public boolean needsIncludeValidation() {
     return true;
+  }
+
+  @Override
+  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
+    StructImpl ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
+    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_RULES_CC);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
+    return null;
   }
 }

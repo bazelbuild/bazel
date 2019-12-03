@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 
@@ -59,4 +61,7 @@ public interface CppSemantics {
 
   /** Returns true iff this build requires include validation. */
   boolean needsIncludeValidation();
+
+  /** Provider for cc_shared_libraries * */
+  StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
 }
