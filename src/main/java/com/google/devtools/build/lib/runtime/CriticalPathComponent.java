@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,9 +26,10 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -32,7 +37,6 @@ import javax.annotation.Nullable;
  * action graph, but does not have to be - it may also take into account individual spawns run as
  * part of an action.
  */
-@ThreadCompatible
 public class CriticalPathComponent {
   /**
    * Converts from nanos to millis since the epoch. In particular, note that {@link System#nanoTime}
@@ -54,23 +58,29 @@ public class CriticalPathComponent {
     return (startNanos) -> nowInMillis - TimeUnit.NANOSECONDS.toMillis((nowInNanos - startNanos));
   }
 
-  // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
-  private long startNanos;
-  private long finishNanos = 0;
-  private volatile boolean isRunning = false;
-
-  /** We keep here the critical path time for the most expensive child. */
-  private long childAggregatedElapsedTime = 0;
-
   private final Action action;
   private final Artifact primaryOutput;
 
+  /**
+   * This range is the start and finish time of the component in nanos. During initialization of the
+   * component, this value is a point in time where the lower and upper bounds are the same. That
+   * would represent an elapsed time of zero until the component completes and the run time range is
+   * updated.
+   */
+  @GuardedBy("this")
+  private Range<Long> startAndFinishNanos;
+
+  private final AtomicBoolean isRunning = new AtomicBoolean(false);
+  private final AtomicBoolean phaseChange = new AtomicBoolean(false);
+
+  /** Keeps a timeline of the critical path. */
+  @GuardedBy("this")
+  private ImmutableRangeSet<Long> timelineNanos;
+
   /** Spawn metrics for this action. */
   private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY;
-
   private SpawnMetrics totalSpawnMetrics = SpawnMetrics.EMPTY;
   private Duration longestRunningTotalDuration = Duration.ZERO;
-  private boolean phaseChange;
 
   /** Name of the runner used for the spawn. */
   @Nullable private String longestPhaseSpawnRunnerName;
@@ -84,8 +94,8 @@ public class CriticalPathComponent {
     this.id = id;
     this.action = Preconditions.checkNotNull(action);
     this.primaryOutput = action.getPrimaryOutput();
-    this.startNanos = startNanos;
-    this.phaseChange = false;
+    this.startAndFinishNanos = Range.closed(startNanos, startNanos);
+    this.timelineNanos = ImmutableRangeSet.of();
   }
 
   /**
@@ -110,11 +120,14 @@ public class CriticalPathComponent {
    * with the total spawn metrics. To make sure not to add the last phase's duration multiple times,
    * only add if there is duration and reset the phase metrics once it has been aggregated.
    */
-  public synchronized void finishActionExecution(long startNanos, long finishNanos) {
-    if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
-      this.startNanos = startNanos;
-      this.finishNanos = finishNanos;
-      isRunning = false;
+  public synchronized void finishActionExecution(Range<Long> range) {
+    if (isRunning.getAndSet(false)
+        || range.upperEndpoint() - range.lowerEndpoint() > getElapsedTimeNanos()) {
+      this.startAndFinishNanos = range;
+      this.timelineNanos =
+          child == null
+              ? ImmutableRangeSet.of(this.startAndFinishNanos)
+              : mergeTimeline(child, this.startAndFinishNanos);
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
@@ -149,11 +162,11 @@ public class CriticalPathComponent {
    * </ol>
    */
   void startRunning() {
-    isRunning = true;
+    isRunning.set(true);
   }
 
   public boolean isRunning() {
-    return isRunning;
+    return isRunning.get();
   }
 
   public String prettyPrintAction() {
@@ -186,12 +199,11 @@ public class CriticalPathComponent {
    * it exists.
    */
   void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
-    if (this.phaseChange) {
+    if (phaseChange.getAndSet(false)) {
       this.totalSpawnMetrics =
           SpawnMetrics.aggregateMetrics(
               ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
       this.phaseMaxMetrics = metrics;
-      this.phaseChange = false;
     } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
       this.phaseMaxMetrics = metrics;
     }
@@ -204,7 +216,7 @@ public class CriticalPathComponent {
 
   /** Set the phaseChange flag as true so we will aggregate incoming spawnMetrics. */
   void changePhase() {
-    this.phaseChange = true;
+    phaseChange.set(true);
   }
 
   /**
@@ -226,23 +238,28 @@ public class CriticalPathComponent {
   }
 
   /**
-   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not running.
+   * Update the child component if new dep has a longer runtime than the current child. The runtime
+   * is determined by the union of current component's runtime range and the child or dep's runtime
+   * range. Caller should ensure dep not running.
    */
-  synchronized void addDepInfo(CriticalPathComponent dep) {
-    long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
-    // Replace the child if its critical path had the maximum elapsed time.
-    if (child == null || childAggregatedWallTime > this.childAggregatedElapsedTime) {
-      this.childAggregatedElapsedTime = childAggregatedWallTime;
+  synchronized void addDepInfo(CriticalPathComponent dep, Range<Long> componentRuntimeRange) {
+    if (child == null) {
+      child = dep;
+      return;
+    }
+    long depRuntime = aggregateTimelineNanos(mergeTimeline(dep, componentRuntimeRange));
+    long childRuntime = aggregateTimelineNanos(mergeTimeline(child, componentRuntimeRange));
+    if (depRuntime > childRuntime) {
       child = dep;
     }
   }
 
-  public long getStartTimeNanos() {
-    return startNanos;
+  public synchronized long getStartTimeNanos() {
+    return startAndFinishNanos.lowerEndpoint();
   }
 
-  public long getStartTimeMillisSinceEpoch(NanosToEpochConverter converter) {
-    return converter.toEpoch(startNanos);
+  public synchronized long getStartTimeMillisSinceEpoch(NanosToEpochConverter converter) {
+    return converter.toEpoch(startAndFinishNanos.lowerEndpoint());
   }
 
   public Duration getElapsedTime() {
@@ -250,7 +267,7 @@ public class CriticalPathComponent {
   }
 
   long getElapsedTimeNanos() {
-    if (isRunning) {
+    if (isRunning.get()) {
       // It can happen that we're being asked to compute a critical path even though the build was
       // interrupted. In that case, we may not have gotten an action completion event. We don't have
       // access to the clock from here, so we have to return 0.
@@ -265,26 +282,45 @@ public class CriticalPathComponent {
   }
 
   /** To be used only in debugging: skips state invariance checks to avoid crash-looping. */
-  private Duration getElapsedTimeNoCheck() {
+  @VisibleForTesting
+  Duration getElapsedTimeNoCheck() {
     return Duration.ofNanos(getElapsedTimeNanosNoCheck());
   }
 
-  private long getElapsedTimeNanosNoCheck() {
-    return finishNanos - startNanos;
+  private synchronized long getElapsedTimeNanosNoCheck() {
+    return startAndFinishNanos.upperEndpoint() - startAndFinishNanos.lowerEndpoint();
   }
 
   /**
    * Returns the current critical path for the action.
    *
-   * <p>Critical path is defined as : action_execution_time + max(child_critical_path).
+   * <p>Critical path is defined as the longest running path of intersecting critical path
+   * components.
    */
-  Duration getAggregatedElapsedTime() {
-    return Duration.ofNanos(getAggregatedElapsedTimeNanos());
+  synchronized Duration getAggregatedElapsedTime() {
+    Preconditions.checkState(!isRunning.get(), "Still running %s", this);
+    return Duration.ofNanos(aggregateTimelineNanos(timelineNanos));
   }
 
-  private long getAggregatedElapsedTimeNanos() {
-    Preconditions.checkState(!isRunning, "Still running %s", this);
-    return getElapsedTimeNanos() + childAggregatedElapsedTime;
+  /** Returns the total aggregated runtime based on the passed in timeline. */
+  private static long aggregateTimelineNanos(RangeSet<Long> timeline) {
+    long totalNanos = 0;
+    for (Range<Long> timeRange : timeline.asRanges()) {
+      totalNanos += timeRange.upperEndpoint() - timeRange.lowerEndpoint();
+    }
+    return totalNanos;
+  }
+
+  /** Returns the union of the dep timeline and range if dep exists, otherwise just return range. */
+  private static ImmutableRangeSet<Long> mergeTimeline(
+      CriticalPathComponent dep, Range<Long> range) {
+    return dep.getTimeline().union(ImmutableRangeSet.of(range));
+  }
+
+  /** The timeline of the component is only ready once the component has completed running */
+  private synchronized ImmutableRangeSet<Long> getTimeline() {
+    Preconditions.checkState(!isRunning.get(), "Still running %s", this);
+    return timelineNanos;
   }
 
   /**
@@ -307,7 +343,7 @@ public class CriticalPathComponent {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     String currentTime = "still running";
-    if (!isRunning) {
+    if (!isRunning.get()) {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
