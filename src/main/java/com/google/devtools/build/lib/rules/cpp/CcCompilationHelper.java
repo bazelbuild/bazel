@@ -344,6 +344,7 @@ public final class CcCompilationHelper {
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
+    setPurpose(common.getPurpose(semantics));
     return this;
   }
 
@@ -1277,7 +1278,7 @@ public final class CcCompilationHelper {
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.
-    if (purpose != null) {
+    if (purpose != null && purpose.endsWith("_objc_arc")) {
       outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);

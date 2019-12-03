@@ -61,6 +61,7 @@ public final class MiddlemanAction extends AbstractAction {
     super(owner, inputs, outputs);
     Preconditions.checkNotNull(middlemanType);
     Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isMiddlemanArtifact(), outputs);
+    Preconditions.checkNotNull(description);
     this.description = description;
     this.middlemanType = middlemanType;
   }
