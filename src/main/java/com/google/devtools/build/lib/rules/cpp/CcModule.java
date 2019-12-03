@@ -1551,6 +1551,7 @@ public abstract class CcModule
       throw new EvalException(location, "Either PIC or no PIC actions have to be created.");
     }
 
+    CcCommon common = new CcCommon(actions.getRuleContext());
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(location, actions),
@@ -1592,7 +1593,8 @@ public abstract class CcModule
             .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
             .addAdditionalCompilationInputs(
                 additionalInputs.getContents(Artifact.class, "additional_inputs"))
-            .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam);
+            .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
+            .setPurpose(common.getPurpose(getSemantics()));
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);
     }
