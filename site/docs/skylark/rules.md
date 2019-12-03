@@ -689,7 +689,7 @@ Example code:
 ```python
 def _mytool_impl(ctx):
   ...
-  my_runfiles = ctx.runfles(files = mytool_files)
+  my_runfiles = ctx.runfiles(files = mytool_files)
   for subtool in ctx.attr.subtools:
     subtool_runfiles = subtool[DefaultInfo].default_runfiles
     my_runfiles = my_runfiles.merge(subtool_runfiles)
