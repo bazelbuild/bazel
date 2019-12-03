@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -69,6 +70,7 @@ import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -167,13 +169,14 @@ public final class RemoteModule extends BlazeModule {
 
       Preconditions.checkState(enableGrpcCache || enableRemoteExecution);
 
-      ClientInterceptor loggingInterceptor = null;
+      List<ClientInterceptor> interceptors = new ArrayList<>();
       if (remoteOptions.experimentalRemoteGrpcLog != null) {
         rpcLogFile =
             new AsynchronousFileOutputStream(
                 env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
-        loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
+        interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
       }
+      interceptors.add(new NetworkTime.Interceptor());
 
       ReferenceCountedChannel execChannel = null;
       ReferenceCountedChannel cacheChannel = null;
@@ -183,7 +186,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.toArray(new ClientInterceptor[0]));
         // Create a separate channel if --remote_executor and --remote_cache point to different
         // endpoints.
         if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
@@ -198,7 +201,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.toArray(new ClientInterceptor[0]));
       }
 
       CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);

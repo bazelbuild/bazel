@@ -54,7 +54,7 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable ClientInterceptor interceptor)
+      ClientInterceptor... interceptors)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
@@ -69,9 +69,7 @@ public final class GoogleAuthUtils {
           newNettyChannelBuilder(targetUrl, proxy)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-      if (interceptor != null) {
-        builder.intercept(interceptor);
-      }
+      builder.intercept(interceptors);
       if (sslContext != null) {
         builder.sslContext(sslContext);
         if (options.tlsAuthorityOverride != null) {

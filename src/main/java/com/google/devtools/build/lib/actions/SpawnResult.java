@@ -213,6 +213,9 @@ public interface SpawnResult {
   /** Returns a file path to the action metadata log. */
   Optional<MetadataLog> getActionMetadataLog();
 
+  /** Whether the spawn result was obtained through remote strategy. */
+  boolean wasRemote();
+
   /**
    * Basic implementation of {@link SpawnResult}.
    */
@@ -234,6 +237,7 @@ public interface SpawnResult {
     private final ActionInput inMemoryOutputFile;
     private final ByteString inMemoryContents;
     private final Optional<MetadataLog> actionMetadataLog;
+    private final boolean remote;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -254,6 +258,7 @@ public interface SpawnResult {
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
       this.actionMetadataLog = builder.actionMetadataLog;
+      this.remote = builder.remote;
     }
 
     @Override
@@ -383,6 +388,11 @@ public interface SpawnResult {
     public Optional<MetadataLog> getActionMetadataLog() {
       return actionMetadataLog;
     }
+
+    @Override
+    public boolean wasRemote() {
+      return remote;
+    }
   }
 
   /**
@@ -406,6 +416,7 @@ public interface SpawnResult {
     /* Invariant: Either both have a value or both are null. */
     private ActionInput inMemoryOutputFile;
     private ByteString inMemoryContents;
+    private boolean remote;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -493,6 +504,11 @@ public interface SpawnResult {
 
     public Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
       this.actionMetadataLog = Optional.of(actionMetadataLog);
+      return this;
+    }
+
+    public Builder setRemote(boolean remote) {
+      this.remote = remote;
       return this;
     }
   }

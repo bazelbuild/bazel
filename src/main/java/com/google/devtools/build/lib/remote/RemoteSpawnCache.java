@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -25,12 +26,14 @@ import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -58,6 +62,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.grpc.Context;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
@@ -125,9 +130,15 @@ final class RemoteSpawnCache implements SpawnCache {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
     }
 
+    NetworkTime networkTime = new NetworkTime();
+    Stopwatch totalTime = Stopwatch.createStarted();
+
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+    SpawnMetrics.Builder spawnMetrics = new SpawnMetrics.Builder()
+        .setInputBytes(merkleTree.getInputBytes())
+        .setInputFiles(merkleTree.getInputFiles());
     Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
@@ -147,7 +158,8 @@ final class RemoteSpawnCache implements SpawnCache {
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
     Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
+        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
+            .withValue(NetworkTime.CONTEXT_KEY, networkTime);
 
     Profiler prof = Profiler.instance();
     if (checkCache) {
@@ -168,6 +180,7 @@ final class RemoteSpawnCache implements SpawnCache {
                   remoteOutputsMode,
                   /* exitCode = */ 0,
                   hasFilesToDownload(spawn.getOutputFiles(), filesToDownload));
+          Stopwatch fetchTime = Stopwatch.createStarted();
           if (downloadOutputs) {
             try (SilentCloseable c =
                 prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
@@ -190,9 +203,15 @@ final class RemoteSpawnCache implements SpawnCache {
                       context::lockOutputFiles);
             }
           }
+          fetchTime.stop();
+          totalTime.stop();
+          spawnMetrics
+              .setFetchTime(Duration.ofNanos(fetchTime.elapsed(NANOSECONDS)))
+              .setTotalTime(Duration.ofNanos(totalTime.elapsed(NANOSECONDS)))
+              .setNetworkTime(networkTime.getDuration());
           SpawnResult spawnResult =
               createSpawnResult(
-                  result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput);
+                  result.getExitCode(), /* cacheHit= */ true, "remote", inMemoryOutput, spawnMetrics.build());
           return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {

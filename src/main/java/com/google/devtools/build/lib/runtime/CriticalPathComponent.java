@@ -90,6 +90,9 @@ public class CriticalPathComponent {
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
 
+  /** Indication that there is at least one remote spawn metrics received. */
+  private boolean remote = false;
+
   public CriticalPathComponent(int id, Action action, long startNanos) {
     this.id = id;
     this.action = Preconditions.checkNotNull(action);
@@ -198,7 +201,10 @@ public class CriticalPathComponent {
    * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
    * it exists.
    */
-  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
+  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName, boolean wasRemote) {
+    if (wasRemote) {
+      this.remote = true;
+    }
     if (phaseChange.getAndSet(false)) {
       this.totalSpawnMetrics =
           SpawnMetrics.aggregateMetrics(
@@ -347,8 +353,10 @@ public class CriticalPathComponent {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
-    sb.append(", Remote ");
-    sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+    if (remote) {
+      sb.append(", Remote ");
+      sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+    }
     sb.append(" ");
     sb.append(getActionString());
     return sb.toString();

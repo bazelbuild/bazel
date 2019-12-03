@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -120,6 +121,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       } else {
         // Actual execution.
         spawnResult = spawnRunner.execAsync(spawn, context).get();
+        actionExecutionContext
+            .getEventHandler()
+            .post(new SpawnExecutedEvent(spawn, spawnResult));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }

@@ -58,10 +58,10 @@ public final class RemoteCacheClientFactory {
       String target,
       String proxyUri,
       AuthAndTLSOptions authOptions,
-      @Nullable ClientInterceptor interceptor)
+      ClientInterceptor... interceptors)
       throws IOException {
     return new ReferenceCountedChannel(
-        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptor));
+        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
   }
 
   public static RemoteCacheClient create(
