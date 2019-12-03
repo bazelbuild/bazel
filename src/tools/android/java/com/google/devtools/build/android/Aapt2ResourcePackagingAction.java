@@ -17,6 +17,7 @@ import static com.google.common.collect.Streams.concat;
 import static java.util.stream.Collectors.toList;
 
 import com.android.utils.StdLogger;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
@@ -71,6 +72,9 @@ public class Aapt2ResourcePackagingAction {
     aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
 
+    // legacy option inherited from Options.class
+    Preconditions.checkArgument(options.prefilteredResources.isEmpty());
+
     try (ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp");
         ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
@@ -82,8 +86,7 @@ public class Aapt2ResourcePackagingAction {
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
-      final AndroidDataDeserializer dataDeserializer =
-          AndroidCompiledDataDeserializer.withFilteredResources(options.prefilteredResources);
+      final AndroidDataDeserializer dataDeserializer = AndroidCompiledDataDeserializer.create();
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,

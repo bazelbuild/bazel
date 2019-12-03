@@ -74,7 +74,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.proto.SerializeFormat;
@@ -94,7 +93,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -225,24 +223,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           .put(640, Density.XXXHIGH)
           .build();
 
-  private final ImmutableSet<String> filteredResources;
-
-  /**
-   * @param filteredResources resources that were filtered out of this target and should be ignored
-   *     if they are referenced in symbols files.
-   */
-  public static AndroidCompiledDataDeserializer withFilteredResources(
-      Collection<String> filteredResources) {
-    return new AndroidCompiledDataDeserializer(ImmutableSet.copyOf(filteredResources));
-  }
-
   public static AndroidCompiledDataDeserializer create() {
-    return new AndroidCompiledDataDeserializer(ImmutableSet.of());
+    return new AndroidCompiledDataDeserializer();
   }
 
-  private AndroidCompiledDataDeserializer(ImmutableSet<String> filteredResources) {
-    this.filteredResources = filteredResources;
-  }
+  private AndroidCompiledDataDeserializer() {}
 
   private static void readResourceTable(
       DependencyInfo dependencyInfo,
@@ -662,15 +647,6 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         Path filePath =
             Paths.get(fileZipPath.substring(0, resourceSubdirectoryIndex))
                 .resolve(fileZipPath.substring(resourceSubdirectoryIndex + 1));
-
-        String shortPath = filePath.getParent().getFileName() + "/" + filePath.getFileName();
-
-        if (filteredResources.contains(shortPath) && !Files.exists(filePath)) {
-          // Skip files that were filtered out during analysis.
-          // TODO(asteinb): Properly filter out these files from android_library symbol files during
-          // analysis instead, and remove this list.
-          continue;
-        }
 
         try (InputStream resourceFileStream = zipFile.getInputStream(resourceFile)) {
           final String[] dirNameAndQualifiers =
