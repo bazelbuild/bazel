@@ -9,6 +9,7 @@ package(
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.
+# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
