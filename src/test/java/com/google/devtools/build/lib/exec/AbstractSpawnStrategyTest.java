@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -79,12 +80,15 @@ public class AbstractSpawnStrategyTest {
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
   @Mock private MessageOutputStream messageOutput;
+  private StoredEventHandler eventHandler;
 
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
+    eventHandler = new StoredEventHandler();
+    when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
   }
 
   @Test
