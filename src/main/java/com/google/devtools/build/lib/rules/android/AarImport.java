@@ -120,12 +120,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
-    // build could be empty. The resources zip and merged jars are added here as a sanity check for
+    // build could be empty. The R class JAR and merged JARs are added here as a sanity check for
     // Bazel developers so that `bazel build java/com/my_aar_import` will fail if the resource
-    // processing or jar merging steps fail.
+    // processing or JAR merging steps fail.
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
-            .add(resourceApk.getValidatedResources().getMergedResources())
+            .add(resourceApk.getValidatedResources().getJavaClassJar())
             .add(mergedJar)
             .build();
 
