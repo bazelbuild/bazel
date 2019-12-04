@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -62,7 +63,7 @@ public class JavaTargetAttributes {
     private final NestedSetBuilder<Artifact> compileTimeClassPath =
         NestedSetBuilder.naiveLinkOrder();
 
-    private final List<Artifact> bootClassPath = new ArrayList<>();
+    private NestedSet<Artifact> bootClassPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private final List<Artifact> sourcePath = new ArrayList<>();
     private final List<Artifact> nativeLibraries = new ArrayList<>();
 
@@ -188,11 +189,11 @@ public class JavaTargetAttributes {
      * <p>If this method is called, then the bootclasspath specified in this JavaTargetAttributes
      * instance overrides the default bootclasspath.
      */
-    public Builder setBootClassPath(List<Artifact> jars) {
+    public Builder setBootClassPath(NestedSet<Artifact> jars) {
       Preconditions.checkArgument(!built);
       Preconditions.checkArgument(!jars.isEmpty());
       Preconditions.checkState(bootClassPath.isEmpty());
-      bootClassPath.addAll(jars);
+      bootClassPath = jars;
       return this;
     }
 
@@ -389,7 +390,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> runtimeClassPath;
   private final NestedSet<Artifact> compileTimeClassPath;
 
-  private final ImmutableList<Artifact> bootClassPath;
+  private final NestedSet<Artifact> bootClassPath;
   private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
@@ -418,7 +419,7 @@ public class JavaTargetAttributes {
       Set<Artifact> sourceFiles,
       NestedSetBuilder<Artifact> runtimeClassPath,
       NestedSetBuilder<Artifact> compileTimeClassPath,
-      List<Artifact> bootClassPath,
+      NestedSet<Artifact> bootClassPath,
       List<Artifact> sourcePath,
       List<Artifact> nativeLibraries,
       JavaPluginInfoProvider plugins,
@@ -442,7 +443,7 @@ public class JavaTargetAttributes {
             .addTransitive(directJars)
             .addTransitive(compileTimeClassPath.build())
             .build();
-    this.bootClassPath = ImmutableList.copyOf(bootClassPath);
+    this.bootClassPath = bootClassPath;
     this.sourcePath = ImmutableList.copyOf(sourcePath);
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
     this.plugins = plugins;
@@ -524,7 +525,7 @@ public class JavaTargetAttributes {
     return compileTimeClassPath;
   }
 
-  public ImmutableList<Artifact> getBootClassPath() {
+  public NestedSet<Artifact> getBootClassPath() {
     return bootClassPath;
   }
 

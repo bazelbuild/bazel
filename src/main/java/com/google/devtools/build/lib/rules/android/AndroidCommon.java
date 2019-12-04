@@ -488,7 +488,8 @@ public class AndroidCommon {
     JavaTargetAttributes.Builder attributes =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
-            .setBootClassPath(bootclasspath);
+            .setBootClassPath(
+                NestedSetBuilder.<Artifact>wrap(Order.NAIVE_LINK_ORDER, bootclasspath));
 
     resourceApk
         .asDataBindingContext()
