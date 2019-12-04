@@ -59,11 +59,17 @@ java_library(
 java_test(
     name = "SkyframeTests",
     srcs = select({
-        "//src/conditions:darwin": glob(["*.java"]),
-        "//src/conditions:darwin_x86_64": glob(["*.java"]),
+        "//src/conditions:darwin": glob(
+            ["*.java"],
+            exclude = CROSS_PLATFORM_WINDOWS_TESTS,
+        ),
+        "//src/conditions:darwin_x86_64": glob(
+            ["*.java"],
+            exclude = CROSS_PLATFORM_WINDOWS_TESTS,
+        ),
         "//conditions:default": glob(
             ["*.java"],
-            exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],
+            exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + CROSS_PLATFORM_WINDOWS_TESTS,
         ),
     }),
     shard_count = 20,
