@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1346,6 +1347,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   private static CcLinkingContext createLinkingContextWithDynamicDependencies(
       ImmutableList<CcLinkingContext.LinkerInput> staticLinkerInputs,
+      ImmutableList<CcLinkingContext.LinkerInput> preloadedDeps,
       ImmutableCollection<CcLinkingContext.LinkerInput> dynamicLinkerInputs) {
 
     return CcLinkingContext.builder()
@@ -1353,14 +1355,44 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             NestedSetBuilder.<CcLinkingContext.LinkerInput>linkOrder()
                 .addAll(dynamicLinkerInputs)
                 .addAll(staticLinkerInputs)
+                .addAll(preloadedDeps)
                 .build())
         .build();
+  }
+
+  private static ImmutableList<CcLinkingContext.LinkerInput> getPreloadedDepsFromDynamicDeps(
+      RuleContext ruleContext, CppSemantics cppSemantics) {
+    ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("dynamic_deps", Mode.TARGET)) {
+      StructImpl ccSharedLibraryInfo = cppSemantics.getCcSharedLibraryInfo(dep);
+      try {
+        Object preloadedDepsField = ccSharedLibraryInfo.getValue("preloaded_deps");
+        if (preloadedDepsField == null) {
+          ruleContext.ruleError(
+              String.format(
+                  "The cc_shared_library '%s' does not have an 'preloaded_deps' field",
+                  dep.getLabel()));
+          return null;
+        }
+        if (!Starlark.NONE.equals(preloadedDepsField)) {
+          ccInfos.add((CcInfo) preloadedDepsField);
+        }
+      } catch (EvalException e) {
+        ruleContext.ruleError(
+            String.format(
+                "In the cc_shared_library rule '%s': %s", dep.getLabel(), e.getMessage()));
+        return null;
+      }
+    }
+    return CcInfo.merge(ccInfos.build()).getCcLinkingContext().getLinkerInputs().toList();
   }
 
   private static CcLinkingContext filterLibrariesThatAreLinkedDynamically(
       RuleContext ruleContext, CcLinkingContext ccLinkingContext, CppSemantics cppSemantics) {
     ImmutableList<Pair<List<String>, CcLinkingContext.LinkerInput>> mergedCcSharedLibraryInfos =
         mergeCcSharedLibraryInfos(ruleContext, cppSemantics);
+    ImmutableList<CcLinkingContext.LinkerInput> preloadedDeps =
+        getPreloadedDepsFromDynamicDeps(ruleContext, cppSemantics);
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -1370,6 +1402,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ImmutableList<CcLinkingContext.LinkerInput> staticLinkerInputs =
         filterInputs(ruleContext, ccLinkingContext, exportsMap);
 
-    return createLinkingContextWithDynamicDependencies(staticLinkerInputs, exportsMap.values());
+    return createLinkingContextWithDynamicDependencies(
+        staticLinkerInputs, preloadedDeps, exportsMap.values());
   }
 }
