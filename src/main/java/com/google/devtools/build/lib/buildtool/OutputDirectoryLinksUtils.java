@@ -65,11 +65,15 @@ public final class OutputDirectoryLinksUtils {
 
     @Override
     public Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
+      if (!buildRequestOptions.experimentalCreatePyBinSymlinks) {
+        return ImmutableSet.of();
+      }
       return targetConfigs.stream()
           .map(config -> configGetter.apply(transition.patch(config.getOptions())))
           .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
@@ -79,29 +83,19 @@ public final class OutputDirectoryLinksUtils {
   }
 
   /**
-   * Returns the (types of) convenience symlinks that should be created for the given options.
+   * Returns all (types of) convenience symlinks that may be created.
+   *
+   * <p>Note that this is independent of which symlinks are actually requested by the build options;
+   * that's controlled by returning no candidates in {@link SymlinkDefinition#getLinkPaths}.
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
-   *
-   * <p>The result is always a subset of {@link #getAllLinkDefinitions}.
-   */
-  private static ImmutableList<SymlinkDefinition> getLinkDefinitions(
-      boolean includeGenfiles, boolean includePyBin) {
-    ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
-    builder.addAll(ConvenienceSymlinks.getStandardLinkDefinitions(includeGenfiles));
-    if (includePyBin) {
-      builder.add(PyBinSymlink.PY2);
-      builder.add(PyBinSymlink.PY3);
-    }
-    return builder.build();
-  }
-
-  /**
-   * Returns all (types of) convenience symlinks that may be created, independent of which ones are
-   * actually requested by the build options.
    */
   private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions() {
-    return getLinkDefinitions(/*includeGenfiles=*/ true, /*includePyBin=*/ true);
+    ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
+    builder.addAll(ConvenienceSymlinks.getStandardLinkDefinitions());
+    builder.add(PyBinSymlink.PY2);
+    builder.add(PyBinSymlink.PY3);
+    return builder.build();
   }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
@@ -126,6 +120,7 @@ public final class OutputDirectoryLinksUtils {
    * invocations will be removed.
    */
   static void createOutputDirectoryLinks(
+      BuildRequestOptions buildRequestOptions,
       String workspaceName,
       Path workspace,
       Path execRoot,
@@ -133,10 +128,8 @@ public final class OutputDirectoryLinksUtils {
       EventHandler eventHandler,
       Set<BuildConfiguration> targetConfigs,
       Function<BuildOptions, BuildConfiguration> configGetter,
-      String symlinkPrefix,
-      String productName,
-      boolean createGenfilesSymlink,
-      boolean createPyBinSymlinks) {
+      String productName) {
+    String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -147,27 +140,29 @@ public final class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
-    List<SymlinkDefinition> defs =
-        getLinkDefinitions(
-            /*includeGenfiles=*/ createGenfilesSymlink, /*includePyBin=*/ createPyBinSymlinks);
-    for (SymlinkDefinition definition : defs) {
-      String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
-      if (!createdLinks.add(symlinkName)) {
+    for (SymlinkDefinition symlink : getAllLinkDefinitions()) {
+      String linkName = symlink.getLinkName(symlinkPrefix, productName, workspaceBaseName);
+      if (!createdLinks.add(linkName)) {
         // already created a link by this name
         continue;
       }
       Set<Path> candidatePaths =
-          definition.getLinkPaths(
-              targetConfigs, configGetter, repositoryName, outputPath, execRoot);
+          symlink.getLinkPaths(
+              buildRequestOptions,
+              targetConfigs,
+              configGetter,
+              repositoryName,
+              outputPath,
+              execRoot);
       if (candidatePaths.size() == 1) {
-        createLink(workspace, symlinkName, Iterables.getOnlyElement(candidatePaths), failures);
+        createLink(workspace, linkName, Iterables.getOnlyElement(candidatePaths), failures);
       } else {
-        removeLink(workspace, symlinkName, failures);
+        removeLink(workspace, linkName, failures);
         // candidatePaths can be empty if the symlink decided not to be created. This can happen if,
         // say, py2-bin is enabled but there's an error producing the py2 configuration. In that
         // case, don't trigger a warning about an ambiguous link.
         if (candidatePaths.size() > 1) {
-          ambiguousLinks.add(symlinkName);
+          ambiguousLinks.add(linkName);
         }
       }
     }

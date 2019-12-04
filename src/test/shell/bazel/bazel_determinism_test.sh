@@ -38,7 +38,7 @@ fi
 function hash_outputs() {
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
-  find bazel-bin/ bazel-genfiles/ \
+  find bazel-bin/ \
       -type f \
       -a \! -name MANIFEST \
       -a \! -name '*.runfiles_manifest' \

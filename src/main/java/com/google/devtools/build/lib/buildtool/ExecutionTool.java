@@ -501,6 +501,7 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          buildRequestOptions,
           workspaceName,
           env.getWorkspace(),
           env.getDirectories().getExecRoot(workspaceName),
@@ -508,10 +509,7 @@ public class ExecutionTool {
           getReporter(),
           targetConfigurations,
           options -> getConfiguration(executor, reporter, options),
-          buildRequestOptions.getSymlinkPrefix(productName),
-          productName,
-          !buildRequestOptions.incompatibleSkipGenfilesSymlink,
-          buildRequestOptions.experimentalCreatePyBinSymlinks);
+          productName);
     }
   }
 

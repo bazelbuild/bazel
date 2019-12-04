@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
@@ -52,15 +53,23 @@ public final class ConvenienceSymlinks {
     /**
      * Returns a list of candidate destination paths for the symlink.
      *
-     * <p>The symlink should only be created if there is exactly one candidate. Zero candidates is
-     * a no-op, and more than one candidate means a warning about ambiguous symlink destinations
+     * <p>The symlink should only be created if there is exactly one candidate. Zero candidates is a
+     * no-op, and more than one candidate means a warning about ambiguous symlink destinations
      * should be emitted.
      *
-     * <p>{@code configGetter} is used to compute derived configurations, if needed. It is used for
-     * symlinks that link to the output directories of configs that are related to, but not included
-     * in, {@code targetConfigs}.
+     * @param buildRequestOptions options that may control which symlinks get created and what they
+     *     point to.
+     * @param targetConfigs the configurations for which symlinks should be created. If these have
+     *     conflicting requirements, multiple candidates are returned.
+     * @param configGetter used to compute derived configurations, if needed. This is used for
+     *     symlinks that link to the output directories of configs that are related to, but not
+     *     included in, {@code targetConfigs}.
+     * @param repositoryName the repository name.
+     * @param outputPath the output path.
+     * @param execRoot the exec root.
      */
     Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
@@ -69,7 +78,7 @@ public final class ConvenienceSymlinks {
   }
 
   /** Base class for symlinks to output roots. */
-  public static final class ConfigSymlink implements SymlinkDefinition {
+  private static class ConfigSymlink implements SymlinkDefinition {
     @FunctionalInterface
     private static interface ConfigPathGetter {
       ArtifactRoot apply(BuildConfiguration configuration, RepositoryName repositoryName);
@@ -90,6 +99,7 @@ public final class ConvenienceSymlinks {
 
     @Override
     public Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
@@ -102,6 +112,35 @@ public final class ConvenienceSymlinks {
     }
   }
 
+  public static final ConfigSymlink BIN_SYMLINK =
+      new ConfigSymlink("bin", BuildConfiguration::getBinDirectory);
+
+  public static final ConfigSymlink TESTLOGS_SYMLINK =
+      new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory);
+
+  public static final ConfigSymlink GENFILES_SYMLINK =
+      new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory) {
+        @Override
+        public Set<Path> getLinkPaths(
+            BuildRequestOptions buildRequestOptions,
+            Set<BuildConfiguration> targetConfigs,
+            Function<BuildOptions, BuildConfiguration> configGetter,
+            RepositoryName repositoryName,
+            Path outputPath,
+            Path execRoot) {
+          if (buildRequestOptions.incompatibleSkipGenfilesSymlink) {
+            return ImmutableSet.of();
+          }
+          return super.getLinkPaths(
+              buildRequestOptions,
+              targetConfigs,
+              configGetter,
+              repositoryName,
+              outputPath,
+              execRoot);
+        }
+      };
+
   /** Symlink to the execroot. */
   public enum ExecRootSymlink implements SymlinkDefinition {
     INSTANCE;
@@ -113,6 +152,7 @@ public final class ConvenienceSymlinks {
 
     @Override
     public Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
@@ -143,6 +183,7 @@ public final class ConvenienceSymlinks {
 
     @Override
     public Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
         RepositoryName repositoryName,
@@ -156,18 +197,12 @@ public final class ConvenienceSymlinks {
    * Returns the standard types of convenience symlinks.
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
-   *
-   * @param includeGenfiles whether to include the {@code genfiles} symlink, which is in the process
-   *     of being deprecated ({@code --incompatible_skip_genfiles_symlink})
    */
-  public static ImmutableList<SymlinkDefinition> getStandardLinkDefinitions(
-      boolean includeGenfiles) {
+  public static ImmutableList<SymlinkDefinition> getStandardLinkDefinitions() {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
-    builder.add(new ConfigSymlink("bin", BuildConfiguration::getBinDirectory));
-    builder.add(new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory));
-    if (includeGenfiles) {
-      builder.add(new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory));
-    }
+    builder.add(BIN_SYMLINK);
+    builder.add(TESTLOGS_SYMLINK);
+    builder.add(GENFILES_SYMLINK);
     builder.add(OutputSymlink.PRODUCT_NAME);
     builder.add(OutputSymlink.SYMLINK_PREFIX);
     builder.add(ExecRootSymlink.INSTANCE);
