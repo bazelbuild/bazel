@@ -1566,6 +1566,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHander(reporter)
+              .setExecutionPhase()
               .build();
       return buildDriver.evaluate(
           Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),

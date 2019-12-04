@@ -127,7 +127,7 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   /** Returns the set of all keys that are enqueued for evaluation, and resets the set to empty. */
-  protected Set<SkyKey> getAndClearInflightKeys() {
+  public Set<SkyKey> getAndClearInflightKeys() {
     Set<SkyKey> keys = inflightKeys;
     inflightKeys = Sets.newConcurrentHashSet();
     return keys;
