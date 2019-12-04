@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -62,9 +63,11 @@ class BuildResultPrinter {
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
 
-    String productName = env.getRuntime().getProductName();
+    BlazeRuntime runtime = env.getRuntime();
+    String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
             request.getBuildOptions().getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),

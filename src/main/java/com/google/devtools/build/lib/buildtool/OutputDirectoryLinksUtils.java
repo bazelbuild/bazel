@@ -90,11 +90,13 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
    */
-  private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions() {
+  private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
+      Iterable<SymlinkDefinition> symlinkDefinitions) {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.addAll(ConvenienceSymlinks.getStandardLinkDefinitions());
     builder.add(PyBinSymlink.PY2);
     builder.add(PyBinSymlink.PY3);
+    builder.addAll(symlinkDefinitions);
     return builder.build();
   }
 
@@ -120,6 +122,7 @@ public final class OutputDirectoryLinksUtils {
    * invocations will be removed.
    */
   static void createOutputDirectoryLinks(
+      Iterable<SymlinkDefinition> symlinkDefinitions,
       BuildRequestOptions buildRequestOptions,
       String workspaceName,
       Path workspace,
@@ -140,7 +143,7 @@ public final class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
-    for (SymlinkDefinition symlink : getAllLinkDefinitions()) {
+    for (SymlinkDefinition symlink : getAllLinkDefinitions(symlinkDefinitions)) {
       String linkName = symlink.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(linkName)) {
         // already created a link by this name
@@ -182,9 +185,17 @@ public final class OutputDirectoryLinksUtils {
   }
 
   public static PathPrettyPrinter getPathPrettyPrinter(
-      String symlinkPrefix, String productName, Path workspaceDirectory, Path workingDirectory) {
+      Iterable<SymlinkDefinition> symlinkDefinitions,
+      String symlinkPrefix,
+      String productName,
+      Path workspaceDirectory,
+      Path workingDirectory) {
     return new PathPrettyPrinter(
-        getAllLinkDefinitions(), symlinkPrefix, productName, workspaceDirectory, workingDirectory);
+        getAllLinkDefinitions(symlinkDefinitions),
+        symlinkPrefix,
+        productName,
+        workspaceDirectory,
+        workingDirectory);
   }
 
   /**
@@ -193,12 +204,14 @@ public final class OutputDirectoryLinksUtils {
    * <p>Issues a warning if it fails, e.g. because workspaceDirectory is readonly. Also cleans up
    * any child directories created by a custom prefix.
    *
+   * @param symlinkDefinitions extra symlink types added by the {@link ConfiguredRuleClassProvider}
    * @param workspace the runtime's workspace
    * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    * @param productName the product name
    */
   public static void removeOutputDirectoryLinks(
+      Iterable<SymlinkDefinition> symlinkDefinitions,
       String workspaceName,
       Path workspace,
       EventHandler eventHandler,
@@ -210,7 +223,7 @@ public final class OutputDirectoryLinksUtils {
     List<String> failures = new ArrayList<>();
 
     String workspaceBaseName = workspace.getBaseName();
-    for (SymlinkDefinition link : getAllLinkDefinitions()) {
+    for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
       removeLink(
           workspace, link.getLinkName(symlinkPrefix, productName, workspaceBaseName), failures);
     }

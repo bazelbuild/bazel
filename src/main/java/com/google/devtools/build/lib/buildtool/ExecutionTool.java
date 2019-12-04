@@ -498,6 +498,7 @@ public class ExecutionTool {
     try (SilentCloseable c =
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          runtime.getRuleClassProvider().getSymlinkDefinitions(),
           buildRequestOptions,
           workspaceName,
           env.getWorkspace(),

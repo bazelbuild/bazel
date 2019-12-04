@@ -202,16 +202,18 @@ public class TestCommand implements BlazeCommand {
   private static TestLogPathFormatter makeTestLogPathFormatter(
       OptionsParsingResult options,
       CommandEnvironment env) {
+    BlazeRuntime runtime = env.getRuntime();
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
     if (!summaryOptions.printRelativeTestLogPaths) {
       return Path::getPathString;
     }
-    String productName = env.getRuntime().getProductName();
+    String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     // requestOptions.printWorkspaceInOutputPathsIfNeeded is antithetical with
     // summaryOptions.printRelativeTestLogPaths, so we completely ignore it.
     PathPrettyPrinter pathPrettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),
