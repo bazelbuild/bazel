@@ -13,20 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import java.io.IOException;
 
 /** Cache for BuildConfigurations in the action graph. */
 public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
 
-  KnownConfigurations(ActionGraphContainer.Builder actionGraphBuilder) {
-    super(actionGraphBuilder);
+  KnownConfigurations(StreamedOutputHandler streamedOutputHandler) {
+    super(streamedOutputHandler);
   }
 
   @Override
-  Configuration createProto(BuildEvent config, int id) {
+  Configuration createProto(BuildEvent config, int id) throws IOException {
     BuildEventStreamProtos.Configuration configProto =
         config.asStreamProto(/*context=*/ null).getConfiguration();
     return Configuration.newBuilder()
@@ -38,7 +39,9 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
   }
 
   @Override
-  void addToActionGraphBuilder(Configuration configurationProto) {
-    actionGraphBuilder.addConfiguration(configurationProto);
+  void streamToOutput(Configuration configurationProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setConfiguration(configurationProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

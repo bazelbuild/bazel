@@ -1096,10 +1096,18 @@ EOF
   bazel aquery --incompatible_proto_output_v2 --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
+
   # Verify than ids come in integers instead of strings.
   assert_contains "id: 1" output
   assert_not_contains "id: \"1\"" output
-  assert_contains "path_fragments {" output
+
+  # Verify that it consists of action_graph_components.
+  assert_contains "action_graph_components {" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "path_fragment {" output
+
+  # Verify that the appropriate action was included.
   assert_contains "label: \"dummy.txt\"" output
   assert_contains "mnemonic: \"Genrule\"" output
   assert_contains "mnemonic: \".*-fastbuild\"" output

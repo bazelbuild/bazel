@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,6 @@ import java.util.Set;
  */
 public class ActionGraphDump {
 
-  private final ActionGraphContainer.Builder actionGraphBuilder = ActionGraphContainer.newBuilder();
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
   private final Set<String> actionGraphTargets;
 
@@ -68,6 +68,7 @@ public class ActionGraphDump {
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
+  private final StreamedOutputHandler streamedOutputHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -75,23 +76,15 @@ public class ActionGraphDump {
       boolean includeActionCmdLine,
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
-      boolean includeParamFiles) {
+      boolean includeParamFiles,
+      StreamedOutputHandler streamedOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
         actionFilters,
-        includeParamFiles);
-  }
-
-  public ActionGraphDump(
-      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts) {
-    this(
-        actionGraphTargets,
-        includeActionCmdLine,
-        includeArtifacts,
-        /* actionFilters= */ AqueryActionFilter.emptyInstance(),
-        /* includeParamFiles */ false);
+        includeParamFiles,
+        streamedOutputHandler);
   }
 
   public ActionGraphDump(
@@ -99,20 +92,22 @@ public class ActionGraphDump {
       boolean includeActionCmdLine,
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
-      boolean includeParamFiles) {
+      boolean includeParamFiles,
+      StreamedOutputHandler streamedOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
+    this.streamedOutputHandler = streamedOutputHandler;
 
-    knownRuleClassStrings = new KnownRuleClassStrings(actionGraphBuilder);
-    knownArtifacts = new KnownArtifacts(actionGraphBuilder);
-    knownConfigurations = new KnownConfigurations(actionGraphBuilder);
-    knownNestedSets = new KnownNestedSets(actionGraphBuilder, knownArtifacts);
-    knownAspectDescriptors = new KnownAspectDescriptors(actionGraphBuilder);
-    knownRuleConfiguredTargets = new KnownRuleConfiguredTargets(actionGraphBuilder,
-        knownRuleClassStrings);
+    knownRuleClassStrings = new KnownRuleClassStrings(streamedOutputHandler);
+    knownArtifacts = new KnownArtifacts(streamedOutputHandler);
+    knownConfigurations = new KnownConfigurations(streamedOutputHandler);
+    knownNestedSets = new KnownNestedSets(streamedOutputHandler, knownArtifacts);
+    knownAspectDescriptors = new KnownAspectDescriptors(streamedOutputHandler);
+    knownRuleConfiguredTargets =
+        new KnownRuleConfiguredTargets(streamedOutputHandler, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -128,7 +123,7 @@ public class ActionGraphDump {
   }
 
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, IOException {
 
     // Store the content of param files.
     if (includeParamFiles && (action instanceof ParameterFileWriteAction)) {
@@ -152,7 +147,8 @@ public class ActionGraphDump {
     AnalysisProtosV2.Action.Builder actionBuilder =
         AnalysisProtosV2.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
-            .setTargetId(knownRuleConfiguredTargets.dataToId(ruleConfiguredTarget));
+            .setTargetId(
+                knownRuleConfiguredTargets.dataToIdAndStreamOutputProto(ruleConfiguredTarget));
 
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
@@ -212,7 +208,7 @@ public class ActionGraphDump {
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
       BuildEvent event = actionOwner.getConfiguration();
-      actionBuilder.setConfigurationId(knownConfigurations.dataToId(event));
+      actionBuilder.setConfigurationId(knownConfigurations.dataToIdAndStreamOutputProto(event));
 
       // Store aspects.
       // Iterate through the aspect path and dump the aspect descriptors.
@@ -220,7 +216,8 @@ public class ActionGraphDump {
       // of the configured target graph.
       // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
       for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors().reverse()) {
-        actionBuilder.addAspectDescriptorIds(knownAspectDescriptors.dataToId(aspectDescriptor));
+        actionBuilder.addAspectDescriptorIds(
+            knownAspectDescriptors.dataToIdAndStreamOutputProto(aspectDescriptor));
       }
     }
 
@@ -233,20 +230,26 @@ public class ActionGraphDump {
       NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
 
       if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
-        actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(nestedSetView));
+        actionBuilder.addInputDepSetIds(
+            knownNestedSets.dataToIdAndStreamOutputProto(nestedSetView));
       }
 
       // store outputs
       for (Artifact artifact : action.getOutputs()) {
-        actionBuilder.addOutputIds(knownArtifacts.dataToId(artifact));
+        actionBuilder.addOutputIds(knownArtifacts.dataToIdAndStreamOutputProto(artifact));
       }
     }
 
-    actionGraphBuilder.addActions(actionBuilder.build());
+    printToOutput(actionBuilder.build());
+  }
+
+  private void printToOutput(AnalysisProtosV2.Action actionProto) throws IOException {
+    ActionGraphComponent message = ActionGraphComponent.newBuilder().setAction(actionProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, IOException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
@@ -258,7 +261,7 @@ public class ActionGraphDump {
   }
 
   public void dumpConfiguredTarget(ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException {
+      throws CommandLineExpansionException, IOException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
@@ -267,10 +270,6 @@ public class ActionGraphDump {
     for (ActionAnalysisMetadata action : actions) {
       dumpSingleAction(configuredTarget, action);
     }
-  }
-
-  public ActionGraphContainer build() {
-    return actionGraphBuilder.build();
   }
 
   /** Lazy initialization of paramFileNameToContentMap. */

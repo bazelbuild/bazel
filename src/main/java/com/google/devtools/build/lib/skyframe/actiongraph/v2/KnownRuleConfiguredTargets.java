@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import java.io.IOException;
 
 /** Cache for RuleConfiguredTargets in the action graph. */
 public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, Target> {
@@ -24,25 +25,27 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
   KnownRuleConfiguredTargets(
-      ActionGraphContainer.Builder actionGraphBuilder,
-      KnownRuleClassStrings knownRuleClassStrings) {
-    super(actionGraphBuilder);
+      StreamedOutputHandler streamedOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
+    super(streamedOutputHandler);
     this.knownRuleClassStrings = knownRuleClassStrings;
   }
 
   @Override
-  Target createProto(RuleConfiguredTarget ruleConfiguredTarget, int id) {
+  Target createProto(RuleConfiguredTarget ruleConfiguredTarget, int id) throws IOException {
     Label label = ruleConfiguredTarget.getLabel();
     String ruleClassString = ruleConfiguredTarget.getRuleClassString();
     Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(label.toString());
     if (ruleClassString != null) {
-      targetBuilder.setRuleClassId(knownRuleClassStrings.dataToId(ruleClassString));
+      targetBuilder.setRuleClassId(
+          knownRuleClassStrings.dataToIdAndStreamOutputProto(ruleClassString));
     }
     return targetBuilder.build();
   }
 
   @Override
-  void addToActionGraphBuilder(Target targetProto) {
-    actionGraphBuilder.addTargets(targetProto);
+  void streamToOutput(Target targetProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setConfiguredTarget(targetProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

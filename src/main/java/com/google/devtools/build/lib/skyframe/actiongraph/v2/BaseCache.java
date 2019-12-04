@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,10 +22,10 @@ import java.util.Map;
  */
 abstract class BaseCache<K, P> {
   private final Map<K, Integer> cache = new HashMap<>();
-  protected final ActionGraphContainer.Builder actionGraphBuilder;
+  protected final StreamedOutputHandler streamedOutputHandler;
 
-  BaseCache(ActionGraphContainer.Builder actionGraphBuilder) {
-    this.actionGraphBuilder = actionGraphBuilder;
+  BaseCache(StreamedOutputHandler streamedOutputHandler) {
+    this.streamedOutputHandler = streamedOutputHandler;
   }
 
   private int generateNextId() {
@@ -42,8 +42,10 @@ abstract class BaseCache<K, P> {
   /**
    * Store the data in the internal cache, if it's not yet present. Return the generated id. Ids are
    * positive and unique.
+   *
+   * <p>Stream the proto to output, the first time it's generated.
    */
-  int dataToId(K data) {
+  int dataToIdAndStreamOutputProto(K data) throws IOException {
     K key = transformToKey(data);
     Integer id = cache.get(key);
     if (id == null) {
@@ -53,12 +55,12 @@ abstract class BaseCache<K, P> {
       id = generateNextId();
       cache.put(key, id);
       P proto = createProto(data, id);
-      addToActionGraphBuilder(proto);
+      streamToOutput(proto);
     }
     return id;
   }
 
-  abstract P createProto(K key, int id);
+  abstract P createProto(K key, int id) throws IOException;
 
-  abstract void addToActionGraphBuilder(P proto);
+  abstract void streamToOutput(P proto) throws IOException;
 }

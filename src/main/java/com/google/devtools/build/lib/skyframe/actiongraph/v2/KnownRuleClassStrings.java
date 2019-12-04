@@ -13,23 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.RuleClass;
+import java.io.IOException;
 
 /** Cache for RuleClassStrings in the action graph. */
 public class KnownRuleClassStrings extends BaseCache<String, RuleClass> {
 
-  KnownRuleClassStrings(ActionGraphContainer.Builder actionGraphBuilder) {
-    super(actionGraphBuilder);
+  KnownRuleClassStrings(StreamedOutputHandler streamedOutputHandler) {
+    super(streamedOutputHandler);
   }
 
   @Override
-  RuleClass createProto(String ruleClassString, int id) {
+  RuleClass createProto(String ruleClassString, int id) throws IOException {
     return RuleClass.newBuilder().setId(id).setName(ruleClassString).build();
   }
 
   @Override
-  void addToActionGraphBuilder(RuleClass ruleClassProto) {
-    actionGraphBuilder.addRuleClasses(ruleClassProto);
+  void streamToOutput(RuleClass ruleClassProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setRuleClass(ruleClassProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

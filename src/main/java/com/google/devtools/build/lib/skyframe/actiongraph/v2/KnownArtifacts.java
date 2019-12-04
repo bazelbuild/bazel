@@ -15,32 +15,34 @@ package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
+import java.io.IOException;
 
 /** Cache for Artifacts in the action graph. */
 public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifact> {
 
   private final KnownPathFragments knownPathFragments;
 
-  KnownArtifacts(ActionGraphContainer.Builder actionGraphBuilder) {
-    super(actionGraphBuilder);
-    knownPathFragments = new KnownPathFragments(actionGraphBuilder);
+  KnownArtifacts(StreamedOutputHandler streamedOutputHandler) {
+    super(streamedOutputHandler);
+    knownPathFragments = new KnownPathFragments(streamedOutputHandler);
   }
 
   @Override
-  AnalysisProtosV2.Artifact createProto(Artifact artifact, int id) {
+  AnalysisProtosV2.Artifact createProto(Artifact artifact, int id) throws IOException {
     AnalysisProtosV2.Artifact.Builder artifactProtoBuilder =
         AnalysisProtosV2.Artifact.newBuilder()
             .setId(id)
             .setIsTreeArtifact(artifact.isTreeArtifact());
 
-    int pathFragmentId = knownPathFragments.dataToId(artifact.getExecPath());
+    int pathFragmentId = knownPathFragments.dataToIdAndStreamOutputProto(artifact.getExecPath());
     return artifactProtoBuilder.setPathFragmentId(pathFragmentId).build();
   }
 
-
   @Override
-  void addToActionGraphBuilder(AnalysisProtosV2.Artifact artifactProto) {
-    actionGraphBuilder.addArtifacts(artifactProto);
+  void streamToOutput(AnalysisProtosV2.Artifact artifactProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setArtifact(artifactProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

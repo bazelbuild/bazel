@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -167,7 +168,7 @@ public class ActionGraphQueryEnvironment
                 out,
                 skyframeExecutor,
                 accessor,
-                ActionGraphProtoV2OutputFormatterCallback.OutputType.BINARY,
+                StreamedOutputHandler.OutputType.BINARY,
                 actionFilters),
             new ActionGraphProtoV2OutputFormatterCallback(
                 eventHandler,
@@ -175,7 +176,7 @@ public class ActionGraphQueryEnvironment
                 out,
                 skyframeExecutor,
                 accessor,
-                ActionGraphProtoV2OutputFormatterCallback.OutputType.TEXT,
+                StreamedOutputHandler.OutputType.TEXT,
                 actionFilters),
             new ActionGraphTextOutputFormatterCallback(
                 eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters))
