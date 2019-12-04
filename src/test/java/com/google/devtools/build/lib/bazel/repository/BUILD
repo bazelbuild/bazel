@@ -19,6 +19,7 @@ java_test(
     name = "RepositoryTests",
     srcs = glob(["*.java"]) + [
         "skylark/SkylarkRepositoryContextTest.java",
+        "skylark/SkylarkRepositoryIntegrationTest.java",
     ],
     data = [
         "test_decompress_archive.tar.gz",

@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
@@ -287,7 +288,11 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // This is expected
     }
     assertDoesNotContainEvent("cycle");
-    assertContainsEvent("repository 'foo' was defined too late in your WORKSPACE file");
+    assertContainsEvent("Cycle in the workspace file detected."
+        + " This indicates that a repository is used prior to being defined.\n"
+        + "The following chain of repository dependencies lead to the missing definition.\n"
+        + " - @foobar\n"
+        + " - @foo\n");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
   }
 
@@ -311,7 +316,10 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // This is expected
     }
     assertDoesNotContainEvent("cycle");
-    assertContainsEvent("the repository 'foo' was defined too late in your WORKSPACE file");
+    assertContainsEvent("Cycle in the workspace file detected."
+        + " This indicates that a repository is used prior to being defined.\n"
+        + "The following chain of repository dependencies lead to the missing definition.\n"
+        + " - @foo");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
   }
 
@@ -339,7 +347,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
           .contains(
               "Failed to load Starlark extension "
                   + "'@git_repo//xyz:foo.bzl'.\n"
-                  + "It usually happens when the repository is not defined prior to being used.\n");
+                  + "Cycle in the workspace file detected."
+                  + " This indicates that a repository is used prior to being defined.\n");
     }
   }
 

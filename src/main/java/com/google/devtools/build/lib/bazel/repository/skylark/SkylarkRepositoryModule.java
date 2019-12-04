@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
@@ -76,32 +77,36 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
-    builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
-    builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
-    if (semantics.experimentalRepoRemoteExec()) {
-      builder.addOrOverrideAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
-      BaseRuleClasses.execPropertiesAttribute(builder);
-    }
-    builder.addOrOverrideAttribute(
-        attr("$environ", STRING_LIST).defaultValue(environ).build());
-    BaseRuleClasses.nameAttribute(builder);
-    BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
-    builder.add(attr("expect_failure", STRING));
-    if (attrs != Starlark.NONE) {
-      for (Map.Entry<String, Descriptor> attr :
-          castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
-        Descriptor attrDescriptor = attr.getValue();
-        AttributeValueSource source = attrDescriptor.getValueSource();
-        String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
-        builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
+    try {
+      builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+      builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
+      if (semantics.experimentalRepoRemoteExec()) {
+        builder.addOrOverrideAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
+        BaseRuleClasses.execPropertiesAttribute(builder);
       }
+      builder.addOrOverrideAttribute(
+          attr("$environ", STRING_LIST).defaultValue(environ).build());
+      BaseRuleClasses.nameAttribute(builder);
+      BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
+      builder.add(attr("expect_failure", STRING));
+      if (attrs != Starlark.NONE) {
+        for (Map.Entry<String, Descriptor> attr :
+            castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+          Descriptor attrDescriptor = attr.getValue();
+          AttributeValueSource source = attrDescriptor.getValueSource();
+          String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
+          builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
+        }
+      }
+      builder.setConfiguredTargetFunction(implementation);
+      builder.setRuleDefinitionEnvironmentLabelAndHashCode(
+          (Label) funcallThread.getGlobals().getLabel(),
+          funcallThread.getTransitiveContentHashCode());
+      builder.setWorkspaceOnly();
+      return new RepositoryRuleFunction(builder, ast.getLocation());
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(e.getMessage());
     }
-    builder.setConfiguredTargetFunction(implementation);
-    builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        (Label) funcallThread.getGlobals().getLabel(),
-        funcallThread.getTransitiveContentHashCode());
-    builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder, ast.getLocation());
   }
 
   private static final class RepositoryRuleFunction extends BaseFunction
