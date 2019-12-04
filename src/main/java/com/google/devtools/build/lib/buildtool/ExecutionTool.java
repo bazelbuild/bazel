@@ -151,8 +151,7 @@ public class ExecutionTool {
 
     // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
     this.fileCache =
-        new SingleBuildFileCache(
-            env.getExecRoot().getPathString(), env.getRuntime().getFileSystem());
+        new SingleBuildFileCache(env.getExecRoot().getPathString(), runtime.getFileSystem());
     this.prefetcher = builder.getActionInputPrefetcher();
 
     this.actionContextProviders = builder.getActionContextProviders();
@@ -287,8 +286,7 @@ public class ExecutionTool {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
       request
           .getOutErr()
-          .printErrLn(
-              env.getRuntime().getProductName() + ": Entering directory `" + getExecRoot() + "/'");
+          .printErrLn(runtime.getProductName() + ": Entering directory `" + getExecRoot() + "/'");
     }
 
     Throwable catastrophe = null;
@@ -365,8 +363,7 @@ public class ExecutionTool {
       if (request.isRunningInEmacs()) {
         request
             .getOutErr()
-            .printErrLn(
-                env.getRuntime().getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
+            .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
       }
       if (buildCompleted) {
         getReporter().handle(Event.progress("Building complete."));

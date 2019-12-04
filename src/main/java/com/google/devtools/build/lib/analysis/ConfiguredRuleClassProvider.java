@@ -150,15 +150,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
-        new ArrayList<>();
+    private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
     @Nullable private TransitionFactory<Rule> trimmingTransitionFactory = null;
     @Nullable private PatchTransition toolchainTaggedTrimmingTransition = null;
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
-        ImmutableList.<Bootstrap>builder();
+    private final ImmutableList.Builder<Bootstrap> skylarkBootstraps = ImmutableList.builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
@@ -256,8 +254,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       return this;
     }
 
-    public Builder addUniversalConfigurationFragment(
-        Class<? extends BuildConfiguration.Fragment> fragment) {
+    public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
       return this;
     }
@@ -541,10 +538,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
   /**
-   * Configuration fragments that should be available to all rules even when they don't
-   * explicitly require it.
+   * Configuration fragments that should be available to all rules even when they don't explicitly
+   * require it.
    */
-  private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+  private final ImmutableList<Class<? extends Fragment>> universalFragments;
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
@@ -574,7 +571,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
+      ImmutableList<Class<? extends Fragment>> universalFragments,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -605,7 +602,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.configurationFragmentMap = createFragmentMap(configurationFragments);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
   }
@@ -738,10 +735,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   }
 
   /**
-   * Returns the configuration fragment that should be available to all rules even when they
-   * don't explicitly require it.
+   * Returns the configuration fragment that should be available to all rules even when they don't
+   * explicitly require it.
    */
-  public ImmutableList<Class<? extends BuildConfiguration.Fragment>> getUniversalFragments() {
+  public ImmutableList<Class<? extends Fragment>> getUniversalFragments() {
     return universalFragments;
   }
 
@@ -773,7 +770,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule((fragmentClass));
+      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
@@ -844,9 +841,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return thirdPartyLicenseExistencePolicy;
   }
 
-  /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
-  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+  /** Returns all registered {@link Fragment} classes. */
+  public ImmutableSortedSet<Class<? extends Fragment>> getAllFragments() {
+    ImmutableSortedSet.Builder<Class<? extends Fragment>> fragmentsBuilder =
         ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
     for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
       fragmentsBuilder.add(factory.creates());

@@ -190,16 +190,20 @@ public final class OutputDirectoryLinksUtils {
   /**
    * Attempts to remove the convenience symlinks in the workspace directory.
    *
-   * <p>Issues a warning if it fails, e.g. because workspaceDirectory is readonly.
-   * Also cleans up any child directories created by a custom prefix.
+   * <p>Issues a warning if it fails, e.g. because workspaceDirectory is readonly. Also cleans up
+   * any child directories created by a custom prefix.
    *
    * @param workspace the runtime's workspace
    * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    * @param productName the product name
    */
-  public static void removeOutputDirectoryLinks(String workspaceName, Path workspace,
-      EventHandler eventHandler, String symlinkPrefix, String productName) {
+  public static void removeOutputDirectoryLinks(
+      String workspaceName,
+      Path workspace,
+      EventHandler eventHandler,
+      String symlinkPrefix,
+      String productName) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
