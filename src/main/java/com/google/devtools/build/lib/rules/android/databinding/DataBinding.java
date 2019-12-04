@@ -135,7 +135,8 @@ public final class DataBinding {
         .getRelative(ruleContext.getUniqueDirectory("databinding"));
   }
 
-  static Artifact getLayoutInfoFile(ActionConstructionContext actionConstructionContext) {
+  @VisibleForTesting
+  public static Artifact getLayoutInfoFile(ActionConstructionContext actionConstructionContext) {
     return actionConstructionContext.getUniqueDirectoryArtifact("databinding", "layout-info.zip");
   }
 

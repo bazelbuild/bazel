@@ -199,10 +199,6 @@ public class AndroidResourceMergingActionBuilder {
 
     parsedMergeBuilder.addOutput("--resourcesOutput", mergedResourcesOut);
 
-    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
-    // aapt2 builds.
-    parsedMergeBuilder.maybeAddOutput("--dataBindingInfoOut", dataBindingInfoZip);
-
     (useCompiledMerge ? compiledMergeBuilder : parsedMergeBuilder)
         .addOutput("--classJarOutput", classJarOut)
         .addLabelFlag("--targetLabel")

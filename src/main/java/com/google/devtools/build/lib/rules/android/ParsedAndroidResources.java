@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,19 +44,12 @@ public class ParsedAndroidResources extends AndroidResources {
       throws InterruptedException {
 
     boolean isAapt2 = aaptVersion == AndroidAaptVersion.AAPT2;
+    Preconditions.checkState(isAapt2);
 
     AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
-    if (isAapt2) {
-      // TODO(corysmith): Centralize the data binding processing and zipping into a single
-      // action. Data binding processing needs to be triggered here as well as the merger to
-      // avoid aapt2 from throwing an error during compilation.
-      dataBindingContext.supplyLayoutInfo(
-          layoutInfo ->
-              builder.setDataBindingInfoZip(
-                  getDummyDataBindingArtifact(dataContext.getActionConstructionContext())));
-    }
-
+    // TODO(b/120093531): This is only used in Databinding v1.
+    dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     // In databinding v2, this strips out the databinding and generates the layout info file.
     AndroidResources databindingProcessedResources =
         dataBindingContext.processResources(dataContext, resources, manifest.getPackage());

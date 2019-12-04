@@ -265,7 +265,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
         /* outputs = */ ImmutableList.of(parsed.getSymbols()));
 
     // The compile action should take in resources and manifest in and output compiled symbols and
-    // an unused data binding zip.
+    // a databinding zip.
     assertActionArtifacts(
         ruleContext,
         /* inputs = */ ImmutableList.<Artifact>builder()
@@ -273,8 +273,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
             .add(parsed.getManifest())
             .build(),
         /* outputs = */ ImmutableList.of(
-            parsed.getCompiledSymbols(),
-            ParsedAndroidResources.getDummyDataBindingArtifact(ruleContext)));
+            parsed.getCompiledSymbols(), DataBinding.getLayoutInfoFile(ruleContext)));
   }
 
   @Test
