@@ -190,15 +190,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     AAPT2,
     AUTO;
 
-    public static List<String> getAttributeValues() {
-      return ImmutableList.of(
-          AAPT.name().toLowerCase(), AAPT2.name().toLowerCase(), getRuleAttributeDefault());
-    }
-
-    public static String getRuleAttributeDefault() {
-      return AUTO.name().toLowerCase();
-    }
-
     public static AndroidAaptVersion fromString(String value) {
       for (AndroidAaptVersion version : AndroidAaptVersion.values()) {
         if (version.name().equalsIgnoreCase(value)) {
