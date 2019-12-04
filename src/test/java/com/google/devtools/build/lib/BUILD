@@ -9,7 +9,6 @@ package(
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.
-# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
@@ -184,18 +183,66 @@ java_library(
 java_test(
     name = "cmdline_test",
     size = "small",
-    srcs = glob(["cmdline/*.java"]),
+    srcs = glob(
+        ["cmdline/*.java"],
+        exclude = [
+            "cmdline/CaseSensitiveFsPackageIdentifierTest.java",
+            "cmdline/CaseInsensitiveFsPackageIdentifierTest.java",
+            "cmdline/CaseInsensitiveFsLabelCaseCheckingPackageIdentifierTest.java",
+        ],
+    ),
     tags = [
         "foundations",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":guava_junit_truth",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+    deps = [":cmdline_test_deps"],
+)
+
+java_test(
+    name = "case_sensitive_fs_cmdline_test",
+    size = "small",
+    srcs = ["cmdline/CaseSensitiveFsPackageIdentifierTest.java"],
+    jvm_flags = [
+        # Force case-sensitive filesystem semantics, by pretending we run on Linux.
+        "-Dblaze.os=Linux",
+        # Disable checking the label casing. It's unnecessary on case-sensitive filesystems.
+        "-Dbazel.check_label_casing=0",
     ],
+    tags = ["foundations"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [":cmdline_test_deps"],
+)
+
+java_test(
+    name = "case_insensitive_fs_cmdline_test",
+    size = "small",
+    srcs = ["cmdline/CaseInsensitiveFsPackageIdentifierTest.java"],
+    jvm_flags = [
+        # Force case-insensitive filesystem semantics, by pretending we run on Windows.
+        "-Dblaze.os=Windows",
+        "-Dbazel.windows_unix_root=C:/fake/msys",
+        # Disable checking the label casing.
+        "-Dbazel.check_label_casing=0",
+    ],
+    tags = ["foundations"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [":cmdline_test_deps"],
+)
+
+java_test(
+    name = "case_insensitive_fs_with_label_case_checking_cmdline_test",
+    size = "small",
+    srcs = ["cmdline/CaseInsensitiveFsLabelCaseCheckingPackageIdentifierTest.java"],
+    jvm_flags = [
+        # Force case-insensitive filesystem semantics, by pretending we run on Windows.
+        "-Dblaze.os=Windows",
+        "-Dbazel.windows_unix_root=C:/fake/msys",
+        # Enable checking the label casing.
+        "-Dbazel.check_label_casing=1",
+    ],
+    tags = ["foundations"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [":cmdline_test_deps"],
 )
 
 java_test(
@@ -212,6 +259,27 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+    ],
+)
+
+java_library(
+    name = "cmdline_test_deps",
+    testonly = 1,
+    exports = [
+        ":guava_junit_truth",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+    ],
+)
+
+test_suite(
+    name = "case_sensitivity_cmdline_tests",
+    tests = [
+        ":case_insensitive_fs_cmdline_test",
+        ":case_insensitive_fs_with_label_case_checking_cmdline_test",
+        ":case_sensitive_fs_cmdline_test",
     ],
 )
 

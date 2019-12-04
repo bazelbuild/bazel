@@ -34,7 +34,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @AutoCodec
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+public class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
@@ -42,10 +42,26 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return create(RepositoryName.create(repository), pkgName);
   }
 
-  @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    // Note: We rely on these being interned to fast-path Label#equals.
-    return INTERNER.intern(new PackageIdentifier(repository, pkgName));
+    return createWithCasing(repository, pkgName, LabelConstants.CHECK_CASING);
+  }
+
+  @AutoCodec.Instantiator
+  public static PackageIdentifier createWithCasing(
+      RepositoryName repository, PathFragment pkgName, boolean checkCasing) {
+    if (checkCasing) {
+      // Note: We rely on these being interned to fast-path Label#equals.
+      // return INTERNER.intern(new PackageIdentifier(repository, pkgName));
+      String repoCasing = repository.toString();
+      String pkgCasing = pkgName.toString();
+      return INTERNER.intern(
+          new CaseCheckingPackageIdentifier(
+              repository, pkgName, repoCasing, pkgCasing, Objects.hash(repoCasing, pkgCasing)));
+    } else {
+      // Note: We rely on these being interned to fast-path Label#equals.
+      return INTERNER.intern(
+          new PackageIdentifier(repository, pkgName, Objects.hash(repository, pkgName)));
+    }
   }
 
   public static final PackageIdentifier EMPTY_PACKAGE_ID = createInMainRepo(
@@ -108,12 +124,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
    * interning, x.equals(y) <=> x==y.
    **/
-  private final int hashCode;
+  protected final int hashCode;
 
-  private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
+  private PackageIdentifier(RepositoryName repository, PathFragment pkgName, int hashCode) {
     this.repository = Preconditions.checkNotNull(repository);
     this.pkgName = Preconditions.checkNotNull(pkgName);
-    this.hashCode = Objects.hash(repository, pkgName);
+    this.hashCode = hashCode;
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -165,6 +181,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   public PathFragment getPackageFragment() {
     return pkgName;
+  }
+
+  // Do not remove or rename isCheckCasing(): it's required as a getter for AutoCodec.
+  public boolean isCheckCasing() {
+    return false;
   }
 
   /**
@@ -232,4 +253,54 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         .compare(pkgName, that.pkgName)
         .result();
   }
+
+  private static final class CaseCheckingPackageIdentifier extends PackageIdentifier {
+    private final String repositoryCasing;
+    private final String pkgNameCasing;
+
+    private CaseCheckingPackageIdentifier(
+        RepositoryName repository,
+        PathFragment pkgName,
+        String repositoryCasing,
+        String pkgNameCasing,
+        int hashCode) {
+      super(repository, pkgName, hashCode);
+      this.repositoryCasing = repositoryCasing;
+      this.pkgNameCasing = pkgNameCasing;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (!(object instanceof CaseCheckingPackageIdentifier)) {
+        return false;
+      }
+      CaseCheckingPackageIdentifier that = (CaseCheckingPackageIdentifier) object;
+      return this.hashCode == that.hashCode && pkgNameCasing.equals(that.pkgNameCasing)
+          && repositoryCasing.equals(that.repositoryCasing);
+    }
+
+    @Override
+    public int compareTo(PackageIdentifier that) {
+      if (that instanceof CaseCheckingPackageIdentifier) {
+        return ComparisonChain.start()
+            .compare(repositoryCasing, ((CaseCheckingPackageIdentifier) that).repositoryCasing)
+            .compare(pkgNameCasing, ((CaseCheckingPackageIdentifier) that).pkgNameCasing)
+            .result();
+      } else {
+        return ComparisonChain.start()
+            .compare(repositoryCasing, that.repository.toString())
+            .compare(pkgNameCasing, that.pkgName.toString())
+            .result();
+      }
+    }
+
+    @Override
+    public boolean isCheckCasing() {
+      return true;
+    }
+  }
 }
+
