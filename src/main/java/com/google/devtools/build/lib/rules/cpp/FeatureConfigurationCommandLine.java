@@ -39,6 +39,7 @@ public class FeatureConfigurationCommandLine extends CommandLine {
   private final CcToolchainVariables buildVariables;
   private final String actionName;
   private final boolean usePic;
+  private final boolean inLegacyThinltoBackendMode;
 
   /**
    * Create a {@link CommandLine} instance from given {@link FeatureConfiguration} and {@link
@@ -49,7 +50,11 @@ public class FeatureConfigurationCommandLine extends CommandLine {
       CcToolchainVariables ccToolchainVariables,
       String actionName) {
     return new FeatureConfigurationCommandLine(
-        featureConfiguration, ccToolchainVariables, actionName, /* usePic= */ false);
+        featureConfiguration,
+        ccToolchainVariables,
+        actionName,
+        /* inLegacyThinltoBackendMode= */ false,
+        /* usePic= */ false);
   }
 
   /**
@@ -65,18 +70,24 @@ public class FeatureConfigurationCommandLine extends CommandLine {
       CcToolchainVariables ccToolchainVariables,
       boolean usePic) {
     return new FeatureConfigurationCommandLine(
-        featureConfiguration, ccToolchainVariables, CppActionNames.LTO_BACKEND, usePic);
+        featureConfiguration,
+        ccToolchainVariables,
+        CppActionNames.LTO_BACKEND,
+        /* inLegacyThinltoBackendMode= */ true,
+        usePic);
   }
 
   private FeatureConfigurationCommandLine(
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables ccToolchainVariables,
       String actionName,
+      boolean inLegacyThinltoBackendMode,
       boolean usePic) {
     this.featureConfiguration = featureConfiguration;
     this.buildVariables = ccToolchainVariables;
     this.actionName = actionName;
     this.usePic = usePic;
+    this.inLegacyThinltoBackendMode = inLegacyThinltoBackendMode;
   }
   @Override
   public Iterable<String> arguments() throws CommandLineExpansionException {
@@ -87,6 +98,9 @@ public class FeatureConfigurationCommandLine extends CommandLine {
   public Iterable<String> arguments(ArtifactExpander artifactExpander)
       throws CommandLineExpansionException {
     ImmutableList.Builder<String> args = ImmutableList.builder();
+    if (!inLegacyThinltoBackendMode) {
+      args.add(featureConfiguration.getToolPathForAction(actionName));
+    }
     try {
       args.addAll(
           featureConfiguration.getCommandLine(actionName, buildVariables, artifactExpander));
