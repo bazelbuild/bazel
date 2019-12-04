@@ -153,4 +153,14 @@ public class EvalUtilsTest extends EvaluationTestCase {
             "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonStarlarkValueSubclass "
                 + "is not allowed as a Starlark value");
   }
+
+  @Test
+  public void testLen() {
+    assertThat(Starlark.len("abc")).isEqualTo(3);
+    assertThat(Starlark.len(Tuple.of(1, 2, 3))).isEqualTo(3);
+    assertThat(Starlark.len(StarlarkList.of(null, 1, 2, 3))).isEqualTo(3);
+    assertThat(Starlark.len(Dict.of(null, "one", 1, "two", 2))).isEqualTo(2);
+    assertThat(Starlark.len(true)).isEqualTo(-1);
+    assertThrows(IllegalArgumentException.class, () -> Starlark.len(this));
+  }
 }
