@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
-import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,8 +25,6 @@ import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.Symlink
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.rules.python.PythonVersion;
-import com.google.devtools.build.lib.rules.python.PythonVersionTransition;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,42 +41,6 @@ public final class OutputDirectoryLinksUtils {
   // Static utilities class.
   private OutputDirectoryLinksUtils() {}
 
-  private enum PyBinSymlink implements SymlinkDefinition {
-    PY2(PythonVersion.PY2),
-    PY3(PythonVersion.PY3);
-
-    private final String versionString;
-    private final PythonVersionTransition transition;
-
-    private PyBinSymlink(PythonVersion version) {
-      this.versionString = Ascii.toLowerCase(version.toString());
-      this.transition = PythonVersionTransition.toConstant(version);
-    }
-
-    @Override
-    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
-      return symlinkPrefix + versionString + "-bin";
-    }
-
-    @Override
-    public Set<Path> getLinkPaths(
-        BuildRequestOptions buildRequestOptions,
-        Set<BuildConfiguration> targetConfigs,
-        Function<BuildOptions, BuildConfiguration> configGetter,
-        RepositoryName repositoryName,
-        Path outputPath,
-        Path execRoot) {
-      if (!buildRequestOptions.experimentalCreatePyBinSymlinks) {
-        return ImmutableSet.of();
-      }
-      return targetConfigs.stream()
-          .map(config -> configGetter.apply(transition.patch(config.getOptions())))
-          .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
-          .distinct()
-          .collect(toImmutableSet());
-    }
-  }
-
   /**
    * Returns all (types of) convenience symlinks that may be created.
    *
@@ -94,8 +53,6 @@ public final class OutputDirectoryLinksUtils {
       Iterable<SymlinkDefinition> symlinkDefinitions) {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.addAll(ConvenienceSymlinks.getStandardLinkDefinitions());
-    builder.add(PyBinSymlink.PY2);
-    builder.add(PyBinSymlink.PY3);
     builder.addAll(symlinkDefinitions);
     return builder.build();
   }

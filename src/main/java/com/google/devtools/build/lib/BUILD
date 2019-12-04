@@ -1100,6 +1100,7 @@ java_library(
     ),
     deps = [
         ":build-base",
+        ":build-request-options",
         ":events",
         ":filetype",
         ":os_util",
@@ -1114,6 +1115,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
@@ -1266,7 +1268,6 @@ java_library(
         ":out-err",
         ":packages-internal",
         ":process_util",
-        ":python-rules",
         ":shared-base-rules",
         ":skylark_semantics",
         ":unix",
