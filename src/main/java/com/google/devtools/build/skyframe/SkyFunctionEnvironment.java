@@ -600,7 +600,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           }
           // In a cycle.
           Preconditions.checkState(
-              !Iterables.isEmpty(errorInfo.getCycleInfo()),
+              !errorInfo.getCycleInfo().isEmpty(),
               "%s %s %s",
               skyKey,
               errorInfo,
