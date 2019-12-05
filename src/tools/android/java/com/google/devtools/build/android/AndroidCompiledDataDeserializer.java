@@ -32,7 +32,6 @@ import com.android.aapt.Resources.ConfigValue;
 import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Value;
-import com.android.aapt.Resources.Visibility.Level;
 import com.android.ide.common.resources.configuration.CountryCodeQualifier;
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
@@ -263,23 +262,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         ResourceType resourceType = ResourceType.getEnum(resourceFormatType.getName());
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
-          if (resource.getConfigValueList().isEmpty()
-              && resource.getVisibility().getLevel() == Level.PUBLIC) {
-            FullyQualifiedName fqn =
-                createAndRecordFqn(
-                    packageResolver, packageName, resourceType, resource, ImmutableList.of());
-
-            // This is a public resource definition.
-            int sourceIndex = resource.getVisibility().getSource().getPathIdx();
-            String source = sourcePool.get(sourceIndex);
-            DataSource dataSource = DataSource.of(dependencyInfo, Paths.get(source));
-
-            DataResourceXml dataResourceXml =
-                DataResourceXml.fromPublic(dataSource, resourceType, resource.getEntryId().getId());
-
-            // TODO(b/26297204): does this actually do anything?
-            consumers.combiningConsumer.accept(fqn, dataResourceXml);
-          } else if (!"android".equals(packageName)) {
+          if (!"android".equals(packageName)) {
             // This means this resource is not in the android sdk, add it to the set.
             for (ConfigValue configValue : resource.getConfigValueList()) {
               FullyQualifiedName fqn =
