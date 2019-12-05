@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -95,6 +97,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrR
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
@@ -109,6 +112,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -188,6 +192,10 @@ public final class SkyframeActionExecutor {
   // again. A previously failed action satisfies that requirement by requesting the deps in this map
   // at the start of its next attempt,
   private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
+
+  // Directories which are known to be created as regular directories within this invocation. This
+  // implies parent directories are also regular directories.
+  private Set<PathFragment> knownRegularDirectories;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -429,6 +437,12 @@ public final class SkyframeActionExecutor {
     this.outputService = outputService;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
+
+    Cache<PathFragment, Boolean> cache =
+        CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
+            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
+            .build();
+    this.knownRegularDirectories = Collections.newSetFromMap(cache.asMap());
   }
 
   public void setActionLogBufferPathGenerator(
@@ -488,6 +502,7 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.topDownActionCache = null;
+    this.knownRegularDirectories = null;
   }
 
   /**
@@ -990,7 +1005,11 @@ public final class SkyframeActionExecutor {
             // that the output directories for stdout and stderr exist.
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
           }
-          createOutputDirectories(action, actionExecutionContext);
+          if (actionFileSystemType().inMemoryFileSystem()) {
+            createActionFsOutputDirectories(action, actionExecutionContext);
+          } else {
+            createOutputDirectories(action, actionExecutionContext);
+          }
         } catch (ActionExecutionException e) {
           // This try-catch block cannot trigger rewinding, so it is safe to notify the status
           // reporter and also post the ActionCompletionEvent.
@@ -1229,6 +1248,63 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /**
+   * Create output directories for an ActionFS. The action-local filesystem starts empty, so we
+   * expect the output directory creation to always succeed. There can be no interference from state
+   * left behind by prior builds or other actions intra-build.
+   */
+  private void createActionFsOutputDirectories(Action action, ActionExecutionContext context)
+      throws ActionExecutionException {
+    try {
+      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
+      for (Artifact outputFile : action.getOutputs()) {
+        Path outputDir;
+        if (outputFile.isTreeArtifact()) {
+          outputDir = context.getPathResolver().toPath(outputFile);
+        } else {
+          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
+        }
+
+        if (done.add(outputDir)) {
+          outputDir.createDirectoryAndParents();
+        }
+      }
+    } catch (IOException e) {
+      ActionExecutionException ex =
+          new ActionExecutionException(
+              "failed to create output directory: " + e.getMessage(), e, action, false);
+      printError(ex.getMessage(), action, null);
+      throw ex;
+    }
+  }
+
+  /**
+   * Ensure that no symlinks exists between the output root and the output file. These are all
+   * expected to be regular directories. Violations of this expectations can only come from state
+   * left behind by previous invocations or external filesystem mutation.
+   */
+  private void symlinkCheck(
+      final Path dir, final Artifact outputFile, ActionExecutionContext context)
+      throws IOException {
+    PathFragment root = outputFile.getRoot().getRoot().asPath().asFragment();
+    Path curDir = context.getPathResolver().convertPath(dir);
+    Set<PathFragment> checkDirs = new HashSet<>();
+    while (!curDir.asFragment().equals(root)) {
+      // Fast path: Somebody already checked that this is a regular directory this invocation.
+      if (knownRegularDirectories.contains(curDir.asFragment())) {
+        return;
+      }
+      if (!curDir.isDirectory(Symlinks.NOFOLLOW)) {
+        throw new IOException(curDir + " is not a regular directory");
+      }
+      checkDirs.add(curDir.asFragment());
+      curDir = curDir.getParentDirectory();
+    }
+
+    // Defer adding to known regular directories until we've checked all parent directories.
+    knownRegularDirectories.addAll(checkDirs);
+  }
+
   private void createOutputDirectories(Action action, ActionExecutionContext context)
       throws ActionExecutionException {
     try {
@@ -1243,23 +1319,30 @@ public final class SkyframeActionExecutor {
 
         if (done.add(outputDir)) {
           try {
-            outputDir.createDirectoryAndParents();
+            if (!knownRegularDirectories.contains(outputDir.asFragment())) {
+              outputDir.createDirectoryAndParents();
+              symlinkCheck(outputDir, outputFile, context);
+            }
             continue;
           } catch (IOException e) {
             /* Fall through to plan B. */
           }
 
           // Possibly some direct ancestors are not directories.  In that case, we traverse the
-          // ancestors upward, deleting any non-directories, until we reach a directory, then try
-          // again. This handles the case where a file becomes a directory, either from one build to
-          // another, or within a single build.
+          // ancestors downward, deleting any non-directories. This handles the case where a file
+          // becomes a directory. The traversal is done downward because otherwise we may delete
+          // files through a symlink in a parent directory. Since Blaze never creates such
+          // directories within a build, we have no idea where on disk we're actually deleting.
           //
           // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
           // outputs from previous builds. See bug [incremental build of Fileset fails if
           // Fileset.out was changed to be a subdirectory of the old value].
           try {
-            Path p = outputDir;
-            while (true) {
+            Path p =
+                context.getPathResolver().transformRoot(outputFile.getRoot().getRoot()).asPath();
+            PathFragment relativePath = outputDir.relativeTo(p);
+            for (int i = 0; i < relativePath.segmentCount(); i++) {
+              p = p.getRelative(relativePath.getSegment(i));
 
               // This lock ensures that the only thread that observes a filesystem transition in
               // which the path p first exists and then does not is the thread that calls
@@ -1282,21 +1365,23 @@ public final class SkyframeActionExecutor {
               Lock lock = outputDirectoryDeletionLock.get(p);
               lock.lock();
               try {
-                if (p.exists(Symlinks.NOFOLLOW)) {
-                  boolean isDirectory = p.isDirectory(Symlinks.NOFOLLOW);
-                  if (isDirectory) {
-                    // If this directory used to be a tree artifact it won't be writable
-                    p.setWritable(true);
-                    break;
-                  }
-                  // p may be a file or dangling symlink, or a symlink to an old Fileset output
+                FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
+                if (stat == null) {
+                  // Missing entry: Break out and create expected directories.
+                  break;
+                }
+                if (stat.isDirectory()) {
+                  // If this directory used to be a tree artifact it won't be writable.
+                  p.setWritable(true);
+                  knownRegularDirectories.add(p.asFragment());
+                } else {
+                  // p may be a file or symlink (possibly from a Fileset in a previous build).
                   p.delete(); // throws IOException
+                  break;
                 }
               } finally {
                 lock.unlock();
               }
-
-              p = p.getParentDirectory();
             }
             outputDir.createDirectoryAndParents();
           } catch (IOException e) {
