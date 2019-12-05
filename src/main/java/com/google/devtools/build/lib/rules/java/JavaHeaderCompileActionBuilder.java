@@ -83,7 +83,8 @@ public class JavaHeaderCompileActionBuilder {
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
   private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+  private NestedSet<Artifact> bootclasspathEntries =
+      NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   @Nullable private Label targetLabel;
   @Nullable private String injectingRuleKind;
   private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
@@ -163,7 +164,7 @@ public class JavaHeaderCompileActionBuilder {
 
   /** Sets the compilation bootclasspath entries. */
   public JavaHeaderCompileActionBuilder setBootclasspathEntries(
-      ImmutableList<Artifact> bootclasspathEntries) {
+      NestedSet<Artifact> bootclasspathEntries) {
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
     this.bootclasspathEntries = bootclasspathEntries;
     return this;
@@ -269,7 +270,7 @@ public class JavaHeaderCompileActionBuilder {
     NestedSetBuilder<Artifact> mandatoryInputs =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(additionalInputs)
-            .addAll(bootclasspathEntries)
+            .addTransitive(bootclasspathEntries)
             .addAll(sourceJars)
             .addAll(sourceFiles)
             .addTransitive(toolsJars);

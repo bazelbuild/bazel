@@ -1318,9 +1318,9 @@ public final class RuleContext extends TargetContext
   private Artifact transitiveInfoCollectionToArtifact(
       String attributeName, TransitiveInfoCollection target) {
     if (target != null) {
-      Iterable<Artifact> artifacts = target.getProvider(FileProvider.class).getFilesToBuild();
-      if (Iterables.size(artifacts) == 1) {
-        return Iterables.getOnlyElement(artifacts);
+      NestedSet<Artifact> artifacts = target.getProvider(FileProvider.class).getFilesToBuild();
+      if (artifacts.isSingleton()) {
+        return artifacts.getSingleton();
       } else {
         attributeError(attributeName, target.getLabel() + " expected a single artifact");
       }
@@ -1730,7 +1730,7 @@ public final class RuleContext extends TargetContext
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
       NestedSet<Artifact> filesToBuild =
           src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
+      if (filesToBuild.isSingleton() && filesToBuild.getSingleton().isFileset()) {
         return true;
       }
 

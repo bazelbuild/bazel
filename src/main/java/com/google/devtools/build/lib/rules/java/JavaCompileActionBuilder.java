@@ -157,7 +157,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> bootclasspathEntries =
       NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
-  private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
+  private NestedSet<Artifact> extdirInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private FilesToRunProvider javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private PathFragment sourceGenDirectory;
@@ -240,7 +240,7 @@ public final class JavaCompileActionBuilder {
         .addTransitive(javabaseInputs)
         .addTransitive(bootclasspathEntries)
         .addAll(sourcePathEntries)
-        .addAll(extdirInputs);
+        .addTransitive(extdirInputs);
     if (coverageArtifact != null) {
       mandatoryInputs.add(coverageArtifact);
     }
@@ -463,8 +463,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setExtdirInputs(Iterable<Artifact> extdirEntries) {
-    this.extdirInputs = ImmutableList.copyOf(extdirEntries);
+  public JavaCompileActionBuilder setExtdirInputs(NestedSet<Artifact> extdirEntries) {
+    this.extdirInputs = extdirEntries;
     return this;
   }
 

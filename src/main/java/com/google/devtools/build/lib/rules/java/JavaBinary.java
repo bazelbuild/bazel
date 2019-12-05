@@ -242,7 +242,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
-    Iterable<Artifact> dynamicRuntimeActionInputs =
+    NestedSet<Artifact> dynamicRuntimeActionInputs =
         CppHelper.getDefaultCcToolchainDynamicRuntimeInputs(ruleContext);
 
     Iterables.addAll(
@@ -509,7 +509,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       JavaCompilationArtifacts javaArtifacts,
       NestedSet<Artifact> filesToBuild,
       Artifact launcher,
-      Iterable<Artifact> dynamicRuntimeActionInputs) {
+      NestedSet<Artifact> dynamicRuntimeActionInputs) {
     // Convert to iterable: filesToBuild has a different order.
     builder.addArtifacts((Iterable<Artifact>) filesToBuild);
     builder.addArtifacts(javaArtifacts.getRuntimeJars());

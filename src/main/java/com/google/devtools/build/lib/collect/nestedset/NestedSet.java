@@ -271,6 +271,12 @@ public final class NestedSet<E> implements Iterable<E> {
     return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
+  /** Returns the single element; only call this if {@link #isSingleton} returns true. */
+  public E getSingleton() {
+    Preconditions.checkState(isSingleton());
+    return (E) children;
+  }
+
   /**
    * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.

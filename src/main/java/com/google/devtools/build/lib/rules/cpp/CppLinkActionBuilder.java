@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.DedupingIterable;
-import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -810,7 +809,7 @@ public class CppLinkActionBuilder {
         IterablesChain.<LinkerInput>builder()
             .add(objectFileInputs)
             .add(linkstampObjectFileInputs)
-            .add(ImmutableIterable.from(uniqueLibraries))
+            .add(uniqueLibraries)
             .add(
                 // Adding toolchain libraries without whole archive no-matter-what. People don't
                 // want to include whole libstdc++ in their binary ever.

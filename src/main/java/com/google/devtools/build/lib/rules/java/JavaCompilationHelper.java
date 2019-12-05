@@ -413,7 +413,10 @@ public final class JavaCompilationHelper {
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(
-        ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(getBootclasspathOrDefault())
+            .addTransitive(getExtdirInputs())
+            .build());
 
     // only run API-generating annotation processors during header compilation
     JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
@@ -761,8 +764,8 @@ public final class JavaCompilationHelper {
   }
 
   /** Returns the extdir artifacts. */
-  private final ImmutableList<Artifact> getExtdirInputs() {
-    return javaToolchain.getExtclasspath().toList();
+  private final NestedSet<Artifact> getExtdirInputs() {
+    return javaToolchain.getExtclasspath();
   }
 
   /**

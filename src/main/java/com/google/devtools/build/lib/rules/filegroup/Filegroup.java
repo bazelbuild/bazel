@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -108,14 +107,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
    * Returns the single Artifact from filesToBuild or {@code null} if there are multiple elements.
    */
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
-    Iterator<Artifact> it = filesToBuild.iterator();
-    if (it.hasNext()) {
-      Artifact out = it.next();
-      if (!it.hasNext()) {
-        return out;
-      }
-    }
-    return null;
+    return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
   }
 
   private PathFragment getFilegroupPath(RuleContext ruleContext) {
