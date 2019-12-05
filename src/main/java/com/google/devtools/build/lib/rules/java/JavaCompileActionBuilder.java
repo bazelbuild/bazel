@@ -139,7 +139,7 @@ public final class JavaCompileActionBuilder {
   private final BuildConfiguration configuration;
   private final JavaToolchainProvider toolchain;
   private PathFragment javaExecutable;
-  private List<Artifact> javabaseInputs = ImmutableList.of();
+  private NestedSet<Artifact> javabaseInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -237,7 +237,7 @@ public final class JavaCompileActionBuilder {
         .addTransitive(extraData)
         .addAll(sourceJars)
         .addAll(sourceFiles)
-        .addAll(javabaseInputs)
+        .addTransitive(javabaseInputs)
         .addTransitive(bootclasspathEntries)
         .addAll(sourcePathEntries)
         .addAll(extdirInputs);
@@ -380,8 +380,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavaBaseInputs(Iterable<Artifact> javabaseInputs) {
-    this.javabaseInputs = ImmutableList.copyOf(javabaseInputs);
+  public JavaCompileActionBuilder setJavaBaseInputs(NestedSet<Artifact> javabaseInputs) {
+    this.javabaseInputs = javabaseInputs;
     return this;
   }
 
