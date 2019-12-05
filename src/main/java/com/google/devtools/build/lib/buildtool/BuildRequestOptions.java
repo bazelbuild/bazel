@@ -355,6 +355,16 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useAsyncExecution;
 
   @Option(
+      name = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
+
+  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
