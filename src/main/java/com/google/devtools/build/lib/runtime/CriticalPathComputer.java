@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Range;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
@@ -320,8 +319,7 @@ public class CriticalPathComputer {
     Action action = event.getFailedRewoundAction();
     CriticalPathComponent component =
         Preconditions.checkNotNull(outputArtifactToComponent.get(action.getPrimaryOutput()));
-    component.finishActionExecution(
-        Range.closed(event.getRelativeActionStartTime(), clock.nanoTime()));
+    component.finishActionExecution(event.getRelativeActionStartTime(), clock.nanoTime());
   }
 
   /** Maximum critical path component found during the build. */
@@ -331,17 +329,18 @@ public class CriticalPathComputer {
 
   private void finalizeActionStat(
       long startTimeNanos, Action action, CriticalPathComponent component) {
-    Range<Long> componentRuntimeRange = Range.closed(startTimeNanos, clock.nanoTime());
     for (Artifact input : action.getInputs()) {
-      addArtifactDependency(component, input, componentRuntimeRange);
+      addArtifactDependency(component, input);
     }
-    component.finishActionExecution(componentRuntimeRange);
+
+    component.finishActionExecution(startTimeNanos, clock.nanoTime());
     maxCriticalPath.accumulateAndGet(component, SELECT_LONGER_COMPONENT);
   }
 
-  /** If "input" is a generated artifact, link its critical path to the one we're building. */
-  private void addArtifactDependency(
-      CriticalPathComponent actionStats, Artifact input, Range<Long> componentRuntimeRange) {
+  /**
+   * If "input" is a generated artifact, link its critical path to the one we're building.
+   */
+  private void addArtifactDependency(CriticalPathComponent actionStats, Artifact input) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
       if (depComponent.isRunning()) {
@@ -349,7 +348,7 @@ public class CriticalPathComputer {
             (Artifact.DerivedArtifact) input, depComponent.getAction(), actionStats);
         return;
       }
-      actionStats.addDepInfo(depComponent, componentRuntimeRange);
+      actionStats.addDepInfo(depComponent);
     }
   }
 

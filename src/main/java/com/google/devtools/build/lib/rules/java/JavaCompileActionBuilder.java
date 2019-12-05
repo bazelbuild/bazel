@@ -82,7 +82,7 @@ public final class JavaCompileActionBuilder {
     private final NestedSet<Artifact> classpathEntries;
 
     /** The list of bootclasspath entries to specify to javac. */
-    private final ImmutableList<Artifact> bootclasspathEntries;
+    private final NestedSet<Artifact> bootclasspathEntries;
 
     /** The list of classpath entries to search for annotation processors. */
     private final NestedSet<Artifact> processorPath;
@@ -102,7 +102,7 @@ public final class JavaCompileActionBuilder {
     JavaCompileExtraActionInfoSupplier(
         Artifact outputJar,
         NestedSet<Artifact> classpathEntries,
-        ImmutableList<Artifact> bootclasspathEntries,
+        NestedSet<Artifact> bootclasspathEntries,
         NestedSet<Artifact> processorPath,
         NestedSet<String> processorNames,
         ImmutableList<Artifact> sourceJars,
@@ -139,7 +139,7 @@ public final class JavaCompileActionBuilder {
   private final BuildConfiguration configuration;
   private final JavaToolchainProvider toolchain;
   private PathFragment javaExecutable;
-  private List<Artifact> javabaseInputs = ImmutableList.of();
+  private NestedSet<Artifact> javabaseInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -154,7 +154,8 @@ public final class JavaCompileActionBuilder {
   private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
   private boolean compressJar;
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+  private NestedSet<Artifact> bootclasspathEntries =
+      NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
   private FilesToRunProvider javaBuilder;
@@ -236,8 +237,8 @@ public final class JavaCompileActionBuilder {
         .addTransitive(extraData)
         .addAll(sourceJars)
         .addAll(sourceFiles)
-        .addAll(javabaseInputs)
-        .addAll(bootclasspathEntries)
+        .addTransitive(javabaseInputs)
+        .addTransitive(bootclasspathEntries)
         .addAll(sourcePathEntries)
         .addAll(extdirInputs);
     if (coverageArtifact != null) {
@@ -379,8 +380,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavaBaseInputs(Iterable<Artifact> javabaseInputs) {
-    this.javabaseInputs = ImmutableList.copyOf(javabaseInputs);
+  public JavaCompileActionBuilder setJavaBaseInputs(NestedSet<Artifact> javabaseInputs) {
+    this.javabaseInputs = javabaseInputs;
     return this;
   }
 
@@ -451,8 +452,9 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setBootclasspathEntries(Iterable<Artifact> bootclasspathEntries) {
-    this.bootclasspathEntries = ImmutableList.copyOf(bootclasspathEntries);
+  public JavaCompileActionBuilder setBootclasspathEntries(
+      NestedSet<Artifact> bootclasspathEntries) {
+    this.bootclasspathEntries = bootclasspathEntries;
     return this;
   }
 

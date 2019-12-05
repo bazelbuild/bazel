@@ -552,8 +552,7 @@ public final class SkyframeBuildView {
       skyframeExecutor
           .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
-      Preconditions.checkState(
-          cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()), errorInfo);
+      Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
       if (errorKey.argument() instanceof AspectValueKey) {
         // We skip Aspects in the keepGoing case; the failures should already have been reported to
@@ -606,7 +605,7 @@ public final class SkyframeBuildView {
           }
         }
         rootCauses = ctCause.getRootCauses();
-      } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+      } else if (!errorInfo.getCycleInfo().isEmpty()) {
         Label analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
         rootCauses = analysisRootCause != null

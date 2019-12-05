@@ -106,14 +106,18 @@ public final class CompileCommandLine {
 
   /**
    * Returns {@link CommandLine} instance that contains the exactly same command line as the {@link
-   * CppCompileAction} owning this {@link CompileCommandLine}.
+   * CppCompileAction}.
+   *
+   * @param cppCompileAction - {@link CppCompileAction} owning this {@link CompileCommandLine}.
    */
-  public CommandLine getFilteredFeatureConfigurationCommandLine() {
+  public CommandLine getFilteredFeatureConfigurationCommandLine(CppCompileAction cppCompileAction) {
     return new CommandLine() {
 
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
-        return ImmutableList.copyOf(getCompilerOptions(/* overwrittenVariables= */ null));
+        CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
+        List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
+        return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
       }
     };
   }

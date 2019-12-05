@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -149,7 +148,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final Runnable abruptShutdownHandler;
 
   private final PackageFactory packageFactory;
-  private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   // For bazel info.
   private final ImmutableMap<String, InfoItem> infoItems;
@@ -185,7 +183,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       ImmutableList<OutputFormatter> queryOutputFormatters,
       PackageFactory pkgFactory,
       ConfiguredRuleClassProvider ruleClassProvider,
-      ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories,
       ImmutableMap<String, InfoItem> infoItems,
       ActionKeyContext actionKeyContext,
       Clock clock,
@@ -213,7 +210,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.moduleInvocationPolicy = moduleInvocationPolicy;
 
     this.ruleClassProvider = ruleClassProvider;
-    this.configurationFragmentFactories = configurationFragmentFactories;
     this.infoItems = infoItems;
     this.actionKeyContext = actionKeyContext;
     this.clock = clock;
@@ -517,10 +513,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
     }
     return null;
-  }
-
-  public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragmentFactories() {
-    return configurationFragmentFactories;
   }
 
   /**
@@ -1582,7 +1574,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           serverBuilder.getQueryOutputFormatters(),
           packageFactory,
           ruleClassProvider,
-          ruleClassProvider.getConfigurationFragments(),
           serverBuilder.getInfoItems(),
           actionKeyContext,
           clock,

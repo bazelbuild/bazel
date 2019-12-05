@@ -303,7 +303,7 @@ public final class JavaCompilationHelper {
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
-  public ImmutableList<Artifact> getBootclasspathOrDefault() {
+  public NestedSet<Artifact> getBootclasspathOrDefault() {
     JavaTargetAttributes attributes = getAttributes();
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();
@@ -756,8 +756,8 @@ public final class JavaCompilationHelper {
   /**
    * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
-  public static ImmutableList<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
-    return javaToolchain.getBootclasspath().toList();
+  public static NestedSet<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
+    return javaToolchain.getBootclasspath();
   }
 
   /** Returns the extdir artifacts. */

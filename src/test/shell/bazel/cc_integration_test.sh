@@ -677,7 +677,7 @@ tree_art_rule = rule(implementation = _tree_art_impl,
             default = "//${package}:write.sh")})
 
 def _actions_test_impl(target, ctx):
-    action = target.actions[1] # digest action
+    action = target.actions[1]
     if action.mnemonic != "CppLink":
       fail("Expected the second action to be CppLink.")
     aspect_out = ctx.actions.declare_file('aspect_out')
@@ -705,8 +705,11 @@ EOF
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
       --output_groups=out --experimental_action_args
 
-  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
-      || fail "aspect Args do not contain tree artifact args"
+  cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
 }
 
 function test_directory_arg_compile_action() {
@@ -715,7 +718,7 @@ function test_directory_arg_compile_action() {
 
   cat > "${package}/lib.bzl" <<EOF
 def _actions_test_impl(target, ctx):
-    action = target.actions[0] # digest action
+    action = target.actions[0]
     if action.mnemonic != "CppCompile":
       fail("Expected the first action to be CppCompile.")
     aspect_out = ctx.actions.declare_file('aspect_out')
@@ -740,8 +743,12 @@ EOF
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
       --output_groups=out --experimental_action_args
 
-  cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
-      || fail "aspect Args do not contain tree artifact args"
+  cat "bazel-bin/${package}/aspect_out" | \
+      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
 }
 
 run_suite "cc_integration_test"

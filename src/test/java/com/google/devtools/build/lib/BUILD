@@ -9,9 +9,11 @@ package(
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.
+# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
+    "vfs/RootedPathAndCasingTest.java",
     "vfs/WindowsPathTest.java",
 ]
 
@@ -485,8 +487,8 @@ java_test(
     ],
 )
 
-# Tests that test Windows-specific functionality that run on other operating
-# systems
+# Tests that exercise Windows-specific (or case-insensitive-filesystem specific) functionality.
+# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 java_test(
     name = "windows_test",
     srcs = CROSS_PLATFORM_WINDOWS_TESTS + ["vfs/PathAbstractTest.java"],

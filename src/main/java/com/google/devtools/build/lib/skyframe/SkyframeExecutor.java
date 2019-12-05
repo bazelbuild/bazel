@@ -1566,6 +1566,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHander(reporter)
+              .setExecutionPhase()
               .build();
       return buildDriver.evaluate(
           Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
@@ -1941,7 +1942,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // Wrap loading failed exceptions
       if (e instanceof NoSuchThingException) {
         e = new InvalidConfigurationException(e);
-      } else if (e == null && !Iterables.isEmpty(error.getCycleInfo())) {
+      } else if (e == null && !error.getCycleInfo().isEmpty()) {
         getCyclesReporter().reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
         e =
             new InvalidConfigurationException(
@@ -2580,7 +2581,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 eventHandler);
         ErrorInfo error = result.getError(key);
         if (error != null) {
-          if (!Iterables.isEmpty(error.getCycleInfo())) {
+          if (!error.getCycleInfo().isEmpty()) {
             reportCycles(eventHandler, result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
             // or loading phase
@@ -2890,7 +2891,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       TargetParsingException exc;
-      if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+      if (!errorInfo.getCycleInfo().isEmpty()) {
         exc = new TargetParsingException("cycles detected during target parsing");
         getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
         // Fallback: we don't know which patterns failed, specifically, so we report the entire
@@ -2950,7 +2951,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       Exception e = errorInfo.getException();
-      if (e == null && !Iterables.isEmpty(errorInfo.getCycleInfo())) {
+      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
         getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
         e =
             new InvalidConfigurationException(

@@ -14,17 +14,18 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 
 /** Cache for {@link PathFragment} in the action graph. */
 public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2.PathFragment> {
-  KnownPathFragments(ActionGraphContainer.Builder actionGraphBuilder) {
-    super(actionGraphBuilder);
+  KnownPathFragments(StreamedOutputHandler streamedOutputHandler) {
+    super(streamedOutputHandler);
   }
 
   @Override
-  AnalysisProtosV2.PathFragment createProto(PathFragment pathFragment, int id) {
+  AnalysisProtosV2.PathFragment createProto(PathFragment pathFragment, int id) throws IOException {
     AnalysisProtosV2.PathFragment.Builder pathFragmentProtoBuilder =
         AnalysisProtosV2.PathFragment.newBuilder().setId(id).setLabel(pathFragment.getBaseName());
 
@@ -32,15 +33,18 @@ public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2
     // If pathFragment has no parent, leave parentId blank and avoid calling dataToId
     // to prevent the cache from being polluted with a null entry.
     if (hasParent(pathFragment)) {
-      pathFragmentProtoBuilder.setParentId(dataToId(pathFragment.getParentDirectory()));
+      pathFragmentProtoBuilder.setParentId(
+          dataToIdAndStreamOutputProto(pathFragment.getParentDirectory()));
     }
 
     return pathFragmentProtoBuilder.build();
   }
 
   @Override
-  void addToActionGraphBuilder(AnalysisProtosV2.PathFragment pathFragmentProto) {
-    actionGraphBuilder.addPathFragments(pathFragmentProto);
+  void streamToOutput(AnalysisProtosV2.PathFragment pathFragmentProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setPathFragment(pathFragmentProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 
   private static boolean hasParent(PathFragment pathFragment) {

@@ -229,6 +229,12 @@ def _darwin_build_file(repository_ctx):
     if default_xcode_target:
         buildcontents += "\n  default = ':%s'," % default_xcode_target
     buildcontents += "\n)\n"
+    buildcontents += "available_xcodes(name = 'host_available_xcodes',"
+    if target_names:
+        buildcontents += "\n  versions = [%s]," % ", ".join(target_names)
+    if default_xcode_target:
+        buildcontents += "\n  default = ':%s'," % default_xcode_target
+    buildcontents += "\n)\n"
     return buildcontents
 
 def _impl(repository_ctx):

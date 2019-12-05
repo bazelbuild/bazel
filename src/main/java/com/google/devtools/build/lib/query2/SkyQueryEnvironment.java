@@ -333,7 +333,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Preconditions.checkNotNull(result.get(universeKey), result);
       } else {
         // No values in the result, so there must be an error. We expect the error to be a cycle.
-        boolean foundCycle = !Iterables.isEmpty(result.getError().getCycleInfo());
+        boolean foundCycle = !result.getError().getCycleInfo().isEmpty();
         Preconditions.checkState(
             foundCycle,
             "Universe query \"%s\" failed with non-cycle error: %s",

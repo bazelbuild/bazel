@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -23,32 +21,25 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
-import com.google.protobuf.TextFormat;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler.OutputType;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeCallback {
 
-  /** Defines the types of proto output this class can handle. */
-  public enum OutputType {
-    BINARY("proto"),
-    TEXT("textproto");
-
-    private final String formatName;
-
-    OutputType(String formatName) {
-      this.formatName = formatName;
-    }
-
-    public String formatName() {
-      return formatName;
-    }
-  }
-
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
   private final AqueryActionFilter actionFilters;
+  private StreamedOutputHandler streamedOutputHandler;
+
+  /**
+   * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful of
+   * messages without needing to flush to the underlying output, which may not be buffered.
+   */
+  private static final int OUTPUT_BUFFER_SIZE = 16384;
 
   ActionGraphProtoV2OutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -61,12 +52,20 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
+    if (out != null) {
+      this.streamedOutputHandler =
+          new StreamedOutputHandler(
+              this.outputType,
+              CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+              this.printStream);
+    }
     this.actionGraphDump =
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
             this.actionFilters,
-            options.includeParamFiles);
+            options.includeParamFiles,
+            streamedOutputHandler);
   }
 
   @Override
@@ -98,25 +97,8 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
 
   @Override
   public void close(boolean failFast) throws IOException {
-    if (!failFast && printStream != null) {
-      ActionGraphContainer actionGraphContainer = actionGraphDump.build();
-
-      // Write the data.
-      switch (outputType) {
-        case BINARY:
-          actionGraphContainer.writeTo(printStream);
-          break;
-        case TEXT:
-          TextFormat.print(actionGraphContainer, printStream);
-          break;
-        default:
-          throw new IllegalStateException("Unknown outputType " + outputType.formatName());
-      }
+    if (!failFast) {
+      streamedOutputHandler.close();
     }
-  }
-
-  @VisibleForTesting
-  public ActionGraphContainer getProtoResult() {
-    return actionGraphDump.build();
   }
 }

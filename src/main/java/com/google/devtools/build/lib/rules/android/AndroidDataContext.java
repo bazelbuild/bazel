@@ -64,7 +64,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean persistentBusyboxToolsEnabled;
   private final boolean optOutOfResourcePathShortening;
   private final boolean optOutOfResourceNameObfuscation;
-  private final boolean optOutOfResourceShrinking;
+  private final boolean throwOnShrinkResources;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -85,9 +85,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
         AndroidSdkProvider.fromRuleContext(ruleContext),
         hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),
         hasExemption(ruleContext, "allow_resource_name_obfuscation_opt_out", false),
-        // TODO(bcsf): In a subsequent CL this will be changed to allow_shrink_resources
-        // including a semantic change.
-        hasExemption(ruleContext, "allow_resource_shrinking_opt_out", false),
+        !hasExemption(ruleContext, "allow_shrink_resources_attribute", true),
         !hasExemption(ruleContext, "allow_proguard_apply_dictionary", true),
         !hasExemption(ruleContext, "allow_proguard_apply_mapping", true),
         !hasExemption(ruleContext, "allow_resource_conflicts", true),
@@ -108,7 +106,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       AndroidSdkProvider sdk,
       boolean optOutOfResourcePathShortening,
       boolean optOutOfResourceNameObfuscation,
-      boolean optOutOfResourceShrinking,
+      boolean throwOnShrinkResources,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -119,7 +117,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.sdk = sdk;
     this.optOutOfResourcePathShortening = optOutOfResourcePathShortening;
     this.optOutOfResourceNameObfuscation = optOutOfResourceNameObfuscation;
-    this.optOutOfResourceShrinking = optOutOfResourceShrinking;
+    this.throwOnShrinkResources = throwOnShrinkResources;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -206,10 +204,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return optOutOfResourceNameObfuscation;
   }
 
-  // TODO(bcsf): In a subsequent CL this will be changed to throwOnShrinkResources() including
-  // a semantic change.
-  public boolean optOutOfResourceShrinking() {
-    return optOutOfResourceShrinking;
+  public boolean throwOnShrinkResources() {
+    return throwOnShrinkResources;
   }
 
   public boolean throwOnProguardApplyDictionary() {
@@ -251,12 +247,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
       return false;
     }
 
-    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
-    if (state == TriState.AUTO) {
-      state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
-    }
-
-    return state == TriState.YES && !optOutOfResourceShrinking;
+    return ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE) == TriState.YES
+        || getAndroidConfig().useAndroidResourceShrinking();
   }
 
   boolean useResourcePathShortening() {

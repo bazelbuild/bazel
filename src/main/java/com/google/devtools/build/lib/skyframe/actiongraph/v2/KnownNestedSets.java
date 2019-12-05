@@ -14,16 +14,17 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import java.io.IOException;
 
 /** Cache for NestedSets in the action graph. */
 public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   private final KnownArtifacts knownArtifacts;
 
-  KnownNestedSets(ActionGraphContainer.Builder actionGraphBuilder, KnownArtifacts knownArtifacts) {
-    super(actionGraphBuilder);
+  KnownNestedSets(StreamedOutputHandler streamedOutputHandler, KnownArtifacts knownArtifacts) {
+    super(streamedOutputHandler);
     this.knownArtifacts = knownArtifacts;
   }
 
@@ -36,20 +37,23 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   }
 
   @Override
-  DepSetOfFiles createProto(Object nestedSetViewObject, int id) {
+  DepSetOfFiles createProto(Object nestedSetViewObject, int id) throws IOException {
     NestedSetView<?> nestedSetView = (NestedSetView) nestedSetViewObject;
     DepSetOfFiles.Builder depSetBuilder = DepSetOfFiles.newBuilder().setId(id);
     for (NestedSetView<?> transitiveNestedSet : nestedSetView.transitives()) {
-      depSetBuilder.addTransitiveDepSetIds(this.dataToId(transitiveNestedSet));
+      depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(transitiveNestedSet));
     }
     for (Object directArtifact : nestedSetView.directs()) {
-      depSetBuilder.addDirectArtifactIds(knownArtifacts.dataToId((Artifact) directArtifact));
+      depSetBuilder.addDirectArtifactIds(
+          knownArtifacts.dataToIdAndStreamOutputProto((Artifact) directArtifact));
     }
     return depSetBuilder.build();
   }
 
   @Override
-  void addToActionGraphBuilder(DepSetOfFiles depSetOfFilesProto) {
-    actionGraphBuilder.addDepSetOfFiles(depSetOfFilesProto);
+  void streamToOutput(DepSetOfFiles depSetOfFilesProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setDepSetOfFiles(depSetOfFilesProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

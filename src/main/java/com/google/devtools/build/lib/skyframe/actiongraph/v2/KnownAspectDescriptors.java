@@ -14,21 +14,23 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.KeyValuePair;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import java.io.IOException;
 import java.util.Map;
 
 /** Cache for AspectDescriptors in the action graph. */
 public class KnownAspectDescriptors
     extends BaseCache<AspectDescriptor, AnalysisProtosV2.AspectDescriptor> {
 
-  KnownAspectDescriptors(ActionGraphContainer.Builder actionGraphBuilder) {
-    super(actionGraphBuilder);
+  KnownAspectDescriptors(StreamedOutputHandler streamedOutputHandler) {
+    super(streamedOutputHandler);
   }
 
   @Override
-  AnalysisProtosV2.AspectDescriptor createProto(AspectDescriptor aspectDescriptor, int id) {
+  AnalysisProtosV2.AspectDescriptor createProto(AspectDescriptor aspectDescriptor, int id)
+      throws IOException {
     AnalysisProtosV2.AspectDescriptor.Builder aspectDescriptorBuilder =
         AnalysisProtosV2.AspectDescriptor.newBuilder()
             .setId(id)
@@ -43,7 +45,9 @@ public class KnownAspectDescriptors
   }
 
   @Override
-  void addToActionGraphBuilder(AnalysisProtosV2.AspectDescriptor aspectDescriptorProto) {
-    actionGraphBuilder.addAspectDescriptors(aspectDescriptorProto);
+  void streamToOutput(AnalysisProtosV2.AspectDescriptor aspectDescriptorProto) throws IOException {
+    ActionGraphComponent message =
+        ActionGraphComponent.newBuilder().setAspectDescriptor(aspectDescriptorProto).build();
+    streamedOutputHandler.printActionGraphComponent(message);
   }
 }

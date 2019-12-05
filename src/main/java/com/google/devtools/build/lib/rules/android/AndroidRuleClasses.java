@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
@@ -857,22 +856,6 @@ public final class AndroidRuleClasses {
           applicationId, versionCode and versionName will have any effect.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("manifest_values", STRING_DICT))
-          /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(aapt_version) -->
-          Select the version of aapt for this rule.<br/>
-
-          This attribute only takes effect if you set `--android_aapt=auto`.<br/>
-
-          Possible values:
-          <ul>
-              <li><code>aapt_version = "aapt"</code>: Use aapt (deprecated).</li>
-              <li><code>aapt_version = "aapt2"</code>: Use aapt2. This provides improved
-                incremental resource processing, smaller apks and more.</li>
-          </ul>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr("aapt_version", STRING)
-                  .allowedValues(new AllowedValueSet(AndroidAaptVersion.getAttributeValues()))
-                  .value(AndroidAaptVersion.getRuleAttributeDefault()))
           .add(
               attr(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, LABEL_KEYED_STRING_DICT)
                   .undocumented("the feature flag feature has not yet been launched")

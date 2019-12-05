@@ -42,7 +42,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 
-/** A helper class containing built in functions for the Skylark language. */
+/** The universal predeclared functions of core Starlark. */
 @SkylarkGlobalLibrary
 class MethodLibrary {
 
@@ -312,11 +312,13 @@ class MethodLibrary {
 
   @SkylarkCallable(
       name = "len",
-      doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
+      doc =
+          "Returns the length of a string, sequence (such as a list or tuple), dict, or other"
+              + " iterable.",
       parameters = {
         @Param(
             name = "x",
-            doc = "The object to check length of.",
+            doc = "The value whose length to report.",
             // TODO(cparsons): This parameter should be positional-only.
             legacyNamed = true)
       },

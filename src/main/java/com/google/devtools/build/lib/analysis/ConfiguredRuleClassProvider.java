@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -150,17 +151,17 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
-        new ArrayList<>();
+    private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
     @Nullable private TransitionFactory<Rule> trimmingTransitionFactory = null;
     @Nullable private PatchTransition toolchainTaggedTrimmingTransition = null;
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
-        ImmutableList.<Bootstrap>builder();
+    private final ImmutableList.Builder<Bootstrap> skylarkBootstraps = ImmutableList.builder();
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
         ImmutableMap.builder();
+    private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
+        ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
@@ -256,8 +257,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       return this;
     }
 
-    public Builder addUniversalConfigurationFragment(
-        Class<? extends BuildConfiguration.Fragment> fragment) {
+    public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
       return this;
     }
@@ -269,6 +269,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
     public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
       this.skylarkAccessibleTopLevels.put(name, object);
+      return this;
+    }
+
+    public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
+      this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
@@ -458,6 +463,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkBootstraps.build(),
+          symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
@@ -541,16 +547,18 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
   /**
-   * Configuration fragments that should be available to all rules even when they don't
-   * explicitly require it.
+   * Configuration fragments that should be available to all rules even when they don't explicitly
+   * require it.
    */
-  private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+  private final ImmutableList<Class<? extends Fragment>> universalFragments;
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
 
   private final PrerequisiteValidator prerequisiteValidator;
 
   private final ImmutableMap<String, Object> environment;
+
+  private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
 
   private final ImmutableSet<String> reservedActionMnemonics;
 
@@ -574,13 +582,14 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
-      ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
+      ImmutableList<Class<? extends Fragment>> universalFragments,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Bootstrap> skylarkBootstraps,
+      ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics constraintSemantics,
@@ -603,9 +612,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
-    this.configurationFragmentMap = createFragmentMap(configurationFragmentFactories);
+    this.configurationFragmentMap = createFragmentMap(configurationFragments);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
   }
@@ -738,10 +748,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   }
 
   /**
-   * Returns the configuration fragment that should be available to all rules even when they
-   * don't explicitly require it.
+   * Returns the configuration fragment that should be available to all rules even when they don't
+   * explicitly require it.
    */
-  public ImmutableList<Class<? extends BuildConfiguration.Fragment>> getUniversalFragments() {
+  public ImmutableList<Class<? extends Fragment>> getUniversalFragments() {
     return universalFragments;
   }
 
@@ -773,7 +783,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule((fragmentClass));
+      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
@@ -835,6 +845,20 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return configurationFragmentMap;
   }
 
+  /**
+   * Returns the symlink definitions introduced by the fragments registered with this rule class
+   * provider.
+   *
+   * <p>This only includes definitions added by {@link #addSymlinkDefinition}, not the standard
+   * symlinks in {@link ConvenienceSymlinks#getStandardLinkDefinitions}.
+   *
+   * <p>Note: Usages of custom symlink definitions should be rare. Currently it is only used to
+   * implement the py2-bin / py3-bin symlinks.
+   */
+  public ImmutableList<SymlinkDefinition> getSymlinkDefinitions() {
+    return symlinkDefinitions;
+  }
+
   public ConstraintSemantics getConstraintSemantics() {
     return constraintSemantics;
   }
@@ -844,9 +868,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return thirdPartyLicenseExistencePolicy;
   }
 
-  /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
-  public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+  /** Returns all registered {@link Fragment} classes. */
+  public ImmutableSortedSet<Class<? extends Fragment>> getAllFragments() {
+    ImmutableSortedSet.Builder<Class<? extends Fragment>> fragmentsBuilder =
         ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter);
     for (ConfigurationFragmentFactory factory : getConfigurationFragments()) {
       fragmentsBuilder.add(factory.creates());

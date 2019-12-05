@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -90,7 +89,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       return false;
     }
     ErrorInfo errorInfo = entry.getErrorInfo();
-    return errorInfo != null && !Iterables.isEmpty(errorInfo.getCycleInfo());
+    return errorInfo != null && !errorInfo.getCycleInfo().isEmpty();
   }
 
   @Nullable

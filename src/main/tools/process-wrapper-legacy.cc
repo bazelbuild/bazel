@@ -14,20 +14,16 @@
 
 #include "src/main/tools/process-wrapper-legacy.h"
 
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/wait.h>
-#if defined(__linux__)
-#include <sys/prctl.h>
-#endif
-
-#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <vector>
 
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
@@ -43,12 +39,6 @@ void LegacyProcessWrapper::RunCommand() {
 }
 
 void LegacyProcessWrapper::SpawnChild() {
-#if defined(__linux__)
-  if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == -1) {
-    DIE("prctl");
-  }
-#endif
-
   child_pid = fork();
   if (child_pid < 0) {
     DIE("fork");
@@ -80,23 +70,6 @@ void LegacyProcessWrapper::WaitForChild() {
     SetTimeout(opt.timeout_secs);
   }
 
-  // On macOS, we have to ensure the whole process group is terminated before
-  // collecting the status of the PID we are interested in. (Otherwise other
-  // processes could race us and grab the PGID.)
-#if defined(__APPLE__)
-  if (WaitForProcessToTerminate(child_pid) == -1) {
-    DIE("WaitForProcessToTerminate");
-  }
-
-  // The child is done for, but may have grandchildren that we still have to
-  // kill.
-  kill(-child_pid, SIGKILL);
-
-  if (WaitForProcessGroupToTerminate(child_pid) == -1) {
-    DIE("WaitForProcessGroupToTerminate");
-  }
-#endif
-
   int status;
   if (!opt.stats_path.empty()) {
     struct rusage child_rusage;
@@ -106,18 +79,9 @@ void LegacyProcessWrapper::WaitForChild() {
     status = WaitChild(child_pid);
   }
 
-  // On Linux, we enabled the child subreaper feature, so now that we have
-  // collected the status of the PID we were interested in, terminate the
-  // rest of the process group and wait until all the children are gone.
-#if defined(__linux__)
   // The child is done for, but may have grandchildren that we still have to
   // kill.
   kill(-child_pid, SIGKILL);
-
-  while (wait(NULL) != -1) {
-    // Got a child.  Wait for more.
-  }
-#endif
 
   if (last_signal > 0) {
     // Don't trust the exit code if we got a timeout or signal.

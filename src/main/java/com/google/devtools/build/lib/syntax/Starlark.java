@@ -173,8 +173,9 @@ public final class Starlark {
   }
 
   /**
-   * Returns the length of a legal Starlark value as if by the expression {@code len(x)}, or -1 if
-   * the value is not a string or iterable.
+   * Returns the length of a Starlark string, sequence (such as a list or tuple), dict, or other
+   * iterable, as if by the Starlark expression {@code len(x)}, or -1 if the value is valid but has
+   * no length.
    */
   public static int len(Object x) {
     if (x instanceof String) {
@@ -184,10 +185,11 @@ public final class Starlark {
     } else if (x instanceof Dict) {
       return ((Dict) x).size();
     } else if (x instanceof StarlarkIterable) {
-      // Iterables.size() checks if x is a Collection so it's efficient in that sense.
+      // Iterables.size runs in constant time if x implements Collection.
       return Iterables.size((Iterable<?>) x);
     } else {
-      return -1;
+      checkValid(x);
+      return -1; // valid but not a sequence
     }
   }
 

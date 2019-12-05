@@ -854,7 +854,7 @@ public class CppCompileAction extends AbstractAction
             .filter(artifact -> artifact.isDirectory())
             .collect(ImmutableSet.toImmutableSet());
 
-    CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine();
+    CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine(this);
 
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
         new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
@@ -1167,6 +1167,10 @@ public class CppCompileAction extends AbstractAction
     CcToolchainVariables.Builder variableBuilder = CcToolchainVariables.builder();
     variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
     return variableBuilder.build();
+  }
+
+  public CcToolchainVariables getOverwrittenVariables() {
+    return overwrittenVariables;
   }
 
   @Override
