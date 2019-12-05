@@ -301,9 +301,9 @@ public final class JavaCompileActionBuilder {
         /* classpathMode= */ classpathMode);
   }
 
-  private NestedSet<Artifact> allOutputs() {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(outputs.toNestedSet())
+  private ImmutableSet<Artifact> allOutputs() {
+    return ImmutableSet.<Artifact>builder()
+        .addAll(outputs.toSet())
         .addAll(additionalOutputs)
         .build();
   }

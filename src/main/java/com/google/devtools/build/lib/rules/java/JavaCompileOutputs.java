@@ -15,9 +15,8 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -59,13 +58,11 @@ public abstract class JavaCompileOutputs<T extends Artifact> {
     return toBuilder().output(output).build();
   }
 
-  public NestedSet<T> toNestedSet() {
-    NestedSetBuilder<T> result = NestedSetBuilder.<T>stableOrder();
+  public ImmutableSet<T> toSet() {
     // 'genClass' is created by a separate action
-    Stream.of(output(), manifestProto(), depsProto(), genSource(), nativeHeader())
+    return Stream.of(output(), manifestProto(), depsProto(), genSource(), nativeHeader())
         .filter(x -> x != null)
-        .forEachOrdered(result::add);
-    return result.build();
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   @AutoValue.Builder

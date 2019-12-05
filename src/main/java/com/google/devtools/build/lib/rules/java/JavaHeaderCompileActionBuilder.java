@@ -264,8 +264,7 @@ public class JavaHeaderCompileActionBuilder {
             /* sourceJars= */ sourceJars,
             /* plugins= */ plugins);
 
-    NestedSet<Artifact> outputs =
-        NestedSetBuilder.create(Order.STABLE_ORDER, outputJar, outputDepsProto);
+    ImmutableSet<Artifact> outputs = ImmutableSet.of(outputJar, outputDepsProto);
 
     NestedSetBuilder<Artifact> mandatoryInputs =
         NestedSetBuilder.<Artifact>stableOrder()

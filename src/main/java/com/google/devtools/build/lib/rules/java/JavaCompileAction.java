@@ -132,7 +132,7 @@ public class JavaCompileAction extends AbstractAction
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
-      NestedSet<Artifact> outputs,
+      ImmutableSet<Artifact> outputs,
       ImmutableMap<String, String> executionInfo,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
