@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// blaze.cc: bootstrap and client code for Blaze server.
+// blaze.cc: bootstrap and client code for Blaze/Bazel server.
 //
 // Responsible for:
 // - extracting the Python, C++ and Java components.
@@ -23,6 +23,7 @@
 // - exiting with the right error/WTERMSIG code.
 // - debugger + profiler support.
 // - mutual exclusion between batch invocations.
+
 #include "src/main/cpp/blaze.h"
 
 #include <assert.h>
