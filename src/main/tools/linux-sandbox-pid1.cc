@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <string>
 
 #ifndef MS_REC
@@ -181,8 +182,8 @@ static void MountFilesystems() {
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    const std::string& source = opt.bind_mount_sources.at(i);
-    const std::string& target = opt.bind_mount_targets.at(i);
+    const std::string &source = opt.bind_mount_sources.at(i);
+    const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
     if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
@@ -275,10 +276,19 @@ static void MakeFilesystemMostlyReadOnly() {
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
       // should just ignore it.
-      if (errno != EACCES && errno != EPERM && errno != EINVAL &&
-          errno != ENOENT && errno != ESTALE) {
-        DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
-            mountFlags);
+      switch (errno) {
+        case EACCES:
+        case EPERM:
+        case EINVAL:
+        case ENOENT:
+        case ESTALE:
+          PRINT_DEBUG(
+              "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
+              ent->mnt_dir, mountFlags);
+          break;
+        default:
+          DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
+              mountFlags);
       }
     }
   }
