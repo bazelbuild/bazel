@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
 import com.google.devtools.build.lib.analysis.LocationExpander;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -82,7 +83,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -688,7 +688,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkIndexable toolchains() throws EvalException {
+  public ResolvedToolchainContext toolchains() throws EvalException {
     checkMutable("toolchains");
     return ruleContext.getToolchainContext();
   }
