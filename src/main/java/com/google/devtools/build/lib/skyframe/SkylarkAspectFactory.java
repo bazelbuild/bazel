@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -106,7 +106,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           return null;
         } else if (!(aspectSkylarkObject instanceof StructImpl)
             && !(aspectSkylarkObject instanceof Iterable)
-            && !(aspectSkylarkObject instanceof InfoInterface)) {
+            && !(aspectSkylarkObject instanceof Info)) {
           ruleContext.ruleError(
               String.format(
                   "Aspect implementation should return a struct, a list, or a provider "
@@ -137,7 +137,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
     } else {
       // Either an old-style struct or a single declared provider (not in a list)
-      InfoInterface info = (InfoInterface) aspectSkylarkObject;
+      Info info = (Info) aspectSkylarkObject;
       Location loc = info.getCreationLoc();
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
         // Old-style struct, that may contain declared providers.
@@ -175,10 +175,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     int i = 0;
     for (Object o : aspectSkylarkObject) {
       Location loc = skylarkAspect.getImplementation().getLocation();
-      InfoInterface declaredProvider =
+      Info declaredProvider =
           SkylarkType.cast(
               o,
-              InfoInterface.class,
+              Info.class,
               loc,
               "A return value of an aspect implementation function should be "
                   + "a sequence of declared providers, instead got a %s at index %d",

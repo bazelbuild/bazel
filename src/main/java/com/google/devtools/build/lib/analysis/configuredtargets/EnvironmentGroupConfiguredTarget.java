@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
@@ -41,7 +41,7 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   }
 
   @Override
-  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return null;
   }
 

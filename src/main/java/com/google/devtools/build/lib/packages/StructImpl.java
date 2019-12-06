@@ -38,11 +38,11 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A generic skylark object with fields, constructable by calling {@code struct()} in skylark.
- */
-public abstract class StructImpl extends Info
-    implements ClassObject, StructApi, Serializable {
+/** A generic skylark object with fields, constructable by calling {@code struct()} in skylark. */
+public abstract class StructImpl implements Info, ClassObject, StructApi, Serializable {
+
+  private final Provider provider;
+  private final Location location;
 
   /**
    * Constructs an {@link StructImpl}.
@@ -52,7 +52,18 @@ public abstract class StructImpl extends Info
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
-    super(provider, location);
+    this.provider = provider;
+    this.location = location != null ? location : Location.BUILTIN;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return provider;
+  }
+
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   /**
@@ -118,7 +129,7 @@ public abstract class StructImpl extends Info
    * <p>By default, it is the one specified by the provider.
    */
   protected String getErrorMessageFormatForUnknownField() {
-    return provider.getErrorMessageFormatForUnknownField();
+    return getProvider().getErrorMessageFormatForUnknownField();
   }
 
   @Override
@@ -137,7 +148,7 @@ public abstract class StructImpl extends Info
     if (this == other) {
       return true;
     }
-    if (!this.provider.equals(other.provider)) {
+    if (!this.getProvider().equals(other.getProvider())) {
       return false;
     }
     // Compare objects' fields and their values
@@ -157,7 +168,7 @@ public abstract class StructImpl extends Info
     List<String> fields = new ArrayList<>(getFieldNames());
     Collections.sort(fields);
     List<Object> objectsToHash = new ArrayList<>();
-    objectsToHash.add(provider);
+    objectsToHash.add(getProvider());
     for (String field : fields) {
       objectsToHash.add(field);
       objectsToHash.add(getValueOrNull(field));

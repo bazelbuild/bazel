@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
@@ -88,8 +87,9 @@ import javax.annotation.Nullable;
  * transitive nested sets returned by ObjcProvider queries. It does not materially affect other
  * operations of the ObjcProvider.
  */
+// TODO(adonovan): this is an info, not a provider; rename.
 @Immutable
-public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact> {
+public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -635,12 +635,16 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems,
       ImmutableListMultimap<Key<?>, ?> directItems) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
     this.directItems = Preconditions.checkNotNull(directItems);
+  }
+
+  @Override
+  public BuiltinProvider<ObjcProvider> getProvider() {
+    return SKYLARK_CONSTRUCTOR;
   }
 
   /**

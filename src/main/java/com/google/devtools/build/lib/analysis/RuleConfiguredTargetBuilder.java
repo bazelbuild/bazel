@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -498,9 +498,9 @@ public final class RuleConfiguredTargetBuilder {
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Skylark
    * directly, instead its output groups are added.
    *
-   * <p>Use {@link #addNativeDeclaredProvider(InfoInterface)} in definitions of native rules.
+   * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(InfoInterface provider)
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider)
       throws EvalException {
     Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
@@ -522,10 +522,10 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(InfoInterface)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<InfoInterface> providers) {
-    for (InfoInterface provider : providers) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
+    for (Info provider : providers) {
       addNativeDeclaredProvider(provider);
     }
     return this;
@@ -535,9 +535,9 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(InfoInterface)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(InfoInterface provider) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);

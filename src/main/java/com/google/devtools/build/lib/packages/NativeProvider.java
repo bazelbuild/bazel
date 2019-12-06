@@ -45,8 +45,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @Deprecated
-public abstract class NativeProvider<V extends InfoInterface> extends BaseFunction
-    implements Provider {
+public abstract class NativeProvider<V extends Info> extends BaseFunction implements Provider {
   private final String name;
   private final NativeKey key;
   private final String errorMessageFormatForUnknownField;

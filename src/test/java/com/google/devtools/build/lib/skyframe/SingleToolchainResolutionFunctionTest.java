@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
@@ -248,7 +248,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T extends InfoInterface> T get(NativeProvider<T> provider) {
+    public <T extends Info> T get(NativeProvider<T> provider) {
       if (PlatformInfo.PROVIDER.equals(provider)) {
         return (T) this.platform;
       }
@@ -257,7 +257,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     @Nullable
     @Override
-    public InfoInterface get(Provider.Key providerKey) {
+    public Info get(Provider.Key providerKey) {
 
       return null;
     }

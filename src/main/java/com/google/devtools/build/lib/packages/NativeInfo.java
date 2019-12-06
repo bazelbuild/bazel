@@ -26,6 +26,9 @@ import java.util.Map;
 
 /** Base class for native implementations of {@link StructImpl}. */
 // todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
+// TODO(adonovan): split NativeInfo into NativeInfo and NativeInfoWithExtraFields;
+//  only a very few subclasses (e.g. ToolchainInfo) make use of NativeInfoWithFields.values,
+//  and only they should pay for it.
 public class NativeInfo extends StructImpl {
   protected final ImmutableSortedMap<String, Object> values;
 

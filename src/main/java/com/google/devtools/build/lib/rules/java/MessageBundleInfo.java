@@ -79,10 +79,6 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
     this.messages = ImmutableList.copyOf(messages);
   }
 
-  public Location getLocation() {
-    return location;
-  }
-
   public ImmutableList<Artifact> getMessages() {
     return messages;
   }

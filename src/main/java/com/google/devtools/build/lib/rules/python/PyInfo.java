@@ -33,7 +33,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Instance of the provider type for the Python rules. */
-public class PyInfo extends Info implements PyInfoApi<Artifact> {
+public final class PyInfo implements Info, PyInfoApi<Artifact> {
 
   public static final String STARLARK_NAME = "PyInfo";
 
@@ -65,6 +65,7 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
     }
   }
 
+  private final Location location;
   // Verified on initialization to contain Artifact.
   private final Depset transitiveSources;
   private final boolean usesSharedLibraries;
@@ -80,7 +81,6 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
       Depset imports,
       boolean hasPy2OnlySources,
       boolean hasPy3OnlySources) {
-    super(PROVIDER, location);
     Preconditions.checkArgument(
         depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER));
     // TODO(brandjon): PyCommon currently requires COMPILE_ORDER, but we'll probably want to change
@@ -88,11 +88,22 @@ public class PyInfo extends Info implements PyInfoApi<Artifact> {
     // itself, so we use STABLE here to accept any order.
     Preconditions.checkArgument(
         depsetHasTypeAndCompatibleOrder(imports, SkylarkType.STRING, Order.STABLE_ORDER));
+    this.location = location != null ? location : Location.BUILTIN;
     this.transitiveSources = transitiveSources;
     this.usesSharedLibraries = usesSharedLibraries;
     this.imports = imports;
     this.hasPy2OnlySources = hasPy2OnlySources;
     this.hasPy3OnlySources = hasPy3OnlySources;
+  }
+
+  @Override
+  public PyInfoProvider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   @Override
