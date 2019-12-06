@@ -154,7 +154,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         (MapBackedSkylarkInfo)
             getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test")).getValue("split_attr");
 
-    assertThat(splitAttr.hasField("dep")).isFalse();
+    assertThat(splitAttr.getValue("dep")).isNull();
     assertThat(splitAttr.getFieldNames()).isEmpty();
   }
 

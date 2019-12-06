@@ -41,10 +41,14 @@ public class NativeInfo extends StructImpl {
 
   @Override
   public Object getValue(String name) throws EvalException {
+    // Starlark field
     Object x = values.get(name);
     if (x != null) {
       return x;
-    } else if (hasField(name)) {
+    }
+
+    // @SkylarkCallable(structField=true) -- Java field
+    if (getFieldNames().contains(name)) {
       try {
         return CallUtils.getField(SEMANTICS, this, name);
       } catch (InterruptedException exception) {
@@ -52,28 +56,32 @@ public class NativeInfo extends StructImpl {
         // exceptions, as they should be logicless field accessors. If this occurs, it's
         // indicative of a bad NativeInfo implementation.
         throw new IllegalStateException(
-            String.format("Access of field %s was unexpectedly interrupted, but should be "
-                + "uninterruptible. This is indicative of a bad provider implementation.", name));
+            String.format(
+                "Access of field %s was unexpectedly interrupted, but should be "
+                    + "uninterruptible. This is indicative of a bad provider implementation.",
+                name));
       }
-    } else if (name.equals("to_json") || name.equals("to_proto")) {
-      // to_json and to_proto should not be methods of struct or provider instances.
-      // However, they are, for now, and it is important that they be consistently
-      // returned by attribute lookup operations regardless of whether a field or method
-      // is desired. TODO(adonovan): eliminate this hack.
-      return new BuiltinCallable(this, name);
-    } else {
-      return null;
     }
-  }
 
-  @Override
-  public boolean hasField(String name) {
-    return getFieldNames().contains(name);
+    // to_json and to_proto should not be methods of struct or provider instances.
+    // However, they are, for now, and it is important that they be consistently
+    // returned by attribute lookup operations regardless of whether a field or method
+    // is desired. TODO(adonovan): eliminate this hack.
+    if (name.equals("to_json") || name.equals("to_proto")) {
+      return new BuiltinCallable(this, name);
+    }
+
+    return null;
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
     if (fieldNames == null) {
+      // TODO(adonovan): the assignment to this.fieldNames is not thread safe!
+      // We cannot assume that build() is a constructor of an object all of
+      // whose fields are final (and thus subject to a write barrier).
+      //
+      // Also, consider using a lazy union of the two underlying sets.
       fieldNames =
           ImmutableSet.<String>builder()
               .addAll(values.keySet())

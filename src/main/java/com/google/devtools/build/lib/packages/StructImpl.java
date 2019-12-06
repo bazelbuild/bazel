@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -79,26 +78,6 @@ public abstract class StructImpl implements Info, ClassObject, StructApi, Serial
       builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
     return builder.build();
-  }
-
-  /**
-   * Returns whether the given field name exists.
-   *
-   * <p>This conceptually extends the API for {@link ClassObject}.
-   */
-  public abstract boolean hasField(String name);
-
-  /**
-   * <p>Wraps {@link ClassObject#getValue(String)}, returning null in cases where
-   * {@link EvalException} would have been thrown.
-   */
-  @VisibleForTesting
-  public Object getValueOrNull(String name) {
-    try {
-      return getValue(name);
-    } catch (EvalException e) {
-      return null;
-    }
   }
 
   /**
@@ -195,6 +174,14 @@ public abstract class StructImpl implements Info, ClassObject, StructApi, Serial
       printer.repr(getValueOrNull(fieldName));
     }
     printer.append(")");
+  }
+
+  private Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      return null;
+    }
   }
 
   @Override

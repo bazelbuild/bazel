@@ -42,8 +42,7 @@ public class SkylarkInfoTest {
   public void layoutAccessors() {
     Layout layout = new Layout(ImmutableList.of("x", "y", "z"));
     assertThat(layout.size()).isEqualTo(3);
-    assertThat(layout.hasField("x")).isTrue();
-    assertThat(layout.hasField("q")).isFalse();
+    assertThat(layout.getFieldIndex("a")).isNull();
     assertThat(layout.getFieldIndex("z")).isEqualTo(2);
     assertThat(layout.getFields()).containsExactly("x", "y", "z").inOrder();
     assertThat(

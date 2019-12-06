@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import javax.annotation.Nullable;
 
 /** An interface for Skylark objects (such as structs) that have fields. */
+// TODO(adonovan): rename "HasFields".
 public interface ClassObject {
 
   /**
@@ -25,6 +26,7 @@ public interface ClassObject {
    *
    * @throws EvalException if a user-visible error occurs (other than non-existent field).
    */
+  // TODO(adonovan): rename "getField".
   @Nullable
   Object getValue(String name) throws EvalException;
 
@@ -33,6 +35,7 @@ public interface ClassObject {
    *
    * @throws EvalException if a user-visible error occurs
    */
+  // TODO(adonovan): change type to ImmutableSet. Users rely on O(1) lookup.
   ImmutableCollection<String> getFieldNames() throws EvalException;
 
   /**

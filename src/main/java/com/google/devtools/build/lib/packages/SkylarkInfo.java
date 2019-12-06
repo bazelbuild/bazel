@@ -243,11 +243,6 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
       return map.size();
     }
 
-    /** Returns whether or not a field is mentioned in the layout. */
-    public boolean hasField(String field) {
-      return map.containsKey(field);
-    }
-
     /**
      * Returns the index position associated with the given field, or null if the field is not
      * mentioned by the layout.
@@ -289,11 +284,6 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
       // TODO(b/74396075): Phase out the unnecessary conversions done by this call to copyValues.
       this.values = copyValues(values);
       this.errorMessageFormatForUnknownField = errorMessageFormatForUnknownField;
-    }
-
-    @Override
-    public boolean hasField(String name) {
-      return values.containsKey(name);
     }
 
     @Override
@@ -362,12 +352,6 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
         return null;
       }
       return values[index];
-    }
-
-    @Override
-    public boolean hasField(String name) {
-      Integer index = layout.getFieldIndex(name);
-      return index != null && values[index] != null;
     }
 
     @Override

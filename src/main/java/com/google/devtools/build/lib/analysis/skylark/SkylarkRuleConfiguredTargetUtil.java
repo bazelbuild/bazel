@@ -347,7 +347,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         StructImpl struct = (StructImpl) target;
         oldStyleProviders = struct;
 
-        if (struct.hasField("providers")) {
+        if (struct.getValue("providers") != null) {
           Iterable<?> iterable = cast("providers", struct, Iterable.class, loc);
           for (Object o : iterable) {
             Info declaredProvider =
