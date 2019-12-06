@@ -44,9 +44,4 @@ public class FakeAndroidSkylarkCommon
       JavaInfoApi<FileApi> javaInfo) {
     return null;
   }
-
-  @Override
-  public JavaInfoApi<FileApi> addRJarToJavaInfo(JavaInfoApi<FileApi> javaInfo, FileApi rJar) {
-    return null;
-  }
 }
