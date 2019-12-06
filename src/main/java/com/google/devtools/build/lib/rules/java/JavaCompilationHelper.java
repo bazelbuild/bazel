@@ -279,12 +279,10 @@ public final class JavaCompilationHelper {
    * create a separate jar for the compilation and add resources with singlejar.
    */
   private boolean separateResourceJar(JavaTargetAttributes attributes) {
-    return !Iterables.isEmpty(
-        Iterables.concat(
-            attributes.getResources().values(),
-            attributes.getResourceJars(),
-            attributes.getClassPathResources(),
-            getTranslations()));
+    return !attributes.getResources().isEmpty()
+        || !attributes.getResourceJars().isEmpty()
+        || !attributes.getClassPathResources().isEmpty()
+        || !getTranslations().isEmpty();
   }
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
