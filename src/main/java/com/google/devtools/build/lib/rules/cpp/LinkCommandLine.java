@@ -201,6 +201,28 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
 
+  public CommandLine getCommandLineForStarlark() {
+    return new CommandLine() {
+      @Override
+      public Iterable<String> arguments() throws CommandLineExpansionException {
+        return arguments(/* artifactExpander= */ null);
+      }
+
+      @Override
+      public Iterable<String> arguments(ArtifactExpander artifactExpander)
+          throws CommandLineExpansionException {
+        if (paramFile == null) {
+          return ImmutableList.copyOf(getRawLinkArgv(artifactExpander));
+        } else {
+          return ImmutableList.<String>builder()
+              .add(getLinkerPathString())
+              .addAll(splitCommandline(artifactExpander).getSecond())
+              .build();
+        }
+      }
+    };
+  }
+
   /**
    * A {@link CommandLine} implementation that returns the command line args pertaining to the
    * .params file.

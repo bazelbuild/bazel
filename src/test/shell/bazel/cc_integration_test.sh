@@ -751,4 +751,162 @@ EOF
       || fail "args didn't contain tree artifact paths"
 }
 
+function test_reconstructing_cpp_actions() {
+  if is_darwin; then
+    # Darwin toolchain uses env variables and those are not properly exported
+    # to Starlark.
+    # TODO(#10376): Remove once env vars on C++ actions are exported.
+    return 0
+  fi
+
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+    archive_action = None
+    link_action = None
+
+    for action in target.actions:
+      if action.mnemonic == "CppCompile":
+        compile_action = action
+      if action.mnemonic == "CppLink" and not archive_action:
+        archive_action = action
+      if action.mnemonic == "CppLink":
+        link_action = action
+
+    if not compile_action or not archive_action or not link_action:
+      fail("Couln't find compile, archive, or link action")
+
+    cc_info = target[CcInfo]
+    compile_action_outputs = compile_action.outputs.to_list()
+
+    compile_args = ctx.actions.declare_file("compile_args")
+    ctx.actions.run_shell(
+        outputs = [compile_args],
+        command = "echo \$@ > " + compile_args.path,
+        arguments = compile_action.args,
+    )
+
+    inputs = depset(
+        direct = [compile_args],
+        transitive = [
+            compile_action.inputs,
+            # Because C++ compilation actions prune their headers in the
+            # execution phase, and this code runs in analysis phase,
+            # action.inputs is not processed yet. It doesn't contain
+            # headers/module files yet. Let's add all unpruned headers
+            # explicitly.
+            cc_info.compilation_context.headers,
+        ],
+    )
+
+    compile_out = ctx.actions.declare_file("compile_out.o")
+    ctx.actions.run_shell(
+        inputs = inputs,
+        mnemonic = "RecreatedCppCompile",
+        outputs = [compile_out],
+        env = compile_action.env,
+        command = "\$(cat %s | sed 's|%s|%s|g' | sed 's|%s|%s|g')" % (
+            compile_args.path,
+            # We need to replace the original output path with something else
+            compile_action_outputs[0].path,
+            compile_out.path,
+            # We need to replace the original .d file output path with something
+            # else
+            compile_action_outputs[0].path.replace(".o", ".d"),
+            compile_out.path + ".d",
+        ),
+    )
+
+    archive_args = ctx.actions.declare_file("archive_args")
+    ctx.actions.run_shell(
+        outputs = [archive_args],
+        command = "echo \$@ > " + archive_args.path,
+        arguments = archive_action.args,
+    )
+
+    archive_out = ctx.actions.declare_file("archive_out.a")
+    archive_param_file = None
+    for i in archive_action.inputs.to_list():
+        if i.path.endswith("params"):
+            archive_param_file = i
+    ctx.actions.run_shell(
+        inputs = depset(direct = [archive_args], transitive = [archive_action.inputs]),
+        mnemonic = "RecreatedCppArchive",
+        outputs = [archive_out],
+        env = archive_action.env,
+        command = "\$(cat %s) && cp %s %s" % (
+            archive_args.path,
+            archive_action.outputs.to_list()[0].path,
+            archive_out.path,
+        ),
+    )
+
+    link_args = ctx.actions.declare_file("link_args")
+    ctx.actions.run_shell(
+        outputs = [link_args],
+        command = "echo \$@ > " + link_args.path,
+        arguments = link_action.args,
+    )
+
+    link_out = ctx.actions.declare_file("link_out.so")
+    ctx.actions.run_shell(
+        inputs = depset(direct = [link_args], transitive = [link_action.inputs]),
+        mnemonic = "RecreatedCppLink",
+        outputs = [link_out],
+        env = link_action.env,
+        command = "\$(cat %s) && cp %s %s" % (
+            link_args.path,
+            link_action.outputs.to_list()[0].path,
+            link_out.path,
+        ),
+    )
+
+    return [OutputGroupInfo(out = [
+        compile_args,
+        compile_out,
+        archive_args,
+        archive_out,
+        link_args,
+        link_out,
+    ])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  echo "inline int x() { return 42; }" > "${package}/x.h"
+  cat > "${package}/a.cc" <<EOF
+#include "${package}/x.h"
+
+int a() { return x(); }
+EOF
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  hdrs  = ["x.h"],
+)
+
+cc_library(
+  name = "a",
+  srcs = ["a.cc"],
+  deps = [":x"],
+)
+EOF
+
+  # Test that actions are reconstructible under default configuration
+  bazel build "${package}:a" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args || \
+      fail "bazel build should've passed"
+
+   # Test that compile actions are reconstructible when using param files
+   bazel build "${package}:a" \
+      --features=compiler_param_file \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args || \
+      fail "bazel build should've passed with --features=compiler_param_file"
+}
+
 run_suite "cc_integration_test"
