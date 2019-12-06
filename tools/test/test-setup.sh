@@ -14,29 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-function echo_err() {
-  echo "$@" 1>&2;
-}
+# shift stderr to stdout.
+exec 2>&1
 
-function printf_err() {
-  printf "$@" >&2
-}
-
-echo=echo
-printf=printf
-if [[ -z "$PERSISTENT_TEST_RUNNER" ]]; then
-  # Redirect all subsequent output to stdout.
-  # Only redirect in non-persistent test mode.
-  exec 2>&1
-else
-  # Don't print anything to stdout in this special case, only to stderr.
+no_echo=
+if [[ "$1" = "--no_echo" ]]; then
+  # Don't print anything to stdout in this special case.
   # Currently needed for persistent test runner.
-  echo=echo_err
-  printf=printf_err
+  no_echo="true"
+  shift
+else
+  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+  echo "Executing tests from ${TEST_TARGET}"
 fi
-
-$echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
-$echo "Executing tests from ${TEST_TARGET}"
 
 function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
@@ -158,7 +148,9 @@ if [ -z "$COVERAGE_DIR" ]; then
 fi
 
 # This header marks where --test_output=streamed will start being printed.
-$echo "-----------------------------------------------------------------------------"
+if [[ -z "$no_echo" ]]; then
+  echo "-----------------------------------------------------------------------------"
+fi
 
 # Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
 function encode_stream {
@@ -297,7 +289,7 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
   else
     "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
   fi
-elif [ "$has_tail" == true ]; then
+elif [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   touch "${XML_OUTPUT_FILE}.log"
   if [ -z "$COVERAGE_DIR" ]; then
     ("${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log") <&0 &
