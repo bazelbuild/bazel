@@ -171,6 +171,19 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_persistent_test_runner_test",
+    srcs = ["bazel_java_persistent_test_runner_test.sh"],
+    data = [
+        ":test-deps",
+        "//src:java_tools_java11_zip",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test_defaults",
     srcs = ["bazel_java_test_defaults.sh"],
     data = [

@@ -156,6 +156,18 @@ public class TestConfiguration extends Fragment {
     public TestActionBuilder.TestShardingStrategy testShardingStrategy;
 
     @Option(
+        name = "experimental_persistent_test_runner",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Allows running java_test targets locally within a persistent worker. "
+                + "To enable the persistent test runner one must run bazel test with the flags:"
+                + "--test_strategy=local --strategy=TestRunner=worker "
+                + " --experimental_persistent_test_runner")
+    public boolean persistentTestRunner;
+
+    @Option(
       name = "runs_per_test",
       allowMultiple = true,
       defaultValue = "1",
@@ -311,6 +323,10 @@ public class TestConfiguration extends Fragment {
 
   public TestActionBuilder.TestShardingStrategy testShardingStrategy() {
     return options.testShardingStrategy;
+  }
+
+  public boolean isPersistentTestRunner() {
+    return options.persistentTestRunner;
   }
 
   public Label getCoverageSupport(){

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
@@ -117,6 +118,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
+    if (action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()) {
+      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+    }
 
     ResourceSet localResourceUsage =
         action
@@ -133,7 +137,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
-            /*tools=*/ ImmutableList.<Artifact>of(),
+            action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()
+                ? ImmutableList.copyOf(action.getTools())
+                : ImmutableList.of(),
             ImmutableList.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
     return new StandaloneTestRunnerSpawn(

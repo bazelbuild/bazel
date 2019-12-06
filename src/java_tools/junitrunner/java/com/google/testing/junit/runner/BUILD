@@ -22,13 +22,28 @@ java_library(
         ":common_runner_java_files",
     ],
     data = ["//tools:test_sharding_compliant"],
+    runtime_deps = [":persistent_test_runner"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
         "//third_party:junit4",
+    ],
+)
+
+java_library(
+    name = "persistent_test_runner",
+    srcs = [
+        "PersistentTestRunner.java",
+        "SuiteTestRunner.java",
+    ],
+    deps = [
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
     ],
 )
 

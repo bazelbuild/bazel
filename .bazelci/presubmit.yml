@@ -102,6 +102,7 @@ platforms:
       - "-//src/java_tools/import_deps_checker/..."
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
       - "-//src/tools/singlejar:combiners_test"
+      - "-//src/test/shell/bazel:bazel_java_persistent_test_runner_test"
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
