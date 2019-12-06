@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicens
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject;

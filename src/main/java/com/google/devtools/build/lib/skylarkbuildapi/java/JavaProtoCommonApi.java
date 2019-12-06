@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;

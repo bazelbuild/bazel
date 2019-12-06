@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//third_party:guava",
     ],
 )

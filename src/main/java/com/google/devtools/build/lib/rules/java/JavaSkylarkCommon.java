@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Depset;

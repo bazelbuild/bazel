@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;

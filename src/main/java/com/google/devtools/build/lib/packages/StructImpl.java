@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;

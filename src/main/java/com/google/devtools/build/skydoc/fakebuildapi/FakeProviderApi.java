@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;

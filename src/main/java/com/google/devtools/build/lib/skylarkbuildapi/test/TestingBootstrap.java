@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
 

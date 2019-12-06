@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//third_party:guava",

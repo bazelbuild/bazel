@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import javax.annotation.Nullable;

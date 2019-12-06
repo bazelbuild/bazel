@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Map;

@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;

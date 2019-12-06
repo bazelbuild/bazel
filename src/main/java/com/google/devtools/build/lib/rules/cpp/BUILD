@@ -48,6 +48,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/go",
         "//src/main/java/com/google/devtools/build/lib/vfs",

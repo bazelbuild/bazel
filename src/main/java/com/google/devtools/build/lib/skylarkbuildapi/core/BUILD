@@ -5,6 +5,10 @@
 #   Thus, this package should not depend on Bazel-specific packages (only
 #   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
+#
+# This package contains core types that will be needed by other APIs, such as
+# StructApi and ProviderApi. Only add new types that will be widely used by
+# other parts of the skylarkbuildapi.
 
 load("@rules_java//java:defs.bzl", "java_library")
 
@@ -18,13 +22,12 @@ filegroup(
 )
 
 java_library(
-    name = "javascript",
+    name = "core",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//third_party:guava",
     ],
 )

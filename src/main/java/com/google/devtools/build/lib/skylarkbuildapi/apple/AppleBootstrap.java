@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 
 /**
  * {@link Bootstrap} for skylark objects related to apple rules.

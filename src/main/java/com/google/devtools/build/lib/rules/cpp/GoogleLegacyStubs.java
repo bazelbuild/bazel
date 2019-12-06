@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;

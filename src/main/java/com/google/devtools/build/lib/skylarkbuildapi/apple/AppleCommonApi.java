@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
