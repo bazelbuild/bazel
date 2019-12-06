@@ -115,17 +115,9 @@ final class DebuggerSerialization {
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, ClassObject classObject) {
     ImmutableList.Builder<Value> builder = ImmutableList.builder();
-    ImmutableList<String> keys;
-    try {
-      keys = Ordering.natural().immutableSortedCopy(classObject.getFieldNames());
-    } catch (EvalException | IllegalArgumentException e) {
-      // silently return no children
-      return ImmutableList.of();
-    }
-    for (String key : keys) {
-      Object value;
+    for (String key : Ordering.natural().immutableSortedCopy(classObject.getFieldNames())) {
       try {
-        value = classObject.getValue(key);
+        Object value = classObject.getValue(key);
         if (value != null) {
           builder.add(getValueProto(objectMap, key, value));
         }

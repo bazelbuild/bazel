@@ -299,15 +299,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       outputs.put(key, value);
     }
 
-
     @Override
     public boolean isImmutable() {
       return context.isImmutable();
     }
 
     @Override
-    public ImmutableCollection<String> getFieldNames() throws EvalException {
-      checkMutable();
+    public ImmutableCollection<String> getFieldNames() {
       ImmutableList.Builder<String> result = ImmutableList.builder();
       if (context.isExecutable() && executableCreated) {
         result.add(EXECUTABLE_OUTPUT_NAME);

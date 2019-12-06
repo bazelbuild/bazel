@@ -119,7 +119,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
   }
 
   @Override
-  public ImmutableCollection<String> getFieldNames() throws EvalException {
+  public ImmutableCollection<String> getFieldNames() {
     return ImmutableList.of();
   }
 

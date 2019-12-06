@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
@@ -30,15 +29,21 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** A generic skylark object with fields, constructable by calling {@code struct()} in skylark. */
-public abstract class StructImpl implements Info, ClassObject, StructApi, Serializable {
+/**
+ * Abstract base class for Starlark objects that have fields, have to_json and to_proto methods, and
+ * may be returned by analyis of a configured target function.
+ *
+ * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
+ * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing
+ * them both returns an error.
+ */
+public abstract class StructImpl implements Info, ClassObject, StructApi {
 
   private final Provider provider;
   private final Location location;
@@ -92,15 +97,6 @@ public abstract class StructImpl implements Info, ClassObject, StructApi, Serial
     SkylarkType.checkType(obj, type, key);
     return type.cast(obj);
   }
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
-   * be thrown.
-   */
-  @Override
-  public abstract ImmutableCollection<String> getFieldNames();
 
   /**
    * Returns the error message format to use for unknown fields.

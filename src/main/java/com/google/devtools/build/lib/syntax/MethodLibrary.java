@@ -764,7 +764,7 @@ class MethodLibrary {
       if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
       }
-      throw EvalUtils.getMissingFieldException(obj, name, loc, thread.getSemantics(), "attribute");
+      throw EvalUtils.getMissingFieldException(obj, name, thread.getSemantics(), "attribute");
     }
     return result;
   }

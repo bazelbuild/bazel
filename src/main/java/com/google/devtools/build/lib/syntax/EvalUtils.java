@@ -490,19 +490,14 @@ public final class EvalUtils {
   }
 
   static EvalException getMissingFieldException(
-      Object object, String name, Location loc, StarlarkSemantics semantics, String accessName) {
+      Object object, String name, StarlarkSemantics semantics, String accessName) {
     String suffix = "";
-    EvalException toSuppress = null;
     if (object instanceof ClassObject) {
       String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
       if (customErrorMessage != null) {
-        return new EvalException(loc, customErrorMessage);
+        return new EvalException(null, customErrorMessage);
       }
-      try {
-        suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-      } catch (EvalException ee) {
-        toSuppress = ee;
-      }
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
     } else {
       suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
     }
@@ -510,16 +505,11 @@ public final class EvalUtils {
       // If looking up the field failed, then we know that this method must have struct_field=false
       suffix = ", however, a method of that name exists";
     }
-    EvalException ee =
-        new EvalException(
-            loc,
-            String.format(
-                "object of type '%s' has no %s '%s'%s",
-                getDataTypeName(object), accessName, name, suffix));
-    if (toSuppress != null) {
-      ee.addSuppressed(toSuppress);
-    }
-    return ee;
+    return new EvalException(
+        null,
+        String.format(
+            "object of type '%s' has no %s '%s'%s",
+            getDataTypeName(object), accessName, name, suffix));
   }
 
   /** Returns whether the given object has a method with the given name. */
