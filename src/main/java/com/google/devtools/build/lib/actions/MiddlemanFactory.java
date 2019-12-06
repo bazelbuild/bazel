@@ -127,8 +127,8 @@ public final class MiddlemanFactory {
     }
 
     Artifact stampFile = getStampFileArtifact(middlemanName, purpose, middlemanDir);
-    Action action = new MiddlemanAction(owner, inputs, stampFile, purpose, middlemanType);
-    actionRegistry.registerAction(action);
+    Action action =
+        MiddlemanAction.create(actionRegistry, owner, inputs, stampFile, purpose, middlemanType);
     return Pair.of(stampFile, action);
   }
 

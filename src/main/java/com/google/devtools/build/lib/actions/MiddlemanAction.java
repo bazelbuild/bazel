@@ -34,22 +34,6 @@ public final class MiddlemanAction extends AbstractAction {
   private final String description;
   private final MiddlemanType middlemanType;
 
-  /**
-   * Constructs a new {@link MiddlemanAction}.
-   *
-   * @param owner the owner of the action, usually a {@code ConfiguredTarget}
-   * @param inputs inputs of the middleman, i.e. the files it acts as a placeholder for
-   * @param stampFile the output of the middleman expansion; must be a middleman artifact (see
-   *        {@link Artifact#isMiddlemanArtifact()})
-   * @param description a short description for the action, for progress messages
-   * @param middlemanType the type of the middleman
-   * @throws IllegalArgumentException if {@code stampFile} is not a middleman artifact
-   */
-  public MiddlemanAction(ActionOwner owner, Iterable<Artifact> inputs, Artifact stampFile,
-      String description, MiddlemanType middlemanType) {
-    this(owner, inputs, ImmutableSet.of(stampFile), description, middlemanType);
-  }
-
   @VisibleForSerialization
   @AutoCodec.Instantiator
   MiddlemanAction(
@@ -110,7 +94,8 @@ public final class MiddlemanAction extends AbstractAction {
    */
   public static Action create(ActionRegistry env, ActionOwner owner,
       Iterable<Artifact> inputs, Artifact stampFile, String purpose, MiddlemanType middlemanType) {
-    MiddlemanAction action = new MiddlemanAction(owner, inputs, stampFile, purpose, middlemanType);
+    MiddlemanAction action =
+        new MiddlemanAction(owner, inputs, ImmutableSet.of(stampFile), purpose, middlemanType);
     env.registerAction(action);
     return action;
   }
