@@ -1764,14 +1764,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .containsExactly("//java/lib2:lib2");
     assertThat(rClassArgs).doesNotContain("--data");
     assertNoEvents();
-
-    // "merged resources" still needs the entire transitive closure
-    assertThat(
-            getDependencyResourceLabels(
-                getGeneratingSpawnActionArgs(
-                    getValidatedAndroidResources(target).getMergedResources()),
-                "--data"))
-        .contains("//java/lib3:lib3");
   }
 
   // Note that this is really testing the 'feature' mechanism of Bazel rather than this specific

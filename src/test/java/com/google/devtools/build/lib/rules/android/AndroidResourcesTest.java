@@ -237,12 +237,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     assertThat(parsed.getCompiledSymbols()).isNotNull();
 
-    // The parse action should take resources in and output symbols
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ parsed.getResources(),
-        /* outputs = */ ImmutableList.of(parsed.getSymbols()));
-
     // Since there was no data binding, the compile action should just take in resources and output
     // compiled symbols.
     assertActionArtifacts(
@@ -256,12 +250,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
     RuleContext ruleContext = getRuleContextWithDataBinding();
 
     ParsedAndroidResources parsed = assertParse(ruleContext);
-
-    // The parse action should take resources and busybox artifacts in and output symbols
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ parsed.getResources(),
-        /* outputs = */ ImmutableList.of(parsed.getSymbols()));
 
     // The compile action should take in resources and manifest in and output compiled symbols and
     // a databinding zip.
@@ -303,16 +291,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
             .add(parsed.getManifest())
             .build(),
         /* outputs = */ ImmutableList.of(merged.getClassJar(), merged.getManifest()));
-
-    // The old symbols file is still needed to build the merged resources zip
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ ImmutableList.<Artifact>builder()
-            .addAll(merged.getResources())
-            .add(merged.getSymbols())
-            .add(parsed.getManifest())
-            .build(),
-        /* outputs = */ ImmutableList.of(merged.getMergedResources()));
   }
 
   @Test

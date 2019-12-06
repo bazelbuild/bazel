@@ -70,8 +70,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return builder
         .setManifestOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
-        .setMergedResourcesOut(
-            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
         .setClassJarOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
         .build(dataContext, parsed);
@@ -204,7 +202,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     }
 
     MergedAndroidResources other = (MergedAndroidResources) object;
-    return mergedResources.equals(other.mergedResources)
+    return Objects.equals(mergedResources, other.mergedResources)
         && classJar.equals(other.classJar)
         && Objects.equals(aapt2RTxt, other.aapt2RTxt)
         && Objects.equals(dataBindingInfoZip, other.dataBindingInfoZip)

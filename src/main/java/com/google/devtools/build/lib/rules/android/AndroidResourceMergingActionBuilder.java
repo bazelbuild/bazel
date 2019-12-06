@@ -165,56 +165,21 @@ public class AndroidResourceMergingActionBuilder {
     builder.buildAndRegister("Merging compiled Android resources", "AndroidCompiledResourceMerger");
   }
 
-  private void buildParsedResourceMergingAction(BusyBoxActionBuilder builder) {
-    Preconditions.checkNotNull(primary);
-
-    createInputsForBuilder(builder)
-        .addInput(
-            "--primaryData",
-            AndroidDataConverter.PARSED_RESOURCE_CONVERTER.map(primary),
-            Iterables.concat(primary.getArtifacts(), ImmutableList.of(primary.getSymbols())));
-
-    if (dependencies != null) {
-      builder.addTransitiveFlag(
-          "--directData",
-          dependencies.getDirectResourceContainers(),
-          AndroidDataConverter.PARSED_RESOURCE_CONVERTER);
-
-      builder
-          .addTransitiveFlag(
-              "--data",
-              dependencies.getTransitiveResourceContainers(),
-              AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
-          .addTransitiveInputValues(dependencies.getTransitiveResources())
-          .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
-    }
-
-    builder.buildAndRegister("Merging Android resources", "AndroidResourceMerger");
-  }
-
   private void build(AndroidDataContext dataContext) {
-    BusyBoxActionBuilder parsedMergeBuilder = BusyBoxActionBuilder.create(dataContext, "MERGE");
+    Preconditions.checkState(useCompiledMerge);
+
     BusyBoxActionBuilder compiledMergeBuilder =
-        BusyBoxActionBuilder.create(dataContext, "MERGE_COMPILED");
+        BusyBoxActionBuilder.create(dataContext, "MERGE_COMPILED")
+            .addOutput("--classJarOutput", classJarOut)
+            .addLabelFlag("--targetLabel")
 
-    parsedMergeBuilder.addOutput("--resourcesOutput", mergedResourcesOut);
+            // For now, do manifest processing to remove placeholders that aren't handled by the
+            // legacy manifest merger. Remove this once enough users migrate over to the new
+            // manifest merger.
+            .maybeAddOutput("--manifestOutput", manifestOut)
+            .maybeAddOutput("--rTxtOut", aapt2RTxtOut);
 
-    (useCompiledMerge ? compiledMergeBuilder : parsedMergeBuilder)
-        .addOutput("--classJarOutput", classJarOut)
-        .addLabelFlag("--targetLabel")
-
-        // For now, do manifest processing to remove placeholders that aren't handled by the legacy
-        // manifest merger. Remove this once enough users migrate over to the new manifest merger.
-        .maybeAddOutput("--manifestOutput", manifestOut);
-
-    if (useCompiledMerge) {
-      compiledMergeBuilder.maybeAddOutput("--rTxtOut", aapt2RTxtOut);
-      buildCompiledResourceMergingAction(compiledMergeBuilder);
-    }
-
-    // Always make an action for merging parsed resources - the merged resources are still created
-    // this way.
-    buildParsedResourceMergingAction(parsedMergeBuilder);
+    buildCompiledResourceMergingAction(compiledMergeBuilder);
   }
 
   public MergedAndroidResources build(
