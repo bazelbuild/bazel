@@ -51,7 +51,10 @@ public final class CcImportRule implements RuleDefinition {
             or <code>.dylib</code>
           </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("shared_library", LABEL).allowedFileTypes(CppFileTypes.SHARED_LIBRARY))
+        .add(
+            attr("shared_library", LABEL)
+                .allowedFileTypes(
+                    CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY))
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(interface_library) -->
           A single interface library for linking the shared library.
           <p> Permitted file types:
