@@ -98,13 +98,7 @@ public interface AndroidSdkProviderApi<
   @SkylarkCallable(name = "aapt", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt();
 
-  @SkylarkCallable(
-      name = "aapt2",
-      structField = true,
-      doc = "",
-      documented = false,
-      allowReturnNones = true)
-  @Nullable
+  @SkylarkCallable(name = "aapt2", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt2();
 
   @SkylarkCallable(
@@ -222,8 +216,7 @@ public interface AndroidSdkProviderApi<
               doc = "A files to run provider of AAPT2.",
               positional = true,
               named = false,
-              type = FilesToRunProviderApi.class,
-              noneable = true),
+              type = FilesToRunProviderApi.class),
           @Param(
               name = "apk_builder",
               doc = "A files to run provider of the Apk builder.",
@@ -265,7 +258,7 @@ public interface AndroidSdkProviderApi<
         FilesToRunProviderT mainDexListCreator,
         FilesToRunProviderT aidl,
         FilesToRunProviderT aapt,
-        /*noneable*/ Object aapt2,
+        FilesToRunProviderT aapt2,
         /*noneable*/ Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
