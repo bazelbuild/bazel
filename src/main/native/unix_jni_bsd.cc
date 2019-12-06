@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(__FreeBSD__)
+# define HAVE_EXTATTR
+# define HAVE_SYSCTLBYNAME
+#elif defined(__OpenBSD__)
+// No sys/extattr.h or sysctlbyname on this platform.
+#else
+# error This BSD is not supported
+#endif
+
 #include "src/main/native/unix_jni.h"
 
 #include <assert.h>
@@ -19,7 +28,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/extattr.h>
+#if defined(HAVE_EXTATTR)
+# include <sys/extattr.h>
+#endif
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
@@ -74,22 +85,37 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
+#if (HAVE_EXTATTR)
   ssize_t result =
       extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
   *attr_not_found = (errno == ENOATTR);
   return result;
+#else
+  *attr_not_found = true;
+  return -1;
+#endif
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found) {
+#if (HAVE_EXTATTR)
   ssize_t result =
       extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
   *attr_not_found = (errno == ENOATTR);
   return result;
+#else
+  *attr_not_found = true;
+  return -1;
+#endif
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+#if (HAVE_SYSCTLBYNAME)
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+#else
+  errno = ENOSYS;
+  return -1;
+#endif
 }
 
 int portable_push_disable_sleep() {

@@ -17,6 +17,7 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 #define BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 
+#include <errno.h>
 #include <jni.h>
 #include <sys/stat.h>
 
@@ -33,7 +34,7 @@ namespace blaze_jni {
       } \
     } while (0)
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
 #define portable_stat ::stat
@@ -44,8 +45,12 @@ typedef struct stat64 portable_stat_struct;
 #define portable_lstat ::lstat64
 #endif
 
-#if defined(__FreeBSD__)
-#define ENODATA ENOATTR
+#if !defined(ENODATA)
+# if defined(ENOATTR)
+#  define ENODATA ENOATTR
+# else
+#  error Don't know how to handle missing ENODATA
+# endif
 #endif
 
 // Posts a JNI exception to the current thread with the specified

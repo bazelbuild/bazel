@@ -82,7 +82,7 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
   // The file to which this symlink points could change contents or go missing
   // concurrent with execution of the Bazel client, so we don't eagerly resolve
   // it.

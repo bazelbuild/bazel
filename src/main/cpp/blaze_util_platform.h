@@ -106,9 +106,9 @@ void SigPrintf(const char *format, ...);
 
 std::string GetProcessIdAsString();
 
-// Get an absolute path to the binary being executed that is guaranteed to be
+// Gets an absolute path to the binary being executed that is guaranteed to be
 // readable.
-std::string GetSelfPath();
+std::string GetSelfPath(const char* argv0);
 
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
@@ -129,7 +129,12 @@ uint64_t GetMillisecondsMonotonic();
 // on Linux, so it should only be called when necessary.
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 
-// Returns the cwd for a process.
+// Returns the cwd of the specified process, or an empty string if the
+// directory is unknown.
+//
+// TODO(aldersondrive): Change the return type to
+// std::unique_ptr<blaze_util::Path>, so that we can return nullptr instead of
+// relying on callers to recognize the empty string as special.
 blaze_util::Path GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);

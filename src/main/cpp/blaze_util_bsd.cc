@@ -12,11 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(__FreeBSD__)
+# define HAVE_PROCSTAT
+# define STANDARD_JAVABASE "/usr/local/openjdk8"
+#elif defined(__OpenBSD__)
+# define STANDARD_JAVABASE "/usr/local/jdk-1.8.0"
+#else
+# error This BSD is not supported
+#endif
+
+#if !defined(DEFAULT_SYSTEM_JAVABASE)
+# define DEFAULT_SYSTEM_JAVABASE STANDARD_JAVABASE
+#endif
+
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <spawn.h>
+#include <stdlib.h>
 #include <string.h>  // strerror
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -26,13 +40,16 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <libprocstat.h>  // must be included after <sys/...> headers
+#if defined(HAVE_PROCSTAT)
+# include <libprocstat.h>  // must be included after <sys/...> headers
+#endif
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
@@ -72,7 +89,8 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
+#if defined(__FreeBSD__)
   char buffer[PATH_MAX] = {};
   auto pid = getpid();
   if (kill(pid, 0) < 0) return "";
@@ -94,6 +112,36 @@ string GetSelfPath() {
   }
   procstat_close(procstat);
   return string(buffer);
+#elif defined(__OpenBSD__)
+  // OpenBSD does not provide a way for a running process to find a path to its
+  // own executable, so we try to figure out a path by inspecting argv[0]. In
+  // theory this is inadequate, since the parent process can set argv[0] to
+  // anything, but in practice this is good enough.
+
+  const std::string argv0str(argv0);
+
+  // If argv[0] starts with a slash, it's an absolute path. Use it.
+  if (argv0str.length() > 0 && argv0str[0] == '/') {
+    return argv0str;
+  }
+
+  // Otherwise, if argv[0] contains a slash, then it's a relative path. Prepend
+  // the current directory to form an absolute path.
+  if (argv0str.length() > 0 && argv0str.find('/') != std::string::npos) {
+    return GetCwd() + "/" + argv0str;
+  }
+
+  // TODO(aldersondrive): Try to find the executable by inspecting the PATH.
+
+  // None of the above worked. Give up.
+  BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+      << "Unable to determine the location of this Bazel executable. "
+         "Currently, argv[0] must be an absolute or relative path to the "
+         "executable.";
+  return "";  // Never executed. Needed so compiler does not complain.
+#else
+# error This BSD is not supported
+#endif
 }
 
 uint64_t GetMillisecondsMonotonic() {
@@ -103,10 +151,11 @@ uint64_t GetMillisecondsMonotonic() {
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
-  // Stubbed out so we can compile for FreeBSD.
+  // Stubbed out so we can compile.
 }
 
 blaze_util::Path GetProcessCWD(int pid) {
+#if defined(HAVE_PROCSTAT)
   if (kill(pid, 0) < 0) {
     return blaze_util::Path();
   }
@@ -136,6 +185,9 @@ blaze_util::Path GetProcessCWD(int pid) {
   }
   procstat_close(procstat);
   return blaze_util::Path(cwd);
+#else
+  return blaze_util::Path("");
+#endif
 }
 
 bool IsSharedLibrary(const string &filename) {
@@ -143,7 +195,7 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetSystemJavabase() {
-  // if JAVA_HOME is defined, then use it as default.
+  // If JAVA_HOME is defined, then use it as default.
   string javahome = GetPathEnv("JAVA_HOME");
 
   if (!javahome.empty()) {
@@ -155,7 +207,7 @@ string GetSystemJavabase() {
         << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
 
-  return "/usr/local/openjdk8";
+  return DEFAULT_SYSTEM_JAVABASE;
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
