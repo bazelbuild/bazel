@@ -713,6 +713,10 @@ public class SkylarkRepositoryContext
             location);
     env.getListener().post(w);
 
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
@@ -721,6 +725,7 @@ public class SkylarkRepositoryContext
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
   @Override
@@ -803,6 +808,9 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     try (SilentCloseable c =
         Profiler.instance().profile("extracting: " + rule.getLabel().toString())) {
+      env.getListener()
+          .post(
+              new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
               .setTargetKind(rule.getTargetKind())
@@ -811,6 +819,7 @@ public class SkylarkRepositoryContext
               .setRepositoryPath(outputPath.getPath())
               .setPrefix(stripPrefix)
               .build());
+      env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
@@ -1084,5 +1093,38 @@ public class SkylarkRepositoryContext
       }
     }
     return headers.build();
+  }
+
+  private static class ExtractProgress implements FetchProgress {
+    private final String repositoryPath;
+    private final String progress;
+    private final boolean isFinished;
+
+    ExtractProgress(String repositoryPath, String progress) {
+      this.repositoryPath = repositoryPath;
+      this.progress = progress;
+      this.isFinished = false;
+    }
+
+    ExtractProgress(String repositoryPath) {
+      this.repositoryPath = repositoryPath;
+      this.progress = "";
+      this.isFinished = true;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return repositoryPath;
+    }
+
+    @Override
+    public String getProgress() {
+      return progress;
+    }
+
+    @Override
+    public boolean isFinished() {
+      return isFinished;
+    }
   }
 }

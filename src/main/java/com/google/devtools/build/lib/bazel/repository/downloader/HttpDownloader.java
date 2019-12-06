@@ -129,6 +129,8 @@ public class HttpDownloader {
       String cacheKey = checksum.get().toString();
       KeyType cacheKeyType = checksum.get().getKeyType();
       try {
+        eventHandler.post(
+            new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
         String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
@@ -136,6 +138,8 @@ public class HttpDownloader {
         }
       } catch (IOException e) {
         // Ignore error trying to hash. We'll attempt to retrieve from cache or just download again.
+      } finally {
+        eventHandler.post(new CacheProgress(mainUrl.toString()));
       }
 
       if (repositoryCache.isEnabled()) {
@@ -171,11 +175,16 @@ public class HttpDownloader {
             boolean match = false;
             Path candidate = dir.getRelative(name);
             try {
+              eventHandler.post(
+                  new CacheProgress(
+                      mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
               match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,
               // with the assumption that only one will contain an entry.
+            } finally {
+              eventHandler.post(new CacheProgress(mainUrl.toString()));
             }
             if (match) {
               if (isCachingByProvidedChecksum) {
@@ -302,6 +311,39 @@ public class HttpDownloader {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());
     } else {
       return ImmutableSet.of(destination.getBaseName());
+    }
+  }
+
+  private static class CacheProgress implements ExtendedEventHandler.FetchProgress {
+    private final String originalUrl;
+    private final String progress;
+    private final boolean isFinished;
+
+    CacheProgress(String originalUrl, String progress) {
+      this.originalUrl = originalUrl;
+      this.progress = progress;
+      this.isFinished = false;
+    }
+
+    CacheProgress(String originalUrl) {
+      this.originalUrl = originalUrl;
+      this.progress = "";
+      this.isFinished = true;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return originalUrl;
+    }
+
+    @Override
+    public String getProgress() {
+      return progress;
+    }
+
+    @Override
+    public boolean isFinished() {
+      return isFinished;
     }
   }
 }
