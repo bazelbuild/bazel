@@ -647,7 +647,7 @@ public class CppHelper {
             actionOwner,
             ruleContext.getPackageDirectory(),
             purpose,
-            artifacts,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts),
             configuration.getMiddlemanDirectory(ruleContext.getRule().getRepository())));
   }
 

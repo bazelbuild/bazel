@@ -378,12 +378,12 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
-    return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, getLibraries());
+    return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, getLibraries().toList());
   }
 
   public NestedSet<LibraryToLink> getLibraries() {
     NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs) {
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
       libraries.addAll(linkerInput.libraries);
     }
     return libraries.build();
@@ -420,14 +420,14 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
     NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs) {
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
       userLinkFlags.addAll(linkerInput.getUserLinkFlags());
     }
     return userLinkFlags.build();
   }
 
   public ImmutableList<String> getFlattenedUserLinkFlags() {
-    return Streams.stream(getUserLinkFlags())
+    return Streams.stream(getUserLinkFlags().toList())
         .map(LinkOptions::get)
         .flatMap(Collection::stream)
         .collect(ImmutableList.toImmutableList());
@@ -435,7 +435,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public NestedSet<Linkstamp> getLinkstamps() {
     NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs) {
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
       linkstamps.addAll(linkerInput.getLinkstamps());
     }
     return linkstamps.build();
@@ -443,7 +443,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public NestedSet<Artifact> getNonCodeInputs() {
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs) {
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
       nonCodeInputs.addAll(linkerInput.getNonCodeInputs());
     }
     return nonCodeInputs.build();

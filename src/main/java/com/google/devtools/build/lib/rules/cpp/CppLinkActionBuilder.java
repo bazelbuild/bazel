@@ -319,7 +319,7 @@ public class CppLinkActionBuilder {
     if (!ltoCompilationContext.isEmpty()) {
       return true;
     }
-    for (LinkerInputs.LibraryToLink lib : libraries.build()) {
+    for (LinkerInputs.LibraryToLink lib : libraries.build().toList()) {
       if (!lib.getLtoCompilationContext().isEmpty()) {
         return true;
       }

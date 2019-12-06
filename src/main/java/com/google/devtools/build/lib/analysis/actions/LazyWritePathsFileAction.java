@@ -76,7 +76,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
 
   private String getContents() {
     StringBuilder stringBuilder = new StringBuilder();
-    for (Artifact file : files) {
+    for (Artifact file : files.toList()) {
       if (file.isSourceArtifact() || includeDerivedArtifacts) {
         stringBuilder.append(file.getRootRelativePathString());
         stringBuilder.append("\n");

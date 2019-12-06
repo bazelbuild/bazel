@@ -649,9 +649,9 @@ public final class Runfiles implements RunfilesApi {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts
         .addTransitive(unconditionalArtifacts)
-        .addAll(Iterables.transform(symlinks, TO_ARTIFACT))
-        .addAll(Iterables.transform(rootSymlinks, TO_ARTIFACT));
-    for (PruningManifest manifest : getPruningManifests()) {
+        .addAll(Iterables.transform(symlinks.toList(), TO_ARTIFACT))
+        .addAll(Iterables.transform(rootSymlinks.toList(), TO_ARTIFACT));
+    for (PruningManifest manifest : getPruningManifests().toList()) {
       allArtifacts.addTransitive(manifest.getCandidateRunfiles());
     }
     return allArtifacts.build();

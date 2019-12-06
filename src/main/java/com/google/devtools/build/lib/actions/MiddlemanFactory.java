@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -100,7 +102,7 @@ public final class MiddlemanFactory {
             owner,
             middlemanName,
             purpose,
-            inputs,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs),
             middlemanDir,
             MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN)
         .getFirst();
@@ -122,7 +124,7 @@ public final class MiddlemanFactory {
       NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir,
       MiddlemanType middlemanType) {
-    if (inputs == null || CollectionUtils.isEmpty(inputs)) {
+    if (inputs == null || inputs.isEmpty()) {
       return null;
     }
 

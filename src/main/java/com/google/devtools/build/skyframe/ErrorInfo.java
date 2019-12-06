@@ -206,7 +206,7 @@ public class ErrorInfo {
    * the empty set.
    */
   public Iterable<SkyKey> getRootCauses() {
-    return rootCauses;
+    return rootCauses.toList();
   }
 
   /**

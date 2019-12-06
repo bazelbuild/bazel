@@ -112,7 +112,7 @@ public class EnvironmentLabels {
    */
   public Iterable<Label> getFulfillers(Label environment) {
     checkInitialized();
-    return fulfillersMap.get(environment);
+    return fulfillersMap.get(environment).toList();
   }
 
   public Label getLabel() {

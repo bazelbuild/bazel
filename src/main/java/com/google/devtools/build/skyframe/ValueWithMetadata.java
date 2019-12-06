@@ -160,8 +160,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("value", value)
-          .add("transitiveEvents size", Iterables.size(transitiveEvents))
-          .add("transitivePostables size", Iterables.size(transitivePostables))
+          .add("transitiveEvents size", transitiveEvents.toList().size())
+          .add("transitivePostables size", transitivePostables.toList().size())
           .toString();
     }
   }

@@ -1187,14 +1187,14 @@ public final class CcCompilationHelper {
 
     HashMap<String, Integer> count = new LinkedHashMap<>();
     HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts) {
+    for (Artifact source : sourceArtifacts.toList()) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       count.put(outputName.toLowerCase(),
           count.getOrDefault(outputName.toLowerCase(), 0) + 1);
     }
 
-    for (Artifact source : sourceArtifacts) {
+    for (Artifact source : sourceArtifacts.toList()) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {

@@ -59,7 +59,7 @@ public final class PrerequisiteArtifacts {
     }
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider target : prerequisites) {
-      Iterables.addAll(result, target.getFilesToBuild());
+      Iterables.addAll(result, target.getFilesToBuild().toList());
     }
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
   }

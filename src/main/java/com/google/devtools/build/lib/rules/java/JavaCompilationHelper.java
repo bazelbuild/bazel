@@ -424,7 +424,7 @@ public final class JavaCompilationHelper {
     // and Error Prone doesn't run during header compilation.
     builder.addAllJavacOpts(getJavacOpts());
     if (Iterables.contains(
-        plugins.processorClasses(), "dagger.internal.codegen.ComponentProcessor")) {
+        plugins.processorClasses().toList(), "dagger.internal.codegen.ComponentProcessor")) {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }

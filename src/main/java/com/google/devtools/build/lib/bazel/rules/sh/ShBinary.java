@@ -103,7 +103,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                 ruleContext,
                 new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
                 CC_METADATA_COLLECTOR,
-                filesToBuild,
+                filesToBuild.toList(),
                 /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
   }

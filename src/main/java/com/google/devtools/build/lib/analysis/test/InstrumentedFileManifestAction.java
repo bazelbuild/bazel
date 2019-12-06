@@ -70,7 +70,7 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
       public void writeOutputFile(OutputStream out) throws IOException {
         // Sort the exec paths before writing them out.
         String[] fileNames =
-            Iterables.toArray(Iterables.transform(files, TO_EXEC_PATH), String.class);
+            Iterables.toArray(Iterables.transform(files.toList(), TO_EXEC_PATH), String.class);
         Arrays.sort(fileNames);
         try (Writer writer = new OutputStreamWriter(out, ISO_8859_1)) {
           for (String name : fileNames) {
@@ -86,7 +86,7 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
     // Not sorting here is probably cheaper, though it might lead to unnecessary re-execution.
-    fp.addStrings(Iterables.transform(files, TO_EXEC_PATH));
+    fp.addStrings(Iterables.transform(files.toList(), TO_EXEC_PATH));
   }
 
   /**

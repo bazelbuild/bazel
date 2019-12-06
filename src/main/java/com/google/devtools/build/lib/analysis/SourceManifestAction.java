@@ -155,7 +155,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    */
   public static NestedSet<Artifact> getDependencies(Runfiles runfiles) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests()) {
+    for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests().toList()) {
       builder.add(manifest.getManifestFile());
     }
     return builder.build();
