@@ -119,6 +119,10 @@ public final class SandboxHelpers {
         if (actionInput instanceof ParamFileActionInput) {
           ParamFileActionInput paramFileInput = (ParamFileActionInput) actionInput;
           Path outputPath = execRoot.getRelative(paramFileInput.getExecPath());
+          if (outputPath.exists()) {
+            outputPath.delete();
+          }
+
           outputPath.getParentDirectory().createDirectoryAndParents();
           try (OutputStream outputStream = outputPath.getOutputStream()) {
             paramFileInput.writeTo(outputStream);
