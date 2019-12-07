@@ -93,6 +93,9 @@ public class DesugarRule implements TestRule {
      * Class#getName}.
      */
     String value();
+
+    /** The round during which its associated jar is being used. */
+    int round() default 1;
   }
 
   private static final Path ANDROID_RUNTIME_JAR_PATH =
@@ -104,12 +107,11 @@ public class DesugarRule implements TestRule {
 
   private static final String DEFAULT_OUTPUT_ROOT_PREFIX = "desugared_dump";
 
+  private static final ClassLoader baseClassLoader = ClassLoader.getSystemClassLoader().getParent();
+
   /** The transformation record that describes the desugaring of a jar. */
   @AutoValue
   abstract static class JarTransformationRecord {
-
-    private static final ClassLoader baseClassLoader =
-        ClassLoader.getSystemClassLoader().getParent();
 
     /**
      * The full runtime path of a pre-transformationRecord jar.
@@ -169,12 +171,14 @@ public class DesugarRule implements TestRule {
 
   private final Object testInstance;
   private final MethodHandles.Lookup testInstanceLookup;
+  private final int maxNumOfTransformations;
   private final ImmutableList<Path> inputs;
   private final ImmutableList<Path> classPathEntries;
   private final ImmutableList<Path> bootClassPathEntries;
   private final ImmutableList<Field> fieldForDynamicClassLoading;
   private final ImmutableListMultimap<String, String> extraCustomCommandOptions;
 
+  private final List<JarTransformationRecord> jarTransformationRecords;
   /** The state of the already-created directories to avoid directory re-creation. */
   private final Map<String, Path> tempDirs = new HashMap<>();
 
@@ -191,12 +195,14 @@ public class DesugarRule implements TestRule {
 
   private DesugarRule(
       DesugarRuleBuilder desugarRuleBuilder,
-      MethodHandles.Lookup testInstanceLookup,
+      Lookup testInstanceLookup,
+      int maxNumOfTransformations,
       ImmutableList<Path> inputJars,
       ImmutableList<Path> classPathEntries,
       ImmutableList<Path> bootClassPathEntries) {
     this.testInstance = desugarRuleBuilder.testInstance;
     this.testInstanceLookup = testInstanceLookup;
+    this.maxNumOfTransformations = maxNumOfTransformations;
     this.inputs = inputJars;
     this.classPathEntries = classPathEntries;
     this.bootClassPathEntries = bootClassPathEntries;
@@ -204,6 +210,7 @@ public class DesugarRule implements TestRule {
         ImmutableListMultimap.copyOf(desugarRuleBuilder.customCommandOptions);
     this.fieldForDynamicClassLoading =
         findAllFieldsWithAnnotation(testInstance.getClass(), LoadClass.class);
+    this.jarTransformationRecords = new ArrayList<>(maxNumOfTransformations);
   }
 
   @Override
@@ -212,18 +219,35 @@ public class DesugarRule implements TestRule {
         new Statement() {
           @Override
           public void evaluate() throws Throwable {
-            JarTransformationRecord transformationRecord =
-                JarTransformationRecord.create(
-                    inputs,
-                    getRuntimeOutputPaths(inputs, temporaryFolder, tempDirs),
-                    classPathEntries,
-                    bootClassPathEntries,
-                    extraCustomCommandOptions);
-            Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
+            ImmutableList<Path> transInputs = inputs;
+            for (int i = 0; i < maxNumOfTransformations; i++) {
+              ImmutableList<Path> transOutputs =
+                  getRuntimeOutputPaths(
+                      transInputs,
+                      temporaryFolder,
+                      tempDirs,
+                      /* defaultOutputRootPrefix= */ DEFAULT_OUTPUT_ROOT_PREFIX + "_" + i);
+              JarTransformationRecord transformationRecord =
+                  JarTransformationRecord.create(
+                      transInputs,
+                      transOutputs,
+                      classPathEntries,
+                      bootClassPathEntries,
+                      extraCustomCommandOptions);
+              Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
 
-            ClassLoader outputJarClassLoader = transformationRecord.getOutputClassLoader();
+              jarTransformationRecords.add(transformationRecord);
+              transInputs = transOutputs;
+            }
+
             for (Field field : fieldForDynamicClassLoading) {
-              String qualifiedClassName = field.getDeclaredAnnotation(LoadClass.class).value();
+              LoadClass loadClassAnnotation = field.getDeclaredAnnotation(LoadClass.class);
+              String qualifiedClassName = loadClassAnnotation.value();
+              int round = loadClassAnnotation.round();
+              ClassLoader outputJarClassLoader =
+                  round == 0
+                      ? getInputClassLoader()
+                      : jarTransformationRecords.get(round - 1).getOutputClassLoader();
               Class<?> classLiteral = outputJarClassLoader.loadClass(qualifiedClassName);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, classLiteral);
@@ -234,12 +258,23 @@ public class DesugarRule implements TestRule {
         description);
   }
 
+  private ClassLoader getInputClassLoader() throws MalformedURLException {
+    List<URL> urls = new ArrayList<>();
+    for (Path path : Iterables.concat(inputs, classPathEntries, bootClassPathEntries)) {
+      urls.add(path.toUri().toURL());
+    }
+    return URLClassLoader.newInstance(urls.toArray(new URL[0]), baseClassLoader);
+  }
+
   private static ImmutableList<Path> getRuntimeOutputPaths(
-      ImmutableList<Path> inputs, TemporaryFolder temporaryFolder, Map<String, Path> tempDirs)
+      ImmutableList<Path> inputs,
+      TemporaryFolder temporaryFolder,
+      Map<String, Path> tempDirs,
+      String defaultOutputRootPrefix)
       throws IOException {
     ImmutableList.Builder<Path> outputRuntimePathsBuilder = ImmutableList.builder();
     for (Path path : inputs) {
-      String targetDirKey = Paths.get(DEFAULT_OUTPUT_ROOT_PREFIX) + "/" + path.getParent();
+      String targetDirKey = Paths.get(defaultOutputRootPrefix) + "/" + path.getParent();
       final Path outputDirPath;
       if (tempDirs.containsKey(targetDirKey)) {
         outputDirPath = tempDirs.get(targetDirKey);
@@ -272,6 +307,8 @@ public class DesugarRule implements TestRule {
 
     private final Object testInstance;
     private final MethodHandles.Lookup testInstanceLookup;
+    private final ImmutableList<Field> classLiteralFieldToBeLoaded;
+    private int maxNumOfTransformations;
     private final List<Path> inputs = new ArrayList<>();
     private final List<Path> classPathEntries = new ArrayList<>();
     private final List<Path> bootClassPathEntries = new ArrayList<>();
@@ -293,15 +330,12 @@ public class DesugarRule implements TestRule {
             "Expected a test instance whose class is annotated with @RunWith. %s", testClass);
       }
 
-      for (Field field : findAllFieldsWithAnnotation(testClass, LoadClass.class)) {
-        if (Modifier.isStatic(field.getModifiers())) {
-          errorMessenger.addError("Expected to be non-static for field (%s)", field);
-        }
+      classLiteralFieldToBeLoaded = findAllFieldsWithAnnotation(testClass, LoadClass.class);
+    }
 
-        if (field.getType() != Class.class) {
-          errorMessenger.addError("Expected a class literal type (Class<?>) for field (%s)", field);
-        }
-      }
+    public DesugarRuleBuilder enableIterativeTransformation(int maxNumOfTransformations) {
+      this.maxNumOfTransformations = maxNumOfTransformations;
+      return this;
     }
 
     public DesugarRuleBuilder addRuntimeInputs(String... inputJars) {
@@ -350,6 +384,8 @@ public class DesugarRule implements TestRule {
 
     public DesugarRule build() {
       checkJVMOptions();
+      checkClassLiteralFieldToBeLoaded();
+
       if (bootClassPathEntries.isEmpty()
           && !customCommandOptions.containsKey("allow_empty_bootclasspath")) {
         addCommandOptions("bootclasspath_entry", ANDROID_RUNTIME_JAR_PATH.toString());
@@ -366,9 +402,31 @@ public class DesugarRule implements TestRule {
       return new DesugarRule(
           this,
           testInstanceLookup,
+          maxNumOfTransformations,
           ImmutableList.copyOf(inputs),
           ImmutableList.copyOf(classPathEntries),
           ImmutableList.copyOf(bootClassPathEntries));
+    }
+
+    private void checkClassLiteralFieldToBeLoaded() {
+      for (Field field : classLiteralFieldToBeLoaded) {
+        if (Modifier.isStatic(field.getModifiers())) {
+          errorMessenger.addError("Expected to be non-static for field (%s)", field);
+        }
+
+        if (field.getType() != Class.class) {
+          errorMessenger.addError("Expected a class literal type (Class<?>) for field (%s)", field);
+        }
+
+        LoadClass loadClassAnnotation = field.getDeclaredAnnotation(LoadClass.class);
+        if (loadClassAnnotation.round() < 0
+            || loadClassAnnotation.round() > maxNumOfTransformations) {
+          errorMessenger.addError(
+              "Expected the round of desugar transformation within [0, %d], where 0 indicates no"
+                  + " transformation is used.",
+              maxNumOfTransformations);
+        }
+      }
     }
   }
 
