@@ -52,7 +52,7 @@ The remote cache stores two types of data:
 * The action cache, which is a map of action hashes to action result metadata.
 * A content-addressable store (CAS) of output files.
 
-**Note:** The remote cache also stores the output of actions (i.e. the `stdout`/`stderr`); so when a cache hit occurs during a build, you may see the exact outputs as without having any cache hit. Keep in mind that just seeing expected std outputs doesn't mean it's really running, when using remote cache.
+Note that the remote cache additionally stores the stdout and stderr for every action. Inspecting the stdout/stderr of Bazel thus is not a good signal for [estimating cache hits](https://docs.bazel.build/versions/master/remote-caching-debug.html).
 
 ### How a build uses remote caching
 
