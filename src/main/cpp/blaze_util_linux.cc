@@ -121,10 +121,11 @@ blaze_util::Path GetProcessCWD(int pid) {
   if (readlink(
           ("/proc/" + ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
-    return blaze_util::Path();
+    return nullptr;
   }
 
-  return blaze_util::Path(string(server_cwd));
+  return std::unique_ptr<blaze_util::Path>(
+      new blaze_util::Path(string(server_cwd)));
 }
 
 bool IsSharedLibrary(const string &filename) {

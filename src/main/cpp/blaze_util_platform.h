@@ -17,6 +17,7 @@
 
 #include <cinttypes>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -129,13 +130,9 @@ uint64_t GetMillisecondsMonotonic();
 // on Linux, so it should only be called when necessary.
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 
-// Returns the cwd of the specified process, or an empty string if the
-// directory is unknown.
-//
-// TODO(aldersondrive): Change the return type to
-// std::unique_ptr<blaze_util::Path>, so that we can return nullptr instead of
-// relying on callers to recognize the empty string as special.
-blaze_util::Path GetProcessCWD(int pid);
+// Returns the current working directory of the specified process, or nullptr
+// if the directory is unknown.
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
