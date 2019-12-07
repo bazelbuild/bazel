@@ -116,7 +116,7 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   }
 }
 
-blaze_util::Path GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
           ("/proc/" + ToString(pid) + "/cwd").c_str(),
