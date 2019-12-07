@@ -170,11 +170,3 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],
 )
-
-filegroup(
-    name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-    ],
-    visibility = ["//visibility:public"],
-)
