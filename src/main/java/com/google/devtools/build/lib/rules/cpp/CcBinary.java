@@ -297,8 +297,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    ruleContext.checkSrcsSamePackage(true);
-
     CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
