@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -26,7 +25,6 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -102,18 +99,7 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
   public Object getValue(Location loc, StarlarkSemantics starlarkSemantics, String name)
       throws EvalException {
     // By default, a SkylarkInfo's field values are not affected by the Starlark semantics.
-    Object x = getValue(name);
-    if (x != null) {
-      return x;
-    } else if (name.equals("to_json") || name.equals("to_proto")) {
-      // to_json and to_proto should not be methods of struct or provider instances.
-      // However, they are, for now, and it is important that they be consistently
-      // returned by attribute lookup operations regardless of whether a field or method
-      // is desired. TODO(adonovan): eliminate this hack.
-      return new BuiltinCallable(this, name);
-    } else {
-      return null;
-    }
+    return getValue(name);
   }
 
   /**
@@ -169,15 +155,6 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
       Object[] values,
       @Nullable Location loc) {
     return new CompactSkylarkInfo(provider, layout, values, loc);
-  }
-
-  /**
-   * Returns the concrete implementation classes of this abstract class.
-   *
-   * <p>This is useful for code that depends on reflection.
-   */
-  public static List<Class<? extends SkylarkInfo>> getImplementationClasses() {
-    return ImmutableList.of(MapBackedSkylarkInfo.class, CompactSkylarkInfo.class);
   }
 
   /**
@@ -263,8 +240,7 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
   }
 
   /** A {@link SkylarkInfo} implementation that stores its values in a map. */
-  // TODO(b/72448383): Make private.
-  public static final class MapBackedSkylarkInfo extends SkylarkInfo {
+  private static final class MapBackedSkylarkInfo extends SkylarkInfo {
     private final ImmutableSortedMap<String, Object> values;
 
     /**
@@ -284,6 +260,20 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
       // TODO(b/74396075): Phase out the unnecessary conversions done by this call to copyValues.
       this.values = copyValues(values);
       this.errorMessageFormatForUnknownField = errorMessageFormatForUnknownField;
+    }
+
+    /**
+     * Preprocesses a map of field values to convert the field names and field values to
+     * Skylark-acceptable names and types.
+     *
+     * <p>Entries are ordered by key.
+     */
+    private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
+      ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
+      for (Map.Entry<String, Object> e : values.entrySet()) {
+        builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+      }
+      return builder.build();
     }
 
     @Override

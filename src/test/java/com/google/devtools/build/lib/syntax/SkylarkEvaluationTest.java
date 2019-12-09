@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -2080,43 +2081,60 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .testExpression("foo(23, 5, 0)", 18);
   }
 
+  // This class extends NativeInfo (which provides @SkylarkCallable-annotated fields)
+  // with additional fields from a map.
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
-  static final class SkylarkClassObjectWithSkylarkCallables extends NativeInfo {
-    private static final NativeProvider<SkylarkClassObjectWithSkylarkCallables> CONSTRUCTOR =
+  private static final class SkylarkClassObjectWithSkylarkCallables extends NativeInfo {
+
+    static final NativeProvider<SkylarkClassObjectWithSkylarkCallables> CONSTRUCTOR =
         new NativeProvider<SkylarkClassObjectWithSkylarkCallables>(
             SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
 
+    final Map<String, Object> fields =
+        ImmutableMap.of(
+            "values_only_field",
+            "fromValues",
+            "values_only_method",
+            new BuiltinFunction(FunctionSignature.of()) {
+              @Override
+              public String getName() {
+                return "values_only_method";
+              }
+
+              public String invoke() {
+                return "fromValues";
+              }
+            },
+            "collision_field",
+            "fromValues",
+            "collision_method",
+            new BuiltinFunction(FunctionSignature.of()) {
+              @Override
+              public String getName() {
+                return "collision_method";
+              }
+
+              public String invoke() {
+                return "fromValues";
+              }
+            });
+
     SkylarkClassObjectWithSkylarkCallables() {
-      super(
-          CONSTRUCTOR,
-          ImmutableMap.of(
-              "values_only_field",
-              "fromValues",
-              "values_only_method",
-              new BuiltinFunction(FunctionSignature.of()) {
-                @Override
-                public String getName() {
-                  return "values_only_method";
-                }
+      super(CONSTRUCTOR, Location.BUILTIN);
+    }
 
-                public String invoke() {
-                  return "fromValues";
-                }
-              },
-              "collision_field",
-              "fromValues",
-              "collision_method",
-              new BuiltinFunction(FunctionSignature.of()) {
-                @Override
-                public String getName() {
-                  return "collision_method";
-                }
+    @Override
+    public Object getValue(String name) throws EvalException {
+      Object x = fields.get(name);
+      return x != null ? x : super.getValue(name);
+    }
 
-                public String invoke() {
-                  return "fromValues";
-                }
-              }),
-          Location.BUILTIN);
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return ImmutableSet.<String>builder()
+          .addAll(fields.keySet())
+          .addAll(super.getFieldNames())
+          .build();
     }
 
     @SkylarkCallable(name = "callable_only_field", documented = false, structField = true)

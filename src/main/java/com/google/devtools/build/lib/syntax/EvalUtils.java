@@ -463,14 +463,17 @@ public final class EvalUtils {
     }
 
     if (object instanceof SkylarkClassObject) {
+      Object result = null;
       try {
-        return ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
+        result = ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
       } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
         throw new EvalException(loc, ex);
       }
-    }
+      if (result != null) {
+        return result;
+      }
 
-    if (object instanceof ClassObject) {
+    } else if (object instanceof ClassObject) {
       Object result = null;
       try {
         result = ((ClassObject) object).getValue(name);
@@ -483,9 +486,11 @@ public final class EvalUtils {
         return Starlark.fromJava(result, thread.mutability());
       }
     }
+
     if (method != null) {
       return new BuiltinCallable(object, name);
     }
+
     return null;
   }
 

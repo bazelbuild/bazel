@@ -59,6 +59,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    sysroot = provider.sysroot,",
         "    cpu = provider.cpu,",
         "    ar_executable = provider.ar_executable,",
+        "    ar_executable_call = provider.ar_executable(),",
         "    use_pic_for_dynamic_libraries = provider.needs_pic_for_dynamic_libraries(",
         "      feature_configuration = feature_configuration,",
         "    ),",
@@ -81,7 +82,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) ct.get(key);
 
+    // Observe: provider.ar_executable == provider.ar_executable().
+    // That's because ToolchainInfo has an ar_executable field in its values map,
+    // and a @SkylarkCallable method of that name, and x.f() calls the method
+    // whereas x.f retrieves the field. This inconsistency is b/145735895.
     assertThat((String) info.getValue("ar_executable")).endsWith("/usr/bin/mock-ar");
+    assertThat((String) info.getValue("ar_executable_call")).endsWith("/usr/bin/mock-ar");
 
     assertThat(info.getValue("cpu")).isEqualTo("k8");
 

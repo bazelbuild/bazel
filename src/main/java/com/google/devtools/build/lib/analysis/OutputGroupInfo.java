@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class OutputGroupInfo extends NativeInfo
+public final class OutputGroupInfo extends StructImpl
     implements SkylarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String SKYLARK_NAME = "output_groups";
 
@@ -138,7 +138,7 @@ public final class OutputGroupInfo extends NativeInfo
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 

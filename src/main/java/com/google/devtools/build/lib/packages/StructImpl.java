@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
@@ -36,8 +34,14 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Abstract base class for Starlark objects that have fields, have to_json and to_proto methods, and
- * may be returned by analyis of a configured target function.
+ * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
+ * have an associated provider (type symbol), and may be returned as the result of analysis from one
+ * target to another.
+ *
+ * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
+ * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
+ * subclass's {@code SkylarkCallable(structField=true)} annotations, and {@code SkylarkInfo}
+ * supplies fields from the map provided at its construction.
  *
  * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
  * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing
@@ -71,25 +75,10 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   /**
-   * Preprocesses a map of field values to convert the field names and field values to
-   * Skylark-acceptable names and types.
-   *
-   * <p>Entries are ordered by key.
-   */
-  static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
-    Preconditions.checkNotNull(values);
-    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
-    for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
-    }
-    return builder.build();
-  }
-
-  /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
    * EvalException} if the cast fails.
    */
-  public <T> T getValue(String key, Class<T> type) throws EvalException {
+  public final <T> T getValue(String key, Class<T> type) throws EvalException {
     Object obj = getValue(key);
     if (obj == null) {
       return null;
