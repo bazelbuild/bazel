@@ -157,7 +157,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
     echo "  https://docs.bazel.build/versions/master/install-ubuntu.html") 2>&1
   else
     (echo ""
-    echo "Bazel binaries for all official releaeses can be downloaded from here:"
+    echo "Bazel binaries for all official releases can be downloaded from here:"
     echo "  https://github.com/bazelbuild/bazel/releases") 2>&1
 
     if [[ -x $(command -v curl) && -w $wrapper_dir ]]; then
