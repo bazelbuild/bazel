@@ -37,48 +37,49 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public interface AppleStaticLibraryInfoApi extends StructApi {
 
   /** Skylark name for this interface. */
-  public static final String SKYLARK_NAME = "AppleStaticLibrary";
+  String SKYLARK_NAME = "AppleStaticLibrary";
 
-  @SkylarkCallable(name = "archive",
+  @SkylarkCallable(
+      name = "archive",
       structField = true,
-      doc = "The multi-arch archive (.a) output by apple_static_library."
-  )
-  public FileApi getMultiArchArchive();
+      doc = "The multi-arch archive (.a) output by apple_static_library.")
+  FileApi getMultiArchArchive();
 
-  @SkylarkCallable(name = "objc",
+  @SkylarkCallable(
+      name = "objc",
       structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the archive."
-  )
-  public ObjcProviderApi<?> getDepsObjcProvider();
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the archive.")
+  ObjcProviderApi<?> getDepsObjcProvider();
 
-  /**
-   * Interface for the provider type for {@link AppleStaticLibraryInfoApi}.
-   */
-  public interface AppleStaticLibraryInfoProvider<FileApiT extends FileApi,
-      ObjcProviderApiT extends ObjcProviderApi<?>> extends ProviderApi {
+  /** Interface for the provider type for {@link AppleStaticLibraryInfoApi}. */
+  interface AppleStaticLibraryInfoProvider<
+          FileApiT extends FileApi, ObjcProviderApiT extends ObjcProviderApi<?>>
+      extends ProviderApi {
 
     @SkylarkCallable(
         name = SKYLARK_NAME,
         doc = "The <code>AppleStaticLibrary</code> constructor.",
         parameters = {
-            @Param(
-                name = "archive",
-                type = FileApi.class,
-                named = true,
-                positional = false,
-                doc = "Multi-architecture archive (.a) representing a static library"),
-            @Param(
-                name = "objc",
-                type = ObjcProviderApi.class,
-                named = true,
-                positional = false,
-                doc = "A provider which contains information about the transitive dependencies "
-                    + "linked into the archive."),
+          @Param(
+              name = "archive",
+              type = FileApi.class,
+              named = true,
+              positional = false,
+              doc = "Multi-architecture archive (.a) representing a static library"),
+          @Param(
+              name = "objc",
+              type = ObjcProviderApi.class,
+              named = true,
+              positional = false,
+              doc =
+                  "A provider which contains information about the transitive dependencies "
+                      + "linked into the archive."),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AppleStaticLibraryInfoApi.class)
-    public AppleStaticLibraryInfoApi appleStaticLibrary(
-        FileApiT archive, ObjcProviderApiT objcProvider) throws EvalException;
+    AppleStaticLibraryInfoApi appleStaticLibrary(FileApiT archive, ObjcProviderApiT objcProvider)
+        throws EvalException;
   }
 }

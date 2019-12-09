@@ -31,12 +31,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 
-  @SkylarkCallable(name = "outputs_map",
+  @SkylarkCallable(
+      name = "outputs_map",
       structField = true,
-      doc = "A dictionary of: { arch: { output_type: file, output_type: file, ... } }, "
-          + "where 'arch' is any Apple architecture such as 'arm64' or 'armv7', 'output_type' is "
-          + "a string descriptor such as 'bitcode_symbols' or 'dsym_binary', and the file is the "
-          + "file matching that descriptor for that architecture."
-  )
-  public ImmutableMap<String, ImmutableMap<String, FileT>> getOutputsMap();
+      doc =
+          "A dictionary of: { arch: { output_type: file, output_type: file, ... } }, where 'arch'"
+              + " is any Apple architecture such as 'arm64' or 'armv7', 'output_type' is a string"
+              + " descriptor such as 'bitcode_symbols' or 'dsym_binary', and the file is the file"
+              + " matching that descriptor for that architecture.")
+  ImmutableMap<String, ImmutableMap<String, FileT>> getOutputsMap();
 }

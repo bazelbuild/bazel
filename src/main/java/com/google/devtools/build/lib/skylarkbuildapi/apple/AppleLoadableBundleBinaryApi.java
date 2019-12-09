@@ -32,16 +32,17 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface AppleLoadableBundleBinaryApi extends StructApi {
 
-  @SkylarkCallable(name = "binary",
+  @SkylarkCallable(
+      name = "binary",
       structField = true,
-      doc = "The binary file output by apple_binary."
-  )
-  public FileApi getAppleLoadableBundleBinary();
+      doc = "The binary file output by apple_binary.")
+  FileApi getAppleLoadableBundleBinary();
 
-  @SkylarkCallable(name = "objc",
+  @SkylarkCallable(
+      name = "objc",
       structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the binary."
-  )
-  public ObjcProviderApi<?> getDepsObjcProvider();
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the binary.")
+  ObjcProviderApi<?> getDepsObjcProvider();
 }

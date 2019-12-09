@@ -42,7 +42,7 @@ public interface XcodeConfigInfoApi<
           "Returns the Xcode version that is being used to build.<p>"
               + "This will return <code>None</code> if no Xcode versions are available.",
       allowReturnNones = true)
-  public DottedVersionApi<?> getXcodeVersion();
+  DottedVersionApi<?> getXcodeVersion();
 
   @SkylarkCallable(
       name = "minimum_os_for_platform_type",
@@ -57,7 +57,7 @@ public interface XcodeConfigInfoApi<
             type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
-  public DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
+  DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
       name = "sdk_version_for_platform",
@@ -72,7 +72,7 @@ public interface XcodeConfigInfoApi<
             type = ApplePlatformApi.class,
             doc = "The apple platform."),
       })
-  public DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
+  DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
   @SkylarkModule(
@@ -80,7 +80,7 @@ public interface XcodeConfigInfoApi<
       category = SkylarkModuleCategory.PROVIDER,
       documented = false,
       doc = "")
-  public interface XcodeConfigProviderApi extends ProviderApi {
+  interface XcodeConfigProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "XcodeVersionConfig",
@@ -136,7 +136,7 @@ public interface XcodeConfigInfoApi<
     @SkylarkConstructor(
         objectType = XcodeConfigInfoApi.class,
         receiverNameForDoc = "XcodeConfigInfo")
-    public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String watchosSdkVersion,

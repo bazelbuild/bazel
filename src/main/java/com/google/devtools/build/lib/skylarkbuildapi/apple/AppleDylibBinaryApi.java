@@ -32,17 +32,18 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface AppleDylibBinaryApi extends StructApi {
 
-  @SkylarkCallable(name = "binary",
+  @SkylarkCallable(
+      name = "binary",
       structField = true,
-      doc = "The dylib file output by apple_binary."
-  )
-  public FileApi getAppleDylibBinary();
+      doc = "The dylib file output by apple_binary.")
+  FileApi getAppleDylibBinary();
 
-  @SkylarkCallable(name = "objc",
+  @SkylarkCallable(
+      name = "objc",
       structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the dylib, (intended so that binaries depending on this dylib may avoid relinking "
-          + "symbols included in the dylib."
-  )
-  public ObjcProviderApi<?> getDepsObjcProvider();
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the dylib, (intended so that binaries depending on this dylib may avoid relinking "
+              + "symbols included in the dylib.")
+  ObjcProviderApi<?> getDepsObjcProvider();
 }
