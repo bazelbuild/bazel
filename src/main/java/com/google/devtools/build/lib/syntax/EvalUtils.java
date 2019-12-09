@@ -447,48 +447,37 @@ public final class EvalUtils {
     Eval.setDebugger(dbg);
   }
 
-  /** Returns the named field or method of the specified object. */
-  static Object getAttr(StarlarkThread thread, Location loc, Object object, String name)
+  /** Returns the named field or method of value {@code x}, or null if not found. */
+  static Object getAttr(StarlarkThread thread, Location loc, Object x, String name)
       throws EvalException, InterruptedException {
-    MethodDescriptor method =
-        object instanceof Class<?>
-            ? CallUtils.getMethod(thread.getSemantics(), (Class<?>) object, name)
-            : CallUtils.getMethod(thread.getSemantics(), object.getClass(), name);
+    // @SkylarkCallable-annotated field?
+    MethodDescriptor method = CallUtils.getMethod(thread.getSemantics(), x.getClass(), name);
     if (method != null && method.isStructField()) {
       return method.call(
-          object,
+          x,
           CallUtils.extraInterpreterArgs(method, /*ast=*/ null, loc, thread).toArray(),
           loc,
           thread);
     }
 
-    if (object instanceof SkylarkClassObject) {
-      Object result = null;
-      try {
-        result = ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
-      } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
-        throw new EvalException(loc, ex);
-      }
-      if (result != null) {
-        return result;
-      }
-
-    } else if (object instanceof ClassObject) {
-      Object result = null;
-      try {
-        result = ((ClassObject) object).getValue(name);
-      } catch (IllegalArgumentException ex) {
-        throw new EvalException(loc, ex);
-      }
-      // ClassObjects may have fields that are annotated with @SkylarkCallable.
-      // Since getValue() does not know about those, we cannot expect that result is a valid object.
-      if (result != null) {
-        return Starlark.fromJava(result, thread.mutability());
+    // user-defined field?
+    if (x instanceof ClassObject) {
+      // TODO(adonovan): get rid of SkylarkClassObject once
+      // --incompatible_disable_target_provider_fields goes away,
+      // then remove the thread and loc parameters and publish
+      // this method as Starlark.getattr.
+      Object field =
+          x instanceof SkylarkClassObject
+              ? ((SkylarkClassObject) x).getValue(loc, thread.getSemantics(), name)
+              : ((ClassObject) x).getValue(name);
+      if (field != null) {
+        return Starlark.checkValid(field);
       }
     }
 
+    // @SkylarkCallable-annotated method?
     if (method != null) {
-      return new BuiltinCallable(object, name);
+      return new BuiltinCallable(x, name);
     }
 
     return null;

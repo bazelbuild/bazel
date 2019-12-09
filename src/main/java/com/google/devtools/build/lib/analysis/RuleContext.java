@@ -475,18 +475,25 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition) {
+  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition)
+      throws EvalException {
     Class<? extends Fragment> fragmentClass =
         getConfiguration(transition).getSkylarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
-    return getFragment(fragmentClass, name,
-        String.format(
-            " Please update the '%1$sfragments' argument of the rule definition "
-            + "(for example: %1$sfragments = [\"%2$s\"])",
-            (transition.isHostTransition()) ? "host_" : "", name),
-        transition);
+    try {
+      return getFragment(
+          fragmentClass,
+          name,
+          String.format(
+              " Please update the '%1$sfragments' argument of the rule definition "
+                  + "(for example: %1$sfragments = [\"%2$s\"])",
+              transition.isHostTransition() ? "host_" : "", name),
+          transition);
+    } catch (IllegalArgumentException ex) { // fishy
+      throw new EvalException(null, ex.getMessage());
+    }
   }
 
   public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition transition) {
