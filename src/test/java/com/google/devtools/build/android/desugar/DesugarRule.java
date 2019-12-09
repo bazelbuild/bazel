@@ -293,7 +293,7 @@ public class DesugarRule implements TestRule {
     for (Class<?> currentClass = testClass;
         currentClass != null;
         currentClass = currentClass.getSuperclass()) {
-      for (Field field : testClass.getDeclaredFields()) {
+      for (Field field : currentClass.getDeclaredFields()) {
         if (field.isAnnotationPresent(annotationClass)) {
           fields.add(field);
         }
