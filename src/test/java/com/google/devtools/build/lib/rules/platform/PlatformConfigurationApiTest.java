@@ -170,6 +170,6 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//verify:verify"));
     assertThat(error)
         .hasMessageThat()
-        .contains("object of type 'platform' has no field 'enabled_toolchain_types'");
+        .contains("'platform' value has no field or method 'enabled_toolchain_types'");
   }
 }

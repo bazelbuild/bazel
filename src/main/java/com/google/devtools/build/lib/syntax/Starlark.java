@@ -228,7 +228,11 @@ public final class Starlark {
     // TODO(adonovan): logically this should be a parameter.
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
-      env.put(name, CallUtils.getBuiltinCallable(semantics, v, name));
+      // We pass desc=null instead of the descriptor that CallUtils.getMethod would
+      // return because DEFAULT_SEMANTICS is probably incorrect for the call.
+      // The effect is that the default semantics determine which methods appear in
+      // env, but the thread's semantics determine which method calls succeed.
+      env.put(name, new BuiltinCallable(v, name, /*desc=*/ null));
     }
   }
 

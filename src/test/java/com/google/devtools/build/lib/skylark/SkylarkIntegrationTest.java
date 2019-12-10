@@ -402,7 +402,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   public void testStackTraceMissingMethod() throws Exception {
     runStackTraceTest(
         "None",
-        "\t\tNone.index(1)" + System.lineSeparator() + "type 'NoneType' has no method index()");
+        "\t\tNone.index"
+            + System.lineSeparator()
+            + "'NoneType' value has no field or method 'index'");
   }
 
   protected void runStackTraceTest(String object, String errorMessage) throws Exception {
@@ -1988,7 +1990,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "r",
-        "type 'Target' has no method output_group()",
+        "<target //test/skylark:lib> (rule 'cc_binary') doesn't have provider 'output_group'",
         "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='r', dep = ':lib')");

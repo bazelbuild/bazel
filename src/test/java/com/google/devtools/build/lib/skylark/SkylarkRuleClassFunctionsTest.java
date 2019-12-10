@@ -645,7 +645,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     EvalException expected = assertThrows(EvalException.class, () -> eval("attr.license()"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("type 'attr (a language module)' has no method license()");
+        .contains("'attr (a language module)' value has no field or method 'license'");
   }
 
   @Test
@@ -1123,7 +1123,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructAccessingUnknownField() throws Exception {
     checkEvalErrorContains(
-        "'struct' object has no attribute 'c'\n" + "Available attributes: a, b",
+        "'struct' value has no field or method 'c'\n" + "Available attributes: a, b",
         "x = struct(a = 1, b = 2)",
         "y = x.c");
   }
@@ -1131,7 +1131,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructAccessingUnknownFieldWithArgs() throws Exception {
     checkEvalErrorContains(
-        "type 'struct' has no method c()", "x = struct(a = 1, b = 2)", "y = x.c()");
+        "'struct' value has no field or method 'c'", "x = struct(a = 1, b = 2)", "y = x.c()");
   }
 
   @Test
@@ -1206,7 +1206,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testGetattrNoAttr() throws Exception {
     checkEvalErrorContains(
-        "'struct' object has no attribute 'b'\nAvailable attributes: a",
+        "'struct' value has no field or method 'b'\nAvailable attributes: a",
         "s = struct(a='val')",
         "getattr(s, 'b')");
   }
@@ -1645,8 +1645,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p1 = p(y = 2)",
         "x = p1.x"
     );
-    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
-        " 'p' object has no attribute 'x'");
+    MoreAsserts.assertContainsEvent(
+        ev.getEventCollector(), " 'p' value has no field or method 'x'");
   }
 
   @Test

@@ -203,7 +203,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   }
 
   private static String makeErrorMessageFormatForUnknownField(String exportedName) {
-    return String.format("'%s' object has no attribute '%%s'", exportedName);
+    return String.format("'%s' value has no field or method '%%s'", exportedName);
   }
 
   @Override

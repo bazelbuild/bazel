@@ -103,8 +103,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinCallable structFieldCallable() {
-      return CallUtils.getBuiltinCallable(
-          StarlarkSemantics.DEFAULT_SEMANTICS, SkylarkEvaluationTest.this, "foobar");
+      return new BuiltinCallable(SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(
@@ -167,8 +166,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public Object structFieldCallable() {
-      return CallUtils.getBuiltinCallable(
-          StarlarkSemantics.DEFAULT_SEMANTICS, SkylarkEvaluationTest.this, "foobar");
+      return new BuiltinCallable(SkylarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
@@ -1059,7 +1057,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallsNotSkylarkCallable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("type 'Mock' has no method value()", "mock.value()");
+        .testIfExactError("'Mock' value has no field or method 'value'", "mock.value()");
   }
 
   @Test
@@ -1073,20 +1071,21 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallsNoMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("type 'Mock' has no method bad()", "mock.bad()");
+        .testIfExactError("'Mock' value has no field or method 'bad'", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     new SkylarkTest()
-        .testIfExactError("type 'int' has no method bad()", "s = 3.bad('a', 'b', 'c')");
+        .testIfExactError("'int' value has no field or method 'bad'", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("type 'Mock' has no method isEmpty()", "mock.isEmpty(str='abc')");
+        .testIfExactError(
+            "'Mock' value has no field or method 'isEmpty'", "mock.isEmpty(str='abc')");
   }
 
   @Test
@@ -1260,7 +1259,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("type 'int' has no method to_string()", "s = 3.to_string()");
+    new SkylarkTest()
+        .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
   }
 
   @Test
@@ -1313,10 +1313,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    update(
-        "interrupted_function",
-        CallUtils.getBuiltinCallable(
-            StarlarkSemantics.DEFAULT_SEMANTICS, this, "interrupted_function"));
+    update("interrupted_function", new BuiltinCallable(this, "interrupted_function"));
     assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
   }
 
@@ -1462,7 +1459,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockClassObject())
         .testIfExactError(
-            "object of type 'MockClassObject' has no field 'fild' (did you mean 'field'?)",
+            "'MockClassObject' value has no field or method 'fild' (did you mean 'field'?)",
             "mock.fild");
   }
 
@@ -1471,7 +1468,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "object of type 'Mock' has no field 'sturct_field' (did you mean 'struct_field'?)",
+            "'Mock' value has no field or method 'sturct_field' (did you mean 'struct_field'?)",
             "v = mock.sturct_field");
   }
 
@@ -1645,7 +1642,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
     new SkylarkTest()
-        .testIfExactError("object of type 'string' has no field 'field'", "x = 'a'.field");
+        .testIfExactError("'string' value has no field or method 'field'", "x = 'a'.field");
   }
 
   @Test
@@ -2082,7 +2079,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   // This class extends NativeInfo (which provides @SkylarkCallable-annotated fields)
-  // with additional fields from a map.
+  // with additional fields from a map. The only production code that currently
+  // does that is ToolchainInfo and its subclasses.
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
   private static final class SkylarkClassObjectWithSkylarkCallables extends NativeInfo {
 
@@ -2190,8 +2188,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("v", "fromSkylarkCallable");
   }
 
+
   @Test
   public void testStructMethodDefinedInValuesAndSkylarkCallable() throws Exception {
+    // This test exercises the resolution of ambiguity between @SkylarkCallable-annotated
+    // fields and those reported by ClassObject.getValue.
     new SkylarkTest()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.collision_method()")
@@ -2204,7 +2205,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .testIfExactError(
             // TODO(bazel-team): This should probably list callable_only_method as well.
-            "'struct_with_skylark_callables' object has no attribute 'nonexistent_field'\n"
+            "'struct_with_skylark_callables' value has no field or method 'nonexistent_field'\n"
                 + "Available attributes: callable_only_field, collision_field, collision_method, "
                 + "values_only_field, values_only_method",
             "v = val.nonexistent_field");
@@ -2215,8 +2216,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .testIfExactError(
-            // TODO(bazel-team): This should probably match the error above better.
-            "type 'SkylarkClassObjectWithSkylarkCallables' has no method nonexistent_method()",
+            "'struct_with_skylark_callables' value has no field or method 'nonexistent_method'\n"
+                + "Available attributes: callable_only_field, collision_field, collision_method, "
+                + "values_only_field, values_only_method",
             "v = val.nonexistent_method()");
   }
 
@@ -2312,5 +2314,15 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .setUp("GlobalSymbol = 'other'",
             "var = GlobalSymbol")
         .testLookup("var", "other");
+  }
+
+  @Test
+  public void testFunctionEvaluatedBeforeArguments() throws Exception {
+    // ''.nonesuch must be evaluated (and fail) before f().
+    new SkylarkTest()
+        .testIfErrorContains(
+            "'string' value has no field or method 'nonesuch'",
+            "def f(): x = 1//0",
+            "''.nonesuch(f())");
   }
 }

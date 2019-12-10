@@ -2427,7 +2427,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     CommandLineExpansionException e =
         assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
-    assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
+    assertThat(e).hasMessageThat().contains("'string' value has no field or method 'nosuchmethod'");
   }
 
   @Test

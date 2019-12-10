@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -469,7 +470,7 @@ final class Eval {
           String name = dot.getField().getName();
           Object result = EvalUtils.getAttr(thread, dot.getLocation(), object, name);
           if (result == null) {
-            throw EvalUtils.getMissingFieldException(object, name, thread.getSemantics(), "field");
+            throw EvalUtils.getMissingAttrException(object, name, thread.getSemantics());
           }
           return result;
         }
@@ -477,21 +478,17 @@ final class Eval {
       case FUNCALL:
         {
           FuncallExpression call = (FuncallExpression) expr;
-
+          Object fn = eval(thread, call.getFunction());
           ArrayList<Object> posargs = new ArrayList<>();
           Map<String, Object> kwargs = new LinkedHashMap<>();
-
-          // Optimization: call x.f() without materializing
-          // a closure for x.f if f is a Java method.
-          if (call.getFunction() instanceof DotExpression) {
-            DotExpression dot = (DotExpression) call.getFunction();
-            Object object = eval(thread, dot.getObject());
-            evalArguments(thread, call, posargs, kwargs);
-            return CallUtils.callMethod(
-                thread, call, object, posargs, kwargs, dot.getField().getName(), dot.getLocation());
-          }
-
-          Object fn = eval(thread, call.getFunction());
+          // TODO(adonovan): optimize the calling convention to pass a contiguous array of
+          // positional and named arguments with an array of Strings for the names (which is
+          // constant for all non-**kwargs call sites). The caller would remain responsible for
+          // flattening f(*args) and f(**kwargs), but the callee would become responsible for
+          // duplicate name checking.
+          // Callees already need to do this work anyway---see BaseFunction.processArguments and
+          // CallUtils.convertStarlarkArgumentsToJavaMethodArguments---and this avoids constructing
+          // another hash table in nearly every call
           evalArguments(thread, call, posargs, kwargs);
           return CallUtils.call(thread, call, fn, posargs, kwargs);
         }
@@ -763,7 +760,6 @@ final class Eval {
    *     here instead of an immutable map builder to deal with duplicates without memory overhead
    * @param thread the Starlark thread for the call
    */
-  @SuppressWarnings("unchecked")
   private static void evalArguments(
       StarlarkThread thread,
       FuncallExpression call,
@@ -775,15 +771,25 @@ final class Eval {
     ImmutableList.Builder<String> duplicatesBuilder = null;
     // Iterate over the arguments. We assume all positional arguments come before any keyword
     // or star arguments, because the argument list was already validated by the Parser,
-    // which should be the only place that build FuncallExpression-s.
+    // which should be the only place that build FuncallExpressions.
     // Argument lists are typically short and functions are frequently called, so go by index
     // (O(1) for ImmutableList) to avoid the iterator overhead.
-    for (int i = 0; i < call.getArguments().size(); i++) {
-      Argument arg = call.getArguments().get(i);
+    List<Argument> args = call.getArguments();
+    for (int i = 0; i < args.size(); i++) {
+      Argument arg = args.get(i);
       Object value = eval(thread, arg.getValue());
       if (arg instanceof Argument.Positional) {
         // f(expr)
         posargs.add(value);
+      } else if (arg instanceof Argument.Keyword) {
+        // f(id=expr)
+        String name = arg.getName();
+        if (addKeywordArgAndCheckIfDuplicate(kwargs, name, value)) {
+          if (duplicatesBuilder == null) {
+            duplicatesBuilder = ImmutableList.builder();
+          }
+          duplicatesBuilder.add(name);
+        }
       } else if (arg instanceof Argument.Star) {
         // f(*args): expand args
         if (!(value instanceof StarlarkIterable)) {
@@ -791,10 +797,8 @@ final class Eval {
               call.getLocation(),
               "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
         }
-        for (Object starArgUnit : (Iterable<Object>) value) {
-          posargs.add(starArgUnit);
-        }
-      } else if (arg instanceof Argument.StarStar) {
+        Iterables.addAll(posargs, ((Iterable<?>) value));
+      } else {
         // f(**kwargs): expand kwargs
         ImmutableList<String> duplicates =
             addKeywordArgsAndReturnDuplicates(kwargs, value, call.getLocation());
@@ -803,15 +807,6 @@ final class Eval {
             duplicatesBuilder = ImmutableList.builder();
           }
           duplicatesBuilder.addAll(duplicates);
-        }
-      } else {
-        // f(id=expr)
-        String name = arg.getName();
-        if (addKeywordArgAndCheckIfDuplicate(kwargs, name, value)) {
-          if (duplicatesBuilder == null) {
-            duplicatesBuilder = ImmutableList.builder();
-          }
-          duplicatesBuilder.add(name);
         }
       }
     }

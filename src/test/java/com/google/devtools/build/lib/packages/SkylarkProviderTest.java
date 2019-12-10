@@ -57,7 +57,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
     assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("'prov' object has no attribute '%s'");
+        .isEqualTo("'prov' value has no field or method '%s'");
     assertThat(provider.isImmutable()).isTrue();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);

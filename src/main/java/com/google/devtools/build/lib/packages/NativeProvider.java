@@ -74,7 +74,7 @@ public abstract class NativeProvider<V extends Info> extends BaseFunction implem
     this.key = new NativeKey(name, getClass());
     this.valueClass = valueClass;
     this.errorMessageFormatForUnknownField =
-        String.format("'%s' object has no attribute '%%s'", name);
+        String.format("'%s' value has no field or method '%%s'", name);
   }
 
   public final SkylarkProviderIdentifier id() {

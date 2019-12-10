@@ -169,8 +169,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testGetAttrMissingField() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "object of type 'string' has no attribute 'not_there'",
-            "getattr('a string', 'not_there')")
+            "'string' value has no field or method 'not_there'", "getattr('a string', 'not_there')")
         .testExpression("getattr('a string', 'not_there', 'use this')", "use this")
         .testExpression("getattr('a string', 'not there', None)", Starlark.NONE);
   }
@@ -203,13 +202,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .update("s", new AStruct())
         .testIfExactError(
-            "object of type 'AStruct' has no attribute 'feild' (did you mean 'field'?)",
+            "'AStruct' value has no field or method 'feild' (did you mean 'field'?)",
             "getattr(s, 'feild')");
   }
 
   @Test
   public void testGetAttrWithMethods() throws Exception {
-    String msg = "object of type 'string' has no attribute 'cnt'";
+    String msg = "'string' value has no field or method 'cnt'";
     new SkylarkTest()
         .testIfExactError(msg, "getattr('a string', 'cnt')")
         .testExpression("getattr('a string', 'cnt', 'default')", "default");
@@ -478,7 +477,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("repr(range(1,2,3))", "range(1, 2, 3)")
         .testExpression("type(a)", "range")
         .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
-        .testIfErrorContains("type 'range' has no method append()", "a.append(3)")
+        .testIfErrorContains("'range' value has no field or method 'append'", "a.append(3)")
         .testExpression("str(list(range(5)))", "[0, 1, 2, 3, 4]")
         .testExpression("str(list(range(0)))", "[]")
         .testExpression("str(list(range(1)))", "[0]")

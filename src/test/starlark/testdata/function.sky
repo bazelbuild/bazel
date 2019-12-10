@@ -54,7 +54,7 @@ x()
 assert_eq(y, [])
 
 ---
-getattr("", "abc") ### object of type 'string' has no attribute 'abc'
+getattr("", "abc") ### 'string' value has no field or method 'abc'
 ---
 x = getattr("", "pop", "clear")
 x() ### 'string' object is not callable

@@ -32,12 +32,30 @@ public final class BuiltinCallable implements StarlarkCallable {
 
   private final Object obj;
   private final String methodName;
+  @Nullable private final MethodDescriptor desc;
 
-  // This function is only public for the to_{json,proto} hack.
-  // TODO(adonovan): make it private.
-  public BuiltinCallable(Object obj, String methodName) {
+  /**
+   * Constructs a BuiltinCallable for a StarlarkCallable-annotated method of the given name (as seen
+   * by Starlark, not Java).
+   */
+  BuiltinCallable(Object obj, String methodName) {
+    this(obj, methodName, /*desc=*/ null);
+  }
+
+  /**
+   * Constructs a BuiltinCallable for a StarlarkCallable-annotated method of the given name (as seen
+   * by Starlark, not Java).
+   *
+   * <p>This constructor should be used only for ephemeral BuiltinCallable values created
+   * transiently during a call such as {@code x.f()}, when the caller has already looked up the
+   * MethodDescriptor using the same semantics as the thread that will be used in the call. Use the
+   * other (slower) constructor if there is any possibility that the semantics of the {@code x.f}
+   * operation differ from those of the thread used in the call.
+   */
+  BuiltinCallable(Object obj, String methodName, MethodDescriptor desc) {
     this.obj = obj;
     this.methodName = methodName;
+    this.desc = desc;
   }
 
   @Override
@@ -47,9 +65,8 @@ public final class BuiltinCallable implements StarlarkCallable {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    // Even though all callers of 'new BuiltinCallable' have a MethodDescriptor,
-    // we have to look it up again with the correct semantics from the thread.
-    MethodDescriptor methodDescriptor = getMethodDescriptor(thread.getSemantics());
+    MethodDescriptor methodDescriptor =
+        desc != null ? desc : getMethodDescriptor(thread.getSemantics());
     Class<?> clazz;
     Object objValue;
 

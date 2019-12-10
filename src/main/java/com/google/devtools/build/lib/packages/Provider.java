@@ -54,7 +54,7 @@ public interface Provider extends ProviderApi {
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
   default String getErrorMessageFormatForUnknownField() {
-    return String.format("'%s' object has no attribute '%%s'", getPrintableName());
+    return String.format("'%s' value has no field or method '%%s'", getPrintableName());
   }
 
   /**

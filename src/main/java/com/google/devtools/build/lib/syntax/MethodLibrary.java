@@ -716,12 +716,14 @@ class MethodLibrary {
             legacyNamed = true)
       },
       useStarlarkThread = true)
-  public Boolean hasAttr(Object obj, String name, StarlarkThread thread) throws EvalException {
+  public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
+    // TODO(adonovan): factor the core logic of hasattr, getattr, and dir into three adjacent
+    // functions so that we can convince ourselves of their ongoing consistency.
+    // Are we certain that getValue doesn't sometimes return None to mean 'no field'?
     if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
       return true;
     }
-    // shouldn't this filter things with struct_field = false?
-    return EvalUtils.hasMethod(thread.getSemantics(), obj, name);
+    return CallUtils.getMethodNames(thread.getSemantics(), obj.getClass()).contains(name);
   }
 
   @SkylarkCallable(
@@ -756,7 +758,7 @@ class MethodLibrary {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public Object getAttr(
+  public Object getattr(
       Object obj, String name, Object defaultValue, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Object result = EvalUtils.getAttr(thread, loc, obj, name);
@@ -764,7 +766,7 @@ class MethodLibrary {
       if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
       }
-      throw EvalUtils.getMissingFieldException(obj, name, thread.getSemantics(), "attribute");
+      throw EvalUtils.getMissingAttrException(obj, name, thread.getSemantics());
     }
     return result;
   }
