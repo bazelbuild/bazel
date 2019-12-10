@@ -16,17 +16,22 @@
 
 package com.google.devtools.build.android.desugar;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.android.desugar.DesugarRule.LoadClass;
+import com.google.devtools.build.android.desugar.DesugarRule.LoadClassNode;
+import com.google.devtools.build.android.desugar.DesugarRule.LoadZipEntry;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.zip.ZipEntry;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.objectweb.asm.tree.ClassNode;
 
 /** The test for {@link DesugarRule}. */
 @RunWith(JUnit4.class)
@@ -56,6 +61,21 @@ public class DesugarRuleTest {
       "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
   private Class<?> interfaceSubjectToDesugarCompanionClass;
 
+  @LoadZipEntry(
+      value =
+          "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+      round = 1)
+  private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
+
+  @LoadZipEntry(
+      value =
+          "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+      round = 2)
+  private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
+
+  @LoadClassNode("com.google.devtools.build.android.desugar.DesugarRuleTestTarget")
+  private ClassNode desugarRuleTestTargetClassNode;
+
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {
     assertThrows(
@@ -76,5 +96,18 @@ public class DesugarRuleTest {
             Arrays.stream(interfaceSubjectToDesugarCompanionClass.getDeclaredMethods())
                 .map(Method::getName))
         .contains("staticMethod$$STATIC$$");
+  }
+
+  @Test
+  public void nestMembers() {
+    assertThat(desugarRuleTestTargetClassNode.nestMembers)
+        .containsExactly(
+            "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar");
+  }
+
+  @Test
+  public void idempotencyOperation() {
+    assertThat(interfaceSubjectToDesugarZipEntryRound1.getCrc())
+        .isEqualTo(interfaceSubjectToDesugarZipEntryRound2.getCrc());
   }
 }
