@@ -48,7 +48,7 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends Str
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<T extends CcInfoApi> extends ProviderApi {
+  interface Provider<T extends CcInfoApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -66,6 +66,6 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends Str
     @SkylarkConstructor(
         objectType = AndroidCcLinkParamsProviderApi.class,
         receiverNameForDoc = NAME)
-    public AndroidCcLinkParamsProviderApi<T> createInfo(T store) throws EvalException;
+    AndroidCcLinkParamsProviderApi<T> createInfo(T store) throws EvalException;
   }
 }

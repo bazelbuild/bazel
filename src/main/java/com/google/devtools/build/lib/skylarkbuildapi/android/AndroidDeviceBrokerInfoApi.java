@@ -30,10 +30,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
     documented = false)
 public interface AndroidDeviceBrokerInfoApi extends StructApi {
 
-  /**
-   * Name of this info object.
-   */
-  public static String NAME = "AndroidDeviceBrokerInfo";
+  /** Name of this info object. */
+  String NAME = "AndroidDeviceBrokerInfo";
 
   /** Provider for {@link AndroidDeviceBrokerInfoApi}. */
   @SkylarkModule(
@@ -42,7 +40,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface AndroidDeviceBrokerInfoApiProvider extends ProviderApi {
+  interface AndroidDeviceBrokerInfoApiProvider extends ProviderApi {
 
     @SkylarkCallable(
         name = "AndroidDeviceBrokerInfo",
@@ -59,6 +57,6 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
-    public AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
+    AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
   }
 }

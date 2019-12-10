@@ -53,7 +53,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider extends ProviderApi {
+  interface Provider extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,

@@ -126,7 +126,7 @@ public interface AndroidSdkProviderApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<
+  interface Provider<
           FileT extends FileApi,
           FilesToRunProviderT extends FilesToRunProviderApi<FileT>,
           TransT extends TransitiveInfoCollectionApi>

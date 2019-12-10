@@ -104,7 +104,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
+  interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
       extends ProviderApi {
 
     @SkylarkCallable(
@@ -163,7 +163,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidAssetsInfoApi.class, receiverNameForDoc = NAME)
-    public AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
+    AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
         Label label,
         Object validationResult,
         Depset directParsedAssets,

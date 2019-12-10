@@ -40,10 +40,8 @@ public interface AndroidResourcesInfoApi<
         AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
-  /**
-   * Name of this info object.
-   */
-  public static String NAME = "AndroidResourcesInfo";
+  /** Name of this info object. */
+  String NAME = "AndroidResourcesInfo";
 
   /** Returns the label that is associated with this piece of information. */
   @SkylarkCallable(
@@ -127,7 +125,7 @@ public interface AndroidResourcesInfoApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface AndroidResourcesInfoApiProvider<
+  interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
           ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
           AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
