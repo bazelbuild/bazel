@@ -160,10 +160,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             "'proguard_apply_dictionary' can only be used when 'proguard_specs' is also set");
       }
     }
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("shrink_resources")
-        && dataContext.throwOnShrinkResources()) {
-      ruleContext.throwWithAttributeError("shrink_resources", "This attribute is not supported");
-    }
 
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()
         && getMultidexMode(ruleContext) == MultidexMode.OFF) {
