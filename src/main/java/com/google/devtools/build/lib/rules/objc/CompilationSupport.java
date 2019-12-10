@@ -1302,7 +1302,7 @@ public class CompilationSupport {
       Iterable<Artifact> objFiles, Artifact objList) {
     ImmutableSet<Artifact> dedupedObjFiles = ImmutableSet.copyOf(objFiles);
     CustomCommandLine.Builder objFilesToLinkParam = new CustomCommandLine.Builder();
-    ImmutableList.Builder<Artifact> treeObjFiles = new ImmutableList.Builder<>();
+    NestedSetBuilder<Artifact> treeObjFiles = NestedSetBuilder.stableOrder();
 
     for (Artifact objFile : dedupedObjFiles) {
       // If the obj file is a tree artifact, we need to expand it into the contained individual

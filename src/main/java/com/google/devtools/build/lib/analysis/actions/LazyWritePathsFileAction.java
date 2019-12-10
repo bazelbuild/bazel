@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,8 +41,9 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
   public LazyWritePathsFileAction(
       ActionOwner owner, Artifact output, NestedSet<Artifact> files,
       boolean includeDerivedArtifacts) {
+    // TODO(ulfjack): It's a bad idea to have these two constructors do slightly different things.
     super(owner, files, output, false);
-    this.files = NestedSetBuilder.fromNestedSet(files).build();
+    this.files = files;
     this.includeDerivedArtifacts = includeDerivedArtifacts;
   }
 
@@ -49,7 +51,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
       ActionOwner owner, Artifact output,
       ImmutableSet<Artifact> files,
       boolean includeDerivedArtifacts) {
-    super(owner, Artifact.NO_ARTIFACTS, output, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, false);
     this.files = NestedSetBuilder.<Artifact>stableOrder().addAll(files).build();
     this.includeDerivedArtifacts = includeDerivedArtifacts;
   }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -717,8 +718,7 @@ public final class CustomCommandLine extends CommandLine {
       return arguments.isEmpty();
     }
 
-    private final ImmutableList.Builder<Artifact> treeArtifactInputs =
-        new ImmutableList.Builder<>();
+    private final NestedSetBuilder<Artifact> treeArtifactInputs = NestedSetBuilder.stableOrder();
 
     private boolean treeArtifactsRequested = false;
 
@@ -1097,7 +1097,7 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Gets all the tree artifact inputs for command line */
-    public Iterable<Artifact> getTreeArtifactInputs() {
+    public NestedSet<Artifact> getTreeArtifactInputs() {
       treeArtifactsRequested = true;
       return treeArtifactInputs.build();
     }

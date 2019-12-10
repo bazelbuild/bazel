@@ -315,7 +315,7 @@ public final class RunfilesSupport {
     if (runfilesManifest != null) {
       deps.add(runfilesManifest);
     } else {
-      deps.addAll(SourceManifestAction.getDependencies(runfiles));
+      deps.addTransitive(SourceManifestAction.getDependencies(runfiles));
     }
     return context
         .getAnalysisEnvironment()

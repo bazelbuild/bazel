@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -28,6 +27,8 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
@@ -176,7 +177,7 @@ public class ArtifactTest {
           }
         },
         ActionsTestUtil.NULL_ACTION_OWNER,
-        ImmutableList.of(aHeader1, aHeader2, aHeader3),
+        NestedSetBuilder.create(Order.STABLE_ORDER, aHeader1, aHeader2, aHeader3),
         middleman,
         "desc",
         MiddlemanType.AGGREGATING_MIDDLEMAN);

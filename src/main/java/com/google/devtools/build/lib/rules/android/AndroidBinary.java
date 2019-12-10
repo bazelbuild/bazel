@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -1456,7 +1457,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new ParameterFileWriteAction(
             ruleContext.getActionOwner(),
-            ImmutableList.of(inputTree),
+            NestedSetBuilder.create(Order.STABLE_ORDER, inputTree),
             paramFile,
             args,
             ParameterFile.ParameterFileType.SHELL_QUOTED,

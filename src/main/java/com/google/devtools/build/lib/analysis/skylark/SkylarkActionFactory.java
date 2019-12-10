@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -266,7 +267,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
-              args.getDirectoryArtifacts(),
+              NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
               args.build(),
               args.getParameterFileType(),

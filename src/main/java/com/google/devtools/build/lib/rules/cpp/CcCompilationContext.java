@@ -948,7 +948,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           owner,
           name,
           purpose,
-          ImmutableList.copyOf(compilationPrerequisites),
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, compilationPrerequisites),
           configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
     }
   }

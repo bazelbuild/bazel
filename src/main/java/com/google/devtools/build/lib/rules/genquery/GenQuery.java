@@ -420,7 +420,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     private final GenQueryResult result;
 
     private QueryResultAction(ActionOwner owner, Artifact output, GenQueryResult result) {
-      super(owner, ImmutableList.<Artifact>of(), output, /*makeExecutable=*/false);
+      super(
+          owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /*makeExecutable=*/ false);
       this.result = result;
     }
 

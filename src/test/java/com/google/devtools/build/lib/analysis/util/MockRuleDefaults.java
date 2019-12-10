@@ -88,7 +88,9 @@ public class MockRuleDefaults {
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {
         ruleContext.registerAction(
             FileWriteAction.createEmptyWithInputs(
-                ruleContext.getActionOwner(), ImmutableList.of(), artifact));
+                ruleContext.getActionOwner(),
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                artifact));
       }
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(filesToBuild)

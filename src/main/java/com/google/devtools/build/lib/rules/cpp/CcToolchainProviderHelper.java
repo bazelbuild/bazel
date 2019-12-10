@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -125,7 +124,7 @@ public class CcToolchainProviderHelper {
     // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLib = attributes.getDynamicRuntimeLib();
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
-    List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
+    NestedSetBuilder<Artifact> dynamicRuntimeLinkInputs = NestedSetBuilder.stableOrder();
     Artifact dynamicRuntimeLinkMiddleman;
     if (dynamicRuntimeLib != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
@@ -153,7 +152,7 @@ public class CcToolchainProviderHelper {
           CppHelper.getAggregatingMiddlemanForCppRuntimes(
               ruleContext,
               purposePrefix + "dynamic_runtime_link",
-              dynamicRuntimeLinkInputs,
+              dynamicRuntimeLinkInputs.build(),
               solibDirectory,
               runtimeSolibDirBase,
               configuration);

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.trimming;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -671,7 +671,9 @@ public final class TrimmableTestConfigurationFragments {
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {
         ruleContext.registerAction(
             FileWriteAction.createEmptyWithInputs(
-                ruleContext.getActionOwner(), ImmutableList.of(), artifact));
+                ruleContext.getActionOwner(),
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                artifact));
       }
       if (ruleContext.getToolchainContext() != null) {
         ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();

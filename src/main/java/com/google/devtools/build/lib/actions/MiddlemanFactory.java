@@ -91,7 +91,7 @@ public final class MiddlemanFactory {
       ActionOwner owner,
       String middlemanName,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir) {
     Preconditions.checkArgument(inputs != null);
     Preconditions.checkArgument(!CollectionUtils.isEmpty(inputs));
@@ -119,7 +119,7 @@ public final class MiddlemanFactory {
       ActionOwner owner,
       String middlemanName,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir,
       MiddlemanType middlemanType) {
     if (inputs == null || CollectionUtils.isEmpty(inputs)) {
@@ -147,7 +147,7 @@ public final class MiddlemanFactory {
       ActionOwner owner,
       PathFragment packageDirectory,
       String purpose,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir) {
     String escapedPackageDirectory = Actions.escapedPath(packageDirectory.getPathString());
     PathFragment stampName =

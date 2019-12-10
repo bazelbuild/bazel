@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -999,10 +1000,10 @@ public class CppLinkActionBuilder {
     if (linkCommandLine.getParamFile() != null) {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       // Pass along tree artifacts, so they can be properly expanded.
-      ImmutableSet<Artifact> paramFileActionInputs =
-          expandedLinkerArtifacts.stream()
-              .filter(a -> a.isTreeArtifact())
-              .collect(ImmutableSet.toImmutableSet());
+      NestedSet<Artifact> paramFileActionInputs =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addAll(Iterables.filter(expandedLinkerArtifacts, Artifact::isTreeArtifact))
+              .build();
 
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(

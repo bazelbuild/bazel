@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -31,7 +32,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -65,7 +65,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
    *     generated header
    */
   public WriteBuildInfoHeaderAction(
-      Collection<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact primaryOutput,
       boolean writeVolatileInfo,
       boolean writeStableInfo) {
