@@ -24,5 +24,5 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface JavaRuntimeClasspathProviderApi extends StarlarkValue {
 
   @SkylarkCallable(name = "runtime_classpath", documented = false, structField = true)
-  public Depset /*<File>*/ getRuntimeClasspath();
+  Depset /*<File>*/ getRuntimeClasspath();
 }

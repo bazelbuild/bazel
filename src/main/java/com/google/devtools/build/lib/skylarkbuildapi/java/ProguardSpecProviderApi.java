@@ -31,14 +31,14 @@ import com.google.devtools.build.lib.syntax.EvalException;
     category = SkylarkModuleCategory.PROVIDER)
 public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructApi {
 
-  public static final String NAME = "ProguardSpecProvider";
+  String NAME = "ProguardSpecProvider";
 
   @SkylarkCallable(name = "specs", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getTransitiveProguardSpecsForStarlark();
 
   /** The provider implementing this can construct the ProguardSpecProvider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)
-  public interface Provider<FileT extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,

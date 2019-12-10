@@ -30,23 +30,23 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(name = "javac_options", structField = true, doc = "Options to java compiler.")
-  public ImmutableList<String> getJavacOpts();
+  ImmutableList<String> getJavacOpts();
 
   @SkylarkCallable(
       name = "runtime_classpath",
       structField = true,
       doc = "Run-time classpath for this Java target.")
-  public Depset /*<FileT>*/ getRuntimeClasspath();
+  Depset /*<FileT>*/ getRuntimeClasspath();
 
   @SkylarkCallable(
       name = "compilation_classpath",
       structField = true,
       doc = "Compilation classpath for this Java target.")
-  public Depset /*<FileT>*/ getCompilationClasspath();
+  Depset /*<FileT>*/ getCompilationClasspath();
 
   @SkylarkCallable(
       name = "boot_classpath",
       structField = true,
       doc = "Boot classpath for this Java target.")
-  public ImmutableList<FileT> getBootClasspath();
+  ImmutableList<FileT> getBootClasspath();
 }

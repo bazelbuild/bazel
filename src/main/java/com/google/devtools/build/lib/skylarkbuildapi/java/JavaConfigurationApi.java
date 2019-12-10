@@ -28,22 +28,23 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
 public interface JavaConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "default_javac_flags", structField = true,
+  @SkylarkCallable(
+      name = "default_javac_flags",
+      structField = true,
       doc = "The default flags for the Java compiler.")
   // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
   // probably.
-  public ImmutableList<String> getDefaultJavacFlags();
+  ImmutableList<String> getDefaultJavacFlags();
 
   @SkylarkCallable(
       name = "strict_java_deps",
       structField = true,
-      doc = "The value of the strict_java_deps flag."
-  )
-  public String getStrictJavaDepsName();
+      doc = "The value of the strict_java_deps flag.")
+  String getStrictJavaDepsName();
 
   @SkylarkCallable(
       name = "plugins",
       structField = true,
       doc = "A list containing the labels provided with --plugins, if any.")
-  public ImmutableList<Label> getPlugins();
+  ImmutableList<Label> getPlugins();
 }

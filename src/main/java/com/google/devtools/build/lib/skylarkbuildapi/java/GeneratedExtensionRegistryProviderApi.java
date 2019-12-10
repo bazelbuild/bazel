@@ -52,7 +52,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
 
   /** The provider implementing this can construct the GeneratedExtensionRegistryProvider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)
-  public interface Provider<FileT extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
