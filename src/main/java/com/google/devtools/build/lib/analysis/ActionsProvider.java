@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,12 +46,11 @@ public final class ActionsProvider extends BuiltinProvider<StructImpl>
       for (Artifact artifact : action.getOutputs()) {
         // In the case that two actions generated the same artifact, the first wins. They
         // ought to be equal anyway.
-        if (!map.containsKey(artifact)) {
-          map.put(artifact, action);
-        }
+        map.putIfAbsent(artifact, action);
       }
     }
-    ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return SkylarkInfo.createSchemaless(INSTANCE, fields, Location.BUILTIN);
+    ImmutableMap<String, Object> fields =
+        ImmutableMap.<String, Object>of("by_file", Starlark.fromJava(map, /*mutability=*/ null));
+    return SkylarkInfo.create(INSTANCE, fields, Location.BUILTIN);
   }
 }

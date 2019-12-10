@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.Location;
 // TODO(adonovan): merge with SkylarkIndexable: no type supports 'x in y' without y[x],
 // and 'x in y' can be defined in terms of y[x], at least as a default implementation.
 // (Implementations of 'x in y' may choose to interpret failure of y[x] as false or a failure.)
-public interface SkylarkQueryable {
+public interface SkylarkQueryable extends StarlarkValue {
 
   /** Returns whether the key is in the object. */
   boolean containsKey(Object key, Location loc) throws EvalException;

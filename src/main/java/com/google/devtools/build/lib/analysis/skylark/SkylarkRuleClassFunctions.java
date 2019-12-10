@@ -95,6 +95,7 @@ import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -252,8 +253,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   @Override
   public Provider provider(String doc, Object fields, Location location) throws EvalException {
-    Iterable<String> fieldNames = null;
-    if (fields instanceof Sequence<?>) {
+    Collection<String> fieldNames = null;
+    if (fields instanceof Sequence) {
       @SuppressWarnings("unchecked")
       Sequence<String> list =
           (Sequence<String>)

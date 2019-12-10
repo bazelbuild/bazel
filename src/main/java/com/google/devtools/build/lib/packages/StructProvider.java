@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -45,7 +44,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
     if (kwargsMap.containsKey("to_proto")) {
       throw new EvalException(loc, "cannot override built-in struct function 'to_proto'");
     }
-    return SkylarkInfo.createSchemaless(this, kwargsMap, loc);
+    return SkylarkInfo.create(this, kwargsMap, loc);
   }
 
   /**
@@ -57,12 +56,6 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
    * */
   public SkylarkInfo create(
       Map<String, Object> values, String errorMessageFormatForUnknownField) {
-    return SkylarkInfo.createSchemalessWithCustomMessage(
-        this, values, errorMessageFormatForUnknownField);
-  }
-
-  /** Creates an empty struct with the given location. */
-  public SkylarkInfo createEmpty(Location loc) {
-    return SkylarkInfo.createSchemaless(this, ImmutableMap.of(), loc);
+    return SkylarkInfo.createWithCustomMessage(this, values, errorMessageFormatForUnknownField);
   }
 }

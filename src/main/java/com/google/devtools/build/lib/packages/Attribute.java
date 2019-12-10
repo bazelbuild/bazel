@@ -1480,7 +1480,9 @@ public final class Attribute implements Comparable<Attribute> {
         if (!attr.hasComputedDefault()) {
           Object value = rule.get(attrName, attr.getType());
           if (!EvalUtils.isNullOrNone(value)) {
-            attrValues.put(attr.getName(), value);
+            // Some attribute values are not valid Starlark values:
+            // visibility is an ImmutableList, for example.
+            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
           }
         }
       }

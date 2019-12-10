@@ -184,7 +184,7 @@ public enum ApplePlatform implements ApplePlatformApi {
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
-    return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
+    return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 
   @Override
@@ -248,7 +248,7 @@ public enum ApplePlatform implements ApplePlatformApi {
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);
       }
-      return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
+      return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
     }
 
     @Override

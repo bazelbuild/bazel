@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -324,7 +325,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       SkylarkRuleContext context, RuleConfiguredTargetBuilder builder, Object target, Location loc)
       throws EvalException {
 
-    StructImpl oldStyleProviders = StructProvider.STRUCT.createEmpty(loc);
+    StructImpl oldStyleProviders =
+        SkylarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), loc);
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
 
     if (target instanceof Info) {

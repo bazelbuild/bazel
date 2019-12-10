@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 
 /** An interface for Skylark values (such as structs) that have fields. */
 // TODO(adonovan): rename "HasFields".
-public interface ClassObject {
+public interface ClassObject extends StarlarkValue {
 
   /**
    * Returns the value of the field with the given name, or null if the field does not exist.

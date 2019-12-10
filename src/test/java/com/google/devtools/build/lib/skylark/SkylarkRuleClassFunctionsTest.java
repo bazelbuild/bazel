@@ -1180,7 +1180,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructConcatenationCommonFields() throws Exception {
     checkEvalErrorContains(
-        "Cannot use '+' operator on provider instances with overlapping field(s): a",
+        "cannot add struct instances with common field 'a'",
         "x = struct(a = 1, b = 2)",
         "y = struct(c = 1, a = 2)",
         "z = x + y\n");
@@ -1385,7 +1385,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void declaredProvidersWithOverlappingFieldsConcatError() throws Exception {
     evalAndExport("data = provider(fields=['f1', 'f2'])");
     checkEvalErrorContains(
-        "Cannot use '+' operator on provider instances with overlapping field(s): f1",
+        "cannot add struct instances with common field 'f1'",
         "d1 = data(f1 = 4)",
         "d2 = data(f1 = 5)",
         "d1 + d2");
