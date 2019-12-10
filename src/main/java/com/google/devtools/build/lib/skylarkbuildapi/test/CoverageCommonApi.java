@@ -74,7 +74,7 @@ public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
             type = Sequence.class),
       },
       useLocation = true)
-  public InstrumentedFilesInfoApi instrumentedFilesInfo(
+  InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT skylarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected

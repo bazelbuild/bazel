@@ -34,7 +34,7 @@ public interface PlatformInfoApi<
         ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
 
-  static final String EXPERIMENTAL_WARNING =
+  String EXPERIMENTAL_WARNING =
       "<i>Note: This API is experimental and may change at any time. It is disabled by default, "
           + "but may be enabled with <code>--experimental_platforms_api</code></i>";
 

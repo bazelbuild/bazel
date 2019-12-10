@@ -134,7 +134,7 @@ public interface ConfigGlobalLibraryApi {
       },
       useLocation = true,
       useStarlarkSemantics = true)
-  public ConfigurationTransitionApi analysisTestTransition(
+  ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
       Location location,
       StarlarkSemantics semantics)

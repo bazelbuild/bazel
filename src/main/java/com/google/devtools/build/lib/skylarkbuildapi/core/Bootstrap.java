@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableMap;
  */
 public interface Bootstrap {
 
-  /**
-   * Adds this bootstrap's bindings to the given environment map builder.
-   */
-  public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder);
+  /** Adds this bootstrap's bindings to the given environment map builder. */
+  void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder);
 }

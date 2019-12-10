@@ -26,7 +26,6 @@ public interface TestEnvironmentInfoApi extends StructApi {
   @SkylarkCallable(
       name = "environment",
       doc = "A dict containing environment variables which should be set on the test action.",
-      structField = true
-  )
-  public Map<String, String> getEnvironment();
+      structField = true)
+  Map<String, String> getEnvironment();
 }

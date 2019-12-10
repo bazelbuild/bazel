@@ -41,17 +41,17 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
           "If true, then the analysis-phase test represented by this target passed. If "
               + "false, the test failed.",
       structField = true)
-  public Boolean getSuccess();
+  Boolean getSuccess();
 
   @SkylarkCallable(
       name = "message",
       doc = "A descriptive message containing information about the test and its success/failure.",
       structField = true)
-  public String getMessage();
+  String getMessage();
 
   /** Provider class for {@link AnalysisTestResultInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface AnalysisTestResultInfoProviderApi extends ProviderApi {
+  interface AnalysisTestResultInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "AnalysisTestResultInfo",
@@ -76,6 +76,6 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
     @SkylarkConstructor(
         objectType = AnalysisTestResultInfoApi.class,
         receiverNameForDoc = "AnalysisTestResultInfo")
-    public AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
+    AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
   }
 }

@@ -27,12 +27,11 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Various data about the current platform Bazel is running on.")
 public interface SkylarkOSApi extends StarlarkValue {
   @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
-  public ImmutableMap<String, String> getEnvironmentVariables();
+  ImmutableMap<String, String> getEnvironmentVariables();
 
   @SkylarkCallable(
       name = "name",
       structField = true,
-      doc = "A string identifying the current system Bazel is running on."
-  )
-  public String getName();
+      doc = "A string identifying the current system Bazel is running on.")
+  String getName();
 }

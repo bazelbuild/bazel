@@ -52,9 +52,9 @@ public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFail
               + "occurred in this target or its dependencies.",
       documented = false,
       structField = true)
-  public Depset /*<AnalysisFailureApiT>*/ getCauses();
+  Depset /*<AnalysisFailureApiT>*/ getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface AnalysisFailureInfoProviderApi extends ProviderApi {}
+  interface AnalysisFailureInfoProviderApi extends ProviderApi {}
 }

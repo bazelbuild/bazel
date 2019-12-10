@@ -29,7 +29,6 @@ public interface ExecutionInfoApi extends StructApi {
   @SkylarkCallable(
       name = "requirements",
       doc = "A dict indicating special execution requirements, such as hardware platforms.",
-      structField = true
-  )
-  public ImmutableMap<String, String> getExecutionInfo();
+      structField = true)
+  ImmutableMap<String, String> getExecutionInfo();
 }

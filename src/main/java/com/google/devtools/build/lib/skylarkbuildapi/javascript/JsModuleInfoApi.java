@@ -44,7 +44,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
       doc = "Returns the label of the target which created this object",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public Label getLabel();
+  Label getLabel();
 
   @SkylarkCallable(
       name = "transitive_js_info",
@@ -53,11 +53,11 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
               + " dependencies.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public StarlarkValue getFullPintoSources();
+  StarlarkValue getFullPintoSources();
 
   /** Provider class for {@link JsModuleInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface JsModuleInfoProviderApi extends ProviderApi {
+  interface JsModuleInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -101,7 +101,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         selfCall = true,
         enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
     @SkylarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
-    public JsModuleInfoApi<?> jsModuleInfo(
+    JsModuleInfoApi<?> jsModuleInfo(
         Label label,
         String wrapper,
         Object fullPintoSources,

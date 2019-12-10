@@ -109,7 +109,7 @@ public interface RepositoryModuleApi {
       },
       useAst = true,
       useStarlarkThread = true)
-  public BaseFunction repositoryRule(
+  BaseFunction repositoryRule(
       BaseFunction implementation,
       Object attrs,
       Boolean local,
@@ -129,6 +129,6 @@ public interface RepositoryModuleApi {
               + "details and migration instructions.",
       useLocation = true,
       useStarlarkThread = true)
-  public void failWithIncompatibleUseCcConfigureFromRulesCc(
-      Location location, StarlarkThread thread) throws EvalException;
+  void failWithIncompatibleUseCcConfigureFromRulesCc(Location location, StarlarkThread thread)
+      throws EvalException;
 }

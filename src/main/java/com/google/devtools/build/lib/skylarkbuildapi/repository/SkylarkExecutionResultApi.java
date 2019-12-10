@@ -39,19 +39,17 @@ public interface SkylarkExecutionResultApi extends StarlarkValue {
           "The return code returned after the execution of the program. 256 if the process was"
               + " terminated by a time out; values larger than 128 indicate termination by a"
               + " signal.")
-  public int getReturnCode();
+  int getReturnCode();
 
   @SkylarkCallable(
       name = "stdout",
       structField = true,
-      doc = "The content of the standard output returned by the execution."
-  )
-  public String getStdout();
+      doc = "The content of the standard output returned by the execution.")
+  String getStdout();
 
   @SkylarkCallable(
       name = "stderr",
       structField = true,
-      doc = "The content of the standard error output returned by the execution."
-  )
-  public String getStderr();
+      doc = "The content of the standard error output returned by the execution.")
+  String getStderr();
 }

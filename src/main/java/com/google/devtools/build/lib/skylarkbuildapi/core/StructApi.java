@@ -64,7 +64,7 @@ public interface StructApi extends StarlarkValue {
               + "# }\n"
               + "</pre>",
       useLocation = true)
-  public String toProto(Location loc) throws EvalException;
+  String toProto(Location loc) throws EvalException;
 
   @SkylarkCallable(
       name = "to_json",
@@ -85,13 +85,11 @@ public interface StructApi extends StarlarkValue {
               + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
               + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
       useLocation = true)
-  public String toJson(Location loc) throws EvalException;
+  String toJson(Location loc) throws EvalException;
 
-  /**
-   * Callable Provider for new struct objects.
-   */
+  /** Callable Provider for new struct objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface StructProviderApi extends ProviderApi {
+  interface StructProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "struct",
@@ -109,6 +107,6 @@ public interface StructApi extends StarlarkValue {
         useLocation = true,
         selfCall = true)
     @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
-    public StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException;
   }
 }
