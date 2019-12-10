@@ -85,7 +85,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public Sequence<?> glob(
+  Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
       Integer excludeDirectories,
@@ -129,7 +129,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public Object existingRule(String name, Location loc, StarlarkThread thread)
+  Object existingRule(String name, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -142,7 +142,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
               + " it may be expensive especially if called within a loop.</i>",
       useLocation = true,
       useStarlarkThread = true)
-  public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
+  Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -176,7 +176,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public NoneType packageGroup(
+  NoneType packageGroup(
       String name, Sequence<?> packages, Sequence<?> includes, Location loc, StarlarkThread thread)
       throws EvalException;
 
@@ -214,7 +214,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public NoneType exportsFiles(
+  NoneType exportsFiles(
       Sequence<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
       throws EvalException;
 
@@ -230,7 +230,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       parameters = {},
       useLocation = true,
       useStarlarkThread = true)
-  public String packageName(Location loc, StarlarkThread thread) throws EvalException;
+  String packageName(Location loc, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "repository_name",
@@ -244,5 +244,5 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       parameters = {},
       useLocation = true,
       useStarlarkThread = true)
-  public String repositoryName(Location location, StarlarkThread thread) throws EvalException;
+  String repositoryName(Location location, StarlarkThread thread) throws EvalException;
 }

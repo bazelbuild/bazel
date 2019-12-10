@@ -82,12 +82,10 @@ public interface DefaultInfoApi extends StructApi {
   )
   RunfilesApi getDefaultRunfiles();
 
-  /**
-   * Provider for {@link DefaultInfoApi}.
-   */
+  /** Provider for {@link DefaultInfoApi}. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public static interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi,
-      FileT extends FileApi> extends ProviderApi {
+  interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
+      extends ProviderApi {
 
     @SkylarkCallable(
         name = "DefaultInfo",
@@ -154,7 +152,7 @@ public interface DefaultInfoApi extends StructApi {
         useLocation = true,
         selfCall = true)
     @SkylarkConstructor(objectType = DefaultInfoApi.class, receiverNameForDoc = "DefaultInfo")
-    public DefaultInfoApi constructor(
+    DefaultInfoApi constructor(
         // TODO(cparsons): Use stricter types when Runfiles.NONE is passed as null.
         Object files,
         Object runfiles,

@@ -36,37 +36,35 @@ public interface RunfilesApi extends StarlarkValue {
       name = "files",
       doc = "Returns the set of runfiles as files.",
       structField = true)
-  public Depset /*<? extends FileApi>*/ getArtifactsForStarlark();
+  Depset /*<? extends FileApi>*/ getArtifactsForStarlark();
 
   @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
-  public Depset /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
+  Depset /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
 
   @SkylarkCallable(
       name = "root_symlinks",
       doc = "Returns the set of root symlinks.",
       structField = true)
-  public Depset /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
+  Depset /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
 
   @SkylarkCallable(
       name = "empty_filenames",
       doc = "Returns names of empty files to create.",
       structField = true)
-  public Depset /*<String>*/ getEmptyFilenamesForStarlark();
+  Depset /*<String>*/ getEmptyFilenamesForStarlark();
 
   @SkylarkCallable(
-    name = "merge",
-    doc =
-        "Returns a new runfiles object that includes all the contents of this one and the "
-            + "argument.",
-    parameters = {
+      name = "merge",
+      doc =
+          "Returns a new runfiles object that includes all the contents of this one and the "
+              + "argument.",
+      parameters = {
         @Param(
             name = "other",
             positional = true,
             named = false,
             type = RunfilesApi.class,
-            doc = "The runfiles object to merge into this."
-        ),
-    }
-  )
-  public RunfilesApi merge(RunfilesApi other);
+            doc = "The runfiles object to merge into this."),
+      })
+  RunfilesApi merge(RunfilesApi other);
 }

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
-  static final String PROVIDES_DOC =
+  String PROVIDES_DOC =
       "A list of providers that the implementation function must return."
           + ""
           + "<p>It is an error if the implementation function omits any of the types of providers "
@@ -87,7 +87,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None")
       },
       useLocation = true)
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
+  ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
 
   @SkylarkCallable(
       name = "rule",
@@ -333,7 +333,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       },
       useAst = true,
       useStarlarkThread = true)
-  public BaseFunction rule(
+  BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
@@ -491,7 +491,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       },
       useStarlarkThread = true,
       useAst = true)
-  public SkylarkAspectApi aspect(
+  SkylarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
@@ -537,7 +537,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useLocation = true,
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
-  public Label label(
+  Label label(
       String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
       throws EvalException;
 }

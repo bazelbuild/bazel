@@ -37,11 +37,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 )
 public interface OutputGroupInfoApi extends StructApi {
 
-  /**
-   * Provider for {@link OutputGroupInfoApi}.
-   */
+  /** Provider for {@link OutputGroupInfoApi}. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public static interface OutputGroupInfoApiProvider extends ProviderApi {
+  interface OutputGroupInfoApiProvider extends ProviderApi {
 
     @SkylarkCallable(
         name = "OutputGroupInfo",
@@ -62,6 +60,6 @@ public interface OutputGroupInfoApi extends StructApi {
     @SkylarkConstructor(
         objectType = OutputGroupInfoApi.class,
         receiverNameForDoc = "OutputGroupInfo")
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException;
   }
 }
