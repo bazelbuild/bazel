@@ -49,7 +49,7 @@ typedef struct stat64 portable_stat_struct;
 # if defined(ENOATTR)
 #  define ENODATA ENOATTR
 # else
-#  error Don't know how to handle missing ENODATA
+#  error Missing definition for ENODATA
 # endif
 #endif
 
