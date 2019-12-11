@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
@@ -137,7 +139,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(treeFile2.getPath(), "src2");
     Action action =
         new DummyAction(
-            ImmutableList.of(input1, input2, tree), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
+            NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
+            output,
+            MiddlemanType.AGGREGATING_MIDDLEMAN);
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -311,7 +315,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact.DerivedArtifact output =
         new Artifact.DerivedArtifact(
             ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
-    actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
+    actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
   }
@@ -325,7 +329,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly(path);
-    actions.add(new DummyAction(ImmutableList.<Artifact>of(), treeArtifact));
+    actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), treeArtifact));
     return treeArtifact;
   }
 

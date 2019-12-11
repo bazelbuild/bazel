@@ -63,6 +63,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.Output
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -365,19 +367,28 @@ public final class ActionsTestUtil {
   public static class NullAction extends AbstractAction {
 
     public NullAction() {
-      super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.of(DUMMY_ARTIFACT));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableList.of(DUMMY_ARTIFACT));
     }
 
     public NullAction(ActionOwner owner, Artifact... outputs) {
-      super(owner, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
+      super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableList.copyOf(outputs));
     }
 
     public NullAction(Artifact... outputs) {
-      super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableList.copyOf(outputs));
     }
 
     public NullAction(List<Artifact> inputs, Artifact... outputs) {
-      super(NULL_ACTION_OWNER, inputs, ImmutableList.copyOf(outputs));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs),
+          ImmutableList.copyOf(outputs));
     }
 
     @Override

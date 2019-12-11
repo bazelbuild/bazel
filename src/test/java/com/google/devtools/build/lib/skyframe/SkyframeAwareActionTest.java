@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -181,7 +183,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     private final AtomicInteger executionCounter;
 
     ExecutionCountingAction(Artifact input, Artifact output, AtomicInteger executionCounter) {
-      super(ActionsTestUtil.NULL_ACTION_OWNER, ImmutableList.of(input), ImmutableList.of(output));
+      super(
+          ActionsTestUtil.NULL_ACTION_OWNER,
+          NestedSetBuilder.create(Order.STABLE_ORDER, input),
+          ImmutableSet.of(output));
       this.executionCounter = executionCounter;
     }
 
@@ -668,8 +673,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     SingleOutputAction(@Nullable Artifact input, Artifact output) {
       super(
           ActionsTestUtil.NULL_ACTION_OWNER,
-          input == null ? ImmutableList.<Artifact>of() : ImmutableList.of(input),
-          ImmutableList.of(output));
+          input == null
+              ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+              : NestedSetBuilder.create(Order.STABLE_ORDER, input),
+          ImmutableSet.of(output));
     }
 
     protected static final class Buffer {
