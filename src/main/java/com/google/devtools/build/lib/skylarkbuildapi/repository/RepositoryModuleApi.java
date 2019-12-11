@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -41,12 +42,13 @@ public interface RepositoryModuleApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "the function implementing this rule, has to have exactly one parameter: <code><a"
-                    + " href=\"repository_ctx.html\">repository_ctx</a></code>. The function is"
-                    + " called during loading phase for each instance of the rule."),
+                "the Starlark function that implements this rule. Must have a single parameter,"
+                    + " <code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The"
+                    + " function is called during the loading phase for each instance of the"
+                    + " rule."),
         @Param(
             name = "attrs",
             type = Dict.class,
@@ -110,7 +112,7 @@ public interface RepositoryModuleApi {
       useAst = true,
       useStarlarkThread = true)
   BaseFunction repositoryRule(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       Object attrs,
       Boolean local,
       Sequence<?> environ, // <String> expected

@@ -277,6 +277,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @return the value resulting from evaluating the function with the given arguments
    * @throws EvalException-s containing source information.
    */
+  @Override
   public Object call(
       List<Object> args,
       @Nullable Map<String, Object> kwargs,
@@ -357,10 +358,5 @@ public abstract class BaseFunction implements StarlarkCallable {
   @Override
   public void repr(Printer printer) {
     printer.append("<function " + getName() + ">");
-  }
-
-  @Override
-  public Location getLocation() {
-    return Location.BUILTIN;
   }
 }

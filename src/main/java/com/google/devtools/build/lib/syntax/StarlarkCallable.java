@@ -55,5 +55,7 @@ public interface StarlarkCallable extends StarlarkValue {
    * Returns the location of the definition of this callable value, or BUILTIN if it was not defined
    * in Starlark code.
    */
-  Location getLocation();
+  default Location getLocation() {
+    return Location.BUILTIN;
+  }
 }

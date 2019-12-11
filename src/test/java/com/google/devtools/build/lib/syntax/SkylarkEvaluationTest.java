@@ -2088,34 +2088,34 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         new NativeProvider<SkylarkClassObjectWithSkylarkCallables>(
             SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
 
+    // A function that returns "fromValues".
+    Object returnFromValues =
+        new StarlarkCallable() {
+          @Override
+          public String getName() {
+            return "returnFromValues";
+          }
+
+          @Override
+          public Object call(
+              List<Object> args,
+              Map<String, Object> kwargs,
+              FuncallExpression call,
+              StarlarkThread thread) {
+            return "fromValues";
+          }
+        };
+
     final Map<String, Object> fields =
         ImmutableMap.of(
             "values_only_field",
             "fromValues",
             "values_only_method",
-            new BuiltinFunction(FunctionSignature.of()) {
-              @Override
-              public String getName() {
-                return "values_only_method";
-              }
-
-              public String invoke() {
-                return "fromValues";
-              }
-            },
+            returnFromValues,
             "collision_field",
             "fromValues",
             "collision_method",
-            new BuiltinFunction(FunctionSignature.of()) {
-              @Override
-              public String getName() {
-                return "collision_method";
-              }
-
-              public String invoke() {
-                return "fromValues";
-              }
-            });
+            returnFromValues);
 
     SkylarkClassObjectWithSkylarkCallables() {
       super(CONSTRUCTOR, Location.BUILTIN);

@@ -55,10 +55,10 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -640,7 +640,7 @@ public class RuleClass {
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
-    private BaseFunction configuredTargetFunction = null;
+    private StarlarkFunction configuredTargetFunction = null;
     private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
@@ -1150,10 +1150,8 @@ public class RuleClass {
       return attributes.containsKey(name);
     }
 
-    /**
-     * Sets the rule implementation function. Meant for Skylark usage.
-     */
-    public Builder setConfiguredTargetFunction(BaseFunction func) {
+    /** Sets the rule implementation function. Meant for Skylark usage. */
+    public Builder setConfiguredTargetFunction(StarlarkFunction func) {
       this.configuredTargetFunction = func;
       return this;
     }
@@ -1443,7 +1441,7 @@ public class RuleClass {
   /**
    * The Skylark rule implementation of this RuleClass. Null for non Skylark executable RuleClasses.
    */
-  @Nullable private final BaseFunction configuredTargetFunction;
+  @Nullable private final StarlarkFunction configuredTargetFunction;
 
   /**
    * The BuildSetting associated with this rule. Null for all RuleClasses except Skylark-defined
@@ -1530,7 +1528,7 @@ public class RuleClass {
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
-      @Nullable BaseFunction configuredTargetFunction,
+      @Nullable StarlarkFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
@@ -2369,10 +2367,9 @@ public class RuleClass {
     return binaryOutput;
   }
 
-  /**
-   * Returns this RuleClass's custom Skylark rule implementation.
-   */
-  @Nullable public BaseFunction getConfiguredTargetFunction() {
+  /** Returns this RuleClass's custom Skylark rule implementation. */
+  @Nullable
+  public StarlarkFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
   }
 
