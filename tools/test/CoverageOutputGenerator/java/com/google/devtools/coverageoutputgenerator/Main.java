@@ -207,10 +207,10 @@ public class Main {
 
   private static List<File> getTracefiles(LcovMergerFlags flags, List<File> filesInCoverageDir) {
     List<File> lcovTracefiles = new ArrayList<>();
-    if (flags.coverageDir() != null) {
-      lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
-    } else if (flags.reportsFile() != null) {
+    if (flags.reportsFile() != null) {
       lcovTracefiles = getTracefilesFromFile(flags.reportsFile());
+    } else if (flags.coverageDir() != null) {
+      lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
     }
     if (lcovTracefiles.isEmpty()) {
       logger.log(Level.INFO, "No lcov file found.");
