@@ -530,7 +530,7 @@ public class CompilationSupport {
     return new Pair<>(compilationOutputsBuilder.build(), ImmutableMap.copyOf(mergedOutputGroups));
   }
 
-  private ObjcCppSemantics createObjcCppSemantics(
+  ObjcCppSemantics createObjcCppSemantics(
       ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
     Iterable<Artifact> extraInputs = getExtraIncludeProcessingInputs(privateHdrs, pchHdr);
     return new ObjcCppSemantics(

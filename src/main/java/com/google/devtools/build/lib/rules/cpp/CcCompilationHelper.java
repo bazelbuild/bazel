@@ -260,7 +260,7 @@ public final class CcCompilationHelper {
   private final CcToolchainProvider ccToolchain;
   private final FdoContext fdoContext;
   private boolean generateModuleMap = true;
-  private String purpose = null;
+  private String purpose = "cc_compilation_middleman";
   private boolean generateNoPicAction;
   private boolean generatePicAction;
   private boolean isCodeCoverageEnabled = true;
@@ -344,6 +344,7 @@ public final class CcCompilationHelper {
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
+    setPurpose(common.getPurpose(semantics));
     return this;
   }
 
@@ -1062,8 +1063,8 @@ public final class CcCompilationHelper {
    * @param purpose must be a string which is suitable for use as a filename. A single rule may have
    *     many middlemen with distinct purposes.
    */
-  public CcCompilationHelper setPurpose(@Nullable String purpose) {
-    this.purpose = purpose;
+  public CcCompilationHelper setPurpose(String purpose) {
+    this.purpose = Preconditions.checkNotNull(purpose);
     return this;
   }
 
@@ -1277,7 +1278,8 @@ public final class CcCompilationHelper {
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.
-    if (purpose != null) {
+    Preconditions.checkNotNull(purpose);
+    if (purpose.endsWith("_objc_arc")) {
       outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
