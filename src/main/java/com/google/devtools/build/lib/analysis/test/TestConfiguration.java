@@ -216,7 +216,7 @@ public class TestConfiguration extends Fragment {
     @Option(
         name = "coverage_report_generator",
         converter = LabelConverter.class,
-        defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
+        defaultValue = "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {
             OptionEffectTag.CHANGES_INPUTS,
@@ -226,7 +226,7 @@ public class TestConfiguration extends Fragment {
         help =
             "Location of the binary that is used to generate coverage reports. This must "
                 + "currently be a filegroup that contains a single file, the binary. Defaults to "
-                + "'//tools/test:coverage_report_generator'."
+                + "'@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main'."
     )
     public Label coverageReportGenerator;
 
