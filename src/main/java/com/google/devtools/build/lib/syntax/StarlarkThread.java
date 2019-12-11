@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -26,12 +25,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -289,6 +290,7 @@ public final class StarlarkThread implements Freezable {
     @Nullable final FuncallExpression call; // syntax of the enclosing call
     final Frame savedLexicals; // the saved lexicals of the parent
     final Module savedModule; // the saved module of the parent (TODO(adonovan): eliminate)
+    @Nullable SilentCloseable profileSpan; // current span of walltime profiler
 
     CallFrame(
         StarlarkCallable fn,
@@ -313,6 +315,8 @@ public final class StarlarkThread implements Freezable {
   @Immutable
   // TODO(janakr,brandjon): Do Extensions actually have to start their own memoization? Or can we
   // have a node higher up in the hierarchy inject the mutability?
+  // TODO(adonovan): identify Extension with Module, abolish hash code, and make loading lazy (a
+  // callback not a map) so that clients don't need to preemptively scan the set of load statements.
   @AutoCodec
   public static final class Extension {
 
@@ -510,14 +514,17 @@ public final class StarlarkThread implements Freezable {
    * @param loc the source location of the function call.
    */
   void push(StarlarkCallable fn, Location loc, @Nullable FuncallExpression call) {
-    callstack.add(new CallFrame(fn, loc, call, this.lexicalFrame, this.globalFrame));
+    CallFrame fr = new CallFrame(fn, loc, call, this.lexicalFrame, this.globalFrame);
+    callstack.add(fr);
 
+    ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       this.lexicalFrame =
           new MutableLexicalFrame(
               this.mutability(), /*initialCapacity=*/ sfn.getSignature().numParameters());
       this.globalFrame = sfn.getModule();
+      taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       this.lexicalFrame = DUMMY_LEXICAL_FRAME;
@@ -525,6 +532,13 @@ public final class StarlarkThread implements Freezable {
       // For built-ins, thread.globals() returns the module
       // of the file from which the built-in was called.
       // Really they have no business knowing about that.
+      taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
+    }
+
+    // start profile span
+    // TODO(adonovan): throw this away when we build a CPU profiler.
+    if (Profiler.instance().isActive()) {
+      fr.profileSpan = Profiler.instance().profile(taskKind, fn.getName());
     }
   }
 
@@ -535,6 +549,11 @@ public final class StarlarkThread implements Freezable {
     callstack.remove(last); // pop
     this.lexicalFrame = top.savedLexicals;
     this.globalFrame = top.savedModule;
+
+    // end profile span
+    if (top.profileSpan != null) {
+      top.profileSpan.close();
+    }
   }
 
   // Builtins cannot create or modify variable bindings,
@@ -542,16 +561,6 @@ public final class StarlarkThread implements Freezable {
   private static final LexicalFrame DUMMY_LEXICAL_FRAME = ImmutableEmptyLexicalFrame.INSTANCE;
 
   private final String transitiveHashCode;
-
-  /**
-   * Is this a global StarlarkThread?
-   *
-   * @return true if the current code is being executed at the top-level, as opposed to inside the
-   *     body of a function.
-   */
-  boolean isGlobal() {
-    return lexicalFrame instanceof Module;
-  }
 
   @Override
   public Mutability mutability() {
@@ -575,24 +584,18 @@ public final class StarlarkThread implements Freezable {
     return eventHandler;
   }
 
-  /**
-   * Returns if calling the supplied function would be a recursive call, or in other words if the
-   * supplied function is already on the stack.
-   */
-  boolean isRecursiveCall(StarlarkFunction function) {
-    for (CallFrame fr : callstack) {
+  /** Reports whether {@code fn} has been recursively reentered within this thread. */
+  boolean isRecursiveCall(StarlarkFunction fn) {
+    // Find fn buried within stack. (The top of the stack is assumed to be fn.)
+    for (int i = callstack.size() - 2; i >= 0; --i) {
+      CallFrame fr = callstack.get(i);
       // TODO(adonovan): compare code, not closure values, otherwise
       // one can defeat this check by writing the Y combinator.
-      if (fr.fn.equals(function)) {
+      if (fr.fn.equals(fn)) {
         return true;
       }
     }
     return false;
-  }
-
-  /** Returns the current called function, which must exist. */
-  StarlarkCallable getCurrentFunction() {
-    return Iterables.getLast(callstack).fn;
   }
 
   /** Returns the call expression and called function for the outermost call being evaluated. */
@@ -742,7 +745,7 @@ public final class StarlarkThread implements Freezable {
   /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
   StarlarkThread updateAndExport(String varname, Object value) throws EvalException {
     update(varname, value);
-    if (isGlobal()) {
+    if (callstack.isEmpty()) {
       globalFrame.exportedBindings.add(varname);
     }
     return this;
@@ -977,46 +980,8 @@ public final class StarlarkThread implements Freezable {
     return String.format("<StarlarkThread%s>", mutability());
   }
 
-  /**
-   * An Exception thrown when an attempt is made to import a symbol from a file that was not
-   * properly loaded.
-   */
-  // TODO(adonovan): replace with plain EvalException.
-  static class LoadFailedException extends Exception {
-    LoadFailedException(String importString) {
-      super(
-          String.format(
-              "file '%s' was not correctly loaded. "
-                  + "Make sure the 'load' statement appears in the global scope in your file",
-              importString));
-    }
-
-    LoadFailedException(String importString, String symbolString, Iterable<String> allKeys) {
-      super(
-          String.format(
-              "file '%s' does not contain symbol '%s'%s",
-              importString, symbolString, SpellChecker.didYouMean(symbolString, allKeys)));
-    }
-  }
-
-  void importSymbol(String importString, Identifier symbol, String nameInLoadedFile)
-      throws LoadFailedException {
-    Preconditions.checkState(isGlobal()); // loading is only allowed at global scope.
-
-    if (!importedExtensions.containsKey(importString)) {
-      throw new LoadFailedException(importString);
-    }
-
-    Extension ext = importedExtensions.get(importString);
-
-    Map<String, Object> bindings = ext.getBindings();
-    if (!bindings.containsKey(nameInLoadedFile)) {
-      throw new LoadFailedException(importString, nameInLoadedFile, bindings.keySet());
-    }
-
-    Object value = bindings.get(nameInLoadedFile);
-
-    update(symbol.getName(), value);
+  Extension getExtension(String module) {
+    return importedExtensions.get(module);
   }
 
   /**

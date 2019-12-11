@@ -1461,7 +1461,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "empty(name = 'test_target')");
 
     getConfiguredTarget("//test/skylark:test_target");
-    assertContainsEvent("Recursion was detected when calling '_impl' from '_impl'");
+    assertContainsEvent("function '_impl' called recursively");
   }
 
   @Test

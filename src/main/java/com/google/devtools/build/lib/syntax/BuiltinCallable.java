@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.util.List;
 import java.util.Map;
@@ -61,29 +58,19 @@ public final class BuiltinCallable implements StarlarkCallable {
   public Object callImpl(
       StarlarkThread thread, FuncallExpression call, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    MethodDescriptor methodDescriptor =
-        desc != null ? desc : getMethodDescriptor(thread.getSemantics());
-    Class<?> clazz;
-    Object objValue;
+    MethodDescriptor desc =
+        this.desc != null ? this.desc : getMethodDescriptor(thread.getSemantics());
+    Object objValue = obj;
 
     if (obj instanceof String) {
-      args.add(0, obj);
-      clazz = StringModule.class;
+      args.add(0, obj); // TODO(adonovan): this mutation looks dubious
       objValue = StringModule.INSTANCE;
-    } else {
-      clazz = obj.getClass();
-      objValue = obj;
     }
 
-    // TODO(cparsons): Profiling should be done at the MethodDescriptor level.
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, methodName)) {
-      Object[] javaArguments =
-          CallUtils.convertStarlarkArgumentsToJavaMethodArguments(
-              thread, call, methodDescriptor, clazz, args, kwargs);
-      return methodDescriptor.call(
-          objValue, javaArguments, call.getLocation(), thread.mutability());
-    }
+    Object[] javaArguments =
+        CallUtils.convertStarlarkArgumentsToJavaMethodArguments(
+            thread, call, desc, objValue.getClass(), args, kwargs);
+    return desc.call(objValue, javaArguments, call.getLocation(), thread.mutability());
   }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {

@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -163,21 +164,41 @@ final class Eval {
 
   private void execLoad(LoadStatement node) throws EvalException, InterruptedException {
     for (LoadStatement.Binding binding : node.getBindings()) {
-      try {
-        Identifier name = binding.getLocalName();
-        Identifier declared = binding.getOriginalName();
+      Identifier orig = binding.getOriginalName();
 
-        if (declared.isPrivate() && !node.mayLoadInternalSymbols()) {
-          throw new EvalException(
-              node.getLocation(),
-              "symbol '" + declared.getName() + "' is private and cannot be imported.");
-        }
-        // The key is the original name that was used to define the symbol
-        // in the loaded bzl file.
-        thread.importSymbol(node.getImport().getValue(), name, declared.getName());
-      } catch (StarlarkThread.LoadFailedException e) {
-        throw new EvalException(node.getLocation(), e.getMessage());
+      // TODO(adonovan): make this a static check.
+      if (orig.isPrivate() && !node.mayLoadInternalSymbols()) {
+        throw new EvalException(
+            orig.getLocation(),
+            "symbol '" + orig.getName() + "' is private and cannot be imported.");
       }
+
+      // Load module.
+      String moduleName = node.getImport().getValue();
+      StarlarkThread.Extension module = thread.getExtension(moduleName);
+      if (module == null) {
+        throw new EvalException(
+            node.getImport().getLocation(),
+            String.format(
+                "file '%s' was not correctly loaded. "
+                    + "Make sure the 'load' statement appears in the global scope in your file",
+                moduleName));
+      }
+
+      // Extract symbol.
+      Object value = module.getBindings().get(orig.getName());
+      if (value == null) {
+        throw new EvalException(
+            orig.getLocation(),
+            String.format(
+                "file '%s' does not contain symbol '%s'%s",
+                moduleName,
+                orig.getName(),
+                SpellChecker.didYouMean(orig.getName(), module.getBindings().keySet())));
+      }
+
+      // Define module-local variable.
+      thread.update(binding.getLocalName().getName(), value);
     }
   }
 
