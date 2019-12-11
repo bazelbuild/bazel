@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -206,6 +207,12 @@ public abstract class ConstraintCollection
     }
 
     return false;
+  }
+
+  @Override
+  public boolean hasConstraintValue(ConstraintValueInfo constraintValue) {
+    ConstraintValueInfo discoveredConstraintValue = this.get(constraintValue.constraint());
+    return Objects.equals(constraintValue, discoveredConstraintValue);
   }
 
   /**
