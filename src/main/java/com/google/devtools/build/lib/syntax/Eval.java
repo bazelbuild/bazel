@@ -490,7 +490,7 @@ final class Eval {
           // CallUtils.convertStarlarkArgumentsToJavaMethodArguments---and this avoids constructing
           // another hash table in nearly every call
           evalArguments(thread, call, posargs, kwargs);
-          return CallUtils.call(thread, call, fn, posargs, kwargs);
+          return Starlark.call(thread, fn, call, posargs, kwargs);
         }
 
       case IDENTIFIER:

@@ -192,7 +192,7 @@ class MethodLibrary {
       }
     } else if (key instanceof StarlarkCallable) {
       final StarlarkCallable keyfn = (StarlarkCallable) key;
-      final FuncallExpression ast = new FuncallExpression(Identifier.of(""), ImmutableList.of());
+      final FuncallExpression call = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {
         Exception e;
@@ -210,7 +210,8 @@ class MethodLibrary {
         }
 
         Object callKeyFunc(Object x) throws EvalException, InterruptedException {
-          return keyfn.call(Collections.singletonList(x), ImmutableMap.of(), ast, thread);
+          return Starlark.call(
+              thread, keyfn, call, Collections.singletonList(x), ImmutableMap.of());
         }
       }
 

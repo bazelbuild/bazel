@@ -796,7 +796,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
               .setSemantics(starlarkSemantics)
               .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      return mapFn.call(args, ImmutableMap.of(), null, thread);
+      return Starlark.call(thread, mapFn, /*call=*/ null, args, /*kwargs=*/ ImmutableMap.of());
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
     } catch (InterruptedException e) {
@@ -820,11 +820,15 @@ public class SkylarkCustomCommandLine extends CommandLine {
               // TODO(b/77140311): Error if we issue print statements
               .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      Object[] args = new Object[1];
       int count = originalValues.size();
       for (int i = 0; i < count; ++i) {
-        args[0] = originalValues.get(i);
-        Object ret = mapFn.callWithArgArray(args, null, thread, location);
+        Object ret =
+            Starlark.call(
+                thread,
+                mapFn,
+                /*call=*/ null,
+                originalValues.subList(i, i + 1),
+                /*kwargs=*/ ImmutableMap.of());
         if (ret instanceof String) {
           consumer.accept((String) ret);
         } else if (ret instanceof Sequence) {

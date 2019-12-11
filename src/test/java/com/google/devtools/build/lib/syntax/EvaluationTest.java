@@ -141,11 +141,11 @@ public class EvaluationTest extends EvaluationTestCase {
           }
 
           @Override
-          public Object call(
-              List<Object> args,
-              Map<String, Object> kwargs,
+          public Object callImpl(
+              StarlarkThread thread,
               FuncallExpression ast,
-              StarlarkThread thread) {
+              List<Object> args,
+              Map<String, Object> kwargs) {
             int sum = 0;
             for (Object arg : args) {
               sum += (Integer) arg;
@@ -188,11 +188,11 @@ public class EvaluationTest extends EvaluationTestCase {
           }
 
           @Override
-          public Object call(
+          public Object callImpl(
+              StarlarkThread thread,
+              FuncallExpression call,
               List<Object> args,
-              final Map<String, Object> kwargs,
-              FuncallExpression ast,
-              StarlarkThread thread) {
+              Map<String, Object> kwargs) {
             return Dict.copyOf(thread.mutability(), kwargs);
           }
         };

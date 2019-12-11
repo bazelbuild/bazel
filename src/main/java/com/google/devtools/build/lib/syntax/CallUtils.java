@@ -167,11 +167,7 @@ public final class CallUtils {
           String.format(
               "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName));
     }
-    // This condition is enforced statically by the annotation processor.
-    Preconditions.checkArgument(
-        !(desc.isUseStarlarkThread() || desc.isUseStarlarkSemantics() || desc.isUseLocation()),
-        "Cannot be invoked on structField callables with extra interpreter params");
-    return desc.call(x, new Object[0], Location.BUILTIN, /*thread=*/ null);
+    return desc.callField(x, Location.BUILTIN, semantics, /*mu=*/ null);
   }
 
   /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
@@ -241,7 +237,7 @@ public final class CallUtils {
         "struct field methods should be handled by DotExpression separately");
 
     ImmutableList<ParamDescriptor> parameters = method.getParameters();
-    // *args, **kwargs, location, ast, thread, skylark semantics
+    // *args, **kwargs, location, call, thread, skylark semantics
     final int extraArgsCount = 6;
     List<Object> builder = new ArrayList<>(parameters.size() + extraArgsCount);
 
@@ -426,44 +422,20 @@ public final class CallUtils {
     }
   }
 
-  /**
-   * Returns the extra interpreter arguments for the given {@link SkylarkCallable}, to be added at
-   * the end of the argument list for the callable.
-   *
-   * <p>This method accepts null {@code ast} only if {@code callable.useAst()} is false. It is up to
-   * the caller to validate this invariant.
-   */
-  static List<Object> extraInterpreterArgs(
-      MethodDescriptor method,
-      @Nullable FuncallExpression ast,
-      Location loc,
-      StarlarkThread thread) {
-    List<Object> builder = new ArrayList<>();
-    appendExtraInterpreterArgs(builder, method, ast, loc, thread);
-    return ImmutableList.copyOf(builder);
-  }
-
-  /**
-   * Same as {@link #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location,
-   * StarlarkThread)} but appends args to a passed {@code builder} to avoid unnecessary allocations
-   * of intermediate instances.
-   *
-   * @see #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location, StarlarkThread)
-   */
   private static void appendExtraInterpreterArgs(
       List<Object> builder,
       MethodDescriptor method,
-      @Nullable FuncallExpression ast,
+      @Nullable FuncallExpression call,
       Location loc,
       StarlarkThread thread) {
     if (method.isUseLocation()) {
       builder.add(loc);
     }
     if (method.isUseAst()) {
-      if (ast == null) {
+      if (call == null) {
         throw new IllegalArgumentException("Callable expects to receive ast: " + method.getName());
       }
-      builder.add(ast);
+      builder.add(call);
     }
     if (method.isUseStarlarkThread()) {
       builder.add(thread);
@@ -497,31 +469,6 @@ public final class CallUtils {
       argTokens.add("**kwargs");
     }
     return methodDescriptor.getName() + "(" + Joiner.on(", ").join(argTokens.build()) + ")";
-  }
-
-  static Object call(
-      StarlarkThread thread,
-      FuncallExpression call,
-      Object fn,
-      ArrayList<Object> posargs,
-      Map<String, Object> kwargs)
-      throws EvalException, InterruptedException {
-
-    if (fn instanceof StarlarkCallable) {
-      StarlarkCallable callable = (StarlarkCallable) fn;
-      return callable.call(posargs, ImmutableMap.copyOf(kwargs), call, thread);
-    }
-
-    MethodDescriptor selfCall = getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
-    if (selfCall != null) {
-      Object[] javaArguments =
-          convertStarlarkArgumentsToJavaMethodArguments(
-              thread, call, selfCall, fn.getClass(), posargs, kwargs);
-      return selfCall.call(fn, javaArguments, call.getLocation(), thread);
-    }
-
-    throw new EvalException(
-        call.getLocation(), "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
   }
 
   // A memoization of evalDefault, keyed by expression.

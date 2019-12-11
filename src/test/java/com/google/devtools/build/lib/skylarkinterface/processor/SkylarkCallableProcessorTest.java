@@ -84,7 +84,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, extraPositionals, or extraKeywords");
+                + "useAst, useStarlarkThread, extraPositionals, or extraKeywords");
   }
 
   @Test
@@ -95,7 +95,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                 + "useAst, extraPositionals, or extraKeywords");
+                + "useAst, useStarlarkThread, extraPositionals, or extraKeywords");
   }
 
   @Test
@@ -106,7 +106,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, extraPositionals, or extraKeywords");
+                + "useAst, useStarlarkThread, extraPositionals, or extraKeywords");
   }
 
   @Test

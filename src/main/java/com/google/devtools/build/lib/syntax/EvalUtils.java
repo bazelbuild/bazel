@@ -454,11 +454,7 @@ public final class EvalUtils {
     MethodDescriptor method = CallUtils.getMethod(thread.getSemantics(), x.getClass(), name);
     if (method != null) {
       if (method.isStructField()) {
-        return method.call(
-            x,
-            CallUtils.extraInterpreterArgs(method, /*ast=*/ null, loc, thread).toArray(),
-            loc,
-            thread);
+        return method.callField(x, loc, thread.getSemantics(), thread.mutability());
       } else {
         return new BuiltinCallable(x, name, method);
       }

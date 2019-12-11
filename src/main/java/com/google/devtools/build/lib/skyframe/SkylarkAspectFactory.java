@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
@@ -87,16 +88,14 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               ruleContext.getLabel())
           .storeInThread(thread);
 
-      Object aspectSkylarkObject;
       try {
-        aspectSkylarkObject =
-            skylarkAspect
-                .getImplementation()
-                .call(
-                    /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
-                    /* kwargs= */ ImmutableMap.of(),
-                    /*ast=*/ null,
-                    thread);
+        Object aspectSkylarkObject =
+            Starlark.call(
+                thread,
+                skylarkAspect.getImplementation(),
+                /*call=*/ null,
+                /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
+                /*kwargs=*/ ImmutableMap.of());
 
         // If allowing analysis failures, targets should be created somewhat normally, and errors
         // will be propagated via a hook elsewhere as AnalysisFailureInfo.

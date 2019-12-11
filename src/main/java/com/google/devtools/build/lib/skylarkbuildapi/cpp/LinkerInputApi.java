@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Either libraries, flags or other files that may be passed to the linker as inputs. */
@@ -56,8 +56,8 @@ public interface LinkerInputApi<
               + "deprecated. See #8118.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-      useStarlarkThread = true)
-  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkThread thread);
+      useStarlarkSemantics = true)
+  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
   @SkylarkCallable(
       name = "additional_inputs",

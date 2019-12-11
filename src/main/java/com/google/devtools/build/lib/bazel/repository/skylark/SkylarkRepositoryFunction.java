@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -178,15 +179,16 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
       // structure as it is.
-      Object retValue =
-          function.call(
+      Object result =
+          Starlark.call(
+              thread,
+              function,
+              /*call=*/ null,
               /*args=*/ ImmutableList.of(skylarkRepositoryContext),
-              /*kwargs=*/ ImmutableMap.of(),
-              null,
-              thread);
+              /*kwargs=*/ ImmutableMap.of());
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
-              rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
+              rule, skylarkRepositoryContext.getAttr(), outputDirectory, result);
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
         env.getListener().handle(Event.debug(rule.getDefinitionInformation()));

@@ -76,11 +76,11 @@ public class FunctionTest extends EvaluationTestCase {
           }
 
           @Override
-          public Object call(
+          public Object callImpl(
+              StarlarkThread thread,
+              FuncallExpression call,
               List<Object> args,
-              Map<String, Object> kwargs,
-              FuncallExpression ast,
-              StarlarkThread thread)
+              Map<String, Object> kwargs)
               throws EvalException, InterruptedException {
             params.addAll(args);
             return Starlark.NONE;

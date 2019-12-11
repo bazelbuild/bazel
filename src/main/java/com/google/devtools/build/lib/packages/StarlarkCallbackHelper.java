@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -77,8 +79,9 @@ public class StarlarkCallbackHelper {
               .setEventHandler(eventHandler)
               .build();
       context.storeInThread(thread);
-      return callback.call(buildArgumentList(ctx, arguments), null, ast, thread);
-    } catch (ClassCastException | IllegalArgumentException e) {
+      return Starlark.call(
+          thread, callback, ast, buildArgumentList(ctx, arguments), /*kwargs=*/ ImmutableMap.of());
+    } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
   }

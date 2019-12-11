@@ -215,10 +215,8 @@ public class GoldenCase implements StarlarkValue {
       documented = false,
       structField = true,
       useLocation = true,
-      useStarlarkThread = true,
       useStarlarkSemantics = true)
-  public String structFieldMethodWithInfo(
-      Location location, StarlarkThread thread, StarlarkSemantics starlarkSemantics) {
+  public String structFieldMethodWithInfo(Location location, StarlarkSemantics starlarkSemantics) {
     return "dragon";
   }
 

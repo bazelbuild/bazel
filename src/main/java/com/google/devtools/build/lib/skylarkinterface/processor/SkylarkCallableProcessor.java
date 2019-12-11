@@ -289,12 +289,20 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       throws SkylarkCallableProcessorException {
     if (annotation.structField()) {
       if (annotation.useAst()
+          || annotation.useStarlarkThread()
           || !annotation.extraPositionals().name().isEmpty()
           || !annotation.extraKeywords().name().isEmpty()) {
+        // TODO(adonovan): decide on the restrictions.
+        // - useLocation is needed only by repository_ctx.os. Abolish?
+        // - useStarlarkSemantics is needed only by getSkylarkLibrariesToLink.
+        // - banning useStarlarkThread has not been a problem so far,
+        //   and avoids many tricky problems (especially in StructImpl.equal),
+        //   but it forces implementations to assume Mutability=null,
+        //   which is not quite right.
         throw new SkylarkCallableProcessorException(
             methodElement,
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, extraPositionals, or extraKeywords");
+                + "useAst, useStarlarkThread, extraPositionals, or extraKeywords");
       }
     }
   }

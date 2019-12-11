@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import javax.annotation.Nullable;
 
 /**
  * A value class to store Methods with their corresponding {@link SkylarkCallable} annotation
@@ -112,13 +113,40 @@ final class MethodDescriptor {
         annotation.useStarlarkSemantics());
   }
 
+  private static final Object[] EMPTY = {};
+
+  /** Calls this method, which must have {@code structField=true}. */
+  Object callField(Object obj, Location loc, StarlarkSemantics semantics, @Nullable Mutability mu)
+      throws EvalException, InterruptedException {
+    if (!structField) {
+      throw new IllegalStateException("not a struct field: " + name);
+    }
+    // Enforced by annotation processor.
+    if (useAst || useStarlarkThread) {
+      throw new IllegalStateException(
+          "SkylarkCallable has structField and useAST/useStarlarkThread: " + name);
+    }
+    int nargs = (useLocation ? 1 : 0) + (useStarlarkSemantics ? 1 : 0);
+    Object[] args = nargs == 0 ? EMPTY : new Object[nargs];
+    // TODO(adonovan): used only once, repository_ctx.os. Abolish?
+    if (useLocation) {
+      args[0] = loc;
+    }
+    // TODO(adonovan): used only once, in getSkylarkLibrariesToLink. Abolish?
+    if (useStarlarkSemantics) {
+      args[nargs - 1] = semantics;
+    }
+    return call(obj, args, loc, mu);
+  }
+
   /**
-   * Invokes this method using {@code obj} as a target and {@code args} as arguments.
+   * Invokes this method using {@code obj} as a target and {@code args} as Java arguments.
    *
-   * <p>{@code obj} may be {@code null} in case this method is static. Methods with {@code void}
-   * return type return {@code None} following Python convention.
+   * <p>Methods with {@code void} return type return {@code None} following Python convention.
+   *
+   * <p>The Mutability is used if it is necessary to allocate a Starlark copy of a Java result.
    */
-  Object call(Object obj, Object[] args, Location loc, StarlarkThread thread)
+  Object call(Object obj, Object[] args, Location loc, @Nullable Mutability mu)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(obj);
     Object result;
@@ -159,8 +187,7 @@ final class MethodDescriptor {
       }
     }
 
-    // Careful: thread may be null when we are called by invokeStructField.
-    return Starlark.fromJava(result, thread != null ? thread.mutability() : null);
+    return Starlark.fromJava(result, mu);
   }
 
   /** @see SkylarkCallable#name() */

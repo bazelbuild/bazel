@@ -137,8 +137,12 @@ public final class SkylarkProviderTest {
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Object result =
-        provider.call(
-            ImmutableList.of(), ImmutableMap.of("a", 1, "b", 2, "c", 3), /*ast=*/ null, thread);
+        Starlark.call(
+            thread,
+            provider,
+            /*call=*/ null,
+            /*args=*/ ImmutableList.of(),
+            /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
     assertThat(result).isInstanceOf(SkylarkInfo.class);
     return (SkylarkInfo) result;
   }

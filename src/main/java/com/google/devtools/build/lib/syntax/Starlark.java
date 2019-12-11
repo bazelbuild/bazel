@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  * all clients of the Starlark interpreter.
  */
 // TODO(adonovan): move these here:
-// len, str, iterate, equal, compare, getattr, index, slice, parse, exec, eval, and so on.
+// equal, compare, getattr, index, slice, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
@@ -211,6 +211,36 @@ public final class Starlark {
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
   public static String formatWithList(String pattern, List<?> arguments) {
     return Printer.getPrinter().formatWithList(pattern, arguments).toString();
+  }
+
+  /**
+   * Calls the function-like value {@code fn} in the specified thread, passing the given positional
+   * and named arguments, as if by the Starlark expression {@code fn(*args, **kwargs)}.
+   */
+  public static Object call(
+      StarlarkThread thread,
+      Object fn,
+      @Nullable FuncallExpression call,
+      List<Object> args,
+      Map<String, Object> kwargs)
+      throws EvalException, InterruptedException {
+    StarlarkCallable callable;
+    if (fn instanceof StarlarkCallable) {
+      callable = (StarlarkCallable) fn;
+    } else {
+      // @SkylarkCallable(selfCall)?
+      MethodDescriptor desc =
+          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      if (desc == null) {
+        throw new EvalException(
+            call != null ? call.getLocation() : null,
+            "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
+      }
+      callable = new BuiltinCallable(fn, desc.getName(), desc);
+    }
+
+    // TODO(adonovan): do push/pop, profiling, and exception handling here.
+    return callable.callImpl(thread, call, args, ImmutableMap.copyOf(kwargs));
   }
 
   /**

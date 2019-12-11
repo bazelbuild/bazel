@@ -267,28 +267,29 @@ public abstract class BaseFunction implements StarlarkCallable {
     return arguments;
   }
 
-  /**
-   * The outer calling convention to a BaseFunction.
-   *
-   * @param args a list of all positional arguments (as in *args)
-   * @param kwargs a map for key arguments (as in **kwargs)
-   * @param ast the expression for this function's definition
-   * @param thread the StarlarkThread in the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException-s containing source information.
-   */
   @Override
-  public Object call(
+  public Object callImpl(
+      StarlarkThread thread,
+      @Nullable FuncallExpression call,
       List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression ast,
-      StarlarkThread thread)
+      Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    // ast is null when called from Java (as there's no Skylark call site).
-    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
+    // call is null when called from Java (as there's no Skylark call site).
+    Location loc = call == null ? Location.BUILTIN : call.getLocation();
 
     Object[] arguments = processArguments(args, kwargs, loc, thread);
-    return callWithArgArray(arguments, ast, thread, getLocation());
+
+    // TODO(adonovan): move Callstack.push/pop into StarlarkThread.push/pop.
+    try {
+      if (Callstack.enabled) {
+        Callstack.push(this);
+      }
+      return call(arguments, call, thread);
+    } finally {
+      if (Callstack.enabled) {
+        Callstack.pop();
+      }
+    }
   }
 
   /**
@@ -305,31 +306,6 @@ public abstract class BaseFunction implements StarlarkCallable {
     throw new EvalException(
         (ast == null) ? Location.BUILTIN : ast.getLocation(),
         String.format("function %s not implemented", getName()));
-  }
-
-  /**
-   * The outer calling convention to a BaseFunction. This function expects all arguments to have
-   * been resolved into positional ones.
-   *
-   * @param ast the expression for this function's definition
-   * @param thread the StarlarkThread in the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException-s containing source information.
-   */
-  // TODO(adonovan): make this private. The sole external caller has a location but no ast.
-  public Object callWithArgArray(
-      Object[] arguments, @Nullable FuncallExpression ast, StarlarkThread thread, Location loc)
-      throws EvalException, InterruptedException {
-    try {
-      if (Callstack.enabled) {
-        Callstack.push(this);
-      }
-      return call(arguments, ast, thread);
-    } finally {
-      if (Callstack.enabled) {
-        Callstack.pop();
-      }
-    }
   }
 
   /**

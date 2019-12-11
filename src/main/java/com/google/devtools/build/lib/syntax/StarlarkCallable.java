@@ -24,28 +24,27 @@ import javax.annotation.Nullable;
  * Starlark like a function, including built-in functions and methods, Starlark functions, and
  * application-defined objects (such as rules, aspects, and providers in Bazel).
  */
+// TODO(adonovan): rename to just "Callable", since it's unambiguous.
 public interface StarlarkCallable extends StarlarkValue {
 
   /**
-   * Call this function with the given arguments.
+   * Defines the implementation of function calling for a callable value.
    *
-   * <p>Neither the callee nor the caller may modify the args List or kwargs Map.
+   * <p>Do not call this function directly. Use the {@link Starlark#call} function to make a call,
+   * as it handles necessary book-keeping such as maintenance of the call stack, exception handling,
+   * and so on.
    *
-   * @param args the list of positional arguments
-   * @param kwargs the mapping of named arguments
-   * @param call the syntax tree of the function call
    * @param thread the StarlarkThread in which the function is called
-   * @return the result of the call
-   * @throws EvalException if there was an error invoking this function
+   * @param call the function call expression (going away)
+   * @param args positional arguments
+   * @param kwargs named arguments
    */
-  // TODO(adonovan):
-  // - make StarlarkThread the first parameter.
-  // - eliminate the FuncallExpression parameter (which can be accessed through thread).
-  Object call(
+  // TODO(adonovan): optimize the calling convention; see FUNCALL in Eval.java.
+  Object callImpl(
+      StarlarkThread thread,
+      @Nullable FuncallExpression call, // TODO(adonovan): eliminate
       List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression call,
-      StarlarkThread thread)
+      Map<String, Object> kwargs)
       throws EvalException, InterruptedException;
 
   /** Returns the form this callable value should take in a stack trace. */
