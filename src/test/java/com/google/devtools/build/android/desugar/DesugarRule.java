@@ -17,6 +17,7 @@
 package com.google.devtools.build.android.desugar;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.annotations.UsedReflectively;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -239,7 +240,8 @@ public class DesugarRule implements TestRule {
       return args.build();
     }
 
-    final ClassLoader getOutputClassLoader() throws MalformedURLException {
+    @Memoized
+    ClassLoader getOutputClassLoader() throws MalformedURLException {
       List<URL> urls = new ArrayList<>();
       for (Path path : Iterables.concat(outputJars(), classPathEntries(), bootClassPathEntries())) {
         urls.add(path.toUri().toURL());
