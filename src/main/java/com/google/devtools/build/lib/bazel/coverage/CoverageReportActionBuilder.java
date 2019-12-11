@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -242,17 +243,21 @@ public final class CoverageReportActionBuilder {
     Artifact lcovOutput = args.factory().getDerivedArtifact(
         coverageDir.getRelative("_coverage_report.dat"), root, args.artifactOwner());
     Artifact reportGeneratorExec = args.reportGenerator().getExecutable();
+    RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);
     ImmutableList<String> actionArgs = argsFunc.apply(args);
 
-    ImmutableList<Artifact> inputs = ImmutableList.<Artifact>builder()
-        .addAll(args.coverageArtifacts())
-        .add(reportGeneratorExec)
-        .add(args.lcovArtifact())
-        .build();
+    ImmutableList.Builder<Artifact> inputsBuilder =
+        ImmutableList.<Artifact>builder()
+            .addAll(args.coverageArtifacts())
+            .add(reportGeneratorExec)
+            .add(args.lcovArtifact());
+    if (runfilesSupport != null) {
+      inputsBuilder.add(runfilesSupport.getRunfilesMiddleman());
+    }
     return new CoverageReportAction(
         ACTION_OWNER,
-        inputs,
+        inputsBuilder.build(),
         ImmutableList.of(lcovOutput),
         actionArgs,
         locationFunc.apply(args),
