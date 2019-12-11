@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.C
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -247,13 +245,10 @@ public final class CoverageReportActionBuilder {
     args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);
     ImmutableList<String> actionArgs = argsFunc.apply(args);
 
-    NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
-    Iterable<Artifact> inputs = inputsBuilder
+    ImmutableList<Artifact> inputs = ImmutableList.<Artifact>builder()
         .addAll(args.coverageArtifacts())
         .add(reportGeneratorExec)
-        .addTransitive(
-            NestedSetBuilder.create(Order.STABLE_ORDER,
-                                    args.reportGenerator().getRunfilesSupport().getRunfilesMiddleman()))
+        .add(args.reportGenerator().getRunfilesSupport().getRunfilesMiddleman())
         .add(args.lcovArtifact())
         .build();
     return new CoverageReportAction(
