@@ -225,6 +225,8 @@ public final class Starlark {
       List<Object> args,
       Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
+    Location loc = call != null ? call.getLocation() : null;
+
     StarlarkCallable callable;
     if (fn instanceof StarlarkCallable) {
       callable = (StarlarkCallable) fn;
@@ -234,17 +236,16 @@ public final class Starlark {
           CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
       if (desc == null) {
         throw new EvalException(
-            call != null ? call.getLocation() : null,
-            "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
+            loc, "'" + EvalUtils.getDataTypeName(fn) + "' object is not callable");
       }
       callable = new BuiltinCallable(fn, desc.getName(), desc);
     }
 
-    Location loc = call != null ? call.getLocation() : null;
     thread.push(callable, loc, call);
     try {
-      // TODO(adonovan): unify exception handling here.
       return callable.callImpl(thread, call, args, ImmutableMap.copyOf(kwargs));
+    } catch (EvalException ex) {
+      throw ex.ensureLocation(loc);
     } finally {
       thread.pop();
     }

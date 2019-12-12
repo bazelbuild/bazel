@@ -62,7 +62,7 @@ public final class AllocationTrackerTest {
     private final Location location;
 
     TestFunction(String file, String name, int line) {
-      super(FunctionSignature.ANY, /*defaultValues=*/ null);
+      super(FunctionSignature.ANY);
       this.name = name;
       this.location = location(file, line);
     }

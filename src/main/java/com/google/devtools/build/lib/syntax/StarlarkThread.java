@@ -517,6 +517,12 @@ public final class StarlarkThread implements Freezable {
     CallFrame fr = new CallFrame(fn, loc, call, this.lexicalFrame, this.globalFrame);
     callstack.add(fr);
 
+    // Push the function onto the allocation tracker's stack.
+    // TODO(adonovan): optimize it out of existence.
+    if (Callstack.enabled) {
+      Callstack.push(fn);
+    }
+
     ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
@@ -553,6 +559,10 @@ public final class StarlarkThread implements Freezable {
     // end profile span
     if (top.profileSpan != null) {
       top.profileSpan.close();
+    }
+
+    if (Callstack.enabled) {
+      Callstack.pop();
     }
   }
 
@@ -1009,7 +1019,4 @@ public final class StarlarkThread implements Freezable {
   public String getTransitiveContentHashCode() {
     return transitiveHashCode;
   }
-
-  // legacy for copybara; to be inlined and deleted in Nov 2019.
-  public static final Module SKYLARK = Module.createForBuiltins(Starlark.UNIVERSE);
 }

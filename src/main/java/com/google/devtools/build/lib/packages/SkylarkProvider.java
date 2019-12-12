@@ -127,7 +127,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    */
   private SkylarkProvider(
       @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
-    super(buildSignature(fields), /*defaultValues=*/ null);
+    super(buildSignature(fields));
     this.location = location;
     this.fields = fields;
     this.key = key;  // possibly null

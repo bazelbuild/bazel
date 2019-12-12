@@ -136,7 +136,7 @@ final class MethodDescriptor {
     if (useStarlarkSemantics) {
       args[nargs - 1] = semantics;
     }
-    return call(obj, args, loc, mu);
+    return call(obj, args, mu);
   }
 
   /**
@@ -146,31 +146,31 @@ final class MethodDescriptor {
    *
    * <p>The Mutability is used if it is necessary to allocate a Starlark copy of a Java result.
    */
-  Object call(Object obj, Object[] args, Location loc, @Nullable Mutability mu)
+  Object call(Object obj, Object[] args, @Nullable Mutability mu)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(obj);
     Object result;
     try {
       result = method.invoke(obj, args);
-    } catch (IllegalAccessException e) {
-      // TODO(bazel-team): Print a nice error message. Maybe the method exists
-      // and an argument is missing or has the wrong type.
-      throw new EvalException(loc, "Method invocation failed: " + e);
-    } catch (InvocationTargetException x) {
-      Throwable e = x.getCause();
+    } catch (IllegalAccessException ex) {
+      // The annotated processor ensures that annotated methods are accessible.
+      throw new IllegalStateException(ex);
+
+    } catch (InvocationTargetException ex) {
+      Throwable e = ex.getCause();
       if (e == null) {
-        // This is unlikely to happen.
-        throw new IllegalStateException(
-            String.format(
-                "causeless InvocationTargetException when calling %s with arguments %s at %s",
-                obj, Arrays.toString(args), loc),
-            x);
+        throw new IllegalStateException(e);
       }
-      Throwables.propagateIfPossible(e, InterruptedException.class);
+      // Don't intercept unchecked exceptions.
+      Throwables.throwIfUnchecked(e);
       if (e instanceof EvalException) {
-        throw ((EvalException) e).ensureLocation(loc);
+        throw (EvalException) e;
+      } else if (e instanceof InterruptedException) {
+        throw (InterruptedException) e;
+      } else {
+        // All other checked exceptions (e.g. LabelSyntaxException) are reported to Starlark.
+        throw new EvalException(null, null, e);
       }
-      throw new EvalException(loc, null, e);
     }
     if (method.getReturnType().equals(Void.TYPE)) {
       return Starlark.NONE;

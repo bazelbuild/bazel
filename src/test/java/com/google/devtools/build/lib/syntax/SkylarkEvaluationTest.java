@@ -170,7 +170,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
-    public BuiltinFunction structFieldInterruptedCallable() throws InterruptedException {
+    public Object structFieldInterruptedCallable() throws InterruptedException {
       throw new InterruptedException();
     }
 

@@ -70,7 +70,7 @@ public final class BuiltinCallable implements StarlarkCallable {
     Object[] javaArguments =
         CallUtils.convertStarlarkArgumentsToJavaMethodArguments(
             thread, call, desc, objValue.getClass(), args, kwargs);
-    return desc.call(objValue, javaArguments, call.getLocation(), thread.mutability());
+    return desc.call(objValue, javaArguments, thread.mutability());
   }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {

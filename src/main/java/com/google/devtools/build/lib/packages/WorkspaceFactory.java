@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Starlark.NONE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -30,10 +28,10 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -51,6 +49,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -259,16 +258,28 @@ public class WorkspaceFactory {
    * Returns a function-value implementing the build or workspace rule "ruleClass" (e.g. cc_library)
    * in the specified package context.
    */
-  private static BuiltinFunction newRuleFunction(
+  private static BaseFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BuiltinFunction(FunctionSignature.KWARGS) {
+    // TODO(adonovan): the only thing BaseFunction is doing for us is holding
+    // an (uninteresting) FunctionSignature. Can we extend StarlarkCallable directly?
+    // Only docgen appears to depend on BaseFunction.
+    return new BaseFunction(FunctionSignature.KWARGS) {
       @Override
       public String getName() {
         return ruleClassName;
       }
 
-      public Object invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
+      @Override
+      public Object callImpl(
+          StarlarkThread thread,
+          @Nullable FuncallExpression call,
+          List<Object> args,
+          Map<String, Object> kwargs)
           throws EvalException, InterruptedException {
+        if (!args.isEmpty()) {
+          throw new EvalException(null, "unexpected positional arguments");
+        }
+        Location loc = call != null ? call.getLocation() : Location.BUILTIN;
         try {
           Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
           String externalRepoName = (String) kwargs.get("name");
@@ -308,7 +319,7 @@ public class WorkspaceFactory {
             | LabelSyntaxException e) {
           throw new EvalException(loc, e.getMessage());
         }
-        return NONE;
+        return Starlark.NONE;
       }
     };
   }

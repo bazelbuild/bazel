@@ -69,7 +69,7 @@ public abstract class NativeProvider<V extends Info> extends BaseFunction implem
   }
 
   protected NativeProvider(Class<V> valueClass, String name) {
-    super(FunctionSignature.KWARGS, /*defaultValues=*/ null);
+    super(FunctionSignature.KWARGS);
     this.name = name;
     this.key = new NativeKey(name, getClass());
     this.valueClass = valueClass;

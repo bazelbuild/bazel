@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -581,20 +580,31 @@ public final class PackageFactory {
   }
 
   /**
-   * {@link BuiltinFunction} adapter for creating {@link Rule}s for native {@link
+   * {@link BaseFunction} adapter for creating {@link Rule}s for native {@link
    * com.google.devtools.build.lib.packages.RuleClass}es.
    */
-  private static class BuiltinRuleFunction extends BuiltinFunction implements RuleFunction {
+  private static class BuiltinRuleFunction extends BaseFunction implements RuleFunction {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {
+      // TODO(adonovan): the only thing BaseFunction is doing for us is holding
+      // an (uninteresting) FunctionSignature. Can we extend StarlarkCallable directly?
+      // Only docgen appears to depend on BaseFunction.
       super(FunctionSignature.KWARGS);
       this.ruleClass = Preconditions.checkNotNull(ruleClass);
     }
 
-    @SuppressWarnings("unused")
-    public NoneType invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
+    @Override
+    public NoneType callImpl(
+        StarlarkThread thread,
+        @Nullable FuncallExpression call,
+        List<Object> args,
+        Map<String, Object> kwargs)
         throws EvalException, InterruptedException {
+      if (!args.isEmpty()) {
+        throw new EvalException(null, "unexpected positional arguments");
+      }
+      Location loc = call != null ? call.getLocation() : Location.BUILTIN;
       SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClass.getName(), loc);
       try {
         addRule(getContext(thread, loc), kwargs, loc, thread);

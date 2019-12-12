@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
 import com.google.devtools.build.lib.syntax.Node;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -256,8 +256,8 @@ public class AllocationTracker implements Sampler {
           final Location location;
           if (object instanceof Node) {
             location = ((Node) object).getLocation();
-          } else if (object instanceof BaseFunction) {
-            location = ((BaseFunction) object).getLocation();
+          } else if (object instanceof StarlarkCallable) {
+            location = ((StarlarkCallable) object).getLocation();
           } else {
             throw new IllegalStateException(
                 "Unknown node type: " + object.getClass().getSimpleName());
@@ -269,12 +269,8 @@ public class AllocationTracker implements Sampler {
             file = "<native>";
           }
         }
-        String function = null;
-        if (object instanceof BaseFunction) {
-          BaseFunction baseFunction = (BaseFunction) object;
-          function = baseFunction.getName();
-        }
-        if (function != null) {
+        if (object instanceof StarlarkCallable) {
+          String function = ((StarlarkCallable) object).getName();
           sample.addLocationId(
               locationTable.get(Strings.nullToEmpty(file), Strings.nullToEmpty(function), line));
           line = -1;

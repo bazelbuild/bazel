@@ -91,7 +91,6 @@ java_library(
     srcs = [
         "BaseFunction.java",
         "BuiltinCallable.java",
-        "BuiltinFunction.java",
         "CallUtils.java",
         "Callstack.java",
         "ClassObject.java",
