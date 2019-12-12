@@ -186,6 +186,12 @@ public class XcodeConfigInfo extends NativeInfo
     return availability;
   }
 
+  /** Returns the availability of this Xcode version. */
+  @Override
+  public String getAvailabilityString() {
+    return availability.toString();
+  }
+
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, Mode.TARGET, XcodeConfigInfo.PROVIDER);

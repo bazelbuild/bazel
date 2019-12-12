@@ -1073,6 +1073,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
         "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
         "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
+        "    availability = conf.availability(),",
         "  )",
         "r = rule(implementation = _impl,",
         "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
@@ -1094,6 +1095,131 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertThat(info.getValue("tvos_sdk").toString()).isEqualTo("2.5");
     assertThat(info.getValue("macos_min").toString()).isEqualTo("3.0");
     assertThat(info.getValue("watchos_min").toString()).isEqualTo("4.5");
+    assertThat(info.getValue("availability").toString()).isEqualTo("unknown");
+  }
+
+  @Test
+  public void testMutualXcodeFromSkylarkByAlias() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "load('//x:r.bzl', 'r')",
+        "xcode_config_alias(name='a')",
+        "xcode_config(name='c',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")",
+        "r(name='r')");
+    scratch.file(
+        "x/r.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
+        "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
+        "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
+        "  return MyInfo(",
+        "    xcode = conf.xcode_version(),",
+        "    ios_sdk = conf.sdk_version_for_platform(ios),",
+        "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
+        "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
+        "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
+        "    availability = conf.availability(),",
+        "  )",
+        "r = rule(implementation = _impl,",
+        "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
+        "    fragments = ['apple'],",
+        ")");
+
+    useConfiguration("--xcode_version_config=//x:c");
+    ConfiguredTarget r = getConfiguredTarget("//x:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//x:r.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl info = (StructImpl) r.get(key);
+
+    assertThat(info.getValue("xcode").toString()).isEqualTo("8.4");
+    assertThat(info.getValue("availability").toString()).isEqualTo("both");
+  }
+
+  @Test
+  public void testLocalXcodeFromSkylarkByAlias() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "load('//x:r.bzl', 'r')",
+        "xcode_config_alias(name='a')",
+        "xcode_config(name='c',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")",
+        "r(name='r')");
+    scratch.file(
+        "x/r.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]",
+        "  ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)",
+        "  tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)",
+        "  return MyInfo(",
+        "    xcode = conf.xcode_version(),",
+        "    ios_sdk = conf.sdk_version_for_platform(ios),",
+        "    tvos_sdk = conf.sdk_version_for_platform(tvos),",
+        "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
+        "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
+        "    availability = conf.availability(),",
+        "  )",
+        "r = rule(implementation = _impl,",
+        "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
+        "    fragments = ['apple'],",
+        ")");
+
+    useConfiguration("--xcode_version_config=//x:c");
+    ConfiguredTarget r = getConfiguredTarget("//x:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.parseAbsolute("//x:r.bzl", ImmutableMap.of()), "MyInfo");
+    StructImpl info = (StructImpl) r.get(key);
+
+    assertThat(info.getValue("xcode").toString()).isEqualTo("8.4");
+    assertThat(info.getValue("availability").toString()).isEqualTo("local");
   }
 
   @Test

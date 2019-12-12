@@ -74,6 +74,15 @@ public interface XcodeConfigInfoApi<
       })
   DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 
+  @SkylarkCallable(
+      name = "availability",
+      doc =
+          "Returns the availability of this Xcode version, 'remote' if the version is only"
+              + " available remotely, 'local' if the version is only available locally, 'both' if"
+              + " the version is available both locally and remotely, or 'unknown' if the"
+              + " availability could not be determined.")
+  public String getAvailabilityString();
+
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
   @SkylarkModule(
       name = "Provider",
