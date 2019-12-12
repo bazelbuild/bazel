@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -104,9 +106,9 @@ public final class SymlinkTreeAction extends AbstractAction {
     super(
         owner,
         skipRunfilesManifests && enableRunfiles && !filesetTree
-            ? ImmutableList.of()
-            : ImmutableList.of(inputManifest),
-        ImmutableList.of(outputManifest),
+            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+            : NestedSetBuilder.create(Order.STABLE_ORDER, inputManifest),
+        ImmutableSet.of(outputManifest),
         env);
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     Preconditions.checkArgument(

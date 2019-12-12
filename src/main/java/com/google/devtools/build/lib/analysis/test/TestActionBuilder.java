@@ -329,7 +329,7 @@ public final class TestActionBuilder {
       }
     }
 
-    Iterable<Artifact> inputs = inputsBuilder.build();
+    NestedSet<Artifact> inputs = inputsBuilder.build();
     int shardRuns = (shards > 0 ? shards : 1);
     List<Artifact.DerivedArtifact> results =
         Lists.newArrayListWithCapacity(runsPerTest * shardRuns);

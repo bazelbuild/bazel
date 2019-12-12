@@ -79,7 +79,7 @@ public final class ExtraAction extends SpawnAction {
       String mnemonic) {
     super(
         shadowedAction.getOwner(),
-        ImmutableList.<Artifact>of(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         createInputs(shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs),
         outputs,
         Iterables.getFirst(outputs, null),

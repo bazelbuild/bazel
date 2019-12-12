@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.coverage;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -45,6 +46,8 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.C
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -98,9 +101,14 @@ public final class CoverageReportActionBuilder {
     private final String locationMessage;
     private final RunfilesSupplier runfilesSupplier;
 
-    protected CoverageReportAction(ActionOwner owner, Iterable<Artifact> inputs,
-        Iterable<Artifact> outputs, ImmutableList<String> command, String locationMessage,
-        boolean remotable, RunfilesSupplier runfilesSupplier) {
+    protected CoverageReportAction(
+        ActionOwner owner,
+        NestedSet<Artifact> inputs,
+        ImmutableSet<Artifact> outputs,
+        ImmutableList<String> command,
+        String locationMessage,
+        boolean remotable,
+        RunfilesSupplier runfilesSupplier) {
       super(owner, inputs, outputs);
       this.command = command;
       this.remotable = remotable;
@@ -247,8 +255,8 @@ public final class CoverageReportActionBuilder {
     args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);
     ImmutableList<String> actionArgs = argsFunc.apply(args);
 
-    ImmutableList.Builder<Artifact> inputsBuilder =
-        ImmutableList.<Artifact>builder()
+    NestedSetBuilder<Artifact> inputsBuilder =
+        NestedSetBuilder.<Artifact>stableOrder()
             .addAll(args.coverageArtifacts())
             .add(reportGeneratorExec)
             .add(args.lcovArtifact());
@@ -258,7 +266,7 @@ public final class CoverageReportActionBuilder {
     return new CoverageReportAction(
         ACTION_OWNER,
         inputsBuilder.build(),
-        ImmutableList.of(lcovOutput),
+        ImmutableSet.of(lcovOutput),
         actionArgs,
         locationFunc.apply(args),
         !args.htmlReport(),

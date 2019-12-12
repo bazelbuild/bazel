@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -53,7 +55,10 @@ public final class SolibSymlinkAction extends AbstractAction {
   @VisibleForSerialization
   SolibSymlinkAction(
       ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
-    super(owner, ImmutableList.of(primaryInput), ImmutableList.of(primaryOutput));
+    super(
+        owner,
+        NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput),
+        ImmutableSet.of(primaryOutput));
 
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(primaryInput.getFilename()));
     this.symlink = Preconditions.checkNotNull(primaryOutput);

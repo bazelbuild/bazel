@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,14 +60,14 @@ import javax.annotation.Nullable;
  * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
 public final class LtoBackendAction extends SpawnAction {
-  private Collection<Artifact> mandatoryInputs;
-  private BitcodeFiles bitcodeFiles;
-  private Artifact imports;
-
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
 
+  private final NestedSet<Artifact> mandatoryInputs;
+  private final BitcodeFiles bitcodeFiles;
+  private final Artifact imports;
+
   public LtoBackendAction(
-      Collection<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
       Collection<Artifact> outputs,
@@ -81,7 +83,7 @@ public final class LtoBackendAction extends SpawnAction {
       String mnemonic) {
     super(
         owner,
-        ImmutableList.<Artifact>of(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
         primaryOutput,
@@ -99,7 +101,7 @@ public final class LtoBackendAction extends SpawnAction {
         null);
     mandatoryInputs = inputs;
     Preconditions.checkState(
-        (bitcodeFiles == null) == (imports == null),
+        (allBitcodeFiles == null) == (importsFile == null),
         "Either both or neither bitcodeFiles and imports files should be null");
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
@@ -170,7 +172,7 @@ public final class LtoBackendAction extends SpawnAction {
 
   @Override
   public Collection<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
+    return mandatoryInputs.toList();
   }
 
   private static Iterable<Artifact> createInputs(
@@ -239,7 +241,7 @@ public final class LtoBackendAction extends SpawnAction {
         RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LtoBackendAction(
-          inputsAndTools.toList(),
+          inputsAndTools,
           bitcodeFiles,
           imports,
           outputs,

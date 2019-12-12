@@ -142,8 +142,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @AutoCodec.Instantiator
   public SpawnAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
       ResourceSet resourceSet,
@@ -199,8 +199,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   public SpawnAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       Iterable<? extends Artifact> outputs,
       Artifact primaryOutput,
       ResourceSet resourceSet,

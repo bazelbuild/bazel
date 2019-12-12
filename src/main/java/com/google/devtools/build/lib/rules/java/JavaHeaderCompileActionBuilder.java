@@ -357,7 +357,7 @@ public class JavaHeaderCompileActionBuilder {
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
-              /* tools= */ ImmutableList.of(),
+              /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               /* inputs= */ mandatoryInputs.build(),
               /* outputs= */ outputs,
               /* primaryOutput= */ outputJar,

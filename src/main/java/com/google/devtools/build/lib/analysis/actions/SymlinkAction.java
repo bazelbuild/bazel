@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -96,8 +98,10 @@ public final class SymlinkAction extends AbstractAction {
       TargetType targetType) {
     super(
         owner,
-        primaryInput != null ? ImmutableList.of(primaryInput) : Artifact.NO_ARTIFACTS,
-        ImmutableList.of(primaryOutput));
+        primaryInput != null
+            ? NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput)
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableSet.of(primaryOutput));
     this.inputPath = inputPath;
     this.progressMessage = progressMessage;
     this.targetType = targetType;
