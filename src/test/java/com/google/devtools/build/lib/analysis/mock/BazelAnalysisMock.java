@@ -228,12 +228,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
         "filegroup(name = 'collect_cc_coverage', srcs = ['collect_cc_coverage.sh'])",
         "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
-        "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
-
-    config.create(
-        "/bazel_tools_workspace/tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/BUILD",
-        "filegroup(name='srcs', srcs = glob(['**']))",
-        "filegroup(name='Main', srcs = ['Main.java'])");
+        "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])",
+        "filegroup(name = 'lcov_merger', srcs = ['lcov_merger.sh'])");
 
     // Use an alias package group to allow for modification at the simpler path
     config.create(
