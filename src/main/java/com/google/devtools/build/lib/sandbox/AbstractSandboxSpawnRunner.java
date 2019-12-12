@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -78,7 +80,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     try (ResourceHandle ignored =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
       context.report(ProgressStatus.EXECUTING, getName());
-      SandboxedSpawn sandbox = prepareSpawn(spawn, context);
+      SandboxedSpawn sandbox;
+      try (SilentCloseable c = Profiler.instance().profile("SandboxedSpawn.prepareSpawn")) {
+        sandbox = prepareSpawn(spawn, context);
+      }
       return runSpawn(spawn, sandbox, context);
     } catch (IOException e) {
       throw new UserExecException("I/O exception during sandboxed execution", e);
