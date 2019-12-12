@@ -125,18 +125,27 @@ final class Eval {
   }
 
   private void execDef(DefStatement node) throws EvalException, InterruptedException {
-    ArrayList<Object> defaultValues = null;
-    for (Parameter param : node.getParameters()) {
-      if (param.getDefaultValue() != null) {
-        if (defaultValues == null) {
-          defaultValues = new ArrayList<>(node.getSignature().numOptionals());
+    FunctionSignature sig = node.getSignature();
+
+    // Evaluate default value expressions of optional parameters.
+    // They may be discontinuous:
+    // def f(a, b=1, *, c, d=2) has a defaults tuple of (1, 2).
+    // TODO(adonovan): record the gaps (e.g. c) with a sentinel
+    // to simplify processArguments.
+    Tuple<Object> defaults = Tuple.empty();
+    int ndefaults = node.getSignature().numOptionals();
+    if (ndefaults > 0) {
+      Object[] array = new Object[ndefaults];
+      for (int i = sig.numMandatoryPositionals(), j = 0; i < sig.numParameters(); i++) {
+        Expression expr = node.getParameters().get(i).getDefaultValue();
+        if (expr != null) {
+          array[j++] = eval(thread, expr);
         }
-        defaultValues.add(eval(thread, param.getDefaultValue()));
       }
+      defaults = Tuple.wrap(array);
     }
 
     // TODO(laurentlb): move to Parser or ValidationEnvironment.
-    FunctionSignature sig = node.getSignature();
     if (sig.numMandatoryNamedOnly() > 0) {
       throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
@@ -147,7 +156,7 @@ final class Eval {
             node.getIdentifier().getName(),
             node.getIdentifier().getLocation(),
             sig,
-            defaultValues != null ? ImmutableList.copyOf(defaultValues) : null,
+            defaults,
             node.getStatements(),
             thread.getGlobals()));
   }

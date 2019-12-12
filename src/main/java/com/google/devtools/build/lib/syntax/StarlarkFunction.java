@@ -23,6 +23,7 @@ public final class StarlarkFunction extends BaseFunction {
   private final Location location;
   private final ImmutableList<Statement> statements;
   private final Module module; // a function closes over its defining module
+  private final Tuple<Object> defaultValues;
 
   // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
   // such things.
@@ -30,14 +31,20 @@ public final class StarlarkFunction extends BaseFunction {
       String name,
       Location location,
       FunctionSignature signature,
-      ImmutableList<Object> defaultValues,
+      Tuple<Object> defaultValues,
       ImmutableList<Statement> statements,
       Module module) {
-    super(signature, defaultValues);
+    super(signature);
     this.name = name;
     this.location = location;
     this.statements = statements;
     this.module = module;
+    this.defaultValues = defaultValues;
+  }
+
+  @Override
+  public Tuple<Object> getDefaultValues() {
+    return defaultValues;
   }
 
   @Override
