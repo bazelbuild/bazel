@@ -95,8 +95,10 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * A helper class to provide an easier API for Skylark rule definitions.
@@ -640,9 +642,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     @Override
-    public Object call(Object[] args, FuncallExpression astForLocation, StarlarkThread thread)
+    public Object callImpl(
+        StarlarkThread thread,
+        @Nullable FuncallExpression call,
+        List<Object> args,
+        Map<String, Object> kwargs)
         throws EvalException, InterruptedException, ConversionException {
-      Location loc = astForLocation.getLocation();
+      Location loc = call != null ? call.getLocation() : Location.BUILTIN;
+      if (!args.isEmpty()) {
+        throw new EvalException(loc, "unexpected positional arguments");
+      }
       BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
       if (ruleClass == null) {
         throw new EvalException(loc, "Invalid rule class hasn't been exported by a bzl file");
@@ -665,9 +674,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
       }
 
-      @SuppressWarnings("unchecked")
       BuildLangTypedAttributeValuesMap attributeValues =
-          new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
+          new BuildLangTypedAttributeValuesMap(kwargs);
       try {
         PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
         if (pkgContext == null) {

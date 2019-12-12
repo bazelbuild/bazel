@@ -51,7 +51,9 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * The Skylark module containing the definition of {@code repository_rule} function to define a
@@ -141,15 +143,19 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Object call(
-        Object[] args,
-        FuncallExpression ast,
-        com.google.devtools.build.lib.syntax.StarlarkThread thread)
+    public Object callImpl(
+        StarlarkThread thread,
+        @Nullable FuncallExpression call,
+        List<Object> args,
+        Map<String, Object> kwargs)
         throws EvalException, InterruptedException {
+      if (!args.isEmpty()) {
+        throw new EvalException(null, "unexpected positional arguments");
+      }
       String ruleClassName = null;
-      Expression function = ast.getFunction();
+      Expression function = call.getFunction();
       // If the function ever got exported (the common case), we take the name
-      // it was exprted to. Only in the not intended case of calling an unexported
+      // it was exported to. Only in the not intended case of calling an unexported
       // repository function through an exported macro, we fall back, for lack of
       // alternatives, to the name in the local context.
       // TODO(b/111199163): we probably should disallow the use of non-exported
@@ -166,12 +172,11 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
-        PackageContext context = PackageFactory.getContext(thread, ast.getLocation());
+        PackageContext context = PackageFactory.getContext(thread, call.getLocation());
         Package.Builder packageBuilder = context.getBuilder();
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> attributeValues = (Map<String, Object>) args[0];
-        String externalRepoName = (String) attributeValues.get("name");
+        // TODO(adonovan): is this safe? Check.
+        String externalRepoName = (String) kwargs.get("name");
 
         StringBuilder callStack =
             new StringBuilder("Call stack for the definition of repository '")
@@ -181,7 +186,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 .append(" (rule definition at ")
                 .append(ruleClassDefinitionLocation.toString())
                 .append("):");
-        for (DebugFrame frame : thread.listFrames(ast.getLocation())) {
+        for (DebugFrame frame : thread.listFrames(call.getLocation())) {
           callStack.append("\n - ").append(frame.location().toString());
         }
 
@@ -189,19 +194,19 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
             packageBuilder, externalRepoName, thread.getSemantics());
 
         WorkspaceFactoryHelper.addRepoMappings(
-            packageBuilder, attributeValues, externalRepoName, ast.getLocation());
+            packageBuilder, kwargs, externalRepoName, call.getLocation());
 
         Rule rule =
             WorkspaceFactoryHelper.createAndAddRepositoryRule(
                 context.getBuilder(),
                 ruleClass,
                 null,
-                WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
-                ast.getLocation(),
+                WorkspaceFactoryHelper.getFinalKwargs(kwargs),
+                call.getLocation(),
                 callStack.toString());
         return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-        throw new EvalException(ast.getLocation(), e.getMessage());
+        throw new EvalException(call.getLocation(), e.getMessage());
       }
     }
   }

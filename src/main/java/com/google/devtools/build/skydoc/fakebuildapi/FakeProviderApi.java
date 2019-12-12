@@ -16,17 +16,15 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Fake implementation of {@link ProviderApi}. This fake is a subclass of {@link BaseFunction},
- * as providers are themselves callable.
- */
+/** Fake callable implementation of {@link ProviderApi}. */
 public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
   /**
@@ -41,8 +39,11 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object callImpl(
+      StarlarkThread thread,
+      @Nullable FuncallExpression call,
+      List<Object> args,
+      Map<String, Object> kwargs) {
     return new FakeStructApi();
   }
 

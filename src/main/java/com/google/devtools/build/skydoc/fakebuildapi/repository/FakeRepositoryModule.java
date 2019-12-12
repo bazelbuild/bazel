@@ -34,7 +34,9 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link RepositoryModuleApi}.
@@ -101,6 +103,16 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     public RepositoryRuleDefinitionIdentifier() {
       super(FunctionSignature.KWARGS);
+    }
+
+    @Override
+    public Object callImpl(
+        StarlarkThread thread,
+        @Nullable FuncallExpression call,
+        List<Object> args,
+        Map<String, Object> kwargs)
+        throws EvalException {
+      throw new EvalException("not implemented");
     }
 
     @Override

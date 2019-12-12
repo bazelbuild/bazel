@@ -253,7 +253,6 @@ public abstract class BaseFunction implements StarlarkCallable {
       List<Object> args,
       Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    // call is null when called from Java (as there's no Skylark call site).
     Location loc = call == null ? Location.BUILTIN : call.getLocation();
     Object[] arguments = processArguments(args, kwargs, loc, thread);
     return call(arguments, call, thread);
@@ -266,8 +265,14 @@ public abstract class BaseFunction implements StarlarkCallable {
    * @param ast the source code for the function if user-defined
    * @param thread the Starlark thread for the call
    * @throws InterruptedException may be thrown in the function implementations.
+   * @deprecated override the {@code callImpl} method directly.
    */
-  // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
+  // TODO(adonovan): the only remaining users of the "inner" protocol are:
+  // - StarlarkFunction.
+  // - PackageFactory.newPackageFunction, which goes to heroic lengths to reinvent the wheel.
+  // - SkylarkProvider, which can be optimized by using callImpl directly once
+  //   we've implemented the "vector" calling convention described in Eval.
+  @Deprecated
   protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
       throws EvalException, InterruptedException {
     throw new EvalException(
