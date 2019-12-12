@@ -129,7 +129,6 @@ class ObjcVariablesExtension implements VariablesExtension {
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    addFrameworkVariables(builder);
     addModuleMapVariables(builder);
     if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
       addArchiveVariables(builder);
@@ -163,10 +162,6 @@ class ObjcVariablesExtension implements VariablesExtension {
           PCH_FILE_VARIABLE_NAME,
           ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
     }
-  }
-
-  private void addFrameworkVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
   }
 
   private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
@@ -206,6 +201,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
+    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
     builder.addStringSequenceVariable(
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
@@ -369,7 +365,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
-      Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
       if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
         Preconditions.checkNotNull(compilationArtifacts, "missing CompilationArtifacts");
       }
@@ -379,6 +374,7 @@ class ObjcVariablesExtension implements VariablesExtension {
       }
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
         Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
+        Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
         Preconditions.checkNotNull(frameworkNames, "missing framework names");
         Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");

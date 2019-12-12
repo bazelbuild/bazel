@@ -7565,8 +7565,23 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 actions = [
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-F%{framework_include_paths}"],
+                        iterate_over = "framework_include_paths",
+                    ),
+                ],
+            ),
+            flag_set(
+                actions = [
                     "objc-executable",
                     "objc++-executable",
                 ],

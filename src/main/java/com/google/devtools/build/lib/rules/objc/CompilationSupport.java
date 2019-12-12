@@ -708,17 +708,6 @@ public class CompilationSupport {
         .build();
   }
 
-  /** Returns a list of framework header search paths. */
-  static ImmutableList<String> frameworkHeaderSearchPaths(ObjcProvider provider)
-      throws InterruptedException {
-    ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
-    return searchPaths
-        .addAll(
-            Iterables.transform(
-                frameworkHeaderSearchPathFragments(provider), PathFragment::getSafePathString))
-        .build();
-  }
-
   /** Returns a list of framework library search paths. */
   static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider)
       throws InterruptedException {
@@ -1053,8 +1042,7 @@ public class CompilationSupport {
             .setRuleContext(ruleContext)
             .setCompilationArtifacts(compilationArtifacts)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setConfiguration(buildConfiguration)
-            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider));
+            .setConfiguration(buildConfiguration);
 
     Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> compilationInfo;
 
@@ -1350,7 +1338,6 @@ public class CompilationSupport {
             .setObjcProvider(objcProvider)
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setFrameworkSearchPath(frameworkHeaderSearchPaths(objcProvider))
             .setFullyLinkArchive(outputArchive)
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();
