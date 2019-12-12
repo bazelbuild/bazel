@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -458,7 +457,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       StarlarkThread thread)
       throws EvalException {
     // TODO(bazel-team): Replace literal strings with constants.
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.int", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.int");
     return createAttrDescriptor(
         "int",
         EvalUtils.<String, Object>optionMap(
@@ -477,7 +476,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.string", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string");
     return createAttrDescriptor(
         "string",
         EvalUtils.<String, Object>optionMap(
@@ -503,7 +502,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.label", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.label");
     try {
       ImmutableAttributeFactory attribute =
           createAttributeFactory(
@@ -550,7 +549,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.string_list", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list");
     return createAttrDescriptor(
         "string_list",
         EvalUtils.<String, Object>optionMap(
@@ -578,7 +577,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.int_list", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.int_list");
     return createAttrDescriptor(
         "int_list",
         EvalUtils.<String, Object>optionMap(
@@ -612,7 +611,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.label_list", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.label_list");
     Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
@@ -661,8 +660,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(
-        thread, "attr.label_keyed_string_dict", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.label_keyed_string_dict");
     Dict<String, Object> kwargs =
         EvalUtils.<String, Object>optionMap(
             thread,
@@ -705,7 +703,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   public Descriptor boolAttribute(
       Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.bool", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.bool");
     return createAttrDescriptor(
         "bool",
         EvalUtils.<String, Object>optionMap(
@@ -719,7 +717,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   public Descriptor outputAttribute(
       Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.output", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output");
 
     return createNonconfigurableAttrDescriptor(
         "output",
@@ -740,7 +738,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.output_list", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output_list");
 
     return createAttrDescriptor(
         "output_list",
@@ -769,7 +767,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.string_dict", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_dict");
     return createAttrDescriptor(
         "string_dict",
         EvalUtils.<String, Object>optionMap(
@@ -797,7 +795,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.string_list_dict", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list_dict");
     return createAttrDescriptor(
         "string_list_dict",
         EvalUtils.<String, Object>optionMap(
@@ -819,7 +817,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   public Descriptor licenseAttribute(
       Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "attr.license", ast.getLocation());
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.license");
     return createNonconfigurableAttrDescriptor(
         "license",
         EvalUtils.<String, Object>optionMap(

@@ -36,8 +36,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -168,7 +166,6 @@ public class WorkspaceFactory {
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
             .build();
-    SkylarkUtils.setPhase(thread, Phase.WORKSPACE);
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));
@@ -178,6 +175,7 @@ public class WorkspaceFactory {
     // repository mapping because calls to the Label constructor in the WORKSPACE file
     // are, by definition, not in an external repository and so they don't need the mapping
     new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.WORKSPACE,
             /* toolsRepository= */ null,
             /* fragmentNameToClass= */ null,
             /* repoMapping= */ ImmutableMap.of(),

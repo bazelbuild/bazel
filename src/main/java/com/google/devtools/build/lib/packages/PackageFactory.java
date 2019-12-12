@@ -56,8 +56,6 @@ import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -605,7 +603,7 @@ public final class PackageFactory {
         throw new EvalException(null, "unexpected positional arguments");
       }
       Location loc = call != null ? call.getLocation() : Location.BUILTIN;
-      SkylarkUtils.checkLoadingOrWorkspacePhase(thread, ruleClass.getName(), loc);
+      BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
         addRule(getContext(thread, loc), kwargs, loc, thread);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -1004,14 +1002,14 @@ public final class PackageFactory {
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .build();
-      SkylarkUtils.setPhase(thread, Phase.LOADING);
 
       // TODO(adonovan): save this as a field in BazelSkylarkContext.
-      // It needn't be a third thread-local.
+      // It needn't be a second thread-local.
       thread.setThreadLocal(
           PackageContext.class, new PackageContext(pkgBuilder, globber, eventHandler));
 
       new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.LOADING,
               ruleClassProvider.getToolsRepository(),
               /*fragmentNameToClass=*/ null,
               repositoryMapping,

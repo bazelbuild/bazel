@@ -59,8 +59,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
@@ -819,6 +817,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
             .build();
 
     new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
             repoMapping,
@@ -826,7 +825,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
             /* analysisRuleLabel= */ null)
         .storeInThread(thread);
 
-    SkylarkUtils.setPhase(thread, Phase.LOADING);
     return thread;
   }
 

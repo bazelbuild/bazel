@@ -1936,7 +1936,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  srcs = ['foo.bar', 'other_foo.bar'])");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("native.glob() can only be called during the loading phase");
+    assertContainsEvent("The native module can be accessed only from a BUILD thread.");
   }
 
   @Test

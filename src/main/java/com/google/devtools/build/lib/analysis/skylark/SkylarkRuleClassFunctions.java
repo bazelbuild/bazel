@@ -89,7 +89,6 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -297,9 +296,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "rule", ast.getLocation());
-
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
+    bazelContext.checkLoadingOrWorkspacePhase("rule");
+
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 
@@ -644,7 +643,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     public Object call(Object[] args, FuncallExpression astForLocation, StarlarkThread thread)
         throws EvalException, InterruptedException, ConversionException {
       Location loc = astForLocation.getLocation();
-      SkylarkUtils.checkLoadingPhase(thread, getName(), loc);
+      BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
       if (ruleClass == null) {
         throw new EvalException(loc, "Invalid rule class hasn't been exported by a bzl file");
       }

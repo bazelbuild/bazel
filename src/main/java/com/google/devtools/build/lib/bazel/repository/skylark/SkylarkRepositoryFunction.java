@@ -130,11 +130,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // The fetch phase does not need the tools repository
       // or the fragment map because it happens before analysis.
       new BazelStarlarkContext(
-              /* toolsRepository = */ null,
-              /* fragmentNameToClass = */ null,
+              BazelStarlarkContext.Phase.LOADING, // ("fetch")
+              /*toolsRepository=*/ null,
+              /*fragmentNameToClass=*/ null,
               rule.getPackage().getRepositoryMapping(),
               new SymbolGenerator<>(key),
-              /* analysisRuleLabel= */ null)
+              /*analysisRuleLabel=*/ null)
           .storeInThread(thread);
 
       SkylarkRepositoryContext skylarkRepositoryContext =

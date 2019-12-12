@@ -102,12 +102,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
-              .build(); // NB: loading phase functions are not available: this is analysis already,
-      // so we do *not* setLoadingPhase().
+              .build();
 
       new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.ANALYSIS,
               toolsRepository,
-              /* fragmentNameToClass= */ null,
+              /*fragmentNameToClass=*/ null,
               ruleContext.getTarget().getPackage().getRepositoryMapping(),
               ruleContext.getSymbolGenerator(),
               ruleContext.getLabel())

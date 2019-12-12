@@ -120,7 +120,6 @@ java_library(
         "SkylarkIndexable.java",
         "SkylarkQueryable.java",
         "SkylarkType.java",
-        "SkylarkUtils.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",
