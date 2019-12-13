@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -46,7 +47,8 @@ public class FakeCcModule
     implements BazelCcModuleApi<
         SkylarkActionFactoryApi,
         FileApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
         CcCompilationContextApi,
@@ -214,7 +216,8 @@ public class FakeCcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+  public boolean isCcToolchainResolutionEnabled(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> context) {
     return false;
   }
 
@@ -287,7 +290,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
       Sequence<?> artifactNamePatterns,

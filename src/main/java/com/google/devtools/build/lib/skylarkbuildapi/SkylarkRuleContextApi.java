@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
@@ -53,7 +54,8 @@ import javax.annotation.Nullable;
             + " associated function. See the <a"
             + " href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
             + "information.")
-public interface SkylarkRuleContextApi extends StarlarkValue {
+public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
+    extends StarlarkValue {
 
   String DOC_NEW_FILE_TAIL =
       "Does not actually create a file on the file system, just declares that some action will do"

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         FileApiT extends FileApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         ObjcProviderApiT extends ObjcProviderApi<?>,
         XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
@@ -361,7 +364,7 @@ public interface AppleCommonApi<
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   StructApi linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextT skylarkRuleContext,
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)

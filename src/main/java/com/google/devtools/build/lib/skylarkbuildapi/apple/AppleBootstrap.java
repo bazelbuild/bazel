@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
  */
 public class AppleBootstrap implements Bootstrap {
 
-  private final AppleCommonApi<?, ?, ?, ?> appleCommon;
+  private final AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon;
 
-  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?> appleCommon) {
+  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon) {
     this.appleCommon = appleCommon;
   }
 

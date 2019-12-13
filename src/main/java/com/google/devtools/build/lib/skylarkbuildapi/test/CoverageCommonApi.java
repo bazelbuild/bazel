@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -27,7 +28,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @SkylarkModule(
     name = "coverage_common",
     doc = "Helper functions to access coverage-related infrastructure.")
-public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
+public interface CoverageCommonApi<
+        ConstraintValueT extends ConstraintValueInfoApi,
+        RuleContextT extends SkylarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @SkylarkCallable(

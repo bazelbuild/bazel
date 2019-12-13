@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -54,7 +54,13 @@ import javax.annotation.Nullable;
 
 /** A class that exposes apple rule implementation internals to skylark. */
 public class AppleSkylarkCommon
-    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigInfo, ApplePlatform> {
+    implements AppleCommonApi<
+        Artifact,
+        ConstraintValueInfo,
+        SkylarkRuleContext,
+        ObjcProvider,
+        XcodeConfigInfo,
+        ApplePlatform> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
@@ -215,12 +221,11 @@ public class AppleSkylarkCommon
 
   @Override
   public StructImpl linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContextApi,
+      SkylarkRuleContext skylarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
     try {
       RuleContext ruleContext = skylarkRuleContext.getRuleContext();
       AppleBinaryOutput appleBinaryOutput =

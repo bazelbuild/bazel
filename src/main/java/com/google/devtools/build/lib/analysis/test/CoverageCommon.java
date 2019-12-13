@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,7 +35,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
-public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
+public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
 
   @Override
   @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
@@ -92,6 +93,7 @@ public abstract class CcModule
         CcLinkingContext,
         LibraryToLink,
         CcToolchainVariables,
+        ConstraintValueInfo,
         SkylarkRuleContext,
         CcToolchainConfigInfo,
         CcCompilationOutputs> {

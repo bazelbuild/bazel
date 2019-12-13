@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -37,7 +38,8 @@ public class FakeJavaCommon
         FakeJavaInfo,
         FakeJavaToolchainSkylarkApiProviderApi,
         FakeJavaRuntimeInfoApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         SkylarkActionFactoryApi> {
 
   @Override
@@ -47,7 +49,7 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo createJavaCompileAction(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> sourceJars,
       Sequence<?> sourceFiles,
       FileApi outputJar,
@@ -136,7 +138,8 @@ public class FakeJavaCommon
   }
 
   @Override
-  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+  public boolean isJavaToolchainResolutionEnabled(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> ruleContext) {
     return false;
   }
 

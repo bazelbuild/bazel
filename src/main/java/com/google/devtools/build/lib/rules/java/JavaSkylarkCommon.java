@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
@@ -39,6 +40,7 @@ public class JavaSkylarkCommon
         JavaInfo,
         JavaToolchainProvider,
         JavaRuntimeInfo,
+        ConstraintValueInfo,
         SkylarkRuleContext,
         SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollecti
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -44,7 +45,8 @@ import com.google.devtools.build.lib.syntax.Tuple;
     category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
 public interface GoWrapCcHelperApi<
         FileT extends FileApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
@@ -57,6 +59,7 @@ public interface GoWrapCcHelperApi<
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends WrapCcHelperApi<
         FeatureConfigurationT,
+        ConstraintValueT,
         SkylarkRuleContextT,
         CcToolchainProviderT,
         CompilationInfoT,

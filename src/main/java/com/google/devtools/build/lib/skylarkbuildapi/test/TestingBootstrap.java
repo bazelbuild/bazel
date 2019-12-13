@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfo
 public class TestingBootstrap implements Bootstrap {
 
   private final TestingModuleApi testingModule;
-  private final CoverageCommonApi<?> coverageCommon;
+  private final CoverageCommonApi<?, ?> coverageCommon;
   private final AnalysisFailureInfoProviderApi analysisFailureInfoProvider;
   private final AnalysisTestResultInfoProviderApi testResultInfoProvider;
 
   public TestingBootstrap(
       TestingModuleApi testingModule,
-      CoverageCommonApi<?> coverageCommon,
+      CoverageCommonApi<?, ?> coverageCommon,
       AnalysisFailureInfoProviderApi analysisFailureInfoProvider,
       AnalysisTestResultInfoProviderApi testResultInfoProvider) {
     this.testingModule = testingModule;
