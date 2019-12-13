@@ -1003,10 +1003,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
 
-  // Incompatible changes
-  // TODO(b/142520065): Remove.
-  private final boolean incompatibleProhibitAapt1;
-
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
     this.cpu = options.cpu;
@@ -1053,7 +1049,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
-    this.incompatibleProhibitAapt1 = options.incompatibleProhibitAapt1;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
@@ -1310,10 +1305,5 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
-  }
-
-  // TODO(b/142520065): Remove.
-  boolean incompatibleProhibitAapt1() {
-    return incompatibleProhibitAapt1;
   }
 }

@@ -332,8 +332,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void testValidateNoAapt1() throws Exception {
-    useConfiguration("--incompatible_prohibit_aapt1");
+  public void testValidate() throws Exception {
     RuleContext ruleContext = getRuleContext();
 
     makeMergedResources(ruleContext)
@@ -411,14 +410,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();
-  }
-
-  @Test
-  public void test_incompatibleProhibitAapt1_targetsAapt2() throws Exception {
-    useConfiguration("--incompatible_prohibit_aapt1");
-    RuleContext ruleContext = getRuleContext("android_binary", "manifest = 'AndroidManifest.xml',");
-    assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-        .isEqualTo(AndroidAaptVersion.AAPT2);
   }
 
   /**
