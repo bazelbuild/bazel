@@ -54,8 +54,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
@@ -144,7 +144,10 @@ public class JavaCompileAction extends AbstractAction
     super(
         owner,
         tools,
-        IterablesChain.concat(mandatoryInputs, transitiveInputs),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(transitiveInputs)
+            .build(),
         runfilesSupplier,
         outputs,
         env);
