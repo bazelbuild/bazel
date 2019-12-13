@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATHS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
@@ -46,20 +45,16 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -71,7 +66,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -101,7 +95,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProv
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -232,7 +225,6 @@ public class CompilationSupport {
 
   /** The kind of include processing to use. */
   enum IncludeProcessingType {
-    HEADER_THINNING,
     INCLUDE_SCANNING,
     NO_PROCESSING;
   }
@@ -275,13 +267,9 @@ public class CompilationSupport {
     return extraInputs;
   }
 
-  /**
-   * Create and return the include processing to be used. Only HeaderThinning uses potentialInputs.
-   */
-  private IncludeProcessing createIncludeProcessing(Iterable<Artifact> potentialInputs) {
+  /** Create and return the include processing to be used. */
+  private IncludeProcessing createIncludeProcessing() {
     switch (includeProcessingType) {
-      case HEADER_THINNING:
-        return new HeaderThinning(potentialInputs);
       case INCLUDE_SCANNING:
         return IncludeScanning.INSTANCE;
       default:
@@ -536,7 +524,7 @@ public class CompilationSupport {
     return new ObjcCppSemantics(
         objcProvider,
         includeProcessingType,
-        createIncludeProcessing(Iterables.concat(extraInputs, objcProvider.get(HEADER))),
+        createIncludeProcessing(),
         extraInputs,
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
@@ -658,17 +646,6 @@ public class CompilationSupport {
 
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
-  /**
-   * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
-   * compatible with header thinning.
-   */
-  private static final FileTypeSet SOURCES_FOR_HEADER_THINNING =
-      FileTypeSet.of(
-          CppFileTypes.OBJC_SOURCE,
-          CppFileTypes.OBJCPP_SOURCE,
-          CppFileTypes.CPP_SOURCE,
-          CppFileTypes.C_SOURCE);
-
   /** Returns information about the given rule's compilation artifacts. */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
@@ -778,8 +755,6 @@ public class CompilationSupport {
 
     if (objcConfiguration.shouldScanIncludes()) {
       includeProcessingType = IncludeProcessingType.INCLUDE_SCANNING;
-    } else if (isHeaderThinningEnabled()) {
-      includeProcessingType = IncludeProcessingType.HEADER_THINNING;
     } else {
       includeProcessingType = IncludeProcessingType.NO_PROCESSING;
     }
@@ -1082,8 +1057,6 @@ public class CompilationSupport {
 
     objectFilesCollector.addAll(compilationInfo.getFirst().getObjectFiles(/* usePic= */ false));
     outputGroupCollector.putAll(compilationInfo.getSecond());
-
-    registerHeaderScanningActions(compilationInfo.getFirst(), objcProvider, compilationArtifacts);
 
     return this;
   }
@@ -1696,197 +1669,6 @@ public class CompilationSupport {
       parents.add(path.getParentDirectory());
     }
     return parents.build();
-  }
-
-  /** Holds information about Objective-C compile actions that require header thinning. */
-  private static final class ObjcHeaderThinningInfo {
-    /** Source file for compile action. */
-    public final Artifact sourceFile;
-    /** headers_list file for compile action. */
-    public final Artifact headersListFile;
-    /** Command line arguments for compile action execution. */
-    public final ImmutableList<String> arguments;
-
-    public ObjcHeaderThinningInfo(
-        Artifact sourceFile, Artifact headersListFile, ImmutableList<String> arguments) {
-      this.sourceFile = Preconditions.checkNotNull(sourceFile);
-      this.headersListFile = Preconditions.checkNotNull(headersListFile);
-      this.arguments = Preconditions.checkNotNull(arguments);
-    }
-
-    public ObjcHeaderThinningInfo(
-        Artifact sourceFile, Artifact headersListFile, Iterable<String> arguments) {
-      this(sourceFile, headersListFile, ImmutableList.copyOf(arguments));
-    }
-  }
-
-  /**
-   * Returns true when ObjC header thinning is enabled via configuration and an a valid
-   * header_scanner executable target is provided.
-   */
-  private boolean isHeaderThinningEnabled() {
-    if (objcConfiguration.useExperimentalHeaderThinning()
-        && ruleContext.isAttrDefined(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, BuildType.LABEL)) {
-      FilesToRunProvider tool = getHeaderThinningToolExecutable();
-      // Additional here to ensure that an Executable Artifact exists to disable where the tool
-      // is an empty filegroup
-      return tool != null && tool.getExecutable() != null;
-    }
-    return false;
-  }
-
-  private FilesToRunProvider getHeaderThinningToolExecutable() {
-    return ruleContext
-        .getPrerequisite(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, Mode.HOST)
-        .getProvider(FilesToRunProvider.class);
-  }
-
-  private void registerHeaderScanningActions(
-      CcCompilationOutputs ccCompilationOutputs,
-      ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts)
-      throws RuleErrorException {
-    // PIC is not used for Obj-C builds, if that changes this method will need to change
-    if (includeProcessingType != IncludeProcessingType.HEADER_THINNING
-        || ccCompilationOutputs.getObjectFiles(false).isEmpty()) {
-      return;
-    }
-
-    try {
-      ImmutableList.Builder<ObjcHeaderThinningInfo> headerThinningInfos = ImmutableList.builder();
-      AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-      for (Artifact objectFile : ccCompilationOutputs.getObjectFiles(false)) {
-        ActionAnalysisMetadata generatingAction =
-            analysisEnvironment.getLocalGeneratingAction(objectFile);
-        if (generatingAction instanceof CppCompileAction) {
-          CppCompileAction action = (CppCompileAction) generatingAction;
-          Artifact sourceFile = action.getSourceFile();
-          if (!sourceFile.isTreeArtifact()
-              && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
-            headerThinningInfos.add(
-                new ObjcHeaderThinningInfo(
-                    sourceFile,
-                    intermediateArtifacts.headersListFile(objectFile),
-                    action.getCompilerOptions()));
-          }
-        }
-      }
-      registerHeaderScanningActions(
-          headerThinningInfos.build(), objcProvider, compilationArtifacts);
-    } catch (CommandLineExpansionException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
-    }
-  }
-
-  /**
-   * Creates and registers ObjcHeaderScanning {@link SpawnAction}. Groups all the actions by their
-   * compilation command line arguments and creates a ObjcHeaderScanning action for each unique one.
-   *
-   * <p>The number of sources to scan per actions are bounded so that targets with a high number of
-   * sources are not penalized. A large number of sources may require a lot of processing
-   * particularly when the headers required for different sources vary greatly and the caching
-   * mechanism in the tool is largely useless. In these instances these actions would benefit by
-   * being distributed so they don't contribute to the critical path. The partition size is
-   * configurable so that it can be tuned.
-   */
-  private void registerHeaderScanningActions(
-      ImmutableList<ObjcHeaderThinningInfo> headerThinningInfo,
-      ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts) {
-    if (headerThinningInfo.isEmpty()) {
-      return;
-    }
-
-    ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
-        objcHeaderThinningInfoByCommandLine = groupActionsByCommandLine(headerThinningInfo);
-    // Register a header scanning spawn action for each unique set of command line arguments
-    for (ImmutableList<String> args : objcHeaderThinningInfoByCommandLine.keySet()) {
-      // As infos is in insertion order we should reliably get the same sublists below
-      for (List<ObjcHeaderThinningInfo> partition :
-          Lists.partition(
-              objcHeaderThinningInfoByCommandLine.get(args),
-              objcConfiguration.objcHeaderThinningPartitionSize())) {
-        registerHeaderScanningAction(objcProvider, compilationArtifacts, args, partition);
-      }
-    }
-  }
-
-  private void registerHeaderScanningAction(
-      ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts,
-      ImmutableList<String> args,
-      List<ObjcHeaderThinningInfo> infos) {
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .setMnemonic("ObjcHeaderScanning")
-            .setExecutable(getHeaderThinningToolExecutable())
-            .addInputs(
-                ruleContext
-                    .getPrerequisiteArtifacts(ObjcRuleClasses.APPLE_SDK_ATTRIBUTE, Mode.TARGET)
-                    .list());
-    CustomCommandLine.Builder cmdLine =
-        CustomCommandLine.builder()
-            .add("--arch", appleConfiguration.getSingleArchitecture().toLowerCase())
-            .add("--platform", appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
-            .add(
-                "--sdk_version",
-                XcodeConfig.getXcodeConfigInfo(ruleContext)
-                    .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
-                    .toStringWithMinimumComponents(2))
-            .add(
-                "--xcode_version",
-                XcodeConfig.getXcodeConfigInfo(ruleContext)
-                    .getXcodeVersion()
-                    .toStringWithMinimumComponents(2))
-            .add("--");
-    for (ObjcHeaderThinningInfo info : infos) {
-      cmdLine.addFormatted(
-          "%s:%s", info.sourceFile.getExecPath(), info.headersListFile.getExecPath());
-      builder.addInput(info.sourceFile).addOutput(info.headersListFile);
-    }
-    ruleContext.registerAction(
-        builder
-            .addCommandLine(cmdLine.add("--").addAll(args).build())
-            .addInputs(compilationArtifacts.getPrivateHdrs())
-            .addTransitiveInputs(attributes.hdrs())
-            .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
-            .addInputs(getPchFile().asSet())
-            .build(ruleContext));
-  }
-
-  /**
-   * Groups {@link ObjcHeaderThinningInfo} objects based on the command line arguments of the
-   * ObjcCompile action.
-   *
-   * <p>Grouping by command line arguments allows {@link
-   * #registerHeaderScanningActions(ImmutableList, ObjcProvider, CompilationArtifacts)} to create a
-   * {@link SpawnAction} based on the compiler command line flags that may cause a difference in
-   * behaviour by the preprocessor. Some of the command line arguments must be filtered out as they
-   * change with every source {@link Artifact}; for example the object file (-o) and dotd filenames
-   * (-MF). These arguments are known not to change the preprocessor behaviour.
-   *
-   * @param headerThinningInfos information for compile actions that require header thinning
-   * @return values in {@code headerThinningInfos} grouped by compile action command line arguments
-   */
-  private static ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
-      groupActionsByCommandLine(ImmutableList<ObjcHeaderThinningInfo> headerThinningInfos) {
-    // Maintain insertion order so that iteration in #registerHeaderScanningActions is deterministic
-    ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
-        objcHeaderThinningInfoByCommandLine = ArrayListMultimap.create();
-    for (ObjcHeaderThinningInfo info : headerThinningInfos) {
-      ImmutableList.Builder<String> filteredArgumentsBuilder = ImmutableList.builder();
-      List<String> arguments = info.arguments;
-      for (int i = 0; i < arguments.size(); ++i) {
-        String arg = arguments.get(i);
-        if (arg.equals("-MF") || arg.equals("-o") || arg.equals("-c")) {
-          ++i;
-        } else if (!arg.equals("-MD")) {
-          filteredArgumentsBuilder.add(arg);
-        }
-      }
-      objcHeaderThinningInfoByCommandLine.put(filteredArgumentsBuilder.build(), info);
-    }
-    return objcHeaderThinningInfoByCommandLine;
   }
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {

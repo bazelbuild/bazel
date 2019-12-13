@@ -232,27 +232,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableAppleBinaryNativeProtos;
 
   @Option(
-    name = "experimental_objc_header_thinning",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "If set then ObjcCompile actions will have their action inputs reduced by running a tool "
-            + "to detect which headers are actually required for compilation."
-  )
-  public boolean experimentalObjcHeaderThinning;
-
-  @Option(
-    name = "objc_header_thinning_partition_size",
-    defaultValue = "120",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-    help = "The maximum number of source files to process within in each header scanning action."
-  )
-  public int objcHeaderThinningPartitionSize;
-
-  @Option(
       name = "experimental_objc_include_scanning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -301,12 +280,4 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "not to all transitive dependencies."
   )
   public boolean strictObjcModuleMaps;
-
-  @Override
-  public FragmentOptions getHost() {
-    ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost();
-    // This should have the same value in both target and host configurations
-    host.objcHeaderScannerTool = this.objcHeaderScannerTool;
-    return host;
-  }
 }

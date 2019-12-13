@@ -155,7 +155,6 @@ public final class MockObjcSupport {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     setupCcToolchainConfig(config);
     setupObjcProto(config);
   }
