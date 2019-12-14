@@ -54,6 +54,6 @@ public class SpyBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD", "load(':rule.bzl', 'debug_rule')",
         "debug_rule(name='debug', dep='@bazel_skylib//:bzl_library.bzl')");
 
-    context().bazel().enableDebug().build("//...");
+    context().bazel().build("//...");
   }
 }

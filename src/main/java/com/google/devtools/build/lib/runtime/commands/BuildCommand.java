@@ -35,8 +35,12 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -99,7 +103,12 @@ public final class BuildCommand implements BlazeCommand {
           env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     }
     ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
-    System.out.println(Spy.INSTANCE.toString());
+    Path traceLog = env.getBlazeWorkspace().getWorkspace().getRelative("trace.log");
+    try {
+      FileSystemUtils.writeContent(traceLog, StandardCharsets.UTF_8, Spy.INSTANCE.toString());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
     return BlazeCommandResult.exitCode(exitCode);
   }
 }

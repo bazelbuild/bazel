@@ -114,4 +114,15 @@ public class Spy {
   public Map<String, List<String>> getRepoInits() {
     return repoInits;
   }
+
+  @Override
+  public String toString() {
+    return "Spy{" +
+        "reposInLoads=" + reposInLoads +
+        ", repoSymbols=" + repoSymbols +
+        ", reposToUrls=" + reposToUrls +
+        ", repoDefs=" + repoDefs +
+        ", repoInits=" + repoInits +
+        '}';
+  }
 }
