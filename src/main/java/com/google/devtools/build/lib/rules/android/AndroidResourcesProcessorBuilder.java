@@ -321,51 +321,6 @@ public class AndroidResourcesProcessorBuilder {
         .buildAndRegister("Processing Android resources", "AndroidAapt2");
   }
 
-  private void createAaptAction(
-      AndroidDataContext dataContext,
-      AndroidResources primaryResources,
-      AndroidAssets primaryAssets,
-      StampedAndroidManifest primaryManifest) {
-    BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(dataContext, "PACKAGE");
-
-    if (resourceDependencies != null) {
-      builder
-          .addTransitiveFlag(
-              "--data",
-              resourceDependencies.getTransitiveResourceContainers(),
-              AndroidDataConverter.AAPT_RESOURCES_AND_MANIFEST_CONVERTER)
-          .addTransitiveFlag(
-              "--directData",
-              resourceDependencies.getDirectResourceContainers(),
-              AndroidDataConverter.AAPT_RESOURCES_AND_MANIFEST_CONVERTER)
-          .addTransitiveInputValues(resourceDependencies.getTransitiveResources())
-          .addTransitiveInputValues(resourceDependencies.getTransitiveManifests())
-          .addTransitiveInputValues(resourceDependencies.getTransitiveRTxt())
-          .addTransitiveInputValues(resourceDependencies.getTransitiveSymbolsBin());
-    }
-
-    if (assetDependencies != null && !assetDependencies.getTransitiveAssets().isEmpty()) {
-      builder
-          .addTransitiveFlag(
-              "--directAssets",
-              assetDependencies.getDirectParsedAssets(),
-              AndroidDataConverter.PARSED_ASSET_CONVERTER)
-          .addTransitiveFlag(
-              "--assets",
-              assetDependencies.getTransitiveParsedAssets(),
-              AndroidDataConverter.PARSED_ASSET_CONVERTER)
-          .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
-          .addTransitiveInputValues(assetDependencies.getTransitiveSymbols());
-    }
-
-    builder.addAapt(AndroidAaptVersion.AAPT);
-
-    configureCommonFlags(dataContext, primaryResources, primaryAssets, primaryManifest, builder)
-        .maybeAddVectoredFlag(
-            "--prefilteredResources", resourceFilterFactory.getResourcesToIgnoreInExecution())
-        .buildAndRegister("Processing Android resources", "AaptPackage");
-  }
-
   private BusyBoxActionBuilder configureCommonFlags(
       AndroidDataContext dataContext,
       AndroidResources primaryResources,
