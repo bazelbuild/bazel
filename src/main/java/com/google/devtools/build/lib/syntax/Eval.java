@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,12 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.Spy;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
@@ -172,7 +174,8 @@ final class Eval {
   }
 
   private void execLoad(LoadStatement node) throws EvalException, InterruptedException {
-    for (LoadStatement.Binding binding : node.getBindings()) {
+    Spy.INSTANCE.onEvalLoadStatement(node);
+    for (LoadStatement.Binding binding : node.getBindings()) {// todo eval load symbols
       Identifier orig = binding.getOriginalName();
 
       // TODO(adonovan): make this a static check.

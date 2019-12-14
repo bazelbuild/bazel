@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.devtools.build.lib.Spy;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -97,6 +99,7 @@ public final class BuildCommand implements BlazeCommand {
           env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     }
     ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
+    System.out.println(Spy.INSTANCE.toString());
     return BlazeCommandResult.exitCode(exitCode);
   }
 }

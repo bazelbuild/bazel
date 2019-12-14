@@ -135,6 +135,7 @@ java_library(
         ":frontend",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:spy",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

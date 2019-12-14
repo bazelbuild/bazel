@@ -37,6 +37,18 @@ java_test(
 )
 
 java_test(
+    name = "SpyBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "SpyBlackBoxTest.java",
+    ],
+    tags = ["black_box_test"],
+    deps = common_deps + [
+        "//src/main/java/com/google/devtools/build/lib:spy",
+    ],
+)
+
+java_test(
     name = "BazelEmbeddedSkylarkBlackBoxTest",
     timeout = "moderate",
     srcs = [

@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.Spy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -25,10 +29,19 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.skyframe.PackageFunction.SkylarkImportResult;
+import com.google.devtools.build.lib.syntax.Argument;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ExpressionStatement;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.Statement.Kind;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -36,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -137,6 +151,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
+      callSpy(ast);
       parser.execute(ast, importResult.importMap, starlarkSemantics, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
@@ -157,6 +172,44 @@ public class WorkspaceFileFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  private void callSpy(StarlarkFile ast) {
+    List<LoadStatement> loads = Lists.newArrayList();
+    Map<String, String> defs = Maps.newHashMap();
+    Map<String, String> inits = Maps.newHashMap();
+
+    for (Statement statement : ast.getStatements()) {
+      if (Kind.LOAD.equals(statement.kind())) {
+        loads.add((LoadStatement) statement);
+      } else if (Kind.EXPRESSION.equals(statement.kind())) {
+        Expression expression = ((ExpressionStatement) statement).getExpression();
+        if (expression instanceof FuncallExpression) {
+          FuncallExpression funcall = (FuncallExpression) expression;
+          Expression function = funcall.getFunction();
+          if (function instanceof Identifier) {
+            String functionName = ((Identifier) function).getName();
+            if ("http_archive".equals(functionName) || "git_repository".equals(functionName)) {
+              defs.put(funcall.getNameArg(), funcallText(funcall));
+            } else {
+              inits.put(functionName, funcallText(funcall));
+            }
+          }
+        }
+      }
+    }
+    Spy.INSTANCE.onWorkspaceChunkLoading(loads, defs, inits);
+  }
+
+  private String funcallText(FuncallExpression funcall) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(funcall.getFunction());
+    sb.append("(");
+    for (Argument argument : funcall.getArguments()) {
+      sb.append(argument.toString()).append(", ");
+    }
+    sb.append(")");
+    return sb.toString();
   }
 
   /**

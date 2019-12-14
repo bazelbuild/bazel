@@ -92,6 +92,18 @@ filegroup(
     ],
 )
 
+java_library(
+    name = "spy",
+    srcs = [":Spy.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
 #   Java interfaces to various native UNIX system services.
 java_library(
     name = "unix",
@@ -635,6 +647,7 @@ java_library(
         ":resource-converter",
         ":skylark_semantics",
         ":skylarkinterface",
+        ":spy",
         ":syntax",
         ":transitive-info-provider",
         ":unix",
@@ -1271,6 +1284,7 @@ java_library(
         ":process_util",
         ":shared-base-rules",
         ":skylark_semantics",
+        ":spy",
         ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",

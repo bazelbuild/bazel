@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.Spy;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
@@ -104,6 +106,7 @@ public class HttpDownloader {
       Map<String, String> clientEnv,
       String repo)
       throws IOException, InterruptedException {
+    Spy.INSTANCE.onDownloadingSomething(repo, urls);
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
