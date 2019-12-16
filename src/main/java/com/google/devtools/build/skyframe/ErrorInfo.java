@@ -62,7 +62,8 @@ public class ErrorInfo {
   /** Create an ErrorInfo from a collection of existing errors. */
   public static ErrorInfo fromChildErrors(SkyKey currentValue, Collection<ErrorInfo> childErrors) {
     Preconditions.checkNotNull(currentValue, "currentValue must not be null");
-    Preconditions.checkState(!childErrors.isEmpty(), "childErrors may not be empty");
+    Preconditions.checkState(
+        !childErrors.isEmpty(), "childErrors may not be empty %s", currentValue);
 
     NestedSetBuilder<SkyKey> rootCausesBuilder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
