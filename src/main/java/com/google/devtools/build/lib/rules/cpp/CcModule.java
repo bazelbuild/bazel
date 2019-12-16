@@ -563,7 +563,6 @@ public abstract class CcModule
   }
 
   private static void validateSymlinkPath(Location location, String attrName, PathFragment symlinkPath, FileTypeSet filetypes, StringBuilder errorsBuilder) throws EvalException {
-    String extensionErrorMessage = "does not have any of the allowed extensions";
     if (symlinkPath.isEmpty() || symlinkPath.isAbsolute() || symlinkPath.containsUplevelReferences()) {
       throw new EvalException(
               location,
@@ -574,7 +573,7 @@ public abstract class CcModule
               String.format(
                       "'%s' %s %s",
                       symlinkPath,
-                      extensionErrorMessage,
+                      "does not have any of the allowed extensions",
                       filetypes));
       errorsBuilder.append(LINE_SEPARATOR.value());
     }
