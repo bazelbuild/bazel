@@ -44,7 +44,7 @@ import java.util.logging.Logger;
  * <pre>
  * Example Usage:
  *   java/com/google/devtools/build/android/ResourceProcessorBusyBox\
- *      --tool PACKAGE\
+ *      --tool AAPT2_PACKAGE\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
  *      --adb path/to/sdk/adb\
@@ -60,18 +60,6 @@ import java.util.logging.Logger;
  */
 public class ResourceProcessorBusyBox {
   static enum Tool {
-    PACKAGE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceProcessingAction.main(args);
-      }
-    },
-    VALIDATE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceValidatorAction.main(args);
-      }
-    },
     GENERATE_BINARY_R() {
       @Override
       void call(String[] args) throws Exception {
@@ -100,12 +88,6 @@ public class ResourceProcessorBusyBox {
       @Override
       void call(String[] args) throws Exception {
         AarGeneratorAction.main(args);
-      }
-    },
-    SHRINK() {
-      @Override
-      void call(String[] args) throws Exception {
-        ResourceShrinkerAction.main(args);
       }
     },
     MERGE_MANIFEST() {
@@ -182,8 +164,8 @@ public class ResourceProcessorBusyBox {
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "The processing tool to execute. "
-                + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, PARSE, "
-                + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
+                + "Valid tools: GENERATE_BINARY_R, PARSE, "
+                + "MERGE, GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
   }
