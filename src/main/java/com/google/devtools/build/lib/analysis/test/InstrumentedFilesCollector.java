@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A helper class for collecting instrumented files and metadata for a target.
@@ -56,6 +57,31 @@ public final class InstrumentedFilesCollector {
         /* localMetadataCollector= */ null,
         /* rootFiles= */ null,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+  }
+
+  public static InstrumentedFilesInfo collectTransitive(
+      RuleContext ruleContext, InstrumentationSpec spec) {
+    return collect(
+        ruleContext,
+        spec,
+        NO_METADATA_COLLECTOR,
+        ImmutableList.of(),
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+  }
+
+  public static InstrumentedFilesInfo collectTransitive(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      NestedSet<Pair<String, String>> reportedToActualSources) {
+    return collect(
+        ruleContext,
+        spec,
+        NO_METADATA_COLLECTOR,
+        ImmutableList.of(),
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
+        false,
+        reportedToActualSources);
   }
 
   public static InstrumentedFilesInfo collect(
@@ -117,8 +143,8 @@ public final class InstrumentedFilesCollector {
   public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
-      LocalMetadataCollector localMetadataCollector,
-      Iterable<Artifact> rootFiles,
+      @Nullable LocalMetadataCollector localMetadataCollector,
+      @Nullable Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,

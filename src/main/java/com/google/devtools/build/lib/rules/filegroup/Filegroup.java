@@ -72,12 +72,10 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
 
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collect(
+        InstrumentedFilesCollector.collectTransitive(
             ruleContext,
             // what do *we* know about whether this is a source file or not
             new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            filesToBuild,
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(

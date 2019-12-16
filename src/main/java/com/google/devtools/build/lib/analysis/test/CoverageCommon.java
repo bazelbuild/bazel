@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
@@ -94,11 +93,9 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
         new InstrumentationSpec(fileTypeSet)
             .withSourceAttributes(sourceAttributes.toArray(new String[0]))
             .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
-    return InstrumentedFilesCollector.collect(
+    return InstrumentedFilesCollector.collectTransitive(
         ruleContext,
         instrumentationSpec,
-        InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles= */ ImmutableList.of(),
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
