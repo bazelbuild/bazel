@@ -92,11 +92,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
 
   @Override
   public void writeResourceToClass(
-      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    for (Map.Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
-      sink.acceptPublicResource(entry.getKey(), key.name(), entry.getValue());
-    }
-  }
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {}
 
   @Override
   public int hashCode() {

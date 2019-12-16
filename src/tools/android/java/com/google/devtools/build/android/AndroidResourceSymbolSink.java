@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.android.resources.ResourceType;
-import com.google.common.base.Optional;
 import java.util.Map;
 
 /** Defines a sink for collecting data about resource symbols. */
@@ -29,13 +28,4 @@ public interface AndroidResourceSymbolSink {
       DependencyInfo dependencyInfo,
       FullyQualifiedName key,
       Map<FullyQualifiedName, /*inlineable=*/ Boolean> attrs);
-
-  /**
-   * Marks a resource as public.
-   *
-   * <p>This is orthogonal to the two methods above, and omits the 'DependencyInfo' parameter since
-   * a 'public' declaration must also have a matching definition (which triggers a call to one of
-   * the above methods).
-   */
-  void acceptPublicResource(ResourceType type, String name, Optional<Integer> value);
 }

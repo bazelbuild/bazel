@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.devtools.build.android.AndroidFrameworkAttrIdProvider.AttrLookupException;
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.RClassGenerator;
@@ -97,11 +96,6 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
   @Override
   public void acceptSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
     generator.addSimpleResource(dependencyInfo, type, name);
-  }
-
-  @Override
-  public void acceptPublicResource(ResourceType type, String name, Optional<Integer> value) {
-    generator.addPublicResource(type, name, value);
   }
 
   @Override
