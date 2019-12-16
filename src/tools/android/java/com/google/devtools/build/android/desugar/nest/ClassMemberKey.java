@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.android.desugar.nest.ClassMemberTrackReason.MemberUseKind;
 import java.util.Arrays;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
@@ -82,10 +84,8 @@ public abstract class ClassMemberKey {
      * invocation codes.
      */
     public final <R, P> R accept(
-        MemberUseKind fieldInstrOpcode,
-        FieldInstrVisitor<R, ? super FieldKey, P> visitor,
-        P param) {
-      switch (fieldInstrOpcode) {
+        MemberUseKind fieldUseKind, FieldInstrVisitor<R, ? super FieldKey, P> visitor, P param) {
+      switch (fieldUseKind) {
         case GETSTATIC:
           return visitor.visitGetStatic(this, param);
         case PUTSTATIC:
@@ -99,7 +99,7 @@ public abstract class ClassMemberKey {
               String.format(
                   "Unexpected opcode(%s): Expect one of {GETSTATIC, PUTSTATIC, GETFIELD, PUTFIELD}"
                       + " for field instructions.",
-                  fieldInstrOpcode));
+                  fieldUseKind));
       }
     }
 
@@ -193,12 +193,12 @@ public abstract class ClassMemberKey {
     /** The substitute method for a private static method in an interface. */
     final MethodKey substituteOfInterfaceStaticMethod() {
       checkState(!isConstructor(), "Expect a non-constructor: %s", this);
-      return MethodKey.create(owner(), ownerMangledName(), descriptor());
+      return MethodKey.create(owner(), name(), descriptor());
     }
 
     /** The substitute method for a private instance method in an interface. */
     final MethodKey substituteOfInterfaceInstanceMethod() {
-      return MethodKey.create(owner(), ownerMangledName(), instanceMethodToStaticDescriptor(this));
+      return MethodKey.create(owner(), name(), instanceMethodToStaticDescriptor(this));
     }
 
     /** The descriptor of the static version of a given instance method. */
@@ -281,6 +281,11 @@ public abstract class ClassMemberKey {
       this.memberAccess = memberAccess;
       this.signature = signature;
       this.exceptions = exceptions;
+    }
+
+    public final MethodVisitor accept(ClassVisitor cv) {
+      return cv.visitMethod(
+          memberAccess, methodKey.descriptor(), methodKey.descriptor(), signature, exceptions);
     }
 
     public final <R, P> R accept(MethodDeclVisitor<R, ? super MethodDeclInfo, P> visitor, P param) {

@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import java.io.IOException;
@@ -32,7 +33,25 @@ public class NestAnalyzer {
   private final NestCompanions nestCompanions;
   private final ClassMemberRecord classMemberRecord;
 
-  public NestAnalyzer(
+  /**
+   * Perform a nest-based analysis of input classes, including tracking private member access
+   * outside its owner.
+   *
+   * @return A manager class for nest companions.
+   */
+  public static NestCompanions analyzeNests(
+      ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
+      ClassMemberRecord classMemberRecord)
+      throws IOException {
+    NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
+    NestAnalyzer nestAnalyzer =
+        new NestAnalyzer(inputFileContents, nestCompanions, classMemberRecord);
+    nestAnalyzer.analyze();
+    return nestCompanions;
+  }
+
+  @VisibleForTesting
+  NestAnalyzer(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
       NestCompanions nestCompanions,
       ClassMemberRecord classMemberRecord) {
@@ -42,7 +61,8 @@ public class NestAnalyzer {
   }
 
   /** Performs class member declaration and usage analysis of files. */
-  public void analyze() throws IOException {
+  @VisibleForTesting
+  void analyze() throws IOException {
     for (FileContentProvider<? extends InputStream> inputClassFile : inputFileContents) {
       if (inputClassFile.isClassFile()) {
         try (InputStream inputStream = inputClassFile.get()) {
@@ -55,4 +75,5 @@ public class NestAnalyzer {
     classMemberRecord.filterUsedMemberWithTrackedDeclaration();
     nestCompanions.prepareCompanionClassWriters();
   }
+
 }

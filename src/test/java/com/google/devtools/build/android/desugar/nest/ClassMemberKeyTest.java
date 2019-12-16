@@ -138,7 +138,7 @@ public class ClassMemberKeyTest {
         .isEqualTo(
             MethodKey.create(
                 /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "a_b_Charlie$instanceInstanceMethod",
+                /* name= */ "instanceInstanceMethod",
                 /* descriptor= */ "(La/b/Charlie;JJ)J"));
   }
 
@@ -153,7 +153,7 @@ public class ClassMemberKeyTest {
         .isEqualTo(
             MethodKey.create(
                 /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "a_b_Charlie$instanceStaticMethod",
+                /* name= */ "instanceStaticMethod",
                 /* descriptor= */ "(JJ)J"));
   }
 

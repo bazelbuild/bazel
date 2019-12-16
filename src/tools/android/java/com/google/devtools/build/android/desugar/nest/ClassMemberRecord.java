@@ -62,6 +62,11 @@ public final class ClassMemberRecord {
     return reasons.keySet().stream().filter(predicate).collect(toImmutableList());
   }
 
+  /** Whether this record has any reason to desugar a nest. */
+  public boolean hasAnyReason() {
+    return !reasons.isEmpty();
+  }
+
   boolean hasTrackingReason(ClassMemberKey classMemberKey) {
     return reasons.containsKey(classMemberKey);
   }
