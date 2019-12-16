@@ -854,7 +854,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     public Builder addInputs(NestedSet<Artifact> artifacts) {
       // Do not delete this method, or else addInputs(Iterable) calls with a NestedSet argument
       // will not be flagged.
-      inputsBuilder.addAll((Iterable<Artifact>) artifacts);
+      inputsBuilder.addAll(artifacts.toList());
       return this;
     }
 
@@ -935,8 +935,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * <p>When this property is set, the action will use a minimal, standardized environment map.
      *
      * <p>The list of envvars available to the action (the keys in this map) comes from two places:
-     * from the configuration fragments ({@link BuildConfiguration.Fragment#setupActionEnvironment})
-     * and from the command line or rc-files via {@code --action_env} flags.
+     * from the rule class provider and from the command line or rc-files via {@code --action_env}
+     * flags.
      *
      * <p>The values for these variables may come from one of three places: from the configuration
      * fragment, or from the {@code --action_env} flag (when the flag specifies a name-value pair,
@@ -944,11 +944,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * specifies a name, e.g. {@code --action_env=HOME}).
      *
      * <p>The client environment is specified by the {@code --client_env} flags. The Bazel client
-     * passes these flags to the Bazel server upon each build (e.g.
-     * {@code --client_env=HOME=/home/johndoe}), so the server can keep track of environmental
-     * changes between builds, and always use the up-to-date environment (as opposed to calling
-     * {@code System.getenv}, which it should never do, though as of 2017-08-02 it still does in a
-     * few places).
+     * passes these flags to the Bazel server upon each build (e.g. {@code
+     * --client_env=HOME=/home/johndoe}), so the server can keep track of environmental changes
+     * between builds, and always use the up-to-date environment (as opposed to calling {@code
+     * System.getenv}, which it should never do, though as of 2017-08-02 it still does in a few
+     * places).
      *
      * <p>The {@code --action_env} has priority over configuration-fragment-dictated envvar values,
      * i.e. if the configuration fragment tries to add FOO=bar to the environment, and there's also
@@ -981,12 +981,10 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Sets the executable path; the path is interpreted relative to the
-     * execution root.
+     * Sets the executable path; the path is interpreted relative to the execution root.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)}, {@link #setJavaExecutable}, or
-     * {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(PathFragment executable) {
       this.executableArgs = CustomCommandLine.builder().addPath(executable);
@@ -997,9 +995,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     /**
      * Sets the executable as an artifact.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)}, {@link #setJavaExecutable}, or
-     * {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
@@ -1010,9 +1007,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * Sets the executable as a configured target. Automatically adds the files to run to the tools
      * and inputs and uses the executable of the target as the executable.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)}, {@link #setJavaExecutable}, or
-     * {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(TransitiveInfoCollection executable) {
       FilesToRunProvider provider = executable.getProvider(FilesToRunProvider.class);
@@ -1025,7 +1021,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * and inputs and uses the executable of the target as the executable.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand(String)}.
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(executableProvider.getExecutable() != null,
@@ -1048,15 +1044,17 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Sets the executable to be a java class executed from the given deploy
-     * jar. The deploy jar is automatically added to the action inputs.
+     * Sets the executable to be a java class executed from the given deploy jar. The deploy jar is
+     * automatically added to the action inputs.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable}, {@link #setJavaExecutable}, or
-     * {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
-    public Builder setJavaExecutable(PathFragment javaExecutable,
-        Artifact deployJar, String javaMainClass, List<String> jvmArgs) {
+    public Builder setJavaExecutable(
+        PathFragment javaExecutable,
+        Artifact deployJar,
+        String javaMainClass,
+        List<String> jvmArgs) {
       return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-cp",
           deployJar.getExecPathString(), javaMainClass);
     }
@@ -1069,10 +1067,10 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * declares a main class.
      *
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand(String)}.
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
-    public Builder setJarExecutable(PathFragment javaExecutable,
-        Artifact deployJar, List<String> jvmArgs) {
+    public Builder setJarExecutable(
+        PathFragment javaExecutable, Artifact deployJar, List<String> jvmArgs) {
       return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-jar",
           deployJar.getExecPathString());
     }
@@ -1083,8 +1081,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * <p>Note that this will not clear the arguments, so any arguments will be passed in addition
      * to the command given here.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link
-     * #setExecutable(Artifact)}, {@link #setJavaExecutable}, or {@link #setShellCommand(String)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
+     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setShellCommand(PathFragment shExecutable, String command) {
       // 0=shell command switch, 1=command
