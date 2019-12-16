@@ -21,7 +21,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -357,7 +356,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         "Unexpected Exception type from PackageValue for '"
             + pkgId
             + "'' with root causes: "
-            + Iterables.toString(error.getRootCauses()),
+            + error.getRootCauses().toList().toString(),
         e);
   }
 

@@ -387,7 +387,7 @@ public final class Depset implements StarlarkValue {
   @Override
   public void repr(Printer printer) {
     printer.append("depset(");
-    printer.printList(set, "[", ", ", "]", null);
+    printer.printList(set.toList(), "[", ", ", "]", null);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");

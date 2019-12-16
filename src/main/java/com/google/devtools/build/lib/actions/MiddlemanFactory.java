@@ -122,7 +122,7 @@ public final class MiddlemanFactory {
       NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir,
       MiddlemanType middlemanType) {
-    if (inputs == null || CollectionUtils.isEmpty(inputs)) {
+    if (inputs == null || inputs.isEmpty()) {
       return null;
     }
 

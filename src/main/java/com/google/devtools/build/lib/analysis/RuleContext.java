@@ -1548,7 +1548,7 @@ public final class RuleContext extends TargetContext
   public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
     for (PackageGroupContents specification :
-        prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
+        prerequisite.getProvider(VisibilityProvider.class).getVisibility().toList()) {
       if (specification.containsPackage(label.getPackageIdentifier())) {
         return true;
       }
@@ -2018,15 +2018,15 @@ public final class RuleContext extends TargetContext
       // If we performed this check when allowedFileTypes == NO_FILE this would
       // always throw an error in those cases
       if (allowedFileTypes != FileTypeSet.NO_FILE) {
-        Iterable<Artifact> artifacts =
+        NestedSet<Artifact> artifacts =
             prerequisite.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-        if (attribute.isSingleArtifact() && Iterables.size(artifacts) != 1) {
+        if (attribute.isSingleArtifact() && !artifacts.isSingleton()) {
           attributeError(
               attribute.getName(),
               "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
           return;
         }
-        for (Artifact sourceArtifact : artifacts) {
+        for (Artifact sourceArtifact : artifacts.toList()) {
           if (allowedFileTypes.apply(sourceArtifact.getFilename())) {
             return;
           }

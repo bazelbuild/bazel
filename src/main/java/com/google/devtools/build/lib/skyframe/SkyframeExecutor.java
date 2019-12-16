@@ -2597,7 +2597,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               "Unexpected Exception type from PackageValue for '"
                   + pkgName
                   + "'' with root causes: "
-                  + Iterables.toString(error.getRootCauses()),
+                  + error.getRootCauses().toList().toString(),
               e);
         }
         return result.get(key).getPackage();

@@ -66,7 +66,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
 
   private Iterable<String> getInstrumentedFilePathStrings() {
     List<String> result = new ArrayList<>();
-    for (Artifact instrumentedFile : instrumentedFiles) {
+    for (Artifact instrumentedFile : instrumentedFiles.toList()) {
       result.add(instrumentedFile.getExecPathString());
     }
     return result;

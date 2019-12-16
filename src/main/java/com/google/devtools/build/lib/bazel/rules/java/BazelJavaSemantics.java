@@ -211,7 +211,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     public String getValue() {
       StringBuilder buffer = new StringBuilder();
       buffer.append("\"");
-      for (Artifact artifact : jars) {
+      for (Artifact artifact : jars.toList()) {
         if (buffer.length() > 1) {
           buffer.append(File.pathSeparatorChar);
         }

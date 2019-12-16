@@ -565,7 +565,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // Add symlinks to the C++ runtime libraries under a path that can be built
         // into the Java binary without having to embed the crosstool, gcc, and grte
         // version information contained within the libraries' package paths.
-        for (Artifact lib : dynamicRuntimeActionInputs) {
+        for (Artifact lib : dynamicRuntimeActionInputs.toList()) {
           PathFragment path = CPP_RUNTIMES.getRelative(lib.getExecPath().getBaseName());
           builder.addSymlink(path, lib);
         }
@@ -583,7 +583,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
         new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
+    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs.toList());
   }
 
   private static boolean isJavaTestRule(RuleContext ruleContext) {

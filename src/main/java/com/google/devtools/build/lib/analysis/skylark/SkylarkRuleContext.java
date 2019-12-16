@@ -1066,7 +1066,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     // TODO(lberki): This flattens a NestedSet.
     // However, we can't turn this into a Depset because it's an incompatible change to
     // Skylark.
-    Iterables.addAll(inputs, helper.getResolvedTools());
+    inputs.addAll(helper.getResolvedTools().toList());
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
@@ -1174,7 +1174,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     for (TransitiveInfoCollection current : knownLabels) {
       builder.put(
           AliasProvider.getDependencyLabel(current),
-          ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+          current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
     return builder.build();

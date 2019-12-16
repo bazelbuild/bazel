@@ -286,7 +286,8 @@ public final class CcCommon {
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact artifact :
+          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         // TODO(bazel-team): We currently do not produce an error for duplicate headers and other
         // non-source artifacts with different labels, as that would require cleaning up the code
         // base without significant benefit; we should eventually make this consistent one way or
@@ -309,7 +310,8 @@ public final class CcCommon {
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact artifact :
+          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         if (!CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
           Label oldLabel = map.put(artifact, provider.getLabel());
           if (SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
@@ -345,7 +347,7 @@ public final class CcCommon {
     for (TransitiveInfoCollection target :
         ruleContext.getPrerequisitesIf("hdrs", Mode.TARGET, FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
-      for (Artifact artifact : provider.getFilesToBuild()) {
+      for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
           ruleContext.attributeWarning("hdrs", "file '" + artifact.getFilename()
               + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
@@ -668,7 +670,7 @@ public final class CcCommon {
           ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
         prerequisites.addAll(
             FileType.filter(
-                provider.getFilesToBuild(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
+                provider.getFilesToBuild().toList(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
       }
     }
     prerequisites.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());

@@ -604,7 +604,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           createDynamicLibrariesCopyActions(
               ruleContext,
               LibraryToLink.getDynamicLibrariesForRuntime(
-                  isStaticMode, depsCcLinkingContext.getLibraries()));
+                  isStaticMode, depsCcLinkingContext.getLibraries().toList()));
     }
 
     // TODO(bazel-team): Do we need to put original shared libraries (along with

@@ -363,7 +363,7 @@ public final class CcLinkingHelper {
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
       List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
     ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
-    for (Artifact linkstamp : linkstamps.build()) {
+    for (Artifact linkstamp : linkstamps.build().toList()) {
       linkstampBuilder.add(
           new Linkstamp(
               linkstamp,
@@ -879,7 +879,7 @@ public final class CcLinkingHelper {
       NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink) {
+    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
       LinkerInputs.LibraryToLink staticLibraryToLink =
           libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
       LinkerInputs.LibraryToLink picStaticLibraryToLink =

@@ -423,8 +423,10 @@ public final class JavaCompilationHelper {
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
     builder.addAllJavacOpts(getJavacOpts());
-    if (Iterables.contains(
-        plugins.processorClasses(), "dagger.internal.codegen.ComponentProcessor")) {
+    if (plugins
+        .processorClasses()
+        .toList()
+        .contains("dagger.internal.codegen.ComponentProcessor")) {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }

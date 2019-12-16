@@ -166,7 +166,7 @@ public final class InstrumentedFilesCollector {
         if (!spec.splitLists && dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null) {
           continue;
         }
-        for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
+        for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
           if (artifact.isSourceArtifact() &&
               spec.instrumentedFileTypes.matches(artifact.getFilename())) {
             localSourcesBuilder.add(artifact);

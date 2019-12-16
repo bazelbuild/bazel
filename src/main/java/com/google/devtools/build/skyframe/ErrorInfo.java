@@ -202,10 +202,10 @@ public class ErrorInfo {
   /**
    * The root causes of a value that failed to build are its descendant values that failed to build.
    * If a value's descendants all built successfully, but it failed to, its root cause will be
-   * itself. If a value depends on a cycle, but has no other errors, this method will return
-   * the empty set.
+   * itself. If a value depends on a cycle, but has no other errors, this method will return the
+   * empty set.
    */
-  public Iterable<SkyKey> getRootCauses() {
+  public NestedSet<SkyKey> getRootCauses() {
     return rootCauses;
   }
 

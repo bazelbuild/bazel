@@ -502,7 +502,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     } else {
       NestedSet<Artifact> inputSet = ((Depset) inputs).getSetFromParam(Artifact.class, "inputs");
       builder.addTransitiveInputs(inputSet);
-      inputArtifacts = inputSet;
+      inputArtifacts = inputSet.toList();
     }
 
     List<Artifact> outputArtifacts = outputs.getContents(Artifact.class, "outputs");
@@ -536,7 +536,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (toolsUnchecked instanceof Sequence) {
         toolsIterable = ((Sequence<?>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((Depset) toolsUnchecked).getSet();
+        toolsIterable = ((Depset) toolsUnchecked).getSet().toList();
       }
       for (Object toolUnchecked : toolsIterable) {
         if (toolUnchecked instanceof Artifact) {
