@@ -20,13 +20,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.flags.Flag;
+import com.google.common.flags.FlagSpec;
+import com.google.common.flags.Flags;
 import com.google.devtools.build.android.desugar.DesugarRule.LoadAsmNode;
 import com.google.devtools.build.android.desugar.DesugarRule.LoadClass;
 import com.google.devtools.build.android.desugar.DesugarRule.LoadZipEntry;
+import com.google.testing.junit.junit4.api.TestArgs;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.zip.ZipEntry;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,12 +45,14 @@ import org.objectweb.asm.tree.MethodNode;
 @RunWith(JUnit4.class)
 public class DesugarRuleTest {
 
+  @FlagSpec(help = "The input jar to be processed under desugar operations.", name = "input_jar")
+  private static final Flag<String> inputJar = Flag.nullString();
+
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .enableIterativeTransformation(3)
-          .addRuntimeInputs(
-              "third_party/bazel/src/test/java/com/google/devtools/build/android/desugar/libdesugar_rule_test_target.jar")
+          .addInputs(Paths.get(inputJar.getNonNull()))
           .build();
 
   @LoadClass(
@@ -92,6 +100,11 @@ public class DesugarRuleTest {
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
+
+  @BeforeClass
+  public static void parseFlags() throws Exception {
+    Flags.parse(TestArgs.get());
+  }
 
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {
