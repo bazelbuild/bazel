@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Value;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
@@ -51,12 +52,21 @@ public class IdXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue of() {
     return SINGLETON;
   }
-  
+
   public static XmlResourceValue of(@Nullable String value) {
     if (value == null) {
       return of();
     }
     return new IdXmlResourceValue(value);
+  }
+
+  public static IdXmlResourceValue from(Value proto) {
+    String ref = proto.getItem().getRef().getName();
+    if (!ref.isEmpty()) {
+      return new IdXmlResourceValue(ref);
+    } else {
+      return SINGLETON;
+    }
   }
 
   private IdXmlResourceValue(String value) {

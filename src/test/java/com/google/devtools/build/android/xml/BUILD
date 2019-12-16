@@ -8,6 +8,19 @@ filegroup(
 )
 
 java_test(
+    name = "IdXmlResourceValueTest",
+    size = "small",
+    srcs = ["IdXmlResourceValueTest.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SimpleXmlResourceValueTest",
     size = "small",
     srcs = ["SimpleXmlResourceValueTest.java"],

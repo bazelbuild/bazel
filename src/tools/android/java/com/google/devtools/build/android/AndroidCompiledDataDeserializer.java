@@ -540,7 +540,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
                 ResourceType.ID, exportedSymbol.getResourceName().replaceFirst("id/", ""));
 
         DataResourceXml dataResourceXml =
-            DataResourceXml.from(null, dataSource, ResourceType.ID, null);
+            DataResourceXml.from(Value.getDefaultInstance(), dataSource, ResourceType.ID, null);
         consumers.combiningConsumer.accept(symbolFqn, dataResourceXml);
       }
     }

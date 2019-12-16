@@ -225,7 +225,7 @@ public class DataResourceXml implements DataResource {
       case STYLEABLE:
         return StyleableXmlResourceValue.from(proto, packageResolver);
       case ID:
-        return IdXmlResourceValue.of();
+        return IdXmlResourceValue.from(proto);
       case DIMEN:
       case LAYOUT:
       case STRING:
