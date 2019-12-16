@@ -28,7 +28,7 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the aquery results should be printed. Allowed values for aquery "
-              + "are: text, textproto, proto.")
+              + "are: text, textproto, proto, jsonproto.")
   public String outputFormat;
 
   @Option(
