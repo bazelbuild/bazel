@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Comparator;
@@ -77,6 +78,11 @@ public class DeterministicHelper extends NotifyingHelper {
       Map<SkyKey, ? extends NodeEntry> map) {
     Map<SkyKey, NodeEntry> result = new TreeMap<>(ALPHABETICAL_SKYKEY_COMPARATOR);
     result.putAll(map);
+    Preconditions.checkState(
+        map.size() == result.size(),
+        "Different sky keys with identical toString results! Before=%s After=%s",
+        result,
+        map);
     return result;
   }
 
