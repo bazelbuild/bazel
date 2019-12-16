@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
@@ -94,7 +93,7 @@ public final class MiddlemanFactory {
       NestedSet<Artifact> inputs,
       ArtifactRoot middlemanDir) {
     Preconditions.checkArgument(inputs != null);
-    Preconditions.checkArgument(!CollectionUtils.isEmpty(inputs));
+    Preconditions.checkArgument(!inputs.isEmpty());
     // We must always create this middleman even if there is only one input.
     return createMiddleman(
             owner,
